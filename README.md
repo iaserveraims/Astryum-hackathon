@@ -19,7 +19,7 @@ request early access there; this repository is for reading the code, not for run
 
 <br>
 
-[![Landing — Tu capital. Tu control. Tu firma.](docs/media/landing-hero.png)](https://astryum.xyz)
+[![Landing — Your capital. Your control. Your signature.](docs/media/landing-hero.png)](https://astryum.xyz)
 
 </div>
 
@@ -119,11 +119,11 @@ policies for. No agent, no operator, and no Astryum key can move capital on its 
 
 | The trust page — verifiable claims, not promises | The journey |
 |:---:|:---:|
-| [![About — no pedimos confianza, la demostramos](docs/media/about.png)](https://astryum.xyz/about) | [![Landing journey](docs/media/landing-journey.png)](https://astryum.xyz) |
+| [![About — we don't ask for trust, we prove it](docs/media/about.png)](https://astryum.xyz/about) | [![Landing journey](docs/media/landing-journey.png)](https://astryum.xyz) |
 
 </div>
 
-The product speaks Spanish first by design (its home market); every surface ships EN/ES.
+Every surface ships in English and Spanish (Spanish-first at home, by design).
 
 ## What existed vs. what is new (for judges)
 
