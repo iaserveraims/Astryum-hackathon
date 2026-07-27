@@ -1,0 +1,57 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, demo/hackathon-mvp]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      HUSKY: 0
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Non-localhost placeholders so the production build passes lib/env.ts
+      # validation (P1-9). Real values come from Vercel env in deploy.
+      NEXT_PUBLIC_API_URL: https://api.ci.invalid/api
+      NEXT_PUBLIC_WS_URL: wss://ws.ci.invalid
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        # --legacy-peer-deps: pre-existing react peer conflict across wallet adapters
+        # (also required by the Turnkey SDK). Matches the local install flag.
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
+      # Non-blocking until P1-1 (next.config has ignoreBuildErrors:true and there is a
+      # large TS backlog). Remove continue-on-error as the baseline is driven to 0.
+      - name: Type-check
+        run: npm run type-check
+        continue-on-error: true
+
+      # Blocking: production build must succeed.
+      - name: Build
+        run: npm run build
+
+      # Bloqueante: la suite vitest existe y pasa (bootstrapeada 2026-07-23, commit 4923855;
+      # 5/5 verdes). Antes esto era un echo honesto porque NO había suite (R4a); ahora corre
+      # de verdad — se cumple el objetivo de R4a: un verde de CI que sí comprobó algo.
+      - name: Unit tests
+        run: npm run test:vitest

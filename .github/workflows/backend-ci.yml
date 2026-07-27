@@ -1,0 +1,54 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, demo/hackathon-mvp]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      HUSKY: 0
+      # Dummy values so `prisma generate/validate` resolve env() in the datasource
+      # block. No real DB connection is made by these commands.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Prisma schema validate
+        run: npx prisma validate
+
+      # Blocking: backend must type-check cleanly (it has historically been 0 errors).
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      # Non-blocking until P1-2 (backend suite green). Remove continue-on-error
+      # once the 12 failing suites in AUDITORIA_COMPLETA_2026-06-09 are fixed.
+      - name: Tests
+        run: npm test
+        continue-on-error: true

@@ -1,0 +1,146 @@
+{
+  "name": "defibro-backend",
+  "version": "1.0.0",
+  "description": "DeFibro Backend API - DeFi Management Platform",
+  "main": "dist/index-simple.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only --clear src/index-simple.ts",
+    "build": "tsc && node scripts/copy-runtime-assets.js",
+    "start": "node dist/index-simple.js",
+    "start:prod": "NODE_ENV=production node dist/index-simple.js",
+    "test": "jest --detectOpenHandles",
+    "test:watch": "jest --watch --detectOpenHandles",
+    "test:coverage": "jest --coverage --detectOpenHandles",
+    "lint": "eslint src/**/*.ts --max-warnings 0",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.{ts,js,json}",
+    "health": "curl -f http://localhost:3001/health || exit 1",
+    "logs": "tail -f logs/combined.log",
+    "logs:error": "tail -f logs/error.log",
+    "check-config": "ts-node src/scripts/checkConfig.ts",
+    "check-config:prod": "node dist/scripts/checkConfig.js",
+    "db:migrate": "node scripts/guard-prod-db.js && node dist/scripts/migrate.js",
+    "db:seed": "node scripts/guard-prod-db.js && node dist/scripts/seed.js",
+    "db:reset": "npm run db:migrate && npm run db:seed",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "node scripts/guard-prod-db.js && prisma migrate dev",
+    "prisma:migrate:deploy": "node scripts/guard-prod-db.js && prisma migrate deploy",
+    "prisma:seed": "node scripts/guard-prod-db.js && ts-node prisma/seed.ts",
+    "prisma:studio": "prisma studio",
+    "mcp:dev": "ts-node src/mcp/defibro-mcp-server.ts",
+    "mcp:start": "node dist/mcp/defibro-mcp-server.js",
+    "verify:kinetic": "ts-node src/scripts/verify-kinetic.ts",
+    "probe:kinetic": "ts-node src/scripts/probe-kinetic-wallet.ts",
+    "e1:prepare": "ts-node src/scripts/e1-prepare.ts",
+    "golden-path": "bash scripts/golden-path.sh",
+    "docker:build": "docker build -t defibro-backend .",
+    "docker:run": "docker run -p 3001:3001 defibro-backend",
+    "precommit": "npm run lint && npm run test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
+    "@flarenetwork/smart-accounts-encoder": "^0.1.2",
+    "@prisma/client": "^5.22.0",
+    "@simplewebauthn/server": "^10.0.1",
+    "@turnkey/sdk-server": "^6.1.1",
+    "@types/cors": "^2.8.15",
+    "@types/express": "^4.17.20",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^24.2.1",
+    "@types/socket.io": "^3.0.1",
+    "@types/uuid": "^9.0.8",
+    "@types/web3": "^1.0.20",
+    "@types/ws": "^8.18.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.16.0",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "lru-cache": "^11.0.2",
+    "nodemailer": "^6.10.1",
+    "ripple-binary-codec": "^2.6.0",
+    "ripple-keypairs": "^2.0.0",
+    "socket.io": "^4.8.1",
+    "tsconfig-paths": "^4.2.0",
+    "winston": "^3.17.0",
+    "xrpl": "^4.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "@types/nodemailer": "^6.4.24",
+    "@types/supertest": "^2.0.16",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.0",
+    "prisma": "^5.22.0",
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.ts",
+      "**/?(*.)+(spec|test).ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts"
+    ],
+    "transform": {
+      "^.+\\.[tj]sx?$": [
+        "ts-jest",
+        {
+          "isolatedModules": true,
+          "tsconfig": {
+            "allowJs": true
+          }
+        }
+      ]
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(xrpl|@xrplf|@noble|ripple-binary-codec|ripple-address-codec|ripple-keypairs|@scure)/)"
+    ]
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "keywords": [
+    "defi",
+    "blockchain",
+    "portfolio",
+    "automation",
+    "cryptocurrency",
+    "lending",
+    "yield",
+    "risk-management"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/defibro-backend.git"
+  },
+  "author": "DeFibro Team",
+  "license": "MIT"
+}

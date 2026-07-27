@@ -1,0 +1,31 @@
+# Gitleaks config — Security CI (secret-scan) reads this from the repo root.
+#
+# Purpose: silence the 48 verified FALSE POSITIVES from the 2026-07 audit without
+# weakening real detection. Everything allowlisted here is public-by-nature
+# (on-chain addresses), an obvious test fixture, or a UI metric key that the
+# generic-api-key rule pattern-matches by accident.
+#
+# IMPORTANT: the EVM-address regex is ANCHORED (^…$) on the matched secret so a
+# 64-hex private key — which contains a 40-hex substring — can NEVER be masked
+# by it. Do not relax the anchors.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Verified false positives: public on-chain data, test fixtures, UI keys"
+regexTarget = "secret"
+regexes = [
+  # ERC-20 / contract addresses are public identifiers, not secrets (env
+  # examples, allowlist.config.ts, tests, research notes).
+  '''^(0x)?[a-fA-F0-9]{40}$''',
+  # StrategyComparator metric keys (PnL columns) — no secret material.
+  '''^totalPnLPercentage(24h|7d|30d)$''',
+  # Deterministic test fixture (PartnerAndTax.test.ts) — clearly labelled mock.
+  '''^test_secret_key_32chars_padding00$''',
+]
+paths = [
+  # Archived pre-V1 research notes — no runtime code, values are public
+  # token addresses used in API request examples.
+  '''OUT OF DEFIBRO/''',
+]

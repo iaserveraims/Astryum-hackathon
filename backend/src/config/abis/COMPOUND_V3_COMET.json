@@ -1,0 +1,22 @@
+[
+  {
+    "name": "supply",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "asset", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "withdraw",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "asset", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "outputs": []
+  }
+]

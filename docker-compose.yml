@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database  
+  postgres:
+    image: postgres:15-alpine
+    container_name: defibro_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: defibro_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: defibro_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # MongoDB para datos de blockchain (opcional)
+  mongodb:
+    image: mongo:7
+    container_name: defibro_mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: defibro_blockchain
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./backend/database/mongodb-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # InfluxDB para métricas de tiempo real
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: defibro_influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: password123
+      DOCKER_INFLUXDB_INIT_ORG: defibro
+      DOCKER_INFLUXDB_INIT_BUCKET: defi_metrics
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    restart: unless-stopped
+
+  # Grafana para dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: defibro_grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-influxdb-datasource
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/defibro-dashboard.json
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana:/etc/grafana/provisioning
+    depends_on:
+      - influxdb
+      - postgres
+    restart: unless-stopped
+
+  # Adminer para gestión de base de datos
+  adminer:
+    image: adminer:latest
+    container_name: defibro_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - mongodb
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  influxdb_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  default:
+    name: defibro_network
+    driver: bridge

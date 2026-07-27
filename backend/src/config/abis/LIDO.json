@@ -1,0 +1,21 @@
+[
+  {
+    "name": "submit",
+    "type": "function",
+    "stateMutability": "payable",
+    "inputs": [
+      { "name": "_referral", "type": "address" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "name": "requestWithdrawals",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "_amounts", "type": "uint256[]" },
+      { "name": "_owner", "type": "address" }
+    ],
+    "outputs": [{ "name": "requestIds", "type": "uint256[]" }]
+  }
+]

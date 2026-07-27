@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-05-06T09:29:03.924Z",
+  "chainId": 14,
+  "comptroller": "0x8041680Fb73E1Fe5F851e76233DCDfA0f2D2D7c8",
+  "cTokens": [
+    {
+      "address": "0xDEeBaBe05BDA7e8C1740873abF715f16164C29B8",
+      "symbol": "kUSDC.E",
+      "underlying": "0xFbDa5F676cB37624f28265A144A48B0d6e87d3b6",
+      "underlyingSymbol": "USDC.e",
+      "collateralFactor": 0.8
+    },
+    {
+      "address": "0x1e5bBC19E0B17D7d38F318C79401B3D16F2b93bb",
+      "symbol": "kUSDT",
+      "underlying": "0x0B38e83B86d491735fEaa0a791F65c2B99535396",
+      "underlyingSymbol": "USDT",
+      "collateralFactor": 0.8
+    },
+    {
+      "address": "0x291487beC339c2fE5D83DD45F0a15EFC9Ac45656",
+      "symbol": "kSFLR",
+      "underlying": "0x12e605bc104e93B45e1aD99F9e555f659051c2BB",
+      "underlyingSymbol": "sFLR",
+      "collateralFactor": 0.7082
+    },
+    {
+      "address": "0x5C2400019017AE61F811D517D088Df732642DbD0",
+      "symbol": "kWETH",
+      "underlying": "0x1502FA4be69d526124D453619276FacCab275d3D",
+      "underlyingSymbol": "WETH",
+      "collateralFactor": 0.625
+    },
+    {
+      "address": "0x40eE5dfe1D4a957cA8AC4DD4ADaf8A8fA76b1C16",
+      "symbol": "kFLRETH",
+      "underlying": "0x26A1faB310bd080542DC864647d05985360B16A5",
+      "underlyingSymbol": "flrETH",
+      "collateralFactor": 0.625
+    },
+    {
+      "address": "0x76809aBd690B77488Ffb5277e0a8300a7e77B779",
+      "symbol": "kUSDT0",
+      "underlying": "0xe7cd86e13AC4309349F30B3435a9d337750fC82D",
+      "underlyingSymbol": "USD₮0",
+      "collateralFactor": 0.8
+    },
+    {
+      "address": "0xb84F771305d10607Dd086B2f89712c0CeD379407",
+      "symbol": "kFLR",
+      "underlying": "0x0000000000000000000000000000000000000000",
+      "underlyingSymbol": "FLR (native)",
+      "collateralFactor": 0.7027
+    },
+    {
+      "address": "0xD1b7A5eFa9bd88F291F7A4563a8f6185c0249CB3",
+      "symbol": "kFXRP",
+      "underlying": "0xAd552A648C74D49E10027AB8a618A3ad4901c5bE",
+      "underlyingSymbol": "FXRP",
+      "collateralFactor": 0.7,
+      "iso": true,
+      "isoComptroller": "0x15F69897E6aEBE0463401345543C26d1Fd994abB",
+      "note": "ISO market FXRP-USDT0-STFXRP (isolated). Distinct from primary."
+    },
+    {
+      "address": "0xad7e7989796414c9572da9854DEb1B920724fd09",
+      "symbol": "kUSDT0",
+      "underlying": "0xe7cd86e13AC4309349F30B3435a9d337750fC82D",
+      "underlyingSymbol": "USD₮0",
+      "collateralFactor": 0.8,
+      "iso": true,
+      "isoComptroller": "0x15F69897E6aEBE0463401345543C26d1Fd994abB",
+      "note": "ISO market kUSDT0 — DISTINCT contract from primary kUSDT0 (0x7680…B779). E1 borrows here."
+    }
+  ],
+  "isoComptroller": "0x15F69897E6aEBE0463401345543C26d1Fd994abB"
+}

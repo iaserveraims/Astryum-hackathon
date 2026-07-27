@@ -1,0 +1,17 @@
+# Deploy is handled automatically by Railway on push to main.
+# Railway is connected directly to iaserveraims/DeFiBro.
+#
+# This file used to contain ONLY the two comment lines above — no `on:`/`jobs:` —
+# which GitHub reports as a workflow failure on every push (a red ✗ with zero
+# log). Kept as a valid, manually-triggered no-op that documents the real deploy
+# path until a proper deploy pipeline replaces it.
+name: Deploy (Railway auto-deploys on push)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  note:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No CI deploy step — Railway auto-deploys main. See railway.json / railway.toml."

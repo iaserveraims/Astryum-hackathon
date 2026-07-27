@@ -1,0 +1,57 @@
+name: Security CI
+
+on:
+  push:
+    branches: [main, demo/hackathon-mvp]
+    paths-ignore:
+      - 'DEFIBRO DOCS/**'
+      - 'Defibro version antigua/**'
+      - 'docs/**'
+  pull_request:
+
+concurrency:
+  group: security-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Blocking: no secrets in the working tree. Scans files (not just the diff) so a
+  # secret already present is surfaced, not only newly introduced ones.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gitleaks (filesystem scan)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            detect --source=/repo --no-git --redact --verbose
+
+  # Non-blocking until P0-3 (critical/high advisories triaged). Flip to a failing
+  # gate (drop continue-on-error, --audit-level=critical) once deps are clean.
+  npm-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: npm audit (production deps)
+        run: npm audit --omit=dev --audit-level=critical
+        continue-on-error: true
+
+  # PR-only: flags newly added vulnerable / disallowed-license dependencies.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: critical

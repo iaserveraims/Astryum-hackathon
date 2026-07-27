@@ -1,0 +1,686 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ───────────────────────────────────────────────────────────────────────────
+     Astryum brand — warm gold (#C9A227) + deep space.
+     Gold ≈ hsl(45 68% 47%). Foregrounds on gold are near-black for legibility.
+     ─────────────────────────────────────────────────────────────────────────── */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 42 70% 45%;
+    --primary-foreground: 40 45% 6%;
+    --secondary: 40 25% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 40 20% 95%;
+    --muted-foreground: 40 8% 42%;
+    --accent: 42 60% 94%;
+    --accent-foreground: 40 60% 18%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 40 18% 89%;
+    --input: 40 18% 89%;
+    --ring: 42 70% 45%;
+    --radius: 0.75rem;
+
+    /* Astryum brand tokens */
+    --gold: 45 68% 47%;
+    --gold-soft: 45 75% 62%;
+    --gold-foreground: 40 45% 6%;
+    --space: 0 0% 4%;
+
+    /* Product theme (founder direction 2026-07-17): the same dashboard skins
+       two products. `--volt` feeds every Tailwind `*-volt*` class (see
+       tailwind.config.js), so flipping it under [data-authority='governed']
+       re-tints the ENTIRE dashboard — Astryum = warm gold, Legacy = a more
+       serious indigo. The full accent family flips together:
+         --volt       the accent itself (buttons, active nav, pills)
+         --volt-soft  its lighter sibling (labels, sheens, scene stars)
+         --volt-hi    the near-white highlight (gradient tops, specular)
+         --volt-deep  the dark rim (gradient bottoms, engraved marks)
+       The hex-based shell atmosphere vars (--shell-*, --authority-accent*)
+       live in ONE place: the "Authority theming" block near the end of this
+       file — do not redeclare them here (unlayered rules would win anyway). */
+    --volt: 45 68% 47%;
+    --volt-soft: 45 75% 62%;
+    --volt-hi: 44 100% 92%;
+    --volt-deep: 44 81% 16%;
+  }
+
+  [data-authority='governed'] {
+    --volt: 234 89% 74%;
+    --volt-soft: 232 96% 82%;
+    --volt-hi: 228 100% 94%;
+    --volt-deep: 234 40% 24%;
+  }
+
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 40 30% 96%;
+    --card: 40 8% 7%;
+    --card-foreground: 40 30% 96%;
+    --popover: 40 8% 7%;
+    --popover-foreground: 40 30% 96%;
+    --primary: 45 72% 52%;
+    --primary-foreground: 40 45% 6%;
+    --secondary: 40 6% 14%;
+    --secondary-foreground: 40 30% 96%;
+    --muted: 40 6% 14%;
+    --muted-foreground: 40 10% 62%;
+    --accent: 45 40% 16%;
+    --accent-foreground: 45 75% 70%;
+    --destructive: 0 62.8% 40%;
+    --destructive-foreground: 40 30% 96%;
+    --border: 40 8% 16%;
+    --input: 40 8% 16%;
+    --ring: 45 72% 52%;
+
+    /* Astryum brand tokens */
+    --gold: 45 72% 52%;
+    --gold-soft: 45 80% 66%;
+    --gold-foreground: 40 45% 6%;
+    --space: 0 0% 3%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    /* Hide the window scrollbar entirely. Two birds: (1) the founder doesn't
+       want a scrollbar showing over the dashboard, and (2) a zero-width bar
+       can never toggle on/off, so the centred shell (max-w-7xl mx-auto) can't
+       drift sideways when content crosses the viewport-height threshold —
+       "the dashboard moving on its own" (bug 2026-07-21). Scroll still works
+       via wheel / trackpad / keyboard. NOT scrollbar-gutter: stable — that
+       reserved a permanent empty gutter strip, which read as an unwanted bar. */
+    scrollbar-width: none; /* Firefox */
+    /* The trackpad rubber-band paints the ROOT's background beyond the page
+       edges — left unset it flashed WHITE behind the dark dashboard (founder
+       2026-07-26). --shell-bg lives on :root and flips with [data-theme]
+       (stamped on <html> by ThemeApplier), so the overscroll always matches
+       the shell: dark space by default, paper in the light theme. */
+    background-color: var(--shell-bg);
+  }
+  html::-webkit-scrollbar {
+    display: none; /* Chromium / Safari */
+  }
+  /* Windows Chromium can hand the VIEWPORT's scrollbar styling to <body>
+     instead of <html> (overflow/scrollbar-style propagation) — with only the
+     html rules above, the window bar flashed in and out on Windows whenever
+     an entrance animation or a data swap briefly overflowed the page
+     (founder 2026-07-27; macOS never shows it: overlay scrollbars take no
+     space). Hide the window bar from BOTH possible owners. */
+  body {
+    scrollbar-width: none;
+  }
+  body::-webkit-scrollbar {
+    display: none;
+  }
+  /* Inner scrollables (the ship log, the ⌘K list, drawers, tables) — where a
+     bar MUST exist it wears the theme (founder 2026-07-27): a thin,
+     ink-tinted thumb on a transparent track, so Windows' classic bars read
+     as part of the surface in dark, paper and governed alike. Type-selector
+     rules above (html/body) and the .scrollbar-hide utility both out-rank
+     this universal default. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--ink) / 0.18) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--ink) / 0.16);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--ink) / 0.32);
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  /* Keyboard focus — ONE visible ring everywhere, in the product hue (the
+     audit found zero focus-visible outside dead shadcn files). Elements with
+     their own ring (PrimaryButton/GhostButton) override via focus-visible
+     utilities; everything else gets this. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--volt) / 0.75);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ── Astryum calm surfaces ───────────────────────────────────────────────
+     The app shell is always dark. These reusable surfaces lift warm panels off
+     deep space with a near-invisible hairline and ONE soft shadow — no inset
+     highlights, no stacked shadows, no harsh white borders. This is what makes
+     a dense screen read as calm instead of "cuadriculado". */
+  .astry-panel {
+    background-color: hsl(var(--surface-1)); /* flips with data-authority */
+    border: 1px solid hsl(var(--ink) / 0.05);
+    border-radius: 1rem;                  /* 16px — cozier than the old 8/12 */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32), 0 16px 36px -22px rgba(0, 0, 0, 0.7);
+  }
+  .astry-panel-hover {
+    transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+  .astry-panel-hover:hover {
+    background-color: hsl(var(--surface-2));
+    border-color: hsl(var(--ink) / 0.09);
+    transform: translateY(-2px);
+  }
+  /* A whisper-thin divider for separating readings inside ONE panel — the calm
+     alternative to wrapping every reading in its own bordered box. */
+  .astry-divider {
+    background-color: hsl(var(--ink) / 0.06);
+  }
+
+  /* Decorative-art veil: the opacity for background scenes/doodles inside
+     cards. One class instead of per-spot opacity-[0.1] so the light theme can
+     lift ALL of them at once — gold-line art at 10% reads fine on dark space
+     but nearly disappears on paper (founder 2026-07-19: "se ven muy poco"). */
+  .art-veil {
+    opacity: 0.1;
+    transition: opacity 0.5s ease;
+  }
+  [data-theme='light'] .art-veil {
+    opacity: 0.22;
+  }
+
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Retuned 2026-07-27 to the SAME ink-tinted look as the global default in
+     @layer base (was shadcn's grey --muted, which ignored the product theme). */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--ink) / 0.18) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--ink) / 0.16);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--ink) / 0.32);
+  }
+  
+  .scrollbar-thumb-muted::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted));
+  }
+  
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  /* Deep-space star field — drop on any dark, relatively-positioned section */
+  .starfield {
+    /* ink, not white: identical stars on the dark shells, visible ink-flecks
+       on the light theme's paper (white dots simply vanished there). */
+    background-image: radial-gradient(circle, hsl(var(--ink) / 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 100%);
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 100%);
+    animation: star-breathe 5s ease-in-out infinite;
+  }
+  @keyframes star-breathe {
+    0%, 100% { opacity: 0.06; }
+    50% { opacity: 0.14; }
+  }
+  @keyframes marquee-x {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: marquee-x 32s linear infinite;
+  }
+  
+}
+
+/* Lenis smooth-scroll: RETIRADO (scroll natural, fundador 2026-07-24) — el
+   navegador es el único dueño de la rueda. */
+
+/* ─── Astryum landing v2 — sui.io-grade motion utilities ──────────────────── */
+
+/* Animated accent sweep across display text (a slow specular highlight).
+   Token-driven: gold on the landing/Astryum, indigo under Legacy. */
+.text-gold-sweep {
+  background: linear-gradient(
+    100deg,
+    hsl(var(--volt)) 0%,
+    hsl(var(--volt-soft)) 28%,
+    hsl(var(--volt-hi)) 46%,
+    hsl(var(--volt-soft)) 64%,
+    hsl(var(--volt)) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: gold-sweep 6.5s ease-in-out infinite;
+  /* background-clip:text only paints glyphs inside the element's box; the
+     display headlines run line-height ~1.04, so the g/y descenders fall
+     outside it and render transparent (a visibly amputated "g"). Grow the
+     paint box with padding and give the space back with negative margins. */
+  padding: 0.08em 0.06em 0.22em;
+  margin: -0.08em -0.06em -0.22em;
+}
+@keyframes gold-sweep {
+  0%, 100% { background-position: 130% 50%; }
+  50% { background-position: -30% 50%; }
+}
+
+/* Cursor spotlight glow on cards. JS sets --mx/--my on the element. */
+.spotlight-card {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    hsl(var(--volt) / 0.16),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.spotlight-card:hover::before { opacity: 1; }
+.spotlight-card > * { position: relative; z-index: 1; }
+
+/* Slow-drifting gold aurora blob.
+   Translate-only (no scale): animating scale on a 44–54px-blurred element forces the
+   GPU to re-rasterize the blur every frame. Translating a composited blurred layer is
+   nearly free, so we lean on movement alone for the drift. */
+@keyframes aurora-drift {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(5%, -4%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+.aurora-drift { animation: aurora-drift 16s ease-in-out infinite; will-change: transform; }
+
+/* Marquee: reverse direction + pause-on-hover */
+.animate-marquee-rev { animation: marquee-x 38s linear infinite reverse; }
+.marquee-track:hover { animation-play-state: paused; }
+
+/* Partner logos: desaturate at rest, bloom to color on hover */
+.logo-desat {
+  filter: grayscale(1) brightness(1.6) contrast(0.9);
+  opacity: 0.55;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+}
+.group:hover .logo-desat,
+.logo-desat:hover {
+  filter: none;
+  opacity: 1;
+}
+
+/* Partner strip: logos only at rest; hover a single mark to colour + enlarge
+   it and reveal its name. Item-scoped so only the hovered brand reacts. */
+.plogo {
+  filter: grayscale(1) brightness(1.7) contrast(0.9);
+  opacity: 0.5;
+  transform-origin: center bottom;
+  transition: filter 0.35s ease, opacity 0.35s ease,
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.plogo-item:hover .plogo {
+  filter: none;
+  opacity: 1;
+  transform: scale(1.22);
+}
+.plogo-name {
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.plogo-item:hover .plogo-name {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plogo,
+  .plogo-name {
+    transition: none;
+  }
+}
+
+/* Thin rotating conic ring (featured accents) */
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+.conic-ring::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from 0deg, transparent 0%, hsl(var(--volt) / 0.7) 18%, transparent 38%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ring-spin 6s linear infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-gold-sweep { animation: none; background-position: 50% 50%; }
+  .aurora-drift,
+  .animate-marquee,
+  .animate-marquee-rev { animation: none !important; }
+  .conic-ring::after { animation: none; }
+}
+
+/* ─── Earn surface icon life (components/earn/icons.tsx) ─────────────────────
+   The orbit ring spins only while its door is hovered; constellation stars
+   twinkle softly all the time; the comet trail stretches on hover. */
+@keyframes eicon-spin { to { transform: rotate(360deg); } }
+.eicon-orbit { transform-origin: 12px 12px; }
+.group:hover .eicon-orbit { animation: eicon-spin 7s linear infinite; }
+
+@keyframes eicon-twinkle {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.eicon-star { animation: eicon-twinkle 3s ease-in-out infinite; }
+.eicon-d1 { animation-delay: 0.5s; }
+.eicon-d2 { animation-delay: 1.1s; }
+.eicon-d3 { animation-delay: 1.7s; }
+
+.eicon-trail { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: 9px 15px; }
+.group:hover .eicon-trail { transform: translate(1px, -1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .eicon-star { animation: none; opacity: 1; }
+  .group:hover .eicon-orbit { animation: none; }
+  .eicon-trail { transition: none; }
+}
+
+/* ─── Authority crossing glass (components/authority/AuthorityCrossing.tsx) ──
+   The Personal↔Legacy crossing frosts the page instead of curtaining it
+   (founder 2026-07-24: "que no se oscurezca el fondo — solo un poco de blur"):
+   blur in→hold→out, ZERO tint, so the shell's own data-authority re-tint
+   (gold↔indigo, transition-colors on AppShell's root) stays visible behind
+   the glass — that re-tint IS the crossing. CSS keyframes rather than
+   per-frame JS so the browser composites the ramp, and the -webkit- twin in
+   the same keyframes covers Safari, which the old framer-animated
+   `backdropFilter` never reached. The component sets --acx-dur to its window
+   (1500ms, 300ms under reduced motion); fill-mode `both` parks the pane at
+   blur(0) once it ends, so the exit unmount never snaps. */
+@keyframes acx-glass {
+  0%   { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  22%  { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  78%  { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  100% { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+}
+.acx-glass { animation: acx-glass var(--acx-dur, 1500ms) ease-in-out both; }
+
+/* ─── Earn door scenes (components/earn/icons.tsx) ───────────────────────────
+   The mini solar system's rings turn at constant speed (constant on purpose —
+   retiming an animation mid-flight jumps its phase); the constellation's path
+   draws itself while its door is hovered. */
+.escene-spin-a { animation: eicon-spin 36s linear infinite; }
+.escene-spin-b { animation: eicon-spin 22s linear infinite reverse; }
+.escene-draw {
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  transition: stroke-dashoffset 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group:hover .escene-draw { stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .escene-spin-a,
+  .escene-spin-b { animation: none; }
+  .escene-draw { transition: none; stroke-dashoffset: 0; opacity: 0.4; }
+}
+
+/* ─── Capital in orbit — the dashboard's echo of the landing's solar system.
+   A dashed ring around allocation donuts rotates imperceptibly slowly, with a
+   moonlet riding it. Constant speed on purpose: changing animation-duration
+   on hover re-maps the elapsed time to a new phase and the moonlet JUMPS. */
+@keyframes orbit-slow { to { transform: rotate(360deg); } }
+.donut-orbit {
+  animation: orbit-slow 45s linear infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .donut-orbit { animation: none; }
+}
+
+/* ─── Page scenes (components/ui/scenes.tsx) ─────────────────────────────────
+   The visual voice beyond Earn: a radar that sweeps, a ceremonial ring that
+   barely turns, asset-planets that drift, signal pulses that travel to the
+   core, a tuning notch that sets a dial. Constant speed on purpose; all off
+   under reduced motion. `eicon-spin` (0→360deg) is defined above. */
+
+/* Estrategias — the radar sweep turns steadily. */
+.escene-radar { animation: eicon-spin 6s linear infinite; }
+
+/* Legacy — the ceremonial ring turns imperceptibly slowly (permanence). */
+.escene-spin-slower { animation: eicon-spin 90s linear infinite; }
+
+/* Portfolio — asset-planets drift gently, out of phase with each other. */
+@keyframes escene-drift {
+  0%   { transform: translate(0, 0); }
+  50%  { transform: translate(3px, -5px); }
+  100% { transform: translate(0, 0); }
+}
+.escene-drift   { animation: escene-drift 11s ease-in-out infinite; }
+.escene-drift-b { animation-duration: 14s; animation-delay: -3s; }
+.escene-drift-c { animation-duration: 9s;  animation-delay: -6s; }
+
+/* Wallets — a short bright pulse travels each signal line toward the core. */
+@keyframes escene-signal { to { stroke-dashoffset: -66; } }
+.escene-signal {
+  stroke-dasharray: 3 63;
+  stroke-dashoffset: 0;
+  animation: escene-signal 2.6s linear infinite;
+}
+.escene-signal-d0 { animation-delay: 0s; }
+.escene-signal-d1 { animation-delay: 0.65s; }
+.escene-signal-d2 { animation-delay: 1.3s; }
+.escene-signal-d3 { animation-delay: 1.95s; }
+
+/* Settings — the tuning notch sweeps back and forth, like a dial being set. */
+@keyframes escene-tune {
+  0%   { transform: rotate(-26deg); }
+  50%  { transform: rotate(26deg); }
+  100% { transform: rotate(-26deg); }
+}
+/* transform-origin is set inline in viewBox units on the <g>, matching icons.tsx. */
+.escene-tune { animation: escene-tune 9s ease-in-out infinite; }
+
+/* Self-drawing stroke, length-normalized: the path carries pathLength=100 so one
+   class fits every signature/quorum/amendment line regardless of geometry.
+   Same gesture as .escene-draw, hover-driven via the card's `group`. */
+.escene-sign {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group:hover .escene-sign { stroke-dashoffset: 0; }
+
+/* A short bright pulse traveling a rail/beam (timeline, sync link). */
+@keyframes escene-rail { to { stroke-dashoffset: -96; } }
+.escene-rail {
+  stroke-dasharray: 5 91;
+  animation: escene-rail 3.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .escene-radar,
+  .escene-spin-slower,
+  .escene-drift,
+  .escene-signal,
+  .escene-rail,
+  .escene-tune { animation: none; }
+  .escene-signal,
+  .escene-rail { stroke-dasharray: none; }
+  .escene-sign { transition: none; stroke-dashoffset: 0; opacity: 0.4; }
+}
+
+/* ── Authority theming (ADR-009 — the account switcher) ─────────────────────
+   The shell's atmosphere follows the ACTIVE AUTHORITY: warm gold-on-space for
+   simple accounts / overview, a deeper, colder vault palette when a governed
+   account is active. The palette is an ACCOMPANIMENT — the GoverningBar and
+   the switcher's text carry the state; colour is never the only indicator. */
+:root {
+  --shell-bg: #0b0a08;
+  --shell-panel: rgba(16, 14, 10, 0.9);
+  --shell-seam: rgba(201, 162, 39, 0.18);
+  /* Elevation ladder (HSL components — Tailwind `surface-0..3` wraps them in
+     hsl()/alpha). Warm in Astryum; the governed block below re-tints all four
+     so every Card/popover/copilot panel flips WITH the product. */
+  --surface-0: 60 5% 4%;
+  --surface-1: 43 19% 7%;
+  --surface-2: 44 21% 10%;
+  --surface-3: 44 22% 14%;
+  --authority-accent: #c9a227;
+  --authority-accent-soft: rgba(201, 162, 39, 0.08);
+  --authority-accent-border: rgba(201, 162, 39, 0.25);
+  /* Compat aliases (demo-polish naming) — SAME values, one source of truth:
+     they resolve through --authority-accent*, which flips under
+     [data-authority='governed'] below, so these flip with it. */
+  --authority-solid: var(--authority-accent);
+  --authority-soft: var(--authority-accent-soft);
+  --authority-border: var(--authority-accent-border);
+  /* Text system (HSL components): --ink is "the reading color" (white on the
+     dark shells, near-black on paper) — Tailwind `*-ink/*` wraps it with
+     alpha, replacing hardcoded *-white/* so the light theme can flip ONE var.
+     --volt-ink is the text ON volt-filled controls. */
+  --ink: 0 0% 100%;
+  --volt-ink: 0 0% 4%;
+  /* Product-fixed accents (founder 2026-07-20): the Personal↔Legacy toggle
+     paints each segment with ITS product's colour — Personal gold, Legacy
+     indigo — regardless of which mode is active, so the active segment never
+     flashes as it re-tints during a crossing. UNLIKE --volt/--authority-*,
+     these do NOT flip under [data-authority='governed']; they flip only with
+     the light theme (below), so both segments stay legible on paper. */
+  --product-personal: 45 68% 47%;
+  --product-personal-ink: 0 0% 4%;
+  --product-legacy: 234 89% 74%;
+  --product-legacy-ink: 0 0% 4%;
+  /* Tonal status text (HSL components), same wrapping trick as --ink: Pill/
+     StatTile read these instead of hardcoded text-emerald-300/amber-200/
+     red-300 so the light theme (below) can swap in AA-legible shades —
+     those light pastels go near-invisible on paper. Semantic, not
+     authority-dependent, so no [data-authority='governed'] override. */
+  --tone-success: 156 72% 67%;
+  --tone-warning: 48 97% 77%;
+  --tone-danger: 0 94% 82%;
+}
+[data-authority='governed'] {
+  --shell-bg: #07080d;
+  --shell-panel: rgba(11, 13, 21, 0.92);
+  --shell-seam: rgba(148, 170, 220, 0.22);
+  /* The vault's elevation ladder — same steps, indigo-cold. */
+  --surface-0: 228 28% 5%;
+  --surface-1: 228 22% 9%;
+  --surface-2: 228 20% 13%;
+  --surface-3: 228 18% 17%;
+  --authority-accent: #9db4e8;
+  --authority-accent-soft: rgba(157, 180, 232, 0.09);
+  --authority-accent-border: rgba(157, 180, 232, 0.28);
+}
+
+/* ── Light theme (founder 2026-07-19) ────────────────────────────────────────
+   ThemeApplier stamps data-theme on <html> while the dashboard is mounted.
+   Same token families as the authority flip — nothing else moves. Personal =
+   warm paper with a DARKENED gold accent (the dark theme's gold fails
+   contrast on paper); Legacy = cool paper with a deepened indigo. These
+   blocks are UNLAYERED on purpose: they must beat the @layer base defaults
+   (--volt*) regardless of order, same trick the authority flip relies on. */
+[data-theme='light'] {
+  /* Paper, not printer-white (founder 2026-07-22): the background carries a
+     touch more warmth and the cards sit BELOW white — second de-glare pass
+     2026-07-26 ("sigue teniendo un efecto un poco de blanco nuclear"): the
+     whole ladder dropped ~2-3 points of lightness and the ink deepened a
+     notch, so cards read as paper stock against parchment, not as glowing
+     panels. Contrast went UP on both ends (darker surfaces AND darker ink). */
+  --shell-bg: #e8e1cd;
+  --shell-panel: rgba(245, 240, 227, 0.92);
+  --shell-seam: rgba(146, 116, 27, 0.28);
+  --surface-0: 43 32% 88%;
+  --surface-1: 43 42% 93%;
+  --surface-2: 43 32% 87%;
+  --surface-3: 42 28% 84%;
+  --ink: 40 30% 10%;
+  --volt-ink: 45 100% 97%;
+  --volt: 43 74% 34%;
+  --volt-soft: 43 60% 44%;
+  --volt-hi: 45 85% 72%;
+  --volt-deep: 44 70% 22%;
+  --authority-accent: #8a6d15;
+  --authority-accent-soft: rgba(138, 109, 21, 0.09);
+  --authority-accent-border: rgba(138, 109, 21, 0.3);
+  /* Product-fixed accents, darkened for AA contrast on paper (same figures as
+     the light-theme --volt for each product). Authority-independent. */
+  --product-personal: 43 74% 34%;
+  --product-personal-ink: 45 100% 97%;
+  --product-legacy: 231 48% 42%;
+  --product-legacy-ink: 228 100% 97%;
+  /* Darkened so success/warning/danger pill text stays AA-legible on paper. */
+  --tone-success: 163 94% 24%;
+  --tone-warning: 26 90% 37%;
+  --tone-danger: 0 74% 42%;
+}
+[data-theme='light'] [data-authority='governed'] {
+  /* Same second de-glare pass as the personal paper, in the indigo family. */
+  --shell-bg: #dfe3ee;
+  --shell-panel: rgba(238, 242, 250, 0.92);
+  --shell-seam: rgba(64, 84, 140, 0.28);
+  --surface-0: 228 26% 87%;
+  --surface-1: 228 36% 93%;
+  --surface-2: 228 22% 86%;
+  --surface-3: 228 18% 83%;
+  --ink: 228 32% 11%;
+  --volt-ink: 228 100% 97%;
+  --volt: 231 48% 42%;
+  --volt-soft: 231 40% 52%;
+  --volt-hi: 228 70% 80%;
+  --volt-deep: 232 45% 26%;
+  --authority-accent: #3d4f8c;
+  --authority-accent-soft: rgba(61, 79, 140, 0.09);
+  --authority-accent-border: rgba(61, 79, 140, 0.3);
+}

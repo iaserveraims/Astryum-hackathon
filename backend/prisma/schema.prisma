@@ -1,0 +1,2748 @@
+// backend/prisma/schema.prisma
+generator client {
+  provider      = "prisma-client-js"
+  // Production runs on node:20-alpine which ships OpenSSL 3.x. Without an
+  // explicit linux-musl-openssl-3.0.x target, Prisma falls back to a binary
+  // that links libssl.so.1.1 and crashes at runtime with
+  // "Error loading shared library libssl.so.1.1".
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  // DATABASE_URL must point at Supabase's Transaction Pooler (port 6543) so
+  // Railway can actually reach it over IPv4. Prepared statements are disabled
+  // by adding ?pgbouncer=true&connection_limit=1 in the env value.
+  url       = env("DATABASE_URL")
+  // DIRECT_URL is used by `prisma migrate deploy` and `prisma db push` —
+  // these need real Postgres prepared statements and must NOT go through the
+  // transaction pooler. Point it at the Session Pooler (port 5432).
+  directUrl = env("DIRECT_URL")
+}
+
+// User Management
+// Identity is internal (cuid). All chain addresses live in the Wallet table.
+// xrplAddress kept for Xaman login flow (optional — EVM-only users have none).
+model User {
+  id                   String    @id @default(cuid())
+  xrplAddress          String?   @unique
+  email                String?   @unique
+  // Demo-signup profile (founder 2026-07-18): light on purpose — phone/2FA
+  // arrive with the full product, not the demo.
+  username             String?
+  firstName            String?
+  lastName             String?
+  // Presentation avatar: a small downscaled data-URL (client caps ~96px) or
+  // null. Never a remote URL fetched server-side.
+  avatar               String?
+  passwordHash         String?   // scrypt hash — null for SIWE-only users
+  resetToken           String?   @unique // SHA-256 hash of password reset token
+  resetTokenExpiresAt  DateTime?
+  // Auth provenance (2026-07-23): how the account was created — 'email'
+  // (password), 'google' / 'apple' (OAuth), 'wallet' (SIWE/Xaman). The admin
+  // panel separates OAuth users from plain-email users on this.
+  authProvider         String    @default("email")
+  // "<provider>:<sub>" — the stable OAuth subject. Written once on first
+  // OAuth login (create or link), never overwritten.
+  oauthSub             String?   @unique
+  // True when the address was attested by an OAuth provider (Google/Apple
+  // always verify). Plain email registration stays false until the full
+  // product ships its own verification loop.
+  emailVerified        Boolean   @default(false)
+  preferences          Json?
+  isActive             Boolean   @default(true)
+  lastLogin            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // KYC / Identity — Persona KYC provider (V1.2)
+  // DeFiBro never stores documents — only the approval signal from the provider.
+  kycVerified          Boolean   @default(false)
+  kycTier              String    @default("none") // 'none' | 'basic' | 'advanced'
+  kycLevel             String?   // 'tier1' | 'tier2' as reported by Persona
+  kycVerifiedAt        DateTime?
+  kycProvider          String?   // 'persona'
+  personaInquiryId     String?   // Persona inquiry ID — bridges identity ↔ wallets
+
+  // Relations
+  wallets          Wallet[]
+  strategies       Strategy[]
+  instances        Instance[]
+  alerts           Alert[]
+  aiConversations  AIConversation[]
+  transactions     TransactionExecution[]
+  sharedStrategies SharedStrategy[]
+  partnerIntents   PartnerIntent[]
+  taxEvents        TaxEvent[]
+  watchlist           WalletWatchlist[]
+  walletBindings      WalletBinding[]
+  governedAccounts    GovernedAccount[]
+  triggerRules        TriggerRule[]
+  agentConversations  AgentConversation[]
+  agentDocuments      AgentDocument[]
+  agentRules          AgentRule[]
+  mcpConnections      UserMCPConnection[]
+  anthropicKey        UserAnthropicKey?
+  goalRequests        GoalRequest[]
+  managerFilter       ManagerFilter?
+  managerProfile      ManagerProfile?
+  delegationMandates  DelegationMandate[]   @relation("UserMandates")
+  managedMandates     DelegationMandate[]   @relation("ManagerMandates")
+  intentBundles       IntentBundle[]
+  stepUpLockConfig    StepUpLockConfig?
+  passkeyCredentials  PasskeyCredential[]
+
+  @@map("users")
+}
+
+// ─── Step-Up Signature Lock (configurable, opt-in) ───────────────────────────
+// One row per user. The `matrix` JSON maps a protected feature to whether a
+// fresh wallet signature is required for READ and/or WRITE, e.g.
+//   { "moneyflows": { "read": false, "write": true }, "goals": {...}, ... }
+// When `enabled` is false the whole feature is inert (no prompts anywhere).
+model StepUpLockConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  enabled         Boolean  @default(false)
+  grantTtlSeconds Int      @default(300) // how long a step-up grant stays valid
+  matrix          Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("step_up_lock_configs")
+}
+
+// ─── Passkey / WebAuthn credentials (@simplewebauthn) ────────────────────────
+// A user may register multiple passkeys (one per device). publicKey holds the
+// COSE-encoded key; counter guards against cloned-authenticator replay.
+model PasskeyCredential {
+  id           String    @id @default(cuid())
+  userId       String
+  credentialId String    @unique // base64url-encoded credential ID
+  publicKey    Bytes              // COSE public key
+  counter      BigInt    @default(0)
+  transports   String[]  @default([])
+  deviceLabel  String?
+  backedUp     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkey_credentials")
+}
+
+// Wallet Management
+model Wallet {
+  id           String   @id @default(cuid())
+  userId       String
+  // walletType: metamask | walletconnect | xaman | crossmark | gemwallet | ledger | trezor | phantom | keplr | manual
+  walletType   String
+  address      String
+  network      String   // legacy human label ("ethereum", "xrpl", ...) — use caip2 for new code
+  chainId      Int?     // FK -> Chain.chainId; null for chains not yet in registry
+  caip2        String?  // CAIP-2 canonical ID: "eip155:14", "eip155:1", "xrpl:0", "solana:mainnet"
+  wcTopic      String?  // WalletConnect v2 session topic — groups all accounts from one session
+  nickname     String?
+  isConnected  Boolean  @default(true)
+  permissions  Json     // WalletPermissions object
+  lastActivity DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // ─── Block G (2026-06-02) — unified Wallet model ─────────────────────────
+  /// Ecosystem the wallet belongs to, derived from caip2 prefix at write time:
+  ///   eip155:* → 'evm' | solana:* → 'solana' | xrpl:* → 'xrpl' |
+  ///   aptos:*  → 'aptos' | cosmos:* → 'cosmos'
+  /// Stored explicitly so it can be indexed and queried by router.
+  ecosystem    String   @default("evm")
+
+  /// Exactly ONE wallet per (userId, ecosystem) may have isPrimary=true.
+  /// Enforced by a partial unique index (see migration SQL).
+  /// The primary wallet is the default recipient for cross-ecosystem bridges
+  /// and the default signer for new operations in that ecosystem.
+  isPrimary    Boolean  @default(false)
+
+  /// Role of this wallet in DeFiBro:
+  ///   'sign'             → user signs operations with it (active execution)
+  ///   'watch'            → Capital Map only (replaces legacy WalletWatchlist)
+  ///   'both'             → sign + watch (typical for connected wallets)
+  ///   'destination_only' → just a delivery address (manual paste, no signing)
+  purpose      String   @default("sign")
+
+  // Relations
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chain                    Chain?                    @relation(fields: [chainId], references: [chainId], onDelete: SetNull)
+  transactionConfirmations TransactionConfirmation[]
+  transactionExecutions    TransactionExecution[]
+  positions                Position[]
+  portfolioSnapshots       PortfolioSnapshot[]
+  intents                  TransactionIntent[]
+  alertsFor                Alert[]
+  automationRules          AutomationRule[]
+  aiRecommendations        AiRecommendation[]
+  taxEvents                TaxEvent[]
+  bundleStepsAsSigner      BundleStep[]              @relation("BundleStepSigner")
+
+  @@unique([userId, address, network])
+  @@index([userId, chainId])
+  @@index([userId, ecosystem, isPrimary])
+  @@index([userId, purpose])
+  @@map("wallets")
+}
+
+// ─── Block G (2026-06-02) — Cross-ecosystem bundles ──────────────────────────
+//
+// An IntentBundle sequences multiple signatures across ecosystems when the
+// user's source ecosystem differs from the destination protocol's. Bundle
+// invariants (REGULATORY — never relax):
+//   - DeFiBro never broadcasts. Each step is signed by the user's wallet
+//     partner; the wallet partner transmits.
+//   - Step N+1 NEVER advances until Step N reports status='confirmed' AND
+//     the partner status endpoint validates the transfer succeeded.
+//   - On Step 0 bridge failure → bundle.status='failed' → Step 1 is NEVER
+//     issued. The watcher refuses to advance.
+//   - 24h TTL from createdAt. Expired bundles cannot resume; the user starts
+//     fresh.
+
+model IntentBundle {
+  id                 String   @id @default(cuid())
+  userId             String
+  /// 'simple' (single-step) | 'cross_ecosystem' (2+ steps with bridge)
+  kind               String
+
+  /// Bundle status FSM:
+  ///   'pending'           initial, no step has been signed yet
+  ///   'step1_signed'      Step 0 broadcast, awaiting bridge confirmation
+  ///   'bridge_confirmed'  Step 0 confirmed by partner; Step 1 ready to sign
+  ///   'step2_signed'      Step 1 broadcast (terminal for simple bundles too)
+  ///   'completed'         all steps confirmed
+  ///   'failed'            any step failed; downstream steps are blocked
+  ///   'expired'           passed 24h TTL before completion
+  ///   'cancelled'         user cancelled
+  status             String   @default("pending")
+
+  /// Snapshot of the resolver decision for audit:
+  ///   { srcEcosystem, dstEcosystem, srcWalletId, dstWalletId,
+  ///     finalAction, finalProtocolSlug, finalChainId, assetSymbol, amount }
+  resolvedContext    Json
+
+  currentStepIdx     Int      @default(0)
+  totalSteps         Int
+
+  /// Free-form failure detail when status='failed'. Includes the partner
+  /// status payload that triggered the failure — surfaced to the user.
+  failureReason      String?
+
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps              BundleStep[]
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("intent_bundles")
+}
+
+model BundleStep {
+  id                  String   @id @default(cuid())
+  bundleId            String
+  stepIdx             Int      // 0-based ordering within the bundle
+
+  /// Optional FK to the TransactionIntent (existing model) holding the calldata.
+  /// We persist the calldata in TransactionIntent rather than here so the
+  /// existing intent infrastructure (PolicyGuard, audit) applies uniformly.
+  intentId            String?
+
+  /// Wallet that must sign THIS step. Distinct per step in cross-ecosystem
+  /// bundles (Step 0 = srcWallet, Step 1 = dstWallet).
+  signerWalletId      String
+
+  /// What this step does:
+  ///   'bridge'           → cross-ecosystem transfer via BRIDGE_PARTNER
+  ///   'protocol_action'  → supply/borrow/stake/... via WALLET_PARTNER
+  ///   'approve'          → ERC-20 approval preceding a protocol action
+  stepKind            String
+
+  /// Partner id from PartnerRegistry that routes THIS step.
+  partnerId           String
+
+  /// Confirmation requirements before the watcher will advance the bundle:
+  ///   { kind: 'across' | 'lifi' | 'squid' | 'evm_confirmations',
+  ///     depositTxHash?: string, depositId?: string, minConfirmations?: number }
+  confirmationCriteria Json
+
+  /// Hash reported by the frontend after the user's wallet broadcasts.
+  txHash              String?
+  confirmedAt         DateTime?
+
+  /// Step status FSM:
+  ///   'pending'                  no action yet
+  ///   'awaiting_user_signature'  ready for the user to sign
+  ///   'broadcast'                txHash reported; watcher polls partner status
+  ///   'confirmed'                partner confirms; downstream step unlocks
+  ///   'failed'                   partner reports failure or revert
+  ///   'skipped'                  cancelled before signing
+  status              String   @default("pending")
+
+  /// Detail of any failure surfaced from the partner status endpoint.
+  failureReason       String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  bundle              IntentBundle       @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  intent              TransactionIntent? @relation(fields: [intentId], references: [id], onDelete: SetNull)
+  signerWallet        Wallet             @relation("BundleStepSigner", fields: [signerWalletId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, stepIdx])
+  @@index([status])
+  @@index([bundleId, status])
+  @@map("bundle_steps")
+}
+
+// Strategy Management
+model Strategy {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  nodes       Json // Node array for visual flow
+  edges       Json // Edge array for connections
+  triggers    Json // Trigger configuration
+  isActive    Boolean  @default(false)
+  riskLevel   String? // low, medium, high
+  expectedApy Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instances     Instance[]
+  executions    StrategyExecution[]
+  optimizations StrategyOptimization[]
+
+  @@map("strategies")
+}
+
+// Strategy Instances (Individual protocol/asset monitoring)
+model Instance {
+  id          String    @id @default(cuid())
+  userId      String
+  strategyId  String? // Optional - can be standalone
+  name        String
+  description String?
+  protocol    String // aave, compound, uniswap, moai-finance, etc.
+  network     String // ethereum, xrpl, etc.
+  asset       String // ETH, XRP, USDT, etc.
+  config      Json // Instance-specific configuration
+  isActive    Boolean   @default(true)
+  lastCheck   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  alerts   Alert[]
+
+  @@map("instances")
+}
+
+// Alert System
+model Alert {
+  id              String        @id @default(cuid())
+  userId          String
+  walletId        String?
+  instanceId      String?
+  type            String // price, health_factor, tvl, protocol_risk, liquidation, security, optimization
+  priority        String // CRITICAL, HIGH, MEDIUM, LOW
+  severity        AlertSeverity @default(INFO)
+  triggerType     String? // mirrors TriggerConfig.type (HF_BELOW, OUT_OF_RANGE, ...)
+  title           String
+  message         String
+  data            Json? // Additional alert data
+  acknowledged    Boolean       @default(false)
+  automationRunId String?
+  timestamp       DateTime      @default(now())
+  expiresAt       DateTime?
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet        Wallet?        @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  instance      Instance?      @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  automationRun AutomationRun? @relation(fields: [automationRunId], references: [id], onDelete: SetNull)
+
+  @@index([userId, priority, acknowledged])
+  @@index([walletId, acknowledged])
+  @@map("alerts")
+}
+
+enum AlertSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  MAX
+}
+
+// AI Conversation Management
+model AIConversation {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String // Groups messages in a conversation
+  role           String // user, assistant, system
+  message        String   @db.Text
+  metadata       Json? // Function calls, context, etc.
+  createdAt      DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, conversationId, createdAt])
+  @@map("ai_conversations")
+}
+
+// Transaction Management
+model TransactionConfirmation {
+  id        String   @id @default(cuid())
+  userId    String
+  walletId  String
+  action    String // deposit, withdraw, swap, borrow, repay, etc.
+  protocol  String
+  amount    Float
+  asset     String
+  priority  String // CRITICAL, HIGH, MEDIUM, LOW
+  status    String // pending, approved, rejected, expired
+  deadline  DateTime
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, priority])
+  @@map("transaction_confirmations")
+}
+
+model BatchTransactionConfirmation {
+  id                String   @id @default(cuid())
+  userId            String
+  batchType         String // optimization, emergency, strategy, rebalance
+  totalAmount       Float
+  estimatedTotalGas Int
+  priority          String // CRITICAL, HIGH, MEDIUM, LOW
+  status            String // pending, approved, rejected, executing, completed, failed
+  transactions      Json // Array of transaction data
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, status, priority])
+  @@map("batch_transaction_confirmations")
+}
+
+model TransactionExecution {
+  id         String   @id @default(cuid())
+  userId     String
+  walletId   String
+  action     String
+  protocol   String
+  amount     Float
+  asset      String
+  txHash     String? // Blockchain transaction hash
+  priority   String
+  gasUsed    Int?
+  status     String // executed, failed, pending
+  metadata   Json?
+  executedAt DateTime @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([userId, walletId, executedAt])
+  @@index([txHash])
+  @@map("transaction_executions")
+}
+
+// Strategy Execution Tracking
+model StrategyExecution {
+  id          String    @id @default(cuid())
+  strategyId  String
+  userId      String
+  trigger     String // What triggered the execution
+  nodeId      String? // Which node was executed
+  status      String // running, completed, failed, interrupted
+  context     Json? // Execution context data
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+
+  // Relations
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@index([strategyId, status, startedAt])
+  @@map("strategy_executions")
+}
+
+// AI Strategy Optimization
+model StrategyOptimization {
+  id                  String    @id @default(cuid())
+  strategyId          String
+  userId              String
+  type                String // ai_suggestion, user_requested, automatic
+  currentPerformance  Json // Current strategy metrics
+  suggestedChanges    Json // AI suggestions
+  expectedImprovement Float? // Expected gain increase percentage
+  riskReduction       Float? // Expected risk reduction percentage
+  status              String // pending, approved, rejected, implemented
+  implementedAt       DateTime?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@index([strategyId, status, createdAt])
+  @@map("strategy_optimizations")
+}
+
+// Strategy Sharing System
+model SharedStrategy {
+  id                 String   @id @default(cuid())
+  originalStrategyId String? // Reference to original strategy
+  authorId           String
+  name               String
+  description        String?
+  riskLevel          String // low, medium, high
+  expectedApy        Float?
+  shareType          String // anonymous, with_wallet, with_username
+  nodes              Json // Strategy nodes
+  edges              Json // Strategy edges
+  triggers           Json // Strategy triggers
+  isPublic           Boolean  @default(true)
+  likes              Int      @default(0)
+  uses               Int      @default(0)
+  tags               String[] // Searchable tags
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([isPublic, likes])
+  @@index([riskLevel, likes])
+  @@map("shared_strategies")
+}
+
+// Protocol Data Caching
+model ProtocolMetrics {
+  id              String   @id @default(cuid())
+  protocolId      String   @unique
+  name            String
+  network         String
+  tvl             Float
+  totalSupply     Float?
+  totalBorrow     Float?
+  utilizationRate Float?
+  averageApy      Float?
+  healthStatus    String // healthy, warning, critical
+  lastUpdate      DateTime @default(now())
+  metadata        Json? // Additional protocol-specific data
+
+  @@index([protocolId, lastUpdate])
+  @@map("protocol_metrics")
+}
+
+// Price Data Caching
+model PriceData {
+  id         String   @id @default(cuid())
+  symbol     String   @unique
+  price      Float
+  change24h  Float?
+  volume24h  Float?
+  marketCap  Float?
+  source     String // coingecko, binance, defillama
+  lastUpdate DateTime @default(now())
+
+  @@index([symbol, lastUpdate])
+  @@map("price_data")
+}
+
+// User Position Tracking
+model UserPosition {
+  id               String   @id @default(cuid())
+  userId           String
+  protocol         String
+  network          String
+  asset            String
+  amount           Float
+  value            Float
+  type             String // lending, borrowing, liquidity, staking, farming
+  apy              Float?
+  healthFactor     Float?
+  liquidationPrice Float?
+  lastUpdate       DateTime @default(now())
+  metadata         Json?
+
+  @@unique([userId, protocol, network, asset, type])
+  @@index([userId, protocol])
+  @@map("user_positions")
+}
+
+// System Monitoring
+model SystemMetrics {
+  id         String   @id @default(cuid())
+  metricType String // performance, usage, errors, alerts
+  metricName String
+  value      Float
+  unit       String? // percentage, count, milliseconds, etc.
+  tags       Json? // Additional tags for filtering
+  timestamp  DateTime @default(now())
+
+  @@index([metricType, metricName, timestamp])
+  @@map("system_metrics")
+}
+
+// API Usage Tracking
+model ApiUsage {
+  id           String   @id @default(cuid())
+  userId       String? // Null for public API usage
+  endpoint     String
+  method       String // GET, POST, PUT, DELETE
+  statusCode   Int
+  responseTime Int // in milliseconds
+  ipAddress    String
+  userAgent    String?
+  timestamp    DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([endpoint, timestamp])
+  @@map("api_usage")
+}
+
+// Security Events
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  eventType   String // suspicious_activity, failed_login, wallet_freeze, emergency_action
+  severity    String // low, medium, high, critical
+  description String
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json? // Additional event data
+  timestamp   DateTime @default(now())
+
+  @@index([userId, eventType, severity, timestamp])
+  @@map("security_events")
+}
+
+// Background Jobs
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  jobType     String // strategy_execution, data_sync, optimization, cleanup
+  status      String // queued, running, completed, failed, cancelled
+  priority    Int       @default(0) // Higher number = higher priority
+  payload     Json? // Job parameters
+  result      Json? // Job results
+  error       String? // Error message if failed
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  scheduledAt DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, priority, scheduledAt])
+  @@map("background_jobs")
+}
+
+// Configuration Management
+model Configuration {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  isSystem    Boolean  @default(false) // System vs user-configurable
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("configurations")
+}
+
+// Notification Management
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // alert, optimization, transaction, system
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean   @default(false)
+  channel   String // websocket, email, push
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+// Rate Limiting
+model RateLimit {
+  id          String   @id @default(cuid())
+  identifier  String // IP address, user ID, API key
+  endpoint    String
+  requests    Int      @default(1)
+  windowStart DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([identifier, endpoint])
+  @@index([identifier, windowStart])
+  @@map("rate_limits")
+}
+
+// Audit Trail
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // login, logout, create_strategy, execute_transaction, etc.
+  resource  String? // strategy_id, wallet_id, etc.
+  oldValues Json? // Previous state
+  newValues Json? // New state
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+
+  @@index([userId, action, timestamp])
+  @@index([resource, timestamp])
+  @@map("audit_logs")
+}
+
+// Feature Flags
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isEnabled   Boolean  @default(false)
+  conditions  Json? // Conditions for enabling (user segments, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+// Session Management
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  refreshToken   String?  @unique // SHA-256 hash of refresh token (email+pw auth)
+  ipAddress      String
+  userAgent      String?
+  isActive       Boolean  @default(true)
+  lastActivity   DateTime @default(now())
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([userId, isActive])
+  @@index([token, expiresAt])
+  @@map("sessions")
+}
+
+// Webhook Management
+model Webhook {
+  id            String    @id @default(cuid())
+  userId        String
+  url           String
+  events        String[] // Array of event types to listen for
+  secret        String // For webhook signature verification
+  isActive      Boolean   @default(true)
+  lastTriggered DateTime?
+  failureCount  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, isActive])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id          String    @id @default(cuid())
+  webhookId   String
+  eventType   String
+  payload     Json
+  response    Json? // HTTP response from webhook endpoint
+  statusCode  Int?
+  attempts    Int       @default(1)
+  delivered   Boolean   @default(false)
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([webhookId, delivered, createdAt])
+  @@map("webhook_deliveries")
+}
+
+// Analytics and Reporting
+model DailyMetrics {
+  id                   String   @id @default(cuid())
+  date                 DateTime @unique @db.Date
+  totalUsers           Int      @default(0)
+  activeUsers          Int      @default(0)
+  newUsers             Int      @default(0)
+  totalStrategies      Int      @default(0)
+  activeStrategies     Int      @default(0)
+  newStrategies        Int      @default(0)
+  totalTransactions    Int      @default(0)
+  totalVolume          Float    @default(0)
+  totalTvl             Float    @default(0)
+  averageApy           Float?
+  totalAlerts          Int      @default(0)
+  criticalAlerts       Int      @default(0)
+  apiRequests          Int      @default(0)
+  websocketConnections Int      @default(0)
+  createdAt            DateTime @default(now())
+
+  @@map("daily_metrics")
+}
+
+model UserMetrics {
+  id                  String   @id @default(cuid())
+  userId              String
+  date                DateTime @db.Date
+  totalPortfolioValue Float    @default(0)
+  totalPositions      Int      @default(0)
+  activeStrategies    Int      @default(0)
+  totalTransactions   Int      @default(0)
+  dailyVolume         Float    @default(0)
+  averageApy          Float?
+  alertsGenerated     Int      @default(0)
+  sessionsCount       Int      @default(0)
+  apiRequestsCount    Int      @default(0)
+  createdAt           DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("user_metrics")
+}
+
+// Protocol Integration Status
+model ProtocolIntegration {
+  id              String    @id @default(cuid())
+  protocolId      String    @unique
+  name            String
+  network         String
+  version         String
+  status          String // active, maintenance, deprecated, error
+  capabilities    String[] // lending, borrowing, dex, staking, etc.
+  contractAddress String?
+  apiEndpoint     String?
+  lastSync        DateTime?
+  errorCount      Int       @default(0)
+  lastError       String?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("protocol_integrations")
+}
+
+// Blockchain Network Status
+model NetworkStatus {
+  id           String    @id @default(cuid())
+  networkId    String    @unique
+  name         String
+  chainId      Int?
+  rpcUrl       String
+  status       String // healthy, degraded, offline
+  blockHeight  String?
+  gasPrice     String?
+  lastBlock    DateTime?
+  responseTime Int? // in milliseconds
+  errorCount   Int       @default(0)
+  lastError    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("network_status")
+}
+
+// Emergency Actions Log
+model EmergencyAction {
+  id          String    @id @default(cuid())
+  userId      String
+  actionType  String // freeze_wallet, emergency_withdrawal, disconnect_all, pause_strategy
+  reason      String
+  targetId    String? // wallet_id, strategy_id, etc.
+  status      String // initiated, in_progress, completed, failed
+  result      Json? // Action results
+  triggeredBy String // user, system, ai, monitoring
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId, actionType, createdAt])
+  @@map("emergency_actions")
+}
+
+// AI Model Performance
+model AIModelMetrics {
+  id               String   @id @default(cuid())
+  modelName        String
+  version          String
+  requestType      String // strategy_creation, optimization, analysis
+  inputTokens      Int
+  outputTokens     Int
+  responseTime     Int // in milliseconds
+  userSatisfaction Float? // 1-5 rating if provided
+  errorOccurred    Boolean  @default(false)
+  errorType        String?
+  timestamp        DateTime @default(now())
+
+  @@index([modelName, requestType, timestamp])
+  @@map("ai_model_metrics")
+}
+
+// Cache Management
+model CacheEntry {
+  id          String   @id @default(cuid())
+  cacheKey    String   @unique
+  data        Json
+  tags        String[] // For cache invalidation by tags
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  accessCount Int      @default(0)
+  lastAccess  DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([tags])
+  @@map("cache_entries")
+}
+
+// User Preferences and Settings
+model UserPreferences {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  theme              String   @default("dark") // dark, light, auto
+  language           String   @default("en")
+  currency           String   @default("USD")
+  timezone           String   @default("UTC")
+  notifications      Json // Notification preferences
+  alertSettings      Json // Alert configuration
+  dashboardLayout    Json? // Custom dashboard layout
+  tradingPreferences Json? // Trading-related preferences
+  privacySettings    Json? // Privacy configuration
+  advancedMode       Boolean  @default(false)
+  betaFeatures       Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+// API Keys for third-party integrations
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  keyHash     String    @unique // Hashed version of the actual key
+  permissions String[] // read, write, admin
+  scopes      String[] // specific API scopes
+  isActive    Boolean   @default(true)
+  lastUsed    DateTime?
+  expiresAt   DateTime?
+  rateLimit   Int       @default(1000) // requests per hour
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, isActive])
+  @@map("api_keys")
+}
+
+// Smart Contract Events
+model ContractEvent {
+  id              String    @id @default(cuid())
+  network         String
+  contractAddress String
+  eventName       String
+  blockNumber     String
+  transactionHash String
+  logIndex        Int
+  eventData       Json
+  processed       Boolean   @default(false)
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([transactionHash, logIndex])
+  @@index([network, contractAddress, eventName])
+  @@index([processed, createdAt])
+  @@map("contract_events")
+}
+
+// Liquidation Monitoring
+model LiquidationWatch {
+  id               String   @id @default(cuid())
+  userId           String
+  protocol         String
+  network          String
+  asset            String
+  currentPrice     Float
+  liquidationPrice Float
+  healthFactor     Float?
+  riskLevel        String // low, medium, high, critical
+  alertThreshold   Float // Price threshold for alerts
+  isActive         Boolean  @default(true)
+  lastCheck        DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, protocol, network, asset])
+  @@index([isActive, riskLevel, lastCheck])
+  @@map("liquidation_watches")
+}
+
+// Gas Price Tracking
+model GasPrice {
+  id        String   @id @default(cuid())
+  network   String
+  standard  String // Gas price in gwei or equivalent
+  fast      String
+  instant   String
+  timestamp DateTime @default(now())
+
+  @@unique([network, timestamp])
+  @@index([network, timestamp])
+  @@map("gas_prices")
+}
+
+// Cross-chain Bridge Tracking
+model BridgeTransaction {
+  id             String    @id @default(cuid())
+  userId         String
+  fromNetwork    String
+  toNetwork      String
+  fromAsset      String
+  toAsset        String
+  amount         Float
+  bridgeProtocol String // bridge service used
+  fromTxHash     String?
+  toTxHash       String?
+  status         String // pending, completed, failed, cancelled
+  estimatedTime  Int? // in minutes
+  actualTime     Int? // in minutes
+  fees           Float?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@index([userId, status, createdAt])
+  @@map("bridge_transactions")
+}
+
+// Portfolio Snapshots
+model PortfolioSnapshot {
+  id            String   @id @default(cuid())
+  userId        String
+  walletId      String?
+  chainId       Int?
+  totalValue    Float
+  totalUSD      Decimal? @db.Decimal(38, 18)
+  positions     Json // Array of position data
+  allocation    Json // Asset/protocol allocation percentages
+  performance   Json // Performance metrics
+  riskMetrics   Json // Risk analysis
+  benchmarkDate DateTime // Date for comparison
+  takenAt       DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  // Relations
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  chain  Chain?  @relation(fields: [chainId], references: [chainId], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([walletId, takenAt])
+  @@map("portfolio_snapshots")
+}
+
+// Strategy Templates (Pre-built strategies)
+model StrategyTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  description     String
+  category        String // defi, yield-farming, protection, arbitrage
+  riskLevel       String // low, medium, high
+  minCapital      Float?
+  expectedApy     Float?
+  targetProtocols String[] // Supported protocols
+  nodes           Json // Strategy flow nodes
+  edges           Json // Strategy flow edges
+  triggers        Json // Default triggers
+  isPublic        Boolean  @default(true)
+  createdBy       String? // Creator user ID
+  usageCount      Int      @default(0)
+  rating          Float? // Average user rating
+  tags            String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category, riskLevel, isPublic])
+  @@index([rating, usageCount])
+  @@map("strategy_templates")
+}
+
+// Market Data Historical
+model MarketData {
+  id        String   @id @default(cuid())
+  symbol    String
+  price     Float
+  volume24h Float?
+  marketCap Float?
+  change1h  Float?
+  change24h Float?
+  change7d  Float?
+  timestamp DateTime @default(now())
+
+  @@unique([symbol, timestamp])
+  @@index([symbol, timestamp])
+  @@map("market_data")
+}
+
+// Protocol TVL History
+model ProtocolTvlHistory {
+  id         String   @id @default(cuid())
+  protocolId String
+  tvl        Float
+  change24h  Float?
+  change7d   Float?
+  timestamp  DateTime @default(now())
+
+  @@unique([protocolId, timestamp])
+  @@index([protocolId, timestamp])
+  @@map("protocol_tvl_history")
+}
+
+// Yield Opportunities
+model YieldOpportunity {
+  id         String   @id @default(cuid())
+  protocol   String
+  network    String
+  asset      String
+  apy        Float
+  tvl        Float?
+  minDeposit Float?
+  riskScore  Float // 1-10 risk assessment
+  category   String // lending, farming, staking, liquidity
+  isActive   Boolean  @default(true)
+  lastUpdate DateTime @default(now())
+  metadata   Json? // Additional opportunity data
+
+  @@unique([protocol, network, asset, category])
+  @@index([apy, riskScore, isActive])
+  @@map("yield_opportunities")
+}
+
+// User Activity Log
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  activity    String // login, create_strategy, execute_transaction, etc.
+  description String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([activity, timestamp])
+  @@map("user_activities")
+}
+
+// Database Schema Migrations Log
+model Migration {
+  id         String    @id @default(cuid())
+  name       String    @unique
+  version    String
+  executed   Boolean   @default(false)
+  executedAt DateTime?
+  rollback   String? // Rollback SQL if needed
+  createdAt  DateTime  @default(now())
+
+  @@map("migrations")
+}
+
+// ============================================================================
+// CORE DOMAIN — Defibro engines (Chain, Protocol, Position, Intent, Automation)
+// ============================================================================
+
+// Non-EVM chains use synthetic negative chainIds: XRPL=-1, Solana=-2, Bitcoin=-3.
+// CAIP-2 is the canonical identifier; chainId is kept for EVM compatibility.
+model Chain {
+  id           String   @id @default(cuid())
+  chainId      Int      @unique  // EVM chain ID or synthetic negative for non-EVM
+  name         String
+  chainType    String   @default("evm")  // "evm" | "xrpl" | "solana" | "bitcoin" | "cosmos"
+  isEvm        Boolean  @default(true)
+  caip2        String?  @unique  // "eip155:14", "xrpl:0", "solana:mainnet"
+  rpcHttp      String
+  rpcWs        String?
+  explorer     String
+  blockTime    Int      // milliseconds (approximate for non-EVM)
+  nativeSymbol String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  wallets            Wallet[]
+  protocols          Protocol[]
+  positions          Position[]
+  portfolioSnapshots PortfolioSnapshot[]
+  intents            TransactionIntent[]
+
+  @@map("chains")
+}
+
+model Protocol {
+  id        String           @id @default(cuid())
+  slug      String           @unique
+  name      String
+  category  ProtocolCategory
+  chainId   Int
+  riskTier  Int              @default(3) // 1 = safest, 5 = riskiest
+  isActive  Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relations
+  chain           Chain               @relation(fields: [chainId], references: [chainId], onDelete: Cascade)
+  positions       Position[]
+  intents         TransactionIntent[]
+  automationRules AutomationRule[]
+
+  @@index([chainId, category, isActive])
+  @@map("protocols")
+}
+
+enum ProtocolCategory {
+  LENDING
+  DEX
+  STAKING
+  BRIDGE
+}
+
+model Position {
+  id            String       @id @default(cuid())
+  walletId      String
+  protocolId    String
+  chainId       Int
+  kind          PositionKind
+  asset         String // canonical token address
+  amount        Decimal      @db.Decimal(38, 18)
+  amountUSD     Decimal      @db.Decimal(38, 18)
+  metadata      Json
+  lastSeenBlock BigInt?
+  discoveredAt  DateTime     @default(now())
+  closedAt      DateTime?
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  wallet    Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  protocol  Protocol            @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  chain     Chain               @relation(fields: [chainId], references: [chainId], onDelete: Cascade)
+  snapshots PositionSnapshot[]
+  intents   TransactionIntent[]
+
+  @@index([walletId, kind])
+  @@index([protocolId, kind])
+  @@index([chainId, walletId])
+  @@map("positions")
+}
+
+enum PositionKind {
+  SUPPLY
+  BORROW
+  LP
+  STAKE
+  REWARD
+  FREE
+}
+
+model PositionSnapshot {
+  id          String   @id @default(cuid())
+  positionId  String
+  takenAt     DateTime @default(now())
+  amount      Decimal  @db.Decimal(38, 18)
+  amountUSD   Decimal  @db.Decimal(38, 18)
+  priceUSD    Decimal  @db.Decimal(38, 18)
+  hf          Float?
+  ltv         Float?
+  metricsJson Json
+
+  // Relations
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@index([positionId, takenAt])
+  @@map("position_snapshots")
+}
+
+model TransactionIntent {
+  id                 String       @id @default(cuid())
+  owner              String
+  walletId           String
+  chainId            Int
+  sessionId          String
+  action             IntentAction
+  protocolId         String
+  positionId         String?
+  simulationResultId String?
+  inputs             Json
+  preState           Json
+  simulation         Json
+  simulatedAt        DateTime
+  pricesFreshAt      DateTime
+  impact             Json
+  riskDelta          Json
+  explanation        String
+  warnings           String[]     @default([])
+  txData             Json?
+  status             IntentStatus @default(building)
+  txHash             String?      @unique
+  confirmedAt        DateTime?
+  failureReason      String?
+  blockNumber        BigInt?
+  createdAt          DateTime     @default(now())
+  expiresAt          DateTime
+  updatedAt          DateTime     @updatedAt
+
+  // Relations
+  wallet            Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  chain             Chain              @relation(fields: [chainId], references: [chainId], onDelete: Cascade)
+  protocol          Protocol           @relation(fields: [protocolId], references: [id], onDelete: Restrict)
+  position          Position?          @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  simulationResult  SimulationResult?  @relation(fields: [simulationResultId], references: [id], onDelete: SetNull)
+  automationRuns    AutomationRun[]
+  aiRecommendations AiRecommendation[]
+  transactionRecord TransactionRecord?
+  partnerIntents    PartnerIntent[]
+  bundleSteps       BundleStep[]
+
+  @@index([owner, status])
+  @@index([status, expiresAt])
+  @@index([walletId, createdAt])
+  @@map("transaction_intents")
+}
+
+model SimulationResult {
+  id             String   @id @default(cuid())
+  walletAddress  String
+  actionType     String
+  protocolId     String
+  positionId     String?
+  input          Json
+  before         Json
+  after          Json
+  delta          Json
+  warnings       String[] @default([])
+  assumptions    String[] @default([])
+  gasEstimate    String // bigint serialized
+  gasEstimateUSD Float
+  confidence     Float    @default(0.5)
+  pricesFreshAt  DateTime
+  isStale        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  intents TransactionIntent[]
+
+  @@index([walletAddress, createdAt])
+  @@index([positionId])
+  @@map("simulation_results")
+}
+
+model TransactionRecord {
+  id                String         @id @default(cuid())
+  intentId          String         @unique
+  walletAddress     String
+  chainId           Int
+  txHash            String         @unique
+  status            TxRecordStatus @default(PENDING)
+  blockNumber       BigInt?
+  gasUsed           BigInt?
+  effectiveGasPrice BigInt?
+  error             String?
+  receiptJson       Json?
+  createdAt         DateTime       @default(now())
+  confirmedAt       DateTime?
+
+  intent TransactionIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([walletAddress, createdAt])
+  @@map("transaction_records")
+}
+
+enum TxRecordStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum IntentAction {
+  repay
+  addCollateral
+  withdraw
+  supply
+  borrow
+  harvest
+  exitLP
+  addLiquidity
+  swap
+  stake
+  unstake
+  crossChainSwap
+  wrap
+  unwrap
+  delegate
+  undelegate
+  claimRewards
+}
+
+enum IntentStatus {
+  pending_user_review
+  building
+  proposed
+  expired
+  signed
+  broadcast
+  mempool
+  confirmed
+  failed
+}
+
+enum IntentAuthorizationSessionStatus {
+  pending_user_review
+  user_authorized
+  cancelled
+  expired
+  // NOTE: no submitted/confirmed/failed/relayed — DeFiBro does not track broadcast lifecycle
+}
+
+model AutomationRule {
+  id                  String    @id @default(cuid())
+  walletId            String
+  protocolId          String?
+  name                String
+  trigger             Json // TriggerConfig discriminated union (validated by Zod)
+  action              Json // AutomationAction
+  /// CanonicalMoneyFlow id — N rules compiled from one CMF share it (one rule
+  /// per CanonicalStep; canonical/moneyflow/CanonicalEvmTranslator). Null for
+  /// rules created directly (PROTECT/HARVEST templates, manual).
+  canonicalRef        String?
+  enabled             Boolean   @default(true)
+  cooldownMinutes     Int       @default(15)
+  maxValueUSD         Float
+  totalTimesTriggered Int       @default(0)
+  lastTriggeredAt     DateTime?
+  /// Enforced TTL (guardarraíl MoneyFlows: sin caducidad + revocación no se
+  /// entrega). Required (≤90d, server-clamped) for moneyflow-origin rules
+  /// (canonicalRef) and council rules; nullable for legacy manual/template
+  /// rows. The tick disables an expired rule instead of evaluating it.
+  expiresAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  wallet            Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  protocol          Protocol?          @relation(fields: [protocolId], references: [id], onDelete: SetNull)
+  runs              AutomationRun[]
+  aiRecommendations AiRecommendation[]
+
+  @@index([walletId, enabled])
+  @@index([canonicalRef])
+  @@map("automation_rules")
+}
+
+model AutomationRun {
+  id          String              @id @default(cuid())
+  ruleId      String
+  intentId    String?
+  triggeredAt DateTime            @default(now())
+  triggerData Json
+  status      AutomationRunStatus @default(triggered)
+  notes       String?
+
+  // Relations
+  rule   AutomationRule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  intent TransactionIntent? @relation(fields: [intentId], references: [id], onDelete: SetNull)
+  alerts Alert[]
+
+  @@index([ruleId, triggeredAt])
+  @@map("automation_runs")
+}
+
+enum AutomationRunStatus {
+  triggered
+  intent_prepared
+  /// Governed MoneyFlow: the trigger composed a council proposal (the quorum signs it).
+  proposal_created
+  user_acted
+  expired
+  error
+}
+
+model AiRecommendation {
+  id             String    @id @default(cuid())
+  walletId       String
+  kind           String // 'risk_alert' | 'rebalance' | 'harvest' | ...
+  summary        String
+  body           String
+  linkedIntentId String?
+  linkedRuleId   String?
+  confidence     Float     @default(0.0)
+  createdAt      DateTime  @default(now())
+  dismissedAt    DateTime?
+
+  // Relations
+  wallet       Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  linkedIntent TransactionIntent? @relation(fields: [linkedIntentId], references: [id], onDelete: SetNull)
+  linkedRule   AutomationRule?    @relation(fields: [linkedRuleId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@map("ai_recommendations")
+}
+
+// ============================================================================
+// Points / Gamification V1 FINAL (Sprint S5)
+// Off-chain, no transferibles, ligados a la cuenta. NO token on-chain.
+// ============================================================================
+
+model PointsAccount {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  totalPoints Int      @default(0)
+  power       Int      @default(0)
+  credits     Int      @default(0)
+  level       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("points_accounts")
+}
+
+model PointsLedger {
+  id             String   @id @default(cuid())
+  userId         String
+  eventType      String
+  pointsDelta    Int
+  powerDelta     Int
+  creditsDelta   Int
+  reason         String
+  idempotencyKey String   @unique
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("points_ledgers")
+}
+
+model GamificationBadge {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String
+  icon        String?
+  criteria    Json
+  createdAt   DateTime @default(now())
+
+  @@map("gamification_badges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeCode String
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeCode])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+// ============================================================================
+// Mobile push notifications V1 FINAL (Sprint S6)
+// Expo Notifications wrapper sobre FCM/APNs.
+// ============================================================================
+
+model Device {
+  id         String    @id @default(cuid())
+  userId     String
+  platform   String // "ios" | "android"
+  pushToken  String
+  appVersion String?
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, pushToken])
+  @@index([userId])
+  @@map("devices")
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  userId    String
+  deviceId  String?
+  type      String // HF_CRITICAL | INTENT_READY | TX_CONFIRMED | TX_FAILED | POINTS_EARNED | BADGE_UNLOCKED | RULE_FIRED
+  title     String
+  body      String
+  payload   Json?
+  status    String   @default("pending") // pending | sent | failed
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notification_logs")
+}
+
+// ============================================================================
+// MoneyFlows / canvas (migrated from MongoDB Mongoose, May 2026)
+// ============================================================================
+// Backstory: pre-V1 these lived in Mongoose (MoneyFlow, FlowRun, Strategy,
+// Workspace). V1 engines were on Prisma/Postgres. To consolidate on a single
+// DB we moved canvas data to Postgres with JSON columns for the heterogeneous
+// node/edge/metadata blobs. Names prefixed `MoneyFlow*` to avoid collision
+// with the (currently zombie) `Strategy` and `Instance` models above.
+
+model MoneyFlow {
+  id             String   @id @default(cuid())
+  ownerId        String
+  name           String
+  description    String?
+  tags           String[] @default([])
+  nodes          Json     @default("[]")
+  edges          Json     @default("[]")
+  version        Int      @default(1)
+  isPublic       Boolean  @default(false)
+  enabled        Boolean  @default(false)
+  triggers       Json?
+  userAddresses  Json?
+  walletBindings Json?
+  metadata       Json?
+  clonedFromId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  runs MoneyFlowRun[]
+
+  @@index([ownerId, updatedAt])
+  @@index([ownerId, name])
+  @@map("money_flows")
+}
+
+model MoneyFlowRun {
+  id         String    @id @default(cuid())
+  flowId     String
+  versionId  String?
+  mode       String    @default("dev") // dev | guarded | real
+  status     String    @default("queued") // queued | running | success | error | cancelled | completed
+  params     Json?
+  progress   Int       @default(0)
+  metrics    Json?
+  events     Json      @default("[]")
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  error      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  flow MoneyFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@index([flowId, createdAt])
+  @@index([status])
+  @@map("money_flow_runs")
+}
+
+model MoneyFlowGroup {
+  id                    String   @id @default(cuid())
+  userId                String
+  name                  String
+  description           String?
+  color                 String   @default("#22c55e")
+  icon                  String   @default("strategy")
+  isActive              Boolean  @default(true)
+  moneyFlowIds          String[] @default([])
+  walletIds             String[] @default([])
+  totalTVL              Float    @default(0)
+  totalPnL24h           Float    @default(0)
+  totalPnLPercentage24h Float    @default(0)
+  weightedAPR           Float    @default(0)
+  riskScore             Float    @default(0)
+  alertCount            Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("money_flow_groups")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  type        String // lending | yield | risk | custom
+  description String?
+  instances   String[] @default([])
+  strategies  String[] @default([])
+  settings    Json?
+  stats       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, type])
+  @@map("workspaces")
+}
+
+// V1.1 Control Plane — audit trail emitted by ProviderRouter on every capability call.
+model AuditEvent {
+  id         String   @id @default(uuid())
+  traceId    String
+  providerId String
+  capability String
+  decision   String   // 'pass' | 'fail' | 'warn'
+  latencyMs  Int
+  cached     Boolean  @default(false)
+  fellBack   Boolean  @default(false)
+  payload    Json?
+  timestamp  DateTime @default(now())
+
+  @@index([traceId])
+  @@index([providerId, timestamp])
+  @@index([capability, timestamp])
+  @@map("audit_events")
+}
+
+// V1.1 Control Plane — Mandate envelope per user. PolicyGuard reads the active
+// mandate for every intent evaluation. `active=false` rows are kept for audit.
+model Mandate {
+  id            String    @id @default(cuid())
+  userId        String
+  schemaVersion String    @default("1.0")
+  active        Boolean   @default(true)
+  scope         Json
+  limits        Json
+  approvals     Json
+  signature     String?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, active])
+  @@index([expiresAt])
+  @@map("mandates")
+}
+
+// V1.1 Activity Timeline cache. ActivityService writes canonical-shaped rows
+// here; reads can either hit cache (fast) or refresh via Flarescan provider.
+model ActivityEvent {
+  id          String   @id @default(cuid())
+  wallet      String
+  chainId     Int      @default(14)
+  txHash      String
+  logIndex    Int      @default(0)
+  blockNumber Int
+  timestamp   DateTime
+  type        String   // canonical ActivityType
+  protocol    String?
+  assetIn     Json?
+  assetOut    Json?
+  source      Json
+  raw         Json?
+  createdAt   DateTime @default(now())
+
+  @@unique([wallet, txHash, logIndex])
+  @@index([wallet, timestamp])
+  @@index([wallet, type])
+  @@index([blockNumber])
+  @@map("activity_events")
+}
+
+// V1.1 Rewards aggregator cache. RewardsService writes one row per claim /
+// pending epoch from FTSO, FlareDrop, validator staking, protocol rewards.
+model RewardEvent {
+  id           String    @id @default(cuid())
+  wallet       String
+  chainId      Int       @default(14)
+  source       String    // 'ftso' | 'flaredrop' | 'protocol' | 'staking' | 'lp_fees'
+  providerId   String
+  assetSymbol  String
+  assetAddress String?
+  amount       String
+  amountUSD    Float     @default(0)
+  blockNumber  Int       @default(0)
+  claimedAt    DateTime?
+  sourceRecord Json
+  createdAt    DateTime  @default(now())
+
+  @@unique([wallet, source, providerId, blockNumber])
+  @@index([wallet, source])
+  @@index([wallet, claimedAt])
+  @@map("reward_events")
+}
+
+// V1.1 Partner Execution Models — Regulated partner (MoonPay) execution flow
+model PartnerIntent {
+  id                      String    @id @default(cuid())
+  userId                  String
+  transactionIntentId     String?   @unique
+  partnerId               String    // "moonpay"
+
+  // What user wants to do
+  asset                   String    // FLR, ETH, XRP, etc.
+  fiatAmount              Decimal?  // 500
+  fiatCurrency            String?   // EUR
+  destinationAddress      String    // 0x123abc...
+  destinationChainId      Int       // 14 (Flare) or 1 (Ethereum) or ...
+
+  // MiCA compliance flags (immutable, validated at creation)
+  partnerExecutes         Boolean   @default(true)      // NOT user, NOT DeFiBro
+  defibroExecutes         Boolean   @default(false)     // ALWAYS false
+  defibroCustody          Boolean   @default(false)     // ALWAYS false
+  defibroOrderTransmission Boolean @default(false)     // ALWAYS false
+
+  // User action tracking
+  userConfirmedInsidePartner Boolean @default(false)
+  partnerTermsAccepted    Boolean   @default(false)
+
+  // Execution outcome
+  status                  String    // draft | proposed | confirmed | failed
+  partnerOrderId          String?   @unique            // From MoonPay API
+  txHash                  String?                     // On-chain tx
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  // Relations
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactionIntent       TransactionIntent? @relation(fields: [transactionIntentId], references: [id], onDelete: SetNull)
+  partner                 RegulatedPartnerSession?
+
+  @@index([userId, status])
+  @@index([partnerId, createdAt])
+  @@map("partner_intents")
+}
+
+model RegulatedPartnerSession {
+  id                String    @id @default(cuid())
+  partnerIntentId   String    @unique
+  partnerId         String    // "moonpay"
+
+  // Partner's session ID (opaque to DeFiBro)
+  partnerSessionId  String    @unique            // From MoonPay: session_abc_123
+  partnerSessionUrl String                      // https://moonpay.com/session/...
+
+  status            String    // active | completed | failed | expired
+
+  // Partner's response
+  rawWebhookData    Json?     // Full webhook payload for audit
+
+  createdAt         DateTime  @default(now())
+  expiresAt         DateTime
+  completedAt       DateTime?
+
+  // Relations
+  partnerIntent     PartnerIntent @relation(fields: [partnerIntentId], references: [id], onDelete: Cascade)
+
+  @@map("regulated_partner_sessions")
+}
+
+// V1.1 Tax Event Ledger — Immutable factual transaction log (no calculations)
+model TaxEvent {
+  id                String    @id @default(cuid())
+  userId            String
+  walletId          String?
+
+  eventType         String    // 'buy' | 'sell' | 'swap' | 'transfer' | 'claim_reward' | 'harvest'
+
+  // Inputs
+  assetIn           String
+  amountIn          Decimal
+
+  // Outputs
+  assetOut          String
+  amountOut         Decimal
+
+  // Market snapshot at time of event
+  fiatValueEstimate Decimal   // Estimated USD/EUR at time
+  fiatCurrency      String    // 'USD'
+
+  // Costs
+  fee               Decimal?
+  feeAsset          String?
+
+  // Traceability
+  partnerOrderId    String?   // If from partner
+  transactionHash   String?
+  source            String    // 'moonpay' | 'exchange' | 'onchain' | 'manual'
+
+  // Verification
+  userVerified      Boolean   @default(false)
+  userNotes         String?
+
+  timestamp         DateTime
+  createdAt         DateTime  @default(now())
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet            Wallet?   @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@index([userId, timestamp])
+  @@index([assetIn, assetOut, timestamp])
+  @@map("tax_events")
+}
+
+// V1.1 Wallet Watchlist — Monitor wallets across chains
+model WalletWatchlist {
+  id          String    @id @default(cuid())
+  userId      String
+  address     String
+  label       String?
+  chainId     Int
+  isActive    Boolean   @default(true)
+  lastSyncedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positions    DeFiPosition[]
+  interactions DeFiInteraction[]
+
+  @@unique([userId, address, chainId])
+  @@index([userId, isActive])
+  @@map("wallet_watchlist")
+}
+
+// P17 — Wallet Binding: proven wallet ownership via signature
+// mode 'read' = monitor only · 'read_and_receive' = eligible for DeFi/transfer actions
+model WalletBinding {
+  id             String    @id @default(cuid())
+  userId         String
+  address        String
+  chainType      String    // 'evm' | 'solana' | 'xrpl' | 'bitcoin'
+  label          String?
+  mode           String    @default("read")  // 'read' | 'read_and_receive'
+  signatureProof String    // raw signature stored for audit
+  isActive       Boolean   @default(true)
+  linkedAt       DateTime  @default(now())
+  lastSeenAt     DateTime?
+  kycLinked      Boolean   @default(false) // true once synced to Persona inquiry
+  kycLinkedAt    DateTime?                 // when the Persona tag was confirmed
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, address, chainType])
+  @@index([userId, isActive])
+  @@map("wallet_bindings")
+}
+
+// The governed-account registry — the authority switcher's server-side list.
+// A row is a POINTER the user placed (the old localStorage observed list, made
+// portable across devices): which council-governed accounts this user governs
+// or observes. The account's state (council, quorum, health) is always read
+// fresh from the ledger — Astryum stores nothing about the account itself, so
+// losing this table loses only pointers, never governance state.
+// `ecosystem` is 'xrpl' today; the column exists so an authority that governs
+// executor accounts on other chains (PMW vision, gated) fits without redesign.
+model GovernedAccount {
+  id        String    @id @default(cuid())
+  userId    String
+  ecosystem String    @default("xrpl")
+  address   String
+  label     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  removedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ecosystem, address])
+  @@index([userId])
+  @@map("governed_accounts")
+}
+
+// A council proposal — the persisted unit of governed-mode work. Quorum
+// governance is ASYNC by nature (compose → propose → collect signatures →
+// combine → broadcast; hours or days), so the collection state must outlive a
+// browser tab. Astryum persists the PINNED UNSIGNED tx and the members'
+// verified signed blobs — public transaction material destined for the ledger,
+// never keys. Combining and broadcasting stay in the members' browsers
+// (prepare-only invariant; the server's broadcast path stays hard-blocked).
+// One live proposal per account: the pinned Sequence goes stale the moment any
+// other tx from the account validates, so parallel proposals would lie.
+model CouncilProposal {
+  id              String   @id @default(cuid())
+  account         String   // the council-governed XRPL account (r…)
+  createdByUserId String?  // app-account of the proposer (for withdraw rights)
+  title           String?  // short human summary shown in the inbox
+  txType          String   // Payment | EscrowCreate | SignerListSet | DIDSet…
+  txjson          Json     // pinned unsigned multisig tx (Sequence/Fee/SigningPubKey)
+  quorum          Int
+  signerList      Json     // [{account, weight}] snapshot at proposal time
+  status          String   @default("collecting") // collecting | ready | submitted | expired | withdrawn
+  txHash          String?  // reported by the broadcasting browser after submit
+  positionsAnchor String?  // batch anchor of the formal positions (set at emission)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime // proposals always expire — a pinned Sequence goes stale anyway
+
+  signatures CouncilProposalSignature[]
+  positions  CouncilFormalPosition[]
+
+  @@index([account, status])
+  @@map("council_proposals")
+}
+
+// One member's verified signature over a proposal's exact pinned tx. Stored
+// only after XrplBlobVerifier passes (identity + fidelity + signature): a blob
+// signed by the wrong member, or over a drifted tx, never lands here.
+model CouncilProposalSignature {
+  id            String   @id @default(cuid())
+  proposalId    String
+  signerAccount String   // the member's r-address
+  weight        Int
+  blobHex       String   // the member's signed blob (public tx material)
+  signedAt      DateTime @default(now())
+
+  proposal CouncilProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, signerAccount])
+  @@map("council_proposal_signatures")
+}
+
+// A member's FORMAL POSITION on a proposal — the deliberative record (the
+// acta, NOT a chat): stance + optional brief comment, signed with the member's
+// wallet. Eternal by design, unlike deliberation (which is ephemeral and never
+// touches the ledger). The SET of positions is anchored on-chain in batch at
+// emission (positionsAnchor above) — each position's own signature makes
+// forgery impossible in the meantime; the batch anchor only defers the public
+// timestamp, not integrity.
+model CouncilFormalPosition {
+  id            String   @id @default(cuid())
+  proposalId    String
+  memberAccount String   // the member's r-address
+  stance        String   // for | against | abstain | request-changes
+  comment       String?  // brief, optional — part of the signed content
+  contentHash   String   // sha256 of the canonical position payload
+  signature     String   // hex signature by the member's wallet over contentHash
+  signingPubKey String   // the key that produced it (verification evidence)
+  createdAt     DateTime @default(now())
+
+  proposal CouncilProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, memberAccount])
+  @@map("council_formal_positions")
+}
+
+// V1.1 DeFi Position Detection — Detect positions on any chain
+model DeFiPosition {
+  id                String    @id @default(cuid())
+  watchlistId       String
+  chainId           Int
+  protocol          String    // 'kinetic' | 'sparkdex' | 'firelight' | 'aave' | etc.
+  contractAddress   String
+  contractType      String    // 'lending' | 'lp' | 'staking' | 'bridge'
+  asset             String
+  amount            Decimal
+  valueUSD          Decimal   @default(0)
+  confidenceScore   Int       @default(100)  // 0-100, 100 = exact, <30 = unknown
+  confidenceLevel   String    @default("verified") // verified | probable | detected | unknown
+  sourceProvider    String    @default("internal")
+  metrics           Json?     // HF, LTV, APY, IL, etc.
+  riskLevel         String?   // safe | medium | risky | critical
+  detectedAt        DateTime
+  lastUpdatedAt     DateTime  @updatedAt
+
+  // Relations
+  watchlist         WalletWatchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+
+  @@index([watchlistId, chainId, protocol])
+  @@index([chainId, confidenceScore])
+  @@map("defi_positions")
+}
+
+// V1.1 S2 — Known protocol contracts discovered from DefiLlama or internal registry
+model ProtocolContract {
+  id              String   @id @default(cuid())
+  providerId      String   // 'defillama' | 'internal'
+  protocolSlug    String   // e.g. 'aave-v3'
+  protocolName    String
+  chainId         Int
+  chainName       String
+  contractAddress String
+  category        String   // 'Lending' | 'DEX' | 'Yield' | 'Staking' | etc.
+  auditCount      Int      @default(0)
+  auditLinks      Json?    // Array of audit report URLs
+  sourceUrl       String?
+  trustLevel      String   @default("indexer_verified")
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@unique([chainId, contractAddress])
+  @@index([chainId])
+  @@index([protocolSlug])
+  @@index([contractAddress])
+  @@map("protocol_contracts")
+}
+
+// V1.1 S2 — Wallet interacted with known or suspected DeFi contract
+// Does NOT mean open position — only historical interaction detected
+model DeFiInteraction {
+  id               String   @id @default(cuid())
+  watchlistId      String
+  chainId          Int
+  protocol         String
+  contractAddress  String
+  txHash           String
+  interactionType  String   // 'supply' | 'borrow' | 'swap' | 'stake' | 'approve' | 'unknown'
+  confidenceScore  Int      @default(50) // 0-100
+  confidenceLevel  String   @default("detected") // verified | probable | detected
+  sourceProvider   String   // 'flarescan' | 'etherscan' | 'defillama'
+  firstSeenAt      DateTime
+  lastSeenAt       DateTime
+  createdAt        DateTime @default(now())
+
+  // Relations
+  watchlist        WalletWatchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, txHash, contractAddress])
+  @@index([watchlistId, chainId])
+  @@index([watchlistId, protocol])
+  @@index([chainId, protocol])
+  @@map("defi_interactions")
+}
+
+// V1.1 S4 — Unsigned transaction prepared by DeFiBro for user-controlled wallet to sign.
+// DeFiBro never signs. Source wallet must be user-controlled (NEVER a partner/MoonPay wallet).
+model WalletIntent {
+  id            String   @id @default(cuid())
+  userId        String
+  walletAddress String   // source wallet — must be registered by user
+  chainId       Int
+  to            String   // target contract address
+  calldata      String   @db.Text
+  value         String   @default("0")  // wei, serialized bigint
+  gasLimit      String   // estimated gas limit, serialized bigint
+  nonce         Int?
+  status        String   @default("draft")  // draft | ready | signed | confirmed | failed
+  sourceIntentId String? // optional link to PartnerIntent that triggered this
+  fee           String?  // estimated fee in native token, serialized Decimal
+  feeAsset      String?
+  note          String?  // human-readable description shown to user
+  txHash        String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([walletAddress, chainId])
+  @@map("wallet_intents")
+}
+
+// V1.1 S5 — User-defined trigger rules evaluated by IntentTriggerService.
+// Triggers NOTIFY only — never auto-open MoonPay, never auto-execute anything.
+model TriggerRule {
+  id                   String    @id @default(cuid())
+  userId               String
+  name                 String
+  description          String?
+  enabled              Boolean   @default(true)
+
+  // Condition discriminated by conditionType; params validated by Zod at service layer
+  // Values: 'PRICE_BELOW' | 'PRICE_ABOVE' | 'BALANCE_BELOW' | 'POSITION_VALUE_BELOW'
+  //       | 'DEFI_POSITION_DETECTED' | 'onchain_event' | 'wallet_activity' | 'schedule'
+  conditionType        String
+  conditionParams      Json      // { asset?, threshold?, chainId?, contractAddress?, eventSignature?, walletAddress?, ... }
+
+  notificationTemplate String?   // optional custom notification message template
+
+  // Suggested action when the rule fires (confirmed by user via /confirm endpoint)
+  // Values: 'notify_only' | 'swap' | 'transfer' | 'moonpay_buy'
+  suggestedActionType   String?
+  suggestedActionParams Json?    // action-specific params: { fromToken, toToken, amount?, ... }
+
+  // Last processed block for onchain_event rules (prevents re-processing old events)
+  lastProcessedBlock   BigInt?
+
+  cooldownMinutes      Int       @default(60)
+  lastFiredAt          DateTime?
+  timesTriggered       Int       @default(0)
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Relations
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
+  @@map("trigger_rules")
+}
+
+model ProtocolPool {
+  id               String   @id
+  contractAddress  String?
+  chain            String               // CAIP-2 e.g. "eip155:14"
+  chainId          Int
+  protocol         String
+  protocolName     String
+  symbol           String
+  tvlUsd           Float    @default(0)
+  apyBase          Float?
+  apyReward        Float?
+  apyTotal         Float    @default(0)
+  underlyingTokens Json     @default("[]")
+  rewardTokens     Json     @default("[]")
+  category         String?
+  isLiquidStaking  Boolean  @default(false)
+  ltv              Float?
+  ilRisk           String?
+  url              String?
+  isAudited        Boolean  @default(false)
+  isAllowlisted    Boolean  @default(false)
+  cooldownSeconds  Int?
+  feeType          String?
+  referralCode     Int?
+  // Borrow-side data from DefiLlama /yields/poolsBorrow
+  // Present only for pools where borrowing is supported (Aave, Compound, Morpho, etc.)
+  apyBaseBorrow    Float?
+  apyRewardBorrow  Float?
+  totalSupplyUsd   Float?
+  totalBorrowUsd   Float?
+  debtCeilingUsd   Float?
+  borrowable       Boolean  @default(false)
+
+  // ─── Block F (2026-06-01) — ContractRegistry fields ─────────────────────
+  // Distinguishes receipt token (what DefiLlama returns) from interaction
+  // contract (what CalldataBuilder uses). Resolved by ABIResolver via the
+  // contractResolvers per-kind pipeline.
+
+  /// On-chain contract the user actually calls. Distinct from receiptTokenAddress
+  /// when DefiLlama returns a token (e.g. aToken instead of Aave Pool).
+  interactionContractAddress  String?
+
+  /// Receipt / share / LP token address as returned by DefiLlama. May equal
+  /// interactionContractAddress when the receipt IS the interaction contract.
+  receiptTokenAddress         String?
+
+  /// Architectural family. Drives ABI selection + method dispatch in CalldataBuilder.
+  /// Values: 'aave_v3_pool' | 'aave_v2_pool' | 'comet_v3' | 'lido_steth' |
+  ///         'rocket_pool_deposit' | 'sceptre_vault' | 'erc4626_vault' |
+  ///         'uniswap_v3_nfpm' | 'curve_pool' | 'morpho_blue' | 'spark_pool' |
+  ///         'balancer_v2_vault' | 'unknown'
+  contractKind                String?
+
+  /// Morpho Blue market params (loanToken/collateralToken/oracle/irm/lltv + id).
+  /// Morpho's borrow/supply calldata needs the full MarketParams struct, which
+  /// is NOT derivable from the DefiLlama UUID. Resolved server-side and stored
+  /// here so the frontend never has to know it. Null until resolved (Tier B).
+  morphoMarketParams          Json?
+
+  /// Resolved ABI for interactionContractAddress (JSON array).
+  abi                         Json?
+  /// Provenance: 'defillama_decoder' | 'etherscan_v2' | 'sdk_official' |
+  ///             'manual_fallback' | 'protocolcontracts_legacy' | 'unresolved'
+  abiSource                   String?
+  abiResolvedAt               DateTime?
+  abiResolutionAttempts       Int      @default(0)
+  abiResolutionLastError      String?
+
+  // Capabilities detected from ABI introspection + DefiLlama data shape.
+  // CalldataBuilder dispatches on these booleans, not on protocol slug.
+  supportsSupply              Boolean  @default(false)
+  supportsWithdraw            Boolean  @default(false)
+  supportsBorrowCapability    Boolean  @default(false) // distinct from `borrowable` (the pool offering)
+  supportsRepay               Boolean  @default(false)
+  supportsStake               Boolean  @default(false)
+  supportsUnstake             Boolean  @default(false)
+  supportsAddLiquidity        Boolean  @default(false)
+  supportsRemoveLiquidity     Boolean  @default(false)
+  supportsVaultDeposit        Boolean  @default(false)
+  supportsVaultWithdraw       Boolean  @default(false)
+
+  /// EIP-1967 proxy detection — triggers re-verification when implementation changes.
+  isUpgradeable               Boolean  @default(false)
+
+  /// Active = CalldataBuilder will produce a real intent for this pool.
+  /// Inactive = pool stays visible (read-only) but execution is blocked.
+  isActive                    Boolean  @default(true)
+  inactiveReason              String?
+
+  /// Last on-chain probe to verify the contract still matches the stored ABI.
+  lastVerifiedAt              DateTime?
+
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([chainId, apyTotal])
+  @@index([isAllowlisted, chainId])
+  @@index([borrowable, chainId])
+  @@index([isActive, chainId])
+  @@index([contractKind])
+  @@index([interactionContractAddress, chainId])
+  @@map("protocol_pools")
+}
+
+model IntentAuthorizationSession {
+  id                 String                           @id @default(cuid())
+  userId             String
+  intentPayloadId    String
+  status             IntentAuthorizationSessionStatus @default(pending_user_review)
+  payloadHash        String
+  authorizationProof Json?
+  // authorizationProof = { signedPayloadHash, signedAt, walletAddress, signatureScheme }
+  // NO txHash — DeFiBro does not receive or process broadcast results
+  cancelReason       String?
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("intent_authorization_sessions")
+}
+
+// V2 P10.5 — Dynamically integrated protocol execution configs.
+// Powers CalldataBuilder for protocols not in the static protocolContracts.ts registry.
+// Admin integrates a protocol once via POST /api/admin/protocols/integrate; ABI is auto-fetched.
+model ProtocolContractRecord {
+  id            String   @id @default(cuid())
+  slug          String   // DefiLlama protocol slug e.g. 'curve-dex'
+  chainId       Int
+  address       String
+  abi           Json     // ABI array (fetched from DefiLlama or Etherscan)
+  actions       Json     // { supply: { fn, args, isPayable? }, unstake: {...}, ... }
+  feeType       String   @default("none")  // referral_code | referrer_address | revenue_share | none
+  referralValue String?  // numeric code or wallet address
+  cooldownDays  Int?     // LST unstake cooldown days
+  source        String   @default("manual")  // manual | defillama | etherscan
+  addedAt       DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([slug, chainId])
+  @@index([slug])
+  @@index([address])
+  @@map("protocol_contract_records")
+}
+
+// P6.3 — Address Book for wallet-to-wallet transfers
+model AddressBookEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String
+  address   String
+  chainId   Int?
+  ens       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, address, chainId])
+  @@index([userId])
+  @@map("address_book_entries")
+}
+
+// ─── P-AGENT-1: AI Agent System ──────────────────────────────────────────────
+
+model AgentConversation {
+  id        String         @id @default(cuid())
+  userId    String
+  title     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  messages  AgentMessage[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+  @@map("agent_conversations")
+}
+
+model AgentMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // 'user' | 'assistant'
+  content        String   @db.Text
+  mcpToolCalls   Json?    // tools used in this message + results
+  createdAt      DateTime @default(now())
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("agent_messages")
+}
+
+model AgentDocument {
+  id          String   @id @default(cuid())
+  userId      String
+  filename    String
+  contentType String   // 'pdf' | 'txt' | 'md' | 'json'
+  content     String   @db.Text // extracted text
+  sizeBytes   Int
+  source      String   @default("user_upload") // 'user_upload' | 'defibro_report' | 'defibro_audit'
+  uploadedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, uploadedAt])
+  @@map("agent_documents")
+}
+
+model AgentRule {
+  id              String    @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  triggerType     String    // 'schedule' | 'app_open' | 'price_threshold' | 'portfolio_change' | 'market_event' | 'manual'
+  triggerConfig   Json      // type-specific params
+  prompt          String    @db.Text // what the agent runs when triggered
+  outputChannel   String    @default("both") // 'chat' | 'notification' | 'both'
+  isActive        Boolean   @default(true)
+  mcpServersReq   String[]  @default([]) // which MCPs this rule needs
+  createdAt       DateTime  @default(now())
+  lastTriggeredAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("agent_rules")
+}
+
+model UserMCPConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  serverId    String   // catalog id: 'coinglass' | 'santiment' | etc.
+  serverName  String
+  serverUrl   String?  // custom URL for non-catalog servers
+  apiKeyEnc   String?  // AES-256-GCM encrypted API key if required
+  isActive    Boolean  @default(true)
+  connectedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serverId])
+  @@index([userId, isActive])
+  @@map("user_mcp_connections")
+}
+
+model UserAnthropicKey {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  keyEnc     String    // AES-256-GCM encrypted Anthropic API key
+  model      String    @default("claude-haiku-4-5") // user-chosen model
+  addedAt    DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_anthropic_keys")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P-GOALS-LAYER
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GoalRequest {
+  id                String    @id @default(cuid())
+  userId            String
+  // Original natural-language text from the user
+  rawText           String    @db.Text
+  // Parsed structured fields (AI output)
+  targetMonthlyUSD  Float
+  riskTolerance     String    // 'low' | 'medium' | 'high'
+  timeHorizon       String?   // e.g. '6_months' | '1_year' | '3_years' | 'indefinite'
+  // Snapshot of the user's capital at the moment the goal was created
+  capitalSnapshot   Json      // CapitalMap-shaped summary stored as JSON
+  // 'open' = visible to matching managers, 'targeted' = sent to specific managers only
+  mode              String    @default("open")    // 'open' | 'targeted'
+  targetManagerIds  String[]  @default([])        // used in 'targeted' mode
+  status            String    @default("active")  // 'active' | 'fulfilled' | 'closed'
+  // Feasibility output cached from FeasibilityAnalyzer
+  feasible          Boolean?
+  requiredAPY       Float?
+  realisticMonthlyUSD Float?
+  feasibilityNote   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  closedAt          DateTime?
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proposals ManagerProposalV1[]
+  fullProposals ManagerProposal[]
+
+  @@index([userId, status])
+  @@map("goal_requests")
+}
+
+// Minimal manager filter for P-GOALS-LAYER.
+// References userId directly (a user opts in as a manager by creating one of these).
+// P-DELEGATION will extend this with ManagerProfile.
+model ManagerFilter {
+  id                    String   @id @default(cuid())
+  userId                String   @unique // the manager
+  minCapitalUSD         Float    @default(0)
+  maxCapitalUSD         Float?
+  acceptedRiskLevels    String[] @default(["low","medium","high"])
+  preferredChains       Int[]    @default([])  // empty = all chains
+  maxActiveDelegations  Int      @default(10)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@map("manager_filters")
+}
+
+// Lightweight proposal model for P-GOALS-LAYER.
+// Full ManagerProposal model lives in P-DELEGATION.
+model ManagerProposalV1 {
+  id            String   @id @default(cuid())
+  goalRequestId String
+  managerId     String   // userId of the manager
+  strategy      String   @db.Text  // free-form strategy description
+  feeModel      String?  // e.g. '1% AUM' | '10% performance'
+  aiExplanation String?  @db.Text  // AI-generated explanation for the user
+  status        String   @default("pending")  // 'pending' | 'accepted' | 'rejected'
+  createdAt     DateTime @default(now())
+
+  goalRequest GoalRequest @relation(fields: [goalRequestId], references: [id], onDelete: Cascade)
+
+  @@index([goalRequestId, status])
+  @@index([managerId])
+  @@map("manager_proposals_v1")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P-DELEGATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ManagerProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  displayName       String
+  bio               String?   @db.Text
+  licenseType       String    @default("individual") // 'individual' | 'registered_advisor' | 'institutional'
+  kycAt             DateTime?
+  isActive          Boolean   @default(true)
+  // P-GROWTH: application workflow
+  status            String    @default("active") // 'pending_kyc' | 'pending_approval' | 'active' | 'rejected' | 'suspended'
+  applicationNote   String?   @db.Text
+  approvedAt        DateTime?
+  approvedBy        String?
+  isFoundingManager Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackRecords   TrackRecord[]
+  batchProposals BatchProposal[]
+  referral       ManagerReferral?
+
+  @@index([isActive])
+  @@index([status])
+  @@map("manager_profiles")
+}
+
+// P-GROWTH: referral link per manager
+model ManagerReferral {
+  id         String   @id @default(cuid())
+  managerId  String   @unique // FK to ManagerProfile.userId
+  code       String   @unique
+  clickCount Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  manager     ManagerProfile       @relation(fields: [managerId], references: [userId], onDelete: Cascade)
+  conversions ReferralConversion[]
+
+  @@map("manager_referrals")
+}
+
+// P-GROWTH: tracks conversion funnel for each referred user
+model ReferralConversion {
+  id             String    @id @default(cuid())
+  referralId     String
+  referredUserId String?   @unique // userId once registered
+  goalRequestId  String?
+  mandateId      String?
+  stage          String    // 'registered' | 'goal_created' | 'delegation_accepted' | 'first_yield'
+  payoutUSD      Float?
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  referral ManagerReferral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@index([referralId])
+  @@index([referredUserId])
+  @@map("referral_conversions")
+}
+
+model ManagerProposal {
+  id               String    @id @default(cuid())
+  goalRequestId    String
+  managerId        String    // userId of the manager
+  // Rich strategy description + rationale
+  strategy         String    @db.Text
+  // Array of IntentPayload-shaped objects (unsigned calldata the manager plans to use)
+  primaryIntents   Json
+  feeModel         String?   // e.g. '1% AUM' | '10% performance'
+  aiExplanation    String?   @db.Text
+  // Proposed DelegationMandate parameters
+  proposedMandate  Json      // { allowedProtocols, maxCapitalUSD, durationDays }
+  status           String    @default("pending") // 'pending' | 'accepted' | 'rejected' | 'withdrawn'
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  goalRequest      GoalRequest       @relation(fields: [goalRequestId], references: [id], onDelete: Cascade)
+  backupStrategy   BackupStrategy?
+  mandate          DelegationMandate?
+
+  @@index([goalRequestId, status])
+  @@index([managerId])
+  @@map("manager_proposals")
+}
+
+model BackupStrategy {
+  id                 String   @id @default(cuid())
+  proposalId         String   @unique
+  // Array of trigger configs: { type, threshold, asset?, chainId? }
+  triggers           Json
+  // Array of IntentPayload-shaped defensive actions (e.g. repay if HF < 1.3)
+  defensiveIntents   Json
+  // 'pre_auth' = user signs a conditional authorization upfront
+  // 'notify'   = DeFiBro sends push notification, user signs on demand
+  activationMode     String   @default("notify") // 'pre_auth' | 'notify'
+  preAuthExpiryDays  Int      @default(30)
+  createdAt          DateTime @default(now())
+
+  proposal               ManagerProposal          @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  conditionalAuthorizations ConditionalAuthorization[]
+
+  @@map("backup_strategies")
+}
+
+model ConditionalAuthorization {
+  id               String    @id @default(cuid())
+  userId           String
+  backupStrategyId String
+  signedAt         DateTime  @default(now())
+  expiresAt        DateTime
+  // 'active' | 'expired' | 'used' | 'revoked'
+  status           String    @default("active")
+  revokedAt        DateTime?
+  lastRenewedAt    DateTime?
+
+  backupStrategy   BackupStrategy @relation(fields: [backupStrategyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([backupStrategyId])
+  @@map("conditional_authorizations")
+}
+
+model DelegationMandate {
+  id               String    @id @default(cuid())
+  userId           String
+  managerId        String
+  proposalId       String    @unique
+  // Protocols the manager is allowed to act on behalf of the user
+  allowedProtocols String[]
+  // Hard cap in USD that the manager can move per action
+  maxCapitalUSD    Float
+  // 'active' | 'paused' | 'revoked'
+  status           String    @default("active")
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+
+  user             User              @relation("UserMandates", fields: [userId], references: [id], onDelete: Cascade)
+  manager          User              @relation("ManagerMandates", fields: [managerId], references: [id], onDelete: Cascade)
+  proposal         ManagerProposal   @relation(fields: [proposalId], references: [id])
+  auditEntries     DelegationAuditEntry[]
+
+  @@index([userId, status])
+  @@index([managerId, status])
+  @@map("delegation_mandates")
+}
+
+model TrackRecord {
+  id                   String   @id @default(cuid())
+  managerId            String
+  period               String   // e.g. '2026-05' (YYYY-MM)
+  apy                  Float    @default(0)
+  backupActivations    Int      @default(0)
+  capitalPreservedRate Float    @default(1) // 1.0 = 100% capital preserved
+  zeroLiquidations     Boolean  @default(true)
+  clientRetention      Float    @default(1) // fraction of clients retained
+  clientCount          Int      @default(0)
+  computedAt           DateTime @default(now())
+
+  manager              ManagerProfile @relation(fields: [managerId], references: [userId], onDelete: Cascade)
+
+  @@unique([managerId, period])
+  @@index([managerId])
+  @@map("track_records")
+}
+
+model DelegationAuditEntry {
+  id              String   @id @default(cuid())
+  mandateId       String
+  action          String   // 'intent_prepared' | 'intent_signed' | 'mandate_created' | 'mandate_revoked' | 'backup_triggered'
+  by              String   // userId (manager or user)
+  timestamp       DateTime @default(now())
+  intentId        String?
+  onChainVerified Boolean  @default(false)
+  metadata        Json?
+
+  mandate         DelegationMandate @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  @@index([mandateId])
+  @@index([by])
+  @@map("delegation_audit_entries")
+}
+
+model BatchProposal {
+  id            String   @id @default(cuid())
+  managerId     String
+  // The base strategy template used for all proposals in this batch
+  templateData  Json
+  // goalRequestIds that this batch was sent to
+  targetGoalIds String[]
+  sentCount     Int      @default(0)
+  acceptedCount Int      @default(0)
+  status        String   @default("draft") // 'draft' | 'sent' | 'completed'
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  manager       ManagerProfile @relation(fields: [managerId], references: [userId], onDelete: Cascade)
+
+  @@index([managerId])
+  @@map("batch_proposals")
+}
+
+model WaitlistSignup {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  // Which door the visitor came through: 'early-access' | 'demo'
+  source    String   @default("early-access")
+  lang      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("waitlist_signups")
+}

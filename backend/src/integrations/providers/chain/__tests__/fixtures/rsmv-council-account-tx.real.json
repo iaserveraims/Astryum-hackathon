@@ -1,0 +1,595 @@
+{
+  "_meta": {
+    "source": "XRPL mainnet account_tx",
+    "account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+    "note": "REAL history of the test council rehearsal — 31 tx, 25 tesSUCCESS, 6 validated-but-tec (1 AccountSet tecNEED_MASTER_KEY, 4 TicketCreate + 1 SignerListSet tecINSUFFICIENT_RESERVE). The escrow legs all succeeded: the catastrophic misread (a tec EscrowCreate counted as a real rehearsal) did NOT occur here — it missed by luck of tx type. Fields trimmed to exactly what XRPLProvider reads.",
+    "total": 31,
+    "tesSUCCESS": 25,
+    "nonTesSUCCESS": 6
+  },
+  "transactions": [
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+      },
+      "hash": "54C10279F9748C945BBDFC35C146A6CBFD210A3F015099A60F93E0E49293AE9C"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNzocJ9L3AV9XFnEGJejBFqR6Vw56F7rY"
+      },
+      "hash": "23B5904B9B0A70C7A9DE56C7CC6B47288EAE52AAE442EDFE5DD71515220C326E"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tecINSUFFICIENT_RESERVE"
+      },
+      "tx": {
+        "TransactionType": "SignerListSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "5AE01E3C53F674EA1FA048F423567BC50E6563F4C4FCFD7A46BCF2B178C4AD40"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+      },
+      "hash": "B237FE7CEB3945CADCE4C3CA1BD20D7BCCEFFB80EC157B789DC472D96B4C7337"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNzocJ9L3AV9XFnEGJejBFqR6Vw56F7rY"
+      },
+      "hash": "01C58EB49950BA796F8C7B48FB1283C17D3EFD1AF9299197452FA395BCE38CB6"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "SignerListSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "2863618BAE227248701E07F1F5A3254AB230B5E1E17AAF0754911DD76AEBE4E5"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tecINSUFFICIENT_RESERVE"
+      },
+      "tx": {
+        "TransactionType": "TicketCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rPbwqPUBRkDtThuGMitT3LCJs7PVfvnTwV"
+            }
+          }
+        ]
+      },
+      "hash": "C7FD6BCE60C7123DDD7EDC305798C14DB7AB4ACEA4B89315379BEA3F3A687703"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+      },
+      "hash": "913741F63385AFF3D430CD117BF7955249899F90891D4861A76841DA75CF1A35"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNzocJ9L3AV9XFnEGJejBFqR6Vw56F7rY"
+      },
+      "hash": "C96963D24DCAAF0756A7D28852F97A7739661E34DE29704C069D94969D48608E"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tecINSUFFICIENT_RESERVE"
+      },
+      "tx": {
+        "TransactionType": "TicketCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rPbwqPUBRkDtThuGMitT3LCJs7PVfvnTwV"
+            }
+          }
+        ]
+      },
+      "hash": "17704DC3260B2E2AF37CBDFDCF8ABE742219D7F4E61A18D9AF6AE0A7B7B76AAE"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tecINSUFFICIENT_RESERVE"
+      },
+      "tx": {
+        "TransactionType": "TicketCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rPbwqPUBRkDtThuGMitT3LCJs7PVfvnTwV"
+            }
+          }
+        ]
+      },
+      "hash": "D990FA62F354B32D8456F90AFBD497DF95F28C99ECF1F4144133D491C81B75EC"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "TicketCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rPbwqPUBRkDtThuGMitT3LCJs7PVfvnTwV"
+            }
+          }
+        ]
+      },
+      "hash": "51298E9B5EB64B351DD72CBB10C623691B46FACFA5415700AC23651385767DEF"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "FA596D63834041710E127DFF009B62EABAB1C3B471960A2C59F14B5906EC550F"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rf7QoGcRk2aFMSQNY3zt6FsADavoVucLni"
+      },
+      "hash": "CE5FCE8883172A9764130CB9EDB658832760C46ABBBA80EDE39E64CF425F72AD"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "70F448E90B5B69ACE8490A796DF6E9F8784C8B7A033CC609916C3A66C54A89B7"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rf7QoGcRk2aFMSQNY3zt6FsADavoVucLni"
+      },
+      "hash": "70D9B0BBCDDD3168685D4D102901460EF637CD6B6E0B9A9660EBD553D219EF68"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+      },
+      "hash": "D46CF975FCAA0D9A628B5D12DD2F65CD382DECB2C8F9ABF600589E9B52ED35B5"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "Payment",
+        "Account": "rNzocJ9L3AV9XFnEGJejBFqR6Vw56F7rY"
+      },
+      "hash": "56364032167EB2AF5AC52A75B8BD878C032FEB7B17326666216CEFB69B956313"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "EscrowCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rPbwqPUBRkDtThuGMitT3LCJs7PVfvnTwV"
+            }
+          }
+        ]
+      },
+      "hash": "7184BA4B0697C9AC87FB4433FD6CD05CBD278E3E25E0D37C00F0A17D88438612"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "SignerListSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rPbwqPUBRkDtThuGMitT3LCJs7PVfvnTwV"
+            }
+          }
+        ]
+      },
+      "hash": "29A8444853830EE40CBD3BC812D134F89FB8F82C3765406F33CACD3C76C00471"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "AccountSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "3DCAAB6629DB7ED5DA39AF74CDC5463C5DAF0720255DDEFB831179808D26E79C"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "AccountSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "7BB6B5720631AC271F5970009D0B4405C890CD888BBDC34D46B639ED14589A26"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "AccountSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "A28FEFEC824FACABFFD0014323008921242C993C00729DD031F7D9A98438B0BB"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "AccountSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "08C31A116B999F2A5DBC237B41F52ABE9C84E9A7566BACF1209B5338361E11C7"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "EscrowCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "0574A35160A317E43EFAFD47AD861CFC729DFD79CE651702FB1BE789BB8EDEE3"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tecINSUFFICIENT_RESERVE"
+      },
+      "tx": {
+        "TransactionType": "TicketCreate",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "D3CD9DBC1EC34077A919C41DF543F54E07C2F2ACE764FCF8B4A5F38E9CD197DE"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "EscrowFinish",
+        "Account": "rPw6JAdM9BGwH4y4LxJQBDybaGNhFLCspU",
+        "Owner": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "E29F7A581A9C1937A6DEE403699CBE7326538957AA2FEC29DC3219F03E90D6B7"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tecNEED_MASTER_KEY"
+      },
+      "tx": {
+        "TransactionType": "AccountSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ]
+      },
+      "hash": "7EA92E5D831B022241877D5DC47D83C24FB0721CB2FD611FF5FCE30693BFBAF1"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "AccountSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "840B08456A3A5F0011AA1F4242CC111819608FDFB3A7BD8B11A501FFBCC0D838"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "EscrowFinish",
+        "Account": "rPw6JAdM9BGwH4y4LxJQBDybaGNhFLCspU",
+        "Owner": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf"
+      },
+      "hash": "29BD8BD0544139E0FE4614A7AE212EBE17AB0209ABCE1EF6D6148B15840E349E"
+    },
+    {
+      "validated": true,
+      "meta": {
+        "TransactionResult": "tesSUCCESS"
+      },
+      "tx": {
+        "TransactionType": "DIDSet",
+        "Account": "rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf",
+        "Signers": [
+          {
+            "Signer": {
+              "Account": "rBGVzjE5JcbZs2toRRLLrE6z62HmmGNSxa"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rNaFfVgbqWYotrR3Jz4RorirDUZgLfxhXt"
+            }
+          },
+          {
+            "Signer": {
+              "Account": "rGb1VJkxmMzZLbWRFfu9Xh5GVjZGYR4d3x"
+            }
+          }
+        ],
+        "Data": "7884821F6B8C52495BA5FA8A0970550B1964A33C6E7B7564428BC860E40EFC36",
+        "URI": "433A5C55736572735C475C4465736B746F705C4C65676163792047756972616C5C5375706572766976656E636961204361727065746120225375706572766976656E6369612220656E20656C2050432064652047202B20636F70696120696D707265736120656E206C612063616A61206675657274652064652063617361"
+      },
+      "hash": "2F859EFE38B264534E175FB5E8F5925D8946B0D8BFC40DD38448A851FF7AF86C"
+    }
+  ]
+}

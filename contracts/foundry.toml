@@ -1,0 +1,24 @@
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+script = "script"
+libs = ["../lib"]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+# The vault targets Flare mainnet (EVM version pinned conservatively — Flare
+# supports london/paris-era opcodes; avoid PUSH0-era assumptions).
+evm_version = "london"
+
+[fuzz]
+runs = 512
+
+[invariant]
+runs = 64
+depth = 32
+fail_on_revert = false
+
+[rpc_endpoints]
+flare = "https://flare-api.flare.network/ext/C/rpc"
+coston2 = "https://coston2-api.flare.network/ext/C/rpc"

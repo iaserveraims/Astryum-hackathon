@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "skills": {
+    "flare-fassets": {
+      "source": "flare-foundation/flare-ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/flare-fassets-skill/SKILL.md",
+      "computedHash": "edef2237415d6a99c4739fbcbdb01eda4ad226f237ef859f669754de41cff950"
+    },
+    "flare-fcc": {
+      "source": "flare-foundation/flare-ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/flare-fcc-skill/SKILL.md",
+      "computedHash": "2d4cbaea52452780722d2705d2bbea0544ef3e922ec4a1074214b48ee6df5a2c"
+    },
+    "flare-fdc": {
+      "source": "flare-foundation/flare-ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/flare-fdc-skill/SKILL.md",
+      "computedHash": "37e525d8e7436fbf1f207576088ed6000d2345dac4fa1a1d6e5ae9adb3347319"
+    },
+    "flare-ftso": {
+      "source": "flare-foundation/flare-ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/flare-ftso-skill/SKILL.md",
+      "computedHash": "b13a7bc39bc3da5517ea370624f854db596f521245a3f579fb4500e9682dc955"
+    },
+    "flare-general": {
+      "source": "flare-foundation/flare-ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/flare-general-skill/SKILL.md",
+      "computedHash": "49b87c53cd07eb19c7f4d3a0f2801c5b955007684351d123fcc1beb3980ea3e3"
+    },
+    "flare-smart-accounts": {
+      "source": "flare-foundation/flare-ai-skills",
+      "sourceType": "github",
+      "skillPath": "skills/flare-smart-accounts-skill/SKILL.md",
+      "computedHash": "585501973a4316a11ba3747de60d372277bcc72a91bd7b8a65a0c7e4af0e6055"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "d377ea31749c12718572cfc56a5add722261e22e2237c2d6001323e616af8482"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "cb675a889c60172febe84740e7c22b600c8241c390deaff3d368c408f10dffdf"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "d606a1146be6d54fb9e73f718b5320b9acac5ff2ba2d7230a555df4b5a923b4a"
+    }
+  }
+}

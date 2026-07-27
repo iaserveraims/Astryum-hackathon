@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 164 114" fill="none">
+  <defs></defs>
+  <path d="M24 20 C 58 20, 63 30, 70 45 C 77 60, 82 70, 116 70" stroke="#fff" stroke-width="14" stroke-linecap="butt" fill="none"/>
+  <path d="M116 20 C 82 20, 77 30, 70 45 C 63 60, 58 70, 24 70" stroke="#fff" stroke-width="14" stroke-linecap="butt" fill="none"/>
+  <path d="M70 34 L81 45 L70 56 L59 45 Z" fill="#CCFF00" stroke="#0a0a0b" stroke-width="2" stroke-linejoin="miter" />
+</svg>

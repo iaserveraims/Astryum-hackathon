@@ -1,0 +1,16 @@
+# E2E tests — manual-only placeholder.
+#
+# This file used to be EMPTY, which GitHub reports as a workflow failure on every
+# push (a red ✗ on the repo with zero log). Until the Playwright suite is wired
+# into CI (needs a running backend + seeded env — an infra decision), keep it a
+# valid, manually-triggered no-op so the checks list stays green.
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "E2E suite not wired into CI yet — run 'npm run test:e2e' locally (frontend/)."
