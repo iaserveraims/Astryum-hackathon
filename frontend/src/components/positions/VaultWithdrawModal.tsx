@@ -16,7 +16,7 @@
  * Astryum never signs, never broadcasts.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, AlertTriangle, ArrowDownToLine } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
@@ -28,6 +28,16 @@ import { getUserRegion } from '../../lib/region';
 import { startPending } from '../../lib/settlement/settlement';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
+import { releaseHandoffSeat } from '../../lib/wallet/handoffRelease';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { DispatchXrpField } from './DispatchXrpField';
+import { DestinationField } from './DestinationField';
+import { AmountSliderUsd } from './AmountSliderUsd';
+import { useXrpUsdPrice } from '../../hooks/useXrpUsdPrice';
+import { translateError } from '../../lib/errors/translateError';
+import { fmtQtyActive } from '../../lib/format';
+import { PreflightNotice } from '../preflight/PreflightNotice';
+import { preflightSaysFail, type PreflightInfo } from '../../lib/preflight';
 
 const API_BASE = getApiBase();
 const SHARE_DECIMALS = 6; // LP/stXRP shares mirror FXRP's 6 decimals
@@ -57,7 +67,7 @@ function authHeaders(): Record<string, string> {
 }
 
 function fmt(n: number, digits = 6): string {
-  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+  return fmtQtyActive(n, digits); // app-locale aware (Fase 3)
 }
 
 interface PreparedEvm {
@@ -65,6 +75,7 @@ interface PreparedEvm {
   chainId: number;
   account: string;
   calls: Array<{ to: string; data: string; value: string; chainId: number; label: string }>;
+  preflight?: PreflightInfo;
   disclosure: Record<string, unknown> & { note?: string };
 }
 
@@ -72,6 +83,9 @@ interface PreparedXrpl {
   rail: 'xrpl';
   personalAccount: string;
   xrplPayment: unknown;
+  /** 0xFE memo — identifica el asiento de nonce para liberarlo si se cancela. */
+  memoHex?: string;
+  preflight?: PreflightInfo;
   disclosure: Record<string, unknown> & { note?: string };
 }
 
@@ -123,6 +137,23 @@ export function VaultWithdrawModal({
   const [error, setError] = useState('');
   const [prepared, setPrepared] = useState<PreparedEvm | PreparedXrpl | null>(null);
 
+  // Abandonar una orden 0xFE preparada y NO firmada libera su asiento de nonce
+  // (el usuario no queda tapiado por NONCE_SEAT_TAKEN). Cleanup de desmontaje
+  // vía ref (captura X, Escape y cierre del padre); nunca tras firmar.
+  const seatRef = useRef<{ memoHex?: string; abandonable: boolean }>({ abandonable: false });
+  seatRef.current = {
+    memoHex: prepared?.rail === 'xrpl' ? prepared.memoHex : undefined,
+    abandonable: prepared?.rail === 'xrpl' && phase === 'review',
+  };
+  useEffect(() => {
+    return () => {
+      if (seatRef.current.abandonable) releaseHandoffSeat(seatRef.current.memoHex);
+    };
+  }, []);
+  const releaseSeatIfUnsigned = () => {
+    if (prepared?.rail === 'xrpl' && phase === 'review') releaseHandoffSeat(prepared.memoHex);
+  };
+
   const [amount, setAmount] = useState('');
   // MAX sends the EXACT scanned base units — no float round-trip dust.
   const [maxBase, setMaxBase] = useState<string | null>(null);
@@ -138,6 +169,13 @@ export function VaultWithdrawModal({
     const sp = Number(selected.sharePriceE6 ?? 0);
     return sp > 0 ? (balanceShares * sp) / 10 ** SHARE_DECIMALS : null;
   }, [balanceShares, selected.sharePriceE6]);
+
+  // Live XRP/USD (FTSO) → dollar value of shares (via the FXRP share price).
+  const xrpUsd = useXrpUsdPrice();
+  const shareUsd = useMemo(() => {
+    const sp = Number(selected.sharePriceE6 ?? 0);
+    return sp > 0 && xrpUsd != null ? (sp / 10 ** SHARE_DECIMALS) * xrpUsd : null;
+  }, [selected.sharePriceE6, xrpUsd]);
 
   // Whose shares are these? The connected EVM wallet signs directly; anything
   // else is the Personal Account → 0xFE userOp signed in Xaman.
@@ -205,7 +243,12 @@ export function VaultWithdrawModal({
         }
         body.xrplAddress = signerXrpl;
         body.amountXrpForMint = parseFloat(xrpForMint) || 0;
-        if (evmDest && /^0x[a-fA-F0-9]{40}$/.test(evmDest)) body.evmDest = evmDest;
+        // Destino = la propia Smart Account → sin evmDest: el backend deja el
+        // FXRP como saldo libre del PA (su comportamiento nativo).
+        const dest = evmDest.trim();
+        if (dest && /^0x[a-fA-F0-9]{40}$/.test(dest) && dest.toLowerCase() !== selected.owner.toLowerCase()) {
+          body.evmDest = dest;
+        }
       }
       const res = await fetch(`${API_BASE}/flare-demo/vault-withdraw/prepare`, {
         method: 'POST',
@@ -241,7 +284,7 @@ export function VaultWithdrawModal({
       setPrepared(resBody as PreparedEvm | PreparedXrpl);
       setPhase('review');
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      setError(translateError(e, t).message);
       setPhase('form');
     }
   }
@@ -263,11 +306,11 @@ export function VaultWithdrawModal({
         );
         settlement.track(handle, { onSettled: onChanged });
       }
+      // Signed ≠ done: the parent refresh now waits for onSettled (a premature
+      // onChanged() dropped the "in flight" row while the op was still live).
       setPhase('done');
-      onChanged();
     } catch (e) {
-      const err = e as { shortMessage?: string; message?: string };
-      setError(err.shortMessage ?? err.message ?? String(e));
+      setError(translateError(e, t).message);
       setPhase('review'); // prepared payload still valid — retry the signature
     }
   }
@@ -275,9 +318,9 @@ export function VaultWithdrawModal({
   const disclosure = prepared?.disclosure;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-2xl my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl grid place-items-center border text-sky-300 border-sky-400/30 bg-sky-400/10">
               <ArrowDownToLine className="w-5 h-5" />
@@ -297,7 +340,7 @@ export function VaultWithdrawModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {error && (
             <div className="bg-red-500/5 border border-red-500/25 rounded-xl p-3 text-xs text-red-300 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -343,6 +386,9 @@ export function VaultWithdrawModal({
                   {fmt(balanceShares)} {selected.vaultLabel}
                   {balanceFxrp != null && (
                     <span className="text-ink/45"> ≈ {fmt(balanceFxrp, 4)} FXRP</span>
+                  )}
+                  {balanceFxrp != null && xrpUsd != null && balanceFxrp > 0 && (
+                    <span className="text-ink/40 text-xs"> ≈ ${fmt(balanceFxrp * xrpUsd, 2)}</span>
                   )}
                 </div>
               </div>
@@ -403,38 +449,43 @@ export function VaultWithdrawModal({
                   }}
                   className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm placeholder-ink/30 focus:outline-none focus:border-volt/50"
                 />
+                <AmountSliderUsd
+                  max={balanceShares}
+                  amount={amount}
+                  usdPrice={shareUsd}
+                  onAmount={(v, atMax) => {
+                    setAmount(v);
+                    // At the top of the drag, send the EXACT scanned base units
+                    // (the MAX semantics) — no float round-trip dust.
+                    setMaxBase(atMax ? selected.sharesBase : null);
+                  }}
+                />
               </div>
 
               {!ownerIsEvmWallet && (
                 <>
                   <div>
-                    <label className="text-xs text-ink/40 block mb-2">
-                      {t('Destination EVM wallet (optional — empty keeps the FXRP in your Smart Account)')}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="0x…"
+                    {/* Adónde va el FXRP: mis wallets / agenda / escribir. La
+                        wallet de ORIGEN (esta Smart Account) va primera con su
+                        punto — elegirla = dejar el FXRP donde ya vive (el
+                        prepare simplemente omite evmDest). */}
+                    <DestinationField
+                      kind="evm"
+                      label={t('Where the capital goes')}
                       value={evmDest}
-                      onChange={(e) => setEvmDest(e.target.value)}
-                      className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm font-mono placeholder-ink/30 focus:outline-none focus:border-volt/50"
+                      onChange={setEvmDest}
+                      myWallets={myWallets}
+                      source={{ address: selected.owner, label: aliasOf(selected.owner) }}
+                      sourceHint={t('The funds leave from here — pick it to keep the capital in this same wallet.')}
+                      t={t}
                     />
+                    {evmDest.trim().toLowerCase() === selected.owner.toLowerCase() && (
+                      <p className="text-[10px] text-ink/35 mt-1.5">
+                        {t('Leaves the vault and stays as free balance in this Smart Account.')}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <label className="text-xs text-ink/40 block mb-2">
-                      {t('Dispatch XRP (comes back to you as FXRP)')}
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={xrpForMint}
-                      onChange={(e) => setXrpForMint(e.target.value)}
-                      className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
-                    />
-                    <p className="text-[10px] text-ink/35 mt-1.5">
-                      {t("NOT a fee and NOT the withdraw amount: the order must ride an XRPL Payment to the FAssets Core Vault (Xaman will show it, e.g. 1 XRP). It comes back to your Smart Account as FXRP minus the protocol's fees — minting max(0.1%, 0.1 XRP) + 0.2 XRP for the executor — with the exact figures shown before you sign. Nothing goes to Astryum or the vault manager.")}
-                    </p>
-                  </div>
+                  <DispatchXrpField value={xrpForMint} onChange={setXrpForMint} t={t} />
                 </>
               )}
 
@@ -442,7 +493,7 @@ export function VaultWithdrawModal({
                 onClick={prepare}
                 className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20"
               >
-                {t('Prepare (unsigned)')}
+                {t('Review before signing')}
               </button>
             </>
           )}
@@ -466,7 +517,8 @@ export function VaultWithdrawModal({
                 {disclosure?.instantRedemptionFeeBps != null && (
                   <Row
                     label={t('Instant redemption fee')}
-                    value={`${Number(disclosure.instantRedemptionFeeBps)} bps${
+                    // bps is desk jargon — the person reads a percentage (R1.5).
+                    value={`${(Number(disclosure.instantRedemptionFeeBps) / 100).toFixed(2)}%${
                       disclosure.instantFeeFxrp != null ? ` (${fmt(Number(disclosure.instantFeeFxrp), 4)} FXRP)` : ''
                     }`}
                   />
@@ -481,10 +533,10 @@ export function VaultWithdrawModal({
                   <Row label={t('Dispatch XRP (comes back to you as FXRP)')} value={fmt(Number(disclosure.mintCoupledXrp))} />
                 )}
                 {prepared.rail === 'xrpl' && disclosure?.mintingFeeXrp != null && (
-                  <Row label={t('Minting fee')} value={`${fmt(Number(disclosure.mintingFeeXrp), 6)} XRP`} />
+                  <Row label={t('Minting fee')} value={`${fmt(Number(disclosure.mintingFeeXrp), 2)} XRP`} />
                 )}
                 {prepared.rail === 'xrpl' && disclosure?.executorFeeXrp != null && (
-                  <Row label={t('Executor fee')} value={`${fmt(Number(disclosure.executorFeeXrp), 6)} XRP`} />
+                  <Row label={t('Executor fee')} value={`${fmt(Number(disclosure.executorFeeXrp), 2)} XRP`} />
                 )}
                 {prepared.rail === 'xrpl' && disclosure?.fxrpMintedSideEffect != null && (
                   <Row
@@ -499,21 +551,34 @@ export function VaultWithdrawModal({
               {typeof disclosure?.note === 'string' && (
                 <p className="text-[11px] text-ink/45 leading-relaxed">{disclosure.note}</p>
               )}
-              <button
-                onClick={sign}
-                className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20"
-              >
-                {prepared.rail === 'xrpl' ? t('Sign in Xaman') : t('Sign in wallet')}
-              </button>
-              <button
-                onClick={() => {
-                  setPrepared(null);
-                  setPhase('form');
-                }}
-                className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
-              >
-                {t('Back')}
-              </button>
+              {/* Invariant #11 — the dry-run verdict, before the wallet opens. */}
+              <PreflightNotice preflight={prepared.preflight} />
+              {prepared.rail === 'xrpl' && preflightSaysFail(prepared.preflight) && owningXrpl && (
+                <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-200 leading-relaxed">
+                  {t('The account that signs is your XRPL wallet')}{' '}
+                  <span className="font-mono">{owningXrpl.slice(0, 8)}…{owningXrpl.slice(-4)}</span> —{' '}
+                  {t('send it ~2 XRP (from an exchange or another wallet) and come back. Your money on Flare is untouched.')}
+                </div>
+              )}
+              {/* Sign stays reachable while the disclosure scrolls. */}
+              <div className="sticky bottom-0 -mx-6 bg-surface-1 px-6 pt-3 space-y-4">
+                <button
+                  onClick={sign}
+                  className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20"
+                >
+                  {prepared.rail === 'xrpl' ? t('Sign in Xaman') : t('Sign in wallet')}
+                </button>
+                <button
+                  onClick={() => {
+                    releaseSeatIfUnsigned();
+                    setPrepared(null);
+                    setPhase('form');
+                  }}
+                  className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
+                >
+                  {t('Back')}
+                </button>
+              </div>
             </>
           )}
 
@@ -530,14 +595,21 @@ export function VaultWithdrawModal({
             <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
               <SettlementIndicator
                 state={settlement.state}
-                settledText={t('Withdrawal settled on Flare.')}
+                // R8.1: Firelight does NOT pay on this transaction — the exit
+                // enters a ~24h queue. Saying "settled" here contradicted the
+                // modal's own warning three screens earlier.
+                settledText={
+                  selected.vault === 'firelight'
+                    ? t('Request registered. Your money enters the ~24h exit queue — a Claim button will appear when it is ready.')
+                    : t('Withdrawal settled on Flare.')
+                }
                 pendingText={t('Withdrawal signed — settling on Flare…')}
               />
               <button
                 onClick={onClose}
                 className="mt-1 w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
               >
-                {t('Done')}
+                {settlement.state.status === 'settled' ? t('Done') : t('Keep waiting in the background')}
               </button>
             </div>
           )}
@@ -547,6 +619,6 @@ export function VaultWithdrawModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

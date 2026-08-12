@@ -26,10 +26,11 @@ import { xrplLegacy, type MultisigPrepare } from '../../services/v1Api';
 import { verifySignerBlob, BlobVerificationError } from '../../lib/xrpl/verifySignerBlob';
 import {
   XRPSCAN_TX,
-  broadcast,
+  type ConfirmedSubmit,
   createMemberPayload,
   pollStatus,
   shortAddr,
+  submitAndConfirm,
 } from '../../lib/xrpl/councilSigning';
 
 type Phase = 'idle' | 'preparing' | 'signing' | 'submitting' | 'done' | 'error';
@@ -40,6 +41,8 @@ interface MemberSign {
   uuid?: string;
   qrPng?: string;
   deeplink?: string;
+  /** Xaman rang this member's phone (it had their push token). */
+  pushed?: boolean;
   status: 'creating' | 'waiting' | 'signed' | 'rejected' | 'error';
   blob?: string;
   error?: string;
@@ -59,7 +62,7 @@ export default function CouncilMultisigFlow({
   const [prep, setPrep] = useState<MultisigPrepare | null>(null);
   const [members, setMembers] = useState<MemberSign[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ engine: string; hash?: string; message?: string } | null>(null);
+  const [result, setResult] = useState<ConfirmedSubmit | null>(null);
   const membersRef = useRef<MemberSign[]>([]);
   membersRef.current = members;
   const prepRef = useRef<MultisigPrepare | null>(null);
@@ -85,7 +88,7 @@ export default function CouncilMultisigFlow({
             const pl = await createMemberPayload(p.multisigTx, s.account);
             setMembers((prev) => {
               const next = [...prev];
-              next[i] = { ...next[i], uuid: pl.uuid, qrPng: pl.qrPng, deeplink: pl.deeplink, status: 'waiting' };
+              next[i] = { ...next[i], uuid: pl.uuid, qrPng: pl.qrPng, deeplink: pl.deeplink, pushed: pl.pushed, status: 'waiting' };
               return next;
             });
           } catch (e) {
@@ -141,7 +144,7 @@ export default function CouncilMultisigFlow({
     setMembers((prev) =>
       prev.map((x) =>
         x.account === memberAccount
-          ? { ...x, status: 'creating', uuid: undefined, qrPng: undefined, deeplink: undefined, blob: undefined, error: undefined }
+          ? { ...x, status: 'creating', uuid: undefined, qrPng: undefined, deeplink: undefined, pushed: undefined, blob: undefined, error: undefined }
           : x,
       ),
     );
@@ -149,7 +152,9 @@ export default function CouncilMultisigFlow({
       const pl = await createMemberPayload(tx, memberAccount);
       setMembers((prev) =>
         prev.map((x) =>
-          x.account === memberAccount ? { ...x, uuid: pl.uuid, qrPng: pl.qrPng, deeplink: pl.deeplink, status: 'waiting' } : x,
+          x.account === memberAccount
+            ? { ...x, uuid: pl.uuid, qrPng: pl.qrPng, deeplink: pl.deeplink, pushed: pl.pushed, status: 'waiting' }
+            : x,
         ),
       );
     } catch (e) {
@@ -165,21 +170,36 @@ export default function CouncilMultisigFlow({
     try {
       const blobs = membersRef.current.filter((m) => m.status === 'signed' && m.blob).map((m) => m.blob!);
       const combined = multisign(blobs);
-      const res = await broadcast(combined);
+      // Submit AND wait for the validated ledger: the preliminary tesSUCCESS
+      // can still land as tec* (the family's proven case was exactly this
+      // ceremony, 6 validated-but-failed txns). onSettled only fires on the
+      // ledger's verdict, never on the submit's.
+      const res = await submitAndConfirm(combined);
       setResult(res);
       setPhase('done');
-      if (res.engine === 'tesSUCCESS' && res.hash) onSettled?.(res.hash);
+      if (res.validated && res.finalResult === 'tesSUCCESS' && res.hash) onSettled?.(res.hash);
     } catch (e) {
       setError((e as Error).message);
       setPhase('error');
     }
   }, [onSettled]);
 
+  // The SYNCHRONOUS tempo, named as such. It sits next to ProposeToCouncil (the
+  // async one) at every call site, so each has to say what it costs the family:
+  // everyone now, or everyone eventually. Without the second line the two
+  // buttons read as the same act twice (2026-08-04).
   if (phase === 'idle') {
     return (
-      <PrimaryButton onClick={() => void start()}>
-        <Users size={14} /> {t('Gather the council’s signatures')}
-      </PrimaryButton>
+      <div className="space-y-1">
+        <PrimaryButton onClick={() => void start()}>
+          <Users size={14} /> {t('Sign now, all together')}
+        </PrimaryButton>
+        <p className="text-[11px] text-ink/40">
+          {t(
+            'Everyone signs in this sitting: one QR per member on this screen, and a notification to the Xaman of anyone who has signed here before. Nothing is stored — if this screen closes, the signatures are lost.',
+          )}
+        </p>
+      </div>
     );
   }
 
@@ -235,6 +255,15 @@ export default function CouncilMultisigFlow({
                 {m.qrPng && <img src={m.qrPng} alt={t('Xaman QR')} className="h-24 w-24 rounded bg-white p-1" />}
                 <div className="flex flex-col gap-1">
                   <Pill tone="warning">{t('waiting for signature')}</Pill>
+                  {/* Say WHICH way the request travelled — the same honesty the
+                      inbox already had. A member whose phone rang can sign from
+                      wherever they are; one who was not pushed needs the QR in
+                      front of them, and the ceremony has to know the difference. */}
+                  <span className="text-[11px] text-ink/45">
+                    {m.pushed
+                      ? t('Sent to their Xaman as a notification — the QR still works.')
+                      : t('No notification yet for this member: they sign the QR once, and from then on Xaman can notify them.')}
+                  </span>
                   {m.deeplink && (
                     <a href={m.deeplink} target="_blank" rel="noreferrer" className="text-[12px] text-ink/55 hover:text-ink/80">
                       <ExternalLink size={12} className="mr-1 inline" /> {t('open in Xaman')}
@@ -273,8 +302,16 @@ export default function CouncilMultisigFlow({
 
       {result && (
         <div className="space-y-1">
-          {result.engine === 'tesSUCCESS' ? (
-            <InlineNotice tone="success">{t('Broadcast — the ledger accepted it.')}</InlineNotice>
+          {result.validated && result.finalResult === 'tesSUCCESS' ? (
+            <InlineNotice tone="success">{t('Validated — the ledger applied it.')}</InlineNotice>
+          ) : result.validated ? (
+            <InlineNotice tone="warning">
+              {t('The ledger validated it but it FAILED:')} {result.finalResult}
+            </InlineNotice>
+          ) : result.engine === 'tesSUCCESS' ? (
+            <InlineNotice tone="warning">
+              {t('Broadcast accepted — still waiting for ledger validation. Check XRPScan in a moment; do not assume it applied.')}
+            </InlineNotice>
           ) : (
             <InlineNotice tone="warning">
               {result.engine} — {result.message}
@@ -289,6 +326,20 @@ export default function CouncilMultisigFlow({
       )}
 
       {error && <InlineNotice tone="warning">{error}</InlineNotice>}
+
+      {/* Dead-end guard (2026-08-03): when Xaman refuses to create the sign
+          request for this transaction TYPE (error 1217 — account-security
+          types are granted per app), the live ceremony cannot proceed at all.
+          Say where the way out is instead of leaving the council staring at a
+          failed QR: the proposal inbox takes a signature produced by any
+          multisign tool. */}
+      {[error, ...members.map((m) => m.error)].some((e) => e?.includes('does not allow this app')) && (
+        <InlineNotice tone="warning">
+          {t(
+            'Xaman will not create QRs for this transaction type from this app. The proven route is the Xaman Multisign xApp — the same one this council was constituted with: open “Prefer your own multisign tool?” below, copy the transaction and sign it there with the quorum.',
+          )}
+        </InlineNotice>
+      )}
     </Card>
   );
 }

@@ -11,9 +11,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
-import { getApiBase } from '../env';
 import type { CallsStatusLike, SettlementState } from './settlement';
 import { trackSettlement, type TrackerDeps } from './tracker';
+import { fetchCouncilOrderExecuted, fetchMintExecuted } from './statusReads';
 
 /**
  * The READ-ONLY chain deps every settlement poll needs, shared by
@@ -51,16 +51,7 @@ export function useTrackerDeps(): TrackerDeps {
           return null; // not mined yet / node hiccup — keep polling
         }
       },
-      async getMintStatus(xrplHash) {
-        try {
-          const res = await fetch(`${getApiBase()}/flare-demo/mint-status/${xrplHash}`);
-          if (!res.ok) return null;
-          const body = (await res.json()) as { executed?: boolean };
-          return typeof body.executed === 'boolean' ? body.executed : null;
-        } catch {
-          return null; // red caída ≠ pendiente — retry without changing state
-        }
-      },
+      getMintStatus: fetchMintExecuted,
       async getXrplTxValidated(xrplHash) {
         // Plain XRPL Payment (transfers): the settle-read is the tx VALIDATED in
         // the ledger — public cluster, CORS-enabled, read-only.
@@ -78,18 +69,9 @@ export function useTrackerDeps(): TrackerDeps {
           return null;
         }
       },
-      async getCouncilOrderExecuted(xrplHash) {
-        // Council order: LegacyBridge.consumedTxId, read through the status
-        // endpoint (the same truth the ceremony card enriches with relay detail).
-        try {
-          const res = await fetch(`${getApiBase()}/xrpl-defi/council-order/status?txId=${xrplHash}`);
-          if (!res.ok) return null;
-          const body = (await res.json()) as { executed?: boolean };
-          return typeof body.executed === 'boolean' ? body.executed : null;
-        } catch {
-          return null;
-        }
-      },
+      // Council order: LegacyBridge.consumedTxId, read (autenticado) por el
+      // endpoint de status — la misma verdad que enriquece la card de la ceremonia.
+      getCouncilOrderExecuted: fetchCouncilOrderExecuted,
       now: () => Date.now(),
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
@@ -122,6 +104,10 @@ export function useSettlement(): UseSettlement {
 
   const track = useCallback(
     (handle: SettlementState, cbs?: TrackCallbacks) => {
+      // track() runs the moment the wallet hands back a signature — THE
+      // chokepoint every signing surface passes (consumers-wired.test.ts).
+      // (The shell-level ceremony that used to fire from here is gone: the
+      // SignedMark now plays inside each operation's own progress view.)
       cancelRef.current?.();
       cancelRef.current = trackSettlement(handle, deps, {
         onUpdate: (s) => {

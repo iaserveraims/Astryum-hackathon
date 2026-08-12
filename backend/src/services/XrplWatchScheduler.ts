@@ -171,8 +171,28 @@ export class XrplWatchScheduler {
       if (result.errors.length > 0) {
         console.error(`[xrpl-watch] secciones caídas (no tratar como verde): ${result.errors.join(' · ')}`);
       }
+      await this.beat(result.errors.length === 0, result.errors.join(' · '));
     } catch (e) {
       console.error(`[xrpl-watch] pasada fallida: ${(e as Error).message}`);
+      await this.beat(false, (e as Error).message);
+    }
+  }
+
+  /** Latido para el Sentinel (2026-08-03): este vigía solo hablaba cuando un
+   *  gate se desbloqueaba, así que su silencio podía ser «nada nuevo» o «llevo
+   *  semanas parado». Ahora se distingue. */
+  private async beat(ok: boolean, detail?: string): Promise<void> {
+    try {
+      const { markAgentTick } = await import('./ops/agentHeartbeats');
+      const everyMs = Math.max(Number(process.env.XRPL_WATCH_INTERVAL_H || 24), 1) * 3_600_000;
+      markAgentTick('xrpl-watch', {
+        title: 'Vigía del ecosistema XRPL',
+        everyMs,
+        ok,
+        ...(detail ? { detail } : {}),
+      });
+    } catch {
+      /* el latido nunca puede tumbar la pasada que lo emite */
     }
   }
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
+import { safeErrorDetail } from '../utils/safeError';
 import { aiContextService } from '../services/AIContextService';
 import { aiResponseGuardService } from '../services/AIResponseGuardService';
 
@@ -51,7 +52,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         'Data sourced from indexers — verify on-chain before acting.',
     });
   } catch (err: any) {
-    return res.status(500).json({ error: 'AI_CHAT_FAILED', detail: err?.message });
+    return res.status(500).json({ error: 'AI_CHAT_FAILED', detail: safeErrorDetail(err) });
   }
 });
 
@@ -68,7 +69,7 @@ router.get('/context', async (req: Request, res: Response) => {
       note: 'This is the real user context provided to the AI assistant.',
     });
   } catch (err: any) {
-    return res.status(500).json({ error: 'AI_CONTEXT_FAILED', detail: err?.message });
+    return res.status(500).json({ error: 'AI_CONTEXT_FAILED', detail: safeErrorDetail(err) });
   }
 });
 

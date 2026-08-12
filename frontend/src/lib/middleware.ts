@@ -9,6 +9,21 @@ import { GATE_COOKIE, GATE_TTL_MS, gateMode, signGateToken, verifyGateToken } fr
 // every matching request — client JS cannot bypass it.
 const GATED_PATHS = [/^\/app(\/|$)/, /^\/login(\/|$)/, /^\/register(\/|$)/, /^\/forgot-password(\/|$)/];
 
+// The bounce used to be MUTE: since 2026-08-05 the six gold CTAs of the landing
+// point at /login, so a visitor without the gate cookie tapped "Entra en la
+// beta", got a 307 home, and read the landing again from the top with nothing
+// said — a dead button. It only looked device-specific because the founder's
+// desktop still carried the week-long cookie (the middleware renews it on every
+// visit) while every phone and iPad started clean.
+// The marker lets the landing account for the refusal. It advertises nothing:
+// the 307 on /login was already public to anyone with curl.
+export const GATE_BOUNCE_PARAM = 'gate';
+function gateBounce(request: NextRequest) {
+  const url = new URL('/', request.url);
+  url.searchParams.set(GATE_BOUNCE_PARAM, 'closed');
+  return NextResponse.redirect(url);
+}
+
 export async function middleware(request: NextRequest) {
   // Add CORS headers for API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
@@ -43,9 +58,10 @@ export async function middleware(request: NextRequest) {
     });
 
     if (mode === 'closed') {
-      // Production without gate envs: nobody enters. Silent bounce home —
-      // the door does not advertise itself.
-      return NextResponse.redirect(new URL('/', request.url));
+      // Production without gate envs: nobody enters. Home, with the marker —
+      // the door still doesn't advertise ITSELF, it just stops pretending the
+      // visitor's tap never happened.
+      return gateBounce(request);
     }
 
     if (mode === 'enforced') {
@@ -53,7 +69,7 @@ export async function middleware(request: NextRequest) {
       const cookie = request.cookies.get(GATE_COOKIE)?.value;
       const verdict = await verifyGateToken(secret, cookie);
       if (!verdict.valid) {
-        return NextResponse.redirect(new URL('/', request.url));
+        return gateBounce(request);
       }
       // Sliding renewal: past half-life, countersign a fresh week so an
       // active founder/judge never gets bounced mid-session.

@@ -12,14 +12,16 @@
  */
 
 import { useState } from 'react';
+import { FXRP_FAMILY } from '@/lib/assetLogos';
 
-/** Asset ticker → logo URL. XRP-family receipts all read as XRP. */
+/**
+ * Asset ticker → logo URL. XRP on the XRPL keeps the XRP mark; everything minted
+ * or receipted on Flare wears the FXRP mark, because that is the asset actually
+ * held there.
+ */
 const ASSET_LOGOS: Record<string, string> = {
   XRP: 'https://cryptologos.cc/logos/xrp-xrp-logo.png',
-  FXRP: 'https://cryptologos.cc/logos/xrp-xrp-logo.png',
-  STXRP: 'https://cryptologos.cc/logos/xrp-xrp-logo.png',
-  EARNXRP: 'https://cryptologos.cc/logos/xrp-xrp-logo.png',
-  MXRPY: 'https://cryptologos.cc/logos/xrp-xrp-logo.png',
+  ...FXRP_FAMILY,
   USDT: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
   USDT0: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
   USDC: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',

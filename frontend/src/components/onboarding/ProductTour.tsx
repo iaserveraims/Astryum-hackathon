@@ -280,31 +280,34 @@ export default function ProductTour({ tour, steps }: { tour: TourId; steps: Tour
           />
         )}
 
-        {/* THE popover — glides between placements; its content crossfades. */}
+        {/* THE popover — rises in once (opacity/scale/lift; the founder read
+            the old top hairline as a glitch, so the card is clean now), then
+            glides between placements while its content cascades in. */}
         <motion.div
-          initial={false}
-          animate={{ left: pop.left, top: pop.top }}
+          initial={reduce ? false : { opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ left: pop.left, top: pop.top, opacity: 1, scale: 1, y: 0 }}
           transition={spring}
           onClick={(e) => e.stopPropagation()}
-          className="absolute rounded-2xl border border-ink/12 bg-surface-3/95 backdrop-blur-md shadow-[0_28px_80px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
+          className="absolute rounded-2xl border border-ink/10 bg-surface-3/95 backdrop-blur-md shadow-[0_28px_80px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
           style={{ width: POP_W, maxWidth: 'calc(100vw - 32px)' }}
         >
-          {/* hairline accent along the top — the guide's voice, in product hue */}
-          <div
-            className="h-[2px] rounded-t-2xl"
-            style={{ background: 'linear-gradient(90deg, hsl(var(--volt)), hsl(var(--volt) / 0))' }}
-            aria-hidden
-          />
           <div className="p-4">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={idx}
-                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
-                transition={{ duration: 0.16, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -5 }}
+                transition={{ duration: 0.14, ease: 'easeIn' }}
               >
-                <div className="flex items-start justify-between gap-3">
+                {/* title, then body, one beat apart — the guide speaks in
+                    order instead of stamping a block of text */}
+                <motion.div
+                  initial={reduce ? undefined : { opacity: 0, y: 7 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                  className="flex items-start justify-between gap-3"
+                >
                   <p className="text-sm font-semibold text-ink">{step.title}</p>
                   <button
                     onClick={finish}
@@ -313,19 +316,29 @@ export default function ProductTour({ tour, steps }: { tour: TourId; steps: Tour
                   >
                     <X size={14} />
                   </button>
-                </div>
-                <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink/60">{step.body}</p>
+                </motion.div>
+                <motion.p
+                  initial={reduce ? undefined : { opacity: 0, y: 7 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.26, delay: reduce ? 0 : 0.07, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-1.5 text-[12.5px] leading-relaxed text-ink/65"
+                >
+                  {step.body}
+                </motion.p>
               </motion.div>
             </AnimatePresence>
 
             {/* progress — filled rail up to the current step */}
-            <div className="mt-3.5 flex items-center gap-1" aria-hidden>
+            <div className="mt-4 flex items-center gap-1.5" aria-hidden>
               {visible.map((_, i) => (
                 <motion.span
                   key={i}
-                  className="h-1 flex-1 rounded-full"
-                  animate={{ backgroundColor: i <= idx ? 'hsl(var(--volt))' : 'hsl(var(--ink) / 0.1)' }}
-                  transition={{ duration: 0.2 }}
+                  className="h-[3px] flex-1 rounded-full"
+                  animate={{
+                    backgroundColor: i <= idx ? 'hsl(var(--volt))' : 'hsl(var(--ink) / 0.1)',
+                    scaleY: i === idx && !reduce ? 1.4 : 1,
+                  }}
+                  transition={{ duration: 0.25 }}
                 />
               ))}
             </div>

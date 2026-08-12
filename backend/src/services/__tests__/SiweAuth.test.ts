@@ -41,6 +41,11 @@ jest.mock('../../database/prismaClient', () => {
 describe('SiweAuth', () => {
   beforeAll(() => {
     process.env.JWT_SECRET = 'test-secret-32-chars-minimum-zzzzzz';
+    // These tests exercise SIWE mechanics (nonce/signature/session), not the
+    // closed-beta door — with the gate at its fail-closed default a first
+    // login could not create its user. The gate has its own suite
+    // (config/__tests__/betaGate.test.ts), including the wallet-first case.
+    process.env.BETA_REGISTRATION_OPEN = 'true';
   });
 
   test('issueNonce returns nonce + ttl, rejects invalid address', async () => {

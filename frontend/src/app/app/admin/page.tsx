@@ -25,19 +25,24 @@
 // provider badges per row, a provider filter, and per-provider counts in
 // Overview — all fed by `authProviders` / `usersByProvider` from the backend.
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Copy, Eye, EyeOff, KeyRound, Loader2, Lock, RefreshCw, Search, Wrench, X } from 'lucide-react';
+import { CheckCircle2, Copy, Eye, EyeOff, KeyRound, Loader2, Lock, RefreshCw, Search, Send, Wrench, X } from 'lucide-react';
 import {
+  adminBetaApi,
   adminExecutorApi,
   adminPanelApi,
   platformApi,
+  type AdminAnchorStatus,
+  type AdminCageFleet,
   type AdminExecutorHealth,
   type AdminOpsAlert,
   type AdminOpsAlerts,
   type AdminOverview,
+  type AdminSentinel,
   type AdminStuckList,
   type AdminStuckTx,
   type AdminUnstickResult,
   type AdminWaitlistRow,
+  type AdminWhois,
   type PlatformStatus,
 } from '../../../services/v1Api';
 import TurnstileWidget, { turnstileEnabled } from '../../../components/security/TurnstileWidget';
@@ -54,7 +59,9 @@ import {
   SegmentedControl,
   StatTile,
 } from '../../../components/ui/primitives';
+import { TokenLogo } from '../../../components/ui/TokenLogo';
 import { MiniArea } from '../../../components/ui/charts';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 const SESSION_STORE = 'astryum:adminSession';
 // Pre-hardening storage of the RAW key — purge it wherever we find it.
@@ -177,6 +184,13 @@ export default function AdminPage() {
   const [usersSearch, setUsersSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
 
+  // Beta gate (2026-08-01): approve/revoke seats from the Waitlist tab.
+  // betaBusy = the email whose action is in flight (one at a time is plenty
+  // for founder-scale batches); betaNote = the last outcome, incl. the honest
+  // "invite did NOT send" case so nobody assumes a boarding pass went out.
+  const [betaBusy, setBetaBusy] = useState<string | null>(null);
+  const [betaNote, setBetaNote] = useState<string | null>(null);
+
   // Sistema tab: the overview call doubles as the healthcheck (no separate
   // endpoint) — its own round-trip latency + when it last succeeded.
   const [refreshing, setRefreshing] = useState(false);
@@ -199,8 +213,40 @@ export default function AdminPage() {
       .catch(() => setExecutorError(true))
       .finally(() => setExecutorLoading(false));
   }, []);
+  // La cuenta anchor en XRPL: caja de las fees de las órdenes del consejo y
+  // depósito del que tira el hop B3 para reponer FLR al executor. Sin esta
+  // tarjeta el bucle era invisible — había que leer la cadena a mano.
+  const [anchor, setAnchor] = useState<AdminAnchorStatus | null>(null);
+  const [anchorError, setAnchorError] = useState(false);
+  const loadAnchor = useCallback((sessionToken: string) => {
+    setAnchorError(false);
+    adminPanelApi
+      .anchor(sessionToken)
+      .then(setAnchor)
+      .catch(() => setAnchorError(true));
+  }, []);
+  // La flota de jaulas (carril self-service, 2026-08-06): el factory probado
+  // contra la cadena, el censo de jaulas nacidas, los nacimientos en vuelo y
+  // los rechazos del prepare. Desde que las jaulas las crean los users, esto
+  // es lo que responde «¿va bien el carril?» — aquí, no en una consola.
+  const [cages, setCages] = useState<AdminCageFleet | null>(null);
+  const [cagesError, setCagesError] = useState(false);
+  const [cagesLoading, setCagesLoading] = useState(false);
+  const loadCages = useCallback((sessionToken: string) => {
+    setCagesLoading(true);
+    setCagesError(false);
+    adminPanelApi
+      .cages(sessionToken)
+      .then(setCages)
+      .catch(() => setCagesError(true))
+      .finally(() => setCagesLoading(false));
+  }, []);
   useEffect(() => {
-    if (tab === 'system' && session != null) loadExecutor(session);
+    if (tab === 'system' && session != null) {
+      loadExecutor(session);
+      loadAnchor(session);
+      loadCages(session);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, session]);
 
@@ -218,8 +264,77 @@ export default function AdminPage() {
       .catch(() => setAlertsError(true))
       .finally(() => setAlertsLoading(false));
   }, []);
+  // Vigilancia (Sentinel): el ESTADO de lo que se está comprobando ahora mismo,
+  // frente a la bandeja de abajo, que es el histórico. Aquí es donde el fundador
+  // ve qué está roto, desde cuándo y cómo se arregla — sin abrir el repo.
+  const [sentinel, setSentinel] = useState<AdminSentinel | null>(null);
+  const [sentinelError, setSentinelError] = useState(false);
+  const [sentinelBusy, setSentinelBusy] = useState(false);
+  const [testNote, setTestNote] = useState<string | null>(null);
+  const loadSentinel = useCallback((sessionToken: string, force = false) => {
+    setSentinelBusy(true);
+    setSentinelError(false);
+    (force ? adminPanelApi.sentinelRun(sessionToken) : adminPanelApi.sentinel(sessionToken))
+      .then(setSentinel)
+      .catch(() => setSentinelError(true))
+      .finally(() => setSentinelBusy(false));
+  }, []);
+  // Rastreo de una dirección hasta su cuenta (investigación del 3-ago).
+  const [whoisAddr, setWhoisAddr] = useState('');
+  const [whois, setWhois] = useState<AdminWhois | null>(null);
+  const [whoisBusy, setWhoisBusy] = useState(false);
+  const [whoisError, setWhoisError] = useState<string | null>(null);
+  const runWhois = useCallback(
+    async (sessionToken: string) => {
+      const addr = whoisAddr.trim();
+      if (!addr) return;
+      setWhoisBusy(true);
+      setWhoisError(null);
+      setWhois(null);
+      try {
+        setWhois(await adminPanelApi.whois(sessionToken, addr));
+      } catch (e) {
+        setWhoisError(
+          (e as { status?: number })?.status === 400
+            ? 'Eso no parece una dirección de XRPL (r…) ni de EVM (0x…).'
+            : 'No se pudo consultar. Vuelve a intentarlo.',
+        );
+      } finally {
+        setWhoisBusy(false);
+      }
+    },
+    [whoisAddr],
+  );
+
+  const testChannel = useCallback(
+    (sessionToken: string) => {
+      setTestNote(null);
+      adminPanelApi
+        .sentinelTest(sessionToken, 'warn')
+        .then((r) => {
+          const armed = r.channels.filter((c) => c.armed).map((c) => c.name);
+          setTestNote(
+            armed.length > 0
+              ? `Alerta de prueba enviada a: ${armed.join(', ')}. Si no llega, la URL o el token están mal en Railway.`
+              : 'No hay ningún canal externo armado: la prueba solo ha quedado en esta bandeja y en los logs.',
+          );
+        })
+        .catch((e: { status?: number }) =>
+          setTestNote(
+            e?.status === 429
+              ? 'Espera un minuto entre pruebas.'
+              : 'No se pudo lanzar la prueba (mira los logs del backend).',
+          ),
+        );
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (tab === 'alerts' && session != null) loadAlerts(session);
+    if (tab === 'alerts' && session != null) {
+      loadAlerts(session);
+      loadSentinel(session);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, session]);
 
@@ -437,12 +552,46 @@ export default function AdminPage() {
       .catch(() => {});
   };
 
+  // Beta gate actions. After each write the overview reloads SILENTLY so the
+  // seat column reflects the database, not an optimistic guess.
+  const approveSeat = (email: string) => {
+    if (session == null || betaBusy) return;
+    setBetaBusy(email);
+    setBetaNote(null);
+    adminBetaApi
+      .approve(session, email)
+      .then((r) => {
+        setBetaNote(
+          r.inviteSent
+            ? t('Seat approved — boarding-pass email sent.')
+            : t('Seat approved — but the invite email did NOT send (mailer). Approve again to retry.'),
+        );
+        load(session, { includeNoise: showNoise, silent: true });
+      })
+      .catch(() => setBetaNote(t('Approve failed — nothing changed.')))
+      .finally(() => setBetaBusy(null));
+  };
+
+  const revokeSeat = (email: string) => {
+    if (session == null || betaBusy) return;
+    setBetaBusy(email);
+    setBetaNote(null);
+    adminBetaApi
+      .revoke(session, email)
+      .then(() => {
+        setBetaNote(t('Seat revoked — that email can no longer create an account. Existing accounts are untouched.'));
+        load(session, { includeNoise: showNoise, silent: true });
+      })
+      .catch(() => setBetaNote(t('Revoke failed — nothing changed.')))
+      .finally(() => setBetaBusy(null));
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Founders only"
         title="Admin overview"
-        subtitle="Read-only counts and the waitlist. Nothing here writes to the database."
+        subtitle="Counts, the waitlist and ops. The only writes here: beta-seat approvals, the platform light and unstick."
       />
 
       {loading ? (
@@ -485,6 +634,11 @@ export default function AdminPage() {
                     label="Waitlist signups"
                     value={data.counts.waitlistSignups}
                     hint="Clean — noise filtered out"
+                  />
+                  <StatTile
+                    label="Seats approved"
+                    value={data.counts.waitlistApproved ?? 0}
+                    hint="Beta gate — emails that can create an account"
                   />
                   <StatTile
                     label="Waitlist noise"
@@ -595,6 +749,11 @@ export default function AdminPage() {
               >
                 Waitlist
               </SectionTitle>
+              {betaNote ? (
+                <div className="text-xs text-ink/60 border border-ink/10 bg-ink/[0.03] rounded-lg px-3 py-2">
+                  {betaNote}
+                </div>
+              ) : null}
               <Card padded={false} className="overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -604,13 +763,14 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4 font-medium">{t('Source')}</th>
                         <th className="text-left py-3 px-4 font-medium">{t('Language')}</th>
                         <th className="text-left py-3 px-4 font-medium">{t('Created')}</th>
+                        <th className="text-left py-3 px-4 font-medium">{t('Seat')}</th>
                         <th className="text-left py-3 px-5 font-medium">{t('Flag')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-ink/[0.04]">
                       {filteredWaitlist.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-10 text-center text-ink/20 text-sm">
+                          <td colSpan={6} className="py-10 text-center text-ink/20 text-sm">
                             {t('No signups yet.')}
                           </td>
                         </tr>
@@ -623,6 +783,40 @@ export default function AdminPage() {
                             </td>
                             <td className="py-3 px-4 text-ink/60 text-xs">{row.lang ?? '—'}</td>
                             <td className="py-3 px-4 text-ink/60 text-xs">{fmtDate(row.createdAt)}</td>
+                            <td className="py-3 px-4">
+                              {row.noise ? null : row.approvedAt ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <Pill tone="info" size="sm">
+                                    {row.invitedAt ? t('approved · invited') : t('approved')}
+                                  </Pill>
+                                  <button
+                                    onClick={() => revokeSeat(row.email)}
+                                    disabled={betaBusy != null}
+                                    title={t('Revoke seat (blocks account creation; existing accounts untouched)')}
+                                    className="p-1 rounded text-ink/30 hover:text-red-400 disabled:opacity-40 transition-colors"
+                                  >
+                                    {betaBusy === row.email ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <X className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => approveSeat(row.email)}
+                                  disabled={betaBusy != null}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-volt/30 bg-volt/10 text-volt text-xs font-medium hover:bg-volt/20 disabled:opacity-40 transition-colors"
+                                >
+                                  {betaBusy === row.email ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  )}
+                                  {t('Approve')}
+                                </button>
+                              )}
+                            </td>
                             <td className="py-3 px-5">
                               {row.noise ? (
                                 <Pill tone="neutral" size="sm" className="opacity-60">
@@ -717,6 +911,66 @@ export default function AdminPage() {
 
           {tab === 'system' && (
             <>
+            {/* Anchor XRPL — la caja de las fees del consejo y el depósito del
+                que tira el hop B3. Va arriba porque es la que decide si el
+                executor se queda sin FLR. */}
+            <section className="space-y-3 mb-4">
+              <SectionTitle>Anchor XRPL · fees del consejo → combustible</SectionTitle>
+              <Card>
+                {anchorError ? (
+                  <p className="text-sm text-tone-warning">
+                    No se pudo leer el anchor (¿LEGACY_ORDER_ANCHOR sin definir en este entorno?).
+                  </p>
+                ) : !anchor ? (
+                  <p className="text-sm text-ink/50">Leyendo…</p>
+                ) : (
+                  <>
+                    <InfoRow label="Cuenta" value={anchor.anchor} mono />
+                    <InfoRow label="Saldo" value={`${anchor.balanceXrp} XRP`} />
+                    <InfoRow
+                      label="Reserva del ledger"
+                      value={`${anchor.ledgerReserveXrp} XRP (${anchor.ownerCount} objetos)`}
+                    />
+                    <InfoRow label="Reserva que deja el hop" value={`${anchor.feedReserveXrp} XRP`} />
+                    <InfoRow label="Libre para alimentar" value={`${anchor.freeXrp.toFixed(6)} XRP`} />
+                    <InfoRow label="Umbral del hop" value={`${anchor.minFeedXrp} XRP`} />
+                    <InfoRow
+                      label="¿Dispara ahora?"
+                      value={
+                        anchor.shouldFeed
+                          ? `SÍ — convertiría ${anchor.feedXrp.toFixed(6)} XRP a FXRP`
+                          : `No — faltan ${anchor.missingXrp.toFixed(6)} XRP` +
+                            (anchor.ordersToTrigger != null
+                              ? ` (≈ ${anchor.ordersToTrigger} órdenes del consejo)`
+                              : '')
+                      }
+                    />
+                    <InfoRow
+                      label="Fee por orden"
+                      value={anchor.orderFee.enabled ? `${anchor.orderFee.xrp} XRP` : 'DESACTIVADA'}
+                    />
+                    <InfoRow
+                      label="Semilla del anchor"
+                      value={
+                        !anchor.seedConfigured
+                          ? 'SIN CONFIGURAR — el hop no puede firmar'
+                          : anchor.seed?.error
+                            ? `ILEGIBLE — ${anchor.seed.error}`
+                            : anchor.seed?.matchesExpected === false
+                              ? `ABRE OTRA CUENTA (${anchor.seed.address}) — el hop no firmará`
+                              : anchor.seed?.address
+                                ? `OK — abre el anchor (${
+                                    anchor.seed.format === 'secret-numbers' ? 'secret numbers' : 'family seed'
+                                  })`
+                                : 'configurada'
+                      }
+                    />
+                    <InfoRow label="Leído" value={fmtDateTime(new Date(anchor.checkedAt))} />
+                  </>
+                )}
+              </Card>
+            </section>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <section className="space-y-3">
                 <SectionTitle>Build & environment</SectionTitle>
@@ -807,10 +1061,12 @@ export default function AdminPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <StatTile
                       label="FLR"
+                      icon={<TokenLogo symbol="FLR" size="xs" />}
                       value={Number(executorHealth.flrBalance ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     />
                     <StatTile
                       label="FXRP"
+                      icon={<TokenLogo symbol="FXRP" size="xs" />}
                       value={Number(executorHealth.fxrpBalance ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     />
                     <StatTile
@@ -892,6 +1148,186 @@ export default function AdminPage() {
               )}
             </section>
 
+            {/* ── Jaulas · factory (carril self-service, 2026-08-06) — desde
+                que las jaulas las crean los users, «¿va bien el carril?» se
+                responde aquí: config probada contra la cadena, censo, vuelos
+                y fricción. ── */}
+            <section className="mt-4 space-y-3">
+              <SectionTitle
+                actions={
+                  <GhostButton
+                    onClick={() => session != null && loadCages(session)}
+                    disabled={cagesLoading}
+                    className="px-3 py-1.5 text-xs gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${cagesLoading ? 'animate-spin' : ''}`} />
+                    {t('Refetch')}
+                  </GhostButton>
+                }
+              >
+                Jaulas · factory
+              </SectionTitle>
+              {cagesError ? (
+                <Card>
+                  <p className="text-sm text-ink/50">{t('Not available right now.')}</p>
+                </Card>
+              ) : !cages ? (
+                <Card>
+                  <Loader2 className="w-4 h-4 animate-spin text-ink/40" />
+                </Card>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <StatTile label="Jaulas nacidas" value={cages.factory.vaultCount ?? '—'} />
+                    <StatTile
+                      label="Nacimientos en vuelo"
+                      value={cages.births.filter((b) => b.status === 'queued').length}
+                    />
+                    <StatTile
+                      label="Capital en jaulas (FXRP)"
+                      value={(
+                        cages.census.reduce((s, c) => s + Number(c.totalValueUBA ?? 0), 0) / 1e6
+                      ).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    />
+                    <StatTile label="Rechazos del prepare" value={cages.refusals.total} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      {/* La config, PROBADA contra la cadena: una dirección con
+                          el checksum mal aquí sería «todo user ve sin jaula»
+                          con el factory sano. */}
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        <Pill tone={cages.factory.addressValid && cages.factory.hasCode ? 'success' : 'danger'}>
+                          {!cages.factory.configured
+                            ? 'factory SIN CONFIGURAR'
+                            : !cages.factory.addressValid
+                              ? 'dirección INVÁLIDA (checksum)'
+                              : cages.factory.hasCode === false
+                                ? 'SIN contrato en la dirección'
+                                : cages.factory.hasCode === null
+                                  ? 'cadena ilegible ahora'
+                                  : 'factory ON'}
+                        </Pill>
+                        <Pill tone={cages.factory.sourceMatches === false ? 'danger' : 'success'}>
+                          {`SOURCE_ID ${cages.factory.sourceId ?? '—'}`}
+                        </Pill>
+                        <Pill tone={cages.factory.treasuryValid ? 'success' : 'warning'}>
+                          {cages.factory.treasuryValid ? 'treasury OK' : 'treasury SIN configurar'}
+                        </Pill>
+                        <Pill tone={cages.factory.birthVenues.length > 0 ? 'success' : 'warning'}>
+                          {cages.factory.birthVenues.length > 0
+                            ? `venues: ${cages.factory.birthVenues.join(' + ')}`
+                            : 'SIN venues de nacimiento'}
+                        </Pill>
+                        <Pill tone={cages.factory.capXrp != null ? 'info' : 'warning'}>
+                          {cages.factory.capXrp != null ? `tope beta ${cages.factory.capXrp} XRP/jaula` : 'tope beta APAGADO'}
+                        </Pill>
+                      </div>
+                      {/* La economía del nacimiento — lo que el fundador pidió
+                          ver: el executor PAGA (FDC + gas, y un nacimiento
+                          quema ~5M de gas frente a ~1M de un mint normal) y
+                          COBRA la fee del AssetManager. La fee no es nuestra
+                          — la fija el protocolo FAssets y se lee en vivo. */}
+                      <InfoRow
+                        label="Cobra por dispatch (AssetManager)"
+                        value={cages.economics.chargedXrpNow != null ? `${cages.economics.chargedXrpNow} XRP` : '—'}
+                        mono
+                      />
+                      <InfoRow
+                        label="Paga por nacimiento (estimado ahora)"
+                        value={
+                          cages.economics.estTotalCostFLR != null
+                            ? `~${cages.economics.estTotalCostFLR.toFixed(1)} FLR (FDC ${cages.economics.fdcFeeFLR} + gas ${cages.economics.estBirthGasFLR?.toFixed(2)} a ${cages.economics.gasPriceGwei?.toFixed(0)} gwei)`
+                            : `FDC ~${cages.economics.fdcFeeFLR} FLR + gas (cadena ilegible)`
+                        }
+                        mono
+                      />
+                      <InfoRow label="Factory" value={cages.factory.address ?? '—'} mono />
+                      <InfoRow
+                        label="Rechazos por motivo"
+                        value={
+                          cages.refusals.total === 0
+                            ? 'ninguno desde el último arranque'
+                            : Object.entries(cages.refusals.byCode)
+                                .map(([c, n]) => `${c}×${n}`)
+                                .join(' · ')
+                        }
+                      />
+                      <InfoRow label="Leído" value={fmtDateTime(new Date(cages.checkedAt))} />
+                    </Card>
+                    <Card>
+                      {/* El censo: cada jaula nacida del factory, de quién es y
+                          qué guarda. El fundacional NO sale aquí (no nació del
+                          factory) — tiene sus propias tarjetas arriba. */}
+                      {cages.census.length === 0 ? (
+                        <p className="text-sm text-ink/50">
+                          Ninguna jaula ha nacido del factory todavía. Cuando un consejo cree la suya, aparece aquí
+                          (y suena 🎉 por el canal de alertas).
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {cages.census.map((c) => (
+                            <div key={c.vault} className="rounded-lg border border-ink/10 p-2.5 text-[12px] space-y-0.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono text-ink/80">{c.council ?? `${c.councilHash.slice(0, 10)}…`}</span>
+                                <span className="text-ink/60">
+                                  {c.totalValueUBA != null ? `${(Number(c.totalValueUBA) / 1e6).toFixed(2)} FXRP` : '—'}
+                                  {c.migrated ? ' · MIGRADA' : ''}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 font-mono text-[11px] text-ink/40">
+                                <a
+                                  href={`https://flarescan.com/address/${c.vault}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-ink/70"
+                                >
+                                  vault {c.vault.slice(0, 10)}…{c.vault.slice(-6)}
+                                </a>
+                                <span>{c.ordersExecuted != null ? `${c.ordersExecuted} órdenes` : ''}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {cages.births.length > 0 && (
+                        <div className="mt-3 border-t border-ink/5 pt-2 space-y-1">
+                          <p className="text-[11px] text-ink/45">
+                            Últimos nacimientos preparados (cobrado al user · gas real que pagó el executor):
+                          </p>
+                          {cages.births.slice(0, 5).map((b) => (
+                            <div key={b.userOpHash} className="flex items-center justify-between gap-2 font-mono text-[11px] text-ink/50">
+                              <span>
+                                {b.council.slice(0, 10)}… · {(Number(b.grossXrpDrops) / 1e6).toFixed(2)} XRP
+                                {b.executorFeeXrp != null ? ` · fee ${b.executorFeeXrp} XRP` : ''}
+                              </span>
+                              <span className={b.status === 'executed' ? 'text-tone-success' : b.status === 'queued' ? 'text-tone-warning' : ''}>
+                                {b.status === 'executed' && b.gasFLR != null ? (
+                                  <a
+                                    href={`https://flarescan.com/tx/${b.flareTxHash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:underline"
+                                  >
+                                    gas {b.gasFLR.toFixed(2)} FLR ✓
+                                  </a>
+                                ) : (
+                                  <>
+                                    {b.status}
+                                    {b.status === 'queued' ? ` · ${b.ageMinutes} min` : ''}
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </>
+              )}
+            </section>
+
             {unstickOpen && session != null && (
               <UnstickModal
                 session={session}
@@ -904,6 +1340,240 @@ export default function AdminPage() {
 
           {tab === 'alerts' && (
             <div className="space-y-6">
+              {/* ── Vigilancia (Sentinel) ──────────────────────────────────
+                  El estado vivo: qué se comprueba, qué está roto AHORA, desde
+                  cuándo y por dónde saldría el aviso. La bandeja de abajo es
+                  el histórico; esto es el cuadro de mandos. */}
+              <section className="space-y-3">
+                <SectionTitle
+                  hint={
+                    sentinel
+                      ? `Comprobación automática cada ${sentinel.intervalMin} min · última: ${
+                          sentinel.lastPassAt ? fmtDateTime(new Date(sentinel.lastPassAt)) : '—'
+                        }`
+                      : undefined
+                  }
+                  actions={
+                    <div className="flex items-center gap-2">
+                      <GhostButton
+                        onClick={() => session != null && testChannel(session)}
+                        disabled={session == null}
+                        className="px-3 py-1.5 text-xs gap-1.5"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        Probar canal
+                      </GhostButton>
+                      <GhostButton
+                        onClick={() => session != null && loadSentinel(session, true)}
+                        disabled={sentinelBusy || session == null}
+                        className="px-3 py-1.5 text-xs gap-1.5"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${sentinelBusy ? 'animate-spin' : ''}`} />
+                        Comprobar ahora
+                      </GhostButton>
+                    </div>
+                  }
+                >
+                  Vigilancia
+                </SectionTitle>
+
+                {testNote && <Card><p className="text-xs text-ink/60 leading-relaxed">{testNote}</p></Card>}
+
+                {/* ¿De quién es esta dirección? Nació de la investigación del
+                    3-ago: tres mints del carril 0xFE en un día con la beta
+                    cerrada, y ninguna forma de saber de quién eran sin abrir la
+                    base de datos a mano. Una dirección que gasta presupuesto
+                    del executor tiene que rastrearse DESDE AQUÍ. */}
+                <Card>
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55">
+                      ¿De quién es esta dirección?
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        value={whoisAddr}
+                        onChange={(e) => setWhoisAddr(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && session != null) void runWhois(session);
+                        }}
+                        placeholder="r… (XRPL) o 0x… (EVM)"
+                        spellCheck={false}
+                        className="flex-1 min-w-[240px] rounded-lg border border-ink/10 bg-ink/5 px-3 py-1.5 font-mono text-xs text-ink outline-none focus:border-ink/25"
+                      />
+                      <GhostButton
+                        onClick={() => session != null && void runWhois(session)}
+                        disabled={whoisBusy || session == null || !whoisAddr.trim()}
+                        className="px-3 py-1.5 text-xs gap-1.5"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${whoisBusy ? 'animate-spin' : ''}`} />
+                        Rastrear
+                      </GhostButton>
+                    </div>
+                    {whoisError && <p className="text-xs text-tone-warning">{whoisError}</p>}
+                    {whois && !whois.found && (
+                      <p className="text-xs text-ink/55">
+                        Ninguna cuenta de Astryum tiene esa dirección enlazada. Si ha operado, lo hizo con una
+                        sesión cuya wallet se desconectó después — o no salió de aquí.
+                      </p>
+                    )}
+                    {whois?.found && (
+                      <div className="space-y-2 text-xs">
+                        {whois.accounts.map((a) => (
+                          <div key={a.email} className="rounded-lg border border-ink/10 bg-ink/[0.03] p-2.5">
+                            <p className="font-medium text-ink/90">{a.email}</p>
+                            <p className="mt-0.5 text-ink/50">
+                              {a.waitlist
+                                ? a.waitlist.approvedAt
+                                  ? `aprobada en la lista de espera el ${new Date(a.waitlist.approvedAt).toLocaleDateString()}`
+                                  : 'en la lista de espera, SIN aprobar'
+                                : 'no está en la lista de espera'}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {a.isAdmin && <Pill tone="info" size="sm">admin</Pill>}
+                              {a.capExempt && <Pill tone="warning" size="sm">exenta del tope</Pill>}
+                              {a.legacyAccess && <Pill tone="info" size="sm">acceso Legacy</Pill>}
+                            </div>
+                          </div>
+                        ))}
+                        {whois.wallets.map((w) => (
+                          <p key={`${w.address}-${w.network}`} className="text-ink/55">
+                            wallet {w.walletType} · {w.network}
+                            {w.nickname ? ` · «${w.nickname}»` : ''} · enlazada el{' '}
+                            {new Date(w.createdAt).toLocaleDateString()} · última actividad{' '}
+                            {new Date(w.lastActivity).toLocaleString()}
+                          </p>
+                        ))}
+                        {whois.loginAccounts.length > 0 && (
+                          <p className="text-ink/55">
+                            Es la identidad de login (Xaman/SIWE) de {whois.loginAccounts.length} cuenta(s).
+                          </p>
+                        )}
+                        {whois.capExemptByAddress && (
+                          <p className="text-tone-warning">La dirección está en DEMO_CAP_EXEMPT_ADDRESSES.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                {sentinelError ? (
+                  <Card>
+                    <p className="text-sm text-ink/40">No se pudo leer la vigilancia.</p>
+                  </Card>
+                ) : !sentinel ? (
+                  <Card>
+                    <div className="flex items-center gap-2 text-sm text-ink/40">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Comprobando…
+                    </div>
+                  </Card>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <StatTile label="Críticos abiertos" value={sentinel.counts.critical} />
+                      <StatTile label="Avisos abiertos" value={sentinel.counts.warn} />
+                      <StatTile label="Chequeos" value={sentinel.probes.filter((p) => !p.skipped).length} />
+                      <StatTile
+                        label="Canales armados"
+                        value={sentinel.channels.filter((c) => c.armed).length + (sentinel.heartbeatConfigured ? 1 : 0)}
+                      />
+                    </div>
+
+                    {/* Por dónde saldría el aviso. Sin esto, un panel verde
+                        puede convivir con un canal que no entrega a nadie. */}
+                    <Card>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Pill tone={sentinel.enabled && sentinel.running ? 'success' : 'warning'} size="sm">
+                          {sentinel.enabled ? (sentinel.running ? 'vigía activo' : 'vigía sin arrancar') : 'vigía APAGADO'}
+                        </Pill>
+                        {sentinel.channels.map((c) => (
+                          <Pill key={c.name} tone={c.armed ? 'success' : 'neutral'} size="sm">
+                            {c.name}
+                            {c.armed ? ` ≥${c.minLevel}` : ' sin armar'}
+                          </Pill>
+                        ))}
+                        <Pill tone={sentinel.heartbeatConfigured ? 'success' : 'neutral'} size="sm">
+                          {sentinel.heartbeatConfigured ? 'hombre muerto ON' : 'hombre muerto sin armar'}
+                        </Pill>
+                      </div>
+                      {!sentinel.channels.some((c) => c.armed) && (
+                        <p className="mt-3 text-[11px] text-tone-warning leading-relaxed">
+                          Ningún canal externo: las alertas solo se ven aquí. Pon OPS_ALERT_WEBHOOK_URL (el webhook del
+                          canal de Discord) en Railway y, para que los críticos suenen en el móvil,
+                          OPS_ALERT_DISCORD_MENTION — Discord solo notifica cuando menciona.
+                        </p>
+                      )}
+                    </Card>
+
+                    {/* Incidencias abiertas — cada una con su arreglo escrito. */}
+                    {sentinel.issues.length === 0 ? (
+                      <Card>
+                        <p className="text-sm text-ink/50">Nada roto ahora mismo. Todo lo comprobado está en verde.</p>
+                      </Card>
+                    ) : (
+                      <Card padded={false} className="overflow-hidden divide-y divide-ink/5">
+                        {sentinel.issues.map((i) => (
+                          <div key={i.id} className="p-3 flex items-start gap-3">
+                            <Pill tone={ALERT_TONE[i.level]} size="sm">
+                              {i.level === 'warn' ? 'WARN' : i.level.toUpperCase()}
+                            </Pill>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-ink/80 leading-snug break-words">{i.message}</p>
+                              {i.runbook && (
+                                <p className="mt-1.5 text-[11px] text-volt/90 leading-relaxed break-words">
+                                  ↳ {i.runbook}
+                                </p>
+                              )}
+                              {i.facts && Object.keys(i.facts).length > 0 && (
+                                <p className="mt-1 text-[11px] text-ink/40 font-mono break-all">
+                                  {Object.entries(i.facts)
+                                    .filter(([, v]) => v !== null && v !== '')
+                                    .map(([k, v]) => `${k}: ${v}`)
+                                    .join(' · ')}
+                                </p>
+                              )}
+                              <div className="mt-1 flex items-center gap-2 text-[11px] text-ink/40">
+                                <span className="font-mono">{i.probeTitle}</span>
+                                <span>·</span>
+                                <span>abierto hace {i.ageMin} min</span>
+                                <span>·</span>
+                                <span>{i.alerts} aviso(s) enviados</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </Card>
+                    )}
+
+                    {/* Qué se está comprobando. Un carril apagado se dice, no
+                        se pinta de verde: no comprobado ≠ sano. */}
+                    <Card padded={false} className="overflow-hidden divide-y divide-ink/5">
+                      {sentinel.probes.map((p) => (
+                        <div key={p.id} className="px-3 py-2 flex items-center gap-2.5">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              p.skipped
+                                ? 'bg-ink/20'
+                                : p.level === 'critical'
+                                  ? 'bg-red-400'
+                                  : p.level === 'warn'
+                                    ? 'bg-amber-400'
+                                    : p.level === 'info'
+                                      ? 'bg-sky-400'
+                                      : 'bg-emerald-400'
+                            }`}
+                            aria-hidden
+                          />
+                          <span className="text-xs text-ink/70 flex-1 min-w-0 truncate">{p.title}</span>
+                          <span className="text-[11px] text-ink/35 font-mono shrink-0">
+                            {p.skipped ? 'no aplica' : p.findings > 0 ? `${p.findings} incidencia(s)` : 'ok'}
+                          </span>
+                        </div>
+                      ))}
+                    </Card>
+                  </>
+                )}
+              </section>
+
               <section className="space-y-3">
                 <SectionTitle
                   hint={t('Executor, watchers and provider health — kept even without a webhook')}
@@ -1235,7 +1905,7 @@ function UnstickModal({
   );
 
   return (
-    <div
+    <ModalOverlay
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
@@ -1324,6 +1994,6 @@ function UnstickModal({
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

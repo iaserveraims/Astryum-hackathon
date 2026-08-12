@@ -36,7 +36,8 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { PageHeader, Card, MicroLabel, Pill, GhostButton } from '../../../components/ui/primitives';
+import { PageHeader, Card, MicroLabel, Pill, GhostButton, PrimaryButton } from '../../../components/ui/primitives';
+import { formatMoney } from '../../../lib/formatMoney';
 import { RevealGroup, RevealItem } from '../../../components/ui/motion';
 import { OrbitDial } from '../../../components/ui/charts';
 import { MoonScene } from '../../../components/earn/icons';
@@ -45,6 +46,8 @@ import MoneyFlowsPanel from '../../../components/moneyflows/MoneyFlowsPanel';
 import StrategySection from '../../../components/strategies/StrategySection';
 import WorkingStrategiesPanel, { useStrategyGroups, type StrategyGroup } from '../../../components/strategies/WorkingStrategies';
 import { VaultIcon, AssetIcon } from '../../../components/ui/StrategyIcons';
+import { hfWord } from '../../../lib/healthScore';
+import { fmtQtyActive } from '../../../lib/format';
 import { VaultWithdrawModal, type VaultPositionRef } from '../../../components/positions/VaultWithdrawModal';
 import { VaultClaimModal, type VaultClaimRef } from '../../../components/positions/VaultClaimModal';
 import { PaActionsModal, type PaHolder, type PaLegs } from '../../../components/positions/PaActionsModal';
@@ -60,12 +63,16 @@ import {
 import { useAuthStore } from '../../../stores/authStore';
 import { getUserRegion } from '../../../lib/region';
 import { useMyWallets } from '../../../hooks/useMyWallets';
+import { useAuthorities } from '../../../hooks/useAuthorities';
+import GovernedMoneyFlows from '../../../components/legacy/GovernedMoneyFlows';
+import CouncilVaultEntry from '../../../components/legacy/CouncilVaultEntry';
 import { useXrplWalletPartner } from '../../../lib/wallet/useXrplWalletPartner';
 import { invalidatePortfolioCache } from '../../../lib/portfolioMerge';
 import { useAggregatedPortfolio } from '../../../hooks/useAggregatedPortfolio';
 import { profileIdentity } from '../../../lib/profileStore';
 import { listDrafts, type StrategyDraft } from '../../../lib/strategyDrafts';
 import { useT } from '../../../i18n/LanguageProvider';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 const API_BASE = getApiBase();
 
@@ -124,17 +131,15 @@ function kineticLegsFromGroup(g: StrategyGroup): PaLegs {
   return legs;
 }
 
-/** HF → plain-language health word. */
+/** HF → plain-language health word — the shared canonical bands (lib/healthScore). */
 function healthWord(hf: number, t: (s: string) => string): { label: string; tone: string } {
-  if (hf >= 2) return { label: t('very healthy'), tone: 'text-tone-success' };
-  if (hf >= 1.5) return { label: t('healthy'), tone: 'text-tone-success' };
-  if (hf >= 1.2) return { label: t('keep an eye on it'), tone: 'text-tone-warning' };
-  return { label: t('at risk'), tone: 'text-tone-danger' };
+  const w = hfWord(hf, t);
+  return { label: w.label, tone: `text-tone-${w.tone === 'neutral' ? 'success' : w.tone}` };
 }
 
 function fmtXrp(amount: string | number): string {
   const n = Number(amount);
-  return isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 6 }) : String(amount);
+  return isFinite(n) ? fmtQtyActive(n, 6) : String(amount);
 }
 
 function fmtDate(iso?: string): string {
@@ -526,6 +531,17 @@ export default function StrategiesPage({
   const activeRules = rules.filter((r) => r.enabled);
   const pausedRules = rules.filter((r) => !r.enabled);
 
+  // A COUNCIL account (founder 2026-08-01: "My strategies debe ser igual que
+  // Personal"): the SAME page renders, but capital moves by council ORDER
+  // through the cage — so the cage's strategy cards open the governed composer
+  // (quorum signs, FDC proves, the vault executes) instead of the personal
+  // withdraw rails, and MoneyFlows swap for the governed surface.
+  const { activeGoverned } = useAuthorities();
+  const cageGroups = activeGoverned
+    ? (groups ?? []).filter((g) => g.wallet === activeGoverned.address)
+    : [];
+  const [cageModal, setCageModal] = useState<StrategyGroup | null>(null);
+
   // Hub → board deep-link: which position's action to open on entering Online.
   const [autoAction, setAutoAction] = useState<BoardAutoAction | null>(null);
   const { release: releaseEscrow, busyId: releasingId, error: releaseError } = useEscrowRelease(() =>
@@ -797,16 +813,52 @@ export default function StrategiesPage({
                 <DefiPositionsBoard autoAction={autoAction} showStrategyPanel={false} embedded />
               </RevealItem>
 
-              {/* Apartado 2 — Strategy · MoneyFlows: the active rules as cards,
-                  plus the ＋ card that composes a new one (Manual or with AI). */}
+              {/* Council strategies — the cage's capital as strategy cards, the
+                  SAME reading Personal gets. The action opens the governed
+                  composer: every move is a council order the quorum signs. */}
+              {cageGroups.length > 0 && (
+                <RevealItem>
+                  <div className="space-y-3">
+                    {cageGroups.map((g) => (
+                      <Card key={`${g.protocol}:${g.name}`} className="p-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-ink capitalize">{g.name}</span>
+                              <Pill tone="neutral">{t('Council · quorum signs')}</Pill>
+                            </div>
+                            <p className="mt-1 text-[12px] text-ink/50">
+                              {g.legs
+                                .map((l) => `${l.asset} ${formatMoney(Math.abs(l.usd))}`)
+                                .join(' · ')}
+                            </p>
+                          </div>
+                          <span className="font-mono text-base text-ink">{formatMoney(g.totalUSD)}</span>
+                          <PrimaryButton onClick={() => setCageModal(g)}>
+                            {t('Move capital')} <ArrowRight size={14} />
+                          </PrimaryButton>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </RevealItem>
+              )}
+
+              {/* Apartado 2 — Strategy · MoneyFlows: the active rules as cards.
+                  A council's rules are GOVERNED (quorum-signed) — its surface
+                  replaces the personal composer here, same spot, other rail. */}
               <RevealItem>
-                <StrategySection
-                  mode="online"
-                  addresses={myWallets.map((w) => w.address)}
-                  identity={identity}
-                  onLaunch={runStrategy}
-                  onChanged={refreshStrategies}
-                />
+                {activeGoverned ? (
+                  <GovernedMoneyFlows account={activeGoverned.address} />
+                ) : (
+                  <StrategySection
+                    mode="online"
+                    addresses={myWallets.map((w) => w.address)}
+                    identity={identity}
+                    onLaunch={runStrategy}
+                    onChanged={refreshStrategies}
+                  />
+                )}
               </RevealItem>
 
               {/* Active savings — locked escrows + enabled rules */}
@@ -825,16 +877,20 @@ export default function StrategiesPage({
           {view === 'offline' && (
             <>
               {/* Offline has only the Strategy apartado (founder 2026-07-20):
-                  paused MoneyFlows + saved drafts as cards, plus the ＋ card. */}
-              <RevealItem>
-                <StrategySection
-                  mode="offline"
-                  addresses={myWallets.map((w) => w.address)}
-                  identity={identity}
-                  onLaunch={runStrategy}
-                  onChanged={refreshStrategies}
-                />
-              </RevealItem>
+                  paused MoneyFlows + saved drafts as cards, plus the ＋ card.
+                  A council has no personal drafts — its rules (active AND
+                  paused) live in the governed surface under Online. */}
+              {!activeGoverned && (
+                <RevealItem>
+                  <StrategySection
+                    mode="offline"
+                    addresses={myWallets.map((w) => w.address)}
+                    identity={identity}
+                    onLaunch={runStrategy}
+                    onChanged={refreshStrategies}
+                  />
+                </RevealItem>
+              )}
 
               {/* Paused savings rules — resumable in place */}
               <RevealItem>
@@ -871,9 +927,33 @@ export default function StrategiesPage({
             onChanged={refreshStrategies}
           />
         )}
+        {/* The cage's action modal — the governed twin of the hub modals
+            above: same gesture, but what it composes is a COUNCIL ORDER
+            (prepare-only, quorum signs, the vault executes on Flare). */}
+        {cageModal && activeGoverned && (
+          <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
+                <div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--authority-border)] bg-[var(--authority-soft)] text-ink/60">
+                    {t('Council order · the cage')}
+                  </span>
+                  <h2 className="mt-1.5 text-lg font-semibold text-ink capitalize">{cageModal.name}</h2>
+                </div>
+                <button onClick={() => setCageModal(null)} className="text-ink/40 hover:text-ink transition-colors mt-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
+                <CouncilVaultEntry account={activeGoverned.address} vaultTitle={cageModal.name} />
+              </div>
+            </div>
+          </ModalOverlay>
+        )}
+
         {hubModal?.kind === 'norail' && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+          <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm my-auto shadow-2xl p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <h2 className="text-base font-semibold text-ink">
                   {t('Withdraw')} · {hubModal.name}
@@ -889,7 +969,7 @@ export default function StrategiesPage({
                 {t('Done')}
               </GhostButton>
             </div>
-          </div>
+          </ModalOverlay>
         )}
       </div>
     );

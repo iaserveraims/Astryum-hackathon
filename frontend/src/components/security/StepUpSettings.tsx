@@ -6,6 +6,7 @@ import { apiService } from '../../services/api';
 import { useStepUp } from '../../hooks/useStepUp';
 import { useAuthStore } from '../../stores/authStore';
 import { Card, SectionTitle, PrimaryButton, Pill } from '../ui/primitives';
+import { useT } from '../../i18n/LanguageProvider';
 
 const FEATURE_LABELS: Record<string, string> = {
   moneyflows: 'MoneyFlows',
@@ -29,6 +30,7 @@ interface ConfigResponse {
 const STEP_UP_ENABLED = process.env.NEXT_PUBLIC_STEP_UP_ENABLED === 'true';
 
 export default function StepUpSettings() {
+  const { t } = useT();
   const { withStepUp, pending, error: signError } = useStepUp();
   const hasWallet = useAuthStore((s) => s.linkedWallets.length > 0);
 
@@ -94,27 +96,25 @@ export default function StepUpSettings() {
     <Card className="md:col-span-2">
       <SectionTitle>
         <span className="inline-flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4" strokeWidth={1.5} /> Step-up signature locks
+          <ShieldCheck className="w-4 h-4" strokeWidth={1.5} /> {t('Step-up signature locks')}
         </span>
       </SectionTitle>
 
       <p className="text-xs text-ink/50 leading-relaxed mb-4">
-        Require a fresh wallet signature before reading or changing sensitive parts of the app —
-        so even if someone gets into your account, they can&apos;t touch what matters without your
-        device. Pick exactly what to protect.
+        {t("Require a fresh wallet signature before reading or changing sensitive parts of the app — so even if someone gets into your account, they can't touch what matters without your device. Pick exactly what to protect.")}
       </p>
 
       {!hasWallet && (
         <div className="mb-4 px-3 py-2 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
-          Link a wallet first — step-up locks are confirmed with a wallet signature.
+          {t('Link a wallet first — step-up locks are confirmed with a wallet signature.')}
         </div>
       )}
 
       {/* Master toggle */}
       <label className="flex items-center justify-between gap-4 py-2 cursor-pointer">
         <div>
-          <div className="text-sm text-ink/90">Enable step-up locks</div>
-          <div className="text-xs text-ink/40 mt-0.5">Master switch. When off, nothing is gated.</div>
+          <div className="text-sm text-ink/90">{t('Enable step-up locks')}</div>
+          <div className="text-xs text-ink/40 mt-0.5">{t('Master switch. When off, nothing is gated.')}</div>
         </div>
         <button
           type="button"
@@ -130,8 +130,8 @@ export default function StepUpSettings() {
       {/* TTL */}
       <div className="flex items-center justify-between gap-4 py-3 border-b border-ink/5">
         <div>
-          <div className="text-sm text-ink/90">Re-ask after</div>
-          <div className="text-xs text-ink/40 mt-0.5">Seconds a signature stays valid (60–1800).</div>
+          <div className="text-sm text-ink/90">{t('Re-ask after')}</div>
+          <div className="text-xs text-ink/40 mt-0.5">{t('Seconds a signature stays valid (60–1800).')}</div>
         </div>
         <input
           type="number"
@@ -146,13 +146,13 @@ export default function StepUpSettings() {
       {/* Matrix */}
       <div className="mt-3">
         <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center text-xs text-ink/30 pb-2 border-b border-ink/5">
-          <span>Feature</span>
-          <span className="w-12 text-center">Read</span>
-          <span className="w-12 text-center">Write</span>
+          <span>{t('Feature')}</span>
+          <span className="w-12 text-center">{t('Read')}</span>
+          <span className="w-12 text-center">{t('Write')}</span>
         </div>
         {(loading ? [] : features).map((f) => (
           <div key={f} className="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center py-2.5 border-b border-ink/5 last:border-0">
-            <span className="text-sm text-ink/85">{FEATURE_LABELS[f] ?? f}</span>
+            <span className="text-sm text-ink/85">{t(FEATURE_LABELS[f] ?? f)}</span>
             <div className="w-12 flex justify-center">
               <input
                 type="checkbox"
@@ -173,7 +173,7 @@ export default function StepUpSettings() {
             </div>
           </div>
         ))}
-        {loading && <div className="py-4 text-xs text-ink/30">Loading…</div>}
+        {loading && <div className="py-4 text-xs text-ink/30">{t('Loading…')}</div>}
       </div>
 
       {(saveError || signError) && (
@@ -184,9 +184,9 @@ export default function StepUpSettings() {
 
       <div className="mt-4 flex items-center gap-3">
         <PrimaryButton onClick={onSave} disabled={saving || pending}>
-          {saving || pending ? 'Saving…' : 'Save protection settings'}
+          {saving || pending ? t('Saving…') : t('Save protection settings')}
         </PrimaryButton>
-        {saved && <Pill tone="success">Saved</Pill>}
+        {saved && <Pill tone="success">{t('Saved')}</Pill>}
       </div>
     </Card>
   );

@@ -42,6 +42,7 @@ import {
 import { RevealGroup, RevealItem } from '../ui/motion';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
+import { fmtQtyActive } from '../../lib/format';
 import { getUserRegion } from '../../lib/region';
 import {
   councilProposalsApi,
@@ -69,7 +70,7 @@ function toDrops(xrp: string): string | null {
 
 function fmtXrp(amount: string | number): string {
   const n = Number(amount);
-  return isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 6 }) : String(amount);
+  return isFinite(n) ? fmtQtyActive(n, 6) : String(amount);
 }
 
 /** Trim a decimal to XRPL's 15 significant digits, no trailing zeros. */

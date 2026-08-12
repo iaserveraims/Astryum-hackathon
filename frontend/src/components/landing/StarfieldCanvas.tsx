@@ -61,17 +61,37 @@ export default function StarfieldCanvas({ accent = '201,162,39' }: { accent?: st
     };
 
     const resize = () => {
+      const nw = window.innerWidth;
+      const nh = window.innerHeight;
+      // Mobile browsers fire `resize` on every URL-bar collapse/expand while
+      // scrolling. Reallocating the canvas (which clears it) and re-seeding
+      // made the whole sky visibly teleport mid-scroll — ignore height-only
+      // jitter below the chrome's travel, and on real changes SCALE the stars
+      // into the new box instead of re-randomizing them.
+      if (w !== 0 && nw === w && Math.abs(nh - h) < 140) return;
+      const sx = w ? nw / w : 1;
+      const sy = h ? nh / h : 1;
       // Cap DPR at 1.5: a background star field gains nothing perceptible from a full
       // 2× render but pays ~78% more fill cost per frame on retina screens.
       dpr = Math.min(1.5, window.devicePixelRatio || 1);
-      w = window.innerWidth;
-      h = window.innerHeight;
+      w = nw;
+      h = nh;
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      seed();
+      if (stars.length) {
+        for (const s of stars) {
+          s.x *= sx;
+          s.y *= sy;
+        }
+      } else {
+        seed();
+      }
+      // Setting canvas.width wipes the bitmap; without a rAF loop (reduced
+      // motion) the sky stayed blank after the first resize — repaint it.
+      if (reduce) renderStatic();
     };
 
     const drawStar = (s: Star, alpha: number) => {
@@ -181,6 +201,9 @@ export default function StarfieldCanvas({ accent = '201,162,39' }: { accent?: st
     };
 
     const onMove = (e: PointerEvent) => {
+      // Touch never fires pointerleave, so a single tap used to freeze the
+      // parallax offset and the gravity-well lines at the tap point forever.
+      if (e.pointerType === 'touch') return;
       pointer.x = e.clientX;
       pointer.y = e.clientY;
       pointer.has = true;
@@ -206,6 +229,7 @@ export default function StarfieldCanvas({ accent = '201,162,39' }: { accent?: st
     } else {
       window.addEventListener('pointermove', onMove, { passive: true });
       window.addEventListener('pointerleave', onLeave);
+      window.addEventListener('pointercancel', onLeave);
       raf = requestAnimationFrame(frame);
     }
 
@@ -216,6 +240,7 @@ export default function StarfieldCanvas({ accent = '201,162,39' }: { accent?: st
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerleave', onLeave);
+      window.removeEventListener('pointercancel', onLeave);
     };
   }, []);
 

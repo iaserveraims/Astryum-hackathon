@@ -9,6 +9,7 @@ import {
   getLinkedWallets,
 } from '../services/SiweAuth';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 import { PointsEngine } from '../engines/points/PointsEngine';
 import { authService } from '../services/AuthService';
@@ -16,8 +17,16 @@ import { createSlidingWindowLimiter, SlidingWindowLimiter } from '../middleware/
 import { requireTurnstile } from '../middleware/turnstile';
 import { clientIp } from '../middleware/clientIp';
 import { isOAuthProvider, oauthProviderConfigured, verifyOAuthIdToken } from '../services/oauthVerify';
+import {
+  XRPL_IDENTITY_AUTHORIZE_URL,
+  XRPL_IDENTITY_SCOPES,
+  allowedRedirectUris,
+  exchangeCodeForIdToken,
+  xrplIdentityConfigured,
+} from '../services/xrplIdentityOidc';
 import { isAdminEmail } from './adminPanel';
 import { hasLegacyToggleAccess } from '../config/legacyAccess';
+import { computeLegalStatus, withLegalAcceptance } from '../config/legalAcceptance';
 
 const router = Router();
 
@@ -111,7 +120,9 @@ router.post('/verify', async (req: Request, res: Response) => {
         ? 400
         : code === 'nonce_unknown' || code === 'nonce_expired' || code === 'nonce_address_mismatch'
           ? 409
-          : 500;
+          : code === 'not_invited' // closed beta — new wallet-first accounts need an approved email first
+            ? 403
+            : 500;
     return res.status(status).json({ error: code });
   }
 });
@@ -120,12 +131,12 @@ router.post('/verify', async (req: Request, res: Response) => {
  * GET /api/auth/me
  * Returns the current session info (requires Bearer token).
  */
-router.get('/me', requireSiweAuth, async (req: Request, res: Response) => {
+router.get('/me', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
   const [linkedWallets, profileRow] = await Promise.all([
     getLinkedWallets(req.siwe!.userId),
     prisma.user.findUnique({
       where: { id: req.siwe!.userId },
-      select: { email: true, username: true, firstName: true, lastName: true, avatar: true },
+      select: { email: true, username: true, firstName: true, lastName: true, avatar: true, preferences: true },
     }),
   ]);
   return res.json({
@@ -133,6 +144,10 @@ router.get('/me', requireSiweAuth, async (req: Request, res: Response) => {
     sessionId: req.siwe!.sessionId,
     walletAddress: req.siwe!.walletAddress,
     linkedWallets,
+    // Legal acceptance gate (founder 2026-07-30): whether THIS account still
+    // has to be shown the current /demo-terms + /privacy versions. Covers
+    // wallet-first accounts (no register click-wrap) and version bumps.
+    legal: computeLegalStatus(profileRow?.preferences, DEMO_TERMS_VERSION),
     // Server-side profile (founder 2026-07-19: name/photo must survive
     // logout→login) — the store hydrates presentation from here.
     profile: profileRow ?? null,
@@ -146,7 +161,36 @@ router.get('/me', requireSiweAuth, async (req: Request, res: Response) => {
     // UI discovery — governed-account APIs keep their own server-side auth.
     legacyAccess: hasLegacyToggleAccess(profileRow?.email),
   });
+}));
+
+/**
+ * POST /api/auth/legal-accept — record that the signed-in account accepted
+ * the current demo terms and READ the current privacy notice (the notice is
+ * informed, not consented — see config/legalAcceptance.ts). Both flags must
+ * be literally true; the record rides User.preferences.legal with version and
+ * timestamp, preserving sibling keys.
+ */
+const legalAcceptSchema = z.object({
+  terms: z.literal(true, { errorMap: () => ({ message: 'terms_required' }) }),
+  privacyRead: z.literal(true, { errorMap: () => ({ message: 'privacy_read_required' }) }),
 });
+
+router.post('/legal-accept', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
+  const parsed = legalAcceptSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
+  }
+  const row = await prisma.user.findUnique({
+    where: { id: req.siwe!.userId },
+    select: { preferences: true },
+  });
+  const merged = withLegalAcceptance(row?.preferences, DEMO_TERMS_VERSION);
+  await prisma.user.update({
+    where: { id: req.siwe!.userId },
+    data: { preferences: merged as never },
+  });
+  return res.json({ ok: true, legal: computeLegalStatus(merged, DEMO_TERMS_VERSION) });
+}));
 
 // Profile schema shared by PATCH /profile: presentation only, nothing
 // custodial. Avatar is a small data-URL the client downscales (~96px square);
@@ -163,7 +207,7 @@ const profilePatchSchema = z.object({
  * PATCH /api/auth/profile — persist display name / avatar on the account so
  * they survive logout→login and follow the user across devices.
  */
-router.patch('/profile', requireSiweAuth, async (req: Request, res: Response) => {
+router.patch('/profile', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
   const parsed = profilePatchSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_profile', detail: parsed.error.flatten() });
@@ -178,7 +222,7 @@ router.patch('/profile', requireSiweAuth, async (req: Request, res: Response) =>
     select: { username: true, avatar: true },
   });
   return res.json({ profile: user });
-});
+}));
 
 /**
  * POST /api/auth/logout
@@ -226,7 +270,21 @@ function requireEmailAuth(_req: Request, res: Response, next: () => void) {
  * (see AuthService.register). Bump the version when /demo-terms materially
  * changes.
  */
-export const DEMO_TERMS_VERSION = '2026-07-26';
+// 2026-07-30: /demo-terms gained automation/rules, data & on-chain permanence,
+// the €50 liability cap with consumer carve-outs, and the operator
+// identification link (/privacy) — material additions, hence the bump.
+// 2026-08-01: accuracy audit. The council fee was described as charged "when
+// the order is delivered with its proof" — it is actually paid inside the
+// signed Payment itself, so a failed delivery leaves it already paid: a
+// correction that works AGAINST us, which is exactly why it must ship. Also
+// narrowed the caps, simulation and boot-guard claims to what the code does.
+// 2026-08-01.1 (same day, second material change — hence the suffix: anyone
+// who accepted the morning text must see the evening one): /demo-terms gains
+// the rules of use that never shipped — minimum age 18 (the demo had NONE),
+// excluded/sanctioned territories by declaration, suspension right that can
+// never withhold funds, tax responsibility and permitted use. Law & forum
+// stay deliberately absent: that clause is counsel's (legal/02 §12).
+export const DEMO_TERMS_VERSION = '2026-08-01.1';
 
 const registerSchema = z.object({
   email:        z.string().email(),
@@ -290,7 +348,8 @@ router.post('/register', (req, res, next) => requireEmailAuth(req as Request, re
     return res.status(201).json(result);
   } catch (err: any) {
     const code = err?.code ?? 'register_failed';
-    return res.status(code === 'email_taken' ? 409 : 500).json({ error: code });
+    // not_invited: closed beta — the email has no founder approval yet (betaGate).
+    return res.status(code === 'email_taken' ? 409 : code === 'not_invited' ? 403 : 500).json({ error: code });
   }
 });
 
@@ -458,9 +517,107 @@ router.post('/oauth/:provider', rateLimitBy(oauthLimiter), async (req: Request, 
           ? 400
           : code === 'account_disabled'
             ? 401
-            : code === 'oauth_jwks_unavailable'
-              ? 503
-              : 500;
+            : code === 'not_invited' // closed beta — first OAuth login is a signup, and this email isn't approved
+              ? 403
+              : code === 'oauth_jwks_unavailable'
+                ? 503
+                : 500;
+    return res.status(status).json({ error: code });
+  }
+});
+
+// ── XRP Identity (account.xrpl.in) — the ecosystem's own front door ───────────
+// Astryum adopts the XRPL ecosystem's identity provider as its main entrance.
+// Flow: browser generates PKCE (S256) → redirects to the provider's /auth →
+// gets a one-time `code` back → POSTs it here → we exchange it server-side and
+// run the SAME verification and account-linking rail as Google/Apple.
+//
+// What this door proves: WHO the person is. What it does not prove: which XRPL
+// account they control — that stays a signature, on the wallet-binding rail.
+
+/**
+ * GET /api/auth/oauth/xrplid/config
+ * Public, non-secret parameters the browser needs to build the authorize URL.
+ * The client id of a PUBLIC OIDC client is not a secret (it travels in the
+ * authorize URL by design); serving it from here keeps a single source of
+ * truth in Railway env instead of a NEXT_PUBLIC_* copy in the bundle.
+ */
+router.get('/oauth/xrplid/config', (_req: Request, res: Response) => {
+  if (!xrplIdentityConfigured()) {
+    return res.status(503).json({ error: 'xrplid_not_configured' });
+  }
+  const redirectUris = allowedRedirectUris();
+  if (redirectUris.length === 0) {
+    return res.status(503).json({ error: 'xrplid_redirect_not_configured' });
+  }
+  return res.json({
+    clientId: process.env.XRPL_IDENTITY_CLIENT_ID?.trim(),
+    authorizeUrl: XRPL_IDENTITY_AUTHORIZE_URL,
+    scopes: XRPL_IDENTITY_SCOPES,
+    redirectUris,
+  });
+});
+
+const xrplIdExchangeSchema = z.object({
+  code: z.string().trim().min(1).max(2048),
+  codeVerifier: z.string().trim().min(43).max(128),
+  redirectUri: z.string().trim().url().max(512),
+  profile: z
+    .object({
+      username:  z.string().trim().min(2).max(32).optional(),
+      firstName: z.string().trim().min(1).max(64).optional(),
+      lastName:  z.string().trim().min(1).max(64).optional(),
+    })
+    .optional(),
+});
+
+/**
+ * POST /api/auth/oauth/xrplid/exchange
+ * Body: { code, codeVerifier, redirectUri }
+ * Returns the Astryum session, exactly like the other OAuth providers.
+ */
+router.post('/oauth/xrplid/exchange', rateLimitBy(oauthLimiter), async (req: Request, res: Response) => {
+  if (!xrplIdentityConfigured()) {
+    return res.status(503).json({ error: 'xrplid_not_configured' });
+  }
+  const parsed = xrplIdExchangeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
+  }
+
+  try {
+    const idToken = await exchangeCodeForIdToken({
+      code: parsed.data.code,
+      codeVerifier: parsed.data.codeVerifier,
+      redirectUri: parsed.data.redirectUri,
+    });
+    const claims = await verifyOAuthIdToken('xrplid', idToken);
+    const result = await authService.oauthLogin(
+      claims,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      parsed.data.profile,
+    );
+    const { created, email: _email, ...session } = result;
+    return res.status(created ? 201 : 200).json(session);
+  } catch (err: any) {
+    const code = err?.code ?? 'oauth_failed';
+    const status =
+      code === 'xrplid_redirect_not_allowed'
+        ? 400
+        : code === 'oauth_token_invalid' ||
+            code === 'oauth_token_malformed' ||
+            code === 'oauth_unknown_key' ||
+            code === 'account_disabled'
+          ? 401
+          : code === 'oauth_email_missing' || code === 'oauth_email_unverified'
+            ? 400
+            : code === 'not_invited' // closed beta — first login here is a signup
+              ? 403
+              : code === 'oauth_jwks_unavailable' ||
+                  code === 'xrplid_token_unreachable' ||
+                  code.startsWith('xrplid_token_http_')
+                ? 503
+                : 500;
     return res.status(status).json({ error: code });
   }
 });

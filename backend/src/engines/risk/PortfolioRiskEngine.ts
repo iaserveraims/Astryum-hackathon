@@ -138,16 +138,23 @@ export class PortfolioRiskEngine {
     assumptions.push('IL not modeled in V1');
     assumptions.push('score weights: HF=60%, assetConc=20%, protoConc=10%, LP=10%');
 
+    // Sin DEUDA no hay liquidación posible — aunque una posición Lend arrastre
+    // un HF residual (p.ej. un supply que reportó hf=1.0), sin borrow no puede
+    // liquidarse. Reportar HF/liquidación aquí pintaba una posición "at risk"
+    // con LTV 0% (bug 2026-07-29). El HealthStrip cae entonces en su rama
+    // honesta "No debt to watch — no liquidation risk".
+    const hasDebt = totalDebt > 1e-6;
+
     return {
       scope: 'PORTFOLIO',
       scopeId: snapshot.wallet,
-      healthFactor: worstHF,
+      healthFactor: hasDebt ? worstHF : undefined,
       // Liquidation figures of the binding (worst-HF) lending account: the
       // portfolio liquidates when ITS first position does. Undefined when no
-      // position reports them.
-      liquidationPriceUSD: worstLiqPriceUSD,
-      liquidationDistanceUSD: worstLiqDistanceUSD,
-      liquidationDistancePct: worstLiqDistancePct,
+      // position reports them — o cuando no hay deuda que liquidar.
+      liquidationPriceUSD: hasDebt ? worstLiqPriceUSD : undefined,
+      liquidationDistanceUSD: hasDebt ? worstLiqDistanceUSD : undefined,
+      liquidationDistancePct: hasDebt ? worstLiqDistancePct : undefined,
       ltv: totalCollateral > 0 ? totalDebt / totalCollateral : undefined,
       collateralBufferUSD:
         worstHF !== undefined && totalDebt > 0

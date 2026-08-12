@@ -29,11 +29,12 @@ import {
 } from '@/components/ui/primitives';
 import { CountUp, RevealGroup, RevealItem, Spotlight } from '@/components/ui/motion';
 import { formatMoneyCompact } from '@/lib/formatMoney';
+import { fmtQtyActive } from '@/lib/format';
 import { SceneDoor } from '@/components/ui/SceneDoor';
 import { SignalBeacon } from '@/components/ui/scenes';
 import { OrbitScene, CometMark } from '@/components/earn/icons';
 import { useAuthStore } from '@/stores/authStore';
-import { useWalletLinking } from '@/lib/wallet/useWalletLinking';
+import { isAddressRemoved, useWalletLinking } from '@/lib/wallet/useWalletLinking';
 import { useAuthorities } from '@/hooks/useAuthorities';
 import { useSmartAccountsOf } from '@/hooks/useSmartAccountsOf';
 import { addressKey } from '@/lib/authority';
@@ -45,11 +46,19 @@ import { useUniversalConnect } from '@/lib/wallet/useUniversalConnect';
 import MovementsModal from '@/components/movements/MovementsModal';
 import { AddressBookPanel } from '@/components/wallet/AddressBookPanel';
 import { fetchNativeBalance, type NativeBalance } from '@/lib/wallet/nativeBalance';
+import { useAggregatedPortfolio } from '@/hooks/useAggregatedPortfolio';
 import { useBalanceVisibility } from '@/stores/balanceVisibilityStore';
 import { useT } from '@/i18n/LanguageProvider';
 import WalletBrandIcon from '@/components/wallet/WalletBrandIcon';
 import WalletGlyphIcon from '@/components/wallet/WalletGlyphIcon';
-import { WALLET_COLOR_PRESETS, brandOf, walletColor, walletIcon } from '@/lib/walletIdentity';
+import { WALLET_COLOR_PRESETS, brandOf, walletColor, walletDisplayName, walletIcon, walletProviderLabel } from '@/lib/walletIdentity';
+import { walletHoldings, type WalletHolding } from '@/lib/portfolioMerge';
+import { TokenLogo } from '@/components/ui/TokenLogo';
+import { useSwitchToFlare, type FlareSwitch } from '@/lib/wallet/useSwitchToFlare';
+import { CHAINLIST_FLARE_URL } from '@/lib/wallet/flareChain';
+import { MULTI_VM_CONNECT_ENABLED } from '@/lib/wallet/config';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { FirstWalletGuide } from '@/components/wallet/FirstWalletGuide';
 
 /* ------------------------------------------------------------------ */
 /* CHAIN CONFIG                                                         */
@@ -88,14 +97,105 @@ interface WalletPortfolio {
 /* HELPERS                                                             */
 /* ------------------------------------------------------------------ */
 
-// ─── Organizer (founder 2026-07-25) ──────────────────────────────────────────
-// "La vista de las wallets me parece un poco compleja": the fleet can now be
-// laid out three ways — the grid of full cards (operate), a compact list
-// (read), or grouped by native token — and ordered A–Z or by colour tag.
-// Persisted per browser so the chosen lens survives navigation.
+// ─── Organizer (founder 2026-07-25 · reworked user test 2026-08-03) ──────────
+// "La vista de las wallets me parece un poco compleja": the fleet can be laid
+// out three ways — a compact list (now the DEFAULT: the grid of full cards
+// confused the first-time tester), the grid (operate), or grouped by native
+// token — filtered by origin (added by you / created for you) and ordered
+// A–Z, by balance or by colour tag. Persisted per browser so the chosen lens
+// survives navigation.
 type WalletsView = 'grid' | 'list' | 'token';
-type WalletsOrder = 'name' | 'color';
-const WALLETS_VIEW_STORE = 'astryum:walletsView';
+type WalletsOrder = 'name' | 'color' | 'balance';
+type WalletsOriginFilter = 'all' | 'manual' | 'auto';
+// Key bumped to v2 with the list-default change so every browser re-defaults
+// ONCE — a 'grid' saved under the old key would silently override the new
+// default forever.
+const WALLETS_VIEW_STORE = 'astryum:walletsView.v2';
+
+// ─── Origin (user test 2026-08-03) ───────────────────────────────────────────
+// "No queda claro cuál es cuál": the fleet mixed wallets the user added by
+// hand with rows the platform registered for them. There is no stored origin
+// field — origin is DERIVED from walletType, whose writers are a closed set.
+// CASE-SENSITIVE on purpose: 'Xaman' (capital X — the user pressed Connect)
+// is manual, while 'xaman' (lowercase — the backend auto-registered the login
+// wallet) is the platform's. Watch-only rows ('manual') are manual by
+// definition: the user pasted the address.
+const AUTO_WALLET_TYPES = new Set([
+  'siwe', // login wallet, auto-registered by the SIWE flow
+  'xaman', // login wallet, auto-registered by the Xaman login (≠ 'Xaman')
+  'turnkey_embedded', // embedded wallet created by the platform
+  'smart-account', // a council's Flare Smart Account (backend writer)
+  'Flare Smart Account', // same account, synthesized client-side (Legacy tab)
+  'Council · multisig', // synthesized council leg (Legacy tab)
+  'evm', // old repository writer (auto-register)
+]);
+type WalletOrigin = 'manual' | 'auto';
+function originOf(w: BackendWallet): WalletOrigin {
+  return AUTO_WALLET_TYPES.has((w.walletType ?? '').trim()) ? 'auto' : 'manual';
+}
+
+/** Friendly sub-type shelf label inside each origin section of the list. */
+function walletTypeLabelOf(w: BackendWallet, t: (s: string) => string): string {
+  const wt = (w.walletType ?? '').trim();
+  if (wt === 'manual') return t('Watch-only');
+  if (wt === 'siwe' || wt === 'xaman') return t('Login wallet');
+  if (wt === 'turnkey_embedded') return t('Embedded wallet');
+  if (wt === 'smart-account' || wt === 'Flare Smart Account') return 'Smart Account';
+  if (wt === 'Council · multisig') return t('Council');
+  // A recognised provider shows its proper name ('xaman' → 'Xaman'), never
+  // the raw writer value — same casing rule as the wallet display name.
+  return walletProviderLabel(wt, w.ecosystem) ?? (wt || 'Wallet');
+}
+
+/** The token chips of what a wallet HOLDS (shared walletHoldings reading) —
+ *  ALL readable tokens with their money in plain sight (founder 2026-08-12:
+ *  a wallet holding ~10 FXRP read «0 FLR» and the chip said only "FXRP").
+ *  Quantity when the snapshot priced it (never invented), USD always; the
+ *  hidden-balances switch masks the numbers but keeps the identity. */
+function HoldingsChips({ holdings, hidden }: { holdings: WalletHolding[]; hidden: boolean }) {
+  if (holdings.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {holdings.map((h) => (
+        <span
+          key={h.symbol}
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] pl-1 pr-2 py-0.5"
+        >
+          <TokenLogo symbol={h.symbol} size="xs" />
+          <span className="font-mono text-[10px] text-ink/70 tabular-nums">
+            {hidden ? `•••• ${h.symbol}` : h.qty != null ? `${fmtQtyActive(h.qty)} ${h.symbol}` : h.symbol}
+          </span>
+          <span className="font-mono text-[10px] text-ink/40 tabular-nums">
+            {hidden ? '••••' : formatMoneyCompact(h.usd)}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Heading of an origin shelf — name, count, and one line saying what the shelf
+// holds. The explanation IS the feature: the tester could not tell which
+// wallet was which, so each section says where its rows came from.
+function OriginShelfHeading({ origin, count, es }: { origin: WalletOrigin; count: number; es: boolean }) {
+  return (
+    <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <MicroLabel>
+        {origin === 'manual' ? (es ? 'Añadidas por ti' : 'Added by you') : es ? 'De la plataforma' : 'From the platform'}
+      </MicroLabel>
+      <span className="font-mono text-[10px] text-ink/30">{count}</span>
+      <span className="text-[11px] text-ink/35">
+        {origin === 'manual'
+          ? es
+            ? 'wallets que conectaste o que miras'
+            : 'wallets you connected or watch'
+          : es
+            ? 'cuentas registradas para ti — acceso, Smart Accounts, embedded'
+            : 'accounts registered for you — login, Smart Accounts, embedded'}
+      </span>
+    </div>
+  );
+}
 
 /** Native token of a wallet's home rail — the "Por token" grouping key. */
 function nativeTokenOf(w: BackendWallet): string {
@@ -244,29 +344,65 @@ function PersonalizePanel({
   );
 }
 
+/**
+ * A Flare Smart Account (Personal Account) row — the Flare address the backend
+ * registers as `smart-account` when it resolves the PA of an XRPL account
+ * (GET /flare-demo/personal-account), plus the synthesized label used on the
+ * Legacy tab.
+ *
+ * It has NO key of its own: it only executes 0xFE userOps signed from the XRPL
+ * account that controls it (Xaman). So an EVM ownership proof can never be
+ * produced for it — offering "Enable transactions" dead-ended on "connect this
+ * exact wallet in your wallet app", a demand no wallet app can ever satisfy
+ * (founder 2026-08-03). Same reason the Earn signer picker excludes it.
+ */
+function isSmartAccount(w: BackendWallet): boolean {
+  return w.walletType === 'smart-account' || w.walletType === 'Flare Smart Account';
+}
+
 // ─── Compact row — the "Lista" / "Por token" views (founder 2026-07-25) ──────
 // The simple lens on a wallet: identity, name, address, chain, live native
-// balance, and the SAME pencil. Deep actions (enable tx, movements, remove)
-// stay on the grid card — this view exists to read, not to operate.
+// balance + USD, copy, Movements and the SAME pencil. The list is the DEFAULT
+// lens since 2026-08-03, so it must let the user act, not just read — deep
+// management (enable tx, remove, dashboard-inclusion) still lives on the card.
 function WalletRow({
   wallet,
+  holdings,
   busy,
   readOnly,
   onRename,
   onSetColor,
+  onMovements,
 }: {
   wallet: BackendWallet;
+  /** What this wallet HOLDS (shared aggregated-portfolio reading) — undefined
+   *  while the engine hasn't priced it (renders nothing, never a false 0). */
+  holdings?: WalletHolding[];
   busy: boolean;
   readOnly: boolean;
   onRename: (id: string, nickname: string) => void;
   onSetColor: (id: string, color: string | null) => void;
+  onMovements?: (w: BackendWallet) => void;
 }) {
   const { t } = useT();
   const [customizing, setCustomizing] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [native, setNative] = useState<NativeBalance | null>(null);
   const globalHidden = useBalanceVisibility((s) => s.hidden);
   const glyph = walletIcon(wallet);
   const badge = wallet.chainId ? CHAIN_BADGE[wallet.chainId] : null;
+
+  const copyAddress = () => {
+    navigator.clipboard
+      ?.writeText(wallet.address)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        /* clipboard blocked — the full address is still on the card */
+      });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -302,7 +438,7 @@ function WalletRow({
           )}
         </div>
         <span className="min-w-0 truncate text-sm font-medium text-ink">
-          {wallet.nickname || wallet.walletType}
+          {walletDisplayName(wallet, t)}
         </span>
         {wallet.isPrimary && <Star className="h-3 w-3 shrink-0 text-volt" fill="currentColor" aria-label={t('Primary')} />}
         <span className="hidden sm:block font-mono text-[11px] text-ink/40">{shortAddr(wallet.address)}</span>
@@ -311,13 +447,39 @@ function WalletRow({
             {badge}
           </span>
         )}
-        <span className="ml-auto shrink-0 font-mono tabular-nums text-sm text-ink">
-          {native
-            ? globalHidden
-              ? '••••'
-              : `${(parseFloat(native.balance) || 0).toFixed(4)} ${native.symbol ?? ''}`
-            : '…'}
+        <span className="ml-auto shrink-0 text-right">
+          <span className="block font-mono tabular-nums text-sm text-ink">
+            {native
+              ? globalHidden
+                ? '••••'
+                : `${(parseFloat(native.balance) || 0).toFixed(4)} ${native.symbol ?? ''}`
+              : '…'}
+          </span>
+          {native && typeof native.usdValue === 'number' && (
+            <span className="block font-mono tabular-nums text-[11px] text-ink/40">
+              {globalHidden ? '••••' : formatMoneyCompact(native.usdValue)}
+            </span>
+          )}
         </span>
+        <button
+          onClick={copyAddress}
+          className={`shrink-0 p-1 rounded-md transition-colors ${
+            copied ? 'text-tone-success' : 'text-ink/40 hover:text-ink hover:bg-ink/5'
+          }`}
+          title={t('Copy address')}
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+        {!readOnly && onMovements && (
+          <button
+            onClick={() => onMovements(wallet)}
+            disabled={busy}
+            className="shrink-0 p-1 rounded-md text-volt/80 hover:text-volt hover:bg-volt/10 transition-colors disabled:opacity-40"
+            title={t('Movements')}
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+          </button>
+        )}
         {!readOnly && (
           <button
             onClick={() => setCustomizing((v) => !v)}
@@ -332,6 +494,15 @@ function WalletRow({
           </button>
         )}
       </div>
+      {/* What the wallet holds — the tokens Home/Portfolio already read for
+          this address, finally visible on the Wallets screen too (founder
+          2026-08-08: "se muestran en el portfolio y en el home pero no en la
+          pantalla wallets"). */}
+      {holdings && holdings.length > 0 && (
+        <div className="pb-2.5 pl-10 pr-1">
+          <HoldingsChips holdings={holdings} hidden={globalHidden} />
+        </div>
+      )}
       {!readOnly && customizing && (
         <div className="pb-3 pl-10 pr-1">
           <PersonalizePanel wallet={wallet} onRename={onRename} onSetColor={onSetColor} />
@@ -343,9 +514,11 @@ function WalletRow({
 
 function WalletCard({
   wallet,
+  holdings,
   isActiveConnected,
   busy,
   readOnly = false,
+  flareSwitch,
   onEnableTx,
   onDisableTx,
   onRename,
@@ -353,19 +526,33 @@ function WalletCard({
   onSetPrimary,
   onRemove,
   onMovements,
+  onGovernedMovements,
   onToggleInclude,
 }: {
   wallet: BackendWallet;
+  /** What this wallet HOLDS (shared aggregated-portfolio reading) — undefined
+   *  while the engine hasn't priced it (renders nothing, never a false 0). */
+  holdings?: WalletHolding[];
   /** true if this is the wallet currently active in the wallet app (wagmi) */
   isActiveConnected: boolean;
   busy: boolean;
+  /** Shared switch-to-Flare engine (one instance, owned by WalletManager).
+   *  Renders the contextual «Switch to Flare» CTA ON the active EVM card when
+   *  its live network ≠ Flare — same engine as the global banner, zero
+   *  duplicated logic (founder 2026-07-29: the button belongs on the
+   *  connected MetaMask wallet, not only on a global banner). */
+  flareSwitch?: FlareSwitch;
   /** Governance-embedded (Legacy Wallets tab): a read-only card. Suppresses
    *  every write/action CTA — a Legacy's council is a MULTISIG and its Smart
    *  Account has no EOA key, so single-sig "Enable transactions" is a footgun /
-   *  dead-end, "Remove" self-defeats (the PA re-registers), and movements go
-   *  through the council proposal flow (the Movements tab), never this modal.
+   *  dead-end and "Remove" self-defeats (the PA re-registers).
    *  Identity + balance + copy + explorer remain. */
   readOnly?: boolean;
+  /** Present only on a Legacy-scoped card: opens the GOVERNED Movements
+   *  surface (compose unsigned → council inbox → quorum signs) instead of the
+   *  single-sig modal a personal card opens. The gesture is the same, the rail
+   *  is not — which is the whole point of the unification (2026-07-28). */
+  onGovernedMovements?: () => void;
   onEnableTx: (address: string) => void;
   onDisableTx: (bindingId: string) => void;
   onRename: (id: string, nickname: string) => void;
@@ -394,6 +581,9 @@ function WalletCard({
 
   const badge = chainId ? CHAIN_BADGE[chainId] : null;
   const chainName = chainId ? CHAIN_NAMES[chainId] : t('Multi-chain');
+  // The Smart Account is keyless (see isSmartAccount): it states the honest
+  // fact instead of offering a signing capability nobody can grant.
+  const smartAccount = isSmartAccount(wallet);
 
   useEffect(() => {
     let cancelled = false;
@@ -454,7 +644,7 @@ function WalletCard({
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-ink">{wallet.nickname || wallet.walletType}</span>
+              <span className="text-sm font-medium text-ink">{walletDisplayName(wallet, t)}</span>
               {!readOnly && (
                 <button
                   onClick={() => setCustomizing((v) => !v)}
@@ -469,6 +659,11 @@ function WalletCard({
                 </button>
               )}
               {isPrimary && <Pill tone="success">{t('Primary')}</Pill>}
+              {smartAccount && (
+                <Pill tone="neutral" size="sm">
+                  {t('Smart Account')}
+                </Pill>
+              )}
             </div>
             <div className="text-[11px] font-mono text-ink/50 mt-0.5">{shortAddr(address)}</div>
 
@@ -552,7 +747,7 @@ function WalletCard({
                   {hideBalance
                     ? '••••'
                     : portfolio.native.usdValue == null
-                      ? formatMoneyCompact(portfolio.native.usdValue)
+                      ? '—'
                       : <CountUp value={portfolio.native.usdValue} format={formatMoneyCompact} duration={0.6} />}
                 </div>
               </div>
@@ -578,19 +773,72 @@ function WalletCard({
             </span>
           </div>
         )}
+        {/* What the wallet holds — same shared reading as Home/Portfolio
+            (founder 2026-08-08), so a wallet with FXRP in Kinetic no longer
+            looks empty next to its native balance. Independent of the native
+            fetch: tokens still show when that read is unavailable. */}
+        {holdings && holdings.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-ink/5">
+            <div className="text-xs text-ink/40 mb-1.5">{t('Holds')}</div>
+            <HoldingsChips holdings={holdings} hidden={hideBalance} />
+          </div>
+        )}
       </div>
+
+      {/* Switch to Flare — contextual CTA on the ACTIVE connected EVM wallet
+          when its live network ≠ Flare. The wallet opens its own pre-filled
+          dialog (EIP-3085/3326); a decline is answered calmly and the CTA
+          stays; an unsupported wallet gets the honest Chainlist way out. The
+          global NetworkSwitcher banner remains as the app-wide safety net. */}
+      {!readOnly &&
+        isActiveConnected &&
+        wallet.ecosystem?.toLowerCase() === 'evm' &&
+        flareSwitch?.wrongNetwork && (
+          <div className="mt-3 flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border border-tone-warning/25 bg-tone-warning/[0.07]">
+            <span className="text-[11px] text-tone-warning/90">
+              {flareSwitch.declined
+                ? t("No problem — you can switch whenever you're ready.")
+                : t("You're on another network — this app runs on Flare.")}
+            </span>
+            {flareSwitch.manualNeeded ? (
+              <a
+                href={CHAINLIST_FLARE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:bg-tone-warning/20 transition-colors"
+              >
+                {t('Open Chainlist')} ↗
+              </a>
+            ) : (
+              <button
+                onClick={flareSwitch.switchToFlare}
+                disabled={flareSwitch.switching}
+                className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:bg-tone-warning/20 transition-colors disabled:opacity-40"
+              >
+                {flareSwitch.switching ? t('Switching…') : t('Switch to Flare')}
+              </button>
+            )}
+          </div>
+        )}
 
       {/* Movements — one button opens the full surface: send/receive,
           set XRP aside (escrow) and native DEX buy/sell on XRPL wallets;
           send/receive on Flare wallets. Prepare-only; you sign in your wallet.
-          Hidden in the governed (read-only) card: a Legacy moves via council
-          proposals (the Movements tab), never this single-sig modal. */}
-      {!readOnly && (
+          A Legacy-scoped card shows the SAME button (founder 2026-07-28 — a
+          council is a personal wallet that signs by quorum, so it deserves the
+          same gesture) but routes to the GOVERNED surface: the move is composed
+          unsigned and proposed to the council inbox, never signed single-sig
+          here. Everything else on that card stays read-only. */}
+      {(!readOnly || onGovernedMovements) && (
         <div className="mt-3">
           <button
-            onClick={() => onMovements(wallet)}
+            onClick={() => (onGovernedMovements ? onGovernedMovements() : onMovements(wallet))}
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-volt/25 bg-volt/[0.07] text-volt text-xs font-medium hover:bg-volt/15 transition-colors"
-            title={t('Send, receive, set aside and trade — you sign in your own wallet')}
+            title={
+              onGovernedMovements
+                ? t('Compose a movement for this Legacy — the quorum signs it in Proposals')
+                : t('Send, receive, set aside and trade — you sign in your own wallet')
+            }
           >
             <ArrowLeftRight className="w-3.5 h-3.5" />
             {t('Movements')}
@@ -628,12 +876,23 @@ function WalletCard({
 
       {/* Capability row — read-only vs tx-enabled. In the governed card there is
           no capability to grant: the account is a multisig / a council-operated
-          Smart Account, so we state the honest read-only fact and offer no CTA. */}
+          Smart Account, so we state the honest read-only fact and offer no CTA.
+          A personal Smart Account is the same story for a different reason: it
+          holds no key at all, so there is nothing to enable — its moves are
+          signed in Xaman by the XRPL account that controls it. */}
       <div className="mt-3 pt-3 border-t border-ink/5">
         {readOnly ? (
           <span className="flex items-center gap-2 text-[11px] text-ink/45">
             <ShieldCheck className="w-3.5 h-3.5" />
             {t('Governed by its council — Astryum never signs')}
+          </span>
+        ) : smartAccount ? (
+          <span
+            className="flex items-center gap-2 text-[11px] text-ink/45"
+            title={t('It executes orders signed in Xaman by the XRPL account that controls it — there is no EVM key to prove.')}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            {t('Operated from your XRPL account in Xaman — it has no key of its own')}
           </span>
         ) : txAuthorized ? (
           <div className="flex items-center justify-between gap-2">
@@ -764,6 +1023,11 @@ function PendingWalletBanner({
 // on Flare (EVM), plus a watch-an-address form (XRPL / Flare, read-only). The
 // multi-ecosystem connectors (AppKit multi-chain, Aptos, Stellar) are preserved
 // in useUniversalConnect / walletLinkService but have no UI entry point here.
+//
+// Founder 2026-08-04: the MetaMask button no longer opens a wallet picker. It
+// connects MetaMask itself and only survives on Flare Mainnet (chain 14) — the
+// picker, the other chains and the other extensions are gone from the rail (see
+// lib/wallet/config.ts · MULTI_VM_CONNECT_ENABLED).
 
 /** XRPL classic address (base58, case-sensitive) and EVM address shapes. */
 const WATCH_XRPL_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
@@ -773,13 +1037,17 @@ function AddWalletModal({
   onConnect,
   onConnectXrpl,
   onWatchAddress,
+  onNoWallet,
   connectBusy,
   connectError,
   onClose,
 }: {
-  onConnect: () => void;
+  /** Connect MetaMask on Flare (14). Rejects — and links nothing — otherwise. */
+  onConnect: () => Promise<void>;
   onConnectXrpl: () => Promise<void>;
   onWatchAddress: (address: string) => Promise<void>;
+  /** Swap this modal for the first-wallet guide (exchange-only users). */
+  onNoWallet: () => void;
   connectBusy: string | null;
   connectError: string | null;
   onClose: () => void;
@@ -788,6 +1056,23 @@ function AddWalletModal({
   const [watchInput, setWatchInput] = useState('');
   const [watchBusy, setWatchBusy] = useState(false);
   const [watchError, setWatchError] = useState<string | null>(null);
+  // The MetaMask button owns its own busy/error: a declined Flare switch must
+  // be readable HERE (the modal used to close the moment it was pressed).
+  const [evmBusy, setEvmBusy] = useState(false);
+  const [evmError, setEvmError] = useState<string | null>(null);
+
+  async function submitEvm() {
+    setEvmBusy(true);
+    setEvmError(null);
+    try {
+      await onConnect();
+      onClose();
+    } catch (e) {
+      setEvmError((e as Error).message);
+    } finally {
+      setEvmBusy(false);
+    }
+  }
 
   async function submitWatch() {
     const addr = watchInput.trim();
@@ -808,8 +1093,8 @@ function AddWalletModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md my-auto shadow-2xl overflow-hidden">
         <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <h2 className="text-base font-semibold text-ink">{t('Add Wallet')}</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors">
@@ -819,19 +1104,27 @@ function AddWalletModal({
 
         <div className="px-6 py-5 space-y-4">
           <button
-            onClick={() => { onConnect(); onClose(); }}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-volt/30 bg-volt/10 text-volt text-sm font-medium hover:bg-volt/20 transition-colors"
+            onClick={() => void submitEvm()}
+            disabled={evmBusy || !!connectBusy}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-volt/30 bg-volt/10 text-volt text-sm font-medium hover:bg-volt/20 transition-colors disabled:opacity-50"
           >
             <span className="flex items-center gap-2.5">
-              <Link2 className="w-4 h-4" />
-              MetaMask · Flare (EVM)
+              {evmBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              MetaMask · Flare Mainnet
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-volt/30 text-volt/80">FLR</span>
+            {/* Untranslated on purpose: "chain 14" is the identifier the user
+                will also read inside MetaMask (t('chain') would say "cadena"). */}
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-volt/30 text-volt/80">
+              chain 14
+            </span>
           </button>
+          {/* t() on the thrown prose: the connect rail speaks English, the UI
+              may not — a miss falls back to the string itself. */}
+          {evmError && <p className="text-xs text-tone-danger -mt-1">{t(evmError)}</p>}
 
           <button
             onClick={() => onConnectXrpl().then(onClose).catch(() => {})}
-            disabled={!!connectBusy}
+            disabled={!!connectBusy || evmBusy}
             className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-sky-400/30 bg-sky-400/10 text-sky-200 text-sm font-medium hover:bg-sky-400/20 transition-colors disabled:opacity-50"
           >
             <span className="flex items-center gap-2.5">
@@ -842,9 +1135,19 @@ function AddWalletModal({
           </button>
 
           <p className="text-[11px] text-ink/40 text-center">
-            {t('These are the two wallets accepted in this beta. Connecting only reads the address — enabling transactions is a separate, per-wallet signature.')}
+            {t('These are the two wallets accepted in this beta: MetaMask on Flare Mainnet (chain 14) and Xaman on XRPL. Connecting only reads the address — enabling transactions is a separate, per-wallet signature.')}
           </p>
           {connectError && <p className="text-xs text-tone-danger text-center -mt-1">{connectError}</p>}
+
+          {/* The door for exchange-only users (founder 2026-08-08): both
+              buttons above assume a wallet app already exists — this row is
+              for the user who has none and would otherwise bounce here. */}
+          <button
+            onClick={onNoWallet}
+            className="w-full px-4 py-3 rounded-xl border border-dashed border-ink/15 text-[13px] text-ink/60 hover:text-ink hover:bg-ink/[0.04] transition-colors"
+          >
+            {t('I don’t have a wallet yet — show me how')}
+          </button>
 
           <div className="flex items-center gap-3">
             <span className="flex-1 h-px bg-ink/10" />
@@ -881,7 +1184,7 @@ function AddWalletModal({
           </form>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -894,6 +1197,7 @@ export type WalletManagerScope = 'personal' | { legacyCouncil: string };
 export default function WalletManager({
   scope = 'personal',
   variant = 'page',
+  onGovernedMovements,
 }: {
   /** 'personal' = Astryum Personal (every wallet MINUS the ones a Legacy owns);
    *  { legacyCouncil } = the "Wallets" tab of one Legacy (its council + its PA). */
@@ -901,32 +1205,41 @@ export default function WalletManager({
   /** 'page' = full standalone page (header, sign-in, add-wallet, address book);
    *  'embedded' = inside another surface (the Legacy governance tab). */
   variant?: 'page' | 'embedded';
+  /** Legacy scope only: open the GOVERNED Movements surface for this Legacy
+   *  (compose unsigned → council inbox → quorum). Given by the Legacy hub,
+   *  which owns that modal; passing it here keeps the wallet layer free of any
+   *  dependency on the governance components. */
+  onGovernedMovements?: () => void;
 } = {}) {
   const { t, lang } = useT();
   const es = lang === 'es';
   const legacyCouncil = typeof scope === 'object' ? scope.legacyCouncil : null;
 
-  // Organizer state — restored once per mount, persisted on change.
-  const [view, setView] = useState<WalletsView>('grid');
+  // Organizer state — restored once per mount, persisted on change. List is
+  // the default lens (user test 2026-08-03: the card grid confused a
+  // first-time holder — "no acaba de quedar clara cada wallet").
+  const [view, setView] = useState<WalletsView>('list');
   const [order, setOrder] = useState<WalletsOrder>('name');
+  const [originFilter, setOriginFilter] = useState<WalletsOriginFilter>('all');
   useEffect(() => {
     try {
       const raw = localStorage.getItem(WALLETS_VIEW_STORE);
       if (!raw) return;
-      const p = JSON.parse(raw) as { view?: WalletsView; order?: WalletsOrder };
+      const p = JSON.parse(raw) as { view?: WalletsView; order?: WalletsOrder; origin?: WalletsOriginFilter };
       if (p.view === 'grid' || p.view === 'list' || p.view === 'token') setView(p.view);
-      if (p.order === 'name' || p.order === 'color') setOrder(p.order);
+      if (p.order === 'name' || p.order === 'color' || p.order === 'balance') setOrder(p.order);
+      if (p.origin === 'all' || p.origin === 'manual' || p.origin === 'auto') setOriginFilter(p.origin);
     } catch {
       /* corrupt/blocked storage — defaults stand */
     }
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem(WALLETS_VIEW_STORE, JSON.stringify({ view, order }));
+      localStorage.setItem(WALLETS_VIEW_STORE, JSON.stringify({ view, order, origin: originFilter }));
     } catch {
       /* best-effort */
     }
-  }, [view, order]);
+  }, [view, order, originFilter]);
   const user = useAuthStore((s) => s.user);
   const authLoading = useAuthStore((s) => s.isLoading);
   const authError = useAuthStore((s) => s.error);
@@ -969,6 +1282,10 @@ export default function WalletManager({
 
   const linking = useWalletLinking(hasJwt);
   const { wallets: allLinkedWallets, connectedAddress, isConnected } = linking;
+
+  // ONE shared switch-to-Flare engine for every card (same one the global
+  // banner uses) — the active EVM card renders the contextual CTA from it.
+  const flareSwitch = useSwitchToFlare();
 
   // Astryum Personal holds only NORMAL wallets (founder 2026-07-18/21): the
   // wallets a Legacy controls are NOT personal — its council multisig AND the
@@ -1028,31 +1345,71 @@ export default function WalletManager({
   // Personal only: how many linked wallets moved into a Legacy (council + PA).
   const legacyOwnedCount = legacyCouncil ? 0 : allLinkedWallets.length - wallets.length;
 
+  // Balance order reads the REAL per-wallet net worth from the shared
+  // aggregated-portfolio store (already warm — the shell's poller feeds it);
+  // wallets the engine hasn't priced yet sink to the bottom, A–Z among them.
+  const { data: aggregatedPortfolio } = useAggregatedPortfolio();
+  const usdByAddress = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const pw of aggregatedPortfolio?.perWallet ?? []) {
+      const v = pw?.snap?.netWorthUSD;
+      if (typeof v === 'number') m.set(addressKey(pw.address), v);
+    }
+    return m;
+  }, [aggregatedPortfolio]);
+  // What each wallet HOLDS — the same per-wallet snapshot Home/Portfolio
+  // read, finally surfaced on this screen (founder 2026-08-08). Wallets the
+  // engine hasn't priced (excluded from portfolio, or a failed read) simply
+  // have no entry — the row renders nothing, never a false "empty".
+  const holdingsByAddress = useMemo(() => {
+    const m = new Map<string, WalletHolding[]>();
+    for (const pw of aggregatedPortfolio?.perWallet ?? []) {
+      if (pw?.snap) m.set(addressKey(pw.address), walletHoldings(pw.snap));
+    }
+    return m;
+  }, [aggregatedPortfolio]);
+
   // Organizer projections — order applies to every view; token groups feed the
   // "Por token" lens. Colour order walks the picker's own palette (tagged
   // first, in rainbow order; untagged after; A–Z inside each step).
   const sortedWallets = useMemo(() => {
-    const displayName = (w: BackendWallet) => (w.nickname || w.walletType || '').toLowerCase();
+    const displayName = (w: BackendWallet) => walletDisplayName(w).toLowerCase();
     const colorRank = (w: BackendWallet) => {
       const i = (WALLET_COLOR_PRESETS as readonly string[]).indexOf(w.color ?? '');
       return i === -1 ? WALLET_COLOR_PRESETS.length : i;
     };
+    const usdRank = (w: BackendWallet) => usdByAddress.get(addressKey(w.address)) ?? -1;
     return [...wallets].sort((a, b) =>
       order === 'color'
         ? colorRank(a) - colorRank(b) || displayName(a).localeCompare(displayName(b))
-        : displayName(a).localeCompare(displayName(b)),
+        : order === 'balance'
+          ? usdRank(b) - usdRank(a) || displayName(a).localeCompare(displayName(b))
+          : displayName(a).localeCompare(displayName(b)),
     );
-  }, [wallets, order]);
+  }, [wallets, order, usdByAddress]);
+  // The origin filter cuts across every lens; the two origin shelves feed the
+  // sectioned list/grid (added-by-you first, the platform's after).
+  const originFiltered = useMemo(
+    () => (originFilter === 'all' ? sortedWallets : sortedWallets.filter((w) => originOf(w) === originFilter)),
+    [sortedWallets, originFilter],
+  );
+  const originSections = useMemo(
+    () =>
+      (['manual', 'auto'] as const)
+        .map((origin) => ({ origin, rows: originFiltered.filter((w) => originOf(w) === origin) }))
+        .filter((s) => s.rows.length > 0),
+    [originFiltered],
+  );
   const tokenGroups = useMemo(() => {
     const groups = new Map<string, BackendWallet[]>();
-    for (const w of sortedWallets) {
+    for (const w of originFiltered) {
       const key = nativeTokenOf(w);
       const list = groups.get(key) ?? [];
       list.push(w);
       groups.set(key, list);
     }
     return [...groups.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
-  }, [sortedWallets]);
+  }, [originFiltered]);
   // The Legacy tab keeps its two-card grid — the organizer is a personal-fleet lens.
   const activeView: WalletsView = legacyCouncil ? 'grid' : view;
 
@@ -1074,11 +1431,31 @@ export default function WalletManager({
   const universal = useUniversalConnect(linking.refresh);
 
   const [showAdd, setShowAdd] = useState(false);
+  // First-wallet guide (exchange-only users) — opened from AddWalletModal's
+  // "I don't have a wallet yet" row; its last step connects via the same
+  // handlers the modal uses.
+  const [showGuide, setShowGuide] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   // Per-wallet Movements modal — one button opens send/receive + (XRPL) escrow
   // & DEX buy/sell, chain-adaptive to the card's wallet.
   const [movementsWallet, setMovementsWallet] = useState<BackendWallet | null>(null);
+
+  // Deep link from the Summary's guide: /app/wallets?add=1 lands with the Add
+  // Wallet door already open, so the guided user doesn't have to hunt for a
+  // button they have never seen. The param is consumed (stripped) so refresh
+  // and back/forward don't reopen the modal. window.location, not
+  // useSearchParams: this runs client-only and must not force a Suspense
+  // boundary on the statically-rendered wallets page.
+  useEffect(() => {
+    if (variant !== 'page') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('add') !== '1') return;
+    setShowAdd(true);
+    params.delete('add');
+    const rest = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+  }, [variant]);
 
   async function handleAddSolana() {
     if (!solAccount.address) return;
@@ -1145,8 +1522,18 @@ export default function WalletManager({
     // Personal-only: the Legacy tab must never auto-register the connected
     // personal wallet (it belongs to Astryum Personal, not this Legacy).
     if (variant !== 'page' || !hasJwt || !user?.address) return;
+    // Only a real EVM address may be filed as a Flare row. `user.address` falls
+    // back to the FIRST linked wallet when SIWE set none, and for a Xaman login
+    // that is an XRPL r-address: lower-cased and hard-coded to Flare/eip155:14
+    // below, it created a phantom "Flare N" twin of the user's own Xaman wallet
+    // (no balance, and re-created on every page load after being deleted).
+    if (!/^0x[0-9a-fA-F]{40}$/.test(user.address)) return;
     const addr = user.address.toLowerCase();
     if (allLinkedWallets.some((w) => w.address.toLowerCase() === addr)) return;
+    // A wallet the user deleted stays deleted. `attemptedRef` is per mount, and
+    // this effect also fires BEFORE the list has loaded, so without this the row
+    // came back on every refresh. Re-adding it stays one explicit click away.
+    if (isAddressRemoved(addr)) return;
     if (attemptedRef.current.has(addr)) return;
     attemptedRef.current.add(addr);
     connectWallet({
@@ -1179,26 +1566,29 @@ export default function WalletManager({
     }
   }
 
-  // Release the active session and immediately reopen the picker so the user can
-  // choose ANY wallet (the modal otherwise shows the already-connected account).
+  // Release the active session and reconnect MetaMask, so the user can hand
+  // over a different account (switch it inside MetaMask first — the button's
+  // title says so). Same single rail as "Add wallet": MetaMask, on Flare.
   async function handleConnectAnother() {
     setActionBusy(true);
+    setActionMsg(null);
     try {
-      await linking.disconnect();
-      linking.openConnect();
+      await linking.connectMetaMaskFlare();
+    } catch (e) {
+      setActionMsg((e as Error).message);
     } finally {
       setActionBusy(false);
     }
   }
 
-  // Add Wallet → EVM: adding a NEW wallet, so drop the live session first —
-  // otherwise the extension account monopolizes the picker and the
-  // WalletConnect QR (phone wallets, second MetaMask…) is unreachable.
-  function handleConnectEvm() {
-    void (async () => {
-      if (isConnected) await linking.disconnect();
-      linking.openConnect();
-    })();
+  // Let go of the live session without linking anything.
+  async function handleDisconnect() {
+    setActionBusy(true);
+    try {
+      await linking.disconnect();
+    } finally {
+      setActionBusy(false);
+    }
   }
 
   async function handleEnableTx(address: string) {
@@ -1307,13 +1697,12 @@ export default function WalletManager({
   return (
     <div>
       {variant === 'page' ? (
+        // ONE title key, not t('Connected')+t('wallets'): the composed pair
+        // collided with the status pill's feminine 'Conectada' and read
+        // "Conectada wallets" in Spanish.
         <PageHeader
           eyebrow="Wallets"
-          title={
-            <>
-              {t('Connected')} {t('wallets')}
-            </>
-          }
+          title={t('Connected wallets')}
           subtitle="Connect as many wallets as you want — even several from the same app. Connecting is read-only; enable transactions per wallet with a one-time signature."
           actions={
             hasJwt && (
@@ -1403,7 +1792,7 @@ export default function WalletManager({
 
       {actionMsg && (
         <div className="mb-6 text-xs text-ink/70 bg-ink/5 border border-ink/10 rounded-xl px-4 py-2.5">
-          {actionMsg}
+          {t(actionMsg)}
         </div>
       )}
 
@@ -1415,8 +1804,8 @@ export default function WalletManager({
       {variant === 'page' &&
         hasJwt &&
         ((isConnected && connectedAddress) ||
-          (solAccount.isConnected && solAccount.address && !solInList) ||
-          (btcAccount.isConnected && btcAccount.address && !btcInList)) && (
+          (MULTI_VM_CONNECT_ENABLED && solAccount.isConnected && solAccount.address && !solInList) ||
+          (MULTI_VM_CONNECT_ENABLED && btcAccount.isConnected && btcAccount.address && !btcInList)) && (
           <Card padded={false} className="mb-6 divide-y divide-ink/5 overflow-hidden">
             {isConnected && connectedAddress && (
               <PendingWalletBanner
@@ -1424,12 +1813,14 @@ export default function WalletManager({
                 address={connectedAddress}
                 busy={actionBusy}
                 onAdd={!connectedInList ? handleAddConnected : undefined}
-                onSecondary={handleConnectAnother}
+                onSecondary={connectedInList ? handleConnectAnother : handleDisconnect}
                 secondaryLabel={connectedInList ? t('Connect another') : t('Disconnect')}
                 secondaryTitle={t('To add another account from the SAME wallet app, switch the active account inside that app first, then connect.')}
               />
             )}
-            {solAccount.isConnected && solAccount.address && !solInList && (
+            {/* Solana / Bitcoin — built, and dark while the connect rail is
+                MetaMask+Xaman only (MULTI_VM_CONNECT_ENABLED in lib/wallet/config). */}
+            {MULTI_VM_CONNECT_ENABLED && solAccount.isConnected && solAccount.address && !solInList && (
               <PendingWalletBanner
                 label={t('Solana wallet connected')}
                 address={solAccount.address}
@@ -1437,7 +1828,7 @@ export default function WalletManager({
                 onAdd={handleAddSolana}
               />
             )}
-            {btcAccount.isConnected && btcAccount.address && !btcInList && (
+            {MULTI_VM_CONNECT_ENABLED && btcAccount.isConnected && btcAccount.address && !btcInList && (
               <PendingWalletBanner
                 label={t('Bitcoin wallet connected')}
                 address={btcAccount.address}
@@ -1499,18 +1890,29 @@ export default function WalletManager({
             {legacyCouncil ? t('Legacy wallets') : t('Your Wallets')} ({wallets.length})
           </SectionTitle>
 
-          {/* the organizer — three lenses + two orders; only worth showing
-              once there is a fleet to organize */}
-          {!legacyCouncil && wallets.length > 1 && (
+          {/* the organizer — three lenses, the origin filter and three orders.
+              Shown from the FIRST wallet on (it used to hide under 2 wallets,
+              so the tester never discovered the list existed). */}
+          {!legacyCouncil && wallets.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <SegmentedControl<WalletsView>
                 layoutId="wallets-view"
                 value={view}
                 onChange={setView}
                 options={[
-                  { key: 'grid', label: es ? 'Cuadrícula' : 'Grid' },
                   { key: 'list', label: es ? 'Lista' : 'List' },
+                  { key: 'grid', label: es ? 'Cuadrícula' : 'Grid' },
                   { key: 'token', label: es ? 'Por token' : 'By token' },
+                ]}
+              />
+              <SegmentedControl<WalletsOriginFilter>
+                layoutId="wallets-origin"
+                value={originFilter}
+                onChange={setOriginFilter}
+                options={[
+                  { key: 'all', label: es ? 'Todas' : 'All' },
+                  { key: 'manual', label: es ? 'Añadidas por ti' : 'Added by you' },
+                  { key: 'auto', label: es ? 'De la plataforma' : 'From the platform' },
                 ]}
               />
               <SegmentedControl<WalletsOrder>
@@ -1519,6 +1921,7 @@ export default function WalletManager({
                 onChange={setOrder}
                 options={[
                   { key: 'name', label: 'A–Z' },
+                  { key: 'balance', label: es ? 'Por balance' : 'By balance' },
                   { key: 'color', label: es ? 'Por color' : 'By colour' },
                 ]}
               />
@@ -1549,47 +1952,119 @@ export default function WalletManager({
                 onClick={() => setShowAdd(true)}
               />
             )
+          ) : !legacyCouncil && originFiltered.length === 0 ? (
+            // The origin filter emptied the view — say so instead of showing a
+            // blank room (the fleet itself is NOT empty here).
+            <p className="rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-6 text-center text-sm text-ink/50">
+              {originFilter === 'manual'
+                ? t('No wallets added by hand yet — Add wallet connects or watches one.')
+                : t('No platform-created accounts yet — they appear when you log in with a wallet or open a Smart Account.')}
+            </p>
           ) : activeView === 'grid' ? (
-            <RevealGroup className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sortedWallets.map((w) => (
-                // Key on address+chain, NOT w.id: in the Legacy tab a leg starts
-                // as a synthesized row (id 'legacy:<addr>') and becomes the real
-                // record (backend id) once /wallets/mine loads — a w.id key would
-                // remount the card (reveal + balance re-fetch flash). Address+chain
-                // is stable across that swap and still unique for multichain wallets.
-                <RevealItem key={`${addressKey(w.address)}:${w.chainId ?? w.ecosystem}`}>
-                  <WalletCard
-                    wallet={w}
-                    isActiveConnected={isConnected && connectedAddress?.toLowerCase() === w.address.toLowerCase()}
-                    busy={actionBusy}
-                    readOnly={variant === 'embedded'}
-                    onEnableTx={handleEnableTx}
-                    onDisableTx={handleDisableTx}
-                    onRename={handleRename}
-                    onSetColor={handleSetColor}
-                    onSetPrimary={handleSetPrimary}
-                    onRemove={handleRemove}
-                    onMovements={setMovementsWallet}
-                    onToggleInclude={handleToggleInclude}
-                  />
-                </RevealItem>
-              ))}
-            </RevealGroup>
-          ) : activeView === 'list' ? (
-            <Card padded={false} className="px-4 py-1">
-              <ul>
+            legacyCouncil ? (
+              <RevealGroup className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sortedWallets.map((w) => (
-                  <WalletRow
-                    key={`${addressKey(w.address)}:${w.chainId ?? w.ecosystem}`}
-                    wallet={w}
-                    busy={actionBusy}
-                    readOnly={variant === 'embedded'}
-                    onRename={handleRename}
-                    onSetColor={handleSetColor}
-                  />
+                  // Key on address+chain, NOT w.id: in the Legacy tab a leg starts
+                  // as a synthesized row (id 'legacy:<addr>') and becomes the real
+                  // record (backend id) once /wallets/mine loads — a w.id key would
+                  // remount the card (reveal + balance re-fetch flash). Address+chain
+                  // is stable across that swap and still unique for multichain wallets.
+                  <RevealItem key={`${addressKey(w.address)}:${w.chainId ?? w.ecosystem}`}>
+                    <WalletCard
+                      wallet={w}
+                      holdings={holdingsByAddress.get(addressKey(w.address))}
+                      isActiveConnected={isConnected && connectedAddress?.toLowerCase() === w.address.toLowerCase()}
+                      busy={actionBusy}
+                      readOnly={variant === 'embedded'}
+                      flareSwitch={flareSwitch}
+                      onEnableTx={handleEnableTx}
+                      onDisableTx={handleDisableTx}
+                      onRename={handleRename}
+                      onSetColor={handleSetColor}
+                      onSetPrimary={handleSetPrimary}
+                      onRemove={handleRemove}
+                      onMovements={setMovementsWallet}
+                      onGovernedMovements={legacyCouncil ? onGovernedMovements : undefined}
+                      onToggleInclude={handleToggleInclude}
+                    />
+                  </RevealItem>
                 ))}
-              </ul>
-            </Card>
+              </RevealGroup>
+            ) : (
+              // Personal grid, shelved by origin (user test 2026-08-03).
+              <div className="space-y-6">
+                {originSections.map(({ origin, rows }) => (
+                  <div key={origin}>
+                    <OriginShelfHeading origin={origin} count={rows.length} es={es} />
+                    <RevealGroup className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {rows.map((w) => (
+                        <RevealItem key={`${addressKey(w.address)}:${w.chainId ?? w.ecosystem}`}>
+                          <WalletCard
+                            wallet={w}
+                            holdings={holdingsByAddress.get(addressKey(w.address))}
+                            isActiveConnected={isConnected && connectedAddress?.toLowerCase() === w.address.toLowerCase()}
+                            busy={actionBusy}
+                            readOnly={variant === 'embedded'}
+                            flareSwitch={flareSwitch}
+                            onEnableTx={handleEnableTx}
+                            onDisableTx={handleDisableTx}
+                            onRename={handleRename}
+                            onSetColor={handleSetColor}
+                            onSetPrimary={handleSetPrimary}
+                            onRemove={handleRemove}
+                            onMovements={setMovementsWallet}
+                            onGovernedMovements={undefined}
+                            onToggleInclude={handleToggleInclude}
+                          />
+                        </RevealItem>
+                      ))}
+                    </RevealGroup>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : activeView === 'list' ? (
+            // The DEFAULT lens: origin shelves, and inside each shelf the rows
+            // grouped by type (MetaMask, Xaman, watch-only… / login wallet,
+            // Smart Account, embedded) — "separada por tipo", user 2026-08-03.
+            <div className="space-y-6">
+              {originSections.map(({ origin, rows }) => {
+                const byType = new Map<string, BackendWallet[]>();
+                for (const w of rows) {
+                  const k = walletTypeLabelOf(w, t);
+                  byType.set(k, [...(byType.get(k) ?? []), w]);
+                }
+                return (
+                  <div key={origin}>
+                    <OriginShelfHeading origin={origin} count={rows.length} es={es} />
+                    <Card padded={false} className="px-4 py-1.5">
+                      {[...byType.entries()].map(([type, group]) => (
+                        <div key={type} className="py-1">
+                          <div className="flex items-baseline gap-2 pt-2 px-1">
+                            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/35">{type}</span>
+                            <span className="font-mono text-[10px] text-ink/25">{group.length}</span>
+                          </div>
+                          <ul>
+                            {group.map((w) => (
+                              <WalletRow
+                                key={`${addressKey(w.address)}:${w.chainId ?? w.ecosystem}`}
+                                wallet={w}
+                                holdings={holdingsByAddress.get(addressKey(w.address))}
+                                busy={actionBusy}
+                                readOnly={variant === 'embedded'}
+                                onRename={handleRename}
+                                onSetColor={handleSetColor}
+                                onMovements={variant === 'embedded' ? undefined : setMovementsWallet}
+                              />
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </Card>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div className="space-y-4">
               {tokenGroups.map(([token, group]) => (
@@ -1604,10 +2079,12 @@ export default function WalletManager({
                         <WalletRow
                           key={`${addressKey(w.address)}:${w.chainId ?? w.ecosystem}`}
                           wallet={w}
+                          holdings={holdingsByAddress.get(addressKey(w.address))}
                           busy={actionBusy}
                           readOnly={variant === 'embedded'}
                           onRename={handleRename}
                           onSetColor={handleSetColor}
+                          onMovements={variant === 'embedded' ? undefined : setMovementsWallet}
                         />
                       ))}
                     </ul>
@@ -1630,12 +2107,23 @@ export default function WalletManager({
 
       {variant === 'page' && showAdd && (
         <AddWalletModal
-          onConnect={handleConnectEvm}
+          onConnect={linking.connectMetaMaskFlare}
           onConnectXrpl={universal.connectXrpl}
           onWatchAddress={(addr) => linking.watchAddress(addr, 14)}
+          onNoWallet={() => { setShowAdd(false); setShowGuide(true); }}
           connectBusy={universal.busy}
           connectError={universal.error}
           onClose={() => setShowAdd(false)}
+        />
+      )}
+
+      {/* First-wallet guide — mounted with the connect handlers, so its last
+          step connects right here instead of bouncing back through the modal. */}
+      {variant === 'page' && showGuide && (
+        <FirstWalletGuide
+          onClose={() => setShowGuide(false)}
+          onConnectXrpl={universal.connectXrpl}
+          onConnectEvm={linking.connectMetaMaskFlare}
         />
       )}
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { activityService } from '../services/ActivityService';
 import { xrplActivityService } from '../services/XrplActivityService';
 import type { ActivityType } from '../canonical/types/ActivityEvent';
@@ -37,7 +38,7 @@ const QuerySchema = z.object({
   refresh: z.coerce.boolean().optional(),
 });
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const parsed = QuerySchema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
@@ -66,7 +67,10 @@ router.get('/', async (req: Request, res: Response) => {
     }
   }
 
-  const events = await activityService.getTimeline(q.wallet, {
+  // `explorer` viaja con los eventos: una lista vacía porque el indexador de
+  // Flare no contesta NO es "no hay movimientos", y la pantalla tiene que poder
+  // decir cuál de las dos cosas está pasando.
+  const { events, explorer } = await activityService.getTimelineWithStatus(q.wallet, {
     from: q.from ? new Date(q.from) : undefined,
     to: q.to ? new Date(q.to) : undefined,
     types,
@@ -74,8 +78,8 @@ router.get('/', async (req: Request, res: Response) => {
     offset: q.offset,
     forceRefresh: q.refresh,
   });
-  return res.json({ wallet: q.wallet, count: events.length, events });
-});
+  return res.json({ wallet: q.wallet, count: events.length, events, explorer });
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /export — the period's movements as a FILE for the user's tax advisor
@@ -107,15 +111,33 @@ router.get('/export', async (req: Request, res: Response) => {
 
   let events;
   try {
-    events = XRPL_WALLET_RE.test(q.wallet)
-      ? await xrplActivityService.getTimeline(q.wallet, { types, limit: q.limit ?? 500, offset: q.offset })
-      : await activityService.getTimeline(q.wallet, {
-          from: q.from ? new Date(q.from) : undefined,
-          to: q.to ? new Date(q.to) : undefined,
-          types,
-          limit: q.limit ?? 500,
-          offset: q.offset,
+    if (XRPL_WALLET_RE.test(q.wallet)) {
+      events = await xrplActivityService.getTimeline(q.wallet, { types, limit: q.limit ?? 500, offset: q.offset });
+    } else {
+      // El fichero fiscal se descarga y se manda al asesor: si sale incompleto,
+      // nadie vuelve a comprobarlo. Por eso este camino SÍ fuerza la lectura del
+      // explorador y, si no contesta, no entrega nada — un CSV al que le faltan
+      // movimientos en silencio es peor que no tener CSV.
+      const r = await activityService.getTimelineWithStatus(q.wallet, {
+        from: q.from ? new Date(q.from) : undefined,
+        to: q.to ? new Date(q.to) : undefined,
+        types,
+        limit: q.limit ?? 500,
+        offset: q.offset,
+        forceRefresh: true,
+      });
+      if (!r.explorer.ok) {
+        return res.status(502).json({
+          error: 'explorer_unavailable',
+          message:
+            'No podemos leer Flare ahora mismo, así que el fichero saldría incompleto sin avisar. ' +
+            'Vuelve a intentarlo en unos minutos.',
+          reason: r.explorer.reason,
+          cachedThrough: r.explorer.cachedThrough,
         });
+      }
+      events = r.events;
+    }
   } catch (err) {
     return res.status(502).json({
       error: 'timeline_failed',
@@ -159,7 +181,7 @@ router.get('/export', async (req: Request, res: Response) => {
   return res.send([header.join(','), ...rows].join('\n'));
 });
 
-router.post('/refresh', async (req: Request, res: Response) => {
+router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
   const wallet = z
     .string()
     .refine((w) => EVM_WALLET_RE.test(w) || XRPL_WALLET_RE.test(w), 'invalid_wallet')
@@ -169,8 +191,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
   if (XRPL_WALLET_RE.test(wallet.data)) {
     return res.json({ wallet: wallet.data, written: 0 });
   }
-  const written = await activityService.refreshFromExplorer(wallet.data);
-  return res.json({ wallet: wallet.data, written });
-});
+  const { written, explorer } = await activityService.refreshFromExplorer(wallet.data);
+  return res.json({ wallet: wallet.data, written, explorer });
+}));
 
 export default router;

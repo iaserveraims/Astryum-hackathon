@@ -14,8 +14,24 @@
  * dos pestañas es idempotente y jamás inventa un verde.
  */
 
-import { loadAllPending, startPending, type SettlementState } from './settlement';
+import { loadAllPending, startPending, type PendingRef, type SettlementState } from './settlement';
 import { trackSettlement, type TrackerDeps } from './tracker';
+
+/**
+ * Resume ONE persisted pending: rebuild its pending state and poll it with the
+ * ORIGINAL startedAt. The shell hook calls this per ref so it can dedupe ops
+ * it is already watching (savePending fires PENDING_CHANGED_EVENT mid-session).
+ */
+export function resumePending(
+  p: PendingRef,
+  deps: TrackerDeps,
+  onUpdate: (ref: string, state: SettlementState) => void,
+): () => void {
+  return trackSettlement(startPending(p.rail, p.ref, p.explorerUrl), deps, {
+    onUpdate: (s) => onUpdate(p.ref, s),
+    startedAt: p.startedAt,
+  });
+}
 
 /**
  * Resume every fresh pending from storage (loadAllPending prunes expired and
@@ -28,12 +44,7 @@ export function resumeAllPending(
   onUpdate: (ref: string, state: SettlementState) => void,
   nowMs: number = Date.now(),
 ): () => void {
-  const cancels = loadAllPending(nowMs).map((p) =>
-    trackSettlement(startPending(p.rail, p.ref, p.explorerUrl), deps, {
-      onUpdate: (s) => onUpdate(p.ref, s),
-      startedAt: p.startedAt,
-    }),
-  );
+  const cancels = loadAllPending(nowMs).map((p) => resumePending(p, deps, onUpdate));
   return () => {
     for (const cancel of cancels) cancel();
   };

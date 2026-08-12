@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../../stores/authStore';
 import { PREVIEW_DATA, PREVIEW_ADDRESS } from '../../services/previewData';
+import { useT } from '@/i18n/LanguageProvider';
 
 export default function AccessGate({ children }: { children: React.ReactNode }) {
+  const { t } = useT();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const refreshMe = useAuthStore((s) => s.refreshMe);
@@ -52,7 +54,7 @@ export default function AccessGate({ children }: { children: React.ReactNode }) 
   if (!checked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white/40 text-sm tracking-widest uppercase">Verificando acceso...</div>
+        <div className="text-white/40 text-sm tracking-widest uppercase">{t('Verifying access…')}</div>
       </div>
     );
   }

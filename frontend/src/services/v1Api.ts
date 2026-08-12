@@ -662,6 +662,18 @@ export const integrations = {
     jpost<{ id: string; health: ProviderHealth }>(`/integrations/${id}/probe`, {}),
 };
 
+/**
+ * ¿Pudimos VER la cadena en esta lectura? Una lista vacía porque el indexador de
+ * Flare no contesta no es lo mismo que una cartera sin movimientos, y la
+ * pantalla no puede pintarlas igual.
+ */
+export interface ExplorerReadStatus {
+  ok: boolean;
+  reason?: string;
+  /** Evento más reciente que sí tenemos en caché: el "visto hasta". */
+  cachedThrough?: string;
+}
+
 export const activity = {
   timeline: (params: {
     wallet: string;
@@ -672,12 +684,17 @@ export const activity = {
     offset?: number;
     refresh?: boolean;
   }) =>
-    jget<{ wallet: string; count: number; events: CanonicalActivityEvent[] }>(
-      '/activity',
-      params as unknown as Record<string, string | number | undefined>,
-    ),
+    jget<{
+      wallet: string;
+      count: number;
+      events: CanonicalActivityEvent[];
+      explorer?: ExplorerReadStatus;
+    }>('/activity', params as unknown as Record<string, string | number | undefined>),
   refresh: (wallet: string) =>
-    jpost<{ wallet: string; written: number }>('/activity/refresh', { wallet }),
+    jpost<{ wallet: string; written: number; explorer?: ExplorerReadStatus }>(
+      '/activity/refresh',
+      { wallet },
+    ),
 };
 
 export const rewards = {
@@ -1592,7 +1609,13 @@ export async function fetchActivityExport(params: {
   const r = await fetch(`${API_BASE}/activity/export?${qs.toString()}`, { headers: { ...authHeader() } });
   if (!r.ok) {
     if (r.status === 401) handleUnauthorized();
-    throw new Error(`http_${r.status}`);
+    // El backend se niega a entregar un fichero fiscal incompleto y explica por
+    // qué (explorer_unavailable). Un `http_502` a secas escondería ese motivo.
+    const detail = await r
+      .json()
+      .then((b: { message?: string; error?: string }) => b?.message ?? b?.error)
+      .catch(() => undefined);
+    throw new Error(detail ?? `http_${r.status}`);
   }
   return r.blob();
 }
@@ -1628,6 +1651,10 @@ export interface AdminWaitlistRow {
   createdAt: string;
   /** True when the row matched the noise blocklist (reserved/disposable domains). */
   noise: boolean;
+  /** Beta gate: when set, this email can create an account (null = waiting). */
+  approvedAt: string | null;
+  /** When the boarding-pass email last went out (null = never sent). */
+  invitedAt: string | null;
 }
 
 export interface AdminRecentUser {
@@ -1650,6 +1677,8 @@ export interface AdminOverview {
     councilProposals: number;
     /** Clean (non-noise) waitlist signups only. */
     waitlistSignups: number;
+    /** Clean signups with a beta-gate approval (they can create an account). */
+    waitlistApproved: number;
     /** Rows that matched the noise blocklist — bots, not real interest. */
     waitlistNoise: number;
     /** Clean-only breakdown, so bot floods don't skew the source mix. */
@@ -1665,6 +1694,52 @@ export interface AdminSession {
   token: string;
   expiresAt: string;
 }
+
+/** Result of approving a waitlist email (routes/adminBetaGate.ts). */
+export interface AdminBetaApproveResult {
+  ok: boolean;
+  email: string;
+  approvedAt: string;
+  /** Whether the boarding-pass email actually went out (false ⇒ resend later). */
+  inviteSent: boolean;
+  /** True when the email already had a seat — the call was a no-op/resend. */
+  alreadyApproved: boolean;
+}
+
+/* Beta gate writes (founders only) — approve/revoke waitlist emails. Same
+ * x-admin-session as every panel call; writes live in their own router
+ * (/api/admin-beta) so /api/admin-panel stays read-only by construction. */
+export const adminBetaApi = {
+  approve: async (
+    sessionToken: string,
+    email: string,
+    opts?: { sendInvite?: boolean; lang?: 'es' | 'en' },
+  ): Promise<AdminBetaApproveResult> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-beta/approve`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ email, ...opts }),
+    });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminBetaApproveResult;
+  },
+
+  revoke: async (sessionToken: string, email: string): Promise<{ ok: boolean; email: string }> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-beta/revoke`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ email }),
+    });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as { ok: boolean; email: string };
+  },
+};
 
 export const adminPanelApi = {
   /**
@@ -1734,6 +1809,17 @@ export const adminPanelApi = {
     return (await r.json()) as AdminExecutorHealth;
   },
 
+  /** Estado de la cuenta ANCHOR en XRPL (Sistema tab). Ahí caen las fees de las
+   *  órdenes del consejo y de ahí tira el hop B3 para reponer FLR al executor.
+   *  El gauge vive aquí, no en la consola (regla del fundador). */
+  anchor: async (sessionToken: string): Promise<AdminAnchorStatus> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-executor/anchor`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminAnchorStatus;
+  },
+
   /** Bandeja de alertas/notificaciones de operación (Alertas tab) — persistidas
    *  siempre, no dependen del webhook. Mismo x-admin-session que el resto. */
   alerts: async (sessionToken: string): Promise<AdminOpsAlerts> => {
@@ -1743,7 +1829,248 @@ export const adminPanelApi = {
     if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
     return (await r.json()) as AdminOpsAlerts;
   },
+
+  /** Vigilancia (Sentinel): qué se está comprobando, qué está roto ahora mismo
+   *  y por dónde saldría el aviso. Es el estado, no el histórico de la bandeja. */
+  sentinel: async (sessionToken: string): Promise<AdminSentinel> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/sentinel`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminSentinel;
+  },
+
+  /** Fuerza una pasada de vigilancia ahora (el botón «Comprobar ahora»). */
+  sentinelRun: async (sessionToken: string): Promise<AdminSentinel> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/sentinel/run`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+    });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminSentinel;
+  },
+
+  /** Manda una alerta de prueba por el camino REAL, para que el primer crítico
+   *  de verdad no sea también el primer intento de entrega. */
+  sentinelTest: async (
+    sessionToken: string,
+    level: 'info' | 'warn' | 'critical' = 'warn',
+  ): Promise<{ ok: boolean; level: string; channels: AdminAlertChannel[]; sentAt: string }> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/sentinel/test`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ level }),
+    });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as { ok: boolean; level: string; channels: AdminAlertChannel[]; sentAt: string };
+  },
+
+  /** La flota de jaulas (Sistema → «Jaulas · factory»): config del factory
+   *  probada contra la cadena, censo de jaulas nacidas, nacimientos en vuelo
+   *  y rechazos del prepare. Solo lecturas. */
+  cages: async (sessionToken: string): Promise<AdminCageFleet> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/cages`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminCageFleet;
+  },
+
+  /** ¿De quién es esta dirección? Wallet enlazada, cuenta que la enlazó y las
+   *  puertas que le dieron permiso (lista de espera, exención de tope, Legacy). */
+  whois: async (sessionToken: string, address: string): Promise<AdminWhois> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/whois?address=${encodeURIComponent(address)}`, {
+      headers,
+      credentials: 'include',
+    });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminWhois;
+  },
 };
+
+/** Respuesta de /admin-ops/whois — a quién pertenece una dirección. */
+export interface AdminWhois {
+  address: string;
+  found: boolean;
+  wallets: Array<{
+    address: string;
+    nickname: string | null;
+    walletType: string;
+    network: string;
+    ecosystem: string;
+    purpose: string | null;
+    isConnected: boolean;
+    lastActivity: string;
+    createdAt: string;
+    user: { email: string | null; username: string | null; createdAt: string; lastLogin: string | null; authProvider: string } | null;
+  }>;
+  loginAccounts: Array<{
+    email: string | null;
+    username: string | null;
+    createdAt: string;
+    lastLogin: string | null;
+    authProvider: string;
+  }>;
+  governedPointers: Array<{ label: string | null; createdAt: string; removedAt: string | null; user: { email: string | null } | null }>;
+  accounts: Array<{
+    email: string;
+    waitlist: { email: string; approvedAt: string | null; invitedAt: string | null; source: string } | null;
+    isAdmin: boolean;
+    capExempt: boolean;
+    legacyAccess: boolean;
+  }>;
+  capExemptByAddress: boolean;
+  checkedAt: string;
+}
+
+/** Un canal externo de alertas y desde qué severidad entrega (nunca la URL). */
+export interface AdminAlertChannel {
+  name: string;
+  armed: boolean;
+  minLevel: 'info' | 'warn' | 'critical';
+}
+
+/** Un chequeo del Sentinel y cómo salió la última vez. */
+export interface AdminSentinelProbe {
+  id: string;
+  title: string;
+  level: 'ok' | 'info' | 'warn' | 'critical';
+  /** true = no se comprobó (carril apagado en este entorno) ≠ está sano. */
+  skipped: boolean;
+  skipReason?: string;
+  message: string | null;
+  findings: number;
+  checkedAt: string | null;
+  durationMs: number | null;
+}
+
+/** Una incidencia abierta: qué pasa, sobre qué objeto y cómo se arregla. */
+export interface AdminSentinelIssue {
+  id: string;
+  probeId: string;
+  probeTitle: string;
+  level: 'info' | 'warn' | 'critical';
+  message: string;
+  runbook: string | null;
+  facts: Record<string, string | number | boolean | null> | null;
+  since: string;
+  ageMin: number;
+  alerts: number;
+}
+
+/** Respuesta de /admin-ops/sentinel — el estado de la vigilancia. */
+export interface AdminSentinel {
+  enabled: boolean;
+  running: boolean;
+  intervalMin: number;
+  lastPassAt: string | null;
+  lastPassMs: number | null;
+  passes: number;
+  channels: AdminAlertChannel[];
+  heartbeatConfigured: boolean;
+  lastHeartbeatAt: string | null;
+  probes: AdminSentinelProbe[];
+  issues: AdminSentinelIssue[];
+  counts: { critical: number; warn: number; info: number };
+  checkedAt: string;
+}
+
+/** La flota de jaulas: el factory probado contra la cadena + censo + vuelos. */
+export interface AdminCageFleet {
+  factory: {
+    configured: boolean;
+    address: string | null;
+    addressValid: boolean;
+    hasCode: boolean | null;
+    sourceId: string | null;
+    expectedSourceId: string;
+    sourceMatches: boolean | null;
+    vaultCount: number | null;
+    treasuryConfigured: boolean;
+    treasuryValid: boolean;
+    birthVenues: string[];
+    capXrp: number | null;
+  };
+  census: Array<{
+    vault: string;
+    bridge: string;
+    council: string | null;
+    councilHash: string;
+    totalPrincipalUBA: string | null;
+    totalValueUBA: string | null;
+    ordersExecuted: number | null;
+    migrated: boolean | null;
+  }>;
+  births: Array<{
+    userOpHash: string;
+    personalAccount: string;
+    council: string;
+    grossXrpDrops: string;
+    executorFeeXrp: number | null;
+    status: string;
+    createdAt: string;
+    ageMinutes: number;
+    flareTxHash: string | null;
+    gasFLR: number | null;
+    gasUsed: number | null;
+  }>;
+  economics: {
+    chargedXrpNow: number | null;
+    gasPriceGwei: number | null;
+    estBirthGas: number;
+    estBirthGasFLR: number | null;
+    fdcFeeFLR: number;
+    estTotalCostFLR: number | null;
+  };
+  refusals: {
+    since: string;
+    total: number;
+    byCode: Record<string, number>;
+    last: { code: string; at: string } | null;
+  };
+  checkedAt: string;
+}
+
+/** La cuenta anchor en XRPL: caja de las fees de las órdenes + combustible B3. */
+export interface AdminAnchorStatus {
+  anchor: string;
+  balanceXrp: number;
+  ledgerReserveXrp: number;
+  ownerCount: number;
+  /** Reserva que el hop B3 deja SIEMPRE (config, distinta de la del ledger). */
+  feedReserveXrp: number;
+  minFeedXrp: number;
+  freeXrp: number;
+  shouldFeed: boolean;
+  feedXrp: number;
+  missingXrp: number;
+  /** Órdenes del consejo que faltan para que el hop dispare (null si fee off). */
+  ordersToTrigger: number | null;
+  orderFee: { enabled: boolean; xrp: number };
+  seedConfigured: boolean;
+  /**
+   * Diagnóstico de la clave del anchor — nunca la clave: en qué formato está, qué
+   * cuenta abre y si es la del anchor. "Configurada" no basta: una clave puede
+   * estar puesta y abrir otra cuenta (default ed25519 de xrpl.js) o no abrir
+   * ninguna (secret numbers). Opcional: el backend puede ir por detrás del deploy.
+   */
+  seed?: {
+    configured: boolean;
+    format?: 'family-seed' | 'secret-numbers' | 'unknown';
+    address?: string;
+    matchesExpected?: boolean;
+    error?: string;
+  };
+  checkedAt: string;
+}
 
 /** Una alerta de operación del backend (executor, vigías, provider-health…). */
 export interface AdminOpsAlert {
@@ -1947,8 +2274,15 @@ export const councilProposalsApi = {
       `/council/proposals/${id}/signatures`,
       { signerAccount, blobHex },
     ),
+  /** Report the browser broadcast. For a council order the backend ALSO starts
+   *  the courtesy relay server-side and says so in `councilOrder` — the FDC leg
+   *  no longer depends on this browser staying open. */
   submitted: (id: string, txHash: string) =>
-    jpost<{ ok: boolean; proposal: CouncilProposalRecord }>(`/council/proposals/${id}/submitted`, { txHash }),
+    jpost<{
+      ok: boolean;
+      proposal: CouncilProposalRecord;
+      councilOrder?: { isOrder: true; relay: 'started' | 'already-relaying' | 'relayer-disabled' | 'not-launched' };
+    }>(`/council/proposals/${id}/submitted`, { txHash }),
   withdraw: (id: string) =>
     jpost<{ ok: boolean; proposal: CouncilProposalRecord }>(`/council/proposals/${id}/withdraw`, {}),
   /** Fix a formal position (the acta): the EXACT contentJson the wallet signed
@@ -2023,6 +2357,156 @@ export interface VaultCouncilInfo {
   threshold?: number;
 }
 
+/** One venue registered in the cage — where the vault's principal may work. */
+export interface LegacyVenueRow {
+  id: number;
+  target: string;
+  /** ERC-20 symbol of the venue (e.g. `isoFXRP`) — a name, not a number. */
+  targetSymbol: string | null;
+  /** Shares the vault holds AT THE PROTOCOL — read from the venue itself, not
+   *  from the vault's bookkeeping. Non-zero is the proof capital really moved. */
+  shares: string | null;
+  kind: 'erc4626' | 'compoundv2';
+  /** Unix seconds: entry allowed only from here (the vault's waiting period). */
+  readyAt: number;
+  /** Closed to NEW entries; exits always work. */
+  retired: boolean;
+  /** Base units — decimal STRINGS, never numbers (18 decimals overflow a double). */
+  basis: string;
+  value: string;
+}
+
+/** The cage read out loud: what the vault holds, and where it can put it. */
+export interface LegacyVaultState {
+  vault: string;
+  chain: string;
+  asset: { address: string; symbol: string; decimals: number };
+  totalPrincipal: string;
+  allocatedPrincipal: string;
+  idlePrincipal: string;
+  totalValue: string;
+  /** D2: the share of the vault any single venue may hold, in basis points. */
+  maxVenueBps: number;
+  migrated: boolean;
+  venues: LegacyVenueRow[];
+  /** Yield already credited to payees, awaiting claim(). */
+  totalClaimable: string;
+  /** Asset sitting in the vault that is NEITHER principal NOR owed yield —
+   *  tokens sent straight to the address instead of through deposit(). They
+   *  never became principal, so they fund nothing and nobody can claim them. */
+  strayAssets: string;
+  /** Who the vault OBEYS — the XrplCouncilBridge on this deployment. */
+  council: string;
+}
+
+/** A composed cage disclosure — the facts before any signature (#6). */
+export interface CageDisclosure {
+  disclosedToUser: true;
+  defibroSigns: false;
+  note: string;
+  facts: Record<string, string | number | boolean>;
+}
+
+/** What the council can actually afford to put into the cage. */
+export interface LegacyVaultFundQuote {
+  account: string;
+  asset: { address: string; symbol: string; decimals: number };
+  balanceXrp: string;
+  reserveXrp: string;
+  /** Balance minus the ledger reserve — what may leave the account at all. */
+  spendableXrp: string;
+  /** Base fee x (1 + signers): a multisig costs more than a single signature. */
+  txFeeXrp: string;
+  signerCount: number;
+  /** Spendable minus the tx fee — what MAX should fill in. */
+  maxGrossXrp: string;
+  /** Below this the mint fees eat the whole payment and nothing lands. */
+  minGrossXrp: string;
+  /** Beta cap on caged capital: total the cage may hold via Astryum, what it
+   *  holds now, and what still fits (null cap = disabled). Informational —
+   *  the prepare enforces it, with the demo-cap exemption lists. */
+  cage: { capXrp: number | null; currentPrincipalXrp: number; remainingXrp: number | null };
+  /** Present when an amount was passed: the honest breakdown. */
+  quote: { grossXrp: string; mintingFeeXrp: string; executorFeeXrp: string; principalAdded: string } | null;
+}
+
+/** The governed funding hand-off: one XRPL payment for the quorum. */
+export interface LegacyVaultFundHandoff {
+  account: string;
+  vault: string;
+  personalAccount: string;
+  xrplPayment: Record<string, unknown>;
+  memoHex: string;
+  userOpData: string;
+  net: { grossXrp: string; supplyUBA: string; principalAddedXrp: string };
+  disclosure: CageDisclosure;
+}
+
+/** The cage-birth prepare: one quorum signature creates the vault AND funds it. */
+export interface LegacyCageCreateHandoff {
+  account: string;
+  predicted: { bridge: string; vault: string };
+  factory: string;
+  personalAccount: string;
+  xrplPayment: Record<string, unknown>;
+  memoHex: string;
+  userOpData: string;
+  net: { grossXrp: string; supplyUBA: string; firstPrincipalXrp: string };
+  disclosure: CageDisclosure;
+}
+
+/** The disclosure a person reads before capital can enter a cage. The TEXT is
+ *  authored server-side and hashed there: this client renders and translates it,
+ *  it never writes it (so the audit record can say what was on screen). */
+export interface CageDisclosureDoc {
+  version: number;
+  /** SHA-256 of the canonical text — pinned into the ack record. */
+  hash: string;
+  title: string;
+  lede: string;
+  sections: Array<{ id: string; title: string; lines: string[] }>;
+  acknowledgements: Array<{ id: string; text: string }>;
+}
+
+export interface CageDisclosureState {
+  document: CageDisclosureDoc;
+  /** ISO instant this user accepted THIS version, or null. */
+  acceptedAt: string | null;
+  /** Beta cap on caged principal — rendered beside the text, never inside it. */
+  betaCapXrp: number | null;
+}
+
+export interface LegacyVaultYieldState {
+  vault: string;
+  asset: { address: string; symbol: string; decimals: number };
+  totalClaimable: string;
+  payees: Array<{ account: string; bps: number; claimable: string }>;
+  harvestable: Array<{ venueId: number; amount: string }>;
+  /** True when no payee is configured: ALL yield capitalizes into principal. */
+  capitalizesToPrincipal: boolean;
+}
+
+export interface LegacyHarvestHandoff {
+  venueId: number;
+  harvestable: string;
+  harvestableHuman: string;
+  asset: { address: string; symbol: string; decimals: number };
+  call: { to: string; data: string; value: string; summary: string };
+  disclosure: CageDisclosure;
+}
+
+export interface LegacyYieldClaimHandoff {
+  personalAccount: string;
+  claimable: string;
+  claimableHuman: string;
+  redeemUBA: string;
+  destination: string;
+  xrplPayment: Record<string, unknown>;
+  memoHex: string;
+  userOpData: string;
+  disclosure: CageDisclosure;
+}
+
 /** The multisig coordinator's prepare result (ADR-008): an unsigned txjson
  *  pinned for the council (Sequence/Fee/SigningPubKey), plus the ledger dry-run. */
 export interface MultisigPrepare {
@@ -2067,6 +2551,53 @@ export const xrplLegacy = {
   /** The EVM side of the mirror: the vault's council (+ Safe owners when readable). */
   vaultCouncil: (address: string) =>
     jget<VaultCouncilInfo>('/xrpl-defi/vault-council', { address }),
+  /** The cage of THIS Legacy: asset + decimals, idle vs working principal, and
+   *  the REGISTERED venues. A cage belongs to exactly one council, so the
+   *  account is what resolves it — a Legacy without one gets NO_CAGE_FOR_LEGACY
+   *  instead of another council's balance (2026-08-05). `address` inspects any
+   *  vault directly (public on-chain state). Read-only. */
+  vaultState: (account: string, address?: string) =>
+    jget<LegacyVaultState>('/xrpl-defi/vault-state', address ? { address } : { account }),
+  /** What the funding form needs BEFORE anyone types: the council's real XRP,
+   *  what it can spend, the floor below which fees eat everything, and — with
+   *  an amount — how much principal actually lands. Read-only. */
+  vaultFundQuote: (account: string, amountXrp?: string) =>
+    jget<LegacyVaultFundQuote>('/xrpl-defi/vault-fund/quote', amountXrp ? { account, amountXrp } : { account }),
+  /** FUND the cage, governed: ONE XRPL payment the quorum signs. It mints FXRP
+   *  into this Legacy's own account on Flare and deposits it as principal.
+   *  Directing that principal into a venue is a SECOND, separate order. */
+  vaultFundPrepare: (body: { account: string; amountXrp: string; region?: string }) =>
+    jpost<LegacyVaultFundHandoff>('/xrpl-defi/vault-fund/prepare', body),
+  /** BIRTH of this Legacy's own cage: ONE quorum signature creates the vault
+   *  (factory.create runs from the council's own Flare account — nobody else
+   *  can) and deposits the first principal into it (CREATE2 names the address
+   *  before it exists). Directing capital is still a second order. */
+  cageCreatePrepare: (body: { account: string; amountXrp: string; linajeFeeBps?: number; region?: string }) =>
+    jpost<LegacyCageCreateHandoff>('/xrpl-defi/cage-create/prepare', body),
+  /** The one-way disclosure + whether this user has accepted its CURRENT
+   *  version. Read-only, so it also serves the "How a cage works" link that
+   *  must keep working after acceptance. */
+  cageDisclosure: () => jget<CageDisclosureState>('/xrpl-defi/cage-disclosure'),
+  /** Accept it. Every acknowledgement id, or the server refuses the lot. The
+   *  version/hash recorded are the server's own — this only says "all four". */
+  cageDisclosureAck: (body: { account?: string; version: number; acknowledgements: string[] }) =>
+    jpost<{ version: number; hash: string; acceptedAt: string }>('/xrpl-defi/cage-disclosure/ack', body),
+  /** Who is owed yield in THIS Legacy's cage, and what is ripe to realize. */
+  vaultYield: (account: string) => jget<LegacyVaultYieldState>('/xrpl-defi/vault-yield', { account }),
+  /** `harvest(venueId)` as a bare unsigned call — permissionless, pays the
+   *  sender nothing; it only turns gain-above-basis into "the payees are owed". */
+  vaultHarvestPrepare: (body: { account: string; venueId: number }) =>
+    jpost<LegacyHarvestHandoff>('/xrpl-defi/vault-yield/harvest/prepare', body),
+  /** The heir's one signature: claim the yield owed and redeem it to native XRP
+   *  through the existing unmint rail. YIELD only — principal never moves.
+   *  `council` is the Legacy that owes; `xrplAddress` is the heir who signs. */
+  vaultYieldClaimPrepare: (body: {
+    council: string;
+    xrplAddress: string;
+    amountXrpForMint: string;
+    xrplDest?: string;
+    region?: string;
+  }) => jpost<LegacyYieldClaimHandoff>('/xrpl-defi/vault-yield/claim/prepare', body),
   /** Current constitution anchor (DID) + quorum-signed amendment history. */
   constitution: (account: string) =>
     jget<{ account: string; anchor: ConstitutionAnchor | null; history: ConstitutionAmendment[] }>(
@@ -2092,13 +2623,15 @@ export const xrplLegacy = {
    *  Permissionless by design — anyone could deliver the same proof. */
   councilOrderRelay: (body: { xrplTxHash: string; orderData?: string }) =>
     jpost<{ started: boolean; state: string }>('/xrpl-defi/council-order/relay', body),
-  /** Settlement truth, read from the bridge on-chain (+ local relay state). */
-  councilOrderStatus: (txId: string) =>
+  /** Settlement truth, read from the bridge on-chain (+ local relay state).
+   *  `account` names the Legacy whose bridge holds that truth — without it the
+   *  backend falls back to the founding stack (only right for that council). */
+  councilOrderStatus: (txId: string, account?: string) =>
     jget<{
       executed: boolean;
       nextNonce: number;
       relay: { state: 'relaying' | 'executed' | 'error'; detail?: string; flareTxHash?: string } | null;
-    }>('/xrpl-defi/council-order/status', { txId }),
+    }>('/xrpl-defi/council-order/status', account ? { txId, account } : { txId }),
 };
 
 /** The council-order prepare result: a normal XRPL handoff plus the committed

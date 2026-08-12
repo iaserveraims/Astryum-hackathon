@@ -66,7 +66,12 @@ ACCESS_GATE_SECRET=<openssl rand -hex 32>
   entra hasta que las siembres. En dev local sin envs, abierto.
 - Rotar el código = cambiar la env + redeploy. Las cookies ya emitidas siguen
   siendo válidas hasta 7 días; para invalidarlas todas, rota **el secret**.
-- **Día de lanzamiento**: `ACCESS_GATE_OPEN=1` y el gate entero se aparta.
+- **Día de lanzamiento**: `ACCESS_GATE_OPEN=1` (o `true` / `yes` / `on`) en
+  Vercel y el gate entero se aparta. Comprobación desde fuera, sin cookies:
+  `curl -s https://astryum.xyz/api/access-gate` → `{"access":true,"open":true}`.
+  Si devuelve `open:false`, el interruptor **no** está puesto y los seis CTAs
+  dorados de la landing rebotan a la portada (2026-08-07: parecía "el botón no
+  funciona en el móvil" — el escritorio del fundador aún tenía la cookie).
 
 ## 3. Panel admin — qué cambió y cómo entrar
 
@@ -191,6 +196,12 @@ Railway → APPLE_OAUTH_CLIENT_ID=xyz.astryum.web
 
 1. Vercel: `ACCESS_GATE_OPEN=1` (el gate se aparta; login/registro quedan
    protegidos por captcha + rate limits, que se quedan para siempre).
+   **Verifica que prendió** antes de anunciar nada:
+   `curl -s https://astryum.xyz/api/access-gate` debe decir `"open":true`, y
+   `curl -sI https://astryum.xyz/login` debe dar `200`, no `307`. Tu navegador
+   no sirve de prueba: si alguna vez tecleaste el código llevas la cookie
+   `astryum_gate` (se auto-renueva cada visita) y entrarás igual con el gate
+   cerrado. Prueba en incógnito o desde el móvil.
 2. Decide si `TRIAL_WALLET_CAP_USD` entra en juego (hoy: invite-only).
 3. Considera retirar la puerta `x-admin-key` dejando solo `ADMIN_EMAILS`.
 

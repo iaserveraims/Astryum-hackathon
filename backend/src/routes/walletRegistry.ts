@@ -12,6 +12,7 @@ import { isWalletAllowed } from '../config/allowlist.config';
 import { prisma } from '../database/prismaClient';
 import { ecosystemForCaip2, ecosystemFromNetworkLabel } from '../services/walletRouting/ecosystem';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
+import { asyncHandler } from '../middleware/asyncHandler';
 import {
   turnkeyEmbeddedService,
   TurnkeyNotConfiguredError,
@@ -131,6 +132,11 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
 //       'watch' + reconnect with sign capability → 'both'
 //       'destination_only' + later connect with signing → 'both'
 
+// Address shapes we can verify by inspection. An `ecosystem` that contradicts
+// the address is always a caller bug, never user intent: an EVM address is
+// ALWAYS 0x + 40 hex, and no XRPL address ever starts with 0x.
+const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
 const ConnectWalletSchema = z.object({
   address:     z.string().min(1),
   walletType:  z.string().min(1),
@@ -142,7 +148,7 @@ const ConnectWalletSchema = z.object({
   nickname:    z.string().optional(),
 });
 
-router.post('/connect', requireSiweAuth, async (req: Request, res: Response) => {
+router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'UNAUTHENTICATED' });
@@ -185,6 +191,28 @@ router.post('/connect', requireSiweAuth, async (req: Request, res: Response) => 
     ecosystemForCaip2(d.caip2) ??
     ecosystemFromNetworkLabel(d.network) ??
     'evm';
+
+  // The ecosystem must match the ADDRESS, not the caller's claim. Bug
+  // (2026-08-01): the Wallets page auto-registered `user.address` hard-coded as
+  // Flare/eip155:14/evm, and `user.address` falls back to the first linked
+  // wallet — which for a Xaman login is an XRPL r-address. Lower-cased and
+  // filed as EVM, it surfaced as a phantom "Flare N" twin of the user's real
+  // Xaman wallet: no balance, and re-created on every page load after deletion.
+  // The client guard is fixed too; this is the wall that makes it impossible.
+  if (derivedEcosystem === 'evm' && !EVM_ADDRESS_RE.test(d.address)) {
+    return res.status(400).json({
+      success: false,
+      error: 'ADDRESS_ECOSYSTEM_MISMATCH',
+      detail: `"${d.address}" is not an EVM address (0x + 40 hex); it cannot be registered on ${d.network}.`,
+    });
+  }
+  if (derivedEcosystem !== 'evm' && EVM_ADDRESS_RE.test(d.address)) {
+    return res.status(400).json({
+      success: false,
+      error: 'ADDRESS_ECOSYSTEM_MISMATCH',
+      detail: `"${d.address}" is an EVM address; it cannot be registered as ${derivedEcosystem}.`,
+    });
+  }
 
   // The whole connect runs as one transaction. `forceNonPrimary` is the retry
   // path for the rare concurrent race on the one-primary-per-ecosystem index.
@@ -238,31 +266,12 @@ router.post('/connect', requireSiweAuth, async (req: Request, res: Response) => 
           ? 'both'
           : d.purpose;
 
-      // Auto-nickname for tracked wallets: "<Chain> <n>" per user+rail
-      // (XRPL 1, XRPL 2… / Flare 1, Flare 2…). Applies only when the client
-      // sent no nickname; n = highest existing suffix + 1, so deleting a
-      // middle wallet never produces a duplicate name.
-      let autoNickname: string | null = null;
-      if (!d.nickname) {
-        const autoLabel =
-          derivedEcosystem === 'xrpl'
-            ? 'XRPL'
-            : derivedEcosystem === 'evm' && (d.chainId === 14 || d.chainId == null)
-              ? 'Flare'
-              : null;
-        if (autoLabel) {
-          const siblings = await tx.wallet.findMany({
-            where: { userId, ecosystem: derivedEcosystem },
-            select: { nickname: true },
-          });
-          const re = new RegExp(`^${autoLabel} (\\d+)$`);
-          const maxN = siblings.reduce((m: number, w: { nickname: string | null }) => {
-            const match = w.nickname?.match(re);
-            return match ? Math.max(m, Number(match[1])) : m;
-          }, 0);
-          autoNickname = `${autoLabel} ${maxN + 1}`;
-        }
-      }
+      // NO auto-nickname (founder 2026-08-08: their own Xaman read "XRPL 1"
+      // everywhere — the machine name shadowed the provider's). A wallet
+      // without a user nickname stores NULL; the frontend's display rule
+      // (walletDisplayName) then shows the provider's proper name (Xaman,
+      // MetaMask…) or the short address. Rows already carrying the old
+      // "<Chain> <n>" pattern are neutralised client-side (isAutoNickname).
 
       // Auto-isPrimary gate. It MUST mirror the DB invariant exactly — the
       // partial unique index allows ONE isPrimary=true per (userId, ecosystem).
@@ -284,7 +293,7 @@ router.post('/connect', requireSiweAuth, async (req: Request, res: Response) => 
           network: d.network,
           chainId: d.chainId ?? null,
           caip2: d.caip2 ?? null,
-          nickname: d.nickname ?? autoNickname,
+          nickname: d.nickname ?? null,
           isConnected: true,
           permissions: {},
           ecosystem: derivedEcosystem,
@@ -321,7 +330,7 @@ router.post('/connect', requireSiweAuth, async (req: Request, res: Response) => 
     console.error('[wallets/connect] failed:', err);
     return res.status(500).json({ success: false, error: 'CONNECT_FAILED', detail: (err as Error).message });
   }
-});
+}));
 
 // ─── GET /api/wallets/mine ──────────────────────────────────────────────────
 //
@@ -359,26 +368,30 @@ router.get('/mine', requireSiweAuth, async (req: Request, res: Response) => {
       bindMap.set(key(b.address, b.chainType), { id: b.id, mode: b.mode });
     }
 
-    const data = wallets.map((w) => {
-      const bind = bindMap.get(key(w.address, w.ecosystem));
-      const txAuthorized =
-        bind?.mode === 'read_and_receive' || w.purpose === 'sign' || w.purpose === 'both';
-      return {
-        ...w,
-        bindingId: bind?.id ?? null,
-        bindingMode: bind?.mode ?? null,
-        txAuthorized,
-        // Counts toward dashboard monetary totals unless explicitly excluded.
-        color:
-          ((w.permissions as Record<string, unknown> | null)?.color as string | null | undefined) ?? null,
-        icon:
-          ((w.permissions as Record<string, unknown> | null)?.icon as string | null | undefined) ?? null,
-        includeInPortfolio:
-          ((w.permissions as Record<string, unknown> | null)?.includeInPortfolio as
-            | boolean
-            | undefined) !== false,
-      };
-    });
+    const data = wallets
+      // Rows the user deleted whose hard delete was blocked by FK relations
+      // (positions, intents, rules). They keep their history but leave the list.
+      .filter((w) => !(w.permissions as Record<string, unknown> | null)?.unlinkedAt)
+      .map((w) => {
+        const bind = bindMap.get(key(w.address, w.ecosystem));
+        const txAuthorized =
+          bind?.mode === 'read_and_receive' || w.purpose === 'sign' || w.purpose === 'both';
+        return {
+          ...w,
+          bindingId: bind?.id ?? null,
+          bindingMode: bind?.mode ?? null,
+          txAuthorized,
+          // Counts toward dashboard monetary totals unless explicitly excluded.
+          color:
+            ((w.permissions as Record<string, unknown> | null)?.color as string | null | undefined) ?? null,
+          icon:
+            ((w.permissions as Record<string, unknown> | null)?.icon as string | null | undefined) ?? null,
+          includeInPortfolio:
+            ((w.permissions as Record<string, unknown> | null)?.includeInPortfolio as
+              | boolean
+              | undefined) !== false,
+        };
+      });
 
     return res.json({ success: true, data: { wallets: data, total: data.length } });
   } catch (err) {
@@ -393,11 +406,11 @@ router.get('/mine', requireSiweAuth, async (req: Request, res: Response) => {
 // delete; if FK relations (positions, intents, …) block it, falls back to a soft
 // disconnect so the row drops out of the active list without violating
 // constraints. MUST precede DELETE /:address.
-router.delete('/mine/:id', requireSiweAuth, async (req: Request, res: Response) => {
+router.delete('/mine/:id', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const existing = await prisma.wallet.findFirst({
     where: { id: req.params.id, userId },
-    select: { id: true, address: true, ecosystem: true },
+    select: { id: true, address: true, ecosystem: true, permissions: true },
   });
   if (!existing) {
     return res.status(404).json({ success: false, error: 'WALLET_NOT_FOUND' });
@@ -407,21 +420,38 @@ router.delete('/mine/:id', requireSiweAuth, async (req: Request, res: Response) 
     await prisma.wallet.delete({ where: { id: existing.id } });
   } catch {
     // FK relations exist — soft-remove instead so the user still gets it off the
-    // list. purpose='watch' demotes it from any tx capability too.
+    // list. purpose='watch' demotes it from any tx capability too, and
+    // `unlinkedAt` is what GET /mine filters on: `isConnected:false` alone left
+    // the row on the list, so the "soft delete" hid nothing.
     await prisma.wallet.update({
       where: { id: existing.id },
-      data: { isConnected: false, isPrimary: false, purpose: 'watch' },
+      data: {
+        isConnected: false,
+        isPrimary: false,
+        purpose: 'watch',
+        permissions: {
+          ...((existing.permissions as Record<string, unknown> | null) ?? {}),
+          unlinkedAt: new Date().toISOString(),
+        },
+      },
     });
   }
 
   // Also deactivate any tx-binding for this address so it can't authorize later.
+  // XRPL classic addresses are case-sensitive base58 and are stored as typed, so
+  // matching only the lower-cased form left a deleted XRPL wallet still able to
+  // authorize transactions.
   await prisma.walletBinding.updateMany({
-    where: { userId, address: existing.address.toLowerCase(), isActive: true },
+    where: {
+      userId,
+      address: { in: [existing.address, existing.address.toLowerCase()] },
+      isActive: true,
+    },
     data: { isActive: false },
   });
 
   return res.json({ success: true });
-});
+}));
 
 // ─── PATCH /api/wallets/mine/:id ────────────────────────────────────────────
 //
@@ -447,7 +477,7 @@ const UpdateWalletSchema = z.object({
   icon: z.string().regex(/^[a-z-]{1,24}$/).nullable().optional(),
 });
 
-router.patch('/mine/:id', requireSiweAuth, async (req: Request, res: Response) => {
+router.patch('/mine/:id', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const parsed = UpdateWalletSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -504,14 +534,16 @@ router.patch('/mine/:id', requireSiweAuth, async (req: Request, res: Response) =
     console.error('[wallets/mine PATCH] failed:', err);
     return res.status(500).json({ success: false, error: 'UPDATE_FAILED', detail: (err as Error).message });
   }
-});
+}));
 
 /**
  * GET /api/wallets
  *
- * List all registered wallets
+ * List all registered wallets.
+ * Auth (2026-08-06): the registry enumerates every registered address+label —
+ * that is account data, not public chain data. Session required.
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireSiweAuth, async (req: Request, res: Response) => {
   try {
     const registry = getWalletRegistry();
     const wallets = registry.getAll();
@@ -610,8 +642,12 @@ router.get('/:address', async (req: Request, res: Response) => {
  * - address: string (required)
  * - label: string (optional)
  * - addToAllowlist: boolean (optional, default false)
+ *
+ * Auth (2026-08-06): registering (and self-allowlisting) was open to anyone on
+ * the internet — registry pollution for free. Mutations require a session; the
+ * authed app flow lives in /connect and /mine.
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireSiweAuth, async (req: Request, res: Response) => {
   try {
     const { address, label, addToAllowlist } = req.body;
 
@@ -686,7 +722,7 @@ router.post('/', async (req: Request, res: Response) => {
  * - label: string (optional)
  * - isActive: boolean (optional)
  */
-router.patch('/:address', async (req: Request, res: Response) => {
+router.patch('/:address', requireSiweAuth, async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
     const { label, isActive } = req.body;
@@ -734,7 +770,7 @@ router.patch('/:address', async (req: Request, res: Response) => {
  *
  * Unregister a wallet
  */
-router.delete('/:address', async (req: Request, res: Response) => {
+router.delete('/:address', requireSiweAuth, async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
     const registry = getWalletRegistry();
@@ -771,7 +807,7 @@ router.delete('/:address', async (req: Request, res: Response) => {
  *
  * Activate monitoring for a wallet
  */
-router.post('/:address/activate', async (req: Request, res: Response) => {
+router.post('/:address/activate', requireSiweAuth, async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
     const registry = getWalletRegistry();
@@ -804,7 +840,7 @@ router.post('/:address/activate', async (req: Request, res: Response) => {
  *
  * Deactivate monitoring for a wallet
  */
-router.post('/:address/deactivate', async (req: Request, res: Response) => {
+router.post('/:address/deactivate', requireSiweAuth, async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
     const registry = getWalletRegistry();

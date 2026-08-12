@@ -28,6 +28,7 @@
  */
 
 import { ethers } from 'ethers';
+import { Client as XrplWsClient } from 'xrpl';
 import {
   resolveAssetManagerFxrp,
   resolveFxrpToken,
@@ -64,6 +65,7 @@ import {
   type FeeMarginGauge,
   type FuelGauges,
 } from './ExecutorFuelService';
+import { checkAnchorFeeding } from './AnchorFeedingService';
 
 const DROPS = 1_000_000;
 
@@ -151,6 +153,10 @@ export const DEFAULTS = {
   // fallback. Se conserva el nombre `wssUrl` por compat con el CLI/watcher.
   // NO es xrplcluster: ese cluster responde 402 a IPs de datacenter (Railway) y
   // además rota nodos amendment-blocked. Se queda de último recurso.
+  // OJO (incidente 2026-07-31): s1/s2 también pueden congelarse respondiendo
+  // `success` — el barrido exige frescura del ledger antes de fiarse (ver
+  // xrplEndpointFresh); si todos los endpoints están viejos, el tick FALLA
+  // en voz alta en vez de barrer una ventana muerta.
   wssUrl: 'https://s1.ripple.com:51234',
   verifierBase: 'https://fdc-verifiers-mainnet.flare.network',
   verifierKey: '00000000-0000-0000-0000-000000000000',
@@ -245,7 +251,7 @@ function httpsify(url: string): string {
  *  ambos con historia completa, verificado 2026-07-12 (ledger 32570→105.5M).
  *  xrplcluster va el ÚLTIMO a propósito: 402 a IPs de datacenter y nodos
  *  amendment-blocked rotando en su pool. Sirve de red, no de primera opción. */
-function xrplHttpEndpoints(preferred?: string): string[] {
+export function xrplHttpEndpoints(preferred?: string): string[] {
   return [
     ...(preferred ? [httpsify(preferred)] : []),
     ...(process.env.XRPL_RPC_URL ? [httpsify(process.env.XRPL_RPC_URL)] : []),
@@ -264,21 +270,107 @@ interface XrplRpcResult {
   [k: string]: unknown;
 }
 
+const RIPPLE_EPOCH_S = 946_684_800;
+/** Un ledger validado cierra cada ~4s; 5 min de margen separa "red lenta" de
+ *  "nodo congelado" con holgura de sobra. */
+const MAX_VALIDATED_LEDGER_AGE_S = 300;
+/** Memo del sondeo por endpoint — un tick barre varias páginas; no re-sondear. */
+const endpointFreshProbe = new Map<string, { atMs: number; fresh: boolean }>();
+const FRESH_PROBE_TTL_MS = 60_000;
+
+/**
+ * Un rippled atascado (amendment-blocked, sin peers…) responde `success` con
+ * una vista CONGELADA: `account_tx` simplemente omite lo firmado después del
+ * atasco y la rotación por error jamás salta. Incidente 2026-07-31: s1 y s2
+ * de Ripple sirvieron una ventana ~4h vieja y el watcher quedó ciego a los
+ * 0xFE nuevos mientras el XRP de los usuarios esperaba en el Core Vault.
+ * Antes de fiarse de un endpoint para BARRER, su último ledger validado debe
+ * haber cerrado hace menos de MAX_VALIDATED_LEDGER_AGE_S.
+ */
+export async function xrplEndpointFresh(url: string, nowMs: number = Date.now()): Promise<boolean> {
+  const memo = endpointFreshProbe.get(url);
+  if (memo && nowMs - memo.atMs < FRESH_PROBE_TTL_MS) return memo.fresh;
+  let fresh = false;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method: 'ledger', params: [{ ledger_index: 'validated' }] }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        result?: { status?: string; ledger?: { close_time?: number } };
+      } | null;
+      const closeTime = body?.result?.ledger?.close_time;
+      if (typeof closeTime === 'number') {
+        fresh = nowMs / 1000 - (closeTime + RIPPLE_EPOCH_S) < MAX_VALIDATED_LEDGER_AGE_S;
+      }
+    }
+  } catch {
+    // transporte caído = no fresco; la rotación decide con el resto de endpoints
+  }
+  endpointFreshProbe.set(url, { atMs: nowMs, fresh });
+  return fresh;
+}
+
+/**
+ * Último recurso del transporte XRPL: WebSocket. El gate de xrplcluster
+ * responde 402 al HTTP plano desde IPs de datacenter (Railway) pero deja pasar
+ * el upgrade WS — el mismo transporte que AnchorFeedingService/XrplEscrowKeeper
+ * ya usan en prod. Mismo contrato de frescura que el camino HTTP: si el ledger
+ * validado del nodo WS también es viejo, se lanza — mejor un tick que FALLA en
+ * voz alta que un barrido sobre una ventana muerta.
+ */
+export async function xrplWsRequest(
+  method: string,
+  params: Record<string, unknown>,
+): Promise<XrplRpcResult> {
+  const url = process.env.XRPL_WS_URL || 'wss://xrplcluster.com';
+  const client = new XrplWsClient(url, { connectionTimeout: 12_000 });
+  try {
+    await client.connect();
+    const lg = (await client.request({ command: 'ledger', ledger_index: 'validated' } as never)) as {
+      result?: { ledger?: { close_time?: number } };
+    };
+    const closeTime = lg.result?.ledger?.close_time;
+    if (
+      typeof closeTime !== 'number' ||
+      Date.now() / 1000 - (closeTime + RIPPLE_EPOCH_S) >= MAX_VALIDATED_LEDGER_AGE_S
+    ) {
+      throw new Error(`xrpl_ws_endpoint_stale: ${url}`);
+    }
+    const r = (await client.request({ command: method, ...params } as never)) as { result: XrplRpcResult };
+    return r.result;
+  } finally {
+    await client.disconnect().catch(() => undefined);
+  }
+}
+
 /**
  * Una llamada JSON-RPC a XRPL con rotación. Pasa al siguiente endpoint tanto
  * ante fallo de transporte (el 402, timeouts, red) como ante un `status:'error'`
  * de rippled — un servidor sin historia completa puede no ver la tx que otro
- * full-history sí ve —, y solo lanza cuando se agotan todos (el último error
- * es el que sube, p.ej. `txnNotFound` real o `xrpl_http_402`).
+ * full-history sí ve —, y solo lanza cuando se agotan todos. Con `requireFresh`
+ * además descarta endpoints cuyo último ledger validado sea viejo (ver
+ * xrplEndpointFresh) — obligatorio para account_tx, donde un nodo congelado
+ * miente por omisión en vez de errar. Agotado el HTTP, intenta el WS
+ * (xrplWsRequest); si tampoco, sube el último error HTTP — el que describe el
+ * problema de transporte real (p.ej. `txnNotFound` o `xrpl_http_402`).
  */
 async function xrplJsonRpc(
   method: string,
   params: Record<string, unknown>,
   preferred?: string,
+  opts?: { requireFresh?: boolean },
 ): Promise<XrplRpcResult> {
   let lastErr: unknown = new Error('xrpl_rpc_unreachable');
   for (const url of xrplHttpEndpoints(preferred)) {
     try {
+      if (opts?.requireFresh && !(await xrplEndpointFresh(url))) {
+        lastErr = new Error(`xrpl_endpoint_stale: ${url} (validated ledger > ${MAX_VALIDATED_LEDGER_AGE_S}s)`);
+        continue;
+      }
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,7 +397,13 @@ async function xrplJsonRpc(
       lastErr = err;
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+  // Todos los HTTP agotados (402/red/congelados) — último recurso: WS.
+  try {
+    return await xrplWsRequest(method, params);
+  } catch (wsErr) {
+    console.error(`[0xFE-executor] WS fallback falló: ${(wsErr as Error).message}`);
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+  }
 }
 
 export async function fetchXrplPayment(txHash: string, wssUrl: string): Promise<XrplPaymentFacts> {
@@ -497,7 +595,7 @@ export async function sweepInstructionPayments(opts: {
       forward: false,
     };
     if (marker !== undefined) params.marker = marker;
-    const result = await xrplJsonRpc('account_tx', params, opts.wssUrl);
+    const result = await xrplJsonRpc('account_tx', params, opts.wssUrl, { requireFresh: true });
     const transactions =
       (result.transactions as Array<{
         hash?: string;
@@ -609,6 +707,11 @@ export function assertUserOpExecutable(
   log(`    ejecutabilidad ✓ (sender == PA, nonce ${op.nonce} == nonce on-chain)`);
 }
 
+/** FDC_VERIFIER_API_KEY absent → the public zero key. It often works, and then
+ *  a round fails LATE (after the fee is paid) the day it does not — say it
+ *  loudly ONCE instead of discovering it in a burned attestation. */
+let warnedZeroVerifierKey = false;
+
 export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOutcome> {
   const log = input.log ?? noopInline;
   const provider = input.provider;
@@ -616,6 +719,10 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
   const wssUrl = input.wssUrl ?? DEFAULTS.wssUrl;
   const verifierBase = (input.verifierBase ?? DEFAULTS.verifierBase).replace(/\/$/, '');
   const verifierKey = input.verifierKey ?? DEFAULTS.verifierKey;
+  if (verifierKey === DEFAULTS.verifierKey && !warnedZeroVerifierKey) {
+    warnedZeroVerifierKey = true;
+    console.warn('[0xFE-executor] FDC_VERIFIER_API_KEY sin setear — usando la clave pública de ceros; las rondas pueden fallar TARDE (con la fee ya pagada). Setéala en el entorno.');
+  }
   const daLayerBase = (input.daLayerBase ?? DEFAULTS.daLayerBase).replace(/\/$/, '');
   const live = input.wallet != null;
   const executorAddr = ethers.getAddress(
@@ -1258,16 +1365,44 @@ export class DirectMintExecutorWatcher {
     void (async () => {
       try {
         await this.tick();
-        this.lastTickError = null;
+        await this.recordTickOutcome(null, 'kick-sweep');
       } catch (e) {
-        this.lastTickError = (e as Error).message;
-        console.error(`[0xFE-executor] kick-sweep failed: ${(e as Error).message}`);
+        await this.recordTickOutcome(e as Error, 'kick-sweep');
       } finally {
         this.lastTickAt = new Date();
         this.running = false;
       }
     })();
     return true;
+  }
+
+  /**
+   * Tick bookkeeping + the alert the 31-jul blindness was missing: a watcher
+   * failing every tick only wrote lastTickError into /executor-health, and
+   * nobody looks there until it is too late. Alert on the TRANSITION into
+   * error (dedup'd by key so a persistent failure does not spam) and once on
+   * recovery, so the channel stays believable.
+   */
+  private async recordTickOutcome(err: Error | null, phase: 'kick-sweep' | 'tick'): Promise<void> {
+    const prev = this.lastTickError;
+    this.lastTickError = err ? err.message : null;
+    try {
+      if (err) {
+        console.error(`[0xFE-executor] ${phase} failed: ${err.message}`);
+        if (prev === null) {
+          await executorAlert('warn', `el watcher 0xFE está fallando (${phase}): ${err.message}`, {
+            key: 'executor-tick-error',
+            runbook: 'mirar /api/flare-demo/executor-health (lastTickError) y los logs del backend; si es RPC/XRPL caído, esperar al failover; si persiste >15 min, reiniciar el servicio',
+          });
+        }
+      } else if (prev !== null) {
+        await executorAlert('info', 'el watcher 0xFE se recuperó — ticks verdes de nuevo', {
+          key: 'executor-tick-recovered',
+        });
+      }
+    } catch {
+      /* el canal de alertas jamás tumba el tick */
+    }
   }
 
   start(): void {
@@ -1286,10 +1421,9 @@ export class DirectMintExecutorWatcher {
       this.running = true;
       try {
         await this.tick();
-        this.lastTickError = null;
+        await this.recordTickOutcome(null, 'tick');
       } catch (e) {
-        this.lastTickError = (e as Error).message;
-        console.error(`[0xFE-executor] tick failed: ${(e as Error).message}`);
+        await this.recordTickOutcome(e as Error, 'tick');
       } finally {
         this.lastTickAt = new Date();
         this.running = false;
@@ -1328,6 +1462,15 @@ export class DirectMintExecutorWatcher {
       this.lastGauges = await checkExecutorFuel(provider, wallet, (m) => console.log(`[0xFE-executor] ${m}`));
     } catch (e) {
       console.error(`[0xFE-executor] fuel-check falló (sigo con el barrido): ${(e as Error).message}`);
+    }
+
+    // B3 — feeding hop del anchor: si el anchor juntó ≥ X XRP (las fees de las
+    // órdenes del consejo), acúñalas → FXRP → executor; el refuel de arriba las
+    // vuelve FLR. No-op sin LEGACY_ANCHOR_SEED. Best-effort: NO aborta el tick.
+    try {
+      await checkAnchorFeeding(provider);
+    } catch (e) {
+      console.error(`[0xFE-executor] anchor-feed falló (sigo con el barrido): ${(e as Error).message}`);
     }
 
     const { rows } = await sweepInstructionPayments({
@@ -1389,6 +1532,13 @@ export class DirectMintExecutorWatcher {
           'warn',
           `0xFE colgado >${stuckMin} min: ${row.hash} (${Number(row.drops) / DROPS} XRP de ${row.account}, ` +
             `firmado ${row.dateISO}) sigue sin ejecutar — el watcher reintenta, pero míralo`,
+          {
+            key: `stuck:${row.hash}`,
+            facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS },
+            runbook:
+              '/app/admin → Sistema → Desatascar: ahí sale el motivo del último intento. Reintentar no cuesta fee ' +
+              '(la attestation ya pagada se reutiliza). El XRP del usuario sigue a salvo en el Core Vault.',
+          },
         );
       }
     }
@@ -1432,8 +1582,15 @@ export class DirectMintExecutorWatcher {
           console.error(`[0xFE-executor] ⛔ ${row.hash} INEJECUTABLE — aparcado sin coste: ${(e as Error).message}`);
           await executorAlert(
             'critical',
-            `0xFE ${row.hash} aparcado DEFINITIVAMENTE (bytes inejecutables, nada pagado): ${(e as Error).message} ` +
-              'Rescate: revisar el prepare que generó estos bytes; el XRP del Payment queda en el Core Vault.',
+            `0xFE ${row.hash} aparcado DEFINITIVAMENTE (bytes inejecutables, nada pagado): ${(e as Error).message}`,
+            {
+              key: `parked:${row.hash}`,
+              facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS },
+              runbook:
+                'Esto NO se cura con Reintentar: los bytes firmados llevan un sender o un nonce imposibles. Hay que ' +
+                're-preparar la operación y que el usuario firme de nuevo. Su XRP sigue en el Core Vault, no se ha perdido. ' +
+                'Revisa el prepare que generó estos bytes antes de repetir la operación.',
+            },
           );
           continue;
         }
@@ -1449,7 +1606,14 @@ export class DirectMintExecutorWatcher {
           console.error(`[0xFE-executor] ⛔ ${row.hash} aparcado tras ${n} fallos: ${(e as Error).message}`);
           await executorAlert(
             'critical',
-            `0xFE ${row.hash} aparcado tras ${n} fallos — requiere intervención manual (CLI execute-direct-mint). Último error: ${(e as Error).message}`,
+            `0xFE ${row.hash} aparcado tras ${n} fallos. Último error: ${(e as Error).message}`,
+            {
+              key: `parked:${row.hash}`,
+              facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS, fallos: n },
+              runbook:
+                '/app/admin → Sistema → Desatascar → Reintentar (no cuesta fee nueva). Si vuelve a fallar por lo mismo, ' +
+                'rescate manual: USER_OP_DATA=0x… npx ts-node src/scripts/execute-direct-mint.ts --live',
+            },
           );
           continue;
         }

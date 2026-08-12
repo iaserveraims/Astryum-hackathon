@@ -51,9 +51,29 @@ export interface LegacyStackConfig extends LegacyNetwork {
   orderAnchor: string;
 }
 
+/**
+ * The network and the order anchor, WITHOUT requiring a deployed stack.
+ *
+ * Cages are per-Legacy now (LegacyCageResolver): the network is a property of
+ * the install, but which bridge/vault a council has is a property of that
+ * council. This is what the resolver builds a cage on top of.
+ */
+export function legacyNetworkConfig(): LegacyNetwork & { orderAnchor: string } {
+  // Default is MAINNET: an unset LEGACY_CHAIN in production must never silently
+  // aim council orders at a testnet. Test rigs opt into coston2 explicitly.
+  const chain = (process.env.LEGACY_CHAIN || 'flare') as 'coston2' | 'flare';
+  const net = LEGACY_NETWORKS[chain];
+  if (!net) throw new Error(`LEGACY_CHAIN must be coston2|flare, got "${chain}"`);
+  const orderAnchor = process.env.LEGACY_ORDER_ANCHOR;
+  if (!orderAnchor || !isValidClassicAddress(orderAnchor)) {
+    throw new Error('LEGACY_ORDER_ANCHOR missing/invalid (an XRPL r-address)');
+  }
+  return { ...net, orderAnchor };
+}
+
 /** Resolve the deployed stack from env. Throws a readable error when unset. */
 export function legacyStackConfig(): LegacyStackConfig {
-  const chain = (process.env.LEGACY_CHAIN || 'coston2') as 'coston2' | 'flare';
+  const chain = (process.env.LEGACY_CHAIN || 'flare') as 'coston2' | 'flare';
   const net = LEGACY_NETWORKS[chain];
   if (!net) throw new Error(`LEGACY_CHAIN must be coston2|flare, got "${chain}"`);
   const bridge = process.env.LEGACY_BRIDGE_ADDRESS;
@@ -89,7 +109,33 @@ const BRIDGE_ABI = [
   'function consumedTxId(bytes32) view returns (bool)',
   'function vault() view returns (address)',
 ];
-const VAULT_READ_ABI = ['function constitutionRef() view returns (bytes32)'];
+const VAULT_READ_ABI = [
+  'function constitutionRef() view returns (bytes32)',
+  'function council() view returns (address)',
+];
+
+/**
+ * The binding must hold in BOTH directions or the ceremony burns for nothing.
+ *
+ * `bridge.vault() == vault` was already checked. The converse —
+ * `vault.council() == bridge` — was not, and it is the one that decides whether
+ * the vault will actually OBEY. If they ever diverge (a redeployed bridge, a
+ * second bridge, a `transferCouncil` whose `acceptCouncil` landed elsewhere)
+ * everything upstream still succeeds: the order composes, the quorum signs, the
+ * FDC round runs and is paid for (~20 FLR) — and only then does the vault revert
+ * with NotCouncil(). That is the unearned-success shape exactly: a ceremony that
+ * looks right until the last inch. Today the deployment is correct (verified
+ * on-chain 2026-07-28); this makes sure nobody finds out the hard way if it
+ * stops being.
+ */
+export function assertCouncilBinding(vaultCouncil: string, bridge: string): void {
+  if (vaultCouncil.toLowerCase() !== bridge.toLowerCase()) {
+    throw new Error(
+      `the vault obeys ${vaultCouncil}, not the configured bridge ${bridge} — an order signed by the quorum ` +
+        'would revert with NotCouncil() after the FDC round was already paid for. Check LEGACY_BRIDGE_ADDRESS.',
+    );
+  }
+}
 
 export type CouncilOrderAction =
   | 'direct-to'
@@ -109,12 +155,49 @@ export type CouncilOrderAction =
  *  structurally while encoding (ethers throws on malformed values). */
 export type CouncilOrderParams = Record<string, unknown>;
 
+/**
+ * What the summary needs to speak like a person instead of like a contract.
+ *
+ * The disclosure line is what a quorum READS before signing, and it was saying
+ * "Direct 100000 base units of principal into venue #0" — the contract's own
+ * integers. With the cage's decimals and the venue's name it says "0.1 FXRP"
+ * and "Kinetic". Optional on purpose: if the chain read fails, the order still
+ * composes and the summary falls back to base units (never blocks a signature
+ * over cosmetics).
+ */
+export interface OrderSummaryContext {
+  decimals: number;
+  symbol: string;
+  /** venueId → human label ("Kinetic", "Firelight"…). */
+  venueLabels?: Record<number, string>;
+}
+
+/** Amount in base units → "0.1 FXRP", or the raw integer without context. */
+function humanAmount(raw: unknown, ctx?: OrderSummaryContext): string {
+  if (!ctx) return `${raw} base units`;
+  try {
+    const v = BigInt(String(raw));
+    const base = BigInt(10) ** BigInt(ctx.decimals);
+    const whole = v / base;
+    const frac = (v % base).toString().padStart(ctx.decimals, '0').replace(/0+$/, '');
+    return `${whole}${frac ? `.${frac}` : ''} ${ctx.symbol}`;
+  } catch {
+    return `${raw} base units`;
+  }
+}
+
+/** Venue id → "Kinetic" when known, else the honest "venue #0". */
+function venueName(id: unknown, ctx?: OrderSummaryContext): string {
+  const label = ctx?.venueLabels?.[Number(id)];
+  return label ? `${label} (venue #${id})` : `venue #${id}`;
+}
+
 interface ActionSpec {
   /** Build the ethers args array. `ref` is the CURRENT constitutionRef. */
   args: (p: CouncilOrderParams, ref: string) => unknown[];
   fn: string;
   /** One-line human summary for the disclosure (#6). */
-  summary: (p: CouncilOrderParams) => string;
+  summary: (p: CouncilOrderParams, ctx?: OrderSummaryContext) => string;
 }
 
 const UBA = (v: unknown): bigint => {
@@ -132,22 +215,23 @@ const ACTIONS: Record<CouncilOrderAction, ActionSpec> = {
   'direct-to': {
     fn: 'directTo',
     args: (p, ref) => [NUM(p.venueId), UBA(p.amount), ref],
-    summary: (p) => `Direct ${p.amount} base units of principal into venue #${p.venueId}`,
+    summary: (p, c) => `Put ${humanAmount(p.amount, c)} of the principal to work in ${venueName(p.venueId, c)}`,
   },
   recall: {
     fn: 'recall',
     args: (p, ref) => [NUM(p.venueId), UBA(p.amount), ref],
-    summary: (p) => `Recall ${p.amount} base units from venue #${p.venueId} back to the vault`,
+    summary: (p, c) => `Bring ${humanAmount(p.amount, c)} back from ${venueName(p.venueId, c)} into the vault`,
   },
   move: {
     fn: 'moveToVenue',
     args: (p, ref) => [NUM(p.fromId), NUM(p.toId), UBA(p.amount), ref],
-    summary: (p) => `Move ${p.amount} base units from venue #${p.fromId} to venue #${p.toId} (rescue)`,
+    summary: (p, c) =>
+      `Move ${humanAmount(p.amount, c)} from ${venueName(p.fromId, c)} to ${venueName(p.toId, c)} (rescue)`,
   },
   evacuate: {
     fn: 'evacuate',
     args: (p, ref) => [NUM(p.venueId), ref],
-    summary: (p) => `Evacuate EVERYTHING from venue #${p.venueId} back to the vault (emergency)`,
+    summary: (p, c) => `Evacuate EVERYTHING from ${venueName(p.venueId, c)} back to the vault (emergency)`,
   },
   'propose-venue': {
     fn: 'proposeVenue',
@@ -157,7 +241,7 @@ const ACTIONS: Record<CouncilOrderAction, ActionSpec> = {
   'retire-venue': {
     fn: 'retireVenue',
     args: (p, ref) => [NUM(p.venueId), ref],
-    summary: (p) => `Retire venue #${p.venueId} (closed to new entries; exits keep working)`,
+    summary: (p, c) => `Retire ${venueName(p.venueId, c)} (closed to new entries; exits keep working)`,
   },
   'set-max-venue-bps': {
     fn: 'setMaxVenueBps',
@@ -226,6 +310,8 @@ export function encodeCouncilOrder(
   params: CouncilOrderParams,
   constitutionRef: string,
   nonce: number,
+  /** Only decorates the SUMMARY — never the bytes. Omit and it reads in base units. */
+  summaryCtx?: OrderSummaryContext,
 ): EncodedCouncilOrder {
   const spec = ACTIONS[action];
   if (!spec) throw new Error(`unknown council order action: ${action}`);
@@ -242,7 +328,7 @@ export function encodeCouncilOrder(
     orderHash,
     memoHex: orderHash.slice(2).toUpperCase(),
     nonce,
-    summary: spec.summary(params),
+    summary: spec.summary(params, summaryCtx),
   };
 }
 
@@ -268,7 +354,14 @@ export interface OrderFee {
   amountDrops: string;
 }
 
-/** Resolve the fixed order fee from env (pure — unit-tested; no RPC, no oracle). */
+/**
+ * Resolve the fixed order fee from env (pure — unit-tested; no RPC, no oracle).
+ *
+ * Modelo del fundador (2026-07-28): el executor es un servicio del producto y se
+ * cobra al MISMO precio que el executor de Flare (el mint) — fijo, 0,2 XRP (la
+ * `executorFeeUBA` de FAssets). Se pone en `LEGACY_ORDER_FEE_XRP=0.2`. Fijo, no
+ * dinámico: "si el del executor de Flare es siempre fijo, igual".
+ */
 export function resolveOrderFee(): OrderFee {
   if (process.env.LEGACY_ORDER_FEE_ENABLED !== 'true') {
     return { enabled: false, feeXrp: '0', amountDrops: '1' };
@@ -277,7 +370,7 @@ export function resolveOrderFee(): OrderFee {
   if (!/^\d+(\.\d{1,6})?$/.test(feeXrp) || Number(feeXrp) <= 0) {
     throw new Error(
       'LEGACY_ORDER_FEE_ENABLED=true but LEGACY_ORDER_FEE_XRP is not a positive XRP amount ' +
-        '(max 6 decimals) — set the fixed service fee before enabling',
+        '(max 6 decimals) — set the fixed service fee (e.g. 0.2, same as the Flare executor) before enabling',
     );
   }
   const feeDrops = BigInt(xrpToDrops(feeXrp)); // xrpl validates the drops conversion
@@ -319,22 +412,39 @@ export async function buildCouncilOrderHandoff(input: {
   council: string;
   action: CouncilOrderAction;
   params: CouncilOrderParams;
+  /** THIS council's cage (LegacyCageResolver). The env stack is nobody's cage
+   *  until an account claims it, so callers that touch capital resolve it by
+   *  account and pass it in; omitting it keeps the old env behaviour for
+   *  scripts and rehearsals that run against the configured stack. */
+  cage?: LegacyStackConfig;
+  /** Units + venue names for the human summary. The route passes the vault
+   *  state it already read for the pre-flight; without it the summary falls
+   *  back to base units and everything else is identical. */
+  summaryCtx?: OrderSummaryContext;
 }): Promise<CouncilOrderHandoff> {
-  const cfg = legacyStackConfig();
+  const cfg = input.cage ?? legacyStackConfig();
   const provider = new ethers.JsonRpcProvider(cfg.rpcUrl);
   const bridge = new ethers.Contract(cfg.bridge, BRIDGE_ABI, provider);
   const vault = new ethers.Contract(cfg.vault, VAULT_READ_ABI, provider);
 
-  const [nonceBig, constitutionRef, boundVault] = await Promise.all([
+  const [nonceBig, constitutionRef, boundVault, vaultCouncil] = await Promise.all([
     bridge.nextNonce() as Promise<bigint>,
     vault.constitutionRef() as Promise<string>,
     bridge.vault() as Promise<string>,
+    vault.council() as Promise<string>,
   ]);
   if (boundVault.toLowerCase() !== cfg.vault.toLowerCase()) {
     throw new Error(`bridge is bound to ${boundVault}, not LEGACY_VAULT_ADDRESS ${cfg.vault} — check the env`);
   }
+  assertCouncilBinding(vaultCouncil, cfg.bridge);
 
-  const encoded = encodeCouncilOrder(input.action, input.params, constitutionRef, Number(nonceBig));
+  const encoded = encodeCouncilOrder(
+    input.action,
+    input.params,
+    constitutionRef,
+    Number(nonceBig),
+    input.summaryCtx,
+  );
   const fee = resolveOrderFee();
   const xrplTx = buildOrderPaymentTx(input.council, cfg.orderAnchor, encoded.memoHex, fee.amountDrops);
 

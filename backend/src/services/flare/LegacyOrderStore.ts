@@ -57,6 +57,28 @@ export async function saveCouncilOrderRecord(record: CouncilOrderRecord): Promis
       `[legacy-order-store] persist FAILED for ${record.orderHash}: ${(e as Error).message} — ` +
         'the relayer will need the orderData re-supplied by the client',
     );
+    // Al canal (2026-08-03): sin esta fila, una orden que el consejo firme no
+    // se puede relayar salvo que el navegador que la preparó vuelva a aportar
+    // los bytes. Enterarse ANTES de la ceremonia lo cambia todo.
+    try {
+      const { opsAlert } = await import('../OpsAlertService');
+      await opsAlert(
+        'legacy-order',
+        'critical',
+        `no se pudieron guardar los bytes de la orden ${record.orderHash} (${(e as Error).message}) — ` +
+          'si el consejo la firma, el relé puede no tener qué entregar',
+        {
+          key: `order-persist:${record.orderHash}`,
+          facts: { orderHash: record.orderHash, accion: record.action, nonce: record.nonce },
+          runbook:
+            'Revisa la base de datos (probe «Base de datos» en /app/admin → Alertas) y vuelve a preparar la orden ' +
+            'antes de que el consejo firme. Si ya está firmada, el relé admite los bytes a mano: ' +
+            'POST /api/xrpl-defi/council-order/relay con {"xrplTxHash":"…","orderData":"0x…"}',
+        },
+      );
+    } catch {
+      /* el canal nunca puede empeorar el fallo que está reportando */
+    }
     return false;
   }
 }

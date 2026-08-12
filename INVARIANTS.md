@@ -3,7 +3,7 @@
 > The rules the **code** never violates. If a task can only be implemented by breaking one
 > of these, the task is wrong — stop, choose the interpretation that preserves the invariant,
 > and leave a note in the PR. These are the hard floor under [ARCHITECTURE.md](ARCHITECTURE.md)
-> and [DECISIONS.md](DECISIONS.md).
+> and [DECISIONS.md](DECISIONS.md). Mirrored (in Spanish) in [CLAUDE.md](CLAUDE.md) §Invariantes.
 
 Defibro is a **non-custodial Universal Financial Control Plane**: it observes, aggregates and
 coordinates multichain DeFi capital, builds calldata/intents, and hands them to the **user's
@@ -99,5 +99,5 @@ posture (MiCA) holds only because the code respects that on every line.
 
 ---
 
-*When in doubt: the most conservative reading that preserves these invariants is the
-correct one.*
+*When in doubt, see [CLAUDE.md](CLAUDE.md) §"Ante la duda". The most conservative reading that
+preserves these invariants is the correct one.*

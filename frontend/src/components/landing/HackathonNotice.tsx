@@ -26,6 +26,11 @@ const HACKATHONS = [
   {
     id: 'flare',
     label: 'Flare Summer Signal',
+    // The banner is a fixed-height strip: below md the full labels' min-content
+    // (~420px, everything is nowrap) exceeds every phone width and the excess
+    // was CLIPPED on both sides with no way to scroll to it. The short label
+    // keeps the disclosure legible at 320px; the program page has the rest.
+    short: 'Flare',
     url: 'https://dorahacks.io/hackathon/flaresummersignal/detail',
     logo: '/partners/flare.svg', // pink mark — reads on dark and on cream
     logoInk: '/partners/flare.svg',
@@ -33,6 +38,7 @@ const HACKATHONS = [
   {
     id: 'xrpl-commons',
     label: 'XRPL Commons · Make Waves',
+    short: 'XRPL Commons',
     url: 'https://hackathons.xrpl-commons.org/hackathons/make-waves-041f8ce6',
     logo: '/partners/xrpl-commons-mark.svg', // white variant → dark fields
     logoInk: '/partners/xrpl-commons-mark-ink.svg', // ink variant → cream field
@@ -43,10 +49,12 @@ function HackathonLink({
   h,
   tone,
   size = 14,
+  shortBelowMd = false,
 }: {
   h: (typeof HACKATHONS)[number];
   tone: 'dark' | 'ink';
   size?: number;
+  shortBelowMd?: boolean;
 }) {
   const color = tone === 'ink' ? 'rgba(20,18,14,0.78)' : 'rgba(255,255,255,0.78)';
   return (
@@ -54,7 +62,8 @@ function HackathonLink({
       href={h.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 whitespace-nowrap transition-opacity hover:opacity-70"
+      // py-1 -my-1 grows the tap target without growing the strip
+      className="inline-flex items-center gap-1.5 py-1 -my-1 whitespace-nowrap transition-opacity hover:opacity-70"
       style={{ color }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -63,7 +72,14 @@ function HackathonLink({
         alt={h.id === 'flare' ? 'Flare' : 'XRPL Commons'}
         style={{ height: size, width: 'auto', display: 'block' }}
       />
-      <span className="font-semibold">{h.label}</span>
+      {shortBelowMd ? (
+        <>
+          <span className="md:hidden font-semibold">{h.short}</span>
+          <span className="hidden md:inline font-semibold">{h.label}</span>
+        </>
+      ) : (
+        <span className="font-semibold">{h.label}</span>
+      )}
     </a>
   );
 }
@@ -82,17 +98,19 @@ export function HackathonBanner({ lang }: { lang: Lang }) {
       }}
     >
       <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">
-        {T('Proyecto de hackathon · en concurso:', 'Hackathon project · competing in:', lang)}
+        {/* "Beta abierta", not "proyecto" — founder 2026-07-29, same voice as
+            the footer note below. */}
+        {T('Beta abierta para los hackathons · en concurso:', 'Open hackathon beta · competing in:', lang)}
       </span>
       <span className="md:hidden font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">
         {T('Hackathon:', 'Hackathon:', lang)}
       </span>
-      <span className="flex items-center gap-3 text-[11px] md:text-[12px]">
-        <HackathonLink h={HACKATHONS[0]} tone="dark" />
+      <span className="flex items-center gap-2 md:gap-3 text-[11px] md:text-[12px]">
+        <HackathonLink h={HACKATHONS[0]} tone="dark" shortBelowMd />
         <span className="text-white/25" aria-hidden>
           ·
         </span>
-        <HackathonLink h={HACKATHONS[1]} tone="dark" />
+        <HackathonLink h={HACKATHONS[1]} tone="dark" shortBelowMd />
       </span>
     </div>
   );
@@ -104,7 +122,9 @@ export function HackathonFooterNote({ lang, tone = 'dark' }: { lang: Lang; tone?
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px]">
       <span style={{ color: labelColor }}>
-        {T('Producto creado para los hackathons:', 'Built for the hackathons:', lang)}
+        {/* "Beta abierta", not "producto creado" — founder 2026-07-29: the build
+            is live and usable, not a one-off hackathon artifact. */}
+        {T('Beta abierta para los hackathons:', 'Open beta for the hackathons:', lang)}
       </span>
       <HackathonLink h={HACKATHONS[0]} tone={tone} size={13} />
       <span style={{ color: labelColor }} aria-hidden>

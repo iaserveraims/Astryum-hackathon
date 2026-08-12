@@ -17,6 +17,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import { Card, MicroLabel, PageHeader, Pill, EmptyState, HairlineGroup, SegmentedControl } from '../../../components/ui/primitives';
 import { CountUp, PulseDot, RevealGroup, RevealItem, Spotlight } from '../../../components/ui/motion';
 import { formatMoney, formatMoneyCompact } from '../../../lib/formatMoney';
+import { hfTone } from '../../../lib/healthScore';
 import { TokenLogo } from '../../../components/ui/TokenLogo';
 import { AllocationDonut, AllocationLegend, OrbitDial, PerfLine, chartColorsFor } from '../../../components/ui/charts';
 import { SceneDoor } from '../../../components/ui/SceneDoor';
@@ -36,8 +37,10 @@ import {
   type WalletRecord,
 } from '../../../lib/portfolioMerge';
 import { useAuthorityWallets } from '../../../hooks/useAuthorityWallets';
-import { walletColor, walletIcon } from '../../../lib/walletIdentity';
+import { useAuthorities } from '../../../hooks/useAuthorities';
+import { walletColor, walletDisplayName, walletIcon } from '../../../lib/walletIdentity';
 import WalletGlyphIcon from '../../../components/wallet/WalletGlyphIcon';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,6 +113,9 @@ const KIND_LABEL: Record<string, string> = {
   stake: 'Staked',
   rewards: 'Rewards',
   reward: 'Rewards',
+  // A queued vault exit: redeemed already, released by the venue on its own
+  // date. "Claim" named the button, not the money — this names the money.
+  claim: 'Leaving',
 };
 
 function kindLabel(kind: string | undefined | null): string {
@@ -152,7 +158,7 @@ function prettifyKeys(
 // Where a position lives, in words: sitting in the wallet ("In Wallet") or out
 // in a protocol ("Working" for lending legs, "Earning" for staking/LP/rewards).
 // Deployed rows carry the exact leg + protocol as small subtext.
-function locationInfo(p: { protocolId?: string; kind?: string }): {
+function locationInfo(p: { protocolId?: string; kind?: string; metadata?: Record<string, unknown> }): {
   label: string;
   tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
   sub: string | null;
@@ -162,17 +168,30 @@ function locationInfo(p: { protocolId?: string; kind?: string }): {
   if (!proto || /^wallet(-\d+)?$/i.test(proto)) return { label: 'In Wallet', tone: 'neutral', sub: null };
   const pretty = prettyProtocol(proto);
   if (['debt', 'borrow'].includes(kind)) return { label: 'Working', tone: 'danger', sub: `${kindLabel(kind)} · ${pretty}` };
+  // Money on its way OUT of a venue reads as neither "Working" nor "Earning" —
+  // the exit is signed, the venue releases it on its own date (founder
+  // 2026-08-01). "Ready to claim" once that date passed.
+  if (kind === 'claim') {
+    const claimable = (p as { metadata?: Record<string, unknown> }).metadata?.claimable === true;
+    return {
+      label: claimable ? 'Ready to claim' : 'Leaving',
+      tone: 'warning',
+      sub: pretty,
+    };
+  }
   if (['staking', 'stake', 'lp', 'rewards', 'reward'].includes(kind)) return { label: 'Earning', tone: 'info', sub: pretty };
   return { label: 'Working', tone: 'success', sub: `${kindLabel(kind)} · ${pretty}` };
 }
 
-// Nickname of the wallet a position belongs to (falls back to the short address).
+// Display name of the wallet a position belongs to — the ONE shared rule
+// (walletIdentity): nickname, else the provider's proper name, else the
+// short address. Same resolver as Wallets and the Summary.
 function walletLabel(wallets: WalletRecord[], addr: string | undefined | null): string {
   if (!addr || addr === 'all') return '—';
   const found = wallets.find(
     (w) => w.address === addr || w.address.toLowerCase() === String(addr).toLowerCase(),
   );
-  return found?.label ?? shortAddr(String(addr));
+  return found ? walletDisplayName(found) : shortAddr(String(addr));
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -250,13 +269,13 @@ function kindTone(kind: string): 'success' | 'warning' | 'danger' | 'info' | 'ne
   return 'neutral';
 }
 
-// 3-tone scale (de-AI pass 2026-07-21): success ≥2, warning 1.5-2, danger <1.5 —
-// the old 4-step orange/red split collapses into one danger tone.
+// The ONE canonical HF scale (lib/healthScore hfTone, Fase 1 2026-07-30) —
+// this file's local 3-tone split was one of four competing scales; HF 1.3 was
+// green on one screen and amber on the next.
 function hfColor(hf?: number | null): string {
   if (hf == null) return 'text-ink/30';
-  if (hf >= 2) return 'text-tone-success';
-  if (hf >= 1.5) return 'text-tone-warning';
-  return 'text-tone-danger';
+  const tone = hfTone(hf);
+  return tone === 'neutral' ? 'text-ink/30' : `text-tone-${tone}`;
 }
 
 function riskBadgeClass(level?: string): string {
@@ -358,7 +377,7 @@ function FilterBar({
                     style={{ background: walletColor(w) }}
                   />
                 )}
-                {w.label ?? shortAddr(w.address)}
+                {walletDisplayName(w, t)}
               </button>
             );
           })}
@@ -948,8 +967,8 @@ function AssetDetailModal({
   const fmtUSD = (v: number) => formatMoney(v, { masked: !visible });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-2xl my-auto" onClick={(e) => e.stopPropagation()}>
         <div className="rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl overflow-hidden">
           <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
             <div className="flex items-center gap-3">
@@ -1017,7 +1036,7 @@ function AssetDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -1271,6 +1290,8 @@ function savedFilters(): Partial<SavedFilters> {
 export default function PortfolioPage() {
   const { t } = useT();
   const userAddress = useAuthStore((s) => s.user?.address);
+  // Quién opera: con el consejo activo, la jaula entra en el inventario.
+  const { activeGoverned } = useAuthorities();
 
   const [snap, setSnap]               = useState<PortfolioSnapshot | null>(null);
   const [riskSnap, setRiskSnap]       = useState<RiskSnapshot | null>(null);
@@ -1442,6 +1463,8 @@ export default function PortfolioPage() {
   if (!hasAuthToken()) return <AuthRequired />;
   if (loadingWallets && loadableWallets.length === 0)
     return <EmptyState variant="loading" title="Loading wallets…" />;
+  // The connect rail accepts MetaMask on Flare and Xaman on XRPL; this door used
+  // to promise "any wallet, any chain" (founder 2026-08-04).
   if (loadableWallets.length === 0)
     return (
       <SceneDoor
@@ -1449,7 +1472,7 @@ export default function PortfolioPage() {
         tone="gold"
         eyebrow={t('Portfolio')}
         title={t('Connect a wallet to view your portfolio')}
-        desc={t('Link any wallet (MetaMask, Phantom, Xaman… any chain) to load your on-chain positions across every connected account.')}
+        desc={t('Link MetaMask on Flare Mainnet or Xaman on XRPL to load your on-chain positions across every connected account.')}
         cta={t('Connect a wallet')}
         href="/app/wallets"
       />
@@ -1487,6 +1510,12 @@ export default function PortfolioPage() {
           </div>
         }
       />
+
+      {/* LegacyVaultCard is UNMOUNTED here (founder 2026-08-01: "Legacy igual
+          que Personal"). The cage now enters the pipeline SERVER-SIDE
+          (LegacyCagePositionsService attributes the vault's capital to the
+          council account), so it shows below as normal positions and counts in
+          every total. The card stays mounted inside /app/legacy. */}
 
       {/* ── Section tabs — the page's spine, out in the open, one focused
           view at a time. The active pill glides between destinations. ── */}

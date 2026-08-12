@@ -18,7 +18,7 @@
  * never signs, never executes (CLAUDE.md §0 / invariants #1, #7).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Layers,
   Sprout,
@@ -35,6 +35,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Card, EmptyState, MicroLabel, PageHeader, Pill, SectionTitle } from '../ui/primitives';
+import { TokenLogo } from '../ui/TokenLogo';
 import { formatMoney } from '../../lib/formatMoney';
 import { useT } from '../../i18n/LanguageProvider';
 import { useAuthStore } from '../../stores/authStore';
@@ -54,16 +55,28 @@ import {
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { canonicalizeSymbol } from '../../lib/canonicalizeSymbol';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
+import { hfWord } from '../../lib/healthScore';
+import { translateError } from '../../lib/errors/translateError';
+import { describeRule } from '../../lib/rules/describeRule';
 import { preflightSaysFail, type PreflightInfo } from '../../lib/preflight';
 import { PreflightNotice } from '../preflight/PreflightNotice';
 import { PaActionsModal, type PaActionKind, type PaHolder, type PaLegs } from './PaActionsModal';
 import { VaultWithdrawModal, type VaultPositionRef } from './VaultWithdrawModal';
+import { FtsoExitModal, type FtsoPositionRef } from './FtsoExitModal';
 import { VaultClaimModal } from './VaultClaimModal';
 import { TEMPLATES, type TemplateKind } from '../moneyflows/templateCatalog';
 import { RuleEditModal } from '../moneyflows/RuleEditModal';
 import { ProtectRuleCard } from '../moneyflows/ProtectRuleCard';
+import { ModalOverlay, modalsOpen, useModalsOpen } from '@/components/ui/ModalPortal';
 
 const API_BASE = getApiBase();
+
+/** Founder 2026-07-31 (interino, hasta el asistente único de salida): la card
+ *  enseña UNA sola puerta para deshacer — «Close the position, step by step».
+ *  Los botones sueltos (Repay now / Withdraw / Convert to XRP) quedan
+ *  construidos pero dormidos tras este flag: los deep-links y los kinds del
+ *  modal siguen funcionando; solo desaparece la botonera dispersa. */
+const SHOW_SPLIT_EXIT_ACTIONS = false;
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -108,10 +121,19 @@ const KIND_LABEL: Record<string, string> = {
   LP: 'LP',
   REWARD: 'Rewards',
   REWARDS: 'Rewards',
-  // Money in flight: a Firelight redeem burned the shares and the FXRP waits
-  // in the withdrawal-period queue until claimWithdraw releases it.
-  CLAIM: 'Claimable',
+  // Money in flight: a redeem already left the venue and the assets wait for
+  // its release date (Firelight period, Sceptre cooldown, Upshift epoch).
+  // Only says "Claimable" once the venue actually lets you claim — see
+  // claimLabelFor: a 14.5-day Sceptre cooldown is NOT claimable, and calling it
+  // so is exactly the unearned-success wording the repo bans.
+  CLAIM: 'Leaving',
 };
+
+/** CLAIM rows split in two by the adapter's own `claimable` flag. */
+function claimLabelFor(p: { raw?: unknown; [extra: string]: unknown }): 'Claimable' | 'Leaving' {
+  const raw = (p.raw ?? {}) as { claimable?: unknown };
+  return raw.claimable === true ? 'Claimable' : 'Leaving';
+}
 
 function kindTone(kind: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
   const k = kind.toUpperCase();
@@ -181,6 +203,14 @@ function vaultRefFor(p: DefiPosition): VaultPositionRef | null {
   return null;
 }
 
+/** The FTSO delegation exit rail (E2 reverse: undelegate + unwrap WFLR→FLR). */
+function ftsoRefFor(p: DefiPosition): FtsoPositionRef | null {
+  if (p.protocolId.toLowerCase() === 'ftso' && p.kindUpper === 'STAKE') {
+    return { owner: p.owner };
+  }
+  return null;
+}
+
 /** Every account with an open Kinetic ISO position — feeds the PA modal's
  *  selector when the same market is open from more than one wallet. */
 function kineticHoldersFor(all: DefiPosition[]): PaHolder[] {
@@ -238,7 +268,7 @@ function flattenPositions(data: unknown, owner: string): DefiPosition[] {
         positionId,
         owner,
         kindUpper,
-        label: KIND_LABEL[kindUpper] ?? p.kind,
+        label: kindUpper === 'CLAIM' ? claimLabelFor(p) : (KIND_LABEL[kindUpper] ?? p.kind),
         templates: templatesFor(block.protocolId, kindUpper),
       });
     }
@@ -291,21 +321,13 @@ function templateOfRule(r: AutomationRule): TemplateKind | null {
   return null;
 }
 
-function describeRule(r: AutomationRule): string {
-  const trigger = (r.trigger ?? {}) as { type?: string; threshold?: number; minUSD?: number; asset?: string };
-  const action = (r.action ?? {}) as { kind?: string; params?: { mode?: string; targetHF?: number } };
-  const kind = action.kind ?? 'action';
-  if (trigger.type === 'HF_BELOW') {
-    if (kind === 'repay' && action.params?.mode === 'restore') {
-      return `When HF < ${trigger.threshold} → prepare repay to restore HF ${action.params.targetHF ?? trigger.threshold}`;
-    }
-    return `When HF < ${trigger.threshold} → prepare ${kind === 'repay' ? 'repay' : kind}`;
-  }
-  if (trigger.type === 'HF_CRITICAL') return 'When HF < 1.2 → prepare repay';
-  if (trigger.type === 'REWARD_THRESHOLD') return `When rewards ≥ $${trigger.minUSD} → prepare ${kind === 'claimRewards' ? 'compound' : kind}`;
-  if (trigger.type === 'LTV_ABOVE') return `When LTV > ${trigger.threshold} → prepare ${kind}`;
-  if (trigger.type === 'IDLE_BALANCE') return `When idle ${trigger.asset ?? ''} > $${trigger.minUSD} → prepare ${kind}`;
-  return r.name;
+// The rule's sentence comes from the ONE shared reader (lib/rules/describeRule)
+// — this file's own version was hardcoded English with raw ratios and machine
+// kinds ("When LTV > 0.3 → prepare claimRewards").
+function describeRuleText(r: AutomationRule, t: (s: string) => string): string {
+  const type = String((r.trigger as { type?: string } | null)?.type ?? '');
+  if (!type) return r.name;
+  return describeRule(r.trigger as Record<string, unknown>, r.action as Record<string, unknown>, t);
 }
 
 /* Template catalogue → ../moneyflows/templateCatalog.tsx (2026-07-25): the ONE
@@ -409,7 +431,7 @@ function MoneyFlowTemplateModal({
       if (f.type === 'number') {
         const n = parseFloat(vals[f.key]);
         if (isNaN(n) || n < (f.min ?? 0)) {
-          setError(`${t('Invalid value for')} "${f.label}"`);
+          setError(`${t('Invalid value for')} "${t(f.label)}"`);
           return;
         }
       }
@@ -428,16 +450,16 @@ function MoneyFlowTemplateModal({
       onCreated();
       onClose();
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      setError(translateError(e, t).message);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl grid place-items-center border ${tpl.accent}`}>{tpl.icon}</div>
             <div>
@@ -450,7 +472,7 @@ function MoneyFlowTemplateModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {/* PROTECT = the ONE shared card (founder 2026-07-25: la tarjeta
               manual en todos los modales) — simple + escalonado + chips viven
               allí; este modal solo pone el marco. HARVEST sigue genérico. */}
@@ -491,7 +513,7 @@ function MoneyFlowTemplateModal({
             </>
           ) : (
             <>
-          <p className="text-sm text-ink/55 leading-relaxed">{tpl.blurb}</p>
+          <p className="text-sm text-ink/55 leading-relaxed">{t(tpl.blurb)}</p>
 
           {initial.prefilledKeys.size > 0 && (
             <div className="bg-volt/5 border border-volt/20 rounded-xl p-3 text-[11px] text-ink/60 flex items-start gap-2">
@@ -517,8 +539,8 @@ function MoneyFlowTemplateModal({
                   className="flex items-center justify-between gap-3 bg-ink/5 border border-ink/10 rounded-xl px-4 py-3 cursor-pointer"
                 >
                   <div>
-                    <div className="text-xs text-ink/70">{f.label}</div>
-                    {f.hint && <p className="text-[10px] text-ink/35 mt-0.5">{f.hint}</p>}
+                    <div className="text-xs text-ink/70">{t(f.label)}</div>
+                    {f.hint && <p className="text-[10px] text-ink/40 mt-0.5">{t(f.hint)}</p>}
                   </div>
                   <input
                     type="checkbox"
@@ -530,7 +552,7 @@ function MoneyFlowTemplateModal({
               ) : (
                 <div key={f.key}>
                   <label className="text-xs text-ink/40 block mb-2">
-                    {f.label}
+                    {t(f.label)}
                     {f.unit && <span className="text-ink/30"> · {f.unit}</span>}
                   </label>
                   <input
@@ -541,7 +563,7 @@ function MoneyFlowTemplateModal({
                     onChange={(e) => setVal(f.key, e.target.value)}
                     className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
                   />
-                  {f.hint && <p className="text-[10px] text-ink/35 mt-1.5">{f.hint}</p>}
+                  {f.hint && <p className="text-[10px] text-ink/40 mt-1.5">{t(f.hint)}</p>}
                 </div>
               ),
             )}
@@ -578,7 +600,7 @@ function MoneyFlowTemplateModal({
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -708,7 +730,7 @@ function StrategyPanel({
                   )}
                   <div className="min-w-0">
                     <div className="text-xs text-ink/85 font-medium truncate">{r.name}</div>
-                    <div className="text-[10px] text-ink/40 truncate">{describeRule(r)}</div>
+                    <div className="text-[10px] text-ink/40 truncate">{describeRuleText(r, t)}</div>
                     <div className="text-[10px] text-ink/30 truncate">
                       {runsByRule[r.id]?.count
                         ? `${runsByRule[r.id].count} ${t('triggers')} · ${t('last')} ${
@@ -820,7 +842,7 @@ function CompleteBorrowModal({
       setPrepared(body as E1BorrowPrepared);
       setPhase('review');
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      setError(translateError(e, t).message);
       setPhase('form');
     }
   }
@@ -837,29 +859,29 @@ function CompleteBorrowModal({
         prepared.calls.map((c) => ({ to: c.to, data: c.data, value: c.value, chainId: c.chainId })),
       );
       settlement.track(handle, { onSettled: onChanged });
+      // Signed ≠ done: the parent refresh waits for onSettled (a premature
+      // onChanged() dropped the row while the op was still live).
       setPhase('done');
-      onChanged();
     } catch (e) {
-      const err = e as { shortMessage?: string; message?: string };
-      setError(err.shortMessage ?? err.message ?? String(e));
+      setError(translateError(e, t).message);
       setPhase('review');
     }
   }
 
   const d = prepared?.disclosure;
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-2xl my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div>
-            <h2 className="text-base font-semibold text-ink">{t('Complete the borrow (carry)')}</h2>
+            <h2 className="text-base font-semibold text-ink">{t('Complete the borrow')}</h2>
             <p className="text-xs text-ink/40 mt-0.5 font-mono">{owner.slice(0, 10)}…{owner.slice(-6)}</p>
           </div>
           <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {error && (
             <div className="bg-tone-danger/5 border border-tone-danger/25 rounded-xl p-3 text-xs text-tone-danger flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -891,7 +913,7 @@ function CompleteBorrowModal({
                 onClick={prepare}
                 className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20"
               >
-                {t('Prepare (unsigned)')}
+                {t('Review before signing')}
               </button>
             </>
           )}
@@ -907,8 +929,11 @@ function CompleteBorrowModal({
                 {[
                   [t('FXRP collateral'), `${Number(d?.fxrpCollateral ?? 0).toLocaleString()} FXRP`],
                   [t('Borrow'), `${Number(d?.usdt0Borrowed ?? 0).toLocaleString()} USDT0`],
-                  ['HF', Number(d?.entryHF ?? 0).toFixed(3)],
-                  [t('Estimated trigger price'), `$${Number(d?.triggerPriceUSD ?? 0).toFixed(5)}`],
+                  [
+                    t('Your cushion at entry'),
+                    `${hfWord(Number(d?.entryHF ?? 0), t).label} (${Number(d?.entryHF ?? 0).toFixed(2)})`,
+                  ],
+                  [t('Estimated trigger price'), `$${Number(d?.triggerPriceUSD ?? 0).toFixed(4)}`],
                 ].map(([k, v]) => (
                   <div key={String(k)} className="flex items-center justify-between gap-4 py-1.5">
                     <span className="text-ink/40">{k}</span>
@@ -919,24 +944,27 @@ function CompleteBorrowModal({
               {typeof d?.note === 'string' && <p className="text-[11px] text-ink/45 leading-relaxed">{d.note}</p>}
               {/* Invariant #11 — the dry-run verdict BEFORE the wallet opens. */}
               <PreflightNotice preflight={prepared.preflight} />
-              <button
-                onClick={sign}
-                className={`w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-xl transition-all ${
-                  preflightSaysFail(prepared.preflight)
-                    ? 'bg-ink/10 text-tone-danger border border-tone-danger/30 hover:bg-ink/15'
-                    : 'bg-volt text-volt-ink hover:brightness-95 shadow-lg shadow-volt/20'
-                }`}
-              >
-                {preflightSaysFail(prepared.preflight)
-                  ? t('Sign anyway — the dry-run says it will fail')
-                  : t('Sign in wallet')}
-              </button>
-              <button
-                onClick={() => { setPrepared(null); setPhase('form'); }}
-                className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
-              >
-                {t('Back')}
-              </button>
+              {/* Sign stays reachable while the disclosure scrolls. */}
+              <div className="sticky bottom-0 -mx-6 bg-surface-1 px-6 pt-3 space-y-4">
+                <button
+                  onClick={sign}
+                  className={`w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-xl transition-all ${
+                    preflightSaysFail(prepared.preflight)
+                      ? 'bg-ink/10 text-tone-danger border border-tone-danger/30 hover:bg-ink/15'
+                      : 'bg-volt text-volt-ink hover:brightness-95 shadow-lg shadow-volt/20'
+                  }`}
+                >
+                  {preflightSaysFail(prepared.preflight)
+                    ? t('Sign anyway — the dry-run says it will fail')
+                    : t('Sign in wallet')}
+                </button>
+                <button
+                  onClick={() => { setPrepared(null); setPhase('form'); }}
+                  className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
+                >
+                  {t('Back')}
+                </button>
+              </div>
             </>
           )}
           {phase === 'signing' && (
@@ -964,7 +992,7 @@ function CompleteBorrowModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -972,12 +1000,33 @@ function CompleteBorrowModal({
 /* POSITION CARD                                                        */
 /* ------------------------------------------------------------------ */
 
-function infoRows(p: DefiPosition): Array<{ k: string; v: string }> {
-  const skip = new Set(['protocolId', 'kind', 'asset', 'amount', 'positionId', 'owner', 'kindUpper', 'label', 'templates']);
-  return Object.entries(p)
-    .filter(([k, v]) => !skip.has(k) && v != null && typeof v !== 'object')
-    .slice(0, 6)
-    .map(([k, v]) => ({ k, v: String(v) }));
+/** R2: only facts with an EARNED label reach the card. The old skip-list
+ *  dumped whatever extra keys the backend sent (iso, cToken, sharePriceE6,
+ *  discoveredAt…) as raw camelCase labels — a JSON viewer inside a consumer
+ *  product. Unknown extras stay in the payload, never on screen. */
+function infoRows(p: DefiPosition, t: (s: string) => string): Array<{ k: string; v: string }> {
+  const LABELS: Record<string, string> = {
+    symbol: t('Asset'),
+    apy: 'APY',
+    supplyApy: 'APY',
+    healthFactor: t('Health factor'),
+    priceUSD: t('Price (USD)'),
+    amountUSD: t('Value (USD)'),
+    wallet: t('Wallet'),
+  };
+  const out: Array<{ k: string; v: string }> = [];
+  for (const [key, raw] of Object.entries(p)) {
+    const label = LABELS[key];
+    if (!label || raw == null || typeof raw === 'object') continue;
+    let v: string;
+    if (typeof raw === 'number') v = raw.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    else if (/^(0x[0-9a-fA-F]{40}|r[1-9A-HJ-NP-Za-km-z]{24,34})$/.test(String(raw))) {
+      const s = String(raw);
+      v = `${s.slice(0, 6)}…${s.slice(-4)}`;
+    } else v = String(raw);
+    out.push({ k: label, v });
+  }
+  return out;
 }
 
 /** A Firelight queued exit (redeem done, FXRP waiting in the period queue). */
@@ -1082,12 +1131,14 @@ function PositionCard({
   const { t } = useT();
   const evm = useWalletPartner();
   const activeCount = rulesForPosition(rules, position).filter((r) => r.enabled).length;
-  const rows = infoRows(position);
+  const rows = infoRows(position, t);
   const vaultRef = vaultRefFor(position);
   const claimRef = firelightClaimFor(position);
+  const ftsoRef = ftsoRefFor(position);
   // Which PA action modal is open (re-supply / withdraw / repay / derisk).
   const [paAction, setPaAction] = useState<PaActionKind | null>(null);
   const [vaultWithdraw, setVaultWithdraw] = useState(false);
+  const [ftsoExit, setFtsoExit] = useState(false);
   const [completeBorrow, setCompleteBorrow] = useState(false);
   // Honest fallback when no in-app exit rail exists for this protocol yet.
   const [noRailInfo, setNoRailInfo] = useState(false);
@@ -1120,8 +1171,21 @@ function PositionCard({
     <Card hover={!expanded} glow={expanded}>
       <button onClick={onToggle} className="w-full flex items-start justify-between text-left">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-xl grid place-items-center border border-ink/10 bg-ink/5 text-ink/70 shrink-0">
-            <Layers className="w-5 h-5" />
+          {/* The generic position tile, badged with the asset actually held —
+              an FXRP position must LOOK like FXRP, not like a stack of layers.
+              `assetDisplay` falls back to a shortened address when a receipt
+              token has no symbol; there is nothing to badge in that case. */}
+          <div className="relative shrink-0">
+            <div className="w-11 h-11 rounded-xl grid place-items-center border border-ink/10 bg-ink/5 text-ink/70">
+              <Layers className="w-5 h-5" />
+            </div>
+            {!assetDisplay(position).includes('…') && (
+              <TokenLogo
+                symbol={assetDisplay(position)}
+                size="sm"
+                className="absolute -bottom-1 -right-1 ring-2 ring-surface-1"
+              />
+            )}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -1140,41 +1204,45 @@ function PositionCard({
       </button>
 
       {/* Acciones rápidas SIEMPRE visibles en Kinetic (founder 2026-07-26):
-          repagar la deuda y liberar el colateral no pueden vivir escondidos
-          tras el expand. Colapsada = la tira compacta; expandida = la fila
-          completa de "Position actions" de abajo (sin duplicar). Nota de
-          protocolo que el modal ya explica: el colateral FXRP solo se puede
-          retirar con la deuda repagada — "Deshacer" guía ese orden. */}
+          la salida no puede vivir escondida tras el expand. Founder 2026-07-31:
+          UNA sola puerta — el cierre guiado. Ya no exige deuda: sin deuda los
+          pasos 1-2 se saltan y el paso 3 es la retirada con su destino. */}
       {legs && !expanded && (
         <div className="mt-3 flex gap-1.5 flex-wrap">
-          {hasDebt && (
+          {/* The color IS the arrow (founder 2026-07-30) — same scheme as the
+              expanded "Position actions" row: staying on Flare reads ROSE,
+              going back to XRP reads BLUE, repay wears volt (urgency, not a
+              direction). */}
+          {SHOW_SPLIT_EXIT_ACTIONS && hasDebt && (
             <button
               onClick={() => setPaAction('repay')}
-              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300 hover:brightness-110 transition-colors"
+              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-volt/40 bg-volt/10 text-volt hover:brightness-110 transition-colors"
             >
               {t('Repay now')}
             </button>
           )}
-          <button
-            onClick={() => setPaAction('withdraw')}
-            className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/5 text-ink/70 hover:brightness-110 transition-colors"
-          >
-            {t('Withdraw')}
-          </button>
-          <button
-            onClick={() => setPaAction('unmint')}
-            className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/5 text-ink/70 hover:brightness-110 transition-colors"
-          >
-            {t('Unmint → XRP')}
-          </button>
-          {hasDebt && (
+          {SHOW_SPLIT_EXIT_ACTIONS && (
             <button
-              onClick={() => setPaAction('derisk')}
-              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:brightness-110 transition-colors"
+              onClick={() => setPaAction('withdraw')}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-300 hover:brightness-110 transition-colors"
             >
-              {t('Unwind (DERISK)')}
+              {t('Withdraw')}
             </button>
           )}
+          {SHOW_SPLIT_EXIT_ACTIONS && (
+            <button
+              onClick={() => setPaAction('unmint')}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300 hover:brightness-110 transition-colors"
+            >
+              {t('Convert to XRP')}
+            </button>
+          )}
+          <button
+            onClick={() => setPaAction('derisk')}
+            className="text-[11px] px-2.5 py-1.5 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:brightness-110 transition-colors"
+          >
+            {t('Close the position, step by step')}
+          </button>
         </div>
       )}
 
@@ -1210,7 +1278,7 @@ function PositionCard({
                         onClick={() => setCompleteBorrow(true)}
                         className="text-[11px] px-2.5 py-1.5 rounded-lg border border-volt/40 bg-volt/10 text-volt hover:brightness-110 transition-colors"
                       >
-                        {t('Complete the borrow (carry)')}
+                        {t('Complete the borrow')}
                       </button>
                     )}
                     {hasDebt && (
@@ -1218,44 +1286,52 @@ function PositionCard({
                         onClick={() => setPaAction('resupply')}
                         className="text-[11px] px-2.5 py-1.5 rounded-lg border border-tone-success/30 bg-tone-success/10 text-tone-success hover:brightness-110 transition-colors"
                       >
-                        {t('Re-supply (carry 2)')}
+                        {t('Deposit the borrowed dollars again')}
                       </button>
                     )}
-                    <button
-                      onClick={() => setPaAction('withdraw')}
-                      className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/5 text-ink/70 hover:brightness-110 transition-colors"
-                    >
-                      {t('Withdraw')}
-                    </button>
-                    <button
-                      onClick={() => setPaAction('unmint')}
-                      className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/5 text-ink/70 hover:brightness-110 transition-colors"
-                    >
-                      {t('Unmint → XRP')}
-                    </button>
-                    {hasDebt && (
+                    {/* The color IS the arrow (founder 2026-07-30): staying on
+                        Flare reads ROSE, going back to XRP reads BLUE — the
+                        direction is understood before the label is read.
+                        Founder 2026-07-31: los botones sueltos de salida
+                        duermen tras SHOW_SPLIT_EXIT_ACTIONS — la única puerta
+                        visible es el cierre guiado. */}
+                    {SHOW_SPLIT_EXIT_ACTIONS && (
+                      <button
+                        onClick={() => setPaAction('withdraw')}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-300 hover:brightness-110 transition-colors"
+                      >
+                        {t('Withdraw')}
+                      </button>
+                    )}
+                    {SHOW_SPLIT_EXIT_ACTIONS && (
+                      <button
+                        onClick={() => setPaAction('unmint')}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300 hover:brightness-110 transition-colors"
+                      >
+                        {t('Convert to XRP')}
+                      </button>
+                    )}
+                    {SHOW_SPLIT_EXIT_ACTIONS && hasDebt && (
                       <button
                         onClick={() => setPaAction('repay')}
-                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 text-sky-300 hover:brightness-110 transition-colors"
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-volt/40 bg-volt/10 text-volt hover:brightness-110 transition-colors"
                       >
                         {t('Repay now')}
                       </button>
                     )}
-                    {hasDebt && (
-                      <button
-                        onClick={() => setPaAction('derisk')}
-                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:brightness-110 transition-colors"
-                      >
-                        {t('Unwind (DERISK)')}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setPaAction('derisk')}
+                      className="text-[11px] px-2.5 py-1.5 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:brightness-110 transition-colors"
+                    >
+                      {t('Close the position, step by step')}
+                    </button>
                   </>
                 ) : claimRef ? (
                   <FirelightClaimAction position={position} claim={claimRef} onChanged={onChanged} />
                 ) : (
                   <button
-                    onClick={() => (vaultRef ? setVaultWithdraw(true) : setNoRailInfo(true))}
-                    className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/5 text-ink/70 hover:brightness-110 transition-colors"
+                    onClick={() => (vaultRef ? setVaultWithdraw(true) : ftsoRef ? setFtsoExit(true) : setNoRailInfo(true))}
+                    className="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-300 hover:brightness-110 transition-colors"
                   >
                     {t('Withdraw')}
                   </button>
@@ -1282,6 +1358,14 @@ function PositionCard({
             />
           )}
 
+          {ftsoExit && ftsoRef && (
+            <FtsoExitModal
+              position={ftsoRef}
+              onClose={() => setFtsoExit(false)}
+              onChanged={onChanged}
+            />
+          )}
+
           {completeBorrow && (
             <CompleteBorrowModal
               owner={position.owner}
@@ -1291,8 +1375,8 @@ function PositionCard({
           )}
 
           {noRailInfo && (
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+            <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+              <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm my-auto max-h-[min(90dvh,44rem)] overflow-y-auto scrollbar-thin shadow-2xl p-6 space-y-4">
                 <div className="flex items-start justify-between">
                   <h2 className="text-base font-semibold text-ink">
                     {t('Withdraw')} · {assetDisplay(position)}
@@ -1311,7 +1395,7 @@ function PositionCard({
                   {t('Done')}
                 </button>
               </div>
-            </div>
+            </ModalOverlay>
           )}
         </>
       )}
@@ -1436,18 +1520,22 @@ export default function DefiPositionsBoard({
   }, [wallet, xrpl.address, myWalletsKey]);
 
   const loadRules = useCallback(async (addrs: string[]) => {
+    // Parallel fan-out (app/page.tsx pattern): awaiting each address in
+    // sequence made load time grow linearly. Rules stay best-effort — one
+    // address failing must not drop the rest.
+    const results = await Promise.allSettled(addrs.map((addr) => rulesApi.list(addr)));
     const collected: AutomationRule[] = [];
-    for (const addr of addrs) {
-      try {
-        const res = await rulesApi.list(addr);
-        collected.push(...(res.rules ?? []));
-      } catch {
-        /* rules are best-effort */
-      }
+    for (const res of results) {
+      if (res.status !== 'fulfilled') continue; /* rules are best-effort */
+      collected.push(...(res.value.rules ?? []));
     }
     // De-dup by id (an address could appear once, but be safe).
     setAllRules([...new Map(collected.map((r) => [r.id, r])).values()]);
   }, []);
+
+  // Freshness guard for the focus handler below: a tab flip seconds after a
+  // completed load must not refire the whole chain (the 60s poll still runs).
+  const lastLoadDoneAt = useRef(0);
 
   const load = useCallback(async () => {
     if (!wallet) return;
@@ -1456,23 +1544,10 @@ export default function DefiPositionsBoard({
     // Cross-device prefills: pull any rule prefills stashed from ANOTHER
     // browser (best-effort, once per page session) before a template opens.
     void hydrateRulePrefillsFromServer();
-    try {
-      const addrs = await resolveScanAddrs();
-      setScanAddrs(addrs);
-      const all: DefiPosition[] = [];
-      for (const addr of addrs) {
-        try {
-          const data = await positionsApi.byWallet(addr);
-          all.push(...flattenPositions(data, addr));
-        } catch {
-          /* one address failing must not blank the whole board */
-        }
-      }
-      setPositions(all);
-      await loadRules(addrs);
-
-      // Best-effort watch-only sweep of Base (8453) — Morpho cbXRP markets.
-      // A failure here never touches the Flare board.
+    // Best-effort watch-only sweep of Base (8453) — Morpho cbXRP markets. It
+    // only needs `wallet`, so it runs in PARALLEL with the Flare chain below.
+    // A failure here never touches the Flare board.
+    const baseScan = (async () => {
       try {
         const r = await fetch(
           `${API_BASE}/positions/scan?wallet=${encodeURIComponent(wallet)}&chainIds=8453`,
@@ -1495,9 +1570,28 @@ export default function DefiPositionsBoard({
       } catch {
         setOtherChains([]);
       }
+    })();
+    try {
+      const addrs = await resolveScanAddrs();
+      setScanAddrs(addrs);
+      // Parallel fan-out per address (app/page.tsx pattern: awaiting each
+      // wallet in sequence made load time grow linearly) — one address
+      // failing must not blank the whole board.
+      const positionsScan = Promise.allSettled(
+        addrs.map((addr) => positionsApi.byWallet(addr)),
+      ).then((results) => {
+        const all: DefiPosition[] = [];
+        results.forEach((res, i) => {
+          if (res.status === 'fulfilled') all.push(...flattenPositions(res.value, addrs[i]));
+        });
+        setPositions(all);
+      });
+      // Rules only need the addresses, not the positions — run them alongside.
+      await Promise.all([positionsScan, loadRules(addrs), baseScan]);
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      setError(translateError(e, t).message);
     } finally {
+      lastLoadDoneAt.current = Date.now();
       setLoading(false);
     }
   }, [wallet, resolveScanAddrs, loadRules]);
@@ -1506,22 +1600,53 @@ export default function DefiPositionsBoard({
     void load();
   }, [load]);
 
+  // A refresh REPLACES the positions array, and each PositionCard owns the
+  // modal opened from it — so a reload that drops a position (one scan address
+  // failing is enough) unmounts the card and takes the open dialog with it.
+  // That is the "the modal vanished and came back" the founder hit: the focus
+  // handler below fires exactly when they return from Xaman/MetaMask. So while
+  // ANY modal is open we hold the refresh and replay it on close — nothing
+  // moves under a signature in progress. (Manual Refresh still always runs.)
+  const openModals = useModalsOpen();
+  const deferredLoad = useRef(false);
+
+  const loadUnlessBusy = useCallback(() => {
+    if (modalsOpen() > 0) {
+      deferredLoad.current = true;
+      return;
+    }
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (openModals === 0 && deferredLoad.current) {
+      deferredLoad.current = false;
+      void load();
+    }
+  }, [openModals, load]);
+
   // Settlement lands minutes after the signature — refresh when the user comes
   // back to the tab so the new position appears without a manual reload.
   useEffect(() => {
-    const onFocus = () => void load();
+    const onFocus = () => {
+      // The board is already fresh (<30s since the last completed load): a
+      // quick tab flip must not refire the whole chain. Settlement returns
+      // still land via the 60s poll and the manual Refresh, which skip this.
+      if (Date.now() - lastLoadDoneAt.current < 30_000) return;
+      loadUnlessBusy();
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [load]);
+  }, [loadUnlessBusy]);
 
   // …and while they WAIT on this tab: a gentle poll (only when visible) so the
   // executor landing the mint/batch shows up by itself within a minute.
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void load();
+      if (document.visibilityState === 'visible') loadUnlessBusy();
     }, 60_000);
     return () => window.clearInterval(id);
-  }, [load]);
+  }, [loadUnlessBusy]);
 
   const subtitle = useMemo(
     () => t('Your open DeFi positions on Flare. Open one to add a Protect or Harvest automation — prepared for your signature, never executed automatically.'),
@@ -1544,7 +1669,7 @@ export default function DefiPositionsBoard({
   return (
     <div>
       {embedded ? (
-        <SectionTitle hint={subtitle} actions={<Pill tone="warning">{t('mainnet demo')}</Pill>}>
+        <SectionTitle hint={subtitle} actions={<Pill tone="warning">{t('Real money · product in testing')}</Pill>}>
           {t('Your open')} {t('DeFi positions')}
         </SectionTitle>
       ) : (
@@ -1566,7 +1691,7 @@ export default function DefiPositionsBoard({
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </button>
-              <Pill tone="warning">{t('mainnet demo')}</Pill>
+              <Pill tone="warning">{t('Real money · product in testing')}</Pill>
             </div>
           }
         />
@@ -1644,8 +1769,8 @@ export default function DefiPositionsBoard({
                       {formatMoney(p.totalDebtUSD)}
                     </span>
                     {p.healthFactor != null && Number.isFinite(p.healthFactor) && (
-                      <span className={p.healthFactor < 1.1 ? 'text-tone-danger' : 'text-tone-success'}>
-                        HF {p.healthFactor.toFixed(2)}
+                      <span className={`text-tone-${hfWord(p.healthFactor, t).tone === 'neutral' ? 'success' : hfWord(p.healthFactor, t).tone}`}>
+                        {hfWord(p.healthFactor, t).label} ({p.healthFactor.toFixed(2)})
                       </span>
                     )}
                   </div>

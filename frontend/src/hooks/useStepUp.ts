@@ -4,6 +4,8 @@ import { useState, useCallback } from 'react';
 import { apiService } from '../services/api';
 import { isStepUpRequired } from '../services/stepUpError';
 import { useAuthStore } from '../stores/authStore';
+import { translateError } from '../lib/errors/translateError';
+import { useT } from '../i18n/LanguageProvider';
 
 /**
  * useStepUp — runs the "prove you still control a linked wallet" handshake and
@@ -23,6 +25,7 @@ import { useAuthStore } from '../stores/authStore';
 export function useStepUp() {
   const getValidGrant = useAuthStore((s) => s.getValidGrant);
   const setStepUpGrant = useAuthStore((s) => s.setStepUpGrant);
+  const { t } = useT();
 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,8 +70,9 @@ export function useStepUp() {
         });
         return grant.grantToken;
       } catch (e: any) {
-        const msg = e?.message ?? e?.error ?? 'Signature verification failed.';
-        setError(msg);
+        // Declining is a choice — translateError renders it calm, not as a
+        // red "User rejected the request." from the provider.
+        setError(translateError(e, t).message);
         throw e;
       } finally {
         setPending(false);

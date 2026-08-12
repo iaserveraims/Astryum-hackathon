@@ -23,6 +23,7 @@ import { ExternalLink, KeyRound, Loader2 } from 'lucide-react';
 import { GhostButton, Pill, PrimaryButton } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
+import { awaitValidation } from '../../lib/xrpl/councilSigning';
 
 const XRPSCAN_TX = 'https://xrpscan.com/tx/';
 
@@ -110,7 +111,15 @@ export default function CloseDoorSign({
         setTxid(st.txid);
         setDispatched(st.dispatched);
         setPhase('done');
-        if (st.txid) onSettled?.(st.txid);
+        if (st.txid) {
+          // Xaman's "signed" is not the ledger's word — this very tx type
+          // failed VALIDATED with tecNEED_MASTER_KEY in the family's history.
+          // Upgrade `dispatched` to the final result and only tell the parent
+          // the door closed when the ledger says so.
+          const v = await awaitValidation(st.txid);
+          if (v.validated) setDispatched(v.finalResult);
+          if (v.validated && v.finalResult === 'tesSUCCESS') onSettled?.(st.txid);
+        }
       } else if (st.cancelled || st.expired) {
         setError(t('The signature was cancelled or expired in Xaman.'));
         setPhase('error');
@@ -170,8 +179,16 @@ export default function CloseDoorSign({
 
       {phase === 'done' && (
         <div className="space-y-1">
-          {!dispatched || dispatched === 'tesSUCCESS' ? (
+          {/* No dispatch result is NOT success — "signed" only means Xaman got
+              the signature. Green needs the ledger's word (unearned-success
+              discipline; this very tx type failed validated with
+              tecNEED_MASTER_KEY in the family's own history). */}
+          {dispatched === 'tesSUCCESS' ? (
             <InlineNotice tone="success">{t('Signed and submitted — the door is closing.')}</InlineNotice>
+          ) : !dispatched ? (
+            <InlineNotice tone="warning">
+              {t('Signed — but Xaman reported no submission result yet. Check the account on the explorer before assuming the door closed.')}
+            </InlineNotice>
           ) : (
             <InlineNotice tone="warning">
               {t('Xaman submitted it but the ledger returned')} {dispatched}.

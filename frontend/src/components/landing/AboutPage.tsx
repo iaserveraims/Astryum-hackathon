@@ -54,10 +54,12 @@ const FOUNDERS: Array<{
     name: 'Eric',
     roleEs: 'Cofundador · Arquitectura y protocolo',
     roleEn: 'Co-founder · Architecture & protocol',
+    // GLOSSARY reconciliation 2026-07-29: "redes" (never "raíles"),
+    // "transacciones sin firmar" (never "intents") — in both languages.
     bioEs:
-      'El criterio técnico del proyecto y el origen de la mayoría de sus ideas. Opera en DeFi a diario —posiciones abiertas, riesgo real— y de ahí sale cada decisión de arquitectura: los raíles sobre XRPL y Flare, los intents sin firmar y la frontera que mantiene las claves fuera de nuestro alcance. Sabe qué le falta a la herramienta porque lo echa en falta él.',
+      'El criterio técnico del proyecto y el origen de la mayoría de sus ideas. Opera en DeFi a diario —posiciones abiertas, riesgo real— y de ahí sale cada decisión de arquitectura: las redes XRPL y Flare, las transacciones sin firmar y la frontera que mantiene las claves fuera de nuestro alcance. Sabe qué le falta a la herramienta porque lo echa en falta él.',
     bioEn:
-      'The project’s technical judgement and the source of most of its ideas. He operates in DeFi daily — open positions, real risk — and every architectural decision comes from there: the rails on XRPL and Flare, the unsigned intents, and the boundary that keeps keys out of our reach. He knows what the tooling is missing because he misses it himself.',
+      'The project’s technical judgement and the source of most of its ideas. He operates in DeFi daily — open positions, real risk — and every architectural decision comes from there: the XRPL and Flare networks, the unsigned transactions, and the boundary that keeps keys out of our reach. He knows what the tooling is missing because he misses it himself.',
     photo: '/founders/eric.jpg',
   },
   {
@@ -132,16 +134,16 @@ const HANDCUFFS = (lang: Lang) => [
   {
     title: T('No custodiamos — no podemos custodiar', 'We don’t custody — we can’t custody', lang),
     body: T(
-      'No hay depósito, no hay cuenta que abrir con nosotros, no hay saldo "en Astryum". Tu capital vive en tus wallets y en los protocolos. Si Astryum desapareciera mañana, todo sigue siendo tuyo y operable sin nosotros.',
-      'There is no deposit, no account to open with us, no balance "at Astryum". Your capital lives in your wallets and in the protocols. If Astryum vanished tomorrow, everything remains yours and operable without us.',
+      'No hay depósito, no hay cuenta que abrir con nosotros, no hay saldo «en Astryum». Tu capital vive en tus wallets y en los protocolos. Si Astryum desapareciera mañana, todo sigue siendo tuyo y operable sin nosotros.',
+      'There is no deposit, no account to open with us, no balance “at Astryum”. Your capital lives in your wallets and in the protocols. If Astryum vanished tomorrow, everything remains yours and operable without us.',
       lang,
     ),
   },
   {
     title: T('Cero discreción', 'Zero discretion', lang),
     body: T(
-      'Nada se mueve sin una condición que tú firmaste antes. Las protecciones son reglas deterministas; el agente solo compila lo que le pides — tú revisas y tú firmas. Nadie aquí puede decidir por ti, tampoco nosotros.',
-      'Nothing moves without a condition you signed beforehand. Protections are deterministic rules; the agent only compiles what you ask — you review and you sign. Nobody here can decide for you, including us.',
+      'Nada se mueve sin una condición que tú firmaste antes. Las protecciones son reglas deterministas; el agente solo prepara lo que le pides — tú revisas y tú firmas. Nadie aquí puede decidir por ti, tampoco nosotros.',
+      'Nothing moves without a condition you signed beforehand. Protections are deterministic rules; the agent only prepares what you ask — you review and you sign. Nobody here can decide for you, including us.',
       lang,
     ),
   },
@@ -235,7 +237,7 @@ export default function AboutPage() {
                   <p className="mt-3 text-[15px] leading-relaxed text-white/70">
                     {T(
                       'Las patas que MiCA reserva a entidades autorizadas — como el paso entre euros y cripto — pasan por partners licenciados para exactamente eso, nunca por nosotros. Astryum se queda donde puede demostrar su límite: observar, preparar y entregarte la firma.',
-                      'The legs MiCA reserves for authorized entities — like moving between euros and crypto — go through partners licensed for exactly that, never through us. Astryum stays where it can prove its boundary: observe, prepare, and hand you the signature.',
+                      'The activities MiCA reserves for authorized entities — like moving between euros and crypto — go through partners licensed for exactly that, never through us. Astryum stays where it can prove its boundary: observe, prepare, and hand you the signature.',
                       lang,
                     )}
                   </p>
@@ -290,7 +292,7 @@ export default function AboutPage() {
                   <p className="mt-4 text-sm leading-relaxed text-white/60">
                     {T(
                       'Astryum se presenta a evaluación pública en los programas de builders de Flare y de XRPL — con jurado, en abierto. Un timo no se somete a eso.',
-                      'Astryum stands for public evaluation in the Flare and XRPL builder programs — judged, in the open. A scam doesn’t submit to that.',
+                      'Astryum submits to public evaluation in the Flare and XRPL builder programs — judged, in the open. A scam doesn’t submit to that.',
                       lang,
                     )}
                   </p>

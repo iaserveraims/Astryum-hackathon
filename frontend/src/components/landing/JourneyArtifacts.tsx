@@ -177,7 +177,11 @@ export function EarnArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, rg
             top: 7,
             background: soft,
             animation: active ? 'jaMote 2.8s ease-in-out infinite' : 'none',
+            // Parked at 48% the idle mote sat exactly on the FXRP node — the
+            // static twin (mobile) renders with active=false, so it read as a
+            // permanent smudge on the dot. Idle = invisible.
             left: active ? undefined : '48%',
+            opacity: active ? undefined : 0,
           }}
         />
         {nodes.map((n) => (
@@ -189,11 +193,13 @@ export function EarnArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, rg
       </div>
       {/* the strategy card's four facts, miniaturized — real product surface */}
       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        {/* "Explicado" (not another "a la vista") and "salud" (never raw "HF"
+            — GLOSSARY §4) */}
         {[
           { k: T('Convierte', 'Converts', lang), v: 'XRP → FXRP' },
           { k: T('Trabaja en', 'Works in', lang), v: 'Kinetic · Flare' },
-          { k: T('Riesgo', 'Risk', lang), v: T('A la vista', 'In plain sight', lang) },
-          { k: T('Protección', 'Protection', lang), v: T('Umbral HF tuyo', 'Your HF threshold', lang) },
+          { k: T('Riesgo', 'Risk', lang), v: T('Explicado', 'Explained', lang) },
+          { k: T('Protección', 'Protection', lang), v: T('Tu umbral de salud', 'Your health threshold', lang) },
         ].map((f) => (
           <div key={f.k} className="flex items-baseline justify-between gap-2 min-w-0">
             <span className="text-[9px] font-mono uppercase tracking-wider text-white/35 whitespace-nowrap">{f.k}</span>
@@ -201,9 +207,9 @@ export function EarnArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, rg
           </div>
         ))}
       </div>
-      {/* product-neutral: in Personal you sign, in Legacy the council does */}
+      {/* rates-as-data is Earn's own claim — the signing beat lives elsewhere */}
       <div className="mt-2.5 text-[10px] font-mono text-white/35">
-        {T('Condiciones a la vista antes de firmar', 'Terms in sight before signing', lang)}
+        {T('Cada dato con su fuente', 'Every figure with its source', lang)}
       </div>
     </Frame>
   );
@@ -239,25 +245,29 @@ export function PortfolioArtifact({ lang, active, accent = GOLD, soft = GOLD_SOF
           </div>
           {/* per-position mini rows — the Positions board, two lines */}
           <div className="mt-2.5 space-y-1.5">
+            {/* labels truncate (not nowrap): under ~332px the nowrap pair
+                overran the card border — the bar is the flexible piece */}
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: XRP_BLUE }} />
-              <span className="text-[10px] font-mono text-white/60 whitespace-nowrap">FXRP · Kinetic</span>
-              <span className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <span className="text-[10px] font-mono text-white/60 truncate min-w-0">FXRP · Kinetic</span>
+              <span className="flex-1 min-w-[16px] h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <span className="block h-full rounded-full" style={{ width: '68%', background: OK_GREEN, opacity: 0.7 }} />
               </span>
-              <span className="text-[9px] font-mono text-white/40">{T('Trabajando', 'Working', lang)}</span>
+              <span className="text-[9px] font-mono text-white/40 shrink-0">{T('Trabajando', 'Working', lang)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: FLR_PINK }} />
-              <span className="text-[10px] font-mono text-white/60 whitespace-nowrap">WFLR · FTSO</span>
-              <span className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <span className="text-[10px] font-mono text-white/60 truncate min-w-0">WFLR · FTSO</span>
+              <span className="flex-1 min-w-[16px] h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <span className="block h-full rounded-full" style={{ width: '100%', background: OK_GREEN, opacity: 0.45 }} />
               </span>
-              <span className="text-[9px] font-mono text-white/40">{T('Sin deuda', 'No debt', lang)}</span>
+              <span className="text-[9px] font-mono text-white/40 shrink-0">{T('Sin deuda', 'No debt', lang)}</span>
             </div>
           </div>
+          {/* the stop's point 2 already owns the liquidation-price fact — the
+              caption describes what the donut beside it actually shows */}
           <div className="mt-2 text-[10px] font-mono text-white/35">
-            {T('Precio de liquidación a la vista', 'Liquidation price in sight', lang)}
+            {T('Reparto por red y por activo', 'Split by network and by asset', lang)}
           </div>
         </div>
         {/* allocation donut — entity-locked colors, dotted orbit ring + moonlet */}
@@ -317,7 +327,9 @@ export function WalletsArtifact({ lang }: ArtifactProps) {
         {rows.map((r) => (
           <div
             key={r.name}
-            className="flex items-center gap-2.5 rounded-xl px-2.5 py-2"
+            // flex-wrap + a name floor: at 320px the nowrap badge crushed the
+            // name to "Xam…" — now the badge wraps to its own line instead
+            className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-xl px-2.5 py-2"
             style={{ border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.02)' }}
           >
             <span
@@ -326,7 +338,7 @@ export function WalletsArtifact({ lang }: ArtifactProps) {
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: r.color }} />
             </span>
-            <span className="min-w-0 flex-1">
+            <span className="min-w-[130px] flex-1">
               <span className="block text-[12px] text-white/75 leading-tight truncate">{r.name}</span>
               <span className="block text-[10px] font-mono text-white/30 leading-tight">{r.addr}</span>
             </span>
@@ -343,8 +355,10 @@ export function WalletsArtifact({ lang }: ArtifactProps) {
           </div>
         ))}
       </div>
+      {/* the stop's headline owns the keys claim — the caption names what the
+          three wallet rows above actually show */}
       <div className="mt-3 text-[10px] font-mono text-white/35">
-        {T('Tus llaves, siempre en tu wallet', 'Your keys, always in your wallet', lang)}
+        {T('Cada wallet, con su permiso exacto', 'Each wallet, its exact permission', lang)}
       </div>
     </Frame>
   );
@@ -396,13 +410,15 @@ export function LegacyArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, 
       {/* the governance facts — weights, quorum, and the closed master key
           (real Legacy concepts: multisig weights + master key disabled means
           quorum-only governance) */}
-      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+      {/* single column below sm: "Master key" + "Deshabilitada" need ~126px
+          and a 320px phone gives each of the two columns ~114px */}
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[9px] font-mono uppercase tracking-wider text-white/35">{T('Pesos', 'Weights', lang)}</span>
           <span className="text-[10px] font-mono text-white/65">1 · 1 · 1</span>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[9px] font-mono uppercase tracking-wider text-white/35">{T('Master key', 'Master key', lang)}</span>
+          <span className="text-[9px] font-mono uppercase tracking-wider text-white/35">{T('Clave maestra', 'Master key', lang)}</span>
           <span className="text-[10px] font-mono" style={{ color: OK_GREEN }}>
             {T('Deshabilitada', 'Disabled', lang)}
           </span>

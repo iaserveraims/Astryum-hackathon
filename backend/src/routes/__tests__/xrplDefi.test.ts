@@ -56,6 +56,11 @@ const PREPARES: Array<[string, Record<string, unknown>]> = [
   ],
 ];
 
+// §1.3: the council/cage prepares now enforce the Legacy gate server-side.
+// This suite exercises the flag/geofence/handoff frontier, not the gate (it
+// has its own suite) — the global switch opens it without a users table.
+process.env.LEGACY_ENABLED = 'true';
+
 const ORIGINAL_ENV = { ...process.env };
 // escrow-create reads the live owner reserve from server_info — mock it so
 // the suite stays hermetic (builders themselves remain pure).

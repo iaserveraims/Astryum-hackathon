@@ -53,6 +53,26 @@ const VAULT_DEPOSIT_ABI = [
 const VAULT_REDEEM_ABI = [
   'function instantRedeem(uint256 shares, address receiverAddr)',
 ];
+// The epoch queue, READ-ONLY (added 2026-08-01, ABI verified against the impl
+// and probed live): the fee-free `requestRedeem` path parks shares on a future
+// calendar day, and until they're claimed the LP balance no longer shows them.
+const VAULT_EPOCH_ABI = [
+  'function getWithdrawalEpoch() view returns (uint256 year,uint256 month,uint256 day,uint256 claimableEpoch)',
+  'function getBurnableAmountByReceiver(uint256 year,uint256 month,uint256 day,address receiverAddr) view returns (uint256)',
+];
+
+export interface UpshiftPendingRedemption {
+  /** The request's epoch day, ISO (YYYY-MM-DD) — the key `claim` takes. */
+  epochLabel: string;
+  /** LP shares waiting on that epoch (6 dec). */
+  sharesBase: string;
+  /** FXRP those shares are worth at the live NAV; null if unreadable. */
+  estFxrpBase: string | null;
+  /** true once the vault is serving that epoch (or an earlier one). */
+  claimable: boolean;
+  /** ISO midnight UTC of the epoch day. */
+  availableAt: string;
+}
 
 /** 1e6 — FXRP/LP tokens and getSharePrice() all use 6 decimals. */
 const SHARE_PRICE_SCALE = 1_000_000n;
@@ -156,7 +176,131 @@ export class UpshiftVaultAdapter extends BaseAdapter {
       });
     }
 
+    // Epoch withdrawals: `requestRedeem` takes the shares NOW and the vault
+    // releases the FXRP on a later daily epoch, so `lpToken.balanceOf` alone
+    // loses the money in between (the same hole Firelight and Sceptre had).
+    // A user who queued the exit from Upshift's own app — Astryum only builds
+    // instantRedeem today — saw the position simply disappear.
+    for (const d of this.getVaultDescriptors()) {
+      try {
+        for (const q of await this.readPendingRedemptions(wallet, d, provider)) {
+          positions.push({
+            protocolId: this.protocolId,
+            chainId: this.chainId,
+            wallet,
+            kind: 'CLAIM',
+            asset: d.lpToken,
+            amount: BigInt(q.sharesBase),
+            raw: {
+              kind: 'claim',
+              vaultKey: d.key,
+              vault: d.vault,
+              vaultName: `${d.name} — salida en cola (epoch ${q.epochLabel})`,
+              token: d.symbol,
+              decimals: 6,
+              ...(q.estFxrpBase
+                ? { underlying: { symbol: 'XRP', amount: q.estFxrpBase, decimals: 6 } }
+                : {}),
+              exiting: true,
+              claimable: q.claimable,
+              availableAt: q.availableAt,
+              expiresAt: null, // Upshift claims don't expire
+              // The vault burns the shares at `claim`, not at `requestRedeem`,
+              // and the NAV keeps moving until then — but Upshift publishes no
+              // per-request rate lock we can read, so we claim nothing about
+              // yield: the honest reading is "leaving, lands on this date".
+              stillEarning: false,
+              upshiftClaim: {
+                vaultKey: d.key,
+                epoch: q.epochLabel,
+                claimable: q.claimable,
+                availableAt: q.availableAt,
+              },
+              sharePriceSource: 'vault.getBurnableAmountByReceiver()+getSharePrice() (live on-chain)',
+            },
+            discoveredAt: now,
+          });
+        }
+      } catch {
+        /* queue unreadable — never break the vault reading for it */
+      }
+    }
+
     return positions;
+  }
+
+  /**
+   * Open epoch-withdrawal requests for `wallet` in one vault.
+   *
+   * Shape verified against the vault implementation ABI (proxy
+   * 0x373D7d20… → impl 0xc689cC64…) and probed live on Flare mainnet
+   * 2026-08-01: requests are indexed by CALENDAR DAY (year, month, day) and
+   * `getBurnableAmountByReceiver(y, m, d, receiver)` returns the shares waiting
+   * on that day. `getWithdrawalEpoch()` gives the day currently being served,
+   * `lagDuration()` how far ahead a fresh request is scheduled (earnXRP 1 day,
+   * Monarq 7). We probe that window plus a short tail for anything not yet
+   * claimed — no event indexing, no third party.
+   */
+  async readPendingRedemptions(
+    wallet: string,
+    d: UpshiftVaultDescriptor,
+    provider?: import('ethers').Provider,
+  ): Promise<UpshiftPendingRedemption[]> {
+    const { ethers } = await import('ethers');
+    const vault = new ethers.Contract(
+      d.vault,
+      [...VAULT_READ_ABI, ...VAULT_EPOCH_ABI],
+      provider ?? this.provider.getHttpProvider(),
+    );
+    const [epoch, lagSeconds, sharePriceE6] = await Promise.all([
+      vault.getWithdrawalEpoch() as Promise<[bigint, bigint, bigint, bigint]>,
+      vault.lagDuration().catch(() => 0n) as Promise<bigint>,
+      vault.getSharePrice().catch(() => 0n) as Promise<bigint>,
+    ]);
+
+    const servedUTC = Date.UTC(Number(epoch[0]), Number(epoch[1]) - 1, Number(epoch[2]));
+    if (!Number.isFinite(servedUTC)) return [];
+    const lagDays = Math.ceil(Number(lagSeconds) / 86_400);
+    // From a few days BEHIND the served epoch (unclaimed leftovers) through the
+    // furthest day a request made today can be scheduled for.
+    const TRAILING_DAYS = 3;
+    const days: Date[] = [];
+    for (let offset = -TRAILING_DAYS; offset <= lagDays + 1; offset++) {
+      days.push(new Date(servedUTC + offset * 86_400_000));
+    }
+
+    const shares = await Promise.all(
+      days.map(
+        (day) =>
+          vault
+            .getBurnableAmountByReceiver(
+              day.getUTCFullYear(),
+              day.getUTCMonth() + 1,
+              day.getUTCDate(),
+              wallet,
+            )
+            .catch(() => 0n) as Promise<bigint>,
+      ),
+    );
+
+    const out: UpshiftPendingRedemption[] = [];
+    for (let i = 0; i < days.length; i++) {
+      const amount = BigInt(shares[i]);
+      if (amount <= 0n) continue;
+      const day = days[i];
+      const dayUTC = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate());
+      out.push({
+        epochLabel: day.toISOString().slice(0, 10),
+        sharesBase: amount.toString(),
+        estFxrpBase:
+          sharePriceE6 > 0n ? ((amount * sharePriceE6) / SHARE_PRICE_SCALE).toString() : null,
+        // The vault serves `servedUTC`; anything up to and including it is
+        // claimable now, later days are still waiting their turn.
+        claimable: dayUTC <= servedUTC,
+        availableAt: new Date(dayUTC).toISOString(),
+      });
+    }
+    return out;
   }
 
   normalizePosition(raw: RawPosition): NormalizedPosition {

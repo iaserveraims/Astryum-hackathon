@@ -16,7 +16,7 @@ import { buildStrategyAssistantSystemPrompt } from '../config/strategyAssistantP
 
 dotenv.config();
 
-const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-opus-4-8';
+const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-haiku-4-5';
 // Representative dev rates (prod uses live FTSO price + CF + borrow/supply APR).
 const RATES = { fxrpPriceUSD: 2.0, collateralFactor: 0.7, borrowAprPct: 15.5, supplyAprPct: 2.0 };
 

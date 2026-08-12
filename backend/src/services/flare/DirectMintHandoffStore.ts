@@ -70,6 +70,31 @@ export async function saveHandoffRecord(record: HandoffRecord): Promise<boolean>
       `[0xFE-handoff-store] persist FAILED for ${record.userOpHash}: ${(e as Error).message} — ` +
         'el executor automático no podrá casar este memo; queda solo el log [0xFE-handoff]',
     );
+    // Al canal, no solo al log (2026-08-03): esta fila es la ÚNICA copia de los
+    // bytes que el usuario está a punto de comprometer con su firma. Sin ella el
+    // executor solo puede reconstruir las formas deterministas (firelight,
+    // earnxrp, monarq, e3) — un e1 o un pa-withdraw se quedan pendientes hasta
+    // un rescate manual. Enterarse AHORA (antes de que firme) o enterarse por el
+    // usuario media hora después no es lo mismo.
+    try {
+      const { opsAlert } = await import('../OpsAlertService');
+      await opsAlert(
+        '0xFE-handoff',
+        'critical',
+        `no se pudieron guardar los bytes del handoff ${record.userOpHash} (${(e as Error).message}) — ` +
+          'si el usuario firma, el executor puede no saber qué ejecutar',
+        {
+          key: `handoff-persist:${record.userOpHash}`,
+          facts: { userOpHash: record.userOpHash, accion: record.action ?? null },
+          runbook:
+            'Mira primero la base de datos (probe «Base de datos» en /app/admin → Alertas): casi siempre es el pooler ' +
+            'de Supabase. Los bytes siguen en los logs de Railway, en la línea [0xFE-handoff] de esta misma operación: ' +
+            'con ellos el rescate es USER_OP_DATA=0x… npx ts-node src/scripts/execute-direct-mint.ts --live',
+        },
+      );
+    } catch {
+      /* el canal nunca puede empeorar el fallo que está reportando */
+    }
     return false;
   }
 }
@@ -79,7 +104,9 @@ export async function saveHandoffRecord(record: HandoffRecord): Promise<boolean>
  * materia prima del guard de asiento de nonce (incidente 2026-07-14/16).
  * Filtrado en JS por si el checksum difiere entre filas. Sin DB → [].
  */
-export async function findQueuedHandoffsByPersonalAccount(personalAccount: string): Promise<HandoffRecord[]> {
+export async function findQueuedHandoffsByPersonalAccount(
+  personalAccount: string,
+): Promise<Array<HandoffRecord & { createdAt: Date }>> {
   if (!process.env.DATABASE_URL) return [];
   try {
     const prisma = await getPrisma();
@@ -88,11 +115,36 @@ export async function findQueuedHandoffsByPersonalAccount(personalAccount: strin
       orderBy: { createdAt: 'asc' },
     });
     const pa = personalAccount.toLowerCase();
+    // createdAt viaja para el TTL del asiento de nonce: un handoff preparado y
+    // nunca firmado caduca solo (buildDirectMintHandoff lo invalida) — el
+    // usuario no queda tapiado por una orden que no llegó a firmar.
     return rows
-      .map((r) => r.payload as unknown as HandoffRecord)
+      .map((r) => ({ ...(r.payload as unknown as HandoffRecord), createdAt: r.createdAt }))
       .filter((p) => (p.personalAccount || '').toLowerCase() === pa);
   } catch {
     return []; // best-effort: sin filas no hay guard, el prepare sigue
+  }
+}
+
+/**
+ * Libera el asiento de un handoff 0xFE preparado y NO firmado (el usuario
+ * canceló o cerró sin firmar) → lo marca 'superseded' al instante, sin esperar
+ * al TTL. Solo toca filas 'queued': jamás vuelve inejecutable una firmada (el
+ * executor la resuelve por userOpHash pase cual sea el status). Idempotente.
+ */
+export async function releaseQueuedHandoffByMemo(memoHex: string): Promise<boolean> {
+  if (!process.env.DATABASE_URL || !memoHex) return false;
+  try {
+    const prisma = await getPrisma();
+    const row = await prisma.backgroundJob.findFirst({
+      where: { jobType: JOB_TYPE, status: 'queued', payload: { path: ['memoHex'], equals: memoHex } },
+      select: { id: true },
+    });
+    if (!row) return false;
+    await prisma.backgroundJob.update({ where: { id: row.id }, data: { status: 'superseded' } });
+    return true;
+  } catch {
+    return false; // best-effort: el TTL sigue siendo la red de seguridad
   }
 }
 

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ethers } from 'ethers';
 import { prisma } from '../database/prismaClient';
+import { assertSignupAllowed } from '../config/betaGate';
 
 const NONCE_TTL_MS = 5 * 60 * 1000;     // 5 min to use a nonce
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24h session
@@ -331,6 +332,10 @@ async function getOrCreateUserByEvmAddress(evmAddress: string): Promise<string> 
     select: { id: true },
   });
   if (existing) return existing.id;
+  // Closed beta: wallet-first signup has no email to approve, so while the
+  // gate is closed a NEW wallet cannot mint an account — existing wallet
+  // users keep logging in, approved users bind wallets inside the app.
+  await assertSignupAllowed(null);
   const created = await prisma.user.create({
     data: {
       xrplAddress: placeholder,
@@ -395,6 +400,8 @@ export async function verifyXamanPayload(
   // Find or create User keyed by XRPL address
   let user = await prisma.user.findUnique({ where: { xrplAddress }, select: { id: true } });
   if (!user) {
+    // Closed beta: same rule as the SIWE create above — no email, no seat.
+    await assertSignupAllowed(null);
     user = await prisma.user.create({
       data: { xrplAddress, authProvider: 'wallet', isActive: true, lastLogin: new Date() },
       select: { id: true },

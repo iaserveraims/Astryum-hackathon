@@ -279,6 +279,22 @@ router.post('/bridge/xrpl-to-flare/prepare', async (req: Request, res: Response)
     const gate = gateFlareBridge(region);
     if (gate) return res.status(gate.status).json({ error: gate.error });
 
+    // §3 — the same cap + fuel frontier flareDemo has had since 2026-07-25.
+    // This rail mints too: without it, the XRP leaves and parks with no reclaim
+    // when the executor cannot pay for the attestation.
+    const { demoCapFromBody } = await import('../config/demoCap');
+    const capErr = await demoCapFromBody(req.body, req.siwe?.userId);
+    if (capErr) return res.status(capErr.status).json(capErr.body);
+    const { hasFeeBudgetForOneMint } = await import('../services/flare/ExecutorFuelService');
+    if (!hasFeeBudgetForOneMint()) {
+      return res.status(429).json({
+        error: 'EXECUTOR_FUEL_EXHAUSTED',
+        detail:
+          'El executor no tiene presupuesto para atestiguar otro puente en Flare hoy. Tu XRP NO se ha ' +
+          'movido: se ha parado antes de pedirte la firma. Inténtalo cuando se reponga el presupuesto.',
+      });
+    }
+
     const params = await readDirectMintParams(flareProvider());
     // No inner batch here — the buffer/supply fields don't apply; net = gross − fees.
     let net;

@@ -118,7 +118,7 @@ export function ProtectRuleCard({
       if (f.type === 'number') {
         const n = parseFloat(vals[f.key]);
         if (isNaN(n) || n < (f.min ?? 0)) {
-          setError(`${t('Invalid value for')} "${f.label}"`);
+          setError(`${t('Invalid value for')} "${t(f.label)}"`);
           return false;
         }
       }
@@ -225,7 +225,7 @@ export function ProtectRuleCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold text-ink">{t('Protect this position')}</div>
-          <p className="text-[10px] text-ink/40">{tpl.blurb}</p>
+          <p className="text-[10px] text-ink/40">{t(tpl.blurb)}</p>
         </div>
       </div>
 
@@ -296,8 +296,8 @@ export function ProtectRuleCard({
                   className="flex items-center justify-between gap-3 bg-ink/5 border border-ink/10 rounded-lg px-3 py-2 cursor-pointer"
                 >
                   <div>
-                    <div className="text-[11px] text-ink/70">{f.label}</div>
-                    {f.hint && <p className="text-[9px] text-ink/35 mt-0.5">{f.hint}</p>}
+                    <div className="text-[11px] text-ink/70">{t(f.label)}</div>
+                    {f.hint && <p className="text-[10px] text-ink/40 mt-0.5">{t(f.hint)}</p>}
                   </div>
                   <input
                     type="checkbox"
@@ -310,7 +310,7 @@ export function ProtectRuleCard({
                 <div key={f.key}>
                   <div className="flex items-center gap-2">
                     <label className="text-[11px] text-ink/50 w-40 shrink-0">
-                      {f.label}
+                      {t(f.label)}
                       {f.unit && <span className="text-ink/30"> · {f.unit}</span>}
                     </label>
                     <input

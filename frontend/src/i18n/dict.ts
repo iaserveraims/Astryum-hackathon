@@ -26,6 +26,9 @@ export const ES: Record<string, string> = {
 
   // ── Sidebar destinations ──
   Overview: 'Resumen',
+  // The /app overview is named "Home" since 2026-08-04 ("Summary" stays for
+  // stray consumers); Inicio is its Spanish face.
+  Home: 'Inicio',
   Summary: 'Resumen',
   Earn: 'Generar',
   Savings: 'Ahorro',
@@ -114,6 +117,72 @@ export const ES: Record<string, string> = {
   'Pick the date the savings unlock.': 'Elige la fecha en la que se desbloquea el ahorro.',
   'Signed and submitted from your wallet.': 'Firmado y enviado desde tu wallet.',
   'View on XRPScan': 'Ver en XRPScan',
+  'The order': 'La orden',
+  'Operation': 'Operación',
+  'Order number (sequential)': 'Número de orden (secuencial)',
+  'Order fingerprint': 'Huella de la orden',
+  'Service fee': 'Comisión del servicio',
+  'Vault (the cage)': 'Vasija (la jaula)',
+  'Bridge (executes on Flare)': 'Puente (ejecuta en Flare)',
+  'Constitution in force': 'Constitución vigente',
+  'Time until it executes': 'Tiempo hasta que se ejecuta',
+  'Minting fee (XRP)': 'Comisión de acuñación (XRP)',
+  'Executor fee (XRP)': 'Comisión del ejecutor (XRP)',
+  'Principal that lands': 'Principal que aterriza',
+  'Principal can be withdrawn': 'El principal se puede retirar',
+  'Signed by': 'Lo firma',
+  'Astryum signs': 'Astryum firma',
+  'Putting it to work needs a separate order': 'Ponerlo a trabajar exige otra orden aparte',
+  'Venue': 'Destino',
+  'Realizes': 'Realiza',
+  'Touches the principal': 'Toca el principal',
+  'Anyone can send it': 'Cualquiera puede enviarla',
+  'Yield claimed': 'Rendimiento reclamado',
+  'Arrives as': 'Llega como',
+  'Your council signs this Payment of': 'Tu consejo firma aquí este Payment de',
+  'here, each member from their own device. The signature authorizes ONLY the order above — same bytes, once, in order.':
+    ', cada miembro desde su propio dispositivo. La firma autoriza SOLO la orden de arriba — los mismos bytes, una vez y en orden.',
+  'Signatures still missing': 'Firmas que faltan',
+  'Council proposals': 'Propuestas del consejo',
+  'Open the proposal inbox': 'Abrir la bandeja de propuestas',
+  'Emit': 'Emitir',
+  'expires today': 'caduca hoy',
+  'Sent to their Xaman as a notification — the QR still works.':
+    'Enviada a su Xaman como notificación — el QR sigue valiendo.',
+  'No notification yet for this member: they sign the QR once, and from then on Xaman can notify them.':
+    'Aún no hay notificación para este miembro: que firme el QR una vez y a partir de ahí Xaman ya puede avisarle.',
+  'Signed it elsewhere? Paste the signature': '¿Lo firmaste fuera? Pega la firma',
+  'Xaman will not create QRs for this transaction type from this app. The proven route is the Xaman Multisign xApp — the same one this council was constituted with: open “Prefer your own multisign tool?” below, copy the transaction and sign it there with the quorum.':
+    'Xaman no crea QRs de este tipo de transacción desde esta app. El camino probado es el xApp Multisign de Xaman — el mismo con el que se constituyó este consejo: abre «Prefer your own multisign tool?» aquí abajo, copia la transacción y fírmala allí con el quórum.',
+  'Sign these EXACT bytes in your own multisign tool (xrpl.services, the Xaman Multisign xApp…) and paste the resulting signed blob. Change nothing: a single altered field is rejected.':
+    'Firma estos bytes EXACTOS en tu propia herramienta multifirma (xrpl.services, el xApp Multisign de Xaman…) y pega el blob firmado que salga. No cambies nada: un solo campo distinto se rechaza.',
+  'Copy the transaction to sign': 'Copiar la transacción a firmar',
+  'Paste the signed blob (hex)': 'Pega el blob firmado (hex)',
+  'Add this signature': 'Añadir esta firma',
+  'This account is not on the Legacy access list on the server.':
+    'Esta cuenta no está en la lista de acceso a Legacy del servidor.',
+  'Amend the council (replace a signer)': 'Enmendar el consejo (sustituir un firmante)',
+  'Replace a signer': 'Sustituir un firmante',
+  'Replace a signer / amend the council': 'Sustituir un firmante / enmendar el consejo',
+  'One SignerListSet with the full NEW list, signed by the CURRENT quorum.':
+    'Un solo SignerListSet con la lista NUEVA completa, firmado por el quórum ACTUAL.',
+  'The form starts from the CURRENT council. Edit only what changes — the new list REPLACES the old one entirely, and the CURRENT quorum signs the amendment. The new council governs from the next transaction on.':
+    'El formulario arranca del consejo ACTUAL. Cambia solo lo que cambia — la lista nueva SUSTITUYE a la vieja por completo, y la enmienda la firma el quórum ACTUAL. El consejo nuevo gobierna desde la siguiente transacción.',
+  'After it validates, anchor a new constitution version (DIDSet) so the amendment is written in the family record too.':
+    'Cuando valide, ancla una versión nueva de la constitución (DIDSet) para que la enmienda quede también en el registro de la familia.',
+  'Council amended — the new signer list replaces the old one on the ledger.':
+    'Consejo enmendado — la lista de firmantes nueva sustituye a la vieja en el ledger.',
+  'Council order · the cage': 'Orden del consejo · la jaula',
+  'Council · quorum signs': 'Consejo · firma el quórum',
+  'Move capital': 'Mover capital',
+  'The relay is stuck:': 'El relé está atascado:',
+  'Retry the relay': 'Reintentar el relé',
+  'Executed in the cage — the bridge consumed this order.':
+    'Ejecutada en la jaula — el puente consumió esta orden.',
+  'The order is signed and valid, but the relay is off — the proof can be delivered by anyone later; no signature is lost.':
+    'La orden está firmada y es válida, pero el relé está apagado — cualquiera puede entregar la prueba más tarde; ninguna firma se pierde.',
+  'Council order — the relay is carrying the FDC proof to the cage (~2–5 min). Done means the bridge consumed it, not this screen.':
+    'Orden del consejo — el relé lleva la prueba FDC a la jaula (~2–5 min). El verde llega cuando el puente la consume, no antes.',
   'Signing was cancelled.': 'La firma se canceló.',
   'XRPL savings are not enabled on this deployment yet (feature flag off).':
     'El ahorro XRPL aún no está activado en este despliegue (feature flag apagado).',
@@ -475,6 +544,30 @@ const PAGES: Record<string, string> = {
   'syncing…': 'sincronizando…',
   'Refresh from Flarescan': 'Actualizar desde Flarescan',
   'Loading timeline…': 'Cargando timeline…',
+  // Ceguera del carril Flare: vacío por no poder mirar ≠ vacío de verdad.
+  'We cannot read Flare right now — this list may be incomplete.':
+    'Ahora mismo no podemos leer Flare — esta lista puede estar incompleta.',
+  'What you see is what we had saved, up to':
+    'Lo que ves es lo que teníamos guardado, hasta',
+  'Your XRPL movements are unaffected.': 'Tus movimientos de XRPL no se ven afectados.',
+  'Your XRPL movements are unaffected. Try refreshing in a few minutes.':
+    'Tus movimientos de XRPL no se ven afectados. Prueba a actualizar en unos minutos.',
+  // Leer TODAS las carteras a la vez es la parte frágil: cuando alguna no
+  // contesta, la salida que sí funciona es mirar una sola.
+  'Select the exact wallet to see the activity':
+    'Selecciona la cartera exacta para ver la actividad',
+  'Some wallets did not answer — this list is missing their movements.':
+    'Algunas carteras no han contestado — a esta lista le faltan sus movimientos.',
+  'Reading every wallet at once is the fragile part; one at a time always loads.':
+    'Leerlas todas a la vez es la parte frágil; de una en una siempre carga.',
+  'Reading every wallet at once is the fragile part, and none of them answered — this is not an empty history. Pick one wallet in the filter above and its timeline loads on its own.':
+    'Leerlas todas a la vez es la parte frágil, y no ha contestado ninguna — esto no es un historial vacío. Elige una cartera en el filtro de arriba y su timeline carga solo.',
+  'Some wallets did not answer, so this is not an empty history. Pick one wallet in the filter above and its timeline loads on its own.':
+    'Algunas carteras no han contestado, así que esto no es un historial vacío. Elige una cartera en el filtro de arriba y su timeline carga solo.',
+  "We can't see your Flare movements right now":
+    'Ahora mismo no podemos ver tus movimientos de Flare',
+  'This is not an empty history: the Flare indexer is not answering, so we have nothing to show yet. Try refreshing in a few minutes.':
+    'Esto no es un historial vacío: el indexador de Flare no contesta, así que todavía no tenemos nada que enseñarte. Prueba a actualizar en unos minutos.',
   'No on-chain events found for this wallet on Flare Mainnet. Try refreshing from Flarescan.':
     'No se encontraron eventos on-chain para esta wallet en Flare Mainnet. Prueba a actualizar desde Flarescan.',
   'Connect a wallet to see activity.': 'Conecta una wallet para ver la actividad.',
@@ -826,7 +919,7 @@ const PAGES: Record<string, string> = {
   // ── Integrations ──
   'Backend control plane returned an empty registry.':
     'El control plane del backend devolvió un registro vacío.',
-  healthy: 'saludable',
+  healthy: 'sana',
   degraded: 'degradado',
   down: 'caído',
   prio: 'prio',
@@ -905,6 +998,10 @@ const PAGES: Record<string, string> = {
   'Set primary': 'Marcar como principal',
   Revoke: 'Revocar',
   'Read-only — cannot sign transactions': 'Solo lectura — no puede firmar transacciones',
+  'Operated from your XRPL account in Xaman — it has no key of its own':
+    'Se opera desde tu cuenta XRPL en Xaman — no tiene clave propia',
+  'It executes orders signed in Xaman by the XRPL account that controls it — there is no EVM key to prove.':
+    'Ejecuta órdenes firmadas en Xaman por la cuenta XRPL que la controla — no hay clave EVM que demostrar.',
   'Sign an ownership proof to enable transactions':
     'Firma una prueba de propiedad para habilitar transacciones',
   'Connect this wallet in your wallet app first':
@@ -925,6 +1022,58 @@ const PAGES: Record<string, string> = {
     'Introduce una dirección XRPL (r…) o Flare (0x…) válida',
   'Watch-only: balances and positions are read — this address can never sign.':
     'Solo observación: se leen balances y posiciones — esta dirección nunca puede firmar.',
+
+  // ── First-wallet guide (exchange-only users) ──
+  'I don’t have a wallet yet — show me how': 'Aún no tengo wallet — enséñame cómo',
+  'Your first wallet': 'Tu primera wallet',
+  'A wallet is your own account on the network — you hold the keys and Astryum never sees them. If your capital lives in an exchange today, four steps bring it under your own control.':
+    'Una wallet es tu propia cuenta en la red — las llaves las tienes tú y Astryum nunca las ve. Si hoy tu capital vive en un exchange, cuatro pasos lo ponen bajo tu propio control.',
+  'Where is your capital today?': '¿Dónde está tu capital hoy?',
+  'XRP on an exchange': 'XRP en un exchange',
+  'Create Xaman, the XRPL wallet app, and withdraw to it':
+    'Crea Xaman, la app de wallet de XRPL, y retira hacia ella',
+  'FLR or tokens on Flare': 'FLR o tokens en Flare',
+  'Create MetaMask and receive on the Flare network':
+    'Crea MetaMask y recibe por la red Flare',
+  'Already have one of these apps? Close this and press Add Wallet — connecting takes one tap.':
+    '¿Ya tienes una de estas apps? Cierra esto y pulsa Añadir wallet — conectar es un toque.',
+  'Install Xaman': 'Instala Xaman',
+  'Xaman is the XRPL wallet app, for iOS and Android. Download it only from the official site — never from a link someone sent you.':
+    'Xaman es la app de wallet de XRPL, para iOS y Android. Descárgala solo desde el sitio oficial — nunca desde un enlace que te hayan enviado.',
+  'Official site': 'Sitio oficial',
+  'I have the app': 'Ya tengo la app',
+  'Create your account and guard the secret': 'Crea tu cuenta y guarda el secreto',
+  'The app generates your secret numbers — they ARE the wallet. Write them on paper and keep them offline. Astryum will never ask for them; nobody legitimate will.':
+    'La app genera tus números secretos — SON la wallet. Escríbelos en papel y guárdalos fuera de internet. Astryum nunca te los pedirá; nadie legítimo lo hará.',
+  'The XRP Ledger keeps a small base reserve (about 1 XRP) locked in every active address — a network rule, not a fee.':
+    'El XRP Ledger mantiene una pequeña reserva base (en torno a 1 XRP) bloqueada en cada dirección activa — es una regla de la red, no una comisión.',
+  'Secret saved': 'Secreto guardado',
+  'Withdraw from your exchange': 'Retira desde tu exchange',
+  'Copy your address (r…) from Xaman. In your exchange, withdraw XRP over the XRP Ledger network and paste it. Send a small test amount first; the rest once it arrives.':
+    'Copia tu dirección (r…) desde Xaman. En tu exchange, retira XRP por la red XRP Ledger y pégala. Envía primero una pequeña cantidad de prueba; el resto cuando llegue.',
+  'Destination tag: your Xaman address is only yours, so if the exchange marks the field optional you can leave it empty.':
+    'Destination tag: tu dirección de Xaman es solo tuya, así que si el exchange marca el campo como opcional puedes dejarlo vacío.',
+  'Done — my XRP is on its way': 'Hecho — mi XRP está en camino',
+  'Connect it to Astryum': 'Conéctala con Astryum',
+  'Connecting only reads your address — your balance and positions appear on their own. Enabling transactions is a separate, per-wallet signature, always yours.':
+    'Conectar solo lee tu dirección — tu balance y posiciones aparecen solos. Habilitar transacciones es una firma aparte, por wallet, siempre tuya.',
+  // 'Connect Xaman' ya existe en el bloque de XamanQRModal — misma cara ES.
+  'Install MetaMask': 'Instala MetaMask',
+  'MetaMask is the most used EVM wallet — a browser extension and a mobile app. Download it only from the official site — never from a link someone sent you.':
+    'MetaMask es la wallet EVM más usada — extensión de navegador y app móvil. Descárgala solo desde el sitio oficial — nunca desde un enlace que te hayan enviado.',
+  'Create your wallet and guard the phrase': 'Crea tu wallet y guarda la frase',
+  'The app gives you a 12-word recovery phrase — it IS the wallet. Paper, offline, never typed into any website. Astryum will never ask for it; nobody legitimate will.':
+    'La app te da una frase de recuperación de 12 palabras — ES la wallet. En papel, fuera de internet, jamás escrita en una web. Astryum nunca te la pedirá; nadie legítimo lo hará.',
+  'Phrase saved': 'Frase guardada',
+  'Withdraw from your exchange on the Flare network': 'Retira desde tu exchange por la red Flare',
+  'Copy your address (0x…) from MetaMask. In your exchange, withdraw FLR choosing the Flare network. Send a small test amount first; the rest once it arrives.':
+    'Copia tu dirección (0x…) desde MetaMask. En tu exchange, retira FLR eligiendo la red Flare. Envía primero una pequeña cantidad de prueba; el resto cuando llegue.',
+  'If your exchange does not offer the Flare network for that token, do not send — funds sent over a different network do not arrive on Flare.':
+    'Si tu exchange no ofrece la red Flare para ese token, no envíes — los fondos enviados por otra red no llegan a Flare.',
+  'Done — my funds are on their way': 'Hecho — mis fondos están en camino',
+  'Connecting only reads your address — your balance and positions appear on their own. Astryum switches MetaMask to Flare Mainnet (chain 14) when you connect. Enabling transactions is a separate, per-wallet signature, always yours.':
+    'Conectar solo lee tu dirección — tu balance y posiciones aparecen solos. Astryum cambia MetaMask a Flare Mainnet (chain 14) al conectar. Habilitar transacciones es una firma aparte, por wallet, siempre tuya.',
+  'Connect MetaMask': 'Conectar MetaMask',
   'Supported Wallets': 'Wallets compatibles',
   Ready: 'Lista',
   Install: 'Instalar',
@@ -950,6 +1099,25 @@ const PAGES: Record<string, string> = {
   'Sign in (read-only)': 'Iniciar sesión (solo lectura)',
   'Your Wallets': 'Tus wallets',
   'No wallets yet': 'Aún no hay wallets',
+
+  // ── Wallets — organizer v2: origin shelves + list default (2026-08-03) ──
+  'Connected wallets': 'Wallets conectadas',
+  'Watch-only': 'Solo observación',
+  'Login wallet': 'Wallet de acceso',
+  'Embedded wallet': 'Wallet embedded',
+  'No wallets added by hand yet — Add wallet connects or watches one.':
+    'Aún no has añadido wallets a mano — con «Añadir wallet» conectas o vigilas una.',
+  'No platform-created accounts yet — they appear when you log in with a wallet or open a Smart Account.':
+    'Aún no hay cuentas creadas por la plataforma — aparecen al entrar con una wallet o al abrir una Smart Account.',
+  'Your control plane': 'Tu plano de control',
+  'Remove wallet': 'Eliminar wallet',
+  'Read-only by default': 'Solo lectura por defecto',
+  '1 wallet belongs to a Legacy (its council or Smart Account) — see it in Astryum Legacy › Governance › Wallets.':
+    '1 wallet pertenece a un Legacy (su consejo o su Smart Account) — está en Astryum Legacy › Gobernanza › Wallets.',
+  'wallets belong to your Legacies (council or Smart Account) — see them in Astryum Legacy › Governance › Wallets.':
+    'wallets pertenecen a tus Legacies (consejo o Smart Account) — están en Astryum Legacy › Gobernanza › Wallets.',
+  'Send, receive, set aside and trade — you sign in your own wallet':
+    'Enviar, recibir, apartar y operar — firmas en tu propia wallet',
   'Connect a wallet app or watch any XRPL or Flare address. You can add as many as you like.':
     'Conecta una app de wallet o vigila cualquier dirección XRPL o Flare. Puedes añadir tantas como quieras.',
   'Transactions enabled for': 'Transacciones habilitadas para',
@@ -1067,6 +1235,23 @@ const PAGES: Record<string, string> = {
   'Range:': 'Rango:',
   'Flare · ETH · Base · Polygon + more': 'Flare · ETH · Base · Polygon + más',
   'Value (USD)': 'Valor (USD)',
+  'Health factor': 'Factor de salud',
+  'Price (USD)': 'Precio (USD)',
+  // ── xrplTxTypeLabel (Fase 1, 2026-07-30): tipos XRPL en palabras ──
+  'Payment — sends XRP': 'Pago — envía XRP',
+  'Set XRP aside until a date': 'Apartar XRP hasta una fecha',
+  'Release money that was set aside': 'Liberar dinero apartado',
+  'Recover money that was set aside': 'Recuperar dinero apartado',
+  'Account settings — moves no funds': 'Ajustes de la cuenta — no mueve fondos',
+  'Change who signs for this account': 'Cambiar quién firma por esta cuenta',
+  'Allow the account to hold a token': 'Permitir que la cuenta tenga un token',
+  'Anchor a document to the account': 'Anclar un documento a la cuenta',
+  'Several operations in one signature': 'Varias operaciones en una firma',
+  'Exchange order on the ledger': 'Orden de intercambio en el ledger',
+  'Cancel an exchange order': 'Cancelar una orden de intercambio',
+  'Write a cheque another account can cash': 'Emitir un cheque que otra cuenta puede cobrar',
+  'Cash a cheque': 'Cobrar un cheque',
+  'Cancel a cheque': 'Cancelar un cheque',
   '% Portfolio': '% Portfolio',
   'FTSO prices · cached 30s': 'Precios FTSO · caché 30s',
   'No positions detected — connect a wallet and wait for the engine to scan':
@@ -1541,6 +1726,19 @@ const PAGES: Record<string, string> = {
   // ── Dashboard 2026-07: network card, performance, gauge, allocation ────────
   'My Assets': 'Mis activos',
   'Assets Earning': 'Activos generando',
+  'Not earning': 'Sin generar',
+  // The ring charts only capital placed in a venue — with everything parked
+  // there is nothing to draw, and the card says so instead of drawing a grey
+  // circle. The figures still read in the split line above it.
+  'Nothing at work yet': 'Nada trabajando todavía',
+  'This ring charts only capital placed in a vault. Pick a strategy and it shows up here.':
+    'Este anillo solo dibuja el capital colocado en una bóveda. Elige una estrategia y aparecerá aquí.',
+  // Money LEAVING a venue: redeemed, waiting for the protocol's release date.
+  // Neither working nor parked — it has a date, and the date is shown.
+  'On the way': 'En camino',
+  lands: 'llega el',
+  Leaving: 'Saliendo',
+  'Ready to claim': 'Listo para reclamar',
   Performance: 'Rendimiento',
   'Expand performance chart': 'Ampliar gráfico de rendimiento',
   offline: 'sin conexión',
@@ -1618,6 +1816,20 @@ const PAGES: Record<string, string> = {
   'Balance shown for Flare and XRPL wallets': 'Balance visible para wallets de Flare y XRPL',
   'These are the two wallets accepted in this beta. Connecting only reads the address — enabling transactions is a separate, per-wallet signature.':
     'Estas son las dos wallets aceptadas en esta beta. Conectar solo lee la dirección — habilitar transacciones es una firma aparte por wallet.',
+  'These are the two wallets accepted in this beta: MetaMask on Flare Mainnet (chain 14) and Xaman on XRPL. Connecting only reads the address — enabling transactions is a separate, per-wallet signature.':
+    'Estas son las dos wallets aceptadas en esta beta: MetaMask en Flare Mainnet (chain 14) y Xaman en XRPL. Conectar solo lee la dirección — habilitar transacciones es una firma aparte por wallet.',
+  // Prose thrown by the connect rail (lib/wallet/useWalletLinking, flareChain) —
+  // rendered through t() so the Spanish UI doesn't answer in English.
+  'MetaMask is not available in this browser — use the QR or the “Open in MetaMask” link that just opened, or install the MetaMask extension.':
+    'MetaMask no está disponible en este navegador — usa el QR o el enlace «Abrir en MetaMask» que acaba de aparecer, o instala la extensión de MetaMask.',
+  'Linking a wallet needs Flare Mainnet and the switch was declined in MetaMask. Nothing was added — try again whenever you like.':
+    'Vincular una wallet necesita Flare Mainnet y el cambio de red se rechazó en MetaMask. No se ha añadido nada — inténtalo cuando quieras.',
+  'This beta links Flare wallets only — switch MetaMask to Flare Mainnet (chain 14), then add the wallet again.':
+    'Esta beta solo vincula wallets de Flare — cambia MetaMask a Flare Mainnet (chain 14) y añade la wallet otra vez.',
+  'The MetaMask connection was declined — nothing was linked.':
+    'Se rechazó la conexión con MetaMask — no se ha vinculado nada.',
+  'Link MetaMask on Flare Mainnet or Xaman on XRPL to load your on-chain positions across every connected account.':
+    'Vincula MetaMask en Flare Mainnet o Xaman en XRPL para cargar tus posiciones on-chain en todas las cuentas conectadas.',
 
   // ── Settings copy (expert toggle removed) ───────────────────────────────────
   'Connection, network and account preferences. No private keys are ever stored here.':
@@ -1755,6 +1967,9 @@ const PAGES: Record<string, string> = {
   // ── Product assistant (guía de la app) ─────────────────────────────────────
   'How does this work?': '¿Cómo funciona?',
   'Co-pilot': 'Copiloto',
+  // Puerta de la comunidad (Discord), fijada junto a Settings
+  'Bugs and feedback': 'Fallos y sugerencias',
+  'Report a bug or send us feedback': 'Cuéntanos un fallo o mándanos tu opinión',
   'Ready-made': 'Listas para usar',
   'With the agent': 'Con el agente',
   'Ready routes': 'Rutas listas',
@@ -1786,6 +2001,41 @@ const PAGES: Record<string, string> = {
   'Active · Online': 'Activas · Online',
   'Saved · Offline': 'Guardadas · Offline',
   'very healthy': 'muy sana',
+  'no debt': 'sin deuda',
+  'cushion': 'colchón',
+  'Your cushion at entry': 'Tu colchón al empezar',
+  'liquidation at 1.00': 'liquidación en 1,00',
+  // ── translateError (Fase 1, 2026-07-30): un fallo → una frase ──
+  'You cancelled the signature. Nothing moved — try again whenever you like.':
+    'Has cancelado la firma. No se ha movido nada — vuelve a intentarlo cuando quieras.',
+  'Not enough XRP in the account for this payment.':
+    'No hay suficiente XRP en la cuenta para este pago.',
+  'The network keeps a minimum locked in every account and this would go below it.':
+    'La red mantiene un mínimo bloqueado en cada cuenta y esto lo dejaría por debajo.',
+  'The destination account does not exist on the network.':
+    'La cuenta de destino no existe en la red.',
+  'The destination account does not exist yet — it needs a first deposit larger than this.':
+    'La cuenta de destino aún no existe — necesita un primer depósito mayor que este.',
+  'The destination requires a tag and this payment carries none.':
+    'El destino exige un tag y este pago no lleva ninguno.',
+  'This operation expired before reaching the network.':
+    'Esta operación caducó antes de llegar a la red.',
+  'The network found no path to deliver this payment.':
+    'La red no encontró camino para entregar este pago.',
+  'This operation already ran or became stale.':
+    'Esta operación ya se ejecutó o quedó obsoleta.',
+  'This operation expired before the network confirmed it.':
+    'Esta operación caducó antes de que la red la confirmara.',
+  'This operation would change nothing, so the network refuses it.':
+    'Esta operación no cambiaría nada, así que la red la rechaza.',
+  'Only the account’s own master key can sign this operation.':
+    'Solo la llave maestra de la propia cuenta puede firmar esta operación.',
+  'The network rejected the operation. Your money did not move; only the network fee was spent.':
+    'La red rechazó la operación. Tu dinero no se ha movido; solo se gastó la comisión de red.',
+  "We couldn't reach the server. Nothing was signed and nothing moved — try again in a minute.":
+    'No hemos podido conectar con el servidor. No se ha firmado ni movido nada — inténtalo en un minuto.',
+  'Something went wrong — try again in a minute.':
+    'Algo ha fallado — inténtalo en un minuto.',
   'keep an eye on it': 'vigílala',
   'at risk': 'en riesgo',
   'Connect your wallet to see the health of your active strategies.':
@@ -1861,6 +2111,11 @@ const PAGES: Record<string, string> = {
     'Te muestra las opciones con números reales — tú decides y firmas',
   'all options, unranked — the decision is yours': 'todas las opciones, sin ranking — la decisión es tuya',
   'yield, no cash': 'rendimiento, sin efectivo',
+  'Option': 'Opción',
+  'Cash now': 'Dinero ahora',
+  'Cushion': 'Colchón',
+  'You lose the collateral below': 'Pierdes el aval por debajo de',
+  'Interest you pay per year': 'Intereses que pagas al año',
   'Tell me what you have and what you want to do — e.g. "I have 10,000 XRP and need $200 without selling". I\'ll show you the options with their real numbers; the decision is yours.':
     'Dime qué tienes y qué quieres hacer — p.ej. "Tengo 10.000 XRP y necesito 200 $ sin vender". Te enseño las opciones con sus números reales; la decisión es tuya.',
   'Numbers are live protocol data. Astryum prepares — you review and sign. No advice.':
@@ -2018,6 +2273,12 @@ const PAGES: Record<string, string> = {
   'use supplied': 'usar lo suministrado',
   'use all': 'usar todo',
   'Destination EVM wallet': 'Wallet EVM de destino',
+  'Where the capital goes': 'Adónde va el capital',
+  'The funds leave from here — pick it to keep the capital in this same wallet.':
+    'De aquí salen los fondos — elígela para dejar el capital en esta misma wallet.',
+  'Leaves the vault and stays as free balance in this Smart Account.':
+    'Sale del vault y se queda como saldo libre en esta Smart Account.',
+  'Connected Xaman': 'Xaman conectada',
   'XRP to send (mint-coupled dispatch)': 'XRP a enviar (dispatch acoplado al mint)',
   'The 0xFE dispatch rides an XRPL Payment — this XRP also mints a small FXRP into your Smart Account. Disclosed before you sign.':
     'El dispatch 0xFE viaja en un Payment XRPL — ese XRP también acuña un poco de FXRP en tu Smart Account. Se muestra antes de firmar.',
@@ -2056,7 +2317,7 @@ const PAGES: Record<string, string> = {
     'Las automatizaciones dejan aquí los intents preparados cuando saltan — nada se firma hasta que firmas tú.',
   'Loading your intents…': 'Cargando tus intents…',
   'Nothing waiting for your signature': 'Nada esperando tu firma',
-  'Automations leave prepared intents here when they fire.': 'Las automatizaciones dejan aquí los intents preparados cuando saltan.',
+  'Automations leave prepared intents here when they fire.': 'Cuando una automatización salte, te dejará aquí la operación lista para firmar.',
   // ── Intents sidebar card ── ('more' and 'Close' already defined above)
   Sign: 'Firmar',
   'Review and sign': 'Revisa y firma',
@@ -2195,7 +2456,29 @@ const PAGES: Record<string, string> = {
   'Minimum (USD)': 'Mínimo (USD)',
   'Fixed repay amount': 'Importe fijo a repagar',
   'This rule has no editable threshold — only its cooldown can change here.':
-    'Esta regla no tiene umbral editable — aquí solo puede cambiar su cooldown.',
+    'Esta regla no tiene umbral editable — aquí solo puede cambiar cada cuánto te avisa.',
+  // ── RuleEditModal humanizado (F1/F2/F9, 2026-07-30) ──
+  'Alert me when my cushion (health factor) drops below':
+    'Avísame cuando mi colchón (factor de salud) baje de',
+  '1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.':
+    '1,00 = liquidación. Cuando salte, te preparamos el pago para que TÚ lo firmes.',
+  'Cautious (1.50)': 'Prudente (1,50)',
+  'Balanced (1.25)': 'Equilibrado (1,25)',
+  'Tight (1.10)': 'Al límite (1,10)',
+  'Borrowed share — alert me above': 'Parte prestada — avísame si supera',
+  'How much of your borrowing limit you are using. Above 80% liquidation risk is high.':
+    'Cuánto de tu límite de préstamo estás usando. Por encima del 80 % el riesgo de liquidación es alto.',
+  'Enter a value between': 'Escribe un valor entre',
+  'You typed': 'Has escrito',
+  'Could not save the changes. Nothing was modified — try again in a minute.':
+    'No se han podido guardar los cambios. No se ha modificado nada — inténtalo en un minuto.',
+  'Saving moves no money and signs nothing. When the rule fires, we will ask YOU to sign.':
+    'Guardar no mueve dinero ni firma nada. Cuando la regla salte, te pediremos que firmes TÚ.',
+  'Minimum wait between alerts': 'Espera mínima entre avisos',
+  'This rule watches the fixed critical level (health factor 1.2) — that number cannot change, by design. You can only adjust how often it alerts you.':
+    'Esta regla vigila el nivel crítico fijo (factor de salud 1,2) — ese número no se puede cambiar, por diseño. Solo puedes ajustar cada cuánto te avisa.',
+  'invalid threshold — edit and save this rule to fix it':
+    'umbral inválido — edita y guarda esta regla para arreglarla',
   "NOT a fee and NOT the repay amount: the order must ride an XRPL Payment to the FAssets Core Vault (Xaman will show it, e.g. 1 XRP). It comes back to your Smart Account as FXRP minus the protocol's fees — minting max(0.1%, 0.1 XRP) + 0.2 XRP for the executor — with the exact figures shown before you sign. Nothing goes to Astryum or the vault manager.":
     'NO es una comisión ni el importe del repay: la orden viaja en un Payment XRPL al Core Vault de FAssets (Xaman lo mostrará, p. ej. 1 XRP). Vuelve a tu Smart Account como FXRP menos las fees del protocolo — mint máx(0,1%, 0,1 XRP) + 0,2 XRP del executor — con las cifras exactas antes de firmar. Nada va a Astryum ni al gestor del vault.',
   // ── Vault claim (release the Firelight ~24h exit queue) ──
@@ -2222,6 +2505,7 @@ const PAGES: Record<string, string> = {
   'Release the FXRP to your account': 'Libera el FXRP a tu cuenta',
   'Withdrawal period': 'Periodo de retiro',
   'Shares queued': 'Participaciones en cola',
+  'Queued for release': 'En cola para salir',
   'Claim submitted for settlement': 'Claim enviado a liquidación',
   'ready': 'listo',
   'in the exit queue': 'en la cola de salida',
@@ -2266,8 +2550,238 @@ const PAGES: Record<string, string> = {
   'XRPL keeps a 1 XRP base reserve locked in the sending account.':
     'XRPL mantiene bloqueada una reserva base de 1 XRP en la cuenta emisora.',
   'Prepare transfer': 'Preparar transferencia',
-  'Network fee': 'Fee de red',
-  'Astryum fee': 'Fee de Astryum',
+  'Network fee': 'Comisión de red',
+  // ── R5: todos los cargos antes de firmar (2026-07-30) ──
+  'your wallet shows the exact figure before signing':
+    'tu wallet muestra la cifra exacta antes de firmar',
+  'The withdrawal period ended — this releases the FXRP straight to your wallet. The only cost is the network fee (cents; your wallet shows the exact figure before signing). The exit fee was already taken when you requested the withdrawal — nothing else is charged.':
+    'El plazo de salida ha terminado — al confirmar, el FXRP pasa directo a tu wallet. El único coste es la comisión de red (céntimos; tu wallet muestra la cifra exacta antes de firmar). La comisión de salida ya se cobró al solicitar la retirada — no se cobra nada más.',
+  'Astryum fee': 'Comisión de Astryum',
+  'we charge nothing': 'no cobramos nada',
+  'Real money · product in testing': 'Dinero real · producto en pruebas',
+  // ── Withdraw con destino XRPL en el selector + dispatch explicado (30-jul) ──
+  'This account is steered from your XRPL wallet, so every order travels on a small XRP payment — that payment IS your signature.':
+    'Esta cuenta se gobierna desde tu wallet XRPL, así que cada orden viaja en un pequeño pago de XRP — ese pago ES tu firma.',
+  'It is not lost: it comes back to you as FXRP. Net cost ≈ 0.3 XRP — exact figures before signing. Nothing goes to Astryum.':
+    'No se pierde: te vuelve como FXRP. Coste neto ≈ 0,3 XRP — cifras exactas antes de firmar. Nada va a Astryum.',
+  'Arrives as NATIVE XRP (minutes to hours) — 5 XRP minimum.':
+    'Llega como XRP NATIVO (de minutos a horas) — mínimo 5 XRP.',
+  'Withdraws and converts in ONE signature — the XRP arrives at your XRPL wallet in minutes to hours.':
+    'Retira y convierte en UNA firma — el XRP llega a tu wallet XRPL en minutos u horas.',
+  'Native XRP can only go to the XRPL wallet that owns this account.':
+    'El XRP nativo solo puede ir a la wallet XRPL dueña de esta cuenta.',
+  'Sending from your Astryum account to a Flare address is not wired here yet — use Withdraw on your position instead.':
+    'Enviar desde tu cuenta Astryum a una dirección de Flare todavía no está cableado aquí — usa Retirar en tu posición.',
+  'Travels inside the': 'Viaja dentro del pago de',
+  'dispatch (your signature) — net cost ≈ 0.3 XRP; the rest returns to your account as FXRP.':
+    'de transporte (tu firma) — coste neto ≈ 0,3 XRP; el resto vuelve a tu cuenta como FXRP.',
+  'Keep it on Flare (instant)': 'Dejarlo en Flare (al instante)',
+  'To my XRP wallet (minutes to hours)': 'A mi wallet XRP (minutos a horas)',
+  // ── Reserva de gobierno XRPL (trampa del mint-total, 30-jul) ──
+  'This would leave your XRPL wallet almost empty. Your Astryum account is steered FROM it — every order needs ~1 XRP of carrier payment. Keep at least ~2 XRP or you will not be able to withdraw or convert until you refund it from outside.':
+    'Esto dejaría tu wallet XRPL casi vacía. Tu cuenta Astryum se gobierna DESDE ella — cada orden necesita ~1 XRP de transporte. Deja al menos ~2 XRP o no podrás retirar ni convertir hasta que la fondees desde fuera.',
+  'MAX keeps ~2 XRP back — your Astryum account is steered from this wallet and every order needs a small XRP payment.':
+    'MAX se guarda ~2 XRP — tu cuenta Astryum se gobierna desde esta wallet y cada orden necesita un pequeño pago de XRP.',
+  'The account that signs is your XRPL wallet':
+    'La cuenta que firma es tu wallet XRPL',
+  'send it ~2 XRP (from an exchange or another wallet) and come back. Your money on Flare is untouched.':
+    'envíale ~2 XRP (desde un exchange u otra wallet) y vuelve. Tu dinero en Flare sigue intacto.',
+  // ── CmfReviewModal humanizado (Fase 3, 2026-07-30) ──
+  'Drafted by the assistant. Watching is free and touches nothing — when it fires, we will ask YOU to sign.':
+    'Redactado por el asistente. Vigilar es gratis y no toca nada — cuando salte, te pediremos que firmes TÚ.',
+  'Turn on the watch (nothing is signed now)': 'Activar la vigilancia (ahora no se firma nada)',
+  // ── R9 APY como dato (Fase 3, 2026-07-30) ──
+  'current protocol figure': 'dato actual del protocolo',
+  'If the rate held (it is not guaranteed — it changes constantly), this is what simple interest would add, before fees and price moves. It is not an offer, a promise, or an Astryum yield.':
+    'Si el tipo se mantuviera (no está garantizado — cambia constantemente), esto es lo que sumaría el interés simple, antes de comisiones y movimientos de precio. No es una oferta, ni una promesa, ni un rendimiento de Astryum.',
+  'Ready-made strategies live on mainnet. Open one to see exactly what it does with your tokens before you sign anything.':
+    'Estrategias listas funcionando en mainnet. Abre una para ver exactamente qué hace con tus tokens antes de firmar nada.',
+  // ── templateCatalog por t() (Fase 3, 2026-07-30) ──
+  'Defends your position: if your cushion (health factor) drops below your threshold, Astryum prepares the repayment for you to sign.':
+    'Defiende tu posición: si tu colchón (factor de salud) baja de tu umbral, Astryum te prepara el pago para que lo firmes.',
+  'Repay only just enough to restore the cushion': 'Devolver solo lo justo para restaurar el colchón',
+  'When it fires, it computes live the smallest repayment that lifts your cushion back to your target. Turn it off to use a fixed amount instead.':
+    'Cuando salte, calcula en vivo el pago mínimo que devuelve tu colchón a tu objetivo. Desactívalo para usar un importe fijo.',
+  'Fixed amount to repay': 'Importe fijo a devolver',
+  'Only used when the restore mode is off.': 'Solo se usa con el modo de restauración desactivado.',
+  'The minimum time between two alerts.': 'El tiempo mínimo entre dos avisos.',
+  'Compounds your yield: when your claimable rewards pass your threshold, Astryum prepares the claim for you to sign.':
+    'Reinvierte tu rendimiento: cuando tus recompensas cobrables superan tu umbral, Astryum te prepara el cobro para que lo firmes.',
+  'Minimum rewards': 'Recompensas mínimas',
+  'Fires when your claimable rewards exceed this value.':
+    'Salta cuando tus recompensas cobrables superan este valor.',
+  'Rewards are paid out roughly every 3.5 days — a long wait avoids empty alerts.':
+    'Las recompensas se reparten más o menos cada 3,5 días — una espera larga evita avisos vacíos.',
+  'Automatically reinvest what you earn': 'Reinvertir automáticamente lo que ganes',
+  'Your rewards go back into the position, already working and voting again — nothing for you to do.':
+    'Tus recompensas vuelven a la posición, ya trabajando y votando otra vez — sin que tengas que hacer nada.',
+  // ── describeRule compartido (Fase 3, 2026-07-30) ──
+  'If your cushion (health factor) drops below': 'Si tu colchón (factor de salud) baja de',
+  'If the borrowed share goes above': 'Si la parte prestada supera el',
+  'When your rewards exceed': 'Cuando tus recompensas superen',
+  'When idle': 'Cuando el saldo parado de',
+  'exceeds': 'supere',
+  'On a schedule': 'Según calendario',
+  'Every day at 12:00 UTC': 'Cada día a las 12:00 UTC',
+  'Every Monday at 12:00 UTC': 'Cada lunes a las 12:00 UTC',
+  'On the 1st of each month at 12:00 UTC': 'El día 1 de cada mes a las 12:00 UTC',
+  'If the rate you are paid drops below': 'Si el interés que te pagan baja del',
+  'we prepare a repayment for you to sign': 'te preparamos el pago para que lo firmes',
+  'we prepare a withdrawal for you to sign': 'te preparamos la retirada para que la firmes',
+  'we prepare a deposit for you to sign': 'te preparamos el depósito para que lo firmes',
+  'we prepare the rewards claim for you to sign': 'te preparamos el cobro de recompensas para que lo firmes',
+  'we prepare the reinvestment for you to sign': 'te preparamos la reinversión para que la firmes',
+  'we prepare the harvest for you to sign': 'te preparamos la cosecha para que la firmes',
+  'we prepare the delegation for you to sign': 'te preparamos la delegación para que la firmes',
+  'we prepare the savings lock for you to sign': 'te preparamos el apartado de ahorro para que lo firmes',
+  'a payment proposal goes to the council to sign': 'una propuesta de pago va al consejo para firmar',
+  'a vault order proposal goes to the council to sign': 'una propuesta de orden al vault va al consejo para firmar',
+  'you get an alert — nothing is prepared': 'recibes un aviso — no se prepara nada',
+  'we prepare it for you to sign': 'te lo preparamos para que lo firmes',
+  // ── PreflightNotice sin jerga (Fase 2b, 2026-07-30) ──
+  "We couldn't test this operation in advance — double-check the figures before signing.":
+    'No hemos podido probar esta operación por adelantado — repasa las cifras antes de firmar.',
+  'We tested this operation without signing it — it would FAIL:':
+    'Hemos probado esta operación sin firmarla — FALLARÍA:',
+  'We tested this operation without signing it — it would succeed':
+    'Hemos probado esta operación sin firmarla — saldría bien',
+  'Partial dry-run:': 'Comprobación parcial:',
+  'what could be simulated would succeed — one leg could not be checked.':
+    'lo que se pudo simular saldría bien — una parte no se pudo comprobar.',
+  'steps verifiable before signing': 'pasos verificables antes de firmar',
+  'the simulation reported a failure': 'la simulación devolvió un fallo',
+  // ── settlementReasonText (Fase 2b, 2026-07-30) ──
+  'The batch failed on the network — your money did not move.':
+    'El lote falló en la red — tu dinero no se ha movido.',
+  'Your wallet does not let us confirm automatically — open it and check with the receipt below.':
+    'Tu wallet no nos deja confirmarlo automáticamente — ábrela y compruébalo con el recibo de abajo.',
+  'The network rejected the transaction. Your money did not move; only the network fee was spent.':
+    'La red rechazó la transacción. Tu dinero no se ha movido; solo se gastó la comisión de red.',
+  'Batch step': 'El paso',
+  'of the batch was rejected by the network — nothing was applied.':
+    'del lote fue rechazado por la red — no se aplicó nada.',
+  // ── Léxico R3 de intenciones y CTAs (Fase 2b, 2026-07-30) ──
+  'Review before signing': 'Ver el resumen antes de firmar',
+  'Close the position, step by step': 'Cerrar la posición paso a paso',
+  'Deposit the borrowed dollars again': 'Volver a depositar los dólares prestados',
+  'Convert to XRP': 'Pasar a XRP',
+  'Complete the borrow': 'Completar el préstamo',
+  'Put the borrowed dollars back to work': 'Poner los dólares prestados a trabajar otra vez',
+  'Repay your loan': 'Devolver tu préstamo',
+  'Withdraw funds': 'Retirar fondos',
+  'your Astryum account — you sign in Xaman': 'tu cuenta Astryum — firmas en Xaman',
+  'Get back the dollars you had re-deposited': 'Recuperar los dólares que habías vuelto a depositar',
+  'Pay off the whole loan': 'Pagar el préstamo entero',
+  'Recover the XRP backing your position': 'Recuperar el XRP que respalda tu posición',
+  'In your Astryum account this step signs together with step 2: the repay takes back the re-deposited dollars by itself, inside the same Xaman signature.':
+    'En tu cuenta Astryum este paso se firma junto al paso 2: el repago recupera él solo los dólares re-depositados, dentro de la misma firma de Xaman.',
+  'Skip to step': 'Saltar al paso',
+  'You are about to repay': 'Vas a devolver',
+  'of your loan on Kinetic.': 'de tu préstamo en Kinetic.',
+  'You are about to deposit': 'Vas a depositar',
+  'back into Kinetic.': 'de vuelta en Kinetic.',
+  'You are about to convert': 'Vas a convertir',
+  'into XRP, on its way to your XRPL wallet.': 'a XRP, en camino a tu wallet XRPL.',
+  'You are about to withdraw': 'Vas a retirar',
+  'from Kinetic to your wallet.': 'de Kinetic a tu wallet.',
+  // ── Éxitos veraces + settling (Fase 2, 2026-07-30) ──
+  'Keep waiting in the background': 'Seguir esperando en segundo plano',
+  'Claim confirmed — your XRP is on its way to your XRPL wallet (minutes to hours).':
+    'Cobro confirmado — tu XRP está en camino a tu wallet XRPL (de minutos a horas).',
+  'Request registered. Your money enters the ~24h exit queue — a Claim button will appear when it is ready.':
+    'Solicitud registrada. Tu dinero entra en la cola de salida de ~24 h — aparecerá un botón para cobrarlo cuando esté listo.',
+  'Done. Your debt is paid down.': 'Listo. Tu deuda está pagada.',
+  'Done. The funds are back in your account.': 'Listo. Los fondos están de vuelta en tu cuenta.',
+  'Done. Your XRP is on its way to your XRPL wallet (minutes to hours).':
+    'Listo. Tu XRP está en camino a tu wallet XRPL (de minutos a horas).',
+  'See how your position looks now': 'Ver cómo queda tu posición',
+  'Your XRP will appear on Flare as FXRP in a few minutes. Sometimes it takes a little longer — it is never lost.':
+    'Tu XRP aparecerá en Flare como FXRP en unos minutos. A veces tarda algo más — nunca se pierde.',
+  // ── Intents/firma (Fase 2, 2026-07-30) ──
+  'Being prepared': 'Preparándose',
+  'Sending to the network': 'Enviándose a la red',
+  'On its way to the network': 'En camino a la red',
+  'This operation cannot be signed yet.': 'Esta operación todavía no se puede firmar.',
+  // ── Settlement en-vuelo (Fase 2, 2026-07-30): titulares que faltaban en ES ──
+  'Settled on Flare — confirmed on-chain.': 'Confirmado en la red de Flare.',
+  'The signed operation failed on-chain.': 'La red rechazó la operación firmada.',
+  'Taking longer than normal — still watching the chain. Nothing is lost.':
+    'Está tardando más de lo normal — seguimos vigilando la red. No se ha perdido nada.',
+  'Signed — settling on Flare…': 'Firmado — confirmando en la red…',
+  'Still settling on Flare…': 'Todavía confirmándose en la red…',
+  'You signed this before the reload. We are still watching it:':
+    'Firmaste esto antes de recargar. Seguimos vigilándolo:',
+  'Result of what you signed before the reload:':
+    'Resultado de lo que firmaste antes de recargar:',
+  'Only hides this notice — the operation keeps going on-chain.':
+    'Solo oculta este aviso — la operación sigue su curso en la red.',
+  // ── DispatchXrpField (F12, 2026-07-30) ──
+  'The order travels on a small XRP payment': 'La orden viaja en un pequeño pago de XRP',
+  'it comes back to you as FXRP minus the protocol fees. You will see the exact figures before signing. Nothing goes to Astryum.':
+    'te vuelve como FXRP menos las comisiones del protocolo. Verás las cifras exactas antes de firmar. Nada va a Astryum.',
+  'Adjust the carrier payment (advanced)': 'Ajustar el pago de transporte (avanzado)',
+  // ── Swap-fill: elección obligatoria (founder 2026-07-31) ──
+  'You are short': 'Te faltan',
+  'choose how to cover it: swap YOUR own asset inside the same batch you sign (wallet → pool → wallet; Astryum only compiles), or repay without the swap and cover the rest yourself. The transaction is built one way or the other — the signature unlocks when you pick:':
+    'elige cómo cubrirlo: swapear TU propio activo dentro del mismo lote que firmas (wallet → pool → wallet; Astryum solo compila), o repagar sin swap y poner tú el resto. La transacción se construye de una forma o de otra — la firma se desbloquea al elegir:',
+  'Pay with swapped': 'Pagar con el swap de',
+  'Do not pay with a swap': 'No pagar con swap',
+  'repay only what you already hold': 'repagar solo con lo que ya tienes',
+  'Right now this account holds no USDT0 — without the swap there is nothing to repay. Bring USDT0 to it (or repay from your Flare wallet) and come back.':
+    'Ahora mismo esta cuenta no tiene USDT0 — sin el swap no hay nada que repagar. Hazle llegar USDT0 (o repaga desde tu wallet de Flare) y vuelve.',
+  'The missing USDT0 stays as YOUR debt after signing: you cover it later with USDT0 you bring yourself, and the FXRP collateral cannot leave until the whole debt is at zero.':
+    'El USDT0 que falta sigue siendo TU deuda tras firmar: lo cubres después con USDT0 que traigas tú, y el colateral FXRP no puede salir hasta que toda la deuda esté a cero.',
+  'First choose how to cover the missing USDT0 — pick one of the options above and the signature unlocks.':
+    'Primero elige cómo cubrir el USDT0 que falta — marca una de las opciones de arriba y se desbloquea la firma.',
+  'you hold': 'tienes',
+  'not enough balance': 'saldo insuficiente',
+  'No SparkDEX route quotes this amount right now.': 'Ninguna ruta de SparkDEX cotiza este importe ahora mismo.',
+  'Remove the fill (repay only what you hold)': 'Quitar el swap (repagar solo con lo que tienes)',
+  "NOT a fee and NOT the amount of your operation: the order must ride an XRPL Payment to the FAssets Core Vault (Xaman will show it). It returns to your account as FXRP minus the protocol's fees — minting max(0.1%, 0.1 XRP) + 0.2 XRP for the executor.":
+    'NO es una comisión ni el importe de tu operación: la orden viaja en un Payment XRPL al Core Vault de FAssets (Xaman lo mostrará). Vuelve a tu cuenta como FXRP menos las comisiones del protocolo — mint máx(0,1 %, 0,1 XRP) + 0,2 XRP del executor.',
+  // ── XamanQRModal (F6, 2026-07-30): estados terminales + countdown + i18n ──
+  'Review the operation in the app and approve it. It reaches the network only with your signature.':
+    'Revisa la operación en la app y apruébala. Se envía a la red solo con tu firma.',
+  'Connect Xaman': 'Conectar Xaman',
+  'Scan the code and approve the sign-in. No funds move.':
+    'Escanea el código y aprueba el inicio de sesión. No se mueve ningún fondo.',
+  'Sign the message': 'Firma el mensaje',
+  'Approve the signature in the app. It is an ownership proof: it moves no funds.':
+    'Aprueba la firma en la app. Es una prueba de titularidad: no mueve fondos.',
+  'You declined the signature in Xaman. Nothing happened and nothing moved.':
+    'Has rechazado la firma en Xaman. No ha pasado nada y no se ha movido nada.',
+  'The code expired. Nothing was signed. Close this window and try again whenever you like.':
+    'El código ha caducado. No se ha firmado nada. Cierra esta ventana y vuelve a intentarlo cuando quieras.',
+  'QR code to sign in Xaman': 'Código QR para firmar en Xaman',
+  'QR unavailable — use “Open in Xaman”.': 'QR no disponible — usa «Abrir en Xaman».',
+  'Signed — sending to the network…': 'Firmado — enviando a la red…',
+  'Signed in.': 'Sesión confirmada.',
+  'Signature received. Nothing is sent to the network.':
+    'Firma recibida. No se envía nada a la red.',
+  'Open in Xaman — review and approve': 'Abierto en Xaman — revisa y aprueba',
+  'Request sent to your Xaman — open it from the notification on your phone. The QR works too.':
+    'Solicitud enviada a tu Xaman — ábrela desde la notificación del móvil. El QR también vale.',
+  'No push this time — scan the QR with Xaman. Push notifications activate after you sign once from this browser.':
+    'Esta vez sin aviso en el móvil — escanea el QR con Xaman. Los avisos push se activan tras firmar una vez desde este navegador.',
+  'Opening Xaman…': 'Abriendo Xaman…',
+  'Waiting for your signature in Xaman…': 'Esperando tu firma en Xaman…',
+  'Open in Xaman': 'Abrir en Xaman',
+  'Time left before this code expires': 'Tiempo restante antes de que caduque este código',
+  'Astryum never signs and never holds custody. The key is yours and the signature happens in Xaman.':
+    'Astryum no firma ni custodia. La clave es tuya y la firma ocurre en Xaman.',
+  // ── Fijar beneficiarios del rendimiento (F5, 2026-07-30) ──
+  'Set the payees (who receives the yield)': 'Fijar los beneficiarios (quién recibe el rendimiento)',
+  'Payee (Flare 0x…)': 'Beneficiario (Flare 0x…)',
+  'Share (%)': 'Parte (%)',
+  'Add payee': 'Añadir beneficiario',
+  'Add at least one payee.': 'Añade al menos un beneficiario.',
+  'Every payee must be a Flare address (0x…).': 'Cada beneficiario debe ser una dirección de Flare (0x…).',
+  'Every payee needs a share greater than 0%.': 'Cada beneficiario necesita una parte mayor que 0 %.',
+  'The shares add up to more than 100%': 'Las partes suman más del 100 %',
+  'The yield is shared out in these proportions. What is not assigned keeps capitalizing into the principal.':
+    'El rendimiento se reparte en estas proporciones. Lo que no se asigne sigue capitalizando en el principal.',
+  'This Legacy has no payees set, so ALL yield capitalizes back into the principal. To share it out, the council sends the governed order "Set the payees (who receives the yield)" from the Proposals tab.':
+    'Este Legacy no tiene beneficiarios fijados, así que TODO el rendimiento capitaliza de vuelta en el principal. Para repartirlo, el consejo envía la orden gobernada «Fijar los beneficiarios (quién recibe el rendimiento)» desde la pestaña Proposals.',
   'Astryum built this payload unsigned. You review and sign it in your own wallet — nothing moves without your signature.':
     'Astryum construyó este payload sin firmar. Lo revisas y firmas en tu propia wallet — nada se mueve sin tu firma.',
   'This transfer signs in Xaman (XRPL)': 'Esta transferencia se firma en Xaman (XRPL)',
@@ -2375,6 +2889,28 @@ const PAGES: Record<string, string> = {
     'reclama como FXRP y haz Unmint más tarde junto con más FXRP.',
   'Unmint runs from the Smart Account — this FXRP lives in an EVM wallet; use Send → FXRP → XRPL there.':
     'El Unmint corre desde el Smart Account — este FXRP vive en una wallet EVM; usa Enviar → FXRP → XRPL allí.',
+  'Free FXRP in your wallet': 'FXRP libre en tu wallet',
+  'MAX = every free FXRP in this wallet, redeemed to native XRP.':
+    'MAX = todo el FXRP libre de esta wallet, redimido a XRP nativo.',
+  'XRPL wallet to receive the XRP': 'Wallet XRPL que recibe el XRP',
+  'You sign this redeem in your own Flare wallet; the FAssets agent then pays the XRP to that XRPL address (minutes to hours), minus the protocol redemption fee. No Xaman, no dispatch.':
+    'Firmas este redeem en tu propia wallet Flare; el agente de FAssets paga luego el XRP a esa dirección XRPL (minutos a horas), menos la fee de redención del protocolo. Sin Xaman, sin dispatch.',
+  'Enter the XRPL address (r…) to receive the XRP': 'Introduce la dirección XRPL (r…) que recibe el XRP',
+  'FXRP in this position': 'FXRP en esta posición',
+  'Redeem → XRP': 'Redimir → XRP',
+  'Redeem — FXRP → native XRP': 'Redimir — FXRP → XRP nativo',
+  'Stays as FXRP on Flare. To get native XRP back to an XRPL wallet, use Redeem.':
+    'Se queda como FXRP en Flare. Para recuperar XRP nativo en una wallet XRPL, usa Redimir.',
+  'More than you can redeem:': 'Más de lo que puedes redimir:',
+  'Free in this wallet': 'Libre en esta wallet',
+  'Position + wallet': 'Posición + wallet',
+  'More than this position holds:': 'Más de lo que tiene esta posición:',
+  'MAX = the full position, withdrawn from Kinetic and redeemed to native XRP.':
+    'MAX = la posición entera, retirada de Kinetic y redimida a XRP nativo.',
+  'Withdraws this position from Kinetic and redeems it to native XRP, in one signature in your wallet. The FAssets agent pays the XRP to that XRPL address (minutes to hours), minus the protocol redemption fee. No Xaman, no dispatch.':
+    'Retira esta posición de Kinetic y la redime a XRP nativo, en una sola firma en tu wallet. El agente de FAssets paga el XRP a esa dirección XRPL (minutos a horas), menos la fee de redención del protocolo. Sin Xaman, sin dispatch.',
+  'Withdraws this position from Kinetic and redeems it to native XRP — one signature in your wallet. The FAssets agent pays the XRP to your XRPL address (minutes to hours), minus the protocol redemption fee.':
+    'Retira esta posición de Kinetic y la redime a XRP nativo — una firma en tu wallet. El agente de FAssets paga el XRP a tu dirección XRPL (minutos a horas), menos la fee de redención del protocolo.',
   'Exit: Unmint back to native XRP from this account (5 XRP protocol minimum per redemption; the FAssets agent pays the XRP after the burn)':
     'Salida: Unmint de vuelta a XRP nativo desde esta cuenta (mínimo del protocolo 5 XRP por redención; el agente de FAssets paga el XRP tras el burn)',
   'Counts in dashboard totals': 'Computa en los totales del dashboard',
@@ -2440,6 +2976,85 @@ const PAGES: Record<string, string> = {
     'La transferencia no se pudo compilar — no se propuso nada.',
   'Astryum builds the payload unsigned — you review the fees and sign in your own wallet.':
     'Astryum construye el payload sin firmar — revisas las fees y firmas en tu propia wallet.',
+
+  // ── Legacy — la divulgación de la jaula (leer y aceptar antes de encerrar) ──
+  // El texto canónico lo sirve el backend (config/cageDisclosure.ts) y lo
+  // hashea allí: aquí solo se traduce. Si cambia una frase allí, se sube la
+  // versión y esta entrada deja de casar — hay que actualizarla en el mismo PR.
+  'How a cage works': 'Cómo funciona una jaula',
+  'Read this before locking capital. Governing a Legacy on XRPL locks up nothing — only a cage does, and a cage is one-way by design.':
+    'Lee esto antes de encerrar capital. Gobernar un Legacy en XRPL no encierra nada — solo la jaula lo hace, y la jaula es de una dirección por diseño.',
+  'Why it is one-way': 'Por qué es de una dirección',
+  'A legacy is a legacy because nobody can undo it — not the family under pressure, not a future you, and not Astryum.':
+    'Un legado es un legado porque nadie puede deshacerlo — ni la familia bajo presión, ni tu yo futuro, ni Astryum.',
+  'So the cage is a contract with no way to pay principal back to an address. That is the product, not a limitation of it.':
+    'Por eso la jaula es un contrato sin ninguna forma de devolver el principal a una dirección. Eso es el producto, no una limitación suya.',
+  'The council, the quorum, the constitution and the programmed transfers lock up nothing. You can govern a Legacy for years without ever creating a cage.':
+    'El consejo, el quórum, la constitución y las transferencias programadas no encierran nada. Puedes gobernar un Legacy durante años sin crear jamás una jaula.',
+  'What the code has, and what it does not': 'Lo que el código tiene, y lo que no',
+  'There is no function that withdraws principal, no transfer to an arbitrary address, no proxy and no upgrade path. The rules are fixed from the first block.':
+    'No hay ninguna función que retire el principal, ni transferencia a una dirección arbitraria, ni proxy, ni vía de actualización. Las reglas son fijas desde el primer bloque.',
+  'Principal only moves between the vault and the venues the council whitelisted. A newly added venue takes effect 30 days later — because adding a venue IS the power to extract.':
+    'El principal solo se mueve entre la vasija y los destinos que el consejo puso en su lista blanca. Un destino recién añadido tarda 30 días en entrar en vigor — porque añadir un destino ES el poder de extraer.',
+  'Only realized yield ever reaches people. It is split into the lineage cut (which capitalizes back into principal), the protocol fee, and the payees the council configured.':
+    'A las personas solo llega el rendimiento realizado. Se reparte entre el corte del linaje (que se capitaliza de vuelta al principal), la comisión de protocolo y los beneficiarios que el consejo haya configurado.',
+  'The principal can be moved once more, and only sideways: into a successor vault with the SAME council and the SAME constitution, 30 days after the quorum proposes it. That is a move, not an exit.':
+    'El principal sí puede moverse una vez más, y solo de lado: a una vasija sucesora con el MISMO consejo y la MISMA constitución, 30 días después de que el quórum lo proponga. Eso es una mudanza, no una salida.',
+  'A venue can still lose value. The cage stops principal from leaving; it does not make the capital risk-free.':
+    'Un destino puede perder valor igualmente. La jaula impide que el principal salga; no convierte el capital en algo sin riesgo.',
+  'Who can do what': 'Quién puede hacer qué',
+  'Astryum composes the payment and shows you the facts. Your council signs it, each member from their own device. The code does the rest.':
+    'Astryum compone el pago y te enseña los hechos. Tu consejo lo firma, cada miembro desde su propio dispositivo. El código hace el resto.',
+  'Astryum never holds a key of yours, never signs for you, and cannot open the cage. Nobody can — and that includes us.':
+    'Astryum nunca tiene una clave tuya, nunca firma por ti y no puede abrir la jaula. Nadie puede — y eso nos incluye.',
+  'The architecture, in three lines': 'La arquitectura, en tres líneas',
+  'XRPL governs: the council, its quorum, and the constitution anchored on the ledger.':
+    'XRPL gobierna: el consejo, su quórum y la constitución anclada en el ledger.',
+  'Flare produces: the cage, and the venues it is allowed to work in.':
+    'Flare produce: la jaula y los destinos en los que se le permite trabajar.',
+  'Astryum coordinates: it builds the unsigned payload, discloses the fees, and stops there.':
+    'Astryum coordina: construye el payload sin firmar, revela las comisiones y ahí se para.',
+  'What it costs': 'Lo que cuesta',
+  'To enter: a FAssets minting fee, the executor fee for the proof it pays on Flare, and the XRPL transaction fee. The exact numbers appear on the hand-off, before anyone signs.':
+    'Para entrar: la comisión de acuñación de FAssets, la comisión del executor por la prueba que paga en Flare, y la comisión de transacción de XRPL. Los números exactos aparecen en la entrega, antes de que nadie firme.',
+  'Inside: the lineage cut takes between 10% and 40% of realized yield — chosen at birth, adjustable by quorum within those bounds, never below 10%.':
+    'Dentro: el corte del linaje se lleva entre el 10% y el 40% del rendimiento realizado — se elige al nacer, el quórum lo ajusta dentro de esos límites, y nunca baja del 10%.',
+  'Astryum’s protocol fee applies to yield only, is capped at 10% for ever by the contract, and is 0 today.':
+    'La comisión de protocolo de Astryum se aplica solo al rendimiento, el contrato la limita al 10% para siempre, y hoy es 0.',
+  'It is a beta': 'Es una beta',
+  'This is beta software running on mainnet, and the vault contract has not been audited by a third party.':
+    'Esto es software en beta corriendo sobre mainnet, y el contrato de la vasija no ha sido auditado por un tercero.',
+  'A cage accepts a limited total through Astryum during the beta. The current limit is shown next to the amount.':
+    'Durante la beta una jaula acepta un total limitado a través de Astryum. El límite vigente se muestra junto al importe.',
+  'Cage only what you can afford to leave locked.':
+    'Enjaula solo lo que puedas permitirte dejar encerrado.',
+  'I understand that the principal that enters the cage does not come back out to an address — not mine, and not Astryum’s.':
+    'Entiendo que el principal que entra en la jaula no vuelve a salir a una dirección — ni a la mía, ni a la de Astryum.',
+  'I understand that this is beta, unaudited software on mainnet, and that I can lose what I put in.':
+    'Entiendo que esto es software en beta, sin auditar, sobre mainnet, y que puedo perder lo que meta.',
+  'I understand that Astryum does not custody, does not sign, and cannot reverse this for me.':
+    'Entiendo que Astryum no custodia, no firma y no puede revertir esto por mí.',
+  'I understand the beta limit, and I am not caging anything I cannot afford to leave locked.':
+    'Entiendo el límite de la beta, y no estoy enjaulando nada que no pueda permitirme dejar encerrado.',
+  // El modal y la banda que lo abren.
+  'The limits right now': 'Los límites ahora mismo',
+  'Most a cage may hold through Astryum': 'Lo máximo que una jaula puede contener vía Astryum',
+  'This cage holds today': 'Esta jaula contiene hoy',
+  'Still fits': 'Todavía cabe',
+  'Below this the fees eat the whole payment': 'Por debajo de esto las comisiones se comen el pago entero',
+  'The exact minting and executor fees for your amount are shown on the hand-off, before anyone signs.':
+    'Las comisiones exactas de acuñación y del executor para tu importe se muestran en la entrega, antes de que nadie firme.',
+  'See the live contract addresses on the proof page':
+    'Ver las direcciones de los contratos en vivo en la página de prueba',
+  'Confirm you understand': 'Confirma que lo entiendes',
+  'You confirmed you understood this on': 'Confirmaste que entendías esto el',
+  'Not now': 'Ahora no',
+  'I understand — continue': 'Lo entiendo — continuar',
+  'I understand — compose the birth': 'Lo entiendo — componer el nacimiento',
+  'I understand — compose the order': 'Lo entiendo — componer la orden',
+  'Beta.': 'Beta.',
+  'Governing a Legacy locks up nothing. Creating a cage does — and a cage is one-way by design.':
+    'Gobernar un Legacy no encierra nada. Crear una jaula sí — y la jaula es de una dirección por diseño.',
 
   // ── Legacy (vías (a)+(b): consejo + transferencia programada + constitución) ──
   Legacy: 'Legacy',
@@ -2529,6 +3144,161 @@ const PAGES: Record<string, string> = {
   // Dos superficies (ADR-008 / prompt Fable) + la salud que gobierna las acciones (§2).
   'Constitute': 'Constituir',
   'Govern': 'Gobernar',
+  // Reorganización pre-gate 2026-08-04: conmutador de superficie en cabecera,
+  // tab Info (antes "Information"), rail/tabs accesibles y estado de la
+  // constitución en la tira de identidad de Gobernar.
+  'Info': 'Info',
+  'New Legacy': 'Nuevo Legacy',
+  'Legacy surface': 'Superficie del Legacy',
+  'Open or constitute a Legacy first': 'Abre o constituye un Legacy primero',
+  'Govern sections': 'Secciones de Gobernar',
+  'Constitution stations': 'Estaciones de la constitución',
+  'done': 'hecha',
+  'constitution anchored': 'constitución anclada',
+  'no constitution anchored yet': 'aún sin constitución anclada',
+  'View the constitution': 'Ver la constitución',
+  'Previous station': 'Estación anterior',
+  'Next station': 'Estación siguiente',
+  // 'Previous' / 'Next' ya existen arriba (~1467) con la misma traducción.
+  'A Legacy is an XRPL account governed by a council of real people — a quorum the ledger itself enforces. Constitute a new one, or open the address of one you already govern in the first step: it will appear here.':
+    'Un Legacy es una cuenta XRPL gobernada por un consejo de personas reales — un quórum que el propio ledger hace cumplir. Constituye uno nuevo, o abre en el primer paso la dirección de uno que ya gobiernes: aparecerá aquí.',
+  // La puerta del lobby (2026-08-04): en modo Legacy sin cuenta gobernada,
+  // las páginas compartidas enseñan el lobby — nunca el capital Personal.
+  'No Legacy constituted yet': 'Aún no hay ningún Legacy constituido',
+  'This is the Legacy side of Astryum: it shows a council-governed account, and this profile has none yet. Personal capital stays on the Personal side — nothing is shown here until a council exists.':
+    'Este es el lado Legacy de Astryum: muestra una cuenta gobernada por consejo, y este perfil aún no tiene ninguna. El capital Personal se queda en el lado Personal — aquí no se enseña nada hasta que exista un consejo.',
+  'Constitute a Legacy': 'Constituir un Legacy',
+  'Back to Personal': 'Volver a Personal',
+  'Loading': 'Cargando',
+  // Briefs por estación (2026-08-04, del propio onboarding del fundador):
+  // cada slide abre diciendo QUÉ SE HACE físicamente, en pasos numerados.
+  'Before you start': 'Antes de empezar',
+  'What you do here': 'Qué se hace aquí',
+  'Create a NEW account in the Xaman wallet on your phone — new, with no history: the ceremony ends with this account’s master key disabled, so never use your everyday account.':
+    'Crea una cuenta NUEVA en la wallet Xaman de tu móvil — nueva, sin historial: la ceremonia termina deshabilitando la master key de esta cuenta, así que nunca uses tu cuenta de diario.',
+  'Fund it with a little XRP — about 15 XRP covers the ledger reserves and the ceremony fees. The exact figure is checked here once the account is open.':
+    'Fondéala con un poco de XRP — unos 15 XRP cubren las reservas del ledger y las comisiones de la ceremonia. La cifra exacta se comprueba aquí en cuanto la cuenta esté abierta.',
+  'Paste its r… address below: that account becomes the Legacy — the main account the council will govern. Astryum reads it from the ledger and never touches its keys.':
+    'Pega su dirección r… aquí abajo: esa cuenta se convierte en el Legacy — la cuenta principal que gobernará el consejo. Astryum la lee del ledger y jamás toca sus llaves.',
+  // Council, acortado (2026-08-04, "demasiado texto junto"): el brief nombra
+  // los tres movimientos; CouncilInXaman los explica debajo.
+  'Gather 3 to 7 people (5 with a quorum of 3 is the standard), each with their OWN Xaman wallet.':
+    'Reúne de 3 a 7 personas (5 con quórum de 3 es el estándar), cada una con SU wallet Xaman.',
+  'Write the plan first: who signs, with what weight, and the quorum.':
+    'Escribe primero el plan: quién firma, con qué peso y el quórum.',
+  'Create it in the Xaman Multisign xApp — guided below, screen by screen — and come back to compare the ledger against your plan.':
+    'Créalo en el xApp Multisign de Xaman — guiado abajo, pantalla a pantalla — y vuelve para comparar el ledger con tu plan.',
+  // Inmersión del wizard (2026-08-05): cabecera de estación, orientación de
+  // primera vez, ayuda de primera wallet y los «Continuar» del éxito.
+  'A fresh Xaman account becomes the vessel of the Legacy.':
+    'Una cuenta Xaman nueva se convierte en el recipiente del Legacy.',
+  '~10 min · your phone': '~10 min · tu móvil',
+  'Who signs, and how many must agree — created in Xaman.':
+    'Quién firma y cuántos deben estar de acuerdo — creado en Xaman.',
+  '~15 min · the members’ addresses': '~15 min · las direcciones de los miembros',
+  'Every member proves they can sign — before any real capital.':
+    'Cada miembro demuestra que sabe firmar — antes de cualquier capital real.',
+  '~5 min per member · their phones': '~5 min por miembro · sus móviles',
+  'The master key retires; only the council remains.':
+    'La master key se retira; solo queda el consejo.',
+  '~2 min · your phone': '~2 min · tu móvil',
+  'The rules, written in plain language and anchored on the ledger.':
+    'Las reglas, escritas en lenguaje humano y ancladas en el ledger.',
+  '~10 min · here': '~10 min · aquí',
+  'Fund the vessel — the ceremony is complete.': 'Fondea el recipiente — la ceremonia está completa.',
+  '~1 min': '~1 min',
+  'The ceremony': 'La ceremonia',
+  'Six stations, one irreversible moment — closing the door — and even that one is gated behind a rehearsal. You can leave at any station and come back: everything lives on the ledger, so the ceremony resumes exactly where reality is.':
+    'Seis estaciones, un solo momento irreversible — cerrar la puerta — y hasta ese llega custodiado por un ensayo. Puedes irte en cualquier estación y volver: todo vive en el ledger, así que la ceremonia se reanuda exactamente donde está la realidad.',
+  'What you need: your phone with Xaman, the members’ addresses (r…), and about 15 XRP on the new account. The guide in the sidebar knows every station — ask it anything.':
+    'Qué necesitas: tu móvil con Xaman, las direcciones de los miembros (r…) y unos 15 XRP en la cuenta nueva. La guía de la barra lateral conoce cada estación — pregúntale lo que sea.',
+  'Never created a Xaman account? The 60-second version':
+    '¿Nunca has creado una cuenta de Xaman? La versión de 60 segundos',
+  'Install Xaman from the App Store or Play Store and open it.':
+    'Instala Xaman desde el App Store o Play Store y ábrela.',
+  'Add account → create a NEW account. Xaman shows you the secret numbers — write them on paper, in order. They ARE the account; whoever holds them holds it.':
+    'Añadir cuenta → crear una cuenta NUEVA. Xaman te enseña los números secretos — escríbelos en papel, en orden. SON la cuenta: quien los tiene, la tiene.',
+  'Confirm the numbers when Xaman asks. The new r… address appears at the top of the home screen — that is the vessel.':
+    'Confirma los números cuando Xaman te los pida. La nueva dirección r… aparece arriba en la pantalla de inicio — ese es el recipiente.',
+  'Tap the address to copy it, send it to yourself, and paste it below.':
+    'Toca la dirección para copiarla, envíatela y pégala aquí abajo.',
+  'Continue: the rehearsal': 'Continuar: el ensayo',
+  'Continue: close the door': 'Continuar: cerrar la puerta',
+  'Continue: the capital': 'Continuar: el capital',
+  // Placeholders de las plantillas de constitución (2026-08-08): eran
+  // literales en español y se colaban en la UI inglesa; ahora son claves
+  // inglesas y este bloque es su español de siempre.
+  'ipfs://… / "the safe at home"': 'ipfs://… / "caja fuerte de casa"',
+  'G’s patrimony': 'Patrimonio de G',
+  'Protect my capital for the long run: let it produce without being sellable on an impulse, and let no single key touch it alone.':
+    'Proteger mi capital a largo plazo: que produzca sin poder venderse en un impulso, y que ninguna llave sola pueda tocarlo.',
+  'Phone (Xaman) — r… — backup: home safe\nHardware — r… — backup: bank\nOld phone (Xaman) — r… — backup: my parents’ house':
+    'Móvil (Xaman) — r… — backup: caja fuerte casa\nHardware — r… — backup: banco\nMóvil viejo (Xaman) — r… — backup: casa de mis padres',
+  'García Legacy': 'Legacy García',
+  'That no generation of this family starts from zero…':
+    'Que ninguna generación de esta familia empiece de cero…',
+  'Foundation / purpose': 'Fundación / propósito',
+  'Ana’s branch — 50\nLuis’s branch — 50': 'Rama de Ana — 50\nRama de Luis — 50',
+  'Marco: receives his share at 25': 'Marco: recibe su parte al cumplir 25 años',
+  'Ana — r… — successor: Marco, r…': 'Ana — r… — sucesor: Marco, r…',
+  'Marco’s fund': 'Fondo de Marco',
+  'His education and his first home…': 'Su educación y su primer techo…',
+  'At 18 → 30% of the fund\nAt 25 → the rest': 'Al cumplir 18 → 30% del fondo\nAl cumplir 25 → el resto',
+  'Clean Sea Fund': 'Fondo Mar Limpio',
+  'What this fund sustains, and for whom…': 'Qué sostiene este fondo y para quién…',
+  'Annual grants…\nNever third parties’ running expenses…':
+    'Becas anuales…\nNunca gasto corriente de terceros…',
+  'Taller Roca Legacy': 'Legacy Taller Roca',
+  'That the business keeps producing for…': 'Que el negocio siga produciendo para…',
+  'Only council-approved destinations…': 'Solo destinos aprobados por el consejo…',
+  'The kids’ savings': 'Ahorro de los niños',
+  // Council reestructurado (2026-08-05): tarjetas separadas, tutorial
+  // ilustrado con las capturas reales de Xaman, plan plegado como opcional.
+  'created in Xaman, not here': 'creado en Xaman, no aquí',
+  'No council governs this account yet. It is created in the Xaman Multisign xApp — from the phone that holds this account’s key — following the illustrated steps below; then you come back and Astryum reads it from the ledger. Astryum never holds a key.':
+    'Aún no gobierna esta cuenta ningún consejo. Se crea en el xApp Multisign de Xaman — desde el móvil que guarda la llave de esta cuenta — siguiendo los pasos ilustrados de abajo; después vuelves y Astryum lo lee del ledger. Astryum nunca guarda una llave.',
+  'Why there? The signer list is the one transaction that hands over control of an account, and Xaman only lets its own tools compose it — it refuses the request from any app, Astryum included. Everything after this step — the rehearsal, closing the door, the constitution — happens back here.':
+    '¿Por qué allí? La lista de firmantes es la única transacción que entrega el control de una cuenta, y Xaman solo deja componerla a sus propias herramientas — rechaza la petición de cualquier app, Astryum incluida. Todo lo que viene después — el ensayo, cerrar la puerta, la constitución — pasa aquí de vuelta.',
+  'The steps in Xaman, illustrated': 'Los pasos en Xaman, ilustrados',
+  'Come back here and check it against the ledger': 'Vuelve aquí y compruébalo contra el ledger',
+  'Add the members, one by one.': 'Añade los miembros, uno a uno.',
+  'Paste each address as its owner sent it to you — never retype it by hand — and set its weight to 1 unless you deliberately want someone to weigh more. Add all of them before continuing: the list you send REPLACES anything that was there; it is not added to it.':
+    'Pega cada dirección tal y como te la envió su dueño — nunca la reescribas a mano — y deja su peso en 1 salvo que quieras deliberadamente que alguien pese más. Añádelos todos antes de continuar: la lista que envías SUSTITUYE por completo la anterior; no se suma a ella.',
+  'Set the quorum.': 'Pon el quórum.',
+  'That is how many votes any decision needs, out of the total on the list. Five signers with a quorum of three is the recommended family setup — never 2-of-2 nor 2-of-3.':
+    'Son los votos que necesita cualquier decisión, del total de la lista. Cinco firmantes con quórum de tres es la configuración familiar recomendada — nunca 2-de-2 ni 2-de-3.',
+  'Compare the review screen, line by line.': 'Compara la pantalla de revisión, línea a línea.',
+  'Xaman → xApps → search “Multisign”': 'Xaman → xApps → busca “Multisign”',
+  'The Setup screen, empty — Add Signer starts the list': 'La pantalla Setup, vacía — Add Signer empieza la lista',
+  'All members added, weight 1 each, quorum set — then Submit': 'Todos los miembros añadidos, peso 1 cada uno, quórum puesto — y Submit',
+  'The review — type Set Signer List: every member, every weight, the quorum': 'La revisión — tipo Set Signer List: cada miembro, cada peso, el quórum',
+  'Optional: write the plan here first — a checked list to copy into the phone, compared against the ledger afterwards':
+    'Opcional: escribe antes el plan aquí — una lista verificada para copiar al móvil, comparada luego contra el ledger',
+  'Write the list here first': 'Escribe la lista aquí primero',
+  // El copiloto ES la Guía en modo Legacy (2026-08-04).
+  'Reads this Legacy’s step from the ledger · never signs':
+    'Lee del ledger el paso de este Legacy · nunca firma',
+  'Explains Legacy and finds your setup · never sees your data':
+    'Explica Legacy y encuentra tu configuración · nunca ve tus datos',
+  'Ask about your Legacy…': 'Pregunta sobre tu Legacy…',
+  'Wait for the rehearsal: closing the door before every member has proven they can sign risks locking this account forever.':
+    'Espera al ensayo: cerrar la puerta antes de que cada miembro haya demostrado que sabe firmar arriesga bloquear esta cuenta para siempre.',
+  'The account’s OWN master key signs this one — the ledger refuses the quorum for it. Scan the QR with the Xaman that holds the Legacy account.':
+    'Esta la firma la PROPIA master key de la cuenta — el ledger se la niega al quórum. Escanea el QR con el Xaman que guarda la cuenta del Legacy.',
+  'After it validates there is no shortcut left: only the council governs this account. That is the point.':
+    'Cuando valida, ya no queda atajo: esta cuenta solo obedece al consejo. Esa es la gracia.',
+  'Prepare the rehearsal below: 1 XRP, from this account to itself, delivered tomorrow, recoverable in a week.':
+    'Prepara el ensayo aquí abajo: 1 XRP, de esta cuenta a sí misma, entregado mañana, recuperable en una semana.',
+  'Every member signs it ALONE, from their own phone — helping someone proves that YOU can sign, not that they can.':
+    'Cada miembro lo firma SOLO, desde su propio móvil — ayudar a alguien demuestra que TÚ sabes firmar, no que él sepa.',
+  'Astryum verifies each signature on the ledger in the list below. No real capital enters before this is green.':
+    'Astryum verifica cada firma en el ledger, en la lista de abajo. No entra capital real antes de que esto esté en verde.',
+  'Write the constitution from a template — plain human language, filled with your names and rules. The text never leaves your browser.':
+    'Escribe la constitución desde una plantilla — lenguaje humano, con vuestros nombres y reglas. El texto no sale nunca de tu navegador.',
+  'Anchor its SHA-256 on the ledger: the council signs a DIDSet on the account’s own DID. Anyone can verify the text against the fingerprint.':
+    'Ancla su SHA-256 en el ledger: el consejo firma un DIDSet en el DID de la propia cuenta. Cualquiera puede verificar el texto contra la huella.',
+  'Keep the document itself with the family — the ledger holds the fingerprint, you hold the text. Amendments are new anchors signed by the quorum.':
+    'El documento lo guarda la familia — el ledger guarda la huella, vosotros el texto. Las enmiendas son anclas nuevas firmadas por el quórum.',
   'Emergency: replace the fallen signer before anything else':
     'Emergencia: reemplaza al firmante caído antes que nada',
   'Locked while the quorum margin is at zero: replace the missing signer first. Closing the door now would risk locking this account forever.':
@@ -2575,8 +3345,8 @@ const PAGES: Record<string, string> = {
     'Constituye uno nuevo — y si ya gobiernas uno, abre su dirección en el primer paso: aparecerá aquí.',
   // ── Council order (FDC enforcement rail) ──
   'Council order (the cage on Flare)': 'Orden del consejo (la jaula en Flare)',
-  'Govern the productive capital from XRPL, literally: the quorum signs ONE 1-drop transaction committing the exact order; the Flare Data Connector proves it; the bridge executes only those bytes against the vault. No order can extract the principal — that function does not exist.':
-    'Gobierna el capital productivo desde XRPL, literalmente: el quórum firma UNA transacción de 1 drop que compromete la orden exacta; el Flare Data Connector la prueba; el bridge ejecuta solo esos bytes contra el vault. Ninguna orden puede extraer el principal — esa función no existe.',
+  'Govern the productive capital from XRPL, literally: the quorum signs ONE transaction committing the exact order; the Flare Data Connector proves it; the bridge executes only those bytes against the vault. No order can extract the principal — that function does not exist.':
+    'Gobierna el capital productivo desde XRPL, literalmente: el quórum firma UNA transacción que compromete la orden exacta; el Flare Data Connector la prueba; el puente ejecuta solo esos bytes contra la vasija. Ninguna orden puede extraer el principal — esa función no existe.',
   Order: 'Orden',
   'Direct principal to a venue': 'Dirigir principal a un venue',
   'Recall principal from a venue': 'Retirar principal de un venue (al vault)',
@@ -2643,8 +3413,9 @@ const PAGES: Record<string, string> = {
   'fields pending': 'campos pendientes',
   'Preview — the document as it will read': 'Vista previa — el documento tal y como quedará',
   'Insert into the document editor': 'Insertar en el editor del documento',
-  'Pending fields are marked [PENDIENTE] in the text — fill them here or edit them there.':
+  'Pending fields are marked [PENDING] in the text — fill them here or edit them there.':
     'Los campos pendientes quedan marcados [PENDIENTE] en el texto — rellénalos aquí o edítalos allí.',
+  '12 months': '12 meses',
   'Everything filled — review the preview, then insert.': 'Todo relleno — revisa la vista previa e inserta.',
   'Everything on this form stays in your browser: the document is assembled and fingerprinted locally, and only its SHA-256 fingerprint is anchored on the ledger.':
     'Todo lo de este formulario se queda en tu navegador: el documento se ensambla y se huellea en local, y solo su huella SHA-256 se ancla en el ledger.',
@@ -2791,6 +3562,11 @@ const PAGES: Record<string, string> = {
   'Prefer your own multisign tool?': '¿Prefieres tu propia herramienta de multifirma?',
   'Hide manual signing': 'Ocultar firma manual',
   'Gather the council’s signatures': 'Reunir las firmas del consejo',
+  // Los dos tempos, nombrados (2026-08-04): síncrono aquí, asíncrono en la
+  // bandeja. Cada botón dice DÓNDE firma cada miembro, no solo cuánto tarda.
+  'Sign now, all together': 'Firmar ahora, todos juntos',
+  'Everyone signs in this sitting: one QR per member on this screen, and a notification to the Xaman of anyone who has signed here before. Nothing is stored — if this screen closes, the signatures are lost.':
+    'Todos firman en esta sesión: un QR por miembro en esta pantalla, y un aviso al Xaman de quien ya haya firmado aquí antes. No se guarda nada — si se cierra esta pantalla, las firmas se pierden.',
   'Council signatures': 'Firmas del consejo',
   'Reading the council and pinning the transaction…': 'Leyendo el consejo y fijando la transacción…',
   'Ledger dry-run: this transaction would succeed': 'Simulación en el ledger: esta transacción tendría éxito',
@@ -2811,6 +3587,139 @@ const PAGES: Record<string, string> = {
   // Constituir el consejo desde 0 (builder SignerListSet).
   'Constitute it below: 1–32 signers with weights and a quorum (5 signers, quorum 3 is the recommended family setup). Astryum composes the SignerListSet; you sign it with THIS account’s key. Astryum never holds a key.':
     'Constitúyelo abajo: 1–32 firmantes con pesos y un quórum (5 firmantes, quórum 3 es la configuración familiar recomendada). Astryum compone el SignerListSet; tú lo firmas con la llave de ESTA cuenta. Astryum nunca guarda una llave.',
+  'Constitute it below: 1–32 signers with weights and a quorum. The form starts at 3 signers, quorum 2 (a simple majority); a larger family may prefer 5 with quorum 3. Astryum composes the SignerListSet; you sign it with THIS account’s key. Astryum never holds a key.':
+    'Constitúyelo abajo: 1–32 firmantes con pesos y un quórum. El formulario arranca con 3 firmantes y quórum 2 (mayoría simple); una familia grande puede preferir 5 con quórum 3. Astryum compone el SignerListSet; tú lo firmas con la llave de ESTA cuenta. Astryum nunca guarda una llave.',
+  // ── Paso 2 de la constitución: el consejo se crea en el xApp Multisign de
+  //    Xaman (2026-08-03). Xaman rechaza un SignerListSet compuesto por
+  //    cualquier app (401 / 1217); Astryum prepara la lista, la revisa, guía
+  //    pantalla a pantalla y después lee el ledger para confirmarla. ──
+  'Constitute it in three moves: write the list of signers here (1–32, with weights and a quorum — 5 signers with quorum 3 is the recommended family setup), create it in the Xaman Multisign xApp following the steps below, and come back so Astryum reads it from the ledger. Astryum never holds a key.':
+    'Constitúyelo en tres movimientos: escribe aquí la lista de firmantes (1–32, con pesos y un quórum — 5 firmantes con quórum 3 es la configuración familiar recomendada), créalo en el xApp Multisign de Xaman siguiendo los pasos de abajo, y vuelve para que Astryum lo lea del ledger. Astryum nunca guarda una llave.',
+  'The council is created in Xaman, not here': 'El consejo se crea en Xaman, no aquí',
+  'Try it in Xaman anyway': 'Intentarlo en Xaman de todos modos',
+  'Expect “No permission to create this type of sign request” (1217) until Xaman authorises it for Astryum.':
+    'Espera un «No permission to create this type of sign request» (1217) hasta que Xaman lo autorice para Astryum.',
+  'The signer list is the one transaction that hands over control of an account, and Xaman only lets its own tools compose that type — it refuses a request built by any app, Astryum included. So you create the council in the Xaman Multisign xApp, from the phone that holds this account’s key.':
+    'La lista de firmantes es la única transacción que entrega el control de una cuenta, y Xaman solo deja componer ese tipo a sus propias herramientas — rechaza una petición creada por cualquier app, Astryum incluida. Así que el consejo lo creas en el xApp Multisign de Xaman, desde el móvil que guarda la llave de esta cuenta.',
+  'It is also how it should be: Astryum is not a wallet and never touches a key. What Astryum does here is prepare the exact list, check it for the mistakes that cannot be undone, and read the ledger afterwards to confirm what you created. Everything after this step — the rehearsal, closing the door, the constitution — happens back here.':
+    'Y es como debe ser: Astryum no es una wallet y no toca una llave jamás. Lo que hace aquí es preparar la lista exacta, revisarla buscando los errores que no tienen vuelta atrás, y después leer el ledger para confirmar lo que has creado. Todo lo que viene tras este paso — el ensayo, cerrar la puerta, la constitución — se hace aquí.',
+  'Before you start — four things, in this order': 'Antes de empezar — cuatro cosas, en este orden',
+  'Each member has their own Xaman, on their own phone.':
+    'Cada miembro tiene su propio Xaman, en su propio móvil.',
+  'You do not create their accounts — each person creates their own and sends you their address (r…). That is the difference between a council and a bank account: nobody holds anybody else’s key.':
+    'Tú no creas sus cuentas — cada uno crea la suya y te pasa su dirección (r…). Esa es la diferencia entre un consejo y una cuenta bancaria: nadie tiene la llave de nadie.',
+  'You have THIS account in your own Xaman.': 'Tienes ESTA cuenta en tu propio Xaman.',
+  'The signer list is signed by the account’s own master key — the account being governed, not yours.':
+    'La lista de firmantes la firma la llave maestra de la propia cuenta — la cuenta que se va a gobernar, no la tuya.',
+  'The account holds enough XRP.': 'La cuenta tiene XRP suficiente.',
+  'The whole ceremony needs about': 'La ceremonia entera necesita unos',
+  'held in the account.': 'en la cuenta.',
+  'About 15 XRP covers the reserves and the fees of the whole ceremony.':
+    'Unos 15 XRP cubren las reservas y las comisiones de toda la ceremonia.',
+  'The xApp may create Tickets of its own before the signer list, and each one locks reserve too — a signature that fails for insufficient reserve still burns its fee.':
+    'El xApp puede crear Tickets propios antes de la lista de firmantes, y cada uno bloquea reserva también — una firma que falla por reserva insuficiente igual quema su comisión.',
+  'You have decided who is in and how many signatures decide.':
+    'Habéis decidido quién está y cuántas firmas deciden.',
+  'Five signers with a quorum of three is the recommended family setup. Never 2-of-2 nor 2-of-3: one lost key and you are left with no margin at all.':
+    'Cinco firmantes con quórum de tres es la configuración familiar recomendada. Nunca 2-de-2 ni 2-de-3: una llave perdida y os quedáis sin ningún margen.',
+  '1 · Write the list here first': '1 · Escribe la lista aquí primero',
+  'ready to type into Xaman': 'lista para teclear en Xaman',
+  'list not ready yet': 'lista incompleta',
+  'Nothing here is sent anywhere and nothing is signed — this is the checked list you will copy into the wallet. Astryum verifies each address (a single wrong character is a member who can never sign) and refuses a quorum higher than the total, which would lock the account forever.':
+    'Nada de esto se envía a ningún sitio ni se firma — es la lista revisada que vas a copiar en la wallet. Astryum verifica cada dirección (un solo carácter mal es un miembro que no podrá firmar nunca) y rechaza un quórum mayor que el total, que dejaría la cuenta bloqueada para siempre.',
+  'Type exactly this into the xApp': 'Teclea exactamente esto en el xApp',
+  'Copy the whole list': 'Copiar la lista entera',
+  Copy: 'Copiar',
+  '2 · The exact steps in Xaman': '2 · Los pasos exactos en Xaman',
+  'The Multisign xApp is made by XRPL Labs (the makers of Xaman) and its wording may change between versions — what you are looking for is the SIGNER LIST section, not the one for signing a transaction that already exists.':
+    'El xApp Multisign es de XRPL Labs (los de Xaman) y sus textos pueden cambiar entre versiones — lo que buscas es la sección de la LISTA DE FIRMANTES (signer list), no la de firmar una transacción que ya existe.',
+  'Open Xaman on the phone that holds this account’s key.':
+    'Abre Xaman en el móvil que guarda la llave de esta cuenta.',
+  'Check the account shown at the top: it must be exactly the account you are constituting. If you hold several, switch to it now — a signer list created on the wrong account governs the wrong account, and you would only find out later.':
+    'Comprueba la cuenta que aparece arriba: tiene que ser exactamente la que estás constituyendo. Si tienes varias, cambia a esta ahora — una lista de firmantes creada sobre la cuenta equivocada gobierna la cuenta equivocada, y lo descubrirías tarde.',
+  'Open the Multisign xApp.': 'Abre el xApp Multisign.',
+  'In Xaman: the xApps tab → search for “Multisign” → open it. Or open this link on the phone (it only works on a device that has Xaman installed):':
+    'En Xaman: pestaña xApps → busca «Multisign» → ábrelo. O abre este enlace en el móvil (solo funciona en un dispositivo que tenga Xaman instalado):',
+  'Open the Multisign xApp': 'Abrir el xApp Multisign',
+  'Copy the link for the phone': 'Copiar el enlace para el móvil',
+  'Choose to create the signer list of this account.':
+    'Elige crear la lista de firmantes de esta cuenta.',
+  'The xApp does two different jobs: define WHO signs for an account (this, the signer list) and collect signatures for a transaction that already exists (that one you will not need — Astryum gathers the council’s signatures itself, later). Pick the first.':
+    'El xApp hace dos cosas distintas: definir QUIÉN firma por una cuenta (esto, la lista de firmantes) y reunir firmas para una transacción que ya existe (esa no la vas a necesitar — las firmas del consejo las reúne Astryum, más adelante). Elige la primera.',
+  'Add the members, one by one, exactly as listed above.':
+    'Añade a los miembros, uno a uno, exactamente como están arriba.',
+  'Paste each address — never retype it by hand — and set its weight to 1 unless you deliberately want someone to weigh more. Add all of them before continuing: the list you send REPLACES anything that was there; it is not added to it.':
+    'Pega cada dirección — nunca la reescribas a mano — y deja su peso en 1 salvo que quieras a propósito que alguien pese más. Añádelos a todos antes de continuar: la lista que envías SUSTITUYE a lo que hubiera; no se suma.',
+  'Set the quorum to': 'Pon el quórum en',
+  'That is how many votes any decision needs, out of the total on the list. What is left over is the margin: the votes you can lose before the council can no longer decide anything.':
+    'Esos son los votos que necesita cualquier decisión, sobre el total de la lista. Lo que sobra es el margen: los votos que podéis perder antes de que el consejo ya no pueda decidir nada.',
+  'Finish the list above and this figure will say exactly what to type.':
+    'Termina la lista de arriba y esta cifra te dirá exactamente qué teclear.',
+  'Compare the review screen against the list above, line by line.':
+    'Compara la pantalla de revisión con la lista de arriba, línea a línea.',
+  'This is the last cheap moment. One wrong character in one address is a member who can never sign — and once the master key is disabled, a council short of quorum cannot be repaired by anyone, ever. If anything differs, cancel and start the screen again.':
+    'Este es el último momento barato. Un carácter mal en una dirección es un miembro que no podrá firmar nunca — y con la llave maestra deshabilitada, un consejo por debajo del quórum no lo arregla nadie, jamás. Si algo difiere, cancela y repite la pantalla.',
+  'Accept Xaman’s warning and slide to sign.': 'Acepta el aviso de Xaman y desliza para firmar.',
+  'Xaman shows a red warning before this signature. It is expected, and it is literally true — this is the transaction that hands the account to the council. Its exact words:':
+    'Xaman enseña un aviso en rojo antes de esta firma. Es esperado, y es literalmente cierto — esta es la transacción que entrega la cuenta al consejo. Sus palabras exactas:',
+  'You are signing with the account’s master key — the council does not exist yet, so it cannot sign its own creation. The master key stays ACTIVE after this: it is your safety net until the rehearsal proves every member can sign.':
+    'Estás firmando con la llave maestra de la cuenta — el consejo aún no existe, así que no puede firmar su propia creación. La llave maestra sigue ACTIVA después de esto: es tu red de seguridad hasta que el ensayo demuestre que todos los miembros saben firmar.',
+  'Wait until the ledger validates it.': 'Espera a que el ledger la valide.',
+  'A few seconds. If it fails with tecINSUFFICIENT_RESERVE, the account is short of XRP: top it up and repeat the screen — the failed attempt only cost its fee.':
+    'Unos segundos. Si falla con tecINSUFFICIENT_RESERVE, la cuenta va corta de XRP: fondéala y repite la pantalla — el intento fallido solo ha costado su comisión.',
+  'While you are in the wallet, do NOT disable the master key — not from the xApp, not from Xaman’s account settings. That is step 4, it is done from Astryum, and only after the rehearsal proves every member can sign. Disabling it now, with a council nobody has tested, locks the account forever.':
+    'Mientras estés en la wallet, NO deshabilites la llave maestra — ni desde el xApp, ni desde los ajustes de la cuenta en Xaman. Eso es el paso 4, se hace desde Astryum, y solo después de que el ensayo demuestre que todos saben firmar. Deshabilitarla ahora, con un consejo que nadie ha probado, bloquea la cuenta para siempre.',
+  '3 · Come back here and check it against the ledger':
+    '3 · Vuelve aquí y compruébalo contra el ledger',
+  'The wallet saying “signed” is not the proof — the ledger is. Astryum reads the signer list straight from the ledger and compares it with the plan you wrote above, member by member.':
+    'Que la wallet diga «firmado» no es la prueba — la prueba es el ledger. Astryum lee la lista de firmantes directamente del ledger y la compara con el plan que escribiste arriba, miembro a miembro.',
+  'I have done it — read the council from the ledger':
+    'Ya está hecho — leer el consejo del ledger',
+  'If it does not appear yet, wait a few seconds and press again. If it appears but does not match your plan, you can still repeat the screen in the xApp with the corrected list — the master key is still active, and the new list replaces the old one entirely.':
+    'Si aún no aparece, espera unos segundos y vuelve a pulsar. Si aparece pero no coincide con tu plan, todavía puedes repetir la pantalla en el xApp con la lista corregida — la llave maestra sigue activa, y la lista nueva sustituye entera a la anterior.',
+  'From here on, everything is back in Astryum: the signing rehearsal (step 3), closing the door (step 4) and the constitution (step 5). You will not need the xApp again — except the day you have to replace a signer.':
+    'De aquí en adelante, todo vuelve a Astryum: el ensayo de firma (paso 3), cerrar la puerta (paso 4) y la constitución (paso 5). No necesitarás el xApp otra vez — salvo el día que haya que sustituir a un firmante.',
+  'Not using Xaman? (Ledger, Crossmark, xrpl.services)':
+    '¿No usáis Xaman? (Ledger, Crossmark, xrpl.services)',
+  'Astryum can still compose the unsigned transaction for the list above. Copy it into the tool that holds this account’s key and sign it there. Do not try to sign it with Xaman: it rejects this type of request from any app (error 1217) — that is the whole reason the guide above exists.':
+    'Astryum sí puede componer la transacción sin firmar de la lista de arriba. Cópiala en la herramienta que guarda la llave de esta cuenta y fírmala ahí. No intentes firmarla con Xaman: rechaza este tipo de petición venga de la app que venga (error 1217) — esa es toda la razón de que exista la guía de arriba.',
+  'Compose the unsigned transaction': 'Componer la transacción sin firmar',
+  'Your own tool fills in the Sequence and the Fee before signing. Change nothing else: the signers and the quorum are the transaction.':
+    'Tu propia herramienta rellena el Sequence y la Fee antes de firmar. No cambies nada más: los firmantes y el quórum SON la transacción.',
+  // Comprobación del plan contra el ledger (la otra mitad del paso 2).
+  'The council on the ledger matches the plan you prepared, member by member.':
+    'El consejo del ledger coincide con el plan que preparaste, miembro a miembro.',
+  'Got it': 'Entendido',
+  'The council on the ledger does NOT match the plan you prepared. Check it before going any further — while the master key is still active, you can send a corrected signer list from the Xaman Multisign xApp.':
+    'El consejo del ledger NO coincide con el plan que preparaste. Revísalo antes de seguir — mientras la llave maestra siga activa, puedes enviar una lista de firmantes corregida desde el xApp Multisign de Xaman.',
+  'Quorum — planned vs on the ledger': 'Quórum — planeado frente al del ledger',
+  'Planned but NOT on the ledger': 'Planeado pero NO está en el ledger',
+  'On the ledger but not in your plan': 'Está en el ledger pero no en tu plan',
+  'weight — planned vs on the ledger': 'peso — planeado frente al del ledger',
+  'The council is correct — stop comparing': 'El consejo es correcto — deja de comparar',
+  'A signer list holds at most 32 members.':
+    'Una lista de firmantes admite 32 miembros como máximo.',
+  'Xaman refuses to show a QR for this transaction type when an app composes it (error 1217), so the signature rail below may not work today. What does work: the members sign it in the Xaman Multisign xApp, or paste their signed blob into the proposal inbox. The council can always be amended — the route through this screen is what is blocked.':
+    'Xaman se niega a enseñar un QR de este tipo de transacción cuando la compone una app (error 1217), así que el carril de firma de abajo puede no funcionar hoy. Lo que sí funciona: que los miembros la firmen en el xApp Multisign de Xaman, o que peguen su blob firmado en la bandeja de propuestas. El consejo se puede enmendar siempre — lo bloqueado es el camino por esta pantalla.',
+
+  // ── Validación del consejo (F10, 2026-07-30) ──
+  'Add at least one signer address.': 'Añade al menos una dirección de firmante.',
+  'This is not an XRPL address (r…)': 'Esto no es una dirección XRPL (r…)',
+  'The account cannot be one of its own signers.': 'La cuenta no puede ser uno de sus propios firmantes.',
+  'Duplicated signer': 'Firmante duplicado',
+  'Every weight must be a whole number of votes (1 or more).':
+    'Cada peso debe ser un número entero de votos (1 o más).',
+  'The quorum must be a whole number of votes (1 or more).':
+    'El quórum debe ser un número entero de votos (1 o más).',
+  'The quorum exceeds the total votes — no decision could EVER pass and the account would lock forever.':
+    'El quórum supera el total de votos — NINGUNA decisión podría aprobarse y la cuenta quedaría bloqueada para siempre.',
+  'Decisions need': 'Decidir necesita',
+  'votes. Keys you can lose without locking the account:':
+    'votos. Llaves que podéis perder sin bloquear la cuenta:',
+  'votes — MORE than the total: no decision could ever pass. Lower the quorum or add signers.':
+    'votos — MÁS que el total: ninguna decisión podría aprobarse. Baja el quórum o añade firmantes.',
+  'Leave the weight at 1 if every member counts the same.':
+    'Deja el peso en 1 si todos los miembros cuentan igual.',
   'Signer address': 'Dirección del firmante',
   'Weight': 'Peso',
   'Add signer': 'Añadir firmante',
@@ -2941,6 +3850,13 @@ const PAGES: Record<string, string> = {
   'Proposal inbox': 'Bandeja de propuestas',
   'A quorum signs asynchronously: propose, each member signs when they can, combine and broadcast from the browser once the quorum is met. Proposals expire after 7 days.':
     'Un quórum firma de forma asíncrona: se propone, cada miembro firma cuando puede, y al alcanzarse el quórum se combina y emite desde el navegador. Las propuestas caducan a los 7 días.',
+  // Un asiento por cuenta (2026-08-04): la bandeja solo emite TU QR.
+  'A quorum signs asynchronously: propose, and each member signs from THEIR OWN account with their own linked wallet, whenever they can. You only ever sign your own seat here. Once the quorum is met, anyone combines and broadcasts from the browser. Proposals expire after 7 days.':
+    'Un quórum firma de forma asíncrona: se propone, y cada miembro firma desde SU PROPIA cuenta con su propia wallet enlazada, cuando pueda. Aquí solo firmas tu asiento. Al alcanzarse el quórum, cualquiera combina y emite desde el navegador. Las propuestas caducan a los 7 días.',
+  'No signature of yours is pending here: none of this council’s seats belongs to a wallet linked to this account. Each councillor signs from their own Astryum — if one of these addresses is yours, connect it in Xaman. To sign together in one sitting, use the live ceremony instead.':
+    'Aquí no hay ninguna firma tuya pendiente: ninguno de los asientos de este consejo es de una wallet enlazada a esta cuenta. Cada consejero firma desde su propio Astryum — si alguna de estas direcciones es tuya, conéctala en Xaman. Para firmar todos juntos de una sentada, usa la ceremonia en vivo.',
+  'Nobody has to be here: the proposal waits in each member’s own Astryum, where they sign their own seat with their own linked wallet. It is stored, and expires in 7 days.':
+    'No hace falta que nadie esté presente: la propuesta espera en el Astryum de cada miembro, donde firma su propio asiento con su propia wallet enlazada. Queda guardada y caduca a los 7 días.',
   'No proposals yet': 'Aún no hay propuestas',
   'Actions on this account create proposals here for the council to sign.':
     'Las acciones sobre esta cuenta crean aquí propuestas para que el consejo las firme.',
@@ -3152,6 +4068,8 @@ const PAGES: Record<string, string> = {
   'Destination must be an XRPL address (r…).': 'El destino debe ser una dirección XRPL (r…).',
   'Destination must differ from the council account.': 'El destino debe ser distinto de la cuenta del consejo.',
   'Amount must be a positive number of XRP.': 'La cantidad debe ser un número positivo de XRP.',
+  'Amount must be a positive number of XRP, with at most 6 decimals.':
+    'La cantidad debe ser un número positivo de XRP, con 6 decimales como máximo.',
   'Expiry must be between 1 and 90 days.': 'La caducidad debe estar entre 1 y 90 días.',
   'Sign-at-trigger with N signers: the rule composes proposals; the quorum signs each one; it expires on its own (90 days at most).':
     'Firma-al-disparo con N firmantes: la regla compone propuestas; el quórum firma cada una; caduca sola (90 días como máximo).',
@@ -3169,6 +4087,16 @@ const PAGES: Record<string, string> = {
   'Compose the rotation order (vault)': 'Componer la orden de rotación (vault)',
   'From venue #': 'Desde venue #',
   'To venue #': 'Hacia venue #',
+  // ── Rotación gobernada con venues reales (F4, 2026-07-30) ──
+  'Move the money from': 'Mover el dinero de',
+  'to': 'a',
+  'Pick the two venues of the rotation.': 'Elige los dos sitios de la rotación.',
+  'The rotation needs two different venues.': 'La rotación necesita dos sitios distintos.',
+  'The vault could not be read — the rotation order is not available right now.':
+    'No se ha podido leer el vault — la orden de rotación no está disponible ahora mismo.',
+  'The vault could not be read — the rotation order is not available right now. The alert variant works today.':
+    'No se ha podido leer el vault — la orden de rotación no está disponible ahora mismo. La variante de aviso sí funciona hoy.',
+  'Reading the vault venues…': 'Leyendo los sitios del vault…',
   'Amount (FXRP)': 'Cantidad (FXRP)',
   'The rotation order needs the deployed Legacy stack (bridge + vault): until then it fails with a readable error at fire time; the alert variant works today. Machine execution happens only AFTER the quorum signs.':
     'La orden de rotación necesita el stack Legacy desplegado (bridge + vault): hasta entonces falla con error legible al disparar; la variante de aviso funciona hoy. La ejecución por máquina ocurre solo DESPUÉS de que firme el quórum.',
@@ -3205,6 +4133,709 @@ const PAGES: Record<string, string> = {
   'Or describe it in words': 'O descríbelo con palabras',
   'The AI compiles, you review and sign.': 'La IA lo compila, tú revisas y firmas.',
   'Advanced': 'Avanzado',
+
+  // ── NetworkSwitcher (Flare network banner) ──
+  "You're on another network — this app runs on Flare.":
+    'Estás en otra red — la app funciona sobre Flare.',
+  'Switch to Flare': 'Cambiar a Flare',
+  'Switching…': 'Cambiando…',
+  "No problem — you can switch whenever you're ready.":
+    'Sin problema — puedes cambiar cuando quieras.',
+  'Your wallet can’t add Flare automatically. Add it manually with these details, or open Chainlist:':
+    'Tu wallet no puede añadir Flare automáticamente. Añádela a mano con estos datos, o abre Chainlist:',
+  'Network name': 'Nombre de la red',
+  'Currency symbol': 'Símbolo',
+  'Block explorer': 'Explorador',
+  'Open Chainlist': 'Abrir Chainlist',
+
+  // ── LegalAcceptGate (aceptación de condiciones + aviso, 2026-07-30) ──
+  'Before you continue': 'Antes de continuar',
+  'One minute, once — so you know exactly what you are using.':
+    'Un minuto, una sola vez — para que sepas exactamente qué estás usando.',
+  'Astryum is an open demo with real XRP under deliberate caps. Its conditions and its privacy notice are published as living pages; your acceptance is recorded with the text version and date.':
+    'Astryum es una demo abierta con XRP real bajo topes deliberados. Sus condiciones y su aviso de privacidad están publicados como páginas vivas; tu aceptación queda registrada con la versión del texto y la fecha.',
+  'I accept the': 'Acepto las',
+  'demo terms': 'condiciones de la demo',
+  '— experimental software, caps by design, liability limited to €50 with the legal carve-outs.':
+    '— software experimental, topes por diseño, responsabilidad limitada a 50 € con las excepciones de ley.',
+  'I declare that I am 18 or older.':
+    'Declaro que tengo 18 años o más.',
+  'I have read the': 'He leído el',
+  'privacy notice': 'aviso de privacidad',
+  '— what is processed, who receives it, and what public chains make permanent.':
+    '— qué se trata, quién lo recibe y qué hacen permanente las cadenas públicas.',
+  'Could not record your acceptance — check your connection and try again.':
+    'No se pudo registrar tu aceptación — revisa tu conexión e inténtalo de nuevo.',
+  'Recording…': 'Registrando…',
+  'Accept and continue': 'Aceptar y continuar',
+  'Version': 'Versión',
+  'Recorded with date on your account': 'Se registra con fecha en tu cuenta',
+
+  // ── Desplegable de proveedores FTSO en Wrap + delegate (2026-07-31) ──
+  'FTSO data provider': 'Proveedor de datos FTSO',
+  'Delegation %': '% de delegación',
+  'Choose a provider…': 'Elige un proveedor…',
+  'Another provider — enter its address (0x…)': 'Otro proveedor — escribe su dirección (0x…)',
+  'Public registry of listed providers, A–Z — a directory, not a recommendation.':
+    'Registro público de proveedores listados, de la A a la Z — un directorio, no una recomendación.',
+  'Choose from the registry list instead': 'Mejor elegir de la lista del registro',
+  'Enter a valid FTSO data provider address (0x…)':
+    'Escribe una dirección de proveedor FTSO válida (0x…)',
+  'Delegate to': 'Delegar a',
+  'FLR/USD now': 'FLR/USD ahora',
+
+  // ── Salida de la posición FTSO: FtsoExitModal (2026-07-31) ──
+  'Withdraw & unwrap': 'Retirar y desenvolver',
+  'Amount · WFLR': 'Cantidad · WFLR',
+  'Available:': 'Disponible:',
+  'Confirm in your wallet…': 'Confirma en tu wallet…',
+  'Preparing the unsigned calls…': 'Preparando las llamadas sin firmar…',
+  'The live WFLR balance could not be read — try again in a moment.':
+    'No se ha podido leer el saldo WFLR en vivo — inténtalo en un momento.',
+  'Full exit: the delegation is removed and everything unwraps back to FLR.':
+    'Salida completa: se retira la delegación y todo vuelve a FLR.',
+  'A partial unwrap keeps your delegation % on the remaining WFLR.':
+    'Un unwrap parcial mantiene tu % de delegación sobre el WFLR restante.',
+  'Currently delegated to': 'Delegado ahora mismo a',
+  'Switch your wallet to the account that holds this position':
+    'Cambia tu wallet a la cuenta que tiene esta posición',
+  'Remove delegation': 'Retirar la delegación',
+  'all providers': 'todos los proveedores',
+  'Stays wrapped & delegated': 'Sigue envuelto y delegado',
+  'This wallet holds no WFLR to unwrap.': 'Esta wallet no tiene WFLR que desenvolver.',
+  'That wallet holds less WFLR than requested': 'Esa wallet tiene menos WFLR de lo pedido',
+  'Use MAX to unwrap the exact balance.': 'Usa MAX para desenvolver el saldo exacto.',
+  'Full exit: the delegation is removed and every WFLR unwraps back to FLR in the same wallet. FTSO rewards already accrued stay claimable afterwards.':
+    'Salida completa: se retira la delegación y todo el WFLR vuelve a FLR en la misma wallet. Las recompensas FTSO ya acumuladas siguen siendo reclamables después.',
+  'Partial unwrap: the delegation percentages stay on the remaining WFLR. FTSO rewards already accrued stay claimable afterwards.':
+    'Unwrap parcial: los porcentajes de delegación se mantienen sobre el WFLR restante. Las recompensas FTSO ya acumuladas siguen siendo reclamables después.',
+
+  // ── Earn bajo un consejo: lo que la vasija no sabe hacer (2026-08-04) ──
+  // "Unsupported" se queda en inglés a propósito: es la etiqueta corta, igual
+  // en los dos idiomas. La explicación sí habla castellano.
+  'Unsupported for a council': 'No disponible para un consejo',
+  'This strategy cannot be run by a council': 'Esta estrategia no la puede ejecutar un consejo',
+  'The vault on Flare has no borrow function: a council order can only put principal to work in a venue and bring it back. This entry borrows USDT0 against the collateral, so it cannot be composed as a council order. The lend-only entry does the same supply without debt, and it is available.':
+    'La vasija en Flare no tiene función de préstamo: una orden del consejo solo puede poner el principal a trabajar en un venue y traerlo de vuelta. Esta entrada pide USDT0 prestado contra el colateral, así que no se puede componer como orden del consejo. La entrada de solo supply hace el mismo depósito sin deuda, y sí está disponible.',
+  'The vault on Flare has no borrow function, so a council cannot run the borrowing route. The lend-only route does the same supply without debt.':
+    'La vasija en Flare no tiene función de préstamo, así que un consejo no puede usar la ruta con préstamo. La ruta de solo supply hace el mismo depósito sin deuda.',
+
+  // ── Pasada i18n 2026-08-08 (auditoría completa): 352 claves t() que caían
+  // al inglés en modo ES — Legacy (vasija/jaula/quórum), panel de fundadores,
+  // posiciones, movimientos y sueltas. Generadas contra el inventario AST
+  // (scripts en la sesión); la re-auditoría debe dar 0 claves faltantes. ──
+  "The vault could not be read from Flare right now. Nothing was composed — try again in a moment.":
+    "Ahora mismo no se pudo leer la vasija en Flare. No se compuso nada — inténtalo de nuevo en un momento.",
+  "Signed on XRPL. Fetching the proof and delivering it to the vault — this takes about 2–5 minutes.":
+    "Firmado en XRPL. Recogiendo la prueba y entregándola a la vasija — tarda unos 2–5 minutos.",
+  "The order is signed and valid, but the relay could not start:":
+    "La orden está firmada y es válida, pero el relay no pudo arrancar:",
+  "it can be re-delivered by anyone later; no signature is lost.":
+    "cualquiera puede re-entregarla más tarde; ninguna firma se pierde.",
+  "Your council signs this ONE payment — each member from their own device. It carries the whole instruction: mint the XRP into this Legacy's own account on Flare, then deposit it into the vault as principal. Nobody holds it in between.":
+    "Tu consejo firma este ÚNICO pago — cada miembro desde su propio dispositivo. Lleva la instrucción completa: mintear el XRP en la cuenta propia de este Legacy en Flare y depositarlo en la vasija como principal. Nadie lo custodia por el camino.",
+  "Your council signs this Payment — each member from their own device. The signature authorizes ONLY the order above: the bridge executes exactly those bytes on the vault, and nothing else.":
+    "Tu consejo firma este Payment — cada miembro desde su propio dispositivo. La firma autoriza SOLO la orden de arriba: el puente ejecuta exactamente esos bytes sobre la vasija, y nada más.",
+  "This is the FIRST of two signatures. It puts the capital inside the cage; choosing which venue it works in is a second, separate order of the quorum. That separation is deliberate — one signature should not both lock family capital away and decide where it goes.":
+    "Esta es la PRIMERA de dos firmas. Mete el capital dentro de la jaula; elegir en qué venue trabaja es una segunda orden del quórum, separada. Esa separación es deliberada — una misma firma no debería a la vez encerrar capital familiar y decidir adónde va.",
+  "Go to Proposals →": "Ir a Propuestas →",
+  "The council moves this capital": "Este capital lo mueve el consejo",
+  "This account is governed by a council, so {vault} is entered by council order instead of a single signature.":
+    "Esta cuenta la gobierna un consejo, así que en {vault} se entra por orden del consejo, no con una firma individual.",
+  "This account is governed by a council, so capital is moved by council order instead of a single signature.":
+    "Esta cuenta la gobierna un consejo, así que el capital se mueve por orden del consejo, no con una firma individual.",
+  "Astryum composes the order unsigned; the quorum signs one XRPL transaction; the Flare Data Connector proves it and the vault executes exactly those bytes. Astryum never signs and never holds a key.":
+    "Astryum compone la orden sin firmar; el quórum firma una única transacción XRPL; el Flare Data Connector la prueba y la vasija ejecuta exactamente esos bytes. Astryum nunca firma y nunca tiene una llave.",
+  "Reading the vault on Flare…": "Leyendo la vasija en Flare…",
+  "This vault has no venues registered yet, so capital has nowhere to work. A council order registers the first one (Propose a venue, in the Legacy hub) — it opens after the vault's waiting period.":
+    "Esta vasija aún no tiene venues registrados, así que el capital no tiene dónde trabajar. Una orden del consejo registra el primero (Proponer un venue, en el hub del Legacy) — se abre tras el periodo de espera de la vasija.",
+  "working": "trabajando",
+  "This vault has been migrated to a successor — it accepts no new direction.":
+    "Esta vasija ha migrado a una sucesora — ya no acepta nuevas órdenes.",
+  "Add capital": "Añadir capital",
+  "Put it to work": "Ponerlo a trabajar",
+  "Bring it back to the vault": "Traerlo de vuelta a la vasija",
+  "Fresh XRP from the council becomes principal inside the vault. It takes ONE quorum signature; putting that principal to work is a second one.":
+    "XRP nuevo del consejo se convierte en principal dentro de la vasija. Cuesta UNA firma del quórum; poner ese principal a trabajar es una segunda.",
+  "Principal already in the vault goes to work in a venue the constitution whitelists.":
+    "Principal que ya está en la vasija sale a trabajar a un venue que la constitución tiene en su lista blanca.",
+  "Principal comes out of the VENUE and sits idle IN THE VAULT. It does not return to the council and it does not become XRP — the cage has no function that pays principal to an address. Only the yield it earns can ever be paid out.":
+    "El principal sale del VENUE y queda parado EN LA VASIJA. No vuelve al consejo ni se convierte en XRP — la jaula no tiene ninguna función que pague principal a una dirección. Solo el rendimiento que genera puede llegar a pagarse.",
+  "The vault holds no idle principal, so there is nothing to direct yet.":
+    "La vasija no tiene principal parado, así que aún no hay nada que dirigir.",
+  "Add capital first →": "Añade capital primero →",
+  "retired": "retirado",
+  "not open yet": "aún no abierto",
+  "Holds": "Contiene",
+  "principal": "principal",
+  "This venue is retired: closed to new capital. Bringing capital back out of it still works.":
+    "Este venue está retirado: cerrado a capital nuevo. Sacar el capital de vuelta sigue funcionando.",
+  "This venue opens on": "Este venue abre el",
+  "the vault's waiting period before capital may enter.":
+    "el periodo de espera de la vasija antes de que pueda entrar capital.",
+  "The council holds": "El consejo tiene",
+  "spendable after the ledger reserve:": "gastable tras la reserva del ledger:",
+  "XRP paid from the council account. Protocol fees are taken before it lands.":
+    "XRP pagado desde la cuenta del consejo. Las comisiones del protocolo se descuentan antes de que llegue.",
+  "Idle and available:": "Parado y disponible:",
+  "In this venue:": "En este venue:",
+  "Max keeps back the signing fee of": "Max reserva la comisión de firma de",
+  "(a quorum of {n} signs, so it costs more than one signature).":
+    "(firma un quórum de {n}, así que cuesta más que una sola firma).",
+  "Minimum that actually lands:": "Mínimo que llega de verdad:",
+  "below that the minting and executor fees take the whole payment.":
+    "por debajo, las comisiones de mint y del executor se comen el pago entero.",
+  "Of": "De",
+  "minting fee": "comisión de mint",
+  "executor fee": "comisión del executor",
+  "lands as principal:": "llega como principal:",
+  "Beta limit: this cage may hold at most":
+    "Límite de la beta: esta jaula puede contener como máximo",
+  "in total. It holds": "en total. Contiene",
+  "room for about": "queda sitio para unos",
+  "more (before fees).": "más (antes de comisiones).",
+  "it is full: no more capital can enter during the beta.":
+    "está llena: no puede entrar más capital durante la beta.",
+  "Enter a positive amount the token can hold — at most":
+    "Introduce una cantidad positiva que el token pueda representar — como máximo",
+  "decimals.": "decimales.",
+  "Below the minimum: the minting and executor fees would take the whole payment and no principal would reach the vault. Send at least":
+    "Por debajo del mínimo: las comisiones de mint y del executor se comerían el pago entero y ningún principal llegaría a la vasija. Envía al menos",
+  "More than the council can spend. It holds": "Más de lo que el consejo puede gastar. Tiene",
+  "of which": "de los cuales",
+  "is locked as the ledger reserve and": "está bloqueado como reserva del ledger y",
+  "is needed to pay for the signatures.": "hace falta para pagar las firmas.",
+  "More than the vault holds idle. Capital already working in a venue must be brought back first.":
+    "Más de lo que la vasija tiene parado. El capital que ya trabaja en un venue hay que traerlo de vuelta primero.",
+  "More than this venue holds for the vault.": "Más de lo que este venue tiene para la vasija.",
+  "Compose the order for the council": "Componer la orden para el consejo",
+  "Rates and balances shown are read live from the vault and the protocol — protocol data, never an Astryum offer or promise. Composing costs nothing and moves nothing: only the quorum's signatures do.":
+    "Los tipos y balances mostrados se leen en vivo de la vasija y del protocolo — datos del protocolo, nunca una oferta o promesa de Astryum. Componer no cuesta nada y no mueve nada: solo lo hacen las firmas del quórum.",
+  "Session expired — enter the key again.": "Sesión caducada — introduce la clave otra vez.",
+  "Too many attempts. Wait a few minutes.": "Demasiados intentos. Espera unos minutos.",
+  "Complete the anti-bot check first.": "Completa primero la comprobación anti-bots.",
+  "The panel did not answer. Try again.": "El panel no respondió. Inténtalo de nuevo.",
+  "Seat approved — boarding-pass email sent.":
+    "Plaza aprobada — email con la tarjeta de embarque enviado.",
+  "Seat approved — but the invite email did NOT send (mailer). Approve again to retry.":
+    "Plaza aprobada — pero el email de invitación NO salió (mailer). Aprueba de nuevo para reintentar.",
+  "Approve failed — nothing changed.": "La aprobación falló — nada cambió.",
+  "Seat revoked — that email can no longer create an account. Existing accounts are untouched.":
+    "Plaza revocada — ese email ya no puede crear cuenta. Las cuentas existentes no se tocan.",
+  "Revoke failed — nothing changed.": "La revocación falló — nada cambió.",
+  "Search email or source…": "Busca email u origen…",
+  "All sources": "Todos los orígenes",
+  "Show noise": "Mostrar ruido",
+  "Seat": "Plaza",
+  "Flag": "Marca",
+  "approved · invited": "aprobada · invitado",
+  "approved": "aprobada",
+  "Revoke seat (blocks account creation; existing accounts untouched)":
+    "Revocar plaza (bloquea crear cuenta; las cuentas existentes no se tocan)",
+  "Approve": "Aprobar",
+  "noise": "ruido",
+  "Search email…": "Busca email…",
+  "All providers": "Todos los proveedores",
+  "Refetch": "Recargar",
+  "Unreachable": "Inaccesible",
+  "Online": "En línea",
+  "No dedicated healthcheck — this pings the same overview call the panel already needs.":
+    "No hay healthcheck dedicado — esto llama al mismo overview que el panel ya necesita.",
+  "Unstick transactions": "Desatascar transacciones",
+  "Not available right now.": "No disponible ahora mismo.",
+  "Defenses covered today": "Defensas cubiertas hoy",
+  "Fee margin (over cost)": "Margen de la comisión (sobre coste)",
+  "FDC budget (24h window)": "Presupuesto FDC (ventana de 24 h)",
+  "Coverage by budget · by wallet": "Cobertura por presupuesto · por wallet",
+  "Pending · parked": "Pendientes · aparcadas",
+  "Last tick": "Último tick",
+  "Last refuel": "Último repostaje",
+  "Last sweep": "Último barrido",
+  "cost": "coste",
+  "warns below": "avisa por debajo de",
+  "Executor, watchers and provider health — kept even without a webhook":
+    "Salud del executor, los watchers y el proveedor — se conserva incluso sin webhook",
+  "Alerts & notifications": "Alertas y notificaciones",
+  "Could not load alerts.": "No se pudieron cargar las alertas.",
+  "Critical": "Críticas",
+  "No alerts yet — the executor and watchers have been quiet.":
+    "Aún no hay alertas — el executor y los watchers han estado tranquilos.",
+  "Nothing at this severity.": "Nada con esta severidad.",
+  "Park": "Aparcar",
+  "failures": "fallos",
+  "next retry": "próximo reintento",
+  "Unexecutable bytes: retrying re-parks it at zero cost — the real fix is a re-prepare + a fresh user signature (the XRP waits safely at the Core Vault).":
+    "Bytes inejecutables: reintentar la vuelve a aparcar a coste cero — el arreglo real es re-preparar + una firma nueva del usuario (el XRP espera a salvo en el Core Vault).",
+  "On FLARE_EXECUTOR_SKIP_TXS (Railway env) — remove it there too, or the next sweep parks it again.":
+    "Está en FLARE_EXECUTOR_SKIP_TXS (env de Railway) — quítala también allí, o el próximo barrido la aparca de nuevo.",
+  "0xFE dispatches — incoming (deposits) and outgoing (withdrawals/claims). Retry never signs anything.":
+    "Despachos del 0xFE — entrantes (depósitos) y salientes (retiradas/claims). Reintentar nunca firma nada.",
+  "sweep in progress": "barrido en curso",
+  "Parked": "Aparcadas",
+  "no retries, no cost, until you hit Retry":
+    "sin reintentos y sin coste hasta que pulses Reintentar",
+  "Nothing parked — no dispatch needed rescuing.":
+    "Nada aparcado — ningún despacho necesitó rescate.",
+  "the watcher retries these on its own; Park stops one":
+    "el watcher las reintenta por su cuenta; Aparcar detiene una",
+  "No pending dispatches waiting for the executor.":
+    "No hay despachos pendientes esperando al executor.",
+  "The pending list comes from the watcher's last Core Vault sweep — if the watcher is OFF it can be stale. A parked dispatch survives redeploys; the user's XRP always waits at the Core Vault until its exact signed bytes execute.":
+    "La lista de pendientes sale del último barrido del Core Vault del watcher — si el watcher está APAGADO puede estar desfasada. Un despacho aparcado sobrevive a los redeploys; el XRP del usuario espera siempre en el Core Vault hasta que se ejecutan exactamente sus bytes firmados.",
+  "This account already has a live proposal collecting signatures — emit, withdraw or let it expire before creating another.":
+    "Esta cuenta ya tiene una propuesta viva recogiendo firmas — emítela, retírala o deja que caduque antes de crear otra.",
+  "This account is not a council yet (no multisig signer list). Constitute it first — then its movements can be proposed to the quorum.":
+    "Esta cuenta aún no es un consejo (no tiene lista de firmantes multisig). Constitúyela primero — entonces sus movimientos podrán proponerse al quórum.",
+  "XRPL DeFi is not enabled on this deployment yet (feature flag off).":
+    "El DeFi de XRPL aún no está habilitado en este despliegue (feature flag apagado).",
+  "Back to the account": "Volver a la cuenta",
+  "Selling": "Vendes",
+  "Buying": "Compras",
+  "Order type": "Tipo de orden",
+  "Enter a valid XRPL destination (r…).": "Introduce un destino XRPL válido (r…).",
+  "The destination must differ from the council account.":
+    "El destino debe ser distinto de la cuenta del consejo.",
+  "Payment from the council account to {dest} for {amt} XRP.":
+    "Payment desde la cuenta del consejo a {dest} por {amt} XRP.",
+  "Enter a positive price (RLUSD per XRP).": "Introduce un precio positivo (RLUSD por XRP).",
+  "Council account": "Cuenta del consejo",
+  "Send, set XRP aside and trade on the native XRPL DEX — bound to the council account. Astryum composes each move UNSIGNED and drops it in the inbox; the council signs it by quorum in Proposals. Nothing moves without those signatures.":
+    "Envía, aparta XRP y opera en el DEX nativo de XRPL — todo atado a la cuenta del consejo. Astryum compone cada movimiento SIN FIRMAR y lo deja en la bandeja; el consejo lo firma por quórum en Propuestas. Nada se mueve sin esas firmas.",
+  "Propose an XRP Payment from the council to any address.":
+    "Propón un Payment de XRP del consejo a cualquier dirección.",
+  "Show the council account address as a QR to receive into it.":
+    "Muestra la dirección de la cuenta del consejo como QR para recibir en ella.",
+  "Propose an escrow that locks XRP until a date you choose.":
+    "Propón un escrow que bloquea XRP hasta la fecha que elijas.",
+  "Propose a buy/sell order on the native XRPL DEX (XRP ↔ RLUSD).":
+    "Propón una orden de compra/venta en el DEX nativo de XRPL (XRP ↔ RLUSD).",
+  "Create proposal": "Crear propuesta",
+  "This does not move funds: it pins the unsigned transaction for the quorum. The council signs it in Proposals; Astryum never signs.":
+    "Esto no mueve fondos: fija la transacción sin firmar para el quórum. El consejo la firma en Propuestas; Astryum nunca firma.",
+  "Destination (r…)": "Destino (r…)",
+  "Anyone can pay into the council account — receiving needs no signature.":
+    "Cualquiera puede pagar a la cuenta del consejo — recibir no necesita firma.",
+  "A savings lock, not a yield product — it earns nothing while locked. XRP only.":
+    "Un candado de ahorro, no un producto de yield — no genera nada mientras está bloqueado. Solo XRP.",
+  "Buy XRP": "Comprar XRP",
+  "Sell XRP": "Vender XRP",
+  "Limit": "Límite",
+  "Market": "Mercado",
+  "Price (RLUSD per XRP)": "Precio (RLUSD por XRP)",
+  "A spot order on the native XRPL DEX — the price comes from the open book, Astryum quotes nothing.":
+    "Una orden spot en el DEX nativo de XRPL — el precio sale del libro abierto, Astryum no cotiza nada.",
+  "Proposal created — it is in the council inbox for the quorum to sign.":
+    "Propuesta creada — está en la bandeja del consejo para que la firme el quórum.",
+  "Quorum signs": "Firma el quórum",
+  "How a governed movement works": "Cómo funciona un movimiento gobernado",
+  "You compose the movement here; it becomes an unsigned proposal pinned to one ledger Sequence. Each council member signs the SAME bytes in Proposals until the quorum is met, then anyone broadcasts it. The rule of custody holds: Astryum never signs, never holds a key — only the quorum moves the funds.":
+    "Tú compones el movimiento aquí; se convierte en una propuesta sin firmar fijada a un Sequence del ledger. Cada miembro del consejo firma los MISMOS bytes en Propuestas hasta alcanzar el quórum, y entonces cualquiera la difunde. La regla de custodia se mantiene: Astryum nunca firma, nunca tiene una llave — solo el quórum mueve los fondos.",
+  "Reading the Flare execution…": "Leyendo la ejecución en Flare…",
+  "Flare (FDC):": "Flare (FDC):",
+  "FDC round in progress": "Ronda FDC en curso",
+  "collecting signatures": "recogiendo firmas",
+  "ready to emit": "lista para emitir",
+  "emitted on-chain": "emitida on-chain",
+  "withdrawn": "retirada",
+  "expired — renew to keep watching": "caducada — renueva para seguir vigilando",
+  "nearing its 90-day limit —": "acercándose a su límite de 90 días —",
+  "watching": "vigilando",
+  "Constitution anchored": "Constitución anclada",
+  "Everything this Legacy has signed on XRPL and Flare, and everything still running — one record. Open any entry for its on-chain proof and the actions it still allows.":
+    "Todo lo que este Legacy ha firmado en XRPL y Flare, y todo lo que sigue en marcha — un solo registro. Abre cualquier entrada para ver su prueba on-chain y las acciones que aún permite.",
+  "Active now": "Activo ahora",
+  "Signed (history)": "Firmado (historial)",
+  "Nothing here yet": "Aún no hay nada aquí",
+  "As you create proposals, rules and commitments, they land in this record — with their on-chain proof.":
+    "Según creas propuestas, reglas y compromisos, van cayendo en este registro — con su prueba on-chain.",
+  "Go to the inbox to sign": "Ir a la bandeja para firmar",
+  "no expiry set": "sin caducidad fijada",
+  "The rule holds no authority — it only composes proposals; the quorum signs each one.":
+    "La regla no tiene autoridad — solo compone propuestas; el quórum firma cada una.",
+  "Renew (+90 days)": "Renovar (+90 días)",
+  "recoverable after": "recuperable a partir de",
+  "Delivery and recovery are permissionless — trigger them from the Proposals section.":
+    "La entrega y la recuperación son permissionless — dispáralas desde la sección de Propuestas.",
+  "Manage in Proposals": "Gestionar en Propuestas",
+  "signed by the quorum of its day": "firmado por el quórum de su día",
+  "Before → after signing": "Antes → después de firmar",
+  "Debt (USDT0)": "Deuda (USDT0)",
+  "USDT0 in your wallet": "USDT0 en tu wallet",
+  "USDT0 in the PA (free + supplied)": "USDT0 en la PA (libre + depositado)",
+  "fill spend (worst case)": "gasto del fill (peor caso)",
+  "Close this position, step by step": "Cierra esta posición, paso a paso",
+  "More than the vault holds for this wallet — in the vault right now:":
+    "Más de lo que el vault tiene para esta wallet — en el vault ahora mismo:",
+  "This wallet has no supply of that asset in the Kinetic ISO market — check the selected wallet and asset.":
+    "Esta wallet no tiene depósito de ese activo en el mercado ISO de Kinetic — revisa la wallet y el activo seleccionados.",
+  "This position lives in wallet": "Esta posición vive en la wallet",
+  "connect that wallet (MetaMask) to sign. The XRPL rail cannot move it.":
+    "conecta esa wallet (MetaMask) para firmar. El raíl XRPL no puede moverla.",
+  "No USDT0 supplied — nothing to withdraw in this step.":
+    "No hay USDT0 depositado — nada que retirar en este paso.",
+  "No outstanding debt — nothing to repay in this step.":
+    "No hay deuda pendiente — nada que repagar en este paso.",
+  "No FXRP collateral left — the unwind is complete.":
+    "No queda colateral FXRP — el desmontaje está completo.",
+  "live on-chain": "en vivo on-chain",
+  "MAX = exact full exit: redeems ALL your kToken shares, interest included — the final amount can only be slightly higher than shown.":
+    "MAX = salida completa exacta: redime TODAS tus participaciones kToken, intereses incluidos — el importe final solo puede ser ligeramente mayor que el mostrado.",
+  "Repay": "Repagar",
+  "Fill active": "Fill activo",
+  "buys exactly": "compra exactamente",
+  "with": "con",
+  "from your own balance, swapped on SparkDEX inside this same batch. Unspent max stays with you. Slippage cap":
+    "de tu propio balance, intercambiado en SparkDEX dentro de este mismo batch. Lo no gastado del max se queda contigo. Tope de slippage",
+  "What the capital EARNS can be paid out; the capital itself cannot. Harvesting turns a venue's gain above its basis into an amount the payees are owed, and each payee claims their own share. The principal is never touched by either step.":
+    "Lo que el capital GENERA puede pagarse; el capital en sí, no. Cosechar convierte la ganancia de un venue por encima de su base en una cantidad que se debe a los beneficiarios, y cada beneficiario reclama su parte. El principal no se toca en ninguno de los dos pasos.",
+  "Reading the vault…": "Leyendo la vasija…",
+  "Ready to realize": "Listo para realizar",
+  "No venue is above what was put into it right now, so there is nothing to harvest. A venue that is flat or down yields nothing and its principal is never touched.":
+    "Ningún venue está ahora mismo por encima de lo que se metió en él, así que no hay nada que cosechar. Un venue plano o en pérdidas no rinde nada y su principal no se toca.",
+  "Anyone can harvest — it pays the sender nothing, it only credits the payees. Sent from your own Flare wallet.":
+    "Cualquiera puede cosechar — no paga nada a quien la envía, solo acredita a los beneficiarios. Se envía desde tu propia wallet de Flare.",
+  "Owed to the payees": "Debido a los beneficiarios",
+  "No payees configured.": "No hay beneficiarios configurados.",
+  "Claim your yield as XRP": "Reclama tu rendimiento como XRP",
+  "If this Legacy owes you yield, one signature brings it home as native XRP to your own XRPL account — you never have to hold FXRP. The rail rides a small payment, so enter what you are willing to send with it; it is minted and redeemed back to you along with the yield.":
+    "Si este Legacy te debe rendimiento, una firma lo trae a casa como XRP nativo a tu propia cuenta XRPL — nunca tienes que sostener FXRP. El raíl viaja sobre un pequeño pago, así que introduce lo que estés dispuesto a enviar con él; se mintea y se redime de vuelta a ti junto con el rendimiento.",
+  "Payment that carries it (XRP)": "Pago que lo transporta (XRP)",
+  "Claim to my XRPL account": "Reclamar a mi cuenta XRPL",
+  "Connect the XRPL account that is a payee of this Legacy to claim.":
+    "Conecta la cuenta XRPL que es beneficiaria de este Legacy para reclamar.",
+  "FAssets will not redeem below its on-chain minimum; under that, the yield simply stays owed in the vault until there is enough. Nothing is lost.":
+    "FAssets no redime por debajo de su mínimo on-chain; por debajo de eso, el rendimiento simplemente sigue debido en la vasija hasta que haya suficiente. No se pierde nada.",
+  "Sent — waiting for the Flare receipt…": "Enviado — esperando el recibo de Flare…",
+  "Harvested — the payees are now owed it.": "Cosechado — ahora se les debe a los beneficiarios.",
+  "View on Flare": "Ver en Flare",
+  "Signed — the executor is dispatching your claim…":
+    "Firmado — el executor está despachando tu claim…",
+  "Claimed — your yield is on its way back as XRP.":
+    "Reclamado — tu rendimiento está de camino de vuelta como XRP.",
+  "The principal stays in the vault whatever happens here. It can work in whitelisted venues, come back to the vault, or migrate to a verified successor — it can never be paid out to an address. That is the cage, and it is the point.":
+    "El principal se queda en la vasija pase lo que pase aquí. Puede trabajar en venues de la lista blanca, volver a la vasija o migrar a una sucesora verificada — nunca puede pagarse a una dirección. Esa es la jaula, y esa es la gracia.",
+  "Could not read the vault.": "No se pudo leer la vasija.",
+  "The cage": "La jaula",
+  "copied": "copiado",
+  "contract": "contrato",
+  "Capital held here": "Capital contenido aquí",
+  "Idle in the vault": "Parado en la vasija",
+  "Working in": "Trabajando en",
+  "venue": "venue",
+  "shares unreadable": "participaciones ilegibles",
+  "the protocol confirms our position": "el protocolo confirma nuestra posición",
+  "no position at the protocol yet": "aún sin posición en el protocolo",
+  "Yield owed to the payees": "Rendimiento debido a los beneficiarios",
+  "There are": "Hay",
+  "sitting in the contract that were transferred directly instead of deposited. They never became principal, so they fund nothing and nobody can claim them.":
+    "parados en el contrato que se transfirieron directamente en vez de depositarse. Nunca se convirtieron en principal, así que no financian nada y nadie puede reclamarlos.",
+  "This vault has migrated to a successor — it accepts no new principal.":
+    "Esta vasija ha migrado a una sucesora — ya no acepta principal nuevo.",
+  "This is the council's capital, but it is not a wallet: there is no function that pays this principal out to any address. It can work in the whitelisted venues, come back idle to the vault, or migrate to a verified successor. Only the yield it earns can ever be paid to a person.":
+    "Este capital es del consejo, pero esto no es una wallet: no existe ninguna función que pague este principal a una dirección. Puede trabajar en los venues de la lista blanca, volver parado a la vasija o migrar a una sucesora verificada. Solo el rendimiento que genera puede llegar a pagarse a una persona.",
+  "Activate automation": "Activar automatización",
+  "Automations (MoneyFlows)": "Automatizaciones (MoneyFlows)",
+  "No automation yet. Add Protect or Harvest above.":
+    "Aún sin automatización. Añade Protect o Harvest arriba.",
+  "No automation template applies to this position.":
+    "Ninguna plantilla de automatización aplica a esta posición.",
+  "Borrow settled — the carry is complete.": "Préstamo asentado — el carry está completo.",
+  "Claim available": "Claim disponible",
+  "Your open DeFi positions on Flare. Open one to add a Protect or Harvest automation — prepared for your signature, never executed automatically.":
+    "Tus posiciones DeFi abiertas en Flare. Abre una para añadir una automatización Protect o Harvest — preparada para tu firma, nunca ejecutada automáticamente.",
+  "Open DeFi positions": "Posiciones DeFi abiertas",
+  "Connect a wallet to view your positions": "Conecta una wallet para ver tus posiciones",
+  "Your open": "Tus posiciones",
+  "DeFi positions": "DeFi abiertas",
+  "Loading positions…": "Cargando posiciones…",
+  "Could not load positions": "No se pudieron cargar las posiciones",
+  "No open DeFi positions yet": "Aún no hay posiciones DeFi abiertas",
+  "Open one from Earn (FXRP → Kinetic or FLR → FTSO), then come back to automate it.":
+    "Abre una desde Generar (FXRP → Kinetic o FLR → FTSO) y vuelve para automatizarla.",
+  "Send from this Flare wallet to another of your wallets or an external address, and receive with a QR. Astryum prepares everything unsigned — you review and sign in your own wallet.":
+    "Envía desde esta wallet de Flare a otra de tus wallets o a una dirección externa, y recibe con un QR. Astryum lo prepara todo sin firmar — tú revisas y firmas en tu propia wallet.",
+  "Send between your wallets or to an address, receive with a QR, set XRP aside until a date you choose, and trade on the native XRPL DEX. Astryum prepares everything unsigned — you review and sign in your own wallet.":
+    "Envía entre tus wallets o a una dirección, recibe con un QR, aparta XRP hasta la fecha que elijas y opera en el DEX nativo de XRPL. Astryum lo prepara todo sin firmar — tú revisas y firmas en tu propia wallet.",
+  "Place a buy or sell order on the native XRPL DEX (XRP ↔ RLUSD). The price comes from the open order book.":
+    "Coloca una orden de compra o venta en el DEX nativo de XRPL (XRP ↔ RLUSD). El precio sale del libro de órdenes abierto.",
+  "Set XRP aside and DEX buy/sell are native XRPL rails — for Flare, put your assets to work in Earn. Send and receive work here as usual.":
+    "Apartar XRP y comprar/vender en el DEX son raíles nativos de XRPL — para Flare, pon tus activos a trabajar en Generar. Enviar y recibir funcionan aquí como siempre.",
+  "DEX orders sign on your own XRPL account — connect Xaman from Wallets to trade.":
+    "Las órdenes del DEX se firman en tu propia cuenta XRPL — conecta Xaman desde Wallets para operar.",
+  "Rests on the book until it fills or you cancel it.":
+    "Reposa en el libro hasta que se llena o la cancelas.",
+  "Fills against the book now; the remainder is cancelled (immediate-or-cancel).":
+    "Se llena contra el libro ahora; el resto se cancela (immediate-or-cancel).",
+  "You sell": "Vendes",
+  "receive": "recibes",
+  "You spend": "Gastas",
+  "Order price comes from the open XRPL DEX book — Astryum quotes nothing.":
+    "El precio de la orden sale del libro abierto del DEX de XRPL — Astryum no cotiza nada.",
+  "Order signed and submitted from your wallet.": "Orden firmada y enviada desde tu wallet.",
+  "A DEX order is a spot buy/sell on the native XRPL order book — not a yield product. Astryum builds it unsigned; you sign it in Xaman and can cancel a resting order any time.":
+    "Una orden de DEX es una compra/venta spot en el libro nativo de XRPL — no es un producto de yield. Astryum la construye sin firmar; tú la firmas en Xaman y puedes cancelar una orden en reposo cuando quieras.",
+  "Signed. The executor is minting the XRP and running the committed batch — the cage is usually born on Flare in about 2–5 minutes. This card becomes the vault the moment it exists.":
+    "Firmado. El executor está minteando el XRP y ejecutando el batch comprometido — la jaula suele nacer en Flare en unos 2–5 minutos. Esta tarjeta se convierte en la vasija en cuanto existe.",
+  "Your council signs this ONE payment — each member from their own device. It carries the whole birth: create this Legacy's own cage on Flare (a vault that obeys only this council, for ever), then deposit the minted FXRP as its first principal. Nobody holds it in between, and nobody else could have created it: the factory only obeys this council's own account.":
+    "Tu consejo firma este ÚNICO pago — cada miembro desde su propio dispositivo. Lleva el nacimiento completo: crear la jaula propia de este Legacy en Flare (una vasija que obedece solo a este consejo, para siempre) y depositar el FXRP minteado como su primer principal. Nadie lo custodia por el camino, y nadie más podría haberla creado: el factory solo obedece a la cuenta propia de este consejo.",
+  "The principal that enters a cage never comes back out to an address — only the yield it earns can be paid to people. And this signature does NOT choose where the capital works: that is a second, separate order of the quorum.":
+    "El principal que entra en una jaula nunca vuelve a salir hacia una dirección — solo el rendimiento que genera puede pagarse a personas. Y esta firma NO elige dónde trabaja el capital: eso es una segunda orden del quórum, separada.",
+  "Create this Legacy's cage": "Crear la jaula de este Legacy",
+  "This Legacy has no cage yet": "Este Legacy aún no tiene jaula",
+  "A cage is a contract deployed for ONE council: its address is written into the bridge when it is born and can never point at another. This council governs perfectly well without one — and it can never use another Legacy's. When the family is ready to lock productive capital in code, the quorum creates its own here, with one signature.":
+    "Una jaula es un contrato desplegado para UN consejo: su dirección se escribe en el puente cuando nace y nunca puede apuntar a otro. Este consejo gobierna perfectamente sin una — y nunca puede usar la de otro Legacy. Cuando la familia esté lista para encerrar capital productivo en código, el quórum crea la suya aquí, con una firma.",
+  "Beta limit: a cage accepts at most 5 XRP in total through Astryum. The principal that enters NEVER comes back out to an address — only the yield it earns can be paid to people. Do not cage anything you cannot afford to leave locked.":
+    "Límite de la beta: una jaula acepta como máximo 5 XRP en total a través de Astryum. El principal que entra NUNCA vuelve a salir hacia una dirección — solo el rendimiento que genera puede pagarse a personas. No enjaules nada que no puedas permitirte dejar encerrado.",
+  "First principal (XRP)": "Primer principal (XRP)",
+  "e.g. 5": "p. ej. 5",
+  "One payment does both: it mints this XRP into FXRP and deposits it as the cage's first principal. Small fees apply (minting + executor) and are disclosed before anyone signs.":
+    "Un solo pago hace las dos cosas: mintea este XRP en FXRP y lo deposita como primer principal de la jaula. Aplican comisiones pequeñas (mint + executor) y se muestran antes de que nadie firme.",
+  "Compose the birth for the quorum": "Componer el nacimiento para el quórum",
+  "The constitution must be anchored on XRPL first — the cage is born pointing at that exact text, and its rules (the venues, the lineage cut, the one-way principal) are enforced by code from block one.":
+    "La constitución debe anclarse antes en XRPL — la jaula nace apuntando a ese texto exacto, y sus reglas (los venues, el corte de linaje, el principal de sentido único) las impone el código desde el bloque uno.",
+  "New MoneyFlow": "Nuevo MoneyFlow",
+  "Compose it manually or with the AI agent — you always sign.":
+    "Compónlo a mano o con el agente de IA — tú siempre firmas.",
+  "With AI": "Con IA",
+  "Manual": "Manual",
+  "Strategy · MoneyFlows": "Estrategia · MoneyFlows",
+  "saved": "guardado",
+  "A MoneyFlow watches without discretion; when it fires it prepares the exact on-chain action for YOU to sign. Configure triggers over your DeFi positions. It always expires (90 days at most) and you can pause or delete it instantly — Astryum never signs or executes.":
+    "Un MoneyFlow vigila sin discreción; cuando se dispara, prepara la acción on-chain exacta para que la firmes TÚ. Configura disparadores sobre tus posiciones DeFi. Siempre caduca (90 días como máximo) y puedes pausarlo o borrarlo al instante — Astryum nunca firma ni ejecuta.",
+  "Manual or with AI": "A mano o con IA",
+  "draft": "borrador",
+  "Custom drafts can’t run in the beta":
+    "Los borradores personalizados no pueden ejecutarse en la beta",
+  "No active MoneyFlows yet — compose one with the ＋ card, or add Protect/Harvest from a position.":
+    "Aún no hay MoneyFlows activos — compón uno con la tarjeta ＋, o añade Protect/Harvest desde una posición.",
+  "No saved MoneyFlows — draft one with the ＋ card and it will wait here until you run it.":
+    "No hay MoneyFlows guardados — borra uno con la tarjeta ＋ y esperará aquí hasta que lo ejecutes.",
+  "% of max borrow capacity": "% de la capacidad máxima de préstamo",
+  "Astryum never signs — your wallet does": "Astryum nunca firma — firma tu wallet",
+  "USDT0 borrowed": "USDT0 prestado",
+  "FXRP/USD now": "FXRP/USD ahora",
+  "Stop-loss triggers below": "El stop-loss se dispara por debajo de",
+  "Astryum does not custody your funds.": "Astryum no custodia tus fondos.",
+  "Sign anyway — the dry-run says it will fail": "Firmar igualmente — el ensayo dice que fallará",
+  "Approve the Payment in Xaman…": "Aprueba el Payment en Xaman…",
+  "Confirmed on-chain — the position appears in Positions.":
+    "Confirmado on-chain — la posición aparece en Posiciones.",
+  "APY": "APY",
+  "Unsupported": "Unsupported",
+  "Fund the account before you start.": "Fondea la cuenta antes de empezar.",
+  "The full ceremony — council, rehearsal escrow, constitution — needs about":
+    "La ceremonia completa — consejo, escrow de ensayo, constitución — necesita unos",
+  "Add at least": "Añade al menos",
+  "first — a signature that fails for insufficient reserve still costs its fee.":
+    "primero — una firma que falla por reserva insuficiente cuesta su comisión igualmente.",
+  "Astryum composes this AccountSet unsigned; you sign it with the account’s OWN master key (single signature). XRPL requires the master key itself — the council quorum cannot do this one. Astryum never signs or broadcasts on your behalf.":
+    "Astryum compone este AccountSet sin firmar; tú lo firmas con la master key PROPIA de la cuenta (firma única). XRPL exige la master key en sí — el quórum del consejo no puede hacer esta. Astryum nunca firma ni difunde en tu nombre.",
+  "Prepare closing the door": "Preparar el cierre de la puerta",
+  "Master key disabled — the door is closed. The account now obeys only the council.":
+    "Master key deshabilitada — la puerta está cerrada. La cuenta ahora obedece solo al consejo.",
+  "A programmed, conditioned, revocable transfer constituted in life — it creates no legal regime, and nothing transfers at death.":
+    "Una transferencia programada, condicionada y revocable constituida en vida — no crea ningún régimen legal, y nada se transfiere a la muerte.",
+  "Astryum composes unsigned; the quorum signs each proposal — the same bytes, once, in order.":
+    "Astryum compone sin firmar; el quórum firma cada propuesta — los mismos bytes, una vez, en orden.",
+  "The accounts this Legacy controls — its council on XRPL and the Smart Account it operates on Flare. Read-only here; the quorum moves funds from Movements.":
+    "Las cuentas que controla este Legacy — su consejo en XRPL y la Smart Account que opera en Flare. Solo lectura aquí; el quórum mueve fondos desde Movimientos.",
+  "On XRPL nobody holds a key: this account is protected by its council (quorum), never by Astryum.":
+    "En XRPL nadie tiene una llave: esta cuenta la protege su consejo (quórum), nunca Astryum.",
+  "The signature was cancelled or expired in Xaman.": "La firma se canceló o caducó en Xaman.",
+  "Sign with the master key in Xaman": "Firma con la master key en Xaman",
+  "Scan this with the Xaman that holds this account’s master key. You do not need to connect any wallet here — the request is for this account only, and only its master key can sign it.":
+    "Escanea esto con el Xaman que tiene la master key de esta cuenta. No necesitas conectar ninguna wallet aquí — la petición es solo para esta cuenta, y solo su master key puede firmarla.",
+  "Preparing the Xaman request…": "Preparando la petición de Xaman…",
+  "waiting for the master key signature": "esperando la firma de la master key",
+  "Signed and submitted — the door is closing.": "Firmado y enviado — la puerta se está cerrando.",
+  "Signed — but Xaman reported no submission result yet. Check the account on the explorer before assuming the door closed.":
+    "Firmado — pero Xaman aún no informó del resultado del envío. Comprueba la cuenta en el explorador antes de asumir que la puerta se cerró.",
+  "Xaman submitted it but the ledger returned": "Xaman lo envió pero el ledger devolvió",
+  "Try again": "Inténtalo de nuevo",
+  "Compose a movement for this Legacy — the quorum signs it in Proposals":
+    "Compón un movimiento para este Legacy — el quórum lo firma en Propuestas",
+  "Governed by its council — Astryum never signs":
+    "Gobernada por su consejo — Astryum nunca firma",
+  "Wallets this Legacy controls": "Wallets que controla este Legacy",
+  "The council governs on XRPL; the Smart Account it controls produces on Flare. Read-only here — every action is signed by the council, never by Astryum.":
+    "El consejo gobierna en XRPL; la Smart Account que controla produce en Flare. Solo lectura aquí — cada acción la firma el consejo, nunca Astryum.",
+  "No chains yet": "Aún sin cadenas",
+  "Legacy wallets": "Wallets del Legacy",
+  "Resolving this Legacy’s Smart Account… its wallets appear here once the council’s Flare account is known.":
+    "Resolviendo la Smart Account de este Legacy… sus wallets aparecen aquí en cuanto se conozca la cuenta de Flare del consejo.",
+  "Protection buffer": "Colchón de protección",
+  "to liquidation": "hasta liquidación",
+  "DeFi": "DeFi",
+  "Connect a wallet to view your portfolio": "Conecta una wallet para ver tu cartera",
+  "Connect a wallet": "Conecta una wallet",
+  "the relay could not deliver the proof": "el relay no pudo entregar la prueba",
+  "stuck": "atascada",
+  "The FDC round takes about": "La ronda FDC tarda unos",
+  "The quorum can step away — the wait is normal, not a failure.":
+    "El quórum puede irse tranquilo — la espera es normal, no un fallo.",
+  "The order stays valid — the same signed transaction can be re-delivered by anyone (permissionless), no new signature needed.":
+    "La orden sigue válida — la misma transacción firmada puede re-entregarla cualquiera (permissionless), sin firma nueva.",
+  "Transfer settled on-chain.": "Transferencia asentada on-chain.",
+  "Transfer signed — settling…": "Transferencia firmada — asentándose…",
+  "Payment validated on the XRPL ledger.": "Payment validado en el ledger de XRPL.",
+  "Signed — waiting for ledger validation…": "Firmado — esperando la validación del ledger…",
+  "Validated — the ledger applied it.": "Validado — el ledger lo aplicó.",
+  "The ledger validated it but it FAILED:": "El ledger lo validó pero FALLÓ:",
+  "Broadcast accepted — still waiting for ledger validation. Check XRPScan in a moment; do not assume it applied.":
+    "Difusión aceptada — aún esperando la validación del ledger. Mira XRPScan en un momento; no asumas que se aplicó.",
+  "Firelight does NOT pay instantly: this redeem burns your stXRP now and queues the FXRP into a ~24h withdrawal period. Nothing arrives in this transaction — your position will keep showing the FXRP in flight with a Claim button, and one click releases it when the period ends (exact time shown before you sign).":
+    "Firelight NO paga al instante: este redeem quema tu stXRP ahora y encola el FXRP en un periodo de retirada de ~24 h. En esta transacción no llega nada — tu posición seguirá mostrando el FXRP en vuelo con un botón de Claim, y un clic lo libera cuando el periodo termina (la hora exacta se muestra antes de firmar).",
+  "Withdrawal settled on Flare.": "Retirada asentada en Flare.",
+  "Withdrawal signed — settling on Flare…": "Retirada firmada — asentándose en Flare…",
+  "Claim settled — the FXRP is in your wallet.": "Claim asentado — el FXRP está en tu wallet.",
+  "Claim signed — settling on Flare…": "Claim firmado — asentándose en Flare…",
+  "Signed — taking longer than normal, still watching the chain.":
+    "Firmado — tarda más de lo normal, seguimos vigilando la cadena.",
+  "Signed and settled on-chain.": "Firmado y asentado on-chain.",
+  "Live on-chain reads across your connected wallets — one source, every lens.":
+    "Lecturas on-chain en vivo de tus wallets conectadas — una fuente, todas las lentes.",
+  "Live reads from the same source as Portfolio — verify on-chain before acting.":
+    "Lecturas en vivo de la misma fuente que Cartera — verifica on-chain antes de actuar.",
+  "Here is where your capital stands today.": "Aquí es donde está tu capital hoy.",
+  "API base": "Base de la API",
+  "Claim": "Reclamar",
+  "Legacies": "Legacies",
+  "MoneyFlows": "MoneyFlows",
+  "Describe what you want to do…": "Describe qué quieres hacer…",
+  "held in the account; it currently holds": "retenidos en la cuenta; ahora mismo tiene",
+  "Broadcast accepted — still waiting for ledger validation. Check XRPScan in a moment; if it did not apply, anchor again.":
+    "Difusión aceptada — aún esperando la validación del ledger. Mira XRPScan en un momento; si no se aplicó, ancla de nuevo.",
+  "Nickname": "Apodo",
+
+  // ── Pasada i18n 2026-08-08, parte B: textos que estaban DUROS en el código
+  // (sin t()) — seguridad, capacidades por cadena, error boundary, a11y del
+  // shell y gráficas — envueltos en t() en el mismo cambio que estas entradas. ──
+  "Something went wrong on this page": "Algo salió mal en esta página",
+  "Unknown error": "Error desconocido",
+  "Stack trace (dev only)": "Stack trace (solo dev)",
+  "✓ Copied": "✓ Copiado",
+  "Copy error": "Copiar el error",
+  "Verifying access…": "Verificando acceso…",
+  "Skip setup": "Saltar la configuración",
+  "Loading supported chains…": "Cargando cadenas compatibles…",
+  "Couldn't load chain capabilities.": "No se pudieron cargar las capacidades por cadena.",
+  "No chains available.": "No hay cadenas disponibles.",
+  "supported": "compatible",
+  "not supported": "no compatible",
+  "Honest support frontier — a ✓ means that capability is actually wired for the chain, not just \"enabled\". Execution-side capabilities on Flare depend on FLARE_DEFI_ENABLED.":
+    "Frontera de soporte honesta — un ✓ significa que esa capacidad está cableada de verdad para la cadena, no solo «habilitada». Las capacidades de ejecución en Flare dependen de FLARE_DEFI_ENABLED.",
+  "Passkeys": "Passkeys",
+  "Add this device as a passkey to sign in with your fingerprint, face, or device PIN — no password needed.":
+    "Añade este dispositivo como passkey para iniciar sesión con tu huella, tu cara o el PIN del dispositivo — sin contraseña.",
+  "Device name (optional)": "Nombre del dispositivo (opcional)",
+  "Waiting for device…": "Esperando al dispositivo…",
+  "Add a passkey": "Añadir una passkey",
+  "Passkey added": "Passkey añadida",
+  "Step-up signature locks": "Candados de firma reforzada",
+  "Require a fresh wallet signature before reading or changing sensitive parts of the app — so even if someone gets into your account, they can't touch what matters without your device. Pick exactly what to protect.":
+    "Exige una firma fresca de tu wallet antes de leer o cambiar las partes sensibles de la app — así, aunque alguien entre en tu cuenta, no puede tocar lo que importa sin tu dispositivo. Elige exactamente qué proteger.",
+  "Link a wallet first — step-up locks are confirmed with a wallet signature.":
+    "Vincula una wallet primero — los candados se confirman con una firma de wallet.",
+  "Enable step-up locks": "Activar los candados",
+  "Master switch. When off, nothing is gated.":
+    "Interruptor maestro. Apagado, nada queda protegido.",
+  "Re-ask after": "Volver a pedir tras",
+  "Seconds a signature stays valid (60–1800).": "Segundos que una firma sigue válida (60–1800).",
+  "Feature": "Función",
+  "Read": "Leer",
+  "Write": "Escribir",
+  "Saving…": "Guardando…",
+  "Save protection settings": "Guardar la protección",
+  "Security verification": "Verificación de seguridad",
+  "Confirm with your wallet": "Confirma con tu wallet",
+  "You protected": "Protegiste",
+  "Sign a quick verification message with a linked wallet to continue. No funds move and no transaction is sent — this only proves it's really you.":
+    "Firma un mensaje rápido de verificación con una wallet vinculada para continuar. No se mueven fondos ni se envía ninguna transacción — solo demuestra que eres tú de verdad.",
+  "Waiting for signature…": "Esperando la firma…",
+  "Sign to continue": "Firmar para continuar",
+  "Open menu": "Abrir el menú",
+  "Close menu": "Cerrar el menú",
+  "Search and jump to anywhere": "Busca y salta a cualquier parte",
+  "Account settings": "Ajustes de la cuenta",
+  "Dev session": "Sesión de desarrollo",
+  "No HF data": "Sin datos de HF",
+  "No drivers": "Sin factores",
+  "No history": "Sin historial",
+  "No history yet": "Aún sin historial",
+  "stale": "desfasado",
+  "Connect a wallet to view your capital map": "Conecta una wallet para ver tu mapa de capital",
+  "The map reads the same connected wallets as the rest of the dashboard.":
+    "El mapa lee las mismas wallets conectadas que el resto del dashboard.",
+
+  // ── Sidebar "In progress" card (settlements moved under To sign, 0.9.32) ──
+  'In progress': 'En curso',
+  Minimise: 'Minimizar',
+  'See the operations being watched': 'Ver las operaciones vigiladas',
+  'Confirmed on-chain': 'Confirmada on-chain',
+  'Failed on-chain': 'Falló on-chain',
+  'Taking longer — still watching': 'Tarda más de lo normal — seguimos vigilando',
+  'Settling on-chain…': 'Liquidándose on-chain…',
+  'Everything you sign is watched here until the chain confirms it.':
+    'Todo lo que firmas se vigila aquí hasta que la cadena lo confirma.',
+  'Operation signed': 'Operación firmada',
+  'On its way on-chain — follow it in the sidebar, under To sign.':
+    'En camino on-chain — síguela en la barra lateral, bajo Para firmar.',
+
+  // Puntuación idéntica en ambos idiomas (LegacyActivityFeed la pasa por t()):
+  // presente solo para que la auditoría AST se mantenga en 0 claves ausentes.
+  '—': '—',
+
+  // ── Earn finder, paso de resultado (0.9.40) ──
+  route: 'ruta',
+  routes: 'rutas',
+  'Your answers': 'Tus respuestas',
+  'This route can work with that:': 'Esta ruta puede funcionar con eso:',
+  'These routes can work with that:': 'Estas rutas pueden funcionar con eso:',
+  'A factual match, not a recommendation: the full card adds the token journey, every fact and the technical composition — nothing starts without your review and your signature.':
+    'Una coincidencia factual, no una recomendación: la tarjeta completa añade el viaje del token, todos los hechos y la composición técnica — nada arranca sin tu revisión y tu firma.',
+  'See this route in detail': 'Ver esta ruta en detalle',
+  'See these routes in detail': 'Ver estas rutas en detalle',
+
+  // ── Earn: the two-question strategy finder (0.9.32) ──
+  // (Wallets 0.9.32 reutiliza 'Holds' y 'Watch-only', ya presentes arriba.)
+  'Find your route': 'Encuentra tu ruta',
+  'A filter, not advice — every route shows its own live data':
+    'Un filtro, no un consejo — cada ruta muestra sus propios datos en vivo',
+  'Two questions narrow the six routes to the ones that can work with what you hold. You can always browse the full list.':
+    'Dos preguntas reducen las seis rutas a las que pueden funcionar con lo que tienes. Siempre puedes ver la lista completa.',
+  'What do you want to put to work?': '¿Qué quieres poner a trabajar?',
+  'In a Xaman/XRPL wallet, or already as FXRP on Flare':
+    'En una wallet Xaman/XRPL, o ya como FXRP en Flare',
+  'The Flare network token, in an EVM wallet — FTSO delegation':
+    'El token de la red Flare, en una wallet EVM — delegación FTSO',
+  'Just browsing': 'Solo estoy mirando',
+  'Show me all six routes': 'Enséñame las seis rutas',
+  'How should your XRP work?': '¿Cómo debería trabajar tu XRP?',
+  'Lend it out — simple': 'Préstalo — simple',
+  'Supply FXRP to a lending market and withdraw whenever you want. No borrowing involved.':
+    'Deposita FXRP en un mercado de préstamo y retira cuando quieras. Sin pedir prestado.',
+  'Lend and borrow against it (carry)': 'Presta y pide prestado contra él (carry)',
+  'Supply FXRP and borrow a stablecoin against it. More moving parts — it carries liquidation risk.':
+    'Deposita FXRP y pide una stablecoin prestada contra él. Más piezas en juego — tiene riesgo de liquidación.',
+  'Deposit into a managed vault': 'Deposita en una vault gestionada',
+  'A vault whose strategy is run by its manager (Clearstar, Monarq). You deposit and hold the vault token.':
+    'Una vault cuya estrategia lleva su gestor (Clearstar, Monarq). Tú depositas y te quedas el token de la vault.',
+  'Stake it': 'Haz staking',
+  'Convert to stXRP through Firelight and hold the staked position.':
+    'Conviértelo en stXRP vía Firelight y mantén la posición en staking.',
+  'Whatever you pick here only filters the list — each route still shows its live rate, risks and full composition before you decide anything.':
+    'Lo que elijas aquí solo filtra la lista — cada ruta sigue mostrando su tipo en vivo, sus riesgos y su composición completa antes de que decidas nada.',
+  'Not sure where to start? Two questions narrow the list to the routes that can work with what you hold.':
+    '¿No sabes por dónde empezar? Dos preguntas reducen la lista a las rutas que pueden funcionar con lo que tienes.',
+  'Guide me': 'Guíame',
+  '1 route can work with your answers — its live data and risks are on the card.':
+    '1 ruta puede funcionar con tus respuestas — sus datos en vivo y riesgos están en la tarjeta.',
+  'routes can work with your answers — their live data and risks are on the cards.':
+    'rutas pueden funcionar con tus respuestas — sus datos en vivo y riesgos están en las tarjetas.',
+  'Change answers': 'Cambiar respuestas',
+  'Show all six': 'Ver las seis',
+  // Settings › Preferences — fila de idioma (mudada del sidebar, 2026-08-08)
+  'Texts and number formats.': 'Los textos y el formato de los números.',
 };
 
 const TABLES: Record<Lang, Record<string, string>> = { es: { ...ES, ...PAGES }, en: {} };

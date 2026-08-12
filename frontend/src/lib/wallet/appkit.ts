@@ -13,6 +13,7 @@
  */
 
 import { createAppKit } from '@reown/appkit/react';
+import { flare } from '@reown/appkit/networks';
 import {
   wagmiAdapter,
   solanaAdapter,
@@ -20,6 +21,8 @@ import {
   WALLET_CONNECT_PROJECT_ID,
   APPKIT_NETWORKS,
   APP_METADATA,
+  METAMASK_WALLET_ID,
+  MULTI_VM_CONNECT_ENABLED,
 } from './config';
 
 let _modal: ReturnType<typeof createAppKit> | null = null;
@@ -28,17 +31,33 @@ let _modal: ReturnType<typeof createAppKit> | null = null;
  * Lazy-initialize the AppKit modal. Returns the same instance on every call.
  * Idempotent — safe to call from multiple components.
  *
- * Both wagmi (EVM) and Solana adapters are registered: users see ONE Connect
- * button that surfaces all supported wallets across both VMs.
+ * ONE wallet, ONE network (founder 2026-08-04): the picker offers MetaMask on
+ * Flare Mainnet and nothing else. The other rail of this beta is Xaman on XRPL,
+ * which never passes through AppKit — it connects through its own service.
+ *
+ * The Solana and Bitcoin adapters stay imported and built; they are simply not
+ * registered while MULTI_VM_CONNECT_ENABLED is false, so re-opening that rail is
+ * a flag flip, not a rebuild.
  */
 export function getAppKitModal() {
   if (_modal) return _modal;
 
   _modal = createAppKit({
-    adapters: [wagmiAdapter, solanaAdapter, bitcoinAdapter],
+    adapters: MULTI_VM_CONNECT_ENABLED
+      ? [wagmiAdapter, solanaAdapter, bitcoinAdapter]
+      : [wagmiAdapter],
     networks: APPKIT_NETWORKS,
+    defaultNetwork: flare,
     projectId: WALLET_CONNECT_PROJECT_ID,
     metadata: APP_METADATA,
+    // MetaMask only. `includeWalletIds` filters the registry list AND the
+    // injected/announced (EIP-6963) connectors, so a second extension in the
+    // same browser never shows up; `allWallets: 'HIDE'` removes the "All
+    // wallets" escape hatch that would list the registry anyway.
+    includeWalletIds: MULTI_VM_CONNECT_ENABLED ? undefined : [METAMASK_WALLET_ID],
+    featuredWalletIds: MULTI_VM_CONNECT_ENABLED ? undefined : [METAMASK_WALLET_ID],
+    allWallets: MULTI_VM_CONNECT_ENABLED ? 'SHOW' : 'HIDE',
+    enableCoinbase: MULTI_VM_CONNECT_ENABLED,
     themeMode: 'dark',
     themeVariables: {
       '--w3m-accent': '#C9A227',

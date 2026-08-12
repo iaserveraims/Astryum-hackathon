@@ -20,6 +20,7 @@ import {
   type EmbeddedStatus,
   type CreatedEmbeddedWallet,
 } from '../../lib/wallet/turnkeyEmbedded';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 interface Props {
   onClose: () => void;
@@ -81,8 +82,8 @@ export function EmbeddedWalletCreatePanel({ onClose, onCreated }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-zinc-900 border border-ink/10 rounded-2xl shadow-2xl overflow-hidden">
+    <ModalOverlay className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="w-full max-w-md my-auto bg-zinc-900 border border-ink/10 rounded-2xl shadow-2xl overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10">
@@ -193,6 +194,6 @@ export function EmbeddedWalletCreatePanel({ onClose, onCreated }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

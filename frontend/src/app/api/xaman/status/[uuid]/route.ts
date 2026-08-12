@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rememberPushToken } from '../../pushTokens';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { uuid: string } }
 ) {
   try {
@@ -36,6 +37,23 @@ export async function GET(
       return NextResponse.json(
         { error: 'Upstream error', status: upstream.status, data },
         { status: upstream.status }
+      );
+    }
+
+    // A signature is also when Xaman hands us the token that lets the NEXT
+    // request reach this person as a push instead of a QR. Capture it here,
+    // server-side: it never travels to the browser. Fire-and-forget — a lost
+    // token costs a QR, never a signature.
+    const d = data as {
+      meta?: { signed?: boolean };
+      application?: { issued_user_token?: string };
+      response?: { account?: string; signer?: string };
+    } | null;
+    if (d?.meta?.signed && d.application?.issued_user_token) {
+      void rememberPushToken(
+        d.response?.signer || d.response?.account,
+        d.application.issued_user_token,
+        req.headers.get('authorization'),
       );
     }
 

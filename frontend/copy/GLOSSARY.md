@@ -87,7 +87,26 @@ SparkDEX · DeFi · MiCA · CASP · mainnet · wallet (femenino en ES: "tu walle
    distinta: llaves (dónde viven) ≠ custodia (qué no tenemos) ≠ firma (quién autoriza) ≠
    discreción (quién decide). Dos frases que dicen lo mismo = se poda una.
 
-## 7 · Registro
+## 7 · Léxico propio — los acuñados de Astryum
+
+La jerga propia es un activo cuando **bautiza cosas** y una barrera cuando sustituye la
+explicación. Regla dura: un acuñado nombra una superficie, un estado o un artefacto — la frase
+que explica qué pasa con el dinero se queda siempre llana (§0). Máximo vigente: **cinco**.
+Un acuñado nuevo se discute aquí antes de aparecer en ninguna página.
+
+| Acuñado ES | EN | Qué nombra | Dónde vive ya |
+|---|---|---|---|
+| el puesto de mando | mission control | el producto como lugar (ya en §2) | Home hero · /what-we-offer · /proof |
+| en órbita | in orbit | el estado del capital que está trabajando | dial de Summary (app + artifact) · stop Summary |
+| el candado | the lock | la verificación huella-contra-orden que hace la red | /proof (Personal y Legacy) |
+| la jaula | the cage | el contrato LegacyVault, en superficies Legacy | /proof · tab Legacy |
+| oleada (de embarque) | boarding wave | las cohortes del acceso anticipado | /early-access |
+
+Cada acuñado se presenta con su gesto de contexto la primera vez por página (el dial junto a
+«en órbita», los cuatro pasos junto a «el candado») — nunca en frío. Si un día uno necesita
+explicación previa para entenderse, se cae (§0).
+
+## 8 · Registro
 
 - **Serio, estructurado, explicativo** — el listón es /about: sobrio, humano, verificable.
 - La metáfora cósmica de marca vive en **lo visual** (starfield, sistema solar, la tarjeta

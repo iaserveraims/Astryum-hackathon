@@ -39,6 +39,7 @@ import {
   type DraftKind,
   type StrategyDraft,
 } from '../../lib/strategyDrafts';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 export function inferDraftKind(asset?: string): DraftKind {
   const a = (asset ?? '').toUpperCase();
@@ -294,8 +295,8 @@ function DraftEditorModal({
   const field = 'w-full px-3.5 py-2.5 bg-ink/5 border border-ink/10 rounded-xl text-ink text-xs placeholder-ink/30 focus:outline-none focus:border-volt/50';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-md my-auto" onClick={(e) => e.stopPropagation()}>
         <div className="rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-ink/5">
             <h2 className="text-base font-semibold text-ink">{t('Edit strategy')}</h2>
@@ -362,6 +363,6 @@ function DraftEditorModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

@@ -41,8 +41,20 @@ const FLARE_EXPLORER: Record<string, string> = {
 // the real number with `rehearse-attestation.ts` and update.
 const FDC_ROUND_ESTIMATE = '2–5 min';
 
-/** The v1 action forms — field lists per action, rendered generically. */
-type FieldKind = 'venueId' | 'amount' | 'bps' | 'address' | 'date' | 'ref';
+/** What the quorum is really paying, read from the COMPOSED transaction.
+ *  With the order fee on, the Payment is 1 drop + the fee (0.200001 XRP), not
+ *  the "1 drop" the copy used to promise. Drops are always 6 decimals. */
+function orderPaymentXrp(handoff: CouncilOrderHandoff): string {
+  const raw = (handoff.xrplTx as { Amount?: unknown })?.Amount;
+  const drops = typeof raw === 'string' || typeof raw === 'number' ? Number(raw) : NaN;
+  if (!Number.isFinite(drops) || drops <= 0) return '—';
+  if (drops === 1) return '1 drop';
+  return `${(drops / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 6 })} XRP`;
+}
+
+/** The v1 action forms — field lists per action, rendered generically.
+ *  'payees' is the one repeatable field: address + % rows (wire wants bps). */
+type FieldKind = 'venueId' | 'amount' | 'bps' | 'address' | 'date' | 'ref' | 'payees';
 interface ActionForm {
   action: string;
   label: string;
@@ -76,6 +88,13 @@ const ACTION_FORMS: ActionForm[] = [
     fields: [{ id: 'bps', label: 'Bps (1000–4000)', kind: 'bps' }],
   },
   {
+    // The yield panel's "no payees set" notice pointed here for weeks while the
+    // form did not exist (F5) — the backend rail (setPayees) was always live.
+    action: 'set-payees',
+    label: 'Set the payees (who receives the yield)',
+    fields: [{ id: 'payees', label: 'Payees', kind: 'payees' }],
+  },
+  {
     action: 'cede',
     label: 'Grant direction (the cession)',
     fields: [
@@ -97,6 +116,11 @@ export default function CouncilOrderCard({ account }: { account: string }) {
   const { t } = useT();
   const [form, setForm] = useState<ActionForm>(ACTION_FORMS[0]);
   const [values, setValues] = useState<Record<string, string>>({});
+  // set-payees rows — the person types a Flare address and a % share; the wire
+  // gets bps. Empty rows are dropped before validation.
+  const [payeeRows, setPayeeRows] = useState<Array<{ account: string; pct: string }>>([
+    { account: '', pct: '' },
+  ]);
   const [stage, setStage] = useState<Stage>('form');
   const [handoff, setHandoff] = useState<CouncilOrderHandoff | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +142,20 @@ export default function CouncilOrderCard({ account }: { account: string }) {
       // Params go up as-typed; the backend validates + encodes deterministically.
       const params: Record<string, unknown> = {};
       for (const f of form.fields) {
+        if (f.kind === 'payees') {
+          const rows = payeeRows
+            .map((r) => ({ account: r.account.trim(), pct: Number(String(r.pct).replace(',', '.')) }))
+            .filter((r) => r.account.length > 0 || Number.isFinite(r.pct));
+          if (rows.length === 0) throw new Error(t('Add at least one payee.'));
+          if (rows.some((r) => !/^0x[a-fA-F0-9]{40}$/.test(r.account))) {
+            throw new Error(t('Every payee must be a Flare address (0x…).'));
+          }
+          if (rows.some((r) => !(r.pct > 0))) throw new Error(t('Every payee needs a share greater than 0%.'));
+          const total = rows.reduce((a, r) => a + r.pct, 0);
+          if (total > 100) throw new Error(`${t('The shares add up to more than 100%')} (${total}%).`);
+          params.payees = rows.map((r) => ({ account: r.account, bps: Math.round(r.pct * 100) }));
+          continue;
+        }
         const v = values[f.id]?.trim();
         if (!v) throw new Error(t('Fill every field of the order first.'));
         params[f.id] = f.kind === 'venueId' || f.kind === 'bps' ? Number(v) : f.kind === 'date' ? new Date(`${v}T00:00:00Z`).toISOString() : v;
@@ -133,7 +171,7 @@ export default function CouncilOrderCard({ account }: { account: string }) {
       setError((e as Error).message);
       setStage('form');
     }
-  }, [account, form, values, t]);
+  }, [account, form, values, payeeRows, t]);
 
   /** Fire (or re-fire) the courtesy relay for a signed XRPL tx. Idempotent on the
    *  backend (executed → 'already-executed'); persistence-backed so a redeploy
@@ -170,7 +208,7 @@ export default function CouncilOrderCard({ account }: { account: string }) {
       // hash): read-only detail; the success verdict never comes from here.
       pollTimer.current = setInterval(async () => {
         try {
-          const st = await xrplLegacy.councilOrderStatus(hash);
+          const st = await xrplLegacy.councilOrderStatus(hash, account);
           if (st.relay?.state === 'error') setStuckReason(st.relay.detail ?? t('the relay could not deliver the proof'));
           else if (st.relay?.state === 'relaying') setStuckReason(null);
           if (st.relay?.flareTxHash) setFlareHash(st.relay.flareTxHash);
@@ -232,7 +270,7 @@ export default function CouncilOrderCard({ account }: { account: string }) {
       </div>
       <p className="text-[12px] text-ink/55">
         {t(
-          'Govern the productive capital from XRPL, literally: the quorum signs ONE 1-drop transaction committing the exact order; the Flare Data Connector proves it; the bridge executes only those bytes against the vault. No order can extract the principal — that function does not exist.',
+          'Govern the productive capital from XRPL, literally: the quorum signs ONE transaction committing the exact order; the Flare Data Connector proves it; the bridge executes only those bytes against the vault. No order can extract the principal — that function does not exist.',
         )}
       </p>
 
@@ -246,6 +284,7 @@ export default function CouncilOrderCard({ account }: { account: string }) {
                 const next = ACTION_FORMS.find((a) => a.action === e.target.value)!;
                 setForm(next);
                 setValues({});
+                setPayeeRows([{ account: '', pct: '' }]);
               }}
               className={inputCls}
             >
@@ -258,19 +297,61 @@ export default function CouncilOrderCard({ account }: { account: string }) {
           </label>
           {form.fields.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {form.fields.map((f) => (
-                <label key={f.id} className="block">
-                  <MicroLabel>{t(f.label)}</MicroLabel>
-                  <input
-                    type={f.kind === 'date' ? 'date' : 'text'}
-                    inputMode={f.kind === 'venueId' || f.kind === 'bps' || f.kind === 'amount' ? 'numeric' : undefined}
-                    value={values[f.id] ?? ''}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.id]: e.target.value }))}
-                    spellCheck={false}
-                    className={inputCls}
-                  />
-                </label>
-              ))}
+              {form.fields.map((f) =>
+                f.kind === 'payees' ? (
+                  <div key={f.id} className="sm:col-span-2 space-y-2">
+                    {payeeRows.map((r, i) => (
+                      <div key={i} className="flex flex-wrap items-end gap-2">
+                        <label className="grow">
+                          <MicroLabel>{t('Payee (Flare 0x…)')}</MicroLabel>
+                          <input
+                            value={r.account}
+                            onChange={(e) =>
+                              setPayeeRows((prev) => prev.map((x, j) => (j === i ? { ...x, account: e.target.value } : x)))
+                            }
+                            spellCheck={false}
+                            className={inputCls}
+                          />
+                        </label>
+                        <label className="w-24">
+                          <MicroLabel>{t('Share (%)')}</MicroLabel>
+                          <input
+                            value={r.pct}
+                            onChange={(e) =>
+                              setPayeeRows((prev) => prev.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)))
+                            }
+                            inputMode="decimal"
+                            className={inputCls}
+                          />
+                        </label>
+                        {payeeRows.length > 1 && (
+                          <GhostButton onClick={() => setPayeeRows((prev) => prev.filter((_, j) => j !== i))}>
+                            ×
+                          </GhostButton>
+                        )}
+                      </div>
+                    ))}
+                    <GhostButton onClick={() => setPayeeRows((prev) => [...prev, { account: '', pct: '' }])}>
+                      + {t('Add payee')}
+                    </GhostButton>
+                    <p className="text-[11px] text-ink/45">
+                      {t('The yield is shared out in these proportions. What is not assigned keeps capitalizing into the principal.')}
+                    </p>
+                  </div>
+                ) : (
+                  <label key={f.id} className="block">
+                    <MicroLabel>{t(f.label)}</MicroLabel>
+                    <input
+                      type={f.kind === 'date' ? 'date' : 'text'}
+                      inputMode={f.kind === 'venueId' || f.kind === 'bps' || f.kind === 'amount' ? 'numeric' : undefined}
+                      value={values[f.id] ?? ''}
+                      onChange={(e) => setValues((v) => ({ ...v, [f.id]: e.target.value }))}
+                      spellCheck={false}
+                      className={inputCls}
+                    />
+                  </label>
+                ),
+              )}
             </div>
           )}
           <PrimaryButton onClick={() => void prepare()} disabled={stage === 'review'}>
@@ -290,14 +371,28 @@ export default function CouncilOrderCard({ account }: { account: string }) {
         <div className="space-y-3">
           <DisclosureBlock handoff={handoff} />
           <p className="text-[12px] text-ink/55">
+            {/* The amount is READ from the composed tx, never described from
+                memory: this line used to promise a single drop while the order
+                fee made it 200,001 drops — a screen that contradicts what the
+                quorum is about to sign (F4 family, 2026-08-03). */}
+            {t('Your council signs this Payment of')} {orderPaymentXrp(handoff)}{' '}
             {t(
-              'Your council signs this 1-drop Payment here, each member from their own device. The signature authorizes ONLY the order above — same bytes, once, in order.',
+              'here, each member from their own device. The signature authorizes ONLY the order above — same bytes, once, in order.',
             )}
           </p>
           <CouncilMultisigFlow xrplTx={handoff.xrplTx} account={account} onSettled={onSettled} />
           {/* The async tempo (§2.4): file it in the inbox and let each member
               sign from their own device over days. */}
-          <ProposeToCouncil xrplTx={handoff.xrplTx} account={account} defaultTitle={t('Council order')} />
+          {/* The proposal's TITLE is the order's own summary ("Put 0.1 FXRP of
+              the principal to work in Kinetic"), not the generic "Council
+              order": the capital movement lives in the order bytes, so without
+              this the inbox — and the sidebar tray — could only say "Payment"
+              about a decision the family has to weigh (2026-08-03). */}
+          <ProposeToCouncil
+            xrplTx={handoff.xrplTx}
+            account={account}
+            defaultTitle={handoff.order.summary || t('Council order')}
+          />
           <GhostButton onClick={reset}>{t('Back')}</GhostButton>
         </div>
       )}

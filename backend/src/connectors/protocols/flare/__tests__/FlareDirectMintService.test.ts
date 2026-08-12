@@ -40,6 +40,7 @@ import {
   buildRedeemToXrplCall,
   resolveRedemptionExecutor,
   findNonceSeatConflicts,
+  classifySeatConflicts,
   _resetAssetManagerCache,
 } from '../FlareDirectMintService';
 import { _resetMacCache } from '../FlareSmartAccountService';
@@ -373,6 +374,42 @@ describe('findNonceSeatConflicts — el asiento de nonce es de UNO (incidente 20
   test('una fila corrupta no reclama el asiento (ni revienta el prepare)', async () => {
     const b = await opRow(2n, '0xc5ebeaec');
     expect(findNonceSeatConflicts([{ userOpData: '0xdeadbeef', userOpHash: '0x' + 'aa'.repeat(32) }], 2n, b.userOpHash)).toHaveLength(0);
+  });
+});
+
+describe('classifySeatConflicts — el asiento abandonado caduca solo (TTL, 2026-07)', () => {
+  const now = 1_700_000_000_000; // ms fijo — el nowMs se pasa (Date.now vive en el caller)
+  const ttl = 5 * 60_000;
+
+  test('conflicto más viejo que el TTL = stale → se invalida solo, sin tapiar', () => {
+    const { stale, fresh } = classifySeatConflicts([{ userOpHash: '0xaa', createdAt: new Date(now - ttl - 1) }], ttl, now);
+    expect(stale).toHaveLength(1);
+    expect(fresh).toHaveLength(0);
+  });
+
+  test('conflicto reciente = fresh → hace esperar (podría estar firmado y en vuelo)', () => {
+    const { stale, fresh } = classifySeatConflicts([{ userOpHash: '0xbb', createdAt: new Date(now - 1000) }], ttl, now);
+    expect(fresh).toHaveLength(1);
+    expect(stale).toHaveLength(0);
+  });
+
+  test('sin createdAt = fresh (defecto seguro: preserva el guard)', () => {
+    const { stale, fresh } = classifySeatConflicts([{ userOpHash: '0xcc' }], ttl, now);
+    expect(fresh).toHaveLength(1);
+    expect(stale).toHaveLength(0);
+  });
+
+  test('parte una mezcla en sus dos cubos', () => {
+    const { stale, fresh } = classifySeatConflicts(
+      [
+        { userOpHash: '0x1', createdAt: new Date(now - ttl - 1) },
+        { userOpHash: '0x2', createdAt: new Date(now - 10) },
+      ],
+      ttl,
+      now,
+    );
+    expect(stale.map((c) => c.userOpHash)).toEqual(['0x1']);
+    expect(fresh.map((c) => c.userOpHash)).toEqual(['0x2']);
   });
 });
 

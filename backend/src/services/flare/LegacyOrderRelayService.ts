@@ -15,7 +15,7 @@
  */
 
 import { ethers } from 'ethers';
-import { LEGACY_NETWORKS, legacyStackConfig } from '../../connectors/protocols/xrpl/XrplCouncilOrderService';
+import { LEGACY_NETWORKS, legacyNetworkConfig, legacyStackConfig } from '../../connectors/protocols/xrpl/XrplCouncilOrderService';
 import {
   findCouncilOrderByHash,
   markCouncilOrderExecuted,
@@ -56,6 +56,9 @@ const BRIDGE_ABI = [
   `function execute(tuple(bytes32[] merkleProof, ${XRP_PAYMENT_RESPONSE_TUPLE} data) proof, bytes orderData)`,
   'function consumedTxId(bytes32) view returns (bool)',
   'function nextNonce() view returns (uint64)',
+  // Immutable in the contract: the ONE authority on whose orders are worth
+  // paying an FDC round for (see the sender guard in relayCouncilOrder).
+  'function COUNCIL_ADDRESS_HASH() view returns (bytes32)',
 ];
 
 /** FDC infra per network (verifier + DA layer; env overrides both). */
@@ -84,6 +87,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** FDC_VERIFIER_API_KEY absent → the public zero key. It usually works — until
+ *  a round fails LATE, with the fee already paid. Warn loudly ONCE per boot so
+ *  the operator learns it from the logs, not from a burned attestation. */
+let warnedZeroVerifierKey = false;
+function resolveVerifierKey(): string {
+  const key = process.env.FDC_VERIFIER_API_KEY;
+  if (!key && !warnedZeroVerifierKey) {
+    warnedZeroVerifierKey = true;
+    console.warn('[legacy-relay] FDC_VERIFIER_API_KEY sin setear — usando la clave pública de ceros; las rondas pueden fallar TARDE (fee ya pagada). Setéala en el entorno.');
+  }
+  return key || '00000000-0000-0000-0000-000000000000';
+}
+
 /**
  * Attestations YA pagadas por txId (proofOwner = el bridge, fijo por config):
  * si un intento anterior pagó la fee y falló después (ronda lenta, DA, revert),
@@ -93,8 +109,18 @@ function sleep(ms: number): Promise<void> {
  */
 const paidAttestations = new Map<string, { abiEncodedRequest: string; roundId: number; passesWithoutProof: number }>();
 
-/** Fetch a validated XRPL tx and return its first MemoData (uppercase hex). */
-async function fetchXrplMemo(txHash: string, sourceId: 'testXRP' | 'XRP', log: Log): Promise<string> {
+/** Fetch a validated XRPL tx: its first MemoData (uppercase hex) and its SENDER
+ *  — the sender decides whether this is worth paying an attestation for. */
+async function fetchXrplMemo(
+  txHash: string,
+  sourceId: 'testXRP' | 'XRP',
+  log: Log,
+): Promise<{ memo: string; account: string }> {
+  // Un rippled congelado o sin full-history responde `txnNotFound` para una tx
+  // que OTRO nodo sí tiene (incidente 2026-07-31: s1 llevaba horas parado) —
+  // eso es "prueba el siguiente nodo", jamás un veredicto. Solo un nodo que
+  // DEVUELVE la tx decide; si todos dicen not-found, el consejo espera.
+  let sawNotFound = false;
   for (const node of xrplRpcCandidates(sourceId)) {
     try {
       const res = await fetch(node, {
@@ -103,10 +129,21 @@ async function fetchXrplMemo(txHash: string, sourceId: 'testXRP' | 'XRP', log: L
         body: JSON.stringify({ method: 'tx', params: [{ transaction: txHash, binary: false }] }),
       });
       const json = (await res.json()) as {
-        result?: { validated?: boolean; meta?: { TransactionResult?: string }; Memos?: Array<{ Memo?: { MemoData?: string } }> };
+        result?: {
+          status?: string;
+          error?: string;
+          validated?: boolean;
+          Account?: string;
+          meta?: { TransactionResult?: string };
+          Memos?: Array<{ Memo?: { MemoData?: string } }>;
+        };
       };
       const r = json.result;
       if (!r) continue;
+      if (r.status === 'error' || r.error) {
+        sawNotFound = true;
+        continue;
+      }
       if (!r.validated) throw new RelayAbort('the XRPL tx is not validated yet — wait a few seconds and retry');
       if (r.meta?.TransactionResult !== 'tesSUCCESS') {
         throw new RelayAbort(`the XRPL tx did not succeed (${r.meta?.TransactionResult}) — nothing to relay`);
@@ -115,14 +152,19 @@ async function fetchXrplMemo(txHash: string, sourceId: 'testXRP' | 'XRP', log: L
       if (!memo || !/^[0-9A-Fa-f]{64}$/.test(memo)) {
         throw new RelayAbort('the XRPL tx carries no 32-byte order memo — not a council order');
       }
-      log(`[1] XRPL tx validated ✓ (memo = 0x${memo.slice(0, 16)}…)`);
-      return memo.toUpperCase();
+      if (!r.Account) throw new RelayAbort('the XRPL tx has no sender — not a council order');
+      log(`[1] XRPL tx validated ✓ (memo = 0x${memo.slice(0, 16)}…, from ${r.Account})`);
+      return { memo: memo.toUpperCase(), account: r.Account };
     } catch (e) {
       if (e instanceof RelayAbort) throw e;
       /* node down — try the next */
     }
   }
-  throw new RelayAbort('no XRPL node answered the tx lookup');
+  throw new RelayAbort(
+    sawNotFound
+      ? 'the XRPL tx is not validated yet — wait a few seconds and retry'
+      : 'no XRPL node answered the tx lookup',
+  );
 }
 
 export interface RelayOutcome {
@@ -143,8 +185,12 @@ export async function relayCouncilOrder(input: {
   log?: Log;
 }): Promise<RelayOutcome> {
   const log: Log = input.log ?? ((m) => console.log(`[legacy-relay] ${m}`));
-  const cfg = legacyStackConfig();
-  const infra = FDC_INFRA[cfg.chain];
+  // Network first, stack later: WHICH bridge this order belongs to is decided
+  // by its SENDER, not by configuration. Reading the env stack here was the
+  // per-Legacy gap of 2026-08-05 — a second council's order would abort on the
+  // founding bridge's WrongCouncil guard after the quorum had already signed.
+  const net = legacyNetworkConfig();
+  const infra = FDC_INFRA[net.chain];
   const txHash = input.xrplTxHash.replace(/^0x/i, '').toUpperCase();
   if (!/^[0-9A-F]{64}$/.test(txHash)) throw new RelayAbort('xrplTxHash must be 64 hex chars');
   const txId = ('0x' + txHash).toLowerCase();
@@ -154,19 +200,36 @@ export async function relayCouncilOrder(input: {
     throw new RelayAbort('relayer disabled (FLARE_EXECUTOR_ENABLED/FLARE_EXECUTOR_PK) — the proof can be delivered by anyone with the public relay scripts');
   }
 
-  const provider = new ethers.JsonRpcProvider(cfg.rpcUrl);
+  const provider = new ethers.JsonRpcProvider(net.rpcUrl);
   const wallet = new ethers.Wallet(pk, provider);
-  const bridge = new ethers.Contract(cfg.bridge, BRIDGE_ABI, provider);
-
-  // ── 0. Idempotence: an executed order is DONE, never re-delivered. ─────────
-  if (await bridge.consumedTxId(txId)) {
-    log('order already executed on the bridge — nothing to do');
-    return { stage: 'already-executed', xrplTxHash: txHash, orderHash: '' };
-  }
 
   // ── 1. XRPL truth: validated council Payment + its memo (the commitment). ──
-  const memoHex = await fetchXrplMemo(txHash, cfg.sourceId, log);
+  const { memo: memoHex, account: sender } = await fetchXrplMemo(txHash, net.sourceId, log);
   const orderHash = ('0x' + memoHex).toLowerCase();
+
+  // ── 1b. WHOSE cage — and is the sender a council at all? ──────────────────
+  // The attestation costs ~20 FLR of real money and is paid BEFORE any bridge
+  // looks at the proof. Without this check, anyone with a session could send
+  // their own 1-drop Payment carrying any 32-byte memo and make the relayer
+  // burn the daily FDC budget on a proof every bridge would reject with
+  // WrongCouncil() — grief for the price of one drop. The resolver asks the
+  // same authorities the contracts do: the factory registry (keyed by the
+  // immutable council hash) and the bridge's own COUNCIL_ADDRESS_HASH.
+  const { cageForCouncil } = await import('./LegacyCageResolver');
+  const cage = await cageForCouncil(sender);
+  if (!cage) {
+    throw new RelayAbort(
+      `the XRPL tx was sent by ${sender}, which is not a council with a cage — refusing to pay an attestation no bridge would accept (WrongCouncil)`,
+    );
+  }
+  const bridge = new ethers.Contract(cage.bridge, BRIDGE_ABI, provider);
+  log(`[1b] sender is a council ✓ → its own bridge ${cage.bridge} (nothing is paid for a stranger’s memo)`);
+
+  // ── 2a. Idempotence: an executed order is DONE, never re-delivered. ────────
+  if (await bridge.consumedTxId(txId)) {
+    log('order already executed on the bridge — nothing to do');
+    return { stage: 'already-executed', xrplTxHash: txHash, orderHash };
+  }
 
   // ── 2. The committed bytes (store, or client-supplied — hash-checked). ─────
   let orderData = input.orderDataOverride;
@@ -186,14 +249,14 @@ export async function relayCouncilOrder(input: {
 
   // ── 3. FDC: prepare the XRPPayment attestation (proof bound to the bridge). ─
   const toHex32 = (s: string) => '0x' + Buffer.from(s).toString('hex').padEnd(64, '0');
-  const verifierKey = process.env.FDC_VERIFIER_API_KEY || '00000000-0000-0000-0000-000000000000';
+  const verifierKey = resolveVerifierKey();
   const prepResp = await fetch(`${infra.verifierBase}/verifier/xrp/XRPPayment/prepareRequest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-KEY': verifierKey },
     body: JSON.stringify({
       attestationType: toHex32('XRPPayment'),
-      sourceId: toHex32(cfg.sourceId),
-      requestBody: { transactionId: txId, proofOwner: cfg.bridge },
+      sourceId: toHex32(net.sourceId),
+      requestBody: { transactionId: txId, proofOwner: cage.bridge },
     }),
   });
   const prep = (await prepResp.json().catch(() => ({}))) as { status?: string; abiEncodedRequest?: string };
@@ -450,7 +513,7 @@ export async function rehearseAttestationPipeline(input: { xrplTxHash: string; l
 
   // 2. prepareRequest (proofOwner = the bridge — same binding as the real relay).
   const toHex32 = (s: string) => '0x' + Buffer.from(s).toString('hex').padEnd(64, '0');
-  const verifierKey = process.env.FDC_VERIFIER_API_KEY || '00000000-0000-0000-0000-000000000000';
+  const verifierKey = resolveVerifierKey();
   const prepResp = await fetch(`${infra.verifierBase}/verifier/xrp/XRPPayment/prepareRequest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-KEY': verifierKey },
@@ -530,9 +593,21 @@ export async function rehearseAttestationPipeline(input: { xrplTxHash: string; l
   return report;
 }
 
-/** On-chain settlement truth for the UI tracker (no relayer state needed). */
-export async function councilOrderStatus(xrplTxHash: string): Promise<{ executed: boolean; nextNonce: number }> {
-  const cfg = legacyStackConfig();
+/** On-chain settlement truth for the UI tracker (no relayer state needed).
+ *  `account` names the Legacy whose bridge holds the truth — without it the
+ *  read falls back to the env stack, which is only right for the founding
+ *  council (per-Legacy cages, 2026-08-05). */
+export async function councilOrderStatus(
+  xrplTxHash: string,
+  account?: string,
+): Promise<{ executed: boolean; nextNonce: number }> {
+  let cfg: { rpcUrl: string; bridge: string };
+  if (account) {
+    const { requireCageForCouncil } = await import('./LegacyCageResolver');
+    cfg = await requireCageForCouncil(account);
+  } else {
+    cfg = legacyStackConfig();
+  }
   const provider = new ethers.JsonRpcProvider(cfg.rpcUrl);
   const bridge = new ethers.Contract(cfg.bridge, BRIDGE_ABI, provider);
   const txId = ('0x' + xrplTxHash.replace(/^0x/i, '')).toLowerCase();

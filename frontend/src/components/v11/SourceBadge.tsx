@@ -2,6 +2,7 @@
 
 import { Pill } from '../ui/primitives';
 import type { SourceRecord } from '../../services/v1Api';
+import { useT } from '../../i18n/LanguageProvider';
 
 const TRUST_TONE: Record<string, 'success' | 'info' | 'warning' | 'neutral' | 'danger'> = {
   onchain_verified: 'success',
@@ -32,6 +33,7 @@ export function SourceBadge({
 }) {
   if (!source) return null;
   const tone = TRUST_TONE[source.trustLevel] ?? 'neutral';
+  const { t } = useT();
   const label = TRUST_LABEL[source.trustLevel] ?? source.trustLevel;
   const stale = source.stale === true;
   return (
@@ -40,7 +42,7 @@ export function SourceBadge({
       title={`provider=${source.providerId} · trust=${source.trustLevel} · fetched=${source.fetchedAt}${stale ? ' · STALE' : ''}`}
     >
       <Pill tone={tone}>{compact ? label : `via ${source.providerId} · ${label}`}</Pill>
-      {stale && <Pill tone="warning">stale</Pill>}
+      {stale && <Pill tone="warning">{t('stale')}</Pill>}
     </span>
   );
 }

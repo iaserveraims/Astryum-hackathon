@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import EarlyAccessPage from '@/components/landing/EarlyAccessPage';
 
 export const metadata: Metadata = {
-  title: 'Astryum — Early access',
+  title: 'Acceso anticipado — Astryum',
   description:
-    'Leave your signal. Astryum opens in waves — join the crew manifest and get the boarding call. Non-custodial: you always sign.',
+    'Deja tu señal. Astryum abre por oleadas — entra en el manifiesto y recibe el aviso de embarque. No-custodial: tú siempre firmas.',
 };
 
 export default function Page() {

@@ -19,8 +19,12 @@ import { useRouter } from 'next/navigation';
 import { X, Send, Loader2, ArrowRight } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { TypewriterText } from '../ui/motion';
-import { AsteroidMark } from '../ui/primitives';
 import { getApiBase } from '../../lib/env';
+import { useAuthorityStore } from '../../stores/authorityStore';
+import { useLegacyJourney } from '../../lib/legacy/guideContext';
+// The Guía's starters — the embedded Legacy chat is unmounted (2026-08-04);
+// this co-pilot IS the Guía whenever the product toggle sits on Legacy.
+import { SUGGESTED_DISCOVER, SUGGESTED_GUIDE } from '../legacy/LegacyDiscovery';
 
 const API_BASE = getApiBase();
 
@@ -65,7 +69,7 @@ const SUGGESTED = [
 // text comes from HERE, not from the marker, so a garbled/invented label
 // from the model can never reach the screen either.
 const GOTO_ALLOWLIST: { path: string; label: string }[] = [
-  { path: '/app', label: 'Summary' },
+  { path: '/app', label: 'Home' },
   { path: '/app/asset-production', label: 'Earn' },
   { path: '/app/asset-production?view=movements', label: 'Movements' },
   { path: '/app/portfolio', label: 'Portfolio' },
@@ -115,6 +119,21 @@ export default function ProductAssistant() {
   const [loggedIn, setLoggedIn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // In Legacy product mode this co-pilot IS the Guía (founder 2026-08-04): it
+  // talks to the Legacy assistant's public endpoint EXCLUSIVELY, grounded in
+  // the abstract journey the panel publishes (ledger flags only — never
+  // names, addresses or amounts). In Personal mode, unchanged.
+  const productMode = useAuthorityStore((s) => s.productMode);
+  const legacyMode = productMode === 'legacy';
+  const journey = useLegacyJourney();
+
+  // Flipping the product flips the brain — a conversation started against one
+  // knowledge base answers wrong on the other. Fresh chat per side.
+  useEffect(() => {
+    setMessages([]);
+    setError('');
+  }, [legacyMode]);
+
   // F29a: re-check on every open (not just mount) so a login/logout that
   // happened while this component stayed mounted is reflected honestly.
   useEffect(() => {
@@ -154,13 +173,22 @@ export default function ProductAssistant() {
       setMessages((m) => [...m, { role: 'user', content: trimmed }, { role: 'assistant', content: '' }]);
       setStreaming(true);
       try {
-        const res = await fetch(`${API_BASE}/product-assistant/chat`, {
-          method: 'POST',
-          // Optional Bearer (F29a) — omitted entirely when logged out, so the
-          // request is byte-for-byte the old anonymous call in that case.
-          headers: authHeaders(),
-          body: JSON.stringify({ message: trimmed, history }),
-        });
+        const res = await fetch(
+          `${API_BASE}/${legacyMode ? 'legacy-assistant' : 'product-assistant'}/chat`,
+          {
+            method: 'POST',
+            // Personal: optional Bearer (F29a) — omitted when logged out, so
+            // the request is byte-for-byte the old anonymous call. Legacy: the
+            // Guía stays anonymous BY DESIGN — its promise is "never sees your
+            // data"; the journey is abstract ledger flags only.
+            headers: legacyMode ? { 'Content-Type': 'application/json' } : authHeaders(),
+            body: JSON.stringify(
+              legacyMode
+                ? { message: trimmed, history, ...(journey ? { journey } : {}) }
+                : { message: trimmed, history },
+            ),
+          },
+        );
         if (res.status === 429) {
           setError(t('A lot of questions right now — give it a moment and try again.'));
           setMessages((m) => m.slice(0, -1)); // drop the empty assistant bubble
@@ -207,7 +235,7 @@ export default function ProductAssistant() {
         setStreaming(false);
       }
     },
-    [messages, streaming, t],
+    [messages, streaming, legacyMode, journey, t],
   );
 
   // Same order as CommandPalette's go() (components/ui/AppShell.tsx): close
@@ -231,15 +259,29 @@ export default function ProductAssistant() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink/5">
             <div className="flex items-center gap-2">
-              <span className="grid place-items-center w-7 h-7 rounded-full bg-volt/15 text-volt">
-                <AsteroidMark size={16} />
+              <span className="grid place-items-center w-7 h-7 rounded-full bg-volt/15">
+                {/* The product's own mark (founder 2026-08-08): gold asteroid
+                    as Co-pilot, blue as the Legacy guide. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={legacyMode ? '/astryum-mark-azul-transparente.png' : '/astryum-mark-gold-glow.png'}
+                  alt=""
+                  aria-hidden
+                  style={{ width: 19, height: 19, display: 'block' }}
+                />
               </span>
               <div>
-                <p className="text-sm font-semibold text-ink leading-none">{t('Co-pilot')}</p>
+                <p className="text-sm font-semibold text-ink leading-none">
+                  {legacyMode ? (journey ? t('Your guide on this Legacy') : t('Discover your Legacy')) : t('Co-pilot')}
+                </p>
                 <p className="text-[10px] text-ink/40 mt-0.5">
-                  {loggedIn
-                    ? t('Sees your data (read-only) — never signs or executes')
-                    : t('Explains the app · never sees your data')}
+                  {legacyMode
+                    ? journey
+                      ? t('Reads this Legacy’s step from the ledger · never signs')
+                      : t('Explains Legacy and finds your setup · never sees your data')
+                    : loggedIn
+                      ? t('Sees your data (read-only) — never signs or executes')
+                      : t('Explains the app · never sees your data')}
                 </p>
               </div>
             </div>
@@ -253,11 +295,15 @@ export default function ProductAssistant() {
             {messages.length === 0 ? (
               <div className="pt-2">
                 <p className="text-sm text-ink/70 leading-relaxed">
-                  {t("I explain how Astryum works — where things live and what each screen does. Ask me anything about the app.")}
+                  {legacyMode
+                    ? journey
+                      ? t('It knows which step this Legacy is on (read from the ledger) and points you to the next one. It never signs and never sees your data.')
+                      : t('Tell me what you want to protect and for whom — I point you to the setup that fits. I never sign and never see your data.')
+                    : t("I explain how Astryum works — where things live and what each screen does. Ask me anything about the app.")}
                 </p>
                 <p className="text-[11px] text-ink/35 mt-3 mb-2">{t('Try one of these:')}</p>
                 <div className="flex flex-col gap-1.5">
-                  {SUGGESTED.map((q) => (
+                  {(legacyMode ? (journey ? SUGGESTED_GUIDE : SUGGESTED_DISCOVER) : SUGGESTED).map((q) => (
                     <button
                       key={q}
                       onClick={() => send(q)}
@@ -334,7 +380,7 @@ export default function ProductAssistant() {
                   }
                 }}
                 rows={1}
-                placeholder={t('Ask about the app…')}
+                placeholder={legacyMode ? t('Ask about your Legacy…') : t('Ask about the app…')}
                 className="flex-1 resize-none max-h-24 px-3 py-2 bg-ink/5 border border-ink/10 rounded-xl text-ink text-[13px] placeholder-ink/30 focus:outline-none focus:border-volt/50"
               />
               <button
@@ -347,9 +393,11 @@ export default function ProductAssistant() {
               </button>
             </div>
             <p className="text-[9px] text-ink/25 mt-1.5 text-center">
-              {loggedIn
-                ? t('Logged in: this guide can read your balance and positions (read-only) to answer — it never signs, executes, or gives financial advice.')
-                : t('This guide only explains the app. It never sees your balance or positions, and gives no financial advice.')}
+              {legacyMode
+                ? t('This assistant only explains and suggests. It never signs, never sees your data, and gives no financial or legal advice.')
+                : loggedIn
+                  ? t('Logged in: this guide can read your balance and positions (read-only) to answer — it never signs, executes, or gives financial advice.')
+                  : t('This guide only explains the app. It never sees your balance or positions, and gives no financial advice.')}
             </p>
           </div>
         </div>

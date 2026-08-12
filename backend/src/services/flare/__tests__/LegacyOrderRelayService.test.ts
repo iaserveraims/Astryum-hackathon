@@ -23,9 +23,13 @@ describe('fetchXrplMemo — solo relaya lo que el ledger validó', () => {
   const originalFetch = global.fetch;
   const ORIGINAL_RPC = process.env.LEGACY_XRPL_RPC;
 
+  const SENDER = 'rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf';
   const xrplResp = (result: unknown) => ({ json: async () => ({ result }) }) as unknown as Response;
   const validated = {
     validated: true,
+    // El REMITENTE viaja con el memo: el relé decide con él si merece la pena
+    // pagar una attestation (guard anti-griefing, 2026-08-03).
+    Account: SENDER,
     meta: { TransactionResult: 'tesSUCCESS' },
     Memos: [{ Memo: { MemoData: MEMO_LOWER } }],
   };
@@ -41,10 +45,11 @@ describe('fetchXrplMemo — solo relaya lo que el ledger validó', () => {
     else process.env.LEGACY_XRPL_RPC = ORIGINAL_RPC;
   });
 
-  it('devuelve el memo en MAYÚSCULAS de una tx validada y exitosa', async () => {
+  it('devuelve el memo en MAYÚSCULAS y el remitente de una tx validada y exitosa', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce(xrplResp(validated));
-    const memo = await fetchXrplMemo('AB'.repeat(32), 'testXRP', noop);
-    expect(memo).toBe(MEMO_LOWER.toUpperCase());
+    const out = await fetchXrplMemo('AB'.repeat(32), 'testXRP', noop);
+    expect(out.memo).toBe(MEMO_LOWER.toUpperCase());
+    expect(out.account).toBe(SENDER);
     expect(global.fetch).toHaveBeenCalledTimes(1); // el primer nodo respondió
   });
 
@@ -79,14 +84,34 @@ describe('fetchXrplMemo — solo relaya lo que el ledger validó', () => {
     (global.fetch as jest.Mock)
       .mockRejectedValueOnce(new Error('ECONNREFUSED'))
       .mockResolvedValueOnce(xrplResp(validated));
-    const memo = await fetchXrplMemo('AB'.repeat(32), 'testXRP', noop);
-    expect(memo).toBe(MEMO_LOWER.toUpperCase());
+    const out = await fetchXrplMemo('AB'.repeat(32), 'testXRP', noop);
+    expect(out.memo).toBe(MEMO_LOWER.toUpperCase());
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('aborta si NINGÚN nodo responde (no inventa una orden)', async () => {
     (global.fetch as jest.Mock).mockRejectedValue(new Error('ECONNREFUSED'));
     await expect(fetchXrplMemo('AB'.repeat(32), 'testXRP', noop)).rejects.toThrow(/no XRPL node answered/);
+  });
+
+  it('txnNotFound de un nodo NO es veredicto — rota al siguiente (incidente 2026-07-31: s1 congelado)', async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(xrplResp({ status: 'error', error: 'txnNotFound' }))
+      .mockResolvedValueOnce(xrplResp(validated));
+    const out = await fetchXrplMemo('AB'.repeat(32), 'testXRP', noop);
+    expect(out.memo).toBe(MEMO_LOWER.toUpperCase());
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('sin remitente no hay orden: aborta antes de que nadie pague nada', async () => {
+    const { Account: _omitted, ...sinRemitente } = validated;
+    (global.fetch as jest.Mock).mockResolvedValueOnce(xrplResp(sinRemitente));
+    await expect(fetchXrplMemo('AB'.repeat(32), 'testXRP', noop)).rejects.toThrow(/no sender/);
+  });
+
+  it('todos los nodos dicen txnNotFound → "not validated yet" (esperar, no "no node answered")', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(xrplResp({ status: 'error', error: 'txnNotFound' }));
+    await expect(fetchXrplMemo('AB'.repeat(32), 'testXRP', noop)).rejects.toThrow(/not validated yet/);
   });
 });
 

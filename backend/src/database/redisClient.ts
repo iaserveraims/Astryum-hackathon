@@ -24,6 +24,11 @@ export function getRedis(): Redis | null {
     // only; ioredis defaults to an IPv4 lookup and gets ENOTFOUND without
     // dual-stack. family 0 = let DNS decide (harmless everywhere else).
     family: 0,
+    // A connected-but-stalled Redis (saturated proxy) left `await redis.get()`
+    // hanging with no bound, blocking every portfolio read — cold AND warm.
+    // The cache must never be slower than recomputing: fail fast, fall through.
+    connectTimeout: 3_000,
+    commandTimeout: 1_500,
   });
   client.on('error', (err) => {
     console.warn('[redis] error:', err.message);

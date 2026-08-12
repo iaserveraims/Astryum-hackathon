@@ -33,9 +33,11 @@ export const MINT_PREPARE_ROUTES: ReadonlyArray<{ path: string; amountField: str
  *  EVERY registered POST route). */
 export const NON_MINT_POST_ROUTES: ReadonlyArray<string> = [
   '/e2/prepare', // FLR wrap + FTSO delegate (amountFlr; user signs their own EVM tx)
+  '/e2/exit/prepare', // E2 reverse: undelegate + unwrap WFLR→FLR (no mint; user signs their own EVM tx)
   '/a1/prepare', // EVM-direct repay USDT0 to lift HF (no XRP mint; user signs)
   '/iso-withdraw/prepare', // withdraw an existing ISO position
   '/vault-claim/prepare', // claim vault shares
+  '/handoff/release', // free a prepared-but-unsigned 0xFE nonce seat (DB status flip; no mint, no chain)
 ];
 
 export const CAPPED_MINT_PATHS: ReadonlySet<string> = new Set(

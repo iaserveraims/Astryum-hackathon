@@ -26,6 +26,9 @@ import { useWalletPartner } from '../../lib/wallet/useWalletPartner';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import type { SettlementState } from '../../lib/settlement/settlement';
 import { intentsApi, type PreparedIntent } from '../../services/v1Api';
+import { translateError } from '../../lib/errors/translateError';
+import { settlementReasonText } from '../../lib/settlement/reasonText';
+import { useT } from '../../i18n/LanguageProvider';
 
 export interface IntentSigning {
   evm: ReturnType<typeof useWalletPartner>;
@@ -48,6 +51,7 @@ export function useIntentSigning(
 ): IntentSigning {
   const evm = useWalletPartner();
   const settlement = useSettlement();
+  const { t } = useT();
   const [signingId, setSigningId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -88,17 +92,19 @@ export function useIntentSigning(
         settlement.track(handle, {
           onSettled: (s) => {
             void confirm(s.ref)
-              .catch((e) => setActionError((e as Error).message ?? String(e)))
+              .catch((e) => setActionError(translateError(e, t).message))
               .finally(() => setSigningId(null));
           },
           onFailed: (reason) => {
-            setActionError(reason ?? 'la operación firmada falló on-chain');
+            setActionError(
+              settlementReasonText(reason, t) ?? t('The signed operation failed on-chain.'),
+            );
             setSigningId(null);
           },
         });
       }
     } catch (e) {
-      setActionError((e as Error).message ?? String(e));
+      setActionError(translateError(e, t).message);
       setSigningId(null);
     }
   }
@@ -110,7 +116,7 @@ export function useIntentSigning(
       await intentsApi.cancel(intent.id);
       await onChanged?.(intent.id);
     } catch (e) {
-      setActionError((e as Error).message ?? String(e));
+      setActionError(translateError(e, t).message);
     } finally {
       setBusyId(null);
     }

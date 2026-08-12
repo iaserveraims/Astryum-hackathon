@@ -39,6 +39,25 @@ function extractEvmAddress(s: string | null | undefined): string | null {
 
 const MIN_TVL_USD = 500_000;
 
+// Bounded concurrency for the registry sync upserts. Strictly-sequential
+// awaits meant 10k+ Postgres round-trips one after another — minutes with the
+// DB busy right after boot. 10 in flight keeps the load polite while cutting
+// wall-clock ~10× on a pooled connection.
+const SYNC_UPSERT_CONCURRENCY = 10;
+
+/** Run tasks with bounded concurrency; returns how many fulfilled. */
+async function runBounded(
+  tasks: Array<() => Promise<unknown>>,
+  limit: number,
+): Promise<number> {
+  let ok = 0;
+  for (let i = 0; i < tasks.length; i += limit) {
+    const settled = await Promise.allSettled(tasks.slice(i, i + limit).map((t) => t()));
+    for (const r of settled) if (r.status === 'fulfilled') ok++;
+  }
+  return ok;
+}
+
 // Known cooldown periods (seconds) per DefiLlama protocol slug.
 // These are the on-chain unstaking delays that affect user liquidity.
 const COOLDOWN_MAP: Record<string, number> = {
@@ -263,7 +282,7 @@ export class DefiLlamaProvider implements IProvider {
   async syncProtocolRegistry(chainIds?: number[]): Promise<number> {
     const protocols = await this._fetchProtocols();
     const targetChains = new Set(chainIds ?? Object.values(CHAIN_MAP));
-    let count = 0;
+    const tasks: Array<() => Promise<unknown>> = [];
 
     for (const proto of protocols) {
       for (const chainName of proto.chains) {
@@ -276,8 +295,8 @@ export class DefiLlamaProvider implements IProvider {
         // We use protocolSlug+chainId as the deduplication key, address = 'registry-only'.
         const syntheticAddress = `defillama:${proto.slug}:${chainId}`;
 
-        try {
-          await prisma.protocolContract.upsert({
+        tasks.push(() =>
+          prisma.protocolContract.upsert({
             where: { chainId_contractAddress: { chainId, contractAddress: syntheticAddress } },
             create: {
               providerId: 'defillama',
@@ -300,14 +319,13 @@ export class DefiLlamaProvider implements IProvider {
               auditLinks: proto.audit_links ? { links: proto.audit_links } : undefined,
               lastSyncedAt: new Date(),
             },
-          });
-          count++;
-        } catch {
-          // Ignore individual upsert failures; continue batch
-        }
+          }),
+        );
       }
     }
-    return count;
+    // Individual upsert failures are dropped by allSettled inside runBounded —
+    // same semantics as the old per-row try/catch.
+    return runBounded(tasks, SYNC_UPSERT_CONCURRENCY);
   }
 
   /**
@@ -325,7 +343,7 @@ export class DefiLlamaProvider implements IProvider {
       this._fetchPoolsOldMap(),
     ]);
     const targetChainIds = new Set(chainIds ?? Object.values(CHAIN_MAP));
-    let count = 0;
+    const tasks: Array<() => Promise<unknown>> = [];
 
     for (const pool of pools) {
       if (pool.tvlUsd < MIN_TVL_USD) continue;
@@ -340,8 +358,8 @@ export class DefiLlamaProvider implements IProvider {
       // back to verified per-chain tables (Tier A).
       const contractAddress = addrMap.get(pool.pool) ?? null;
 
-      try {
-        await prisma.protocolPool.upsert({
+      tasks.push(() =>
+        prisma.protocolPool.upsert({
           where: { id: pool.pool },
           create: {
             id: pool.pool,
@@ -401,13 +419,12 @@ export class DefiLlamaProvider implements IProvider {
             borrowable: borrow?.borrowable ?? false,
             lastSyncedAt: new Date(),
           },
-        });
-        count++;
-      } catch {
-        // Ignore individual upsert failures; continue batch
-      }
+        }),
+      );
     }
-    return count;
+    // Individual upsert failures are dropped by allSettled inside runBounded —
+    // same semantics as the old per-row try/catch.
+    return runBounded(tasks, SYNC_UPSERT_CONCURRENCY);
   }
 
   /**

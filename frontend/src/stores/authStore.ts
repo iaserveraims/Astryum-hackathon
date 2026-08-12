@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { markLiveWalletSession } from '../lib/demoMode';
 import { getApiBase } from '../lib/env';
 import { saveProfile, withStoredProfile } from '../lib/profileStore';
+import { ensureFlareNetwork } from '../lib/wallet/flareChain';
 
 interface User {
   id: string;
@@ -65,6 +66,15 @@ interface AuthState {
    * allowlisted founder gets kicked out of Legacy on every reload.
    */
   legacyAccessKnown: boolean;
+  /**
+   * Legal acceptance gate (founder 2026-07-30): hydrated from GET /auth/me
+   * `legal`. `required: true` ⇒ the dashboard shows the blocking modal for the
+   * current /demo-terms + /privacy versions and records the acceptance via
+   * POST /auth/legal-accept. Starts null (unknown) so nothing flashes before
+   * the server answers; never persisted — re-derived every mount, which is
+   * exactly how a version bump re-opens the gate once.
+   */
+  legalGate: { required: boolean; termsVersion: string; privacyVersion: string } | null;
 
   // Actions
   login: (credentials?: any) => Promise<void>;
@@ -80,6 +90,16 @@ interface AuthState {
     idToken: string,
     profile?: { firstName?: string; lastName?: string },
   ) => Promise<void>;
+  /**
+   * XRP Identity (account.xrpl.in). Unlike Google/Apple the browser never sees
+   * a token: it forwards the one-time code + PKCE verifier and the backend does
+   * the exchange, so display data comes from refreshMe(), not from a peek.
+   */
+  loginWithXrplIdentity: (
+    code: string,
+    codeVerifier: string,
+    redirectUri: string,
+  ) => Promise<void>;
   loginWithPasskey: () => Promise<void>;
   registerPasskey: (deviceLabel?: string) => Promise<void>;
   logout: () => void;
@@ -94,6 +114,9 @@ interface AuthState {
   refreshMe: () => Promise<void>;
   hasLinkedWallet: () => boolean;
 
+  /** Record acceptance of the current legal versions (POST /auth/legal-accept). */
+  acceptLegal: () => Promise<boolean>;
+
   // Step-up grant cache (in-memory)
   getValidGrant: (feature: string, action: string) => string | null;
   setStepUpGrant: (feature: string, action: string, grant: StepUpGrant) => void;
@@ -101,6 +124,15 @@ interface AuthState {
 }
 
 const API_BASE = getApiBase();
+
+// The switch/add engine itself lives in lib/wallet/flareChain (one source of
+// truth for every EIP-3085/3326 surface); SIWE keeps its own prose because it
+// pins Chain ID 14 inside the signed message — login can't proceed elsewhere.
+const SIWE_FLARE_MESSAGES = {
+  declined:
+    'Signing in needs the Flare network and the switch was declined in your wallet. Try again whenever you like.',
+  failed: (detail: string) => `Could not switch wallet to Flare Mainnet: ${detail}`,
+};
 
 /**
  * Real SIWE round-trip.
@@ -112,43 +144,6 @@ const API_BASE = getApiBase();
  *  5. localStorage.setItem('auth_token', token)  (consumed by services/api.ts)
  *  6. Set zustand state.
  */
-const FLARE_CHAIN_ID_HEX = '0xe'; // 14
-
-async function ensureFlareNetwork(eth: any): Promise<void> {
-  try {
-    const current: string = await eth.request({ method: 'eth_chainId' });
-    if (current?.toLowerCase() === FLARE_CHAIN_ID_HEX) return;
-    try {
-      await eth.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: FLARE_CHAIN_ID_HEX }],
-      });
-    } catch (switchErr: any) {
-      // 4902 = chain not added to wallet yet
-      if (switchErr?.code === 4902 || /Unrecognized chain/i.test(switchErr?.message ?? '')) {
-        await eth.request({
-          method: 'wallet_addEthereumChain',
-          params: [
-            {
-              chainId: FLARE_CHAIN_ID_HEX,
-              chainName: 'Flare Mainnet',
-              nativeCurrency: { name: 'Flare', symbol: 'FLR', decimals: 18 },
-              rpcUrls: ['https://flare-api.flare.network/ext/C/rpc'],
-              blockExplorerUrls: ['https://flarescan.com'],
-            },
-          ],
-        });
-      } else {
-        throw switchErr;
-      }
-    }
-  } catch (err: any) {
-    throw new Error(
-      `Could not switch wallet to Flare Mainnet: ${err?.message ?? 'unknown error'}`
-    );
-  }
-}
-
 async function siweLogin(): Promise<User> {
   const eth = (typeof window !== 'undefined' && (window as any).ethereum) || null;
   if (!eth) {
@@ -170,7 +165,7 @@ async function siweLogin(): Promise<User> {
   // 1b. Force Flare Mainnet before signing — otherwise SIWE message says
   // "Chain ID: 14" but user is on a different chain, and post-login the
   // app will block them with the NetworkSwitcher banner.
-  await ensureFlareNetwork(eth);
+  await ensureFlareNetwork(eth, SIWE_FLARE_MESSAGES);
 
   // 2. Get nonce + canonical message
   const nonceRes = await fetch(`${API_BASE}/auth/nonce`, {
@@ -267,6 +262,7 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: false,
       legacyAccess: false,
       legacyAccessKnown: false,
+      legalGate: null,
 
       login: async (_credentials?: any) => {
         try {
@@ -402,6 +398,37 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // XRP Identity — the XRPL ecosystem's own OIDC provider, and Astryum's
+      // main door. The code is redeemed server-side, so nothing here inspects a
+      // token: the session lands and refreshMe() fills in the profile.
+      loginWithXrplIdentity: async (code: string, codeVerifier: string, redirectUri: string) => {
+        try {
+          set({ isLoading: true, error: null });
+          // Start wallet-clean so this account never inherits a prior connection.
+          await disconnectWalletSession();
+          const res = await fetch(`${API_BASE}/auth/oauth/xrplid/exchange`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, codeVerifier, redirectUri }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j?.error ?? `http_${res.status}`);
+          const { accessToken, sessionId } = j as { accessToken: string; sessionId: string };
+          if (typeof window !== 'undefined') localStorage.setItem('auth_token', accessToken);
+          const user: User = withStoredProfile({
+            id: sessionId,
+            username: 'XRP Identity',
+            preferences: { theme: 'dark', notifications: true, expertMode: false },
+          });
+          set({ user, isAuthenticated: true, isLoading: false, error: null });
+          get().refreshMe();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'XRP Identity sign-in failed';
+          set({ error: msg, isLoading: false, isAuthenticated: false, user: null });
+          throw err;
+        }
+      },
+
       // Passkey (WebAuthn) login — works for accounts that registered a passkey.
       loginWithPasskey: async () => {
         try {
@@ -494,6 +521,7 @@ export const useAuthStore = create<AuthState>()(
             isAdmin: false,
             legacyAccess: false,
             legacyAccessKnown: false,
+            legalGate: null,
           });
         });
       },
@@ -587,6 +615,17 @@ export const useAuthStore = create<AuthState>()(
             isAdmin: j?.isAdmin === true,
             legacyAccess: j?.legacyAccess === true,
             legacyAccessKnown: true,
+            // Legal gate state — only trust a well-formed server answer; an
+            // older backend without the field leaves it null (no gate flash,
+            // no lockout: the register click-wrap still covers email signups).
+            legalGate:
+              j?.legal && typeof j.legal.required === 'boolean'
+                ? {
+                    required: j.legal.required,
+                    termsVersion: String(j.legal.termsVersion ?? ''),
+                    privacyVersion: String(j.legal.privacyVersion ?? ''),
+                  }
+                : null,
           });
 
           // R2 HARD CUT (§1.2): a hydrated linked wallet is a REAL wallet in this session.
@@ -642,6 +681,34 @@ export const useAuthStore = create<AuthState>()(
       },
 
       hasLinkedWallet: () => get().linkedWallets.length > 0,
+
+      // Record acceptance of the current /demo-terms + /privacy versions.
+      // Only flips the local gate off when the SERVER confirmed the write —
+      // an optimistic flip would show a "closed" gate whose record never
+      // landed (the unearned-success family).
+      acceptLegal: async () => {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+        if (!token || token === 'dev-bypass-no-jwt') return false;
+        try {
+          const res = await fetch(`${API_BASE}/auth/legal-accept`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ terms: true, privacyRead: true }),
+          });
+          if (!res.ok) return false;
+          const j = await res.json();
+          if (j?.ok !== true) return false;
+          const prev = get().legalGate;
+          set({
+            legalGate: prev
+              ? { ...prev, required: false }
+              : { required: false, termsVersion: '', privacyVersion: '' },
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      },
 
       getValidGrant: (feature: string, action: string) => {
         const key = `${feature}:${action}`;

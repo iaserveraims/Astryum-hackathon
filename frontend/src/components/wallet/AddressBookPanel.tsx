@@ -15,6 +15,7 @@ import { BookMarked, Check, CheckCircle2, Copy, Loader2, Pencil, Plus, QrCode, T
 import { Card } from '../ui/primitives';
 import { addressBookService, type AddressBookEntry } from '../../services/v1Api';
 import { useT } from '../../i18n/LanguageProvider';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const XRPL_CLASSIC_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
@@ -277,8 +278,8 @@ export function AddressBookPanel() {
       )}
 
       {qrEntry && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm my-auto shadow-2xl overflow-hidden">
             <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-ink flex items-center gap-2">
@@ -332,7 +333,7 @@ export function AddressBookPanel() {
               })()}
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

@@ -53,6 +53,12 @@ RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
+# Prisma CLI for `migrate deploy` at boot (see start.sh). Without it npx
+# downloads the CLI from the npm registry on EVERY container start — tens of
+# seconds of cold boot, a registry dependency just to boot, and an unpinned
+# (latest) CLI running our 5.x migrations. @prisma/engines already ships via
+# the @prisma COPY above.
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts

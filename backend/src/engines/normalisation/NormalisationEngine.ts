@@ -15,6 +15,12 @@ function fxrpAddress(): string | undefined {
 
 export interface PriceProvider {
   getPriceUSD(symbol: string): Promise<number>;
+  /**
+   * Optional batch resolution — one round-trip for many symbols (FTSO
+   * getFeedsById). Symbols missing from the returned map fall back to
+   * getPriceUSD one by one.
+   */
+  getPricesUSD?(symbols: string[]): Promise<Map<string, number>>;
 }
 
 /**
@@ -99,6 +105,28 @@ export class NormalisationEngine {
   ): Promise<NormalizedPosition[]> {
     const provider = opts.priceProvider;
     const symbolCache = new Map<string, number>();
+
+    // Pre-resolve every needed symbol in ONE batch call when the provider
+    // supports it — pricing used to be one sequential eth_call per symbol per
+    // wallet, which alone added seconds to a cold portfolio scan.
+    if (provider?.getPricesUSD) {
+      const needed = new Set<string>();
+      for (const raw of raws) {
+        const s = this.resolveSymbol(raw);
+        if (s) needed.add(s);
+        const u = parseUnderlying(raw.raw?.underlying);
+        if (u) needed.add(u.symbol);
+      }
+      if (needed.size > 0) {
+        try {
+          const priced = await provider.getPricesUSD([...needed]);
+          for (const [sym, price] of priced) symbolCache.set(sym, price);
+        } catch {
+          // fall back to per-symbol pricing below
+        }
+      }
+    }
+
     const priceFor = async (symbol: string): Promise<number> => {
       if (!provider) return 0;
       if (symbolCache.has(symbol)) return symbolCache.get(symbol)!;
@@ -165,6 +193,7 @@ export class NormalisationEngine {
  */
 export async function createFTSOPriceProvider(): Promise<PriceProvider> {
   const { FTSOClient } = await import('../../flare/ftso/FTSOClient');
+  const { isValidFTSOSymbol } = await import('../../flare/ftso/constants');
   const rpcUrl =
     process.env.FLARE_RPC_URL ||
     'https://flare-api.flare.network/ext/C/rpc';
@@ -172,15 +201,59 @@ export async function createFTSOPriceProvider(): Promise<PriceProvider> {
     network: 'flare',
     rpcUrl,
   });
+
+  // Short process-level memo (aligned with FTSO cadence, generous for a
+  // read-only dashboard): consecutive wallets in the same fan-out no longer
+  // re-pay the same XRP/FLR/USDT feeds. Failures are NOT memoised.
+  const PRICE_MEMO_TTL_MS = 60_000;
+  const memo = new Map<string, { price: number; at: number }>();
+  const freshPrice = (symbol: string): number | null => {
+    const hit = memo.get(symbol);
+    return hit && Date.now() - hit.at < PRICE_MEMO_TTL_MS ? hit.price : null;
+  };
+
   return {
     async getPriceUSD(symbol: string): Promise<number> {
+      const hit = freshPrice(symbol);
+      if (hit !== null) return hit;
       try {
         const p = await client.getCurrentPrice(symbol);
-        const raw = Number(p.price);
-        return raw / 10 ** p.decimals;
+        const price = Number(p.price) / 10 ** p.decimals;
+        memo.set(symbol, { price, at: Date.now() });
+        return price;
       } catch {
         return 0;
       }
+    },
+
+    async getPricesUSD(symbols: string[]): Promise<Map<string, number>> {
+      const out = new Map<string, number>();
+      const toFetch: string[] = [];
+      for (const s of symbols) {
+        const hit = freshPrice(s);
+        if (hit !== null) {
+          out.set(s, hit);
+        } else if (isValidFTSOSymbol(s)) {
+          toFetch.push(s);
+        } else {
+          // FTSO doesn't list it (sFLR, earnXRP…) — same 0 the per-symbol
+          // path returns, without paying a doomed eth_call each.
+          out.set(s, 0);
+        }
+      }
+      if (toFetch.length > 0) {
+        try {
+          const prices = await client.getCurrentPrices(toFetch);
+          for (const p of prices) {
+            const price = Number(p.price) / 10 ** p.decimals;
+            memo.set(p.symbol, { price, at: Date.now() });
+            out.set(p.symbol, price);
+          }
+        } catch {
+          // leave unfetched symbols out — unify falls back to getPriceUSD
+        }
+      }
+      return out;
     },
   };
 }

@@ -18,8 +18,15 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useChainId, useSignMessage, useDisconnect } from 'wagmi';
+import { useAccount, useChainId, useConnect, useSignMessage, useDisconnect } from 'wagmi';
+import type { Connector } from 'wagmi';
 import { getAppKitModal } from './appkit';
+import {
+  FLARE_CHAIN_ID,
+  ensureFlareNetwork,
+  injectedProvider,
+  isUserRejection,
+} from './flareChain';
 import {
   listMyWallets,
   connectWallet,
@@ -30,6 +37,7 @@ import {
   setBindingMode,
   type BackendWallet,
 } from '../../services/walletLinkService';
+import { isAutoNickname } from '../walletIdentity';
 import { WalletServiceFactory } from '../../services/wallets/WalletServiceFactory';
 import type { XamanWalletService } from '../../services/wallets/XamanWalletService';
 import { useAuthStore } from '../../stores/authStore';
@@ -83,6 +91,41 @@ function unmarkAddressRemoved(address: string): void {
   if (set.delete(removalKey(address))) persistRemovedAddresses(set);
 }
 
+/**
+ * Whether the user deleted this address from their wallet list. Every path that
+ * re-registers a wallet on its own (not from an explicit click) MUST ask first —
+ * otherwise the trash button is a no-op the user has to keep pressing.
+ */
+export function isAddressRemoved(address: string): boolean {
+  return removedAddresses().has(removalKey(address));
+}
+
+/**
+ * The MetaMask connector among the ones wagmi discovered.
+ *
+ * EIP-6963 announces it as `io.metamask`; older/edge builds surface it through
+ * the generic `injected` connector, which we accept ONLY when the injected
+ * provider itself claims to be MetaMask — otherwise "Browser Wallet" would let
+ * any other extension in through the back door.
+ */
+function findMetaMaskConnector(connectors: readonly Connector[]): Connector | null {
+  const eth = injectedProvider();
+  const injectedIsMetaMask = Boolean(eth?.isMetaMask);
+  return (
+    connectors.find((c) => c.id === 'io.metamask') ??
+    connectors.find((c) => /metamask/i.test(c.id) || /metamask/i.test(c.name ?? '')) ??
+    (injectedIsMetaMask ? connectors.find((c) => c.id === 'injected') : undefined) ??
+    null
+  );
+}
+
+/** Prose for the Flare switch when the user is LINKING a wallet (not signing in). */
+const LINK_FLARE_MESSAGES = {
+  declined:
+    'Linking a wallet needs Flare Mainnet and the switch was declined in MetaMask. Nothing was added — try again whenever you like.',
+  failed: (detail: string) => `Could not put MetaMask on Flare Mainnet: ${detail}`,
+};
+
 const CHAIN_LABEL: Record<number, string> = {
   1: 'ethereum',
   42161: 'arbitrum',
@@ -108,19 +151,37 @@ function networkLabel(chainId?: number): string {
 function dedupeWallets(list: BackendWallet[]): BackendWallet[] {
   const byKey = new Map<string, BackendWallet>();
   for (const w of list) {
-    const addrKey = /^0x[0-9a-fA-F]{40}$/.test(w.address) ? w.address.toLowerCase() : w.address;
-    const key = `${addrKey}:${w.chainId ?? ''}`;
+    const isEvm = /^0x[0-9a-fA-F]{40}$/.test(w.address);
+    const addrKey = isEvm ? w.address.toLowerCase() : w.address;
+    // Non-EVM rows collapse across chainId: for the same XRPL address the
+    // login writer stamps -1, the connect flow null and the demo 1440002 —
+    // all the same ledger. Keeping them apart was exactly the "Xaman here,
+    // XRPL 1 there" split (two rows, each surface picking a different one).
+    const key = isEvm ? `${addrKey}:${w.chainId ?? ''}` : addrKey;
     const existing = byKey.get(key);
-    if (
+    const preferNew =
       !existing ||
       (!existing.txAuthorized && w.txAuthorized) ||
       // Same capability → prefer the row carrying the user's nickname, so a
       // stale duplicate (old build, different `network` label) can't shadow
       // the renamed wallet with the raw address.
-      (existing.txAuthorized === w.txAuthorized && !existing.nickname && !!w.nickname)
-    ) {
-      byKey.set(key, w);
-    }
+      (existing.txAuthorized === w.txAuthorized && !existing.nickname && !!w.nickname);
+    const winner = preferNew ? w : (existing as BackendWallet);
+    const loser = preferNew ? existing : w;
+    // Capability decides which ROW survives, but the user's identity fields
+    // (nickname/colour/glyph — saved on whichever duplicate was visible at
+    // the time) must survive the collapse regardless of which row wins.
+    byKey.set(
+      key,
+      loser
+        ? {
+            ...winner,
+            nickname: winner.nickname ?? loser.nickname,
+            color: winner.color ?? loser.color,
+            icon: winner.icon ?? loser.icon,
+          }
+        : winner,
+    );
   }
   return Array.from(byKey.values());
 }
@@ -136,6 +197,11 @@ export interface UseWalletLinkingResult {
   connectorName: string | null;
   /** Open the AppKit modal to connect / switch a wallet partner. */
   openConnect: () => void;
+  /**
+   * Connect MetaMask ON Flare Mainnet — the only EVM rail this beta links.
+   * Rejects (without linking anything) if MetaMask never lands on chain 14.
+   */
+  connectMetaMaskFlare: () => Promise<void>;
   /** Release the active wallet partner session so the picker resets. */
   disconnect: () => Promise<void>;
   /** Re-fetch the backend wallet list. */
@@ -165,8 +231,13 @@ export interface UseWalletLinkingResult {
 }
 
 export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
-  const { address, addresses, isConnected, connector } = useAccount();
-  const chainId = useChainId();
+  const { address, addresses, isConnected, connector, chainId: accountChainId } = useAccount();
+  const configChainId = useChainId();
+  // The LIVE chain of the connection, not the config's default: wagmi's
+  // useChainId falls back to the first configured chain, which (now that Flare
+  // is the only one) would report 14 for a wallet sitting on Ethereum.
+  const chainId = accountChainId ?? configChainId;
+  const { connectAsync, connectors } = useConnect();
   const { signMessageAsync } = useSignMessage();
   const { disconnectAsync } = useDisconnect();
 
@@ -179,7 +250,12 @@ export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
     setLoading(true);
     setError(null);
     try {
-      const list = dedupeWallets(await listMyWallets());
+      // Machine-made "<Chain> <n>" nicknames (the retired backend generator)
+      // are stripped at ingestion so EVERY consumer — display rule, rename
+      // drafts, sort-by-name — sees them as unnamed, not as user identity.
+      const list = dedupeWallets(await listMyWallets()).map((w) =>
+        isAutoNickname(w.nickname) ? { ...w, nickname: null } : w,
+      );
       setWallets(list);
       // Mirror a linked wallet into authStore so the rest of the dashboard recognises
       // the connection (not only SIWE logins). Uses the same /wallets/mine list shown
@@ -226,10 +302,70 @@ export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
     }
   }, [disconnectAsync]);
 
+  // ─── The EVM door of this beta (founder 2026-08-04) ─────────────────────────
+  // MetaMask, on Flare Mainnet (14), or nothing. No wallet picker to wander
+  // through, no chain to pick wrong: press the button, MetaMask opens, and the
+  // connection only survives if it ends up on chain 14 — otherwise this throws
+  // and NOTHING is linked. (The other accepted wallet, Xaman, is XRPL and never
+  // touches wagmi; it has its own connect path.)
+  const connectMetaMaskFlare = useCallback(async () => {
+    // Linking means picking a NEW account: release the live session first, or
+    // the extension hands back the account that is already connected forever.
+    if (isConnected) {
+      try {
+        await disconnectAsync();
+      } catch {
+        /* nothing live to release */
+      }
+    }
+    const metamask = findMetaMaskConnector(connectors);
+    if (!metamask) {
+      // No MetaMask in this browser. AppKit's picker is filtered to MetaMask
+      // alone (see appkit.ts) and carries the QR / "open in MetaMask" deeplink,
+      // which is the honest way in from a phone.
+      getAppKitModal().open({ view: 'Connect' });
+      throw new Error(
+        'MetaMask is not available in this browser — use the QR or the “Open in MetaMask” link that just opened, or install the MetaMask extension.',
+      );
+    }
+    try {
+      await connectAsync({ connector: metamask, chainId: FLARE_CHAIN_ID });
+    } catch (err) {
+      throw new Error(
+        isUserRejection(err)
+          ? 'The MetaMask connection was declined — nothing was linked.'
+          : (err as Error).message,
+      );
+    }
+    // wagmi asks for the switch but swallows a refusal: the session stays alive
+    // on the old chain. Settle it against the provider itself (switch, adding
+    // Flare if the wallet doesn't know it) and, if it still isn't Flare, drop
+    // the session so nothing is left half-connected on a chain we won't link.
+    const provider = ((await metamask.getProvider().catch(() => null)) ??
+      injectedProvider()) as any;
+    if (!provider) return;
+    try {
+      await ensureFlareNetwork(provider, LINK_FLARE_MESSAGES);
+    } catch (err) {
+      await disconnectAsync().catch(() => {
+        /* best effort — the guard in registerConnected still refuses non-Flare */
+      });
+      throw err;
+    }
+  }, [isConnected, disconnectAsync, connectors, connectAsync]);
+
   const registerConnected = useCallback(async () => {
     if (!address) {
       openConnect();
       return;
+    }
+    // Flare or nothing: this beta files EVM wallets as chain 14 rows, so a
+    // session sitting on another chain is refused instead of being silently
+    // recorded as an Ethereum/Polygon/… wallet (which is what used to happen).
+    if (chainId !== FLARE_CHAIN_ID) {
+      throw new Error(
+        'This beta links Flare wallets only — switch MetaMask to Flare Mainnet (chain 14), then add the wallet again.',
+      );
     }
     const addr = address.toLowerCase();
     // The ACTIVE account is explicit intent — registering it always clears any
@@ -330,6 +466,17 @@ export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
       );
       const isXrpl = known?.ecosystem === 'xrpl' || XRPL_ADDRESS_RE.test(target);
 
+      // A Flare Smart Account (Personal Account) is registered as EVM but holds
+      // NO key: it only executes 0xFE userOps signed from the XRPL account that
+      // controls it. Falling into the EVM branch below opened the wallet picker
+      // and asked the user to "connect this exact wallet" — a demand no wallet
+      // app can ever satisfy (founder 2026-08-03). Say so instead of pretending.
+      if (known && known.walletType === 'smart-account') {
+        throw new Error(
+          'This is a Flare Smart Account: it has no key of its own — it executes orders signed in Xaman by the XRPL account that controls it. There is nothing to enable here.',
+        );
+      }
+
       if (isXrpl) {
         // Keep XRPL case intact (base58 is case-sensitive).
         const { nonce, message } = await initiateBinding(target, 'xrpl');
@@ -425,6 +572,7 @@ export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
     chainId,
     connectorName: connector?.name ?? null,
     openConnect,
+    connectMetaMaskFlare,
     disconnect,
     refresh,
     registerConnected,

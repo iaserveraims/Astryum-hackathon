@@ -8,6 +8,7 @@ import type {
   HealthStatus,
 } from '../../interfaces/IProvider';
 import type { ProviderType, TrustLevel, SourceRecord } from '../../../canonical/types/Source';
+import { flareExplorerPrimary } from '../../../config/flareExplorer';
 
 const CAPS: ReadonlyArray<Capability> = Object.freeze([
   'explorer.getTransactions',
@@ -130,7 +131,9 @@ const DEFAULT_CHAIN_CONFIGS: ChainExplorerConfig[] = [
   {
     chainId: 14,
     chainName: 'Flare',
-    baseUrl: process.env.FLARESCAN_API_URL || 'https://flare-explorer.flare.network/api',
+    // Misma puerta que FlarescanProvider (config/flareExplorer): este provider
+    // solo admite UNA url por chain, así que se queda con la primera de la lista.
+    baseUrl: flareExplorerPrimary(),
     apiKey: undefined, // public
   },
 ];

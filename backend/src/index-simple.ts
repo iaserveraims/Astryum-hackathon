@@ -2,8 +2,38 @@
 // If you only see "Starting Container" + prisma output but NOT this line,
 // node is failing before any user code runs.
 console.log('[BOOT] node entry reached, pid=' + process.pid + ' node=' + process.version);
-process.on('uncaughtException', (e) => { console.error('[BOOT] uncaughtException:', e); });
-process.on('unhandledRejection', (e) => { console.error('[BOOT] unhandledRejection:', e); });
+
+// Un error no capturado deja el proceso en estado indefinido: puede seguir
+// sirviendo peticiones a medias o morirse a la siguiente. Antes solo iba al log
+// de Railway, donde nadie mira a las 3 de la mañana. Ahora sale también por el
+// canal de avisos (2026-08-03) — best-effort y sin await: si el canal falla, o
+// si el proceso muere antes de entregar, el interruptor de hombre muerto
+// (OPS_HEARTBEAT_URL) lo cazará igual.
+function reportCrash(kind: string, e: unknown): void {
+  console.error(`[BOOT] ${kind}:`, e);
+  try {
+    // require, no import(): un import dinámico puede no resolverse si el
+    // proceso se está muriendo.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { opsAlert } = require('./services/OpsAlertService');
+    void opsAlert(
+      'backend',
+      'critical',
+      `${kind} en el backend: ${(e as Error)?.message ?? String(e)}`,
+      {
+        key: `crash:${kind}:${(e as Error)?.message ?? String(e)}`.slice(0, 200),
+        runbook:
+          'Railway → Deployments → Logs y busca [BOOT] para la traza completa. El proceso queda en estado ' +
+          'indefinido: si el error se repite, reinicia el servicio. Tras un reinicio se pierden los backoffs del ' +
+          'executor y las ventanas en memoria (se rehidratan del store).',
+      },
+    );
+  } catch {
+    /* el canal jamás puede empeorar el fallo que reporta */
+  }
+}
+process.on('uncaughtException', (e) => reportCrash('uncaughtException', e));
+process.on('unhandledRejection', (e) => reportCrash('unhandledRejection', e));
 
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -116,8 +146,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-admin-key', 'x-admin-session']
 }));
 
-// Security: Rate limiting — 500 req/15 min for a private single-user app with real-time features
-app.use(rateLimit(500, 15 * 60 * 1000));
+// Security: global API rate limit, per client IP. 500/15min was sized for "a
+// private single-user app" — but the beta shell is CHATTY (intents, vault
+// claims and portfolio pollers at ~60s, ledger reads, settlement bursts), so
+// a founder with a few tabs open — or two people behind one office IP —
+// drained the bucket and EVERY route answered 429: both assistants showed
+// "too many questions" at once and it read as Anthropic credits running out
+// (2026-08-08). 2000/15min ≈ 2.2 req/s sustained per IP: room for real use,
+// still a wall against abuse loops. Env-tunable without a deploy.
+app.use(rateLimit(Number(process.env.API_RATE_LIMIT_MAX || 2000), 15 * 60 * 1000));
 
 // Middleware de parsing with security limits
 app.use(
@@ -137,6 +174,25 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     ip: req.ip,
     userAgent: req.get('User-Agent'),
     timestamp: new Date().toISOString()
+  });
+  next();
+});
+
+// Contador de 5xx (2026-08-03). Una petición que revienta quedaba solo en el
+// log: el usuario veía el error y nosotros no. No se alerta por error suelto —
+// se cuenta en una ventana y el probe `errores-http` del Sentinel mira la forma
+// del conjunto (una ráfaga en la misma ruta = despliegue roto o dependencia
+// caída). Solo método, ruta normalizada y código: jamás cuerpos ni cabeceras.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.on('finish', () => {
+    if (res.statusCode < 500) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { recordHttpError } = require('./services/ops/httpErrorMonitor');
+      recordHttpError(req.method, req.path, res.statusCode);
+    } catch {
+      /* la telemetría jamás puede romper una respuesta ya enviada */
+    }
   });
   next();
 });
@@ -217,6 +273,11 @@ try {
   stepUpGuard = require('./middleware/requireStepUp').stepUpGuard;
 } catch (err) {
   logger.error('CRITICAL: failed to load auth/chain middleware', { err });
+  // §1.3 (2026-08-02): FAIL-CLOSED. With the no-op fallbacks above, every
+  // router below would mount WITHOUT auth and the only trace would be one log
+  // line. A backend that cannot authenticate must not serve — die loudly and
+  // let the hosting restart (and the Sentinel report the restart).
+  process.exit(1);
 }
 
 // Public auth — mount FIRST and on its own so a downstream loader failure
@@ -242,9 +303,20 @@ mountRouter('/api/admin-panel', () => require('./routes/adminPanel').default);
 // (retry/park). Mismas puertas que el panel (requireAdmin DENTRO del router);
 // router propio para que adminPanel siga siendo read-only por construcción.
 mountRouter('/api/admin-executor', () => require('./routes/adminExecutor').default);
+// Beta gate (founders only): approve/revoke de emails de la waitlist — la
+// puerta de la beta cerrada. Mismas puertas (requireAdmin DENTRO del router);
+// router propio por la misma regla que admin-executor.
+mountRouter('/api/admin-beta', () => require('./routes/adminBetaGate').default);
+// Vigilancia (founders only): estado del Sentinel — probes, incidencias
+// abiertas, canales de alerta armados — y la prueba de entrega del canal.
+// Mismas puertas; router propio por la misma regla que admin-executor.
+mountRouter('/api/admin-ops', () => require('./routes/adminOps').default);
 // Council proposals (governed-mode inbox): pinned unsigned txs + verified
 // member blobs. Combine + broadcast stay in the browser (prepare-only).
 mountRouter('/api/council/proposals', () => require('./routes/councilProposals').default, requireSiweAuth);
+// Xaman push tokens — what turns a sign request into a NOTIFICATION on the
+// member's phone instead of a QR someone has to send them.
+mountRouter('/api/xaman/push-tokens', () => require('./routes/xamanPushTokens').default, requireSiweAuth);
 // Astryum treasury (Turnkey org-controlled) — status public, addresses SIWE-gated
 // D8 — KWYH (GoPlus) + Approval & Exposure Center
 // Cross-cutting — per-jurisdiction module availability (geofence DeFi execution)
@@ -800,6 +872,51 @@ async function startServer() {
       logger.warn('ProviderHealthService not started:', err);
     }
 
+    // Órdenes del consejo firmadas y aún no ejecutadas: reintento AUTOMÁTICO
+    // cada 5 min (founder 2026-08-03: "si es un botón para que el user lo
+    // arregle solo, no debe de ser así"). Una orden que el quórum firmó no
+    // puede depender de que alguien vea un aviso y pulse algo — el vigía la
+    // reintenta hasta que el puente la consuma, y solo pide ayuda humana
+    // cuando el FDC ya no puede atestiguarla (14 días).
+    try {
+      const { retryPendingCouncilOrders } = require('./services/flare/CouncilOrderRelayLauncher');
+      const tick = () => {
+        void retryPendingCouncilOrders()
+          .then((r: { checked: number; relaunched: number }) => {
+            if (r.relaunched > 0) {
+              logger.info(`[legacy-relay] reintentadas ${r.relaunched}/${r.checked} órdenes pendientes`);
+            }
+          })
+          .catch((e: Error) => logger.warn(`[legacy-relay] retry tick failed: ${e.message}`));
+      };
+      setTimeout(tick, 30_000); // primera pasada poco después del arranque
+      const relayTimer = setInterval(tick, 5 * 60_000);
+      if (typeof relayTimer.unref === 'function') relayTimer.unref();
+      const stopRelay = () => clearInterval(relayTimer);
+      process.on('SIGTERM', stopRelay);
+      process.on('SIGINT', stopRelay);
+    } catch (err) {
+      logger.warn('council-order retry watcher not started:', err);
+    }
+
+    // Sentinel — el vigía de los vigías. Cada N minutos pregunta por el estado
+    // de cada carril (executor, nodos XRPL, RPC, DB, órdenes del consejo,
+    // combustible…) y avisa SOLO en las transiciones, con el objeto afectado y
+    // la línea de arreglo. Cierra el hueco que dejó el incidente del 31-jul: lo
+    // que NO pasa (un tick que deja de correr) no emitía nada. Además pinga el
+    // interruptor de hombre muerto (OPS_HEARTBEAT_URL): si el proceso entero
+    // muere, el aviso lo da alguien de fuera. OPS_SENTINEL_DISABLED=true apaga.
+    try {
+      const { getSentinel } = require('./services/ops/SentinelService');
+      const sentinel = getSentinel();
+      sentinel.start();
+      const stopSentinel = () => sentinel.stop();
+      process.on('SIGTERM', stopSentinel);
+      process.on('SIGINT', stopSentinel);
+    } catch (err) {
+      logger.warn('Sentinel not started:', err);
+    }
+
     // Vigía XRPL agentizado (Ola 1 economía agéntica): amendments gated, flags
     // de emisores, venues del sidechain, FAssets/FBTC — pasada diaria read-only,
     // push al operador solo cuando un gate se desbloquea. XRPL_WATCH_DISABLED=true apaga.
@@ -831,6 +948,8 @@ async function startServer() {
     try {
       const { activityService } = require('./services/ActivityService');
       const { prisma } = require('./database/prismaClient');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { markAgentTick } = require('./services/ops/agentHeartbeats');
       const activityTimer = setInterval(async () => {
         try {
           const wallets: { address: string }[] = await prisma.wallet.findMany({
@@ -841,8 +960,15 @@ async function startServer() {
           for (const w of wallets) {
             await activityService.refreshFromExplorer(w.address).catch(() => undefined);
           }
+          markAgentTick('activity', { title: 'Sincronización de actividad', everyMs: 5 * 60_000 });
         } catch (err) {
           logger.warn('[activity] sync failed:', (err as Error).message);
+          markAgentTick('activity', {
+            title: 'Sincronización de actividad',
+            everyMs: 5 * 60_000,
+            ok: false,
+            detail: (err as Error).message,
+          });
         }
       }, 5 * 60_000);
       const stopActivity = () => clearInterval(activityTimer);
@@ -855,6 +981,8 @@ async function startServer() {
     // V1 Automation Engine: prepare-only worker tick (60s)
     try {
       const { AutomationEngine } = require('./engines/automation/AutomationEngine');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { markAgentTick } = require('./services/ops/agentHeartbeats');
       const automationTimer = setInterval(() => {
         AutomationEngine.getInstance()
           .tick()
@@ -862,8 +990,19 @@ async function startServer() {
             if (res.firedCount > 0) {
               logger.info(`[automation] ${res.firedCount}/${res.ruleCount} rule(s) fired`);
             }
+            markAgentTick('automation', { title: 'Motor de automatización', everyMs: 60_000 });
           })
-          .catch((err: Error) => logger.warn('[automation] tick failed:', err.message));
+          .catch((err: Error) => {
+            logger.warn('[automation] tick failed:', err.message);
+            // Se late IGUAL en el fallo: un agente que solo late cuando acierta
+            // es indistinguible de uno muerto justo cuando más importa.
+            markAgentTick('automation', {
+              title: 'Motor de automatización',
+              everyMs: 60_000,
+              ok: false,
+              detail: err.message,
+            });
+          });
       }, 60_000);
       const stopAuto = () => clearInterval(automationTimer);
       process.on('SIGTERM', stopAuto);
@@ -881,14 +1020,23 @@ async function startServer() {
         io.to(`user:${payload.userId}`).emit('rule:fired', payload);
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { markAgentTick } = require('./services/ops/agentHeartbeats');
       const triggerTimer = setInterval(async () => {
         try {
           const fired = await intentTriggerService.evaluateAll();
           if (fired.length > 0) {
             logger.info(`[triggers] ${fired.length} rule(s) fired notifications`);
           }
+          markAgentTick('triggers', { title: 'Evaluador de triggers', everyMs: 60_000 });
         } catch (err) {
           logger.warn('[triggers] evaluation failed:', (err as Error).message);
+          markAgentTick('triggers', {
+            title: 'Evaluador de triggers',
+            everyMs: 60_000,
+            ok: false,
+            detail: (err as Error).message,
+          });
         }
       }, 60_000);
       const stopTriggers = () => clearInterval(triggerTimer);
@@ -943,15 +1091,52 @@ async function startServer() {
         }
       };
 
-      // Run both immediately on startup (non-blocking)
-      syncProtocols();
-      syncPools();
+      // Boot sync is DEFERRED and freshness-gated. Firing it the moment the
+      // container started meant thousands of Prisma upserts hitting Postgres
+      // exactly when the first user requests arrive (behind a pooled
+      // connection_limit=1 DATABASE_URL that queued every session lookup for
+      // minutes). After a typical redeploy the registry is still fresh — skip.
+      const { prisma: syncPrisma } = require('./database/prismaClient');
+      const syncedWithin = async (
+        model: 'protocolContract' | 'protocolPool',
+        maxAgeMs: number,
+      ): Promise<boolean> => {
+        try {
+          const agg =
+            model === 'protocolContract'
+              ? await syncPrisma.protocolContract.aggregate({ _max: { lastSyncedAt: true } })
+              : await syncPrisma.protocolPool.aggregate({ _max: { lastSyncedAt: true } });
+          const last = agg._max.lastSyncedAt;
+          return !!last && Date.now() - last.getTime() < maxAgeMs;
+        } catch {
+          return false; // freshness unknown → sync as before
+        }
+      };
+      const SYNC_BOOT_DELAY_MS = Number(process.env.DEFILLAMA_SYNC_BOOT_DELAY_MS ?? 5 * 60_000);
+      const bootSyncTimer = setTimeout(async () => {
+        if (await syncedWithin('protocolContract', 12 * 60 * 60_000)) {
+          logger.info('[defillama] protocol registry fresh — boot sync skipped');
+        } else {
+          await syncProtocols();
+        }
+        if (await syncedWithin('protocolPool', 3 * 60 * 60_000)) {
+          logger.info('[defillama] pool registry fresh — boot sync skipped');
+        } else {
+          await syncPools();
+        }
+      }, SYNC_BOOT_DELAY_MS);
+      bootSyncTimer.unref?.();
 
       // Protocol contracts every 24h, pools every 6h
       const protocolTimer = setInterval(syncProtocols, 24 * 60 * 60_000);
       const poolTimer = setInterval(syncPools, 6 * 60 * 60_000);
-      process.on('SIGTERM', () => { clearInterval(protocolTimer); clearInterval(poolTimer); });
-      process.on('SIGINT', () => { clearInterval(protocolTimer); clearInterval(poolTimer); });
+      const stopSyncTimers = () => {
+        clearTimeout(bootSyncTimer);
+        clearInterval(protocolTimer);
+        clearInterval(poolTimer);
+      };
+      process.on('SIGTERM', stopSyncTimers);
+      process.on('SIGINT', stopSyncTimers);
     } catch (err) {
       logger.warn('DefiLlamaProvider sync not started:', err);
     }

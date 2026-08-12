@@ -93,6 +93,48 @@ describe('POST /api/flare-demo/e2/prepare — validation', () => {
   });
 });
 
+describe('POST /api/flare-demo/e2/exit/prepare — validation', () => {
+  const valid = { account: GOOD_EVM, amountFlr: 10 };
+
+  it.each([undefined, '0x1234', 'not-an-address'])(
+    'rejects a missing/malformed account (%s) with 400, not 500',
+    async (bad) => {
+      const res = await request(app).post('/api/flare-demo/e2/exit/prepare').send({ ...valid, account: bad });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('INVALID_ACCOUNT');
+    },
+  );
+
+  it.each(['Infinity', 'NaN', -1, 0])(
+    'rejects non-finite / non-positive amountFlr (%s) when max is not set',
+    async (bad) => {
+      const res = await request(app).post('/api/flare-demo/e2/exit/prepare').send({ ...valid, amountFlr: bad });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('INVALID_AMOUNT');
+    },
+  );
+
+  it('valid amount input stops at the feature-flag gate (no RPC)', async () => {
+    const res = await request(app).post('/api/flare-demo/e2/exit/prepare').send(valid);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
+  });
+
+  it('max:true needs no amount and stops at the feature-flag gate', async () => {
+    const res = await request(app).post('/api/flare-demo/e2/exit/prepare').send({ account: GOOD_EVM, max: true });
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
+  });
+});
+
+describe('GET /api/flare-demo/e2/position — validation', () => {
+  it('rejects a malformed account with 400, not 500', async () => {
+    const res = await request(app).get('/api/flare-demo/e2/position?account=0x1234');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_ACCOUNT');
+  });
+});
+
 describe('POST /api/flare-demo/a1/prepare — validation', () => {
   const valid = {
     personalAccount: GOOD_EVM,
@@ -220,6 +262,24 @@ describe('POST /api/flare-demo/pa-withdraw-transfer/prepare — validation', () 
     expect(res.status).toBe(503);
     expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
   });
+
+  // Keep-in-PA variant (founder 2026-07-30): withdraw from the ISO market and
+  // leave the asset as free PA balance — explicit flag, no evmWallet needed.
+  it('keepInPa needs NO evmWallet — passes validation, stops at the gate', async () => {
+    const res = await request(app)
+      .post('/api/flare-demo/pa-withdraw-transfer/prepare')
+      .send({ xrplAddress: GOOD_XRPL, asset: 'fxrp', amountBase: '5000000', amountXrpForMint: 1, keepInPa: true });
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
+  });
+
+  it('a MISSING evmWallet without keepInPa stays a 400 — never a silent keep', async () => {
+    const res = await request(app)
+      .post('/api/flare-demo/pa-withdraw-transfer/prepare')
+      .send({ xrplAddress: GOOD_XRPL, asset: 'fxrp', amountBase: '5000000', amountXrpForMint: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_EVM_WALLET');
+  });
 });
 
 describe('POST /api/flare-demo/pa-unmint/prepare — validation', () => {
@@ -263,5 +323,19 @@ describe('GET /api/flare-demo/pa-fxrp/:owner — validation', () => {
     const res = await request(app).get('/api/flare-demo/pa-fxrp/not-an-address');
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('INVALID_ADDRESS');
+  });
+});
+
+describe('POST /api/flare-demo/handoff/release — libera el asiento sin firmar', () => {
+  it('rejects a missing memoHex', async () => {
+    const res = await request(app).post('/api/flare-demo/handoff/release').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('MISSING_MEMO');
+  });
+
+  it('valid memoHex → 200 { released } (sin DB → false), nunca 500 ni gate', async () => {
+    const res = await request(app).post('/api/flare-demo/handoff/release').send({ memoHex: 'FE00ABCD' });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('released');
   });
 });

@@ -11,6 +11,7 @@ import {
 } from 'xrpl';
 import { z } from 'zod';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 import { personaKYCProvider } from '../services/PersonaKYCProvider';
 
@@ -134,7 +135,7 @@ function buildBindingMessage(address: string, nonce: string, timestamp: string):
 // GET /api/wallets/bindings
 // List all active bindings for the authenticated user.
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const bindings = await prisma.walletBinding.findMany({
     where: { userId, isActive: true },
@@ -150,7 +151,7 @@ router.get('/', async (req: Request, res: Response) => {
     },
   });
   return res.json({ bindings });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/wallets/bindings/initiate
@@ -366,7 +367,7 @@ router.post('/confirm', async (req: Request, res: Response) => {
 // Switch between 'read' and 'read_and_receive'.
 // Body: { mode: 'read' | 'read_and_receive' }
 // ─────────────────────────────────────────────────────────────────────────────
-router.patch('/:id/mode', async (req: Request, res: Response) => {
+router.patch('/:id/mode', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const modeVal = req.body?.mode;
 
@@ -402,13 +403,13 @@ router.patch('/:id/mode', async (req: Request, res: Response) => {
   }
 
   return res.json({ binding: updated });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/wallets/bindings/:id
 // Soft-delete (deactivate) a binding.
 // ─────────────────────────────────────────────────────────────────────────────
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
 
   const existing = await prisma.walletBinding.findFirst({
@@ -444,7 +445,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 
   return res.status(204).send();
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/wallets/bindings/request-auth
@@ -452,7 +453,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // Body: { address: string, chainType: string }
 // Returns: { authorized: bool, bindingId?, mode? }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/request-auth', async (req: Request, res: Response) => {
+router.post('/request-auth', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const { address, chainType } = req.body as { address?: string; chainType?: string };
 
@@ -494,6 +495,6 @@ router.post('/request-auth', async (req: Request, res: Response) => {
   });
 
   return res.json({ authorized: true, bindingId: binding.id, mode: binding.mode });
-});
+}));
 
 export default router;

@@ -14,6 +14,13 @@
  * Reuses the exact SSE mechanics of ProductAssistant.tsx (proven), inlined here so
  * the discovery agent lives at the top of the Legacy entry instead of a floating
  * corner widget.
+ *
+ * UNMOUNTED from LegacyPanel (founder 2026-08-04): the embedded card's left
+ * column ate a third of the ceremony's width. The Guía now lives inside the
+ * global co-pilot — ProductAssistant in Legacy product mode talks to the same
+ * endpoint with the same journey context (lib/legacy/guideContext bus) and the
+ * suggested starters exported below. This component is preserved; re-mount it
+ * if an embedded surface ever earns its place back.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -50,7 +57,7 @@ export interface LegacyJourney {
 // Starters for the person who doesn't know what to ask. English keys → t() renders
 // them in the user's language (ES entries in dict.ts). The agent replies in the
 // user's language regardless.
-const SUGGESTED_DISCOVER = [
+export const SUGGESTED_DISCOVER = [
   'I want to protect my family — where do I start?',
   'What is the council and the quorum?',
   'I want to leave a fund for my kids with conditions',
@@ -58,7 +65,7 @@ const SUGGESTED_DISCOVER = [
 ];
 // Inside a Legacy workspace the question changes: not "what do I need" but
 // "what's next here" — the journey state grounds the answer.
-const SUGGESTED_GUIDE = [
+export const SUGGESTED_GUIDE = [
   'What is my next step?',
   'Why do I need the rehearsal before real capital?',
   'What does closing the door change?',

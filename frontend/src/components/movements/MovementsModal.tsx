@@ -16,11 +16,10 @@
  * PerformanceModal).
  */
 
-import { useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { X, ArrowLeftRight } from 'lucide-react';
 import type { BackendWallet } from '../../services/walletLinkService';
 import { useT } from '../../i18n/LanguageProvider';
+import { ModalOverlay } from '../ui/ModalPortal';
 import MovementsPanel from './MovementsPanel';
 
 export default function MovementsModal({
@@ -35,24 +34,12 @@ export default function MovementsModal({
 }) {
   const { t } = useT();
 
-  // Escape closes; lock the page scroll while open.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [onClose]);
-
-  if (typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
+  // Portal + refcounted scroll lock + Escape now live in ModalPortal: this
+  // used to capture body.overflow on mount and restore it on unmount, which a
+  // nested modal (Send/Receive opens over this one) restored to 'hidden'.
+  return (
+    <ModalOverlay
+      onEscape={onClose}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:p-6"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -83,7 +70,6 @@ export default function MovementsModal({
           <MovementsPanel scopeWallet={wallet} variant="modal" />
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalOverlay>
   );
 }

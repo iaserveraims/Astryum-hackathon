@@ -83,15 +83,20 @@ export async function composeCouncilRuleTx(
   }
 
   // councilOrder — the FDC-enforced vault rail (throws a readable error when
-  // the Legacy stack env is not deployed; the tick surfaces it honestly).
+  // this Legacy has no cage; the tick surfaces it honestly). The cage is
+  // resolved from the COUNCIL the rule belongs to, never from env — a rule of
+  // a second Legacy must order against its own vault (2026-08-05).
   const orderAction = String(params.orderAction ?? '');
   const orderParams = (params.orderParams ?? {}) as Record<string, unknown>;
   const { buildCouncilOrderHandoff } = await import('../connectors/protocols/xrpl/XrplCouncilOrderService');
+  const { requireCageForCouncil } = await import('./flare/LegacyCageResolver');
   const { saveCouncilOrderRecord } = await import('./flare/LegacyOrderStore');
+  const cage = await requireCageForCouncil(council);
   const handoff = await buildCouncilOrderHandoff({
     council,
     action: orderAction as never,
     params: orderParams,
+    cage,
   });
   await saveCouncilOrderRecord({
     orderHash: handoff.order.orderHash,

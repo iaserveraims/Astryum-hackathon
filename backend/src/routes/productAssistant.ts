@@ -46,9 +46,11 @@ import { RiskEngine } from '../engines/risk/RiskEngine';
 
 const router = Router();
 
-// Model: default to the latest capable model; a deployment can switch to a cheaper
-// tier (e.g. claude-haiku-4-5) via env if cost/latency matter for this help chat.
-const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-opus-4-8';
+// Model: Haiku by default (founder 2026-08-08 — maximum savings on the public
+// help chat; the cage has no tools, so the small model explains just as safely).
+// A deployment can raise the tier via env (PRODUCT_ASSISTANT_MODEL) if answer
+// quality ever needs it.
+const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-haiku-4-5';
 
 // Rate limiting — the endpoint is PUBLIC and spends Astryum's Anthropic key, so a
 // per-IP sliding window + global daily cap bound the spend. Extracted + unit-tested.

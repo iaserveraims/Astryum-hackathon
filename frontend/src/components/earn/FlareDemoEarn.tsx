@@ -29,7 +29,7 @@
  * invariant #1).
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ProtectRuleCard } from '../moneyflows/ProtectRuleCard';
 import { useDisconnect } from 'wagmi';
 import { motion } from 'framer-motion';
@@ -50,13 +50,19 @@ import {
   Flame,
   Layers,
   Landmark,
+  Compass,
 } from 'lucide-react';
+import { StrategyFinder } from './StrategyFinder';
 import { Card, GhostButton, MicroLabel, PageHeader, PrimaryButton } from '../ui/primitives';
+import { TokenLogo } from '../ui/TokenLogo';
 import { DUR, EASE_OUT, PulseDot, RevealGroup, RevealItem } from '../ui/motion';
 import { ConstellationScene, FlowForgeScene, MoonScene, OrbitScene } from './icons';
 import { useT } from '../../i18n/LanguageProvider';
 import { getApiBase } from '../../lib/env';
 import { formatMoneyCompact } from '../../lib/formatMoney';
+import { hfWord } from '../../lib/healthScore';
+import { translateError } from '../../lib/errors/translateError';
+import { fmtQtyActive } from '../../lib/format';
 import { useWalletPartner } from '../../lib/wallet/useWalletPartner';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { useUniversalConnect } from '../../lib/wallet/useUniversalConnect';
@@ -66,6 +72,7 @@ import { transferRailOf } from '../../lib/wallet/nativeBalance';
 import { rulePrefillScope, stashRulePrefill } from '../../lib/automation/rulePrefill';
 import { getUserRegion } from '../../lib/region';
 import { startPending } from '../../lib/settlement/settlement';
+import { releaseHandoffSeat } from '../../lib/wallet/handoffRelease';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
 import { preflightSaysFail, type PreflightInfo } from '../../lib/preflight';
@@ -75,7 +82,9 @@ import { StrategyLLMChat } from './StrategyLLMChat';
 import ManualStrategyBuilder from './ManualStrategyBuilder';
 import MovementsPanel from '../movements/MovementsPanel';
 import StrategiesPage from '../../app/app/strategies/page';
+import CouncilVaultEntry from '../legacy/CouncilVaultEntry';
 import ProductTour from '../onboarding/ProductTour';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 const API_BASE = getApiBase();
 
@@ -89,12 +98,14 @@ function authHeaders(): Record<string, string> {
 }
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+// Sentinel option of the FTSO provider dropdown — switches to manual entry.
+const CUSTOM_PROVIDER = '__custom__';
 
 /* ------------------------------------------------------------------ */
 /* DEMO VAULT CATALOGUE (the two interactions — nothing else)          */
 /* ------------------------------------------------------------------ */
 
-type VaultKind = 'e1' | 'e2' | 'e3' | 'v-firelight' | 'v-earnxrp' | 'v-monarq';
+export type VaultKind = 'e1' | 'e2' | 'e3' | 'v-firelight' | 'v-earnxrp' | 'v-monarq';
 
 /** Partner-vault kinds share one backend route (/vault/prepare) — this maps the
  *  door kind to the backend's vault key. */
@@ -220,7 +231,9 @@ const DEMO_VAULTS: DemoVault[] = [
     ],
     facts: [
       { label: 'Converts', value: 'XRP → FXRP (1:1)' },
-      { label: 'Works in', value: 'Firelight staking vault ($66M TVL)' },
+      // GLOSSARY §6.5 (cifras solo verificables): the "$66M TVL" hardcoded here
+      // froze a live figure into the bundle — the fund size belongs to live data.
+      { label: 'Works in', value: 'Firelight staking vault' },
       { label: 'Risk', value: 'Low — no debt, fully on-chain', tone: 'emerald' },
       { label: 'Rewards', value: 'Phase 1 — not live yet (per Firelight)', tone: 'amber' },
     ],
@@ -328,6 +341,30 @@ const DEMO_VAULTS: DemoVault[] = [
     accent: 'text-volt border-volt/30 bg-volt/10',
   },
 ];
+
+/* ------------------------------------------------------------------ */
+/* WHAT A COUNCIL CANNOT REACH — the cage's shape, not a policy         */
+/* ------------------------------------------------------------------ */
+/**
+ * A council's capital enters a venue through the vault on Flare, and that
+ * contract knows exactly two moves: `directTo` (put principal to work in a
+ * whitelisted venue) and `recall` (bring it back). It has NO borrow function —
+ * so a pack whose composition borrows cannot be composed as a council order at
+ * all: not from the card, not from a deep link, not from the agent. Saying so
+ * on the card is the honest version; the alternative is a Start button that
+ * walks a family into a dead end (founder 2026-08-04).
+ *
+ * ONLY the borrowing entry is out of reach. The lend-only route (e3) is a plain
+ * supply — exactly what `directTo` does — and stays fully available.
+ */
+const GOVERNED_UNSUPPORTED: Partial<Record<VaultKind, string>> = {
+  e1: 'The vault on Flare has no borrow function: a council order can only put principal to work in a venue and bring it back. This entry borrows USDT0 against the collateral, so it cannot be composed as a council order. The lend-only entry does the same supply without debt, and it is available.',
+};
+
+/** Why this pack is out of reach for the ACTIVE authority, or null if it isn't. */
+function governedBlockOf(kind: VaultKind, governed: boolean): string | null {
+  return governed ? (GOVERNED_UNSUPPORTED[kind] ?? null) : null;
+}
 
 /* ------------------------------------------------------------------ */
 /* CURATED PRODUCT METADATA — the specifics DeFiLlama/on-chain data can't    */
@@ -578,7 +615,7 @@ function Row({ label, value, mono = false }: { label: string; value: React.React
 
 function fmt(n: number | undefined, digits = 4): string {
   if (n == null || isNaN(n)) return '—';
-  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+  return fmtQtyActive(n, digits); // app-locale aware (Fase 3)
 }
 
 /* ------------------------------------------------------------------ */
@@ -763,7 +800,7 @@ function DemoVaultModal({
   // narrows the picker to its wallet; a governed authority blocks personal
   // Earn entirely (council capital moves by quorum-signed council order, never
   // by a personal signature while the bar says "Governing…").
-  const { active: activeAuthority, activeGoverned, setActive: setActiveAuthority } = useAuthorities();
+  const { active: activeAuthority, activeGoverned } = useAuthorities();
 
   // Linked wallets (GET /api/wallets/mine) — the full rows, because the picker
   // needs walletType/nickname, not just addresses.
@@ -845,11 +882,33 @@ function DemoVaultModal({
   const [provider, setProvider] = useState(''); // E2 FTSO data provider
   const [bipsPct, setBipsPct] = useState('100'); // E2 delegation %
 
-  // FTSO provider suggestions (E2 only) — sourced from the live registry (#9).
-  const [suggested, setSuggested] = useState<Array<{ address: string; name?: string }>>([]);
+  // FTSO provider directory (E2 only) — the public TowoLabs registry the
+  // explorers render, served A–Z by the backend (#9: directory, not ranking).
+  const [providerDir, setProviderDir] = useState<Array<{ address: string; name: string }>>([]);
+  // 'list' offers the directory dropdown; 'custom' the manual 0x… input.
+  const [providerMode, setProviderMode] = useState<'list' | 'custom'>('list');
 
   const [phase, setPhase] = useState<Phase>('form');
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+
+  // Una entrada 0xFE preparada y NO firmada libera su asiento de nonce al
+  // abandonar (el usuario no queda tapiado por NONCE_SEAT_TAKEN). Cleanup de
+  // desmontaje vía ref (captura X, Escape y cierre del padre); nunca tras firmar.
+  const seatRef = useRef<{ memoHex?: string; abandonable: boolean }>({ abandonable: false });
+  seatRef.current = {
+    memoHex: prepared?.rail === 'xrpl' ? (prepared as { memoHex?: string }).memoHex : undefined,
+    abandonable: prepared?.rail === 'xrpl' && phase === 'review',
+  };
+  useEffect(() => {
+    return () => {
+      if (seatRef.current.abandonable) releaseHandoffSeat(seatRef.current.memoHex);
+    };
+  }, []);
+  const releaseSeatIfUnsigned = () => {
+    if (prepared?.rail === 'xrpl' && phase === 'review') {
+      releaseHandoffSeat((prepared as { memoHex?: string }).memoHex);
+    }
+  };
   // Invariant #11 — the prepare's dry-run verdict (e1 today; optional elsewhere).
   const preflight = (prepared as { preflight?: PreflightInfo } | null)?.preflight;
   const [errorMsg, setErrorMsg] = useState('');
@@ -867,7 +926,7 @@ function DemoVaultModal({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/ftso/providers/top?limit=6`, {
+        const res = await fetch(`${API_BASE}/ftso/providers/registry`, {
           headers: authHeaders(),
           credentials: 'include',
         });
@@ -875,13 +934,13 @@ function DemoVaultModal({
         const body = (await res.json()) as { data?: Array<Record<string, unknown>> };
         const items = (body.data ?? [])
           .map((p) => ({
-            address: String(p.address ?? p.provider ?? p.dataProvider ?? ''),
-            name: typeof p.name === 'string' ? p.name : undefined,
+            address: String(p.address ?? ''),
+            name: typeof p.name === 'string' ? p.name : '',
           }))
-          .filter((p) => ADDRESS_RE.test(p.address));
-        if (!cancelled) setSuggested(items.slice(0, 4));
+          .filter((p) => ADDRESS_RE.test(p.address) && p.name);
+        if (!cancelled) setProviderDir(items);
       } catch {
-        /* suggestions are optional — manual address entry still works */
+        /* the directory is optional — manual address entry still works */
       }
     })();
     return () => {
@@ -1093,7 +1152,7 @@ function DemoVaultModal({
       setPhase('done');
     } catch (e) {
       const err = e as { shortMessage?: string; message?: string };
-      setErrorMsg(err.shortMessage ?? err.message ?? String(e));
+      setErrorMsg(translateError(e, t).message);
       // Stay on the review: the prepared payload is still valid — the user
       // retries the SIGNATURE, not the whole prepare (fresh FTSO reads).
       setPhase('review');
@@ -1131,10 +1190,26 @@ function DemoVaultModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.record.address, activeRail, vault.kind]);
 
-  // MAX: the full spendable balance — except FLR, where wrap+delegate still
-  // needs gas from the same balance, so MAX keeps 1 FLR back.
+  // MAX: the full spendable balance — except FLR (wrap+delegate still needs
+  // gas: keep 1 FLR) and the XRPL rail, where the wallet is the STEERING
+  // WHEEL of the Smart Account: minting ALL the XRP strands the account with
+  // no carrier payment for any future order (founder hit it live, 2026-07-30)
+  // — MAX keeps ~2 XRP back.
+  const XRPL_STEERING_RESERVE = 2;
   const maxSpendable =
-    available == null ? null : vault.kind === 'e2' ? Math.max(0, available - 1) : available;
+    available == null
+      ? null
+      : vault.kind === 'e2'
+        ? Math.max(0, available - 1)
+        : activeRail === 'xrpl'
+          ? Math.max(0, available - XRPL_STEERING_RESERVE)
+          : available;
+  /** Typed amount would leave the XRPL wallet below the steering reserve. */
+  const drainsXrplSteering =
+    activeRail === 'xrpl' &&
+    available != null &&
+    (parseFloat(amount) || 0) > 0 &&
+    available - (parseFloat(amount) || 0) < XRPL_STEERING_RESERVE;
   const railBadge =
     vault.kind === 'e2'
       ? t(vault.railLabel)
@@ -1142,14 +1217,76 @@ function DemoVaultModal({
         ? t('Xaman · Smart Account')
         : t('Flare direct · no mint');
 
+  // ── A COUNCIL account (founder refactor 2026-07-28). Its capital moves by
+  //    council ORDER through the cage on Flare — the quorum signs, the FDC
+  //    proves, the vault executes — not by one wallet's signature. That is a
+  //    different rail end to end, so it returns here rather than threading
+  //    `activeGoverned` through a personal flow none of which applies. Earn is
+  //    no longer a dead end for a council: it composes the order right here.
+  if (activeGoverned) {
+    // …unless the cage cannot express this pack at all. The borrowing entry is
+    // one such: `directTo`/`recall` supply and un-supply, and there is no third
+    // function. This is the LAST gate, so every route in (card, deep link,
+    // agent, saved draft) ends in the same honest explanation instead of a
+    // composer that can only fail.
+    const governedBlock = governedBlockOf(vault.kind, true);
+    return (
+      <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`inline-flex items-center gap-1 text-[10px] pl-1 pr-2 py-0.5 rounded-full border font-mono ${vault.accent}`}>
+                  <TokenLogo symbol={vault.asset} size="xs" />
+                  {vault.asset}
+                </span>
+                {governedBlock ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-tone-warning/30 bg-tone-warning/10 text-tone-warning">
+                    {t('Unsupported for a council')}
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--authority-border)] bg-[var(--authority-soft)] text-ink/60">
+                    {t('Council order · the cage')}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-lg font-semibold text-ink">{t(vault.action)}</h2>
+              <p className="text-xs text-ink/40 mt-0.5">{vault.title}</p>
+            </div>
+            <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors mt-1">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
+            {governedBlock ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-tone-warning/25 bg-tone-warning/[0.07] p-4 space-y-1.5">
+                  <div className="flex items-center gap-2 text-sm font-medium text-tone-warning">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {t('This strategy cannot be run by a council')}
+                  </div>
+                  <p className="text-xs leading-relaxed text-ink/60">{t(governedBlock)}</p>
+                </div>
+                <GhostButton onClick={onClose}>{t('Close')}</GhostButton>
+              </div>
+            ) : (
+              <CouncilVaultEntry account={activeGoverned.address} vaultTitle={vault.title} />
+            )}
+          </div>
+        </div>
+      </ModalOverlay>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-2xl my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${vault.accent}`}>
+              <span className={`inline-flex items-center gap-1 text-[10px] pl-1 pr-2 py-0.5 rounded-full border font-mono ${vault.accent}`}>
+                <TokenLogo symbol={vault.asset} size="xs" />
                 {vault.asset}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full border border-ink/15 bg-ink/5 text-ink/55">
@@ -1164,34 +1301,16 @@ function DemoVaultModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {/* Signing wallet — ANY linked Astryum wallet that can sign this
               entry. On FXRP packs an XRPL pick mints from XRP (Xaman), while a
               Flare pick spends its own FXRP directly — no XRPL mint. */}
-          {activeGoverned ? (
-            <div className="rounded-xl border border-[var(--authority-border)] bg-[var(--authority-soft)] p-4">
-              <div className="mb-1.5 flex items-center gap-2 text-sm font-medium text-ink/90">
-                <span className="text-[var(--authority-solid)]">⬥</span>
-                {t('You are governing a council account')}
-              </div>
-              <p className="mb-3 text-xs text-ink/60">
-                {t(
-                  "Earn entries are signed by simple wallets. The council's capital moves only by council order — signed by the quorum — from the Legacy panel.",
-                )}
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <GhostButton onClick={() => setActiveAuthority('all')} className="flex-1">
-                  {t('Switch to Overview')}
-                </GhostButton>
-                <a
-                  href="/app/legacy"
-                  className="flex-1 rounded-xl border border-[var(--authority-border)] bg-[var(--authority-soft)] py-2.5 text-center text-sm font-medium text-ink/85 transition-all hover:brightness-125"
-                >
-                  {t('Open Legacy')}
-                </a>
-              </div>
-            </div>
-          ) : candidates.length > 0 ? (
+          {/* The governed branch that used to live here — "Earn entries are
+              signed by simple wallets… open the Legacy panel" — is gone
+              (founder 2026-07-28). It was a dead end: a council was told to
+              leave the page. A council now composes its cage order in this
+              same modal; see the early return above. */}
+          {candidates.length > 0 ? (
             <div>
               <label className="text-xs text-ink/40 block mb-2">{t('Signing wallet')}</label>
               <select
@@ -1318,6 +1437,16 @@ function DemoVaultModal({
                     {t('MAX keeps 1 FLR back for gas — the wrap and delegate calls pay fees from this same balance.')}
                   </p>
                 )}
+                {activeRail === 'xrpl' && available != null && (
+                  <p className="text-[10px] text-ink/35 mt-1.5">
+                    {t('MAX keeps ~2 XRP back — your Astryum account is steered from this wallet and every order needs a small XRP payment.')}
+                  </p>
+                )}
+                {drainsXrplSteering && (
+                  <div className="mt-2 bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-200 leading-relaxed">
+                    {t('This would leave your XRPL wallet almost empty. Your Astryum account is steered FROM it — every order needs ~1 XRP of carrier payment. Keep at least ~2 XRP or you will not be able to withdraw or convert until you refund it from outside.')}
+                  </div>
+                )}
               </div>
 
               {/* E3 lend-only — no extra inputs; one reassuring line for the non-crypto user */}
@@ -1389,26 +1518,51 @@ function DemoVaultModal({
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-ink/40 block mb-2">{t('FTSO data provider')}</label>
-                    <input
-                      type="text"
-                      placeholder="0x…"
-                      value={provider}
-                      onChange={(e) => setProvider(e.target.value)}
-                      className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm font-mono placeholder-ink/30 focus:outline-none focus:border-volt/50"
-                    />
-                    {suggested.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {suggested.map((p) => (
+                    {providerDir.length > 0 && providerMode === 'list' ? (
+                      <>
+                        <select
+                          value={provider}
+                          onChange={(e) => {
+                            if (e.target.value === CUSTOM_PROVIDER) {
+                              setProviderMode('custom');
+                              setProvider('');
+                            } else setProvider(e.target.value);
+                          }}
+                          className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50 [&>option]:bg-surface-1"
+                        >
+                          <option value="">{t('Choose a provider…')}</option>
+                          {providerDir.map((p) => (
+                            <option key={p.address} value={p.address}>
+                              {p.name} · {p.address.slice(0, 6)}…{p.address.slice(-4)}
+                            </option>
+                          ))}
+                          <option value={CUSTOM_PROVIDER}>{t('Another provider — enter its address (0x…)')}</option>
+                        </select>
+                        <p className="text-[10px] text-ink/35 mt-1">
+                          {t('Public registry of listed providers, A–Z — a directory, not a recommendation.')}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="0x…"
+                          value={provider}
+                          onChange={(e) => setProvider(e.target.value)}
+                          className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm font-mono placeholder-ink/30 focus:outline-none focus:border-volt/50"
+                        />
+                        {providerDir.length > 0 && (
                           <button
-                            key={p.address}
-                            onClick={() => setProvider(p.address)}
-                            className="text-[10px] px-2 py-1 rounded-full border border-ink/10 bg-ink/5 text-ink/60 hover:bg-ink/10 hover:text-ink transition-colors font-mono"
-                            title={p.name}
+                            onClick={() => {
+                              setProviderMode('list');
+                              setProvider('');
+                            }}
+                            className="text-[10px] text-ink/50 hover:text-ink underline underline-offset-2 mt-1.5"
                           >
-                            {p.name ? p.name : `${p.address.slice(0, 6)}…${p.address.slice(-4)}`}
+                            {t('Choose from the registry list instead')}
                           </button>
-                        ))}
-                      </div>
+                        )}
+                      </>
                     )}
                   </div>
                   <div>
@@ -1435,7 +1589,7 @@ function DemoVaultModal({
 
               <PrimaryButton onClick={prepare} disabled={amountNum <= 0 || !selected} className="w-full">
                 <ShieldCheck className="w-4 h-4" />
-                {t('Prepare intent')}
+                {t('Review before signing')}
                 <ArrowRight className="w-4 h-4" />
               </PrimaryButton>
               {!selected && (
@@ -1466,6 +1620,9 @@ function DemoVaultModal({
           )}
           {phase === 'review' && prepared && (
             <>
+              {/* Two clear blocks — the disclosure table and the verdict/custody
+                  column — sit side by side on the wider panel, stacking below sm. */}
+              <div className="grid gap-4 sm:grid-cols-2">
               <div className="bg-ink/5 border border-ink/10 rounded-xl p-4 space-y-2.5 text-xs">
                 {/* Each FXRP branch handles BOTH rails: the XRPL mint (gross
                     XRP, minting/executor fees, Smart Account) and the direct
@@ -1598,10 +1755,13 @@ function DemoVaultModal({
                         )}
                         <Row label={t('USDT0 borrowed')} value={`${fmt(d.usdt0Borrowed, 2)} USDT0`} />
                         <Row label={t('FXRP/USD now')} value={`$${fmt(d.fxrpPriceUSD, 4)}`} />
-                        <Row label={t('Health Factor at entry')} value={fmt(d.entryHF, 3)} />
+                        <Row
+                          label={t('Your cushion at entry')}
+                          value={`${hfWord(d.entryHF, t).label} (${fmt(d.entryHF, 2)} — ${t('liquidation at 1.00')})`}
+                        />
                         <Row
                           label={t('Stop-loss triggers below')}
-                          value={`$${fmt(d.triggerPriceUSD, 5)} (HF ${fmt(d.targetHF, 2)})`}
+                          value={`$${fmt(d.triggerPriceUSD, 4)} (${t('cushion')} ${fmt(d.targetHF, 2)})`}
                         />
                         {direct ? (
                           <>
@@ -1617,10 +1777,18 @@ function DemoVaultModal({
                 ) : (
                   (() => {
                     const d = (prepared as E2Prepared).disclosure;
+                    const shortProvider = `${d.provider.slice(0, 10)}…${d.provider.slice(-6)}`;
+                    const knownProvider = providerDir.find(
+                      (p) => p.address.toLowerCase() === d.provider.toLowerCase(),
+                    );
                     return (
                       <>
                         <Row label={t('Wrap')} value={`${fmt(d.amountFlr)} FLR → WFLR`} />
-                        <Row label={t('Delegate to')} value={`${d.provider.slice(0, 10)}…${d.provider.slice(-6)}`} mono />
+                        <Row
+                          label={t('Delegate to')}
+                          value={knownProvider ? `${knownProvider.name} · ${shortProvider}` : shortProvider}
+                          mono
+                        />
                         <Row label={t('Delegation %')} value={`${(d.bips / 100).toFixed(0)}%`} />
                         {d.flrPriceUSD > 0 && (
                           <Row label={t('FLR/USD now')} value={`$${fmt(d.flrPriceUSD, 4)}`} />
@@ -1636,16 +1804,20 @@ function DemoVaultModal({
                 )}
               </div>
 
-              {/* Invariant #11 — the dry-run verdict BEFORE the wallet opens. */}
-              <PreflightNotice preflight={preflight} />
+              <div className="space-y-4">
+                {/* Invariant #11 — the dry-run verdict BEFORE the wallet opens. */}
+                <PreflightNotice preflight={preflight} />
 
-              <div className="bg-surface-2/80 rounded-xl p-3 text-[11px] text-ink/50 border border-ink/5">
-                <p className="font-medium text-ink/70 mb-0.5">{t('Astryum does not custody your funds.')}</p>
-                <p>{prepared.disclosure.note}</p>
+                <div className="bg-surface-2/80 rounded-xl p-3 text-[11px] text-ink/50 border border-ink/5">
+                  <p className="font-medium text-ink/70 mb-0.5">{t('Astryum does not custody your funds.')}</p>
+                  <p>{prepared.disclosure.note}</p>
+                </div>
+              </div>
               </div>
 
-              <div className="flex gap-3">
-                <GhostButton onClick={() => setPhase('form')} className="flex-1">
+              {/* Sign stays reachable while the disclosure scrolls. */}
+              <div className="sticky bottom-0 -mx-6 -mb-5 bg-surface-1 px-6 pb-5 pt-3 flex gap-3">
+                <GhostButton onClick={() => { releaseSeatIfUnsigned(); setPhase('form'); }} className="flex-1">
                   {t('Back')}
                 </GhostButton>
                 <PrimaryButton
@@ -1739,14 +1911,17 @@ function DemoVaultModal({
                   {t('The Protect template comes pre-filled with the thresholds you chose for this entry — editable before you activate it.')}
                 </p>
               )}
+              {/* R8.3: "Done" while the settlement is still pending told the
+                  user it was over. Closing is fine (the op stays tracked and
+                  resumes after a reload) — the label just stops lying. */}
               <GhostButton onClick={onClose} className="mt-2 w-full">
-                {t('Done')}
+                {settlement.state?.status === 'settled' ? t('Done') : t('Keep waiting in the background')}
               </GhostButton>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -1804,7 +1979,17 @@ function EarnDoor({
 /* A pulsing dot = live; a number = the protocol figure with its source; */
 /* otherwise the honest status label. Never a promise (invariant #9).    */
 /* ------------------------------------------------------------------ */
-function LiveYieldChip({ y, size = 'sm' }: { y: YieldEntry | undefined; size?: 'sm' | 'lg' }) {
+function LiveYieldChip({
+  y,
+  size = 'sm',
+  showSource = false,
+}: {
+  y: YieldEntry | undefined;
+  size?: 'sm' | 'lg';
+  /** R9: the figure's SOURCE printed next to the chip — a tooltip does not
+   *  exist on touch, and the invariant wants the source AT the decision point. */
+  showSource?: boolean;
+}) {
   const { t } = useT();
   const { pct, label } = yieldChipText(y);
   const big = size === 'lg';
@@ -1816,21 +2001,28 @@ function LiveYieldChip({ y, size = 'sm' }: { y: YieldEntry | undefined; size?: '
     const tooltip =
       y && y.kind !== 'none' ? `${y.source}${y.note ? ` — ${y.note}` : ''}` : undefined;
     return (
-      <span
-        title={tooltip}
-        className={`inline-flex items-center gap-1.5 rounded-full border ${
-          negative
-            ? 'border-ink/20 bg-ink/5 text-ink/70'
-            : 'border-tone-success/30 bg-tone-success/10 text-tone-success'
-        } ${big ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-[11px]'}`}
-      >
-        {/* Breathing status dot — the system's PulseDot (was a hand-rolled
-            animate-ping pair). Its default tone is already tone-success. */}
-        {!negative && <PulseDot size={6} />}
-        <span className="font-semibold tabular-nums">{pct}</span>
-        {big && (
-          <span className={negative ? 'text-ink/45' : 'text-tone-success/70'}>
-            · {negative ? t('30d realized') : t('live')}
+      <span className={showSource ? 'inline-flex flex-col items-start gap-0.5' : undefined}>
+        <span
+          title={tooltip}
+          className={`inline-flex items-center gap-1.5 rounded-full border ${
+            negative
+              ? 'border-ink/20 bg-ink/5 text-ink/70'
+              : 'border-tone-success/30 bg-tone-success/10 text-tone-success'
+          } ${big ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-[11px]'}`}
+        >
+          {/* Breathing status dot — the system's PulseDot (was a hand-rolled
+              animate-ping pair). Its default tone is already tone-success. */}
+          {!negative && <PulseDot size={6} />}
+          <span className="font-semibold tabular-nums">{pct}</span>
+          {big && (
+            <span className={negative ? 'text-ink/45' : 'text-tone-success/70'}>
+              · {negative ? t('30d realized') : t('current protocol figure')}
+            </span>
+          )}
+        </span>
+        {showSource && y && y.kind !== 'none' && (
+          <span className="text-[10px] text-ink/45">
+            {t('source')}: {y.source}
           </span>
         )}
       </span>
@@ -1857,7 +2049,10 @@ function LiveYieldChip({ y, size = 'sm' }: { y: YieldEntry | undefined; size?: '
 function ProfitCalculator({ vault, y }: { vault: DemoVault; y: YieldEntry | undefined }) {
   const { t } = useT();
   const liveRate = y && y.kind !== 'none' ? y.pct : null;
-  const [amount, setAmount] = useState('1000');
+  // R9: the calculator opens EMPTY — a pre-filled "+42" in green before the
+  // user typed anything reads as a promise, not a model. The rate still
+  // pre-fills from the live figure (it is a protocol fact, not our number).
+  const [amount, setAmount] = useState('');
   const [months, setMonths] = useState('12');
   const [rate, setRate] = useState(liveRate != null ? liveRate.toFixed(2) : '');
 
@@ -1875,8 +2070,7 @@ function ProfitCalculator({ vault, y }: { vault: DemoVault; y: YieldEntry | unde
   const simpleYield = valid ? (p * (r / 100) * mo) / 12 : null; // simple, non-compounded
   const total = valid && simpleYield != null ? p + simpleYield : null;
 
-  const fmt = (n: number) =>
-    n.toLocaleString(undefined, { maximumFractionDigits: n < 100 ? 2 : 0 });
+  const fmt = (n: number) => fmtQtyActive(n, n < 100 ? 2 : 0);
 
   const usingLive = liveRate != null && rate === liveRate.toFixed(2);
 
@@ -1913,10 +2107,13 @@ function ProfitCalculator({ vault, y }: { vault: DemoVault; y: YieldEntry | unde
         </label>
       </div>
 
+      {/* R9: neutral tone (a green "+X" wears the costume of a credited gain)
+          and the disclaimer at a READABLE size — it was the smallest, faintest
+          text in the modal while carrying the only sentence that matters. */}
       <div className="mt-3 flex items-end justify-between gap-3 rounded-lg bg-surface-1 border border-ink/[0.06] px-3 py-2.5">
         <div>
           <MicroLabel>{t('Estimated yield')}</MicroLabel>
-          <div className="text-lg font-semibold text-tone-success tabular-nums leading-tight">
+          <div className="text-lg font-semibold text-ink/85 tabular-nums leading-tight">
             {simpleYield != null ? `+${fmt(simpleYield)}` : '—'}{' '}
             <span className="text-xs font-normal text-ink/45">{vault.asset}</span>
           </div>
@@ -1929,9 +2126,9 @@ function ProfitCalculator({ vault, y }: { vault: DemoVault; y: YieldEntry | unde
         </div>
       </div>
 
-      <p className="mt-2 text-[10px] leading-relaxed text-ink/35">
+      <p className="mt-2 text-xs leading-relaxed text-ink/55">
         {t(
-          'An estimate over the rate shown — simple (non-compounded), before fees and price moves. It is not an offer, a promise, or an Astryum yield.',
+          'If the rate held (it is not guaranteed — it changes constantly), this is what simple interest would add, before fees and price moves. It is not an offer, a promise, or an Astryum yield.',
         )}
       </p>
     </div>
@@ -2081,6 +2278,10 @@ function StrategyInfoModal({
   onStart: () => void;
 }) {
   const { t } = useT();
+  // The sheet stays readable for everyone — a council may want to understand a
+  // strategy it cannot run. Only the Start button is withdrawn.
+  const { activeGoverned } = useAuthorities();
+  const governedBlock = governedBlockOf(vault.kind, !!activeGoverned);
   const asOfLabel = asOf ? new Date(asOf).toLocaleTimeString() : null;
   const meta = PRODUCT_META[vault.kind];
   const productMap = useProductInfo();
@@ -2088,7 +2289,7 @@ function StrategyInfoModal({
   const loadingInfo = productMap === null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5 shrink-0">
@@ -2109,7 +2310,7 @@ function StrategyInfoModal({
         <div className="px-6 py-5 space-y-5 overflow-y-auto">
           {/* Live yield + source */}
           <div className="flex flex-wrap items-center gap-2">
-            <LiveYieldChip y={y} size="lg" />
+            <LiveYieldChip y={y} size="lg" showSource />
             {asOfLabel && <span className="text-[10px] text-ink/35">{t('as of')} {asOfLabel}</span>}
           </div>
           {y && y.kind !== 'none' && (
@@ -2192,15 +2393,29 @@ function StrategyInfoModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 px-6 py-4 border-t border-ink/5 shrink-0">
-          <GhostButton onClick={onClose}>{t('Close')}</GhostButton>
-          <PrimaryButton onClick={onStart} className="flex-1">
-            {t('Start')} · {vault.action}
-            <ArrowRight className="w-4 h-4" />
-          </PrimaryButton>
+        <div className="shrink-0 border-t border-ink/5">
+          {governedBlock && (
+            <p className="flex items-start gap-2 px-6 pt-4 text-[11px] leading-relaxed text-tone-warning/90">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{t(governedBlock)}</span>
+            </p>
+          )}
+          <div className="flex items-center gap-2 px-6 py-4">
+            <GhostButton onClick={onClose}>{t('Close')}</GhostButton>
+            {governedBlock ? (
+              <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-4 py-2.5 text-sm font-medium text-ink/35 cursor-not-allowed select-none">
+                {t('Unsupported for a council')}
+              </span>
+            ) : (
+              <PrimaryButton onClick={onStart} className="flex-1">
+                {t('Start')} · {vault.action}
+                <ArrowRight className="w-4 h-4" />
+              </PrimaryButton>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -2208,11 +2423,22 @@ type StrategyView = 'hub' | 'pick' | 'create' | 'movements' | 'manual' | 'strate
 
 export default function FlareDemoEarn() {
   const { t } = useT();
+  // Who is operating. A council reaches the same Earn surfaces as a personal
+  // wallet (founder 2026-07-28) — only the signature differs — so this page
+  // branches in exactly two places: the entry modal (a cage order) and My
+  // strategies (the council's own MoneyFlows).
+  const { activeGoverned } = useAuthorities();
   const [view, setView] = useState<StrategyView>('hub');
   const [active, setActive] = useState<DemoVault | null>(null);
   const [initialInputs, setInitialInputs] = useState<{ amount?: string; ratio?: string; targetHF?: string } | undefined>(undefined);
   // Which pack has its "More info" (technical + calculator) modal open.
   const [infoVault, setInfoVault] = useState<DemoVault | null>(null);
+  // The guided finder (founder 2026-08-08: six full cards at once confuse a
+  // first-timer). `matchedKinds` narrows the pick grid to the routes whose
+  // FACTS fit the user's two answers — a filter, never a recommendation
+  // (invariant #9); null = no filter, the full catalogue.
+  const [finderOpen, setFinderOpen] = useState(false);
+  const [matchedKinds, setMatchedKinds] = useState<VaultKind[] | null>(null);
   // Live protocol yields for the cards — polled, protocol data with a source.
   const { yields, asOf } = useStrategyYields();
 
@@ -2274,7 +2500,9 @@ export default function FlareDemoEarn() {
           <ProductTour
             tour="earn"
             steps={[
-              { target: 'door-pick', title: t('Choose a Strategy'), body: t('Audited, ready-made strategies live on mainnet. Open one to see exactly what it does with your tokens before you sign anything.') },
+              // "Audited" is FORBIDDEN without a published external report
+              // (GLOSSARY §6.2) — assurance language is exactly how scams talk.
+              { target: 'door-pick', title: t('Choose a Strategy'), body: t('Ready-made strategies live on mainnet. Open one to see exactly what it does with your tokens before you sign anything.') },
               { target: 'door-create', title: t('Create with AI Agent'), body: t('Describe what you want in plain words; the agent compiles it into a strategy you review and sign. It never signs for you.') },
               { target: 'door-strategies', title: t('My strategies'), body: t('Your registry: everything running on-chain and everything saved as a draft — pause, resume or launch from here.') },
             ]}
@@ -2339,28 +2567,91 @@ export default function FlareDemoEarn() {
       {/* ── Pick: the two live packs, with their real composition ── */}
       {view === 'pick' && (
         <RevealGroup className="space-y-5">
+          {/* The guided door into the catalogue — or, once answered, the
+              honest strip saying WHY the list is short and how to widen it. */}
+          <RevealItem>
+            {matchedKinds ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-volt/25 bg-volt/[0.06] px-4 py-3">
+                <Compass className="w-4 h-4 shrink-0 text-volt" strokeWidth={1.75} />
+                <p className="text-sm text-ink/80 flex-1 min-w-[12rem]">
+                  {matchedKinds.length === 1
+                    ? t('1 route can work with your answers — its live data and risks are on the card.')
+                    : `${matchedKinds.length} ${t('routes can work with your answers — their live data and risks are on the cards.')}`}
+                </p>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => setFinderOpen(true)}
+                    className="text-xs font-medium text-volt hover:underline"
+                  >
+                    {t('Change answers')}
+                  </button>
+                  <button
+                    onClick={() => setMatchedKinds(null)}
+                    className="text-xs text-ink/50 hover:text-ink transition-colors"
+                  >
+                    {t('Show all six')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-ink/[0.08] bg-ink/[0.02] px-4 py-3">
+                <Compass className="w-4 h-4 shrink-0 text-volt" strokeWidth={1.75} />
+                <p className="text-sm text-ink/70 flex-1 min-w-[12rem]">
+                  {t('Not sure where to start? Two questions narrow the list to the routes that can work with what you hold.')}
+                </p>
+                <button
+                  onClick={() => setFinderOpen(true)}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-volt/30 bg-volt/10 px-3.5 py-2 text-xs font-semibold text-volt hover:bg-volt/20 transition-colors"
+                >
+                  {t('Guide me')}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </RevealItem>
           <RevealItem>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {DEMO_VAULTS.map((v) => (
-                <Card key={v.kind} hover spotlight className="flex flex-col">
+              {(matchedKinds ? DEMO_VAULTS.filter((v) => matchedKinds.includes(v.kind)) : DEMO_VAULTS).map((v) => {
+                // Out of reach for a council: the cage has no borrow (see
+                // GOVERNED_UNSUPPORTED). The card says so instead of offering a
+                // Start that dead-ends in the composer.
+                const blocked = governedBlockOf(v.kind, !!activeGoverned);
+                return (
+                <Card key={v.kind} hover={!blocked} spotlight className={`flex flex-col ${blocked ? 'opacity-70' : ''}`}>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className={`w-11 h-11 rounded-xl grid place-items-center border ${v.accent}`}>{v.icon}</div>
+                      {/* The pack's scene, badged with the asset it moves — the
+                          card says "FXRP → Kinetic" in words, and now the mark
+                          says which XRP it is: the FAssets one, on Flare. */}
+                      <div className="relative shrink-0">
+                        <div className={`w-11 h-11 rounded-xl grid place-items-center border ${v.accent}`}>{v.icon}</div>
+                        <TokenLogo
+                          symbol={v.asset}
+                          size="sm"
+                          className="absolute -bottom-1 -right-1 ring-2 ring-surface-1"
+                        />
+                      </div>
                       <div>
                         <h3 className="text-base font-semibold text-ink">{v.title}</h3>
                         <p className="text-xs text-ink/45 mt-0.5">{t(v.action)}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-ink/15 bg-ink/5 text-ink/55 shrink-0">
-                      {t(v.railLabel)}
-                    </span>
+                    {blocked ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border border-tone-warning/30 bg-tone-warning/10 text-tone-warning shrink-0">
+                        {t('Unsupported')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border border-ink/15 bg-ink/5 text-ink/55 shrink-0">
+                        {t(v.railLabel)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Live yield — protocol data with a source (invariant #9): a
                       number when the protocol gives one, an honest label else.
                       The carry also surfaces the USDT0 borrow APR it pays (#6). */}
                   <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <LiveYieldChip y={yields?.[v.kind]} />
+                    <LiveYieldChip y={yields?.[v.kind]} showSource />
                     {(() => {
                       const yv = yields?.[v.kind];
                       const b = yv && yv.kind !== 'none' ? yv.borrow : undefined;
@@ -2407,6 +2698,15 @@ export default function FlareDemoEarn() {
                     ))}
                   </div>
 
+                  {/* Why it cannot be started — said on the card, before the
+                      click, in the contract's own terms. */}
+                  {blocked && (
+                    <p className="mb-3 flex items-start gap-2 rounded-xl border border-tone-warning/25 bg-tone-warning/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-tone-warning/90">
+                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span>{t(blocked)}</span>
+                    </p>
+                  )}
+
                   {/* One visible primary action; More info is a text link, not
                       a second button competing for attention. */}
                   <div className="mt-auto flex items-center justify-between gap-3 pt-2">
@@ -2417,13 +2717,20 @@ export default function FlareDemoEarn() {
                       <Info className="w-3.5 h-3.5" />
                       {t('More info')}
                     </button>
-                    <PrimaryButton onClick={() => { setInitialInputs(undefined); setActive(v); }} className="flex-1">
-                      {t('Start')} · {v.action}
-                      <ArrowRight className="w-4 h-4" />
-                    </PrimaryButton>
+                    {blocked ? (
+                      <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-4 py-2.5 text-sm font-medium text-ink/35 cursor-not-allowed select-none">
+                        {t('Unsupported for a council')}
+                      </span>
+                    ) : (
+                      <PrimaryButton onClick={() => { setInitialInputs(undefined); setActive(v); }} className="flex-1">
+                        {t('Start')} · {v.action}
+                        <ArrowRight className="w-4 h-4" />
+                      </PrimaryButton>
+                    )}
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </RevealItem>
         </RevealGroup>
@@ -2435,28 +2742,42 @@ export default function FlareDemoEarn() {
              launch, and how the flow works. ── */}
       {view === 'create' && (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_330px] gap-5 items-start">
-          <StrategyLLMChat onLaunch={launch} />
+          {/* The agent compiles for whoever is operating: under a council it
+              never offers the borrowing route — the cage cannot express it. */}
+          <StrategyLLMChat onLaunch={launch} governed={!!activeGoverned} />
 
           <aside className="space-y-4">
             {/* Quick-launch: the two live packs, compact */}
             <Card spotlight padded={false} className="p-5">
               <MicroLabel>{t('Ready routes')}</MicroLabel>
               <ul className="mt-3 space-y-2.5">
-                {DEMO_VAULTS.map((v) => (
+                {DEMO_VAULTS.map((v) => {
+                  const blocked = governedBlockOf(v.kind, !!activeGoverned);
+                  return (
                   <li key={v.kind}>
                     <button
                       onClick={() => { setInitialInputs(undefined); setActive(v); }}
-                      className="group/route w-full text-left rounded-xl border border-ink/[0.07] bg-ink/[0.02] hover:bg-ink/[0.05] hover:border-ink/[0.14] transition-colors px-3.5 py-3"
+                      disabled={!!blocked}
+                      className={`group/route w-full text-left rounded-xl border border-ink/[0.07] bg-ink/[0.02] transition-colors px-3.5 py-3 ${
+                        blocked
+                          ? 'opacity-55 cursor-not-allowed'
+                          : 'hover:bg-ink/[0.05] hover:border-ink/[0.14]'
+                      }`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[13px] font-medium text-ink">{v.title}</span>
-                        <ArrowRight className="w-3.5 h-3.5 shrink-0 text-ink/25 -translate-x-1 opacity-0 group-hover/route:translate-x-0 group-hover/route:opacity-100 transition-all" />
+                        {!blocked && (
+                          <ArrowRight className="w-3.5 h-3.5 shrink-0 text-ink/25 -translate-x-1 opacity-0 group-hover/route:translate-x-0 group-hover/route:opacity-100 transition-all" />
+                        )}
                       </div>
                       <div className="text-[11px] text-ink/45 mt-0.5">{v.action}</div>
-                      <div className="text-[10px] text-ink/30 mt-1.5">{t(v.railLabel)}</div>
+                      <div className={`text-[10px] mt-1.5 ${blocked ? 'text-tone-warning/80' : 'text-ink/30'}`}>
+                        {blocked ? t('Unsupported for a council') : t(v.railLabel)}
+                      </div>
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </Card>
 
@@ -2496,6 +2817,11 @@ export default function FlareDemoEarn() {
 
       {/* Estrategias, embedded (founder 2026-07-18): the registry lives inside
           Earn now — same component as /app/strategies, without its page header. */}
+      {/* My strategies — the SAME full page in both products (founder
+          2026-08-01: "debe ser igual que Personal"). The page itself is
+          authority-aware: for a council it swaps MoneyFlows for the governed
+          surface and the cage's cards open the council-order composer — the
+          smart contract stays plumbing the person never sees. */}
       {view === 'strategies' && <StrategiesPage embedded onLaunch={launch} />}
 
       <p className="text-[11px] text-ink/30 mt-6 max-w-2xl leading-relaxed">
@@ -2510,6 +2836,20 @@ export default function FlareDemoEarn() {
           vault={active}
           initial={initialInputs}
           onClose={() => { setActive(null); setInitialInputs(undefined); }}
+        />
+      )}
+
+      {/* The guided finder — two questions, then a result step that TEACHES
+          each matching route (plain sentence, live rate with source, risk)
+          before landing on the cards. Filters only; never launches or
+          recommends anything on its own. Catalogue and yield chip go in as
+          props so the finder has no runtime import back into this file. */}
+      {finderOpen && (
+        <StrategyFinder
+          vaults={DEMO_VAULTS}
+          yieldChip={(k) => <LiveYieldChip y={yields?.[k]} showSource />}
+          onClose={() => setFinderOpen(false)}
+          onResult={(kinds) => setMatchedKinds(kinds)}
         />
       )}
 

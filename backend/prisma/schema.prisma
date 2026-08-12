@@ -2738,10 +2738,20 @@ model BatchProposal {
 model WaitlistSignup {
   id        String   @id @default(cuid())
   email     String   @unique
-  // Which door the visitor came through: 'early-access' | 'demo'
+  // Which door the visitor came through: 'early-access' | 'demo' | 'legacy',
+  // plus 'register' (auto-enrolment on account creation) and 'admin' (email
+  // approved by a founder that never signed the public form).
   source    String   @default("early-access")
   lang      String?
   createdAt DateTime @default(now())
+
+  // Beta gate (founder 2026-08-01, opening 08-06): with BETA_REGISTRATION_OPEN
+  // unset, an account can ONLY be created by an email a founder approved.
+  // approvedAt = the approval instant (null = still waiting). invitedAt = when
+  // the boarding-pass email last went out (null = never sent). Existing
+  // accounts are untouched — the gate guards CREATION, never login.
+  approvedAt DateTime?
+  invitedAt  DateTime?
 
   @@index([createdAt])
   @@map("waitlist_signups")

@@ -90,11 +90,18 @@ class XrplBalanceProvider implements IProvider {
     // the protocol to keep the account alive — counting it as capital inflates
     // every total (the Wallets card already excludes it; the portfolio must
     // agree with it).
-    const [balance, lines, defi, xrpPrice] = await Promise.all([
+    // The cage read (LegacyVault, ~10 RPC calls behind a 60s cache) runs IN
+    // PARALLEL with the account's own reads — it needs no price; the positions
+    // are built afterwards. Serialising it made the council's Summary crawl.
+    const { cageStateFor, buildCagePositions } = await import(
+      '../../../services/flare/LegacyCagePositionsService'
+    );
+    const [balance, lines, defi, xrpPrice, cageState] = await Promise.all([
       xrplProvider.getSpendableBalance(wallet).catch(() => null),
       xrplProvider.getTokenBalances(wallet).catch(() => []),
       xrplProvider.getDeFiPositions(wallet).catch(() => []),
       fetchXrpPrice(),
+      cageStateFor(wallet).catch(() => null),
     ]);
 
     const assetSource = {
@@ -181,6 +188,14 @@ class XrplBalanceProvider implements IProvider {
         }],
         source: assetSource,
       });
+    }
+
+    // The cage (LegacyVault on Flare): principal held by the council's
+    // CONTRACT, attributed ONLY to the account the bridge's immutable council
+    // hash names — everyone else got null above. This is what puts the cage in
+    // net worth / the earning ring / strategies like any personal position.
+    if (cageState && xrpPrice > 0) {
+      positions.push(...buildCagePositions(cageState, wallet, xrpPrice, traceId));
     }
 
     return positions;

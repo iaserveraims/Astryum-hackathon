@@ -35,6 +35,51 @@ LegacyVault.<fnDelConsejo>(...)                    (la jaula decide qué puede h
 | `src/XrplCouncilBridge.sol` | ES el `council` del vault. No tiene fondos ni dueño con poder: su único acto es reenviar una orden que el quórum XRPL ya firmó, tras verificar la prueba FDC `XRPPayment`. Doble candado antirreplay: `consumedTxId` + nonce secuencial. |
 | `src/interfaces/IXRPPayment.sol` · `IXRPPaymentVerification.sol` | La superficie FDC (`verifyXRPPayment`). |
 | `script/DeployLegacyStack.s.sol` | Despliega el stack COMPLETO en orden de nacimiento: bridge → vault(council = **el bridge**) → `bridge.bind(vault)`. Tras `bind` el deployer no tiene ningún poder. El multisig EVM espejo no existe ni un día. |
+| `src/LegacyStackFactory.sol` | **Una jaula por Legacy, nacida desde XRPL.** El mismo orden de nacimiento, pero en una sola tx que **solo puede lanzar la Personal Account del propio consejo** (Flare Smart Accounts) — es decir, su quórum. Lleva el registro público `vaultOf(councilHash)`, que es como el producto responde «¿cuál es la jaula de este Legacy?» sin fiarse de una base de datos. `LegacyVaultDeployer` (nace con él, solo él lo llama) carga el bytecode del vault para que el factory no roce el techo de 24 KB. |
+
+### Una jaula por Legacy (2026-08-05)
+
+Hasta esta fecha la jaula se desplegaba a mano una vez y el producto la leía de
+configuración, así que **todos los Legacies apuntaban a la misma**. Leerla era daño
+cosmético; fondearla no: el carril de fondeo compone un mint que deposita en el vault,
+y el vault no tiene ninguna función que devuelva principal a una dirección. Un segundo
+consejo habría firmado su capital dentro de la jaula del primero, para siempre.
+
+El contrato ya decía la regla — `COUNCIL_ADDRESS_HASH` es `immutable` en el bridge, así
+que un bridge obedece a un consejo y a ninguno más. El factory la convierte en el único
+camino: **un Legacy, una jaula, creada por su propio quórum**.
+
+```
+El consejo firma UN Payment XRPL (memo = los calls comprometidos)
+        ▼
+Su Personal Account en Flare ejecuta esos calls
+        ▼
+LegacyStackFactory.create(councilR, params)   ← msg.sender DEBE ser esa PA
+   bridge(councilHash, SOURCE_ID) → vault(council = bridge) → bind → registro
+```
+
+`predictAddresses(councilR, params)` da la dirección del vault **antes** de que exista
+(CREATE2), para que una sola firma pueda crear la jaula y depositar en ella en el mismo
+lote. Los params del constructor siguen siendo eternos: los elige el quórum, porque solo
+el quórum puede provocar la llamada. Backend: `LEGACY_FACTORY_ADDRESS` +
+`services/flare/LegacyCageResolver.ts` (registro on-chain primero; el stack de env
+después, y solo para el consejo que su bridge nombra — el fundacional no migra).
+
+```bash
+FDC_SOURCE_ID=XRP MAC_FALLBACK=0x434936d47503353f06750Db1A444DBDC5F0AD37c \
+  forge script script/DeployLegacyStackFactory.s.sol --rpc-url flare --broadcast
+```
+
+> ⚠️ `SOURCE_ID` es inmutable en el factory y lo heredan **todos** los bridges que nazcan
+> de él. Un factory de mainnet con `testXRP` pariría bridges que no verifican ninguna
+> prueba jamás, y nada podría arreglarlos. Un factory por red, y la red decide.
+
+**Desplegado en Flare mainnet (2026-08-06,** tx `0x65b3cc8e…9acb23`**, fuentes verificadas):**
+
+| Contrato | Dirección |
+|---|---|
+| `LegacyStackFactory` | `0xF93A8A0bd93e95514fF02285349b0b1c1a5a3e0a` (`SOURCE_ID = XRP`, `MAC_FALLBACK = 0x4349…D37c` — verificado vivo == registry el día del deploy) |
+| `LegacyVaultDeployer` | `0x2717A6Aa5162f8c5e5D7574F112eFC9438Cb66f6` (nació con él; solo el factory puede llamarlo) |
 
 > `script/DeployLegacyVault.s.sol` (abajo) despliega el vault solo con un council EOA/multisig EVM.
 > Precede al puente FDC y se conserva de referencia; el camino **gobernado** es `DeployLegacyStack`.
@@ -92,7 +137,7 @@ que implementan.
 ```bash
 cd contracts
 forge build
-forge test          # 42 en total: 22 unit del vault + 17 del bridge + 3 invariantes
+forge test          # 58 en total: 22 unit del vault + 18 del bridge + 15 del factory + 3 invariantes
 forge test -vvv     # con trazas
 ```
 

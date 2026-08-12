@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { ProtocolRegistry } from '../connectors/protocols/ProtocolRegistry';
 import { registerFlareAdapters } from '../connectors/protocols/adapters';
 import { ProtocolInactiveError } from '../connectors/protocols/IProtocolAdapter';
@@ -43,7 +44,7 @@ const FLARE_CHAIN_ID = 14;
  *
  * Registered BEFORE `/canonical` and `/:wallet` to win the route match.
  */
-router.get('/scan', async (req: Request, res: Response) => {
+router.get('/scan', asyncHandler(async (req: Request, res: Response) => {
   const wallet = String(req.query.wallet ?? '');
   if (!isValidEvmAddress(wallet)) {
     return res.status(400).json({ error: 'invalid_wallet' });
@@ -114,7 +115,7 @@ router.get('/scan', async (req: Request, res: Response) => {
   }
 
   return res.json({ wallet, chainIds, positions, lpPositions, errors, ...(persistence ? { persistence } : {}) });
-});
+}));
 
 /**
  * GET /api/positions/canonical?wallet=0x...
@@ -146,7 +147,7 @@ router.get('/canonical', async (req: Request, res: Response) => {
  * GET /api/positions/:wallet
  * Aggregated raw positions across all active Flare adapters.
  */
-router.get('/:wallet', async (req: Request, res: Response) => {
+router.get('/:wallet', asyncHandler(async (req: Request, res: Response) => {
   ensureAdapters();
   const { wallet } = req.params;
   if (!isValidEvmAddress(wallet)) {
@@ -186,7 +187,7 @@ router.get('/:wallet', async (req: Request, res: Response) => {
     results,
     takenAt: new Date().toISOString(),
   });
-});
+}));
 
 /**
  * GET /api/positions/:protocol/:wallet

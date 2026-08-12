@@ -5,6 +5,10 @@
  * for, then triggers it. Presentational: the parent owns the useStepUp() engine
  * and passes the handlers. The wallet's own popup is the real confirmation.
  */
+
+import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { useT } from '@/i18n/LanguageProvider';
+
 const FEATURE_LABELS: Record<string, string> = {
   moneyflows: 'MoneyFlows',
   goals: 'Goals',
@@ -33,20 +37,20 @@ export default function StepUpSignatureModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   if (!open) return null;
-  const label = FEATURE_LABELS[feature] ?? feature;
+  const label = t(FEATURE_LABELS[feature] ?? feature);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 p-6 rounded-lg border border-ink/10 bg-surface-1 text-ink">
-        <div className="text-xs text-volt">Security verification</div>
+    <ModalOverlay className="fixed inset-0 z-[100] flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="w-full max-w-md mx-4 my-auto p-6 rounded-lg border border-ink/10 bg-surface-1 text-ink">
+        <div className="text-xs text-volt">{t('Security verification')}</div>
         <h2 className="text-lg font-semibold mt-2">
-          Confirm with your wallet
+          {t('Confirm with your wallet')}
         </h2>
         <p className="text-sm text-ink/60 mt-2 leading-relaxed">
-          You protected <span className="text-ink/90 font-medium">{label}</span> ({action}).
-          Sign a quick verification message with a linked wallet to continue. No funds move and no
-          transaction is sent — this only proves it's really you.
+          {t('You protected')} <span className="text-ink/90 font-medium">{label}</span> ({action}).{' '}
+          {t("Sign a quick verification message with a linked wallet to continue. No funds move and no transaction is sent — this only proves it's really you.")}
         </p>
 
         {error && (
@@ -61,17 +65,17 @@ export default function StepUpSignatureModal({
             disabled={pending}
             className="flex-1 py-2.5 rounded border border-ink/20 text-sm hover:bg-ink/5 disabled:opacity-50 transition"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <button
             onClick={onConfirm}
             disabled={pending}
             className="flex-1 py-2.5 rounded bg-ink text-surface-1 text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition"
           >
-            {pending ? 'Waiting for signature…' : 'Sign to continue'}
+            {pending ? t('Waiting for signature…') : t('Sign to continue')}
           </button>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

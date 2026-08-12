@@ -24,7 +24,11 @@ import { CalendarClock, Landmark, Loader2, Plus, TrendingDown, X } from 'lucide-
 import { Card, MicroLabel } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
-import { moneyflows as moneyflowsApi, rules as rulesApi } from '../../services/v1Api';
+import { moneyflows as moneyflowsApi, rules as rulesApi, xrplLegacy, type LegacyVaultState } from '../../services/v1Api';
+import { LEGACY_ASSET_DECIMALS_FALLBACK, displayBaseUnits, parseBaseUnits } from '../../lib/legacy/baseUnits';
+
+/** XRP is always 6 decimals (1 XRP = 1,000,000 drops) — a ledger constant. */
+const XRP_DECIMALS = 6;
 import MoneyFlowsPanel from '../moneyflows/MoneyFlowsPanel';
 
 const XRPL_PSEUDO_CHAIN_ID = 1440002;
@@ -62,9 +66,13 @@ function GovernedRuleCreator({
   const [market, setMarket] = useState('');
   const [thresholdPct, setThresholdPct] = useState('');
   const [apyAction, setApyAction] = useState<'notify' | 'move'>('notify');
-  const [fromId, setFromId] = useState('0');
-  const [toId, setToId] = useState('1');
+  const [fromId, setFromId] = useState('');
+  const [toId, setToId] = useState('');
   const [moveAmount, setMoveAmount] = useState('');
+  // The rotation order speaks in real venues and real decimals — never typed
+  // indices and never a hardcoded 10^6 (the CouncilVaultEntry lesson, F4).
+  const [vaultState, setVaultState] = useState<LegacyVaultState | null>(null);
+  const [vaultStateError, setVaultStateError] = useState(false);
 
   useEffect(() => {
     moneyflowsApi
@@ -76,6 +84,20 @@ function GovernedRuleCreator({
       .catch(() => setMarkets([]));
   }, []);
 
+  useEffect(() => {
+    if (apyAction !== 'move' || vaultState) return;
+    xrplLegacy
+      .vaultState(account)
+      .then((s) => {
+        setVaultState(s);
+        setVaultStateError(false);
+        const live = s.venues.filter((v) => !v.retired);
+        setFromId((cur) => (cur !== '' ? cur : live[0] != null ? String(live[0].id) : ''));
+        setToId((cur) => (cur !== '' ? cur : live[1] != null ? String(live[1].id) : ''));
+      })
+      .catch(() => setVaultStateError(true));
+  }, [account, apyAction, vaultState]);
+
   async function create() {
     setError('');
     const ttl = Number(ttlDays);
@@ -85,14 +107,22 @@ function GovernedRuleCreator({
     let trigger: Record<string, unknown>;
     let action: Record<string, unknown>;
     if (kind === 'schedule') {
-      const amount = Number(amountXrp);
       if (!XRPL_ADDRESS_RE.test(destination)) return setError(t('Destination must be an XRPL address (r…).'));
       if (destination === account) return setError(t('Destination must differ from the council account.'));
-      if (!(amount > 0)) return setError(t('Amount must be a positive number of XRP.'));
+      // Exact, like the rotation amount above (F4 doctrine): `Math.round(x *
+      // 1e6)` on a float silently turned an over-precise amount into a
+      // DIFFERENT one — 0.0000001 XRP passed "> 0" and became a payment of
+      // ZERO drops. XRP is 6 decimals; parseBaseUnits refuses to round.
+      let amountDrops: bigint;
+      try {
+        amountDrops = parseBaseUnits(amountXrp, XRP_DECIMALS);
+      } catch {
+        return setError(t('Amount must be a positive number of XRP, with at most 6 decimals.'));
+      }
       trigger = { type: 'TIME_TRIGGER', cron: SCHEDULES.find((s) => s.key === schedule)?.cron ?? SCHEDULES[2].cron };
       action = {
         kind: 'councilPayment',
-        params: { council: account, destination, amountDrops: String(Math.round(amount * 1_000_000)) },
+        params: { council: account, destination, amountDrops: amountDrops.toString() },
       };
     } else {
       const th = Number(thresholdPct);
@@ -100,14 +130,24 @@ function GovernedRuleCreator({
       if (!(th > 0)) return setError(t('The APY floor must be a positive percentage.'));
       trigger = { type: 'APY_BELOW', market, thresholdPct: th };
       if (apyAction === 'move') {
-        const amt = Number(moveAmount);
-        if (!(amt > 0)) return setError(t('Rotation amount must be a positive number of FXRP.'));
+        if (!vaultState) {
+          return setError(t('The vault could not be read — the rotation order is not available right now.'));
+        }
+        if (fromId === '' || toId === '') return setError(t('Pick the two venues of the rotation.'));
+        if (fromId === toId) return setError(t('The rotation needs two different venues.'));
+        const decimals = vaultState.asset.decimals ?? LEGACY_ASSET_DECIMALS_FALLBACK;
+        let amountBase: bigint;
+        try {
+          amountBase = parseBaseUnits(moveAmount, decimals);
+        } catch {
+          return setError(t('Rotation amount must be a positive number of FXRP.'));
+        }
         action = {
           kind: 'councilOrder',
           params: {
             council: account,
             orderAction: 'move',
-            orderParams: { fromId: Number(fromId) || 0, toId: Number(toId) || 0, amount: String(Math.round(amt * 1_000_000)) },
+            orderParams: { fromId: Number(fromId), toId: Number(toId), amount: amountBase.toString() },
           },
         };
       } else {
@@ -226,22 +266,52 @@ function GovernedRuleCreator({
               {t('Compose the rotation order (vault)')}
             </button>
           </div>
-          {apyAction === 'move' && (
-            <div className="grid grid-cols-3 gap-2">
-              <label className="text-[11px] text-ink/45">
-                {t('From venue #')}
-                <input value={fromId} onChange={(e) => setFromId(e.target.value)} inputMode="numeric" className={`${field} mt-1`} />
-              </label>
-              <label className="text-[11px] text-ink/45">
-                {t('To venue #')}
-                <input value={toId} onChange={(e) => setToId(e.target.value)} inputMode="numeric" className={`${field} mt-1`} />
-              </label>
-              <label className="text-[11px] text-ink/45">
-                {t('Amount (FXRP)')}
-                <input value={moveAmount} onChange={(e) => setMoveAmount(e.target.value)} placeholder="100" inputMode="decimal" className={`${field} mt-1`} />
-              </label>
-            </div>
-          )}
+          {apyAction === 'move' &&
+            (vaultState ? (
+              (() => {
+                const live = vaultState.venues.filter((v) => !v.retired);
+                const dec = vaultState.asset.decimals ?? LEGACY_ASSET_DECIMALS_FALLBACK;
+                const sym = vaultState.asset.symbol || 'FXRP';
+                const opt = (v: (typeof live)[number]) =>
+                  `#${v.id} · ${displayBaseUnits(v.value, dec)} ${sym}`;
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="text-[11px] text-ink/45">
+                      {t('Move the money from')}
+                      <select value={fromId} onChange={(e) => setFromId(e.target.value)} className={`${field} mt-1`}>
+                        {live.map((v) => (
+                          <option key={v.id} value={String(v.id)} className="bg-neutral-900">
+                            {opt(v)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-[11px] text-ink/45">
+                      {t('to')}
+                      <select value={toId} onChange={(e) => setToId(e.target.value)} className={`${field} mt-1`}>
+                        {live.map((v) => (
+                          <option key={v.id} value={String(v.id)} className="bg-neutral-900">
+                            {opt(v)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-[11px] text-ink/45">
+                      {t('Amount (FXRP)')}
+                      <input value={moveAmount} onChange={(e) => setMoveAmount(e.target.value)} placeholder="100" inputMode="decimal" className={`${field} mt-1`} />
+                    </label>
+                  </div>
+                );
+              })()
+            ) : vaultStateError ? (
+              <InlineNotice tone="warning">
+                {t('The vault could not be read — the rotation order is not available right now. The alert variant works today.')}
+              </InlineNotice>
+            ) : (
+              <p className="text-[11px] text-ink/40 flex items-center gap-1.5">
+                <Loader2 size={11} className="animate-spin" /> {t('Reading the vault venues…')}
+              </p>
+            ))}
         </>
       )}
 

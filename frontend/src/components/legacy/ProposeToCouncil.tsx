@@ -73,11 +73,21 @@ export default function ProposeToCouncil({
     );
   }
 
+  // The ASYNC tempo. Twinned with CouncilMultisigFlow's idle block above it: the
+  // pair has to contrast in WHERE each member signs, not only in how long it
+  // takes (2026-08-04).
   if (!open) {
     return (
-      <GhostButton onClick={() => setOpen(true)}>
-        <Inbox size={14} /> {t('Propose to the council (sign over days)')}
-      </GhostButton>
+      <div className="space-y-1">
+        <GhostButton onClick={() => setOpen(true)}>
+          <Inbox size={14} /> {t('Propose to the council (sign over days)')}
+        </GhostButton>
+        <p className="text-[11px] text-ink/40">
+          {t(
+            'Nobody has to be here: the proposal waits in each member’s own Astryum, where they sign their own seat with their own linked wallet. It is stored, and expires in 7 days.',
+          )}
+        </p>
+      </div>
     );
   }
 

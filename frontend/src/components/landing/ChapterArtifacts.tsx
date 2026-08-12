@@ -158,7 +158,7 @@ function Frame({ label, value, meta, children, r, simple = false, caption }: { l
 const T = (es: string, en: string, lang: 'es' | 'en') => (lang === 'es' ? es : en);
 
 // ── flow (brand / intro / principle / close) ────────────────────────────────
-function Flow({ r }: { r: R }) {
+function Flow({ r, lang }: { r: R; lang: 'es' | 'en' }) {
   // The real flow-bridge mark: two crescent strokes crossing in an X with the volt
   // diamond at the crossing (same geometry as the wordmark symbol, scaled to 340×220).
   const A = 'M60 50 C 141 50, 153 74, 170 110 C 187 146, 199 170, 280 170';
@@ -182,7 +182,7 @@ function Flow({ r }: { r: R }) {
         initial={r ? undefined : { scale: 0, opacity: 0 }} whileInView={r ? undefined : { scale: 1, opacity: 1 }}
         viewport={inView} transition={{ duration: 0.5, ease: EASE, delay: 0.55 }}
         style={{ transformBox: 'fill-box', transformOrigin: 'center', filter: 'drop-shadow(0 0 6px rgba(201,162,39,0.4))' }} />
-      <text x="170" y="200" textAnchor="middle" fontSize="9" fill={DIM} style={mono}>1 PUENTE</text>
+      <text x="170" y="200" textAnchor="middle" fontSize="9" fill={DIM} style={mono}>{T('1 PUENTE', '1 BRIDGE', lang)}</text>
     </>
   );
 }
@@ -436,10 +436,10 @@ function Audit({ r, lang }: { r: R; lang: 'es' | 'en' }) {
   // Only actions the demo actually executes (no LP in the demo; debt asset is USDT0).
   // Four linked blocks read as a serpentine chain: 1→2 across, 2→3 down, 3→4 across.
   const entries: [number, number, string, string, string][] = [
-    [28, 52, '09:42', T('Repay 200 USDT0', 'Repay 200 USDT0', lang), '0x8a…f1'],
+    [28, 52, '09:42', T('Repagar 200 USDT0', 'Repay 200 USDT0', lang), '0x8a…f1'],
     [184, 52, '11:08', T('Añadir colateral', 'Add collateral', lang), '0xb7…3c'],
     [28, 128, '14:25', T('Retirar FXRP', 'Withdraw FXRP', lang), '0xc3…9d'],
-    [184, 128, '16:01', T('Reclamar FLR', 'Claim 12.4 FLR', lang), '0xd9…2a'],
+    [184, 128, '16:01', T('Reclamar 12,4 FLR', 'Claim 12.4 FLR', lang), '0xd9…2a'],
   ];
   const links = ['M164 82 h20', 'M252 112 v8 h-156 v8', 'M164 158 h20'];
   return (
@@ -489,7 +489,7 @@ export function ChapterArtifact({ kind, lang, meta, simple = false, caption }: {
     case 'markets': label = T('Rutas de Earn', 'Earn Routes', lang); value = T('dato con fuente', 'sourced data', lang); node = <Markets {...p} />; break;
     case 'delegate': label = 'Delegation Layer'; value = T('límites forzados', 'enforced limits', lang); node = <Delegate {...p} />; break;
     case 'audit': label = T('Bitácora', 'Flight Log', lang); value = 'on-chain'; node = <Audit {...p} />; break;
-    default: label = 'Flow Bridge'; value = T('coordinación', 'coordination', lang); node = <Flow r={r} />; break;
+    default: label = 'Flow Bridge'; value = T('coordinación', 'coordination', lang); node = <Flow {...p} />; break;
   }
-  return <Frame r={r} meta={meta} label={label} value={value} simple={simple} caption={caption}>{node}</Frame>;
+  return <Frame r={r} meta={meta ?? T('en línea', 'online', lang)} label={label} value={value} simple={simple} caption={caption}>{node}</Frame>;
 }

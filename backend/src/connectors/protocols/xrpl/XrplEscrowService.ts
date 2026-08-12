@@ -17,7 +17,7 @@
 
 import { isValidClassicAddress, isoTimeToRippleTime, validate, dropsToXrp } from 'xrpl';
 import type { EscrowCancel, EscrowCreate, EscrowFinish } from 'xrpl';
-import { withSourceTag } from '../../../config/xrplSourceTag';
+import { withSourceTag, type XrplTxAttribution } from '../../../config/xrplSourceTag';
 import { assertPositiveDrops, type XrplTxHandoff } from './XrplTxHandoff';
 
 export interface BuildEscrowCreateInput {
@@ -129,6 +129,12 @@ export interface BuildEscrowFinishInput {
   owner: string;
   /** The Sequence of the EscrowCreate transaction (from the ledger object). */
   offerSequence: number;
+  /**
+   * Who signs it. 'operational' (Astryum's own keeper key) drops the project
+   * SourceTag — our own scripted address must not be attributed to the project
+   * (Make Waves T&C §6/§7; see config/xrplSourceTag). Defaults to 'user'.
+   */
+  attribution?: XrplTxAttribution;
 }
 
 export function buildEscrowFinish(
@@ -144,12 +150,15 @@ export function buildEscrowFinish(
     throw new Error(`offerSequence must be a non-negative integer, got ${input.offerSequence}`);
   }
 
-  const xrplTx = withSourceTag({
-    TransactionType: 'EscrowFinish' as const,
-    Account: input.account,
-    Owner: input.owner,
-    OfferSequence: input.offerSequence,
-  }) as EscrowFinish & { SourceTag?: number };
+  const xrplTx = withSourceTag(
+    {
+      TransactionType: 'EscrowFinish' as const,
+      Account: input.account,
+      Owner: input.owner,
+      OfferSequence: input.offerSequence,
+    },
+    input.attribution ?? 'user',
+  ) as EscrowFinish & { SourceTag?: number };
 
   validate(xrplTx as unknown as Record<string, unknown>);
 
@@ -182,6 +191,8 @@ export interface BuildEscrowCancelInput {
   owner: string;
   /** The Sequence of the EscrowCreate transaction (from the ledger object). */
   offerSequence: number;
+  /** Who signs it — see {@link BuildEscrowFinishInput.attribution}. */
+  attribution?: XrplTxAttribution;
 }
 
 /**
@@ -204,12 +215,15 @@ export function buildEscrowCancel(
     throw new Error(`offerSequence must be a non-negative integer, got ${input.offerSequence}`);
   }
 
-  const xrplTx = withSourceTag({
-    TransactionType: 'EscrowCancel' as const,
-    Account: input.account,
-    Owner: input.owner,
-    OfferSequence: input.offerSequence,
-  }) as EscrowCancel & { SourceTag?: number };
+  const xrplTx = withSourceTag(
+    {
+      TransactionType: 'EscrowCancel' as const,
+      Account: input.account,
+      Owner: input.owner,
+      OfferSequence: input.offerSequence,
+    },
+    input.attribution ?? 'user',
+  ) as EscrowCancel & { SourceTag?: number };
 
   validate(xrplTx as unknown as Record<string, unknown>);
 

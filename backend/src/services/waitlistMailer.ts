@@ -19,9 +19,10 @@
  * logged but never surfaces to the signup response.
  */
 import nodemailer, { Transporter } from 'nodemailer';
-import { renderWaitlistWelcome, WelcomeEmailParams } from '../emails/waitlistWelcome';
+import { renderWaitlistWelcome, WelcomeEmailParams, RenderedEmail } from '../emails/waitlistWelcome';
+import { renderBetaInvite, BetaInviteParams } from '../emails/betaInvite';
 
-export type { WelcomeEmailParams };
+export type { WelcomeEmailParams, BetaInviteParams };
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const DEFAULT_FROM_ADDR = 'astryum@astryum.xyz';
@@ -31,17 +32,16 @@ function fromHeader(): string {
 }
 
 // ── Transport 1: Resend (HTTPS) ────────────────────────────────────────────────
-async function deliverViaResend(params: WelcomeEmailParams): Promise<{ ok: boolean; error?: string }> {
+async function deliverViaResend(to: string, rendered: RenderedEmail): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: 'no_resend_key' };
   try {
-    const rendered = renderWaitlistWelcome(params);
     const res = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: fromHeader(),
-        to: params.email,
+        to,
         subject: rendered.subject,
         html: rendered.html,
         text: rendered.text,
@@ -82,14 +82,13 @@ function getTransporter(): Transporter | null {
   return transporter;
 }
 
-async function deliverViaSmtp(params: WelcomeEmailParams): Promise<{ ok: boolean; error?: string }> {
+async function deliverViaSmtp(to: string, rendered: RenderedEmail): Promise<{ ok: boolean; error?: string }> {
   const t = getTransporter();
   if (!t) return { ok: false, error: 'mailer_disabled_no_credentials' };
   try {
-    const rendered = renderWaitlistWelcome(params);
     await t.sendMail({
       from: fromHeader(),
-      to: params.email,
+      to,
       subject: rendered.subject,
       text: rendered.text,
       html: rendered.html,
@@ -108,18 +107,62 @@ function activeTransport(): 'resend' | 'smtp' | 'none' {
   return 'none';
 }
 
-async function deliver(params: WelcomeEmailParams): Promise<{ ok: boolean; error?: string }> {
+async function deliver(to: string, rendered: RenderedEmail): Promise<{ ok: boolean; error?: string }> {
   const transport = activeTransport();
-  if (transport === 'resend') return deliverViaResend(params);
-  if (transport === 'smtp') return deliverViaSmtp(params);
+  if (transport === 'resend') return deliverViaResend(to, rendered);
+  if (transport === 'smtp') return deliverViaSmtp(to, rendered);
   return { ok: false, error: 'mailer_disabled_no_credentials' };
+}
+
+/**
+ * Un correo que no sale es una promesa incumplida a una persona concreta, y
+ * hasta hoy solo lo sabía el log (2026-08-03). El aviso va al canal en `warn`
+ * y deduplicado por transporte + causa: si el proveedor está caído, es UNA
+ * noticia, no una por cada persona que se apunta.
+ */
+async function alertMailFailure(kind: string, email: string, error?: string): Promise<void> {
+  try {
+    const { opsAlert } = await import('./OpsAlertService');
+    const transport = activeTransport();
+    await opsAlert('mailer', 'warn', `no salió el correo de ${kind} (transporte ${transport}): ${error ?? 'sin detalle'}`, {
+      key: `mail-fail:${kind}:${transport}:${error ?? ''}`.slice(0, 200),
+      facts: { destinatario: email, transporte: transport },
+      runbook:
+        transport === 'none'
+          ? 'No hay transporte configurado: pon RESEND_API_KEY (o WAITLIST_SMTP_USER/PASS) en Railway. ' +
+            'Mientras tanto NADIE recibe correos de la lista ni pases de embarque.'
+          : 'Mira el estado del proveedor y las credenciales en Railway. En /app/admin → Waitlist puedes reintentar ' +
+            'la aprobación de esa persona cuando vuelva: el botón informa honestamente de si el correo salió.',
+    });
+  } catch {
+    /* el canal nunca puede empeorar el fallo que está reportando */
+  }
 }
 
 /** Fire-and-forget: resolves true if sent, false otherwise. Never throws. */
 export async function sendWaitlistWelcome(params: WelcomeEmailParams): Promise<boolean> {
-  const r = await deliver(params);
+  const r = await deliver(params.email, renderWaitlistWelcome(params));
   if (r.ok) console.log(`[WaitlistMailer] welcome sent via ${activeTransport()} (${params.lang}, ${params.source})`);
-  else console.error(`[WaitlistMailer] send failed via ${activeTransport()}:`, r.error);
+  else {
+    console.error(`[WaitlistMailer] send failed via ${activeTransport()}:`, r.error);
+    await alertMailFailure('bienvenida', params.email, r.error);
+  }
+  return r.ok;
+}
+
+/**
+ * Beta-gate boarding pass — sent when a founder approves an email (see
+ * routes/adminBetaGate.ts). NOT fire-and-forget at the call site: the approve
+ * endpoint reports whether the invite actually went out, so the founder knows
+ * to resend instead of assuming.
+ */
+export async function sendBetaInvite(params: BetaInviteParams): Promise<boolean> {
+  const r = await deliver(params.email, renderBetaInvite(params));
+  if (r.ok) console.log(`[WaitlistMailer] beta invite sent via ${activeTransport()} (${params.lang})`);
+  else {
+    console.error(`[WaitlistMailer] beta invite failed via ${activeTransport()}:`, r.error);
+    await alertMailFailure('pase de embarque de la beta', params.email, r.error);
+  }
   return r.ok;
 }
 
@@ -176,5 +219,5 @@ export async function verifyMailer(): Promise<{ ok: boolean; error?: string }> {
 
 /** A real one-off send, returning the actual error (for diagnostics only). */
 export async function testSend(email: string, lang: 'es' | 'en' = 'en'): Promise<{ ok: boolean; error?: string }> {
-  return deliver({ email, lang, source: 'early-access' });
+  return deliver(email, renderWaitlistWelcome({ email, lang, source: 'early-access' }));
 }

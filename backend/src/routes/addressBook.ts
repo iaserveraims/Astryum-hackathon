@@ -13,6 +13,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 
 const router = Router();
@@ -43,7 +44,7 @@ function normalizeAddress(address: string): string {
  * List all address book entries for the authenticated user.
  * Optional query: ?chainId=1 to filter by chain.
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const chainId = req.query.chainId ? parseInt(req.query.chainId as string, 10) : undefined;
 
@@ -52,7 +53,7 @@ router.get('/', async (req: Request, res: Response) => {
     orderBy: { label: 'asc' },
   });
   return res.json({ entries });
-});
+}));
 
 /**
  * POST /api/address-book
@@ -87,7 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
  * PATCH /api/address-book/:id
  * Update label or ENS of an existing entry.
  */
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const { label, ens } = req.body as { label?: string; ens?: string };
 
@@ -106,13 +107,13 @@ router.patch('/:id', async (req: Request, res: Response) => {
     },
   });
   return res.json({ entry });
-});
+}));
 
 /**
  * DELETE /api/address-book/:id
  * Remove an address book entry.
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
 
   const existing = await prisma.addressBookEntry.findFirst({
@@ -124,6 +125,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
   await prisma.addressBookEntry.delete({ where: { id: req.params.id } });
   return res.status(204).send();
-});
+}));
 
 export default router;

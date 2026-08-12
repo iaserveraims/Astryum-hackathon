@@ -27,6 +27,8 @@ import type { CanonicalMoneyFlow } from '../../services/v1Api';
 import { listMyWallets, type BackendWallet } from '../../services/walletLinkService';
 import { transferRailOf } from '../../lib/wallet/nativeBalance';
 import { WalletSendModal, type SendPrefill } from '../wallet/WalletTransferModals';
+import { formatMoney } from '../../lib/formatMoney';
+import { hfWord } from '../../lib/healthScore';
 
 const API_BASE = getApiBase();
 
@@ -136,23 +138,56 @@ function extractTargetHF(text: string): string | undefined {
   return Number.isFinite(n) && n > 0 ? raw : undefined;
 }
 
-const usd = (n: number | null) => (n == null ? '—' : `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
-const price = (n: number | null) => (n == null ? '—' : `$${n.toFixed(4)}`);
-const hf = (n: number | null) => (n == null ? '—' : n === Infinity || n > 1e6 ? '∞' : n.toFixed(2));
+const usd = (n: number | null) => (n == null ? '—' : formatMoney(n));
+const price = (n: number | null) => (n == null ? '—' : `$${n.toFixed(2)}`);
 
-const SUGGESTED = [
-  'Tengo 10000 XRP y quiero sacar $200 sin vender',
-  '¿Cuál es la opción con menos riesgo?',
-  'Envía 5 XRP de mi Xaman a mi wallet de Flare',
-];
+// Suggestions follow the ACTIVE language (they were Spanish-only: EN users got
+// Spanish chips inside an English chat) — and they no longer TEACH jargon:
+// the app speaks human even when it suggests what to ask.
+const SUGGESTED: Record<'es' | 'en', string[]> = {
+  es: [
+    'Tengo 10000 XRP y quiero sacar $200 sin vender',
+    '¿Cuál es la opción con menos riesgo?',
+    'Envía 5 XRP de mi Xaman a mi wallet de Flare',
+  ],
+  en: [
+    'I have 10,000 XRP and need $200 without selling',
+    'Which option has the least risk?',
+    'Send 5 XRP from my Xaman to my Flare wallet',
+  ],
+};
 
-const SUGGESTED_MONEYFLOW = [
-  'Si el health factor baja de 1.5, prepara un repay de 25 USDT0',
-  'Cuando mis recompensas FTSO pasen de $5, prepara el compound',
-];
+const SUGGESTED_MONEYFLOW: Record<'es' | 'en', string[]> = {
+  es: [
+    'Avísame si mi posición se acerca a la liquidación',
+    'Cuando mis recompensas pasen de $5, prepara la reinversión',
+  ],
+  en: [
+    'Warn me if my position gets close to liquidation',
+    'When my rewards pass $5, prepare the reinvestment',
+  ],
+};
 
-export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
-  const { t } = useT();
+/**
+ * A council's capital only reaches a venue through the cage on Flare, whose
+ * whole vocabulary is `directTo` (supply) and `recall` (bring back) — there is
+ * no borrow function in it. So under a council the carry route is not something
+ * the agent may compile: the flag rides to the backend (which drops the carry
+ * rows from the metrics table and tells the model to say so), and the table
+ * below refuses the button too, in case an older reply still carries one.
+ */
+const GOVERNED_NO_CARRY =
+  'The vault on Flare has no borrow function, so a council cannot run the borrowing route. The lend-only route does the same supply without debt.';
+
+export function StrategyLLMChat({
+  onLaunch,
+  governed = false,
+}: {
+  onLaunch: LaunchStrategy;
+  /** True when the active authority is a council (governed account). */
+  governed?: boolean;
+}) {
+  const { t, lang } = useT();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -292,6 +327,7 @@ export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
             mode,
             wallets: walletSummaries,
             transferThread,
+            governed,
           }),
         });
         if (res.status === 401) {
@@ -369,7 +405,7 @@ export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
         setStreaming(false);
       }
     },
-    [messages, streaming, amountXrp, targetUsd, targetHF, mode, linkedWallets, t],
+    [messages, streaming, amountXrp, targetUsd, targetHF, mode, linkedWallets, governed, t],
   );
 
   // Compiled transfer → the tested prepare→review→sign modal, prefilled. The
@@ -401,6 +437,7 @@ export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
   // modal via onLaunch. This chat never builds or signs the payload.
   const launchOption = useCallback(
     (o: StrategyOption, amount: number) => {
+      if (o.kind === 'carry' && governed) return; // the cage has no borrow — see GOVERNED_NO_CARRY
       if (o.kind === 'lend-only') {
         onLaunch('e3', { amount: String(amount) });
       } else {
@@ -410,7 +447,7 @@ export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
         onLaunch('e1', { amount: String(amount), ratio: String(o.borrowRatio ?? 0.3), targetHF: targetHF ?? '1.10' });
       }
     },
-    [onLaunch, targetHF],
+    [onLaunch, targetHF, governed],
   );
 
   return (
@@ -464,7 +501,7 @@ export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
                 : t('Describe what you want to automate — e.g. "if my health factor drops below 1.5, prepare a repay". You review the draft and every trigger prepares a transaction only you can sign.')}
             </p>
             <div className="flex flex-col gap-1.5 mt-3">
-              {(mode === 'carry' ? SUGGESTED : SUGGESTED_MONEYFLOW).map((q) => (
+              {(mode === 'carry' ? SUGGESTED : SUGGESTED_MONEYFLOW)[lang === 'es' ? 'es' : 'en'].map((q) => (
                 <button
                   key={q}
                   onClick={() => send(q)}
@@ -502,7 +539,7 @@ export function StrategyLLMChat({ onLaunch }: { onLaunch: LaunchStrategy }) {
               </div>
               {/* Structured, neutral options table (numbers from tested math) + per-row bridge */}
               {m.role === 'assistant' && m.metrics && m.metrics.options.length > 0 && (
-                <OptionsTable metrics={m.metrics} onPrepare={launchOption} t={t} />
+                <OptionsTable metrics={m.metrics} onPrepare={launchOption} governed={governed} t={t} />
               )}
               {/* F1 — validated CMF proposal: review happens in the modal, nothing persists here */}
               {m.role === 'assistant' && m.cmf && (
@@ -699,12 +736,16 @@ function CmfProposalCard({
 function OptionsTable({
   metrics,
   onPrepare,
+  governed,
   t,
 }: {
   metrics: StrategyMetrics;
   onPrepare: (o: StrategyOption, amount: number) => void;
+  /** A council: the carry row is shown as unsupported, never as a button. */
+  governed: boolean;
   t: (s: string) => string;
 }) {
+  const carryBlocked = governed && metrics.options.some((o) => o.kind === 'carry');
   return (
     <div className="rounded-xl border border-ink/10 bg-ink/[0.02] overflow-hidden">
       <div className="px-3 py-2 text-[11px] text-ink/50 border-b border-ink/5">
@@ -716,36 +757,59 @@ function OptionsTable({
           <thead>
             <tr className="text-ink/40 text-left">
               <th className="px-3 py-1.5 font-medium">{t('Option')}</th>
-              <th className="px-3 py-1.5 font-medium text-right">{t('You get')}</th>
-              <th className="px-3 py-1.5 font-medium text-right">HF</th>
-              <th className="px-3 py-1.5 font-medium text-right">{t('Liquidation')}</th>
-              <th className="px-3 py-1.5 font-medium text-right">{t('Cost/yr')}</th>
+              <th className="px-3 py-1.5 font-medium text-right">{t('Cash now')}</th>
+              <th className="px-3 py-1.5 font-medium text-right">{t('Cushion')}</th>
+              <th className="px-3 py-1.5 font-medium text-right">{t('You lose the collateral below')}</th>
+              <th className="px-3 py-1.5 font-medium text-right">{t('Interest you pay per year')}</th>
               <th className="px-3 py-1.5"></th>
             </tr>
           </thead>
           <tbody>
-            {metrics.options.map((o, i) => (
-              <tr key={i} className="border-t border-ink/5 text-ink/80">
+            {metrics.options.map((o, i) => {
+              const blocked = governed && o.kind === 'carry';
+              return (
+              <tr key={i} className={`border-t border-ink/5 text-ink/80 ${blocked ? 'opacity-60' : ''}`}>
                 <td className="px-3 py-2">{o.label}</td>
                 <td className="px-3 py-2 text-right font-mono">{o.noDebt ? t('yield, no cash') : usd(o.borrowUsd)}</td>
-                <td className="px-3 py-2 text-right font-mono">{hf(o.entryHF)}</td>
+                <td className="px-3 py-2 text-right">
+                  {o.entryHF == null || o.entryHF === Infinity || o.entryHF > 1e6 ? (
+                    <span className="text-emerald-300">{t('no debt')}</span>
+                  ) : (
+                    <>
+                      {hfWord(o.entryHF, t).label}{' '}
+                      <span className="font-mono text-ink/60">({o.entryHF.toFixed(2)})</span>
+                    </>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right font-mono">
                   {o.noLiquidationRisk ? <span className="text-emerald-300">{t('none')}</span> : price(o.liquidationPriceUSD)}
                 </td>
                 <td className="px-3 py-2 text-right font-mono">{o.noDebt ? '—' : usd(o.annualBorrowCostUsd)}</td>
                 <td className="px-3 py-2 text-right">
-                  <button
-                    onClick={() => onPrepare(o, metrics.amountXrp)}
-                    className="text-[10px] px-2.5 py-1 rounded-lg bg-volt text-volt-ink font-medium hover:brightness-95 transition-all whitespace-nowrap"
-                  >
-                    {t('Prepare')}
-                  </button>
+                  {blocked ? (
+                    <span className="text-[10px] px-2.5 py-1 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning font-medium whitespace-nowrap">
+                      {t('Unsupported for a council')}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => onPrepare(o, metrics.amountXrp)}
+                      className="text-[10px] px-2.5 py-1 rounded-lg bg-volt text-volt-ink font-medium hover:brightness-95 transition-all whitespace-nowrap"
+                    >
+                      {t('Review before signing')}
+                    </button>
+                  )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
+      {carryBlocked && (
+        <div className="px-3 py-2 text-[10px] leading-relaxed text-tone-warning/90 border-t border-ink/5">
+          {t(GOVERNED_NO_CARRY)}
+        </div>
+      )}
       {metrics.notes.length > 0 && (
         <div className="px-3 py-2 text-[10px] text-ink/40 border-t border-ink/5">
           {metrics.notes.map((n, i) => (

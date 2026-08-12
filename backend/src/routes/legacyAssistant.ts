@@ -26,8 +26,9 @@ import { createSlidingWindowLimiter } from '../middleware/slidingWindowRateLimit
 const router = Router();
 
 // Model: default to the latest capable model; a deployment can switch to a cheaper
-// tier (e.g. claude-haiku-4-5) via env if cost/latency matter for this chat.
-const MODEL = process.env.LEGACY_ASSISTANT_MODEL || 'claude-opus-4-8';
+// tier via env (LEGACY_ASSISTANT_MODEL) if answer quality ever needs it.
+// Haiku by default (founder 2026-08-08 — maximum savings; no tools, same cage).
+const MODEL = process.env.LEGACY_ASSISTANT_MODEL || 'claude-haiku-4-5';
 
 // Rate limiting — PUBLIC endpoint spending Astryum's Anthropic key. Same limiter
 // (extracted + unit-tested) as the product assistant.

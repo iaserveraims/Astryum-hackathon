@@ -13,6 +13,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 
 const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
@@ -37,7 +38,7 @@ const selectFields = {
 } as const;
 
 // GET / — the user's active governed-account pointers.
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
   const accounts = await prisma.governedAccount.findMany({
@@ -46,7 +47,7 @@ router.get('/', async (req: Request, res: Response) => {
     select: selectFields,
   });
   return res.json({ accounts });
-});
+}));
 
 // POST / — add a pointer (idempotent: re-adding revives a removed row and
 // keeps the existing one otherwise). Only XRPL councils are readable today,
@@ -57,7 +58,7 @@ const createSchema = z.object({
   label: z.string().trim().max(64).optional(),
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
   const parsed = createSchema.safeParse(req.body ?? {});
@@ -75,12 +76,12 @@ router.post('/', async (req: Request, res: Response) => {
     select: selectFields,
   });
   return res.status(201).json({ account });
-});
+}));
 
 // PATCH /:id — rename the pointer's label.
 const patchSchema = z.object({ label: z.string().trim().max(64).nullable() });
 
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
   const parsed = patchSchema.safeParse(req.body ?? {});
@@ -93,11 +94,11 @@ router.patch('/:id', async (req: Request, res: Response) => {
   });
   if (count === 0) return res.status(404).json({ error: 'NOT_FOUND' });
   return res.json({ ok: true });
-});
+}));
 
 // DELETE /:id — soft-remove the pointer (the account itself is untouched;
 // re-observing the address revives the row).
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
   const { count } = await prisma.governedAccount.updateMany({
@@ -106,6 +107,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
   });
   if (count === 0) return res.status(404).json({ error: 'NOT_FOUND' });
   return res.json({ ok: true });
-});
+}));
 
 export default router;

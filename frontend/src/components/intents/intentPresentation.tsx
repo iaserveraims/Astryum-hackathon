@@ -33,13 +33,14 @@ export const STATUS_TONE: Record<IntentStatus, 'neutral' | 'success' | 'warning'
 };
 
 export const STATUS_LABEL: Record<IntentStatus, string> = {
-  building: 'Building',
+  building: 'Being prepared',
   proposed: 'Waiting for your signature',
   pending_user_review: 'Waiting for your signature',
   expired: 'Expired',
   signed: 'Signed',
-  broadcast: 'Broadcasting',
-  mempool: 'In mempool',
+  // "Broadcasting"/"In mempool" are node vocabulary — the user reads travel.
+  broadcast: 'Sending to the network',
+  mempool: 'On its way to the network',
   confirmed: 'Confirmed',
   failed: 'Failed',
 };
@@ -148,6 +149,27 @@ export function WaitingCard({
       <p className="text-sm text-ink/70 leading-relaxed">{intent.explanation}</p>
       <WarningList warnings={intent.warnings} />
 
+      {/* R5 — every charge visible BEFORE the wallet opens (invariant #6). The
+          gas estimate comes from the prepare-time simulation; when it is
+          missing we say where the exact figure appears instead of hiding the
+          row. Astryum's own fee is stated even when it is zero. */}
+      <div className="mt-3 rounded-lg border border-ink/10 bg-ink/[0.03] divide-y divide-ink/5 text-xs">
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <span className="text-ink/40 shrink-0">{t('Network fee (gas)')}</span>
+          {typeof intent.impact?.gasEstimateUSD === 'number' ? (
+            <span className="font-mono text-ink/80">≈ ${(intent.impact.gasEstimateUSD as number).toFixed(2)}</span>
+          ) : (
+            <span className="text-ink/55 text-right text-[11px]">
+              {t('your wallet shows the exact figure before signing')}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <span className="text-ink/40">{t('Astryum fee')}</span>
+          <span className="text-emerald-300">0 · {t('we charge nothing')}</span>
+        </div>
+      </div>
+
       {/* Pieza 2 — the walletless alternative for a Kinetic repay: the EVM
           txData above needs MetaMask; a Smart-Account user can instead repay
           from INSIDE the PA (Xaman, executor gas). A 0xFE Payment cannot be
@@ -177,7 +199,7 @@ export function WaitingCard({
             )}
           </PrimaryButton>
         ) : (
-          <span className="text-xs text-ink/40">{t('This intent has no signable payload')}</span>
+          <span className="text-xs text-ink/40">{t('This operation cannot be signed yet.')}</span>
         )}
         <GhostButton onClick={() => onDismiss(intent)} disabled={busy}>
           {t('Dismiss')}

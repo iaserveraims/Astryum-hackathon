@@ -43,6 +43,9 @@ export interface UseAuthorityAccountResult {
   setActive: (account: AuthorityAccount) => void;
   /** 'single' = you sign directly · 'quorum' = you propose, the council signs. */
   authorityMode: 'single' | 'quorum';
+  /** True while wallets/registry are still resolving — judge "no governed
+   *  accounts" only once this settles (ProductToggle's pending-flip). */
+  loading: boolean;
   /** Refresh governed ledger reads (health, council shape). Call on switcher open. */
   refreshGoverned: () => Promise<void>;
 }
@@ -77,8 +80,11 @@ function toAuthorityAccount(a: Authority): AuthorityAccount | null {
 }
 
 export function useAuthorityAccount(): UseAuthorityAccountResult {
-  const { authorities, active: myActive, activeGoverned, setActive: setActiveId, reload } = useAuthorities();
+  const { authorities, active: myActive, activeGoverned, setActive: setActiveId, reload, loading } = useAuthorities();
   const lastGovernedId = useAuthorityStore((s) => s.lastGovernedId);
+  // First-class product (founder 2026-08-04): the store value, NOT derived
+  // from activeGoverned — 'legacy' with nothing constituted is the lobby.
+  const productMode = useAuthorityStore((s) => s.productMode);
 
   const accounts = useMemo<AuthorityAccount[]>(
     () => authorities.map(toAuthorityAccount).filter((a): a is AuthorityAccount => a !== null),
@@ -94,9 +100,11 @@ export function useAuthorityAccount(): UseAuthorityAccountResult {
     return accounts.find((a) => a.kind === 'simple') ?? null;
   }, [myActive, accounts]);
 
+  const setLobbyMode = useAuthorityStore((s) => s.setProductMode);
   const setProductMode = useCallback(
     (mode: 'astryum' | 'legacy') => {
       if (mode === 'astryum') {
+        // setActiveAuthority syncs productMode back to 'astryum'.
         setActiveId(OVERVIEW_AUTHORITY_ID);
         return;
       }
@@ -118,11 +126,22 @@ export function useAuthorityAccount(): UseAuthorityAccountResult {
       const target =
         (lastGovernedId && accounts.find((a) => a.id === lastGovernedId && a.kind === 'governed')) ||
         accounts.find((a) => a.kind === 'governed');
-      // Nothing observed yet → no fake mode without an account behind it; the
-      // card's own copy points at "Constituir".
-      if (target) setActiveId(target.id);
+      if (target) {
+        // Activating the governed account syncs productMode to 'legacy'.
+        setActiveId(target.id);
+        return;
+      }
+      // Nothing governed yet → the LOBBY (founder 2026-08-04, "vía libre a
+      // todos"): the product still flips — indigo shell, crossing, Legacy nav
+      // — and the panel invites to constitute. The old branch just died here,
+      // which read as a broken toggle to anyone whose registry was empty.
+      // Data: the shared pages do NOT fall back to personal capital — the
+      // shell gates them behind the lobby state while nothing is governed
+      // (same-day fix: overview-as-scope painted Personal data under the
+      // Legacy shell).
+      setLobbyMode('legacy');
     },
-    [accounts, lastGovernedId, setActiveId],
+    [accounts, lastGovernedId, setActiveId, setLobbyMode],
   );
 
   const setActive = useCallback(
@@ -136,12 +155,13 @@ export function useAuthorityAccount(): UseAuthorityAccountResult {
   }, [reload]);
 
   return {
-    productMode: activeGoverned ? 'legacy' : 'astryum',
+    productMode,
     setProductMode,
     accounts,
     active,
     setActive,
     authorityMode: activeGoverned ? 'quorum' : 'single',
+    loading,
     refreshGoverned,
   };
 }

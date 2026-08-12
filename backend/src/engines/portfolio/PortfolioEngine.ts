@@ -133,6 +133,36 @@ export interface GetPortfolioOptions {
   includeExternal?: boolean;
 }
 
+/**
+ * PORTFOLIO_EXTERNAL_SCAN=off disables the external multichain sweep
+ * server-side (8 public-RPC chains + CoinStats/DeBank, up to 12s of cold-path
+ * latency per wallet) while the demo UI only renders Flare/XRPL anyway.
+ * Default stays on — the flag is an ops lever, not a behaviour change.
+ */
+function wantExternalScan(opts: GetPortfolioOptions): boolean {
+  return opts.includeExternal !== false && process.env.PORTFOLIO_EXTERNAL_SCAN !== 'off';
+}
+
+// Hard per-adapter deadline (same rationale as OnChainBalanceProvider's
+// per-chain deadline): a cold LP factory sweep against the public Flare RPC can
+// hang for minutes (ethers v6 retries 429s, default request timeout 300s) and
+// the allSettled below waits for the SLOWEST adapter. A late adapter yields no
+// positions for this snapshot; its work keeps running underneath and warms the
+// pair caches, so the next scan (cache TTL 5 min) picks it up fast.
+const ADAPTER_TIMEOUT_MS = Number(process.env.PORTFOLIO_ADAPTER_TIMEOUT_MS ?? 15_000);
+function withAdapterDeadline<T>(p: Promise<T>, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) => {
+      const t = setTimeout(
+        () => reject(new Error(`adapter ${label} timed out after ${ADAPTER_TIMEOUT_MS}ms`)),
+        ADAPTER_TIMEOUT_MS,
+      );
+      t.unref?.();
+    }),
+  ]);
+}
+
 export class PortfolioEngine {
   private static instance: PortfolioEngine | null = null;
   private priceProvider: PriceProvider | null = null;
@@ -215,7 +245,7 @@ export class PortfolioEngine {
     // disconnected from production. The key-less on-chain provider must NOT be
     // gated behind CoinStats/DeBank keys — key-gating happens per-provider
     // inside getExternalPositions().
-    const wantExternal = opts.includeExternal !== false;
+    const wantExternal = wantExternalScan(opts);
 
     const cacheKey = `portfolio:${wantExternal ? 'ext' : 'flare'}:${chainId}:${wallet.toLowerCase()}`;
 
@@ -233,21 +263,37 @@ export class PortfolioEngine {
     cacheKey: string,
     opts: GetPortfolioOptions,
   ): Promise<PortfolioSnapshot> {
-    const wantExternal = opts.includeExternal !== false;
+    const wantExternal = wantExternalScan(opts);
     const registry = ProtocolRegistry.getInstance();
     const adapters = registry.getActiveAdapters(chainId);
+
+    // External positions only need the wallet address — fetch them in parallel
+    // with the Flare adapter sweep instead of after it (they used to add their
+    // full latency on top of the adapters').
+    const externalPromise: Promise<CanonicalPosition[]> = wantExternal
+      ? this.getExternalPositions(wallet).catch((err) => {
+          console.warn('[portfolio] external positions fetch failed:', (err as Error).message);
+          return [];
+        })
+      : Promise.resolve([]);
 
     const settled = await Promise.allSettled(
       adapters.map(async (a) => ({
         adapter: a,
-        positions: await a.discoverPositions(wallet),
+        positions: await withAdapterDeadline(a.discoverPositions(wallet), a.protocolId),
       }))
     );
 
     const allRaw: { adapter: IProtocolAdapter; raws: RawPosition[] }[] = [];
-    for (const r of settled) {
+    for (let i = 0; i < settled.length; i++) {
+      const r = settled[i];
       if (r.status === 'fulfilled') {
         allRaw.push({ adapter: r.value.adapter, raws: r.value.positions });
+      } else {
+        console.warn(
+          `[portfolio] adapter ${adapters[i].protocolId} dropped from snapshot:`,
+          (r.reason as Error).message,
+        );
       }
     }
 
@@ -268,18 +314,12 @@ export class PortfolioEngine {
       priceProvider: this.priceProvider ?? undefined,
     });
 
-    // Fetch external multi-chain positions (Zerion / DeBank) when enabled
-    let externalNormalized: NormalizedPosition[] = [];
-    if (wantExternal) {
-      try {
-        const externals = await this.getExternalPositions(wallet);
-        externalNormalized = externals
-          .map(canonicalToNormalized)
-          .filter((n): n is NormalizedPosition => n !== null);
-      } catch (err) {
-        console.warn('[portfolio] external positions fetch failed:', (err as Error).message);
-      }
-    }
+    // External multi-chain positions (kicked off above, in parallel with the
+    // adapter sweep; failures already degraded to [] in the catch).
+    const externals = await externalPromise;
+    let externalNormalized: NormalizedPosition[] = externals
+      .map(canonicalToNormalized)
+      .filter((n): n is NormalizedPosition => n !== null);
 
     // The Flare adapters are the VERIFIED source. External providers (multichain
     // on-chain reader / CoinStats / DeBank) re-report the same wallet balance

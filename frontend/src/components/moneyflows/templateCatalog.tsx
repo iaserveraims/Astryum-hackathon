@@ -55,22 +55,25 @@ export interface TemplateDef {
   };
 }
 
+// Labels/blurbs/hints are ENGLISH DICT KEYS — consumers render them through
+// t() (before this the file hardcoded Spanish next to English labels, so BOTH
+// audiences saw a mix, and one hint was literally source code).
 export const TEMPLATES: Record<TemplateKind, TemplateDef> = {
   PROTECT: {
     label: 'Protect',
     icon: <ShieldCheck className="w-5 h-5" />,
     accent: 'text-sky-300 border-sky-400/30 bg-sky-400/10',
-    blurb: 'Defiende la posición: si el Health Factor baja del umbral, Astryum prepara un repay para que firmes.',
+    blurb: 'Defends your position: if your cushion (health factor) drops below your threshold, Astryum prepares the repayment for you to sign.',
     fields: [
-      { key: 'hf', label: 'Stop-loss Health Factor', type: 'number', default: '1.10', step: 0.05, min: 1.01, hint: 'Se dispara cuando HF cae por debajo de este valor.' },
+      { key: 'hf', label: 'Alert me when my cushion (health factor) drops below', type: 'number', default: '1.10', step: 0.05, min: 1.01, hint: '1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.' },
       // A1's restore semantics, now also on the automated rail: at trigger time
       // the adapter computes the LIVE minimum repay that lifts HF back to the
       // signed target (deterministic math over the user's parameter — #8).
-      { key: 'restore', label: 'Repagar solo lo justo para restaurar el HF', type: 'toggle', default: 'true', hint: 'Al saltar, calcula en vivo el repay mínimo que devuelve el HF a tu objetivo (la misma matemática que A1). Desactívalo para un importe fijo.' },
+      { key: 'restore', label: 'Repay only just enough to restore the cushion', type: 'toggle', default: 'true', hint: 'When it fires, it computes live the smallest repayment that lifts your cushion back to your target. Turn it off to use a fixed amount instead.' },
       // min = smallest USDT0 base unit: a 0 amount would pass validation, create
       // the rule, and then error at trigger time (repayBorrowBehalf needs > 0).
-      { key: 'repay', label: 'Importe a repagar (modo fijo)', type: 'number', default: '1', step: 0.1, min: 0.000001, unit: 'USDT0', hint: 'Solo se usa con el modo restore desactivado.' },
-      { key: 'cooldown', label: 'Cooldown', type: 'number', default: '60', step: 5, min: 0, unit: 'min', hint: 'Tiempo mínimo entre disparos.' },
+      { key: 'repay', label: 'Fixed amount to repay', type: 'number', default: '1', step: 0.1, min: 0.000001, unit: 'USDT0', hint: 'Only used when the restore mode is off.' },
+      { key: 'cooldown', label: 'Minimum wait between alerts', type: 'number', default: '60', step: 5, min: 0, unit: 'min', hint: 'The minimum time between two alerts.' },
     ],
     build: (v, target) => ({
       trigger: { type: 'HF_BELOW', threshold: parseFloat(v.hf) },
@@ -90,11 +93,11 @@ export const TEMPLATES: Record<TemplateKind, TemplateDef> = {
     label: 'Harvest',
     icon: <Sprout className="w-5 h-5" />,
     accent: 'text-tone-success border-tone-success/30 bg-tone-success/10',
-    blurb: 'Compone el rendimiento: cuando las recompensas superan el umbral, Astryum prepara el claim/compound.',
+    blurb: 'Compounds your yield: when your claimable rewards pass your threshold, Astryum prepares the claim for you to sign.',
     fields: [
-      { key: 'minUSD', label: 'Recompensas mínimas', type: 'number', default: '5', step: 1, min: 0, unit: 'USD', hint: 'Se dispara cuando las recompensas reclamables superan este valor.' },
-      { key: 'cooldown', label: 'Cooldown', type: 'number', default: '720', step: 30, min: 0, unit: 'min', hint: 'Las recompensas FTSO se acumulan por época (~3,5 días).' },
-      { key: 'wrap', label: 'Re-delegar al compoundear (wrap)', type: 'toggle', default: 'true', hint: 'claim(wrap=true) → las recompensas vuelven como WFLR ya delegado.' },
+      { key: 'minUSD', label: 'Minimum rewards', type: 'number', default: '5', step: 1, min: 0, unit: 'USD', hint: 'Fires when your claimable rewards exceed this value.' },
+      { key: 'cooldown', label: 'Minimum wait between alerts', type: 'number', default: '720', step: 30, min: 0, unit: 'min', hint: 'Rewards are paid out roughly every 3.5 days — a long wait avoids empty alerts.' },
+      { key: 'wrap', label: 'Automatically reinvest what you earn', type: 'toggle', default: 'true', hint: 'Your rewards go back into the position, already working and voting again — nothing for you to do.' },
     ],
     build: (v, target) => ({
       trigger: { type: 'REWARD_THRESHOLD', minUSD: parseFloat(v.minUSD) },

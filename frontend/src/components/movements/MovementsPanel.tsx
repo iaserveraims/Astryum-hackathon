@@ -53,6 +53,7 @@ import {
 } from '../ui/primitives';
 import { RevealGroup, RevealItem } from '../ui/motion';
 import { useT } from '../../i18n/LanguageProvider';
+import { fmtQtyActive } from '../../lib/format';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { getUserRegion } from '../../lib/region';
 import { AuthRequired, hasAuthToken } from '../../lib/authError';
@@ -80,7 +81,7 @@ function toDrops(xrp: string): string | null {
 
 function fmtXrp(amount: string | number): string {
   const n = Number(amount);
-  return isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 6 }) : String(amount);
+  return isFinite(n) ? fmtQtyActive(n, 6) : String(amount);
 }
 
 function fmtDateTime(iso?: string): string {
@@ -98,11 +99,15 @@ function fmtDateTime(iso?: string): string {
   }
 }
 
-/** Disclosure fact keys → readable labels (the raw camelCase confused the review). */
-function factLabel(key: string, t: (s: string) => string): string {
+/** Disclosure fact keys → readable labels. UNKNOWN KEYS RENDER NOTHING (R2):
+ *  a new backend field must earn its label here before it faces a person — the
+ *  old `?? key` fallback leaked raw camelCase into the signing review. Drops
+ *  (the millionths) and the ledger sequence are deliberately hidden: they are
+ *  plumbing, not signing facts. */
+function factLabel(key: string, t: (s: string) => string): string | null {
+  if (key === 'amountDrops' || key === 'offerSequence') return null;
   const map: Record<string, string> = {
     amountXrp: t('Amount (XRP)'),
-    amountDrops: t('Amount (drops)'),
     destination: t('Destination'),
     selfEscrow: t('Back to your own account'),
     earnsYield: t('Generates yield'),
@@ -111,10 +116,11 @@ function factLabel(key: string, t: (s: string) => string): string {
     cancelAfterISO: t('Cancellable after'),
     network: t('Network'),
     owner: t('Owner'),
-    offerSequence: t('Escrow sequence'),
     permissionlessAfterFinishAfter: t('Anyone can release after unlock'),
   };
-  return map[key] ?? key;
+  const label = map[key];
+  if (!label) console.warn('[MovementsPanel] unlabelled disclosure fact hidden:', key);
+  return label ?? null;
 }
 
 function factValue(key: string, value: string | number | boolean, t: (s: string) => string): string {
@@ -715,12 +721,16 @@ export default function MovementsPanel({
                       {/* Disclosure BEFORE signing (invariant #6) */}
                       <p className="text-sm text-white/70">{handoff.disclosure.note}</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {Object.entries(handoff.disclosure.facts).map(([k, v]) => (
-                          <div key={k} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                            <MicroLabel>{factLabel(k, t)}</MicroLabel>
-                            <div className="mt-0.5 truncate text-sm">{factValue(k, v, t)}</div>
-                          </div>
-                        ))}
+                        {Object.entries(handoff.disclosure.facts).map(([k, v]) => {
+                          const label = factLabel(k, t);
+                          if (!label) return null;
+                          return (
+                            <div key={k} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                              <MicroLabel>{label}</MicroLabel>
+                              <div className="mt-0.5 truncate text-sm">{factValue(k, v, t)}</div>
+                            </div>
+                          );
+                        })}
                       </div>
                       <div className="flex gap-2">
                         <PrimaryButton onClick={sign} disabled={busy}>
@@ -1212,12 +1222,16 @@ function XrplDexOrder({
           {/* Disclosure BEFORE signing (invariant #6) */}
           <p className="text-sm text-white/70">{handoff.disclosure.note}</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {Object.entries(handoff.disclosure.facts).map(([k, v]) => (
-              <div key={k} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                <MicroLabel>{factLabel(k, t)}</MicroLabel>
-                <div className="mt-0.5 truncate text-sm">{factValue(k, v, t)}</div>
-              </div>
-            ))}
+            {Object.entries(handoff.disclosure.facts).map(([k, v]) => {
+              const label = factLabel(k, t);
+              if (!label) return null;
+              return (
+                <div key={k} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                  <MicroLabel>{label}</MicroLabel>
+                  <div className="mt-0.5 truncate text-sm">{factValue(k, v, t)}</div>
+                </div>
+              );
+            })}
           </div>
           <div className="flex gap-2">
             <PrimaryButton onClick={sign} disabled={busy}>

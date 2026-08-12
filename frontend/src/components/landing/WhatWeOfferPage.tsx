@@ -13,7 +13,6 @@
 
 import { motion } from 'framer-motion';
 import SubpageShell from './SubpageShell';
-import LiveActivity from './LiveActivity';
 import { BORDER, GOLD, MaskLines, Reveal, SpotlightCard } from './interactions';
 import { T, type Lang } from './useLang';
 
@@ -31,7 +30,7 @@ const INSTRUMENTS = (lang: Lang) => [
       lang,
     ),
     points: [
-      T('Multi-wallet y multi-red, con identidad por wallet (nombre y color)', 'Multi-wallet and multi-rail, with per-wallet identity (name and colour)', lang),
+      T('Multi-wallet y multirred, con identidad por wallet (nombre y color)', 'Multi-wallet and multi-network, with per-wallet identity (name and color)', lang),
       T('Posiciones DeFi con factor de salud y distancia a liquidación', 'DeFi positions with health factor and liquidation distance', lang),
       T('Modo vigilancia: cualquier dirección, sin firmar nada', 'Watch mode: any address, without signing anything', lang),
     ],
@@ -39,23 +38,26 @@ const INSTRUMENTS = (lang: Lang) => [
   {
     num: '02',
     title: T('Acciones preparadas, nunca ejecutadas', 'Actions prepared, never executed', lang),
+    // GLOSSARY reconciliation 2026-07-29: "prepara" (never "compila"),
+    // "transacciones" (never "payloads"), "al completarse" (never "tras
+    // liquidarse" — collides with position liquidation).
     body: T(
-      'Astryum compila cada acción — poner a trabajar, reforzar colateral, repagar, salir — en una transacción SIN firmar, la simula, y te la entrega con sus costes a la vista. La firma ocurre siempre en tu wallet: Xaman en XRPL, tu wallet EVM en Flare. Nada se ejecuta sin tu firma, y la red solo acepta exactamente lo que firmaste.',
-      'Astryum compiles every action — deploy, top up collateral, repay, exit — into an UNSIGNED transaction, simulates it, and hands it over with its costs in plain sight. Signing always happens in your wallet: Xaman on XRPL, your EVM wallet on Flare. Nothing executes without your signature, and the network only accepts exactly what you signed.',
+      'Astryum prepara cada acción — poner a trabajar, reforzar colateral, repagar, salir — en una transacción SIN firmar, la simula, y te la entrega con sus costes a la vista. La firma ocurre siempre en tu wallet: Xaman en XRPL, tu wallet EVM en Flare. Nada se ejecuta sin tu firma, y la red solo acepta exactamente lo que firmaste.',
+      'Astryum prepares every action — deploy, top up collateral, repay, exit — into an UNSIGNED transaction, simulates it, and hands it over with its costs in plain sight. Signing always happens in your wallet: Xaman on XRPL, your EVM wallet on Flare. Nothing executes without your signature, and the network only accepts exactly what you signed.',
       lang,
     ),
     points: [
-      T('Payloads sin firmar: la clave nunca sale de tu wallet', 'Unsigned payloads: the key never leaves your wallet', lang),
-      T('Simulación previa y costes visibles antes de firmar', 'Pre-flight simulation and costs visible before you sign', lang),
-      T('Recibo de ejecución tras liquidarse — trazabilidad completa', 'Execution receipt after settlement — full traceability', lang),
+      T('Transacciones sin firmar: la clave nunca sale de tu wallet', 'Unsigned transactions: the key never leaves your wallet', lang),
+      T('Simulación previa y costes visibles antes de firmar', 'Simulation first and costs visible before you sign', lang),
+      T('Recibo de ejecución al completarse — trazabilidad de punta a punta', 'An execution receipt once it completes — end-to-end traceability', lang),
     ],
   },
   {
     num: '03',
     title: T('Protecciones deterministas', 'Deterministic protections', lang),
     body: T(
-      'Reglas que defienden una posición — repagar o salir antes de la liquidación — definidas por ti, con umbral, importe y cooldown editables. La regla es determinista: hace exactamente lo que firmaste, cuando se cumple la condición que fijaste. Ninguna IA decide por ti; el agente solo compila, tú revisas y firmas.',
-      'Rules that defend a position — repay or exit before liquidation — defined by you, with editable threshold, amount and cooldown. The rule is deterministic: it does exactly what you signed, when the condition you set is met. No AI decides for you; the agent only compiles, you review and sign.',
+      'Reglas que defienden una posición — repagar o salir antes de la liquidación — definidas por ti, con umbral, importe y cooldown editables. La regla es determinista: hace exactamente lo que firmaste, cuando se cumple la condición que fijaste. Ninguna IA decide por ti; el agente solo prepara, tú revisas y firmas.',
+      'Rules that defend a position — repay or exit before liquidation — defined by you, with editable threshold, amount and cooldown. The rule is deterministic: it does exactly what you signed, when the condition you set is met. No AI decides for you; the agent only prepares, you review and sign.',
       lang,
     ),
     points: [
@@ -74,7 +76,7 @@ const INSTRUMENTS = (lang: Lang) => [
     ),
     points: [
       T('Cada estrategia declara sus pasos y su camino de salida', 'Every strategy declares its steps and its exit path', lang),
-      T('Describe lo que quieres y el agente lo compila — tú firmas', 'Describe what you want and the agent compiles it — you sign', lang),
+      T('Describe lo que quieres y el agente lo prepara — tú firmas', 'Describe what you want and the agent prepares it — you sign', lang),
       T('Registro propio: activa, pausa o retoma tus estrategias', 'Your own registry: activate, pause or resume your strategies', lang),
     ],
   },
@@ -102,7 +104,7 @@ const INSTRUMENTS = (lang: Lang) => [
     ),
     points: [
       T('Preparar ≠ ejecutar: la frontera está en el código, línea a línea', 'Preparing ≠ executing: the boundary lives in the code, line by line', lang),
-      T('EU-first: stablecoins de dinero electrónico para flujos europeos', 'EU-first: e-money stablecoins for European flows', lang),
+      T('La UE primero: stablecoins de dinero electrónico para flujos europeos', 'EU-first: e-money stablecoins for European flows', lang),
       T('Cada acción deja prueba: simulación, autorización y recibo', 'Every action leaves proof: simulation, authorization and receipt', lang),
     ],
   },
@@ -128,8 +130,8 @@ const RAILS = (lang: Lang) => [
   {
     k: T('Tu wallet', 'Your wallet', lang),
     body: T(
-      'La única pieza que firma. Astryum habla con ella por los canales estándar — payloads de Xaman, transacciones EVM — y espera tu decisión.',
-      'The only piece that signs. Astryum speaks to it over standard channels — Xaman payloads, EVM transactions — and waits for your decision.',
+      'La única pieza que firma. Astryum habla con ella por los canales estándar — peticiones de firma de Xaman, transacciones EVM — y espera tu decisión.',
+      'The only piece that signs. Astryum speaks to it over standard channels — Xaman sign requests, EVM transactions — and waits for your decision.',
       lang,
     ),
   },
@@ -163,9 +165,10 @@ export default function WhatWeOfferPage() {
               className="mx-auto max-w-3xl font-bold text-white text-balance"
               style={{ fontSize: 'clamp(2.2rem, 5vw, 3.8rem)', lineHeight: 1.06, letterSpacing: '-0.03em' }}
             >
+              {/* "puesto de mando", never "plano de control" — GLOSSARY §2 */}
               <MaskLines
                 lines={[
-                  T('Un plano de control', 'A control plane', lang),
+                  T('Un puesto de mando', 'Mission control', lang),
                   <span key="l2" style={{ color: GOLD_SOFT }}>
                     {T('para tu capital.', 'for your capital.', lang)}
                   </span>,
@@ -176,8 +179,8 @@ export default function WhatWeOfferPage() {
             <Reveal delay={0.3}>
               <p className="mx-auto mt-6 max-w-2xl leading-relaxed text-white/55" style={{ fontSize: 'clamp(15px, 1.4vw, 18px)' }}>
                 {T(
-                  'Seis instrumentos sobre una sola frontera: Astryum observa, prepara y coordina — y tu wallet firma. Esto es lo que hace cada pieza, y el límite exacto que ninguna cruza.',
-                  'Six instruments over a single boundary: Astryum observes, prepares and coordinates — and your wallet signs. This is what each piece does, and the exact line none of them crosses.',
+                  'Seis piezas sobre una sola frontera: Astryum observa, prepara y coordina — y tu wallet firma. Esto es lo que hace cada pieza, y el límite exacto que ninguna cruza.',
+                  'Six pieces over a single boundary: Astryum observes, prepares and coordinates — and your wallet signs. This is what each piece does, and the exact line none of them crosses.',
                   lang,
                 )}
               </p>
@@ -247,7 +250,7 @@ export default function WhatWeOfferPage() {
                 <p className="mx-auto mt-8 max-w-2xl text-center text-[13px] leading-relaxed text-white/40">
                   {T(
                     'Observar es ancho; ejecutar es estrecho. Astryum lee todas tus redes, pero cada acción se prepara en la red donde vive el activo — nunca desviamos tu capital por caminos que no pediste.',
-                    'Observing is wide; executing is narrow. Astryum reads all your rails, but every action is prepared on the rail where the asset lives — we never route your capital through paths you did not ask for.',
+                    'Observing is wide; executing is narrow. Astryum reads all your networks, but every action is prepared on the network where the asset lives — we never route your capital through paths you did not ask for.',
                     lang,
                   )}
                 </p>
@@ -255,9 +258,10 @@ export default function WhatWeOfferPage() {
             </div>
           </section>
 
-          {/* live transparency — real settled operations, verifiable on the
-              public explorers; the counterweight to the sign-up disclaimer */}
-          <LiveActivity lang={lang} />
+          {/* LiveActivity UNMOUNTED here (founder 2026-07-29): the settled-
+              operations feed now lives on /proof, where the whole trust story
+              is told — this page goes back to being the technical pitch.
+              Component intact in ./LiveActivity.tsx; re-import to restore. */}
 
           {/* door */}
           <section className="px-6 pb-28 text-center">
@@ -270,8 +274,8 @@ export default function WhatWeOfferPage() {
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/50">
                 {T(
-                  'El acceso anticipado abre el plano de control con tus wallets reales — leyendo desde el primer minuto, firmando solo cuando tú quieras.',
-                  'Early access opens the control plane with your real wallets — reading from the first minute, signing only when you choose to.',
+                  'El acceso anticipado abre el puesto de mando con tus wallets reales — leyendo desde el primer minuto, firmando solo cuando tú quieras.',
+                  'Early access opens mission control with your real wallets — reading from the first minute, signing only when you choose to.',
                   lang,
                 )}
               </p>

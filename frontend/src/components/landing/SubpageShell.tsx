@@ -22,6 +22,7 @@ const EARLY_ACCESS_URL = '/early-access';
 
 const PAGES: Array<{ href: string; es: string; en: string }> = [
   { href: '/what-we-offer', es: 'Qué ofrecemos', en: 'What we offer' },
+  { href: '/proof', es: 'La prueba', en: 'Proof' },
   { href: '/about', es: 'Quiénes somos', en: 'About us' },
 ];
 
@@ -35,7 +36,12 @@ export default function SubpageShell({
   const es = lang === 'es';
 
   return (
-    <div className="relative min-h-screen bg-[#070605] text-white overflow-x-hidden">
+    <div
+      /* overflow-x-CLIP, not -hidden — same reason as AppShell (founder
+         2026-08-04): `hidden` on one axis makes the other compute to `auto`,
+         turning this into a scroll container that paints its own inner bar. */
+      className="relative min-h-screen bg-[#070605] text-white overflow-x-clip"
+    >
       {/* the same sky the landing breathes under */}
       <div className="fixed inset-0 z-0" aria-hidden>
         <StarfieldCanvas />
@@ -123,7 +129,16 @@ export default function SubpageShell({
           <HackathonFooterNote lang={lang} tone="dark" />
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
             <span className="text-xs text-white/35">
-              {es ? 'No-custodial · Siempre tú firmas' : 'Non-custodial · You always sign'}
+              {es ? 'No-custodia · Tú siempre firmas' : 'Non-custodial · You always sign'}
+            </span>
+            {/* Legal pages, reachable from every page (Llei 20/2014: "visible, permanent") */}
+            <span className="flex items-center gap-3 text-xs">
+              <Link href="/demo-terms" className="text-white/35 transition-colors hover:text-white/70">
+                {es ? 'Condiciones de la demo' : 'Demo terms'}
+              </Link>
+              <Link href="/privacy" className="text-white/35 transition-colors hover:text-white/70">
+                {es ? 'Privacidad y aviso legal' : 'Privacy & legal notice'}
+              </Link>
             </span>
             <span className="text-xs text-white/20">Astryum © 2026</span>
           </div>

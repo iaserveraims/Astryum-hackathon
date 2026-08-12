@@ -25,8 +25,10 @@
 /** What the user is being asked to approve — drives the modal's copy. */
 export type XamanPayloadPurpose = 'signin' | 'transaction' | 'message';
 
-/** Live state of the payload while the user is in Xaman. */
-export type XamanPayloadStatus = 'pending' | 'opened' | 'signed';
+/** Live state of the payload while the user is in Xaman. 'rejected' (the user
+ *  said no — a choice, not an error) and 'expired' (the 5-minute window closed)
+ *  are terminal states the modal shows calmly instead of vanishing. */
+export type XamanPayloadStatus = 'pending' | 'opened' | 'signed' | 'rejected' | 'expired';
 
 export interface XamanPayloadPrompt {
   /** Xaman payload UUID — used to dedupe / debug. */
@@ -45,6 +47,13 @@ export interface XamanPayloadPrompt {
   summary?: string;
   /** Epoch ms at which the Xaman payload expires (drives the countdown). */
   expiresAt?: number;
+  /**
+   * Xaman's own answer to "did this request reach the user's phone as a push
+   * notification?" (payload create response, `pushed`). true → tell the user to
+   * check their phone; false → the QR is the only way in this time. Omitted when
+   * unknown (e.g. mock payloads).
+   */
+  pushed?: boolean;
 }
 
 type PromptListener = (prompt: XamanPayloadPrompt | null) => void;
@@ -93,4 +102,18 @@ export function emitXamanStatus(status: XamanPayloadStatus): void {
       console.error('xaman payloadBus status listener error:', err);
     }
   });
+}
+
+/**
+ * Cancel a live payload so "Cancelar" truly cancels: the QR dies in Xaman
+ * (nothing left to sign on the phone two minutes later) and the service's wait
+ * loop resolves right away via its cancelled resolution instead of hanging the
+ * origin screen for the remaining minutes of the 5-minute window.
+ */
+export async function cancelXamanPayload(uuid: string): Promise<void> {
+  try {
+    await fetch(`/api/xaman/status/${uuid}`, { method: 'DELETE' });
+  } catch {
+    /* best-effort — an unreachable proxy still leaves the payload to its own expiry */
+  }
 }

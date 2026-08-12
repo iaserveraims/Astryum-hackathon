@@ -283,26 +283,35 @@
 /* Animated accent sweep across display text (a slow specular highlight).
    Token-driven: gold on the landing/Astryum, indigo under Legacy. */
 .text-gold-sweep {
-  background: linear-gradient(
-    100deg,
-    hsl(var(--volt)) 0%,
-    hsl(var(--volt-soft)) 28%,
-    hsl(var(--volt-hi)) 46%,
-    hsl(var(--volt-soft)) 64%,
-    hsl(var(--volt)) 100%
-  );
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: gold-sweep 6.5s ease-in-out infinite;
+  /* Solid-color base so the headline can NEVER render invisible: the clipped
+     gradient below only applies where background-clip:text is supported —
+     transparent fill without the clip is how "Tu firma." vanishes on older
+     mobile engines. */
+  color: hsl(var(--volt-soft));
   /* background-clip:text only paints glyphs inside the element's box; the
      display headlines run line-height ~1.04, so the g/y descenders fall
      outside it and render transparent (a visibly amputated "g"). Grow the
      paint box with padding and give the space back with negative margins. */
   padding: 0.08em 0.06em 0.22em;
   margin: -0.08em -0.06em -0.22em;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .text-gold-sweep {
+    background: linear-gradient(
+      100deg,
+      hsl(var(--volt)) 0%,
+      hsl(var(--volt-soft)) 28%,
+      hsl(var(--volt-hi)) 46%,
+      hsl(var(--volt-soft)) 64%,
+      hsl(var(--volt)) 100%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: gold-sweep 6.5s ease-in-out infinite;
+  }
 }
 @keyframes gold-sweep {
   0%, 100% { background-position: 130% 50%; }

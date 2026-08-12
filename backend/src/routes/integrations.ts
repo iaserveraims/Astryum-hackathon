@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { controlPlane } from '../control-plane/ControlPlane';
 import { providerRouter } from '../control-plane/ProviderRouter';
 import { allChainCapabilities } from '../integrations/registry/ChainRegistry';
@@ -28,10 +29,10 @@ router.get('/:id', (req: Request, res: Response) => {
   return res.json(summary);
 });
 
-router.post('/:id/probe', async (req: Request, res: Response) => {
+router.post('/:id/probe', asyncHandler(async (req: Request, res: Response) => {
   const health = await controlPlane.probe(req.params.id);
   return res.json({ id: req.params.id, health });
-});
+}));
 
 router.get('/control-plane/stats', (_req: Request, res: Response) => {
   return res.json(providerRouter.getStats());

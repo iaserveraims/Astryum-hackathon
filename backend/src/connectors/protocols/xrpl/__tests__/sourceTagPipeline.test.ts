@@ -8,7 +8,7 @@
  * XamanWalletService.signTransaction spreads the txjson unchanged.)
  */
 import { _resetXrplSourceTagCache } from '../../../../config/xrplSourceTag';
-import { buildEscrowCreate, buildEscrowFinish } from '../XrplEscrowService';
+import { buildEscrowCancel, buildEscrowCreate, buildEscrowFinish } from '../XrplEscrowService';
 import { buildOfferCreate, buildOfferCancel } from '../XrplDexService';
 import { buildAmmDeposit, buildAmmWithdraw } from '../XrplAmmService';
 
@@ -72,6 +72,44 @@ const BUILDS: Array<[string, () => { xrplTx: { SourceTag?: number } }]> = [
 describe('A.2 — no Astryum-composed XRPL tx leaves without the SourceTag', () => {
   test.each(BUILDS)('%s stamps the project tag', (_name, build) => {
     expect(build().xrplTx.SourceTag).toBe(TEST_TAG);
+  });
+});
+
+describe('A.2-bis — transactions ASTRYUM signs carry NO project tag (T&C §6/§7)', () => {
+  // The keeper signs EscrowFinish/EscrowCancel with its own operational key.
+  // Tagging those would enrol our own address as an "Active User" of the
+  // project — the self-dealing/scripted-transaction pattern §7 disqualifies for.
+  const OPERATIONAL: Array<[string, () => { xrplTx: { SourceTag?: number } }]> = [
+    [
+      'EscrowFinish',
+      () =>
+        buildEscrowFinish({
+          account: ACCOUNT,
+          owner: ACCOUNT,
+          offerSequence: 1,
+          attribution: 'operational',
+        }),
+    ],
+    [
+      'EscrowCancel',
+      () =>
+        buildEscrowCancel({
+          account: ACCOUNT,
+          owner: ACCOUNT,
+          offerSequence: 1,
+          attribution: 'operational',
+        }),
+    ],
+  ];
+
+  test.each(OPERATIONAL)('%s signed by Astryum has no SourceTag', (_name, build) => {
+    expect(build().xrplTx.SourceTag).toBeUndefined();
+  });
+
+  test('the same builder DOES tag when the user signs (default attribution)', () => {
+    expect(buildEscrowFinish({ account: ACCOUNT, owner: ACCOUNT, offerSequence: 1 }).xrplTx.SourceTag).toBe(
+      TEST_TAG,
+    );
   });
 });
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 
 /**
@@ -65,13 +66,13 @@ function prunePrefills(raw: unknown): Record<string, RulePrefillEntry> {
 }
 
 // ── GET /rule-prefills ───────────────────────────────────────────────────────
-router.get('/rule-prefills', async (req: Request, res: Response) => {
+router.get('/rule-prefills', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const row = await prisma.userPreferences.findUnique({ where: { userId } });
   const tradingPreferences = (row?.tradingPreferences ?? null) as Record<string, unknown> | null;
   const prefills = prunePrefills(tradingPreferences?.rulePrefills);
   return res.json({ prefills });
-});
+}));
 
 // ── PUT /rule-prefills ───────────────────────────────────────────────────────
 router.put('/rule-prefills', async (req: Request, res: Response) => {

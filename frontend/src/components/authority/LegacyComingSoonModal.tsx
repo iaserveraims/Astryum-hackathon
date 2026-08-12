@@ -56,7 +56,7 @@ export default function LegacyComingSoonModal() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[96] flex items-center justify-center bg-[#06070c]/60 backdrop-blur-md px-4"
+          className="fixed inset-0 z-[96] flex items-start justify-center bg-[#06070c]/60 backdrop-blur-md p-4 overflow-y-auto"
           onClick={() => setOpen(false)}
           role="dialog"
           aria-modal
@@ -68,7 +68,7 @@ export default function LegacyComingSoonModal() {
             exit={{ opacity: 0, scale: 0.97, y: 6 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md overflow-hidden rounded-2xl border shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
+            className="w-full max-w-md my-auto overflow-hidden rounded-2xl border shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
             style={{
               borderColor: 'rgba(157, 180, 232, 0.3)',
               background: 'linear-gradient(180deg, #0b0d15 0%, #07080d 100%)',

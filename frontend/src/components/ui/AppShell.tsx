@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  LayoutDashboard,
+  Home as HomeIcon,
   Wallet,
   Wallet2,
   Layers,
@@ -20,7 +20,9 @@ import {
   Target,
   // PiggyBank left the nav with the Savings entry (Savings lives inside Earn now).
   Landmark,
+  Loader2,
   ShieldCheck,
+  ArrowUpRight,
   LucideIcon,
 } from 'lucide-react';
 import BackgroundFx from './BackgroundFx';
@@ -40,13 +42,16 @@ import ProductToggle from '../authority/ProductToggle';
 // preserved at components/authority/GoverningBar.tsx.
 import AuthorityCrossing, { type AuthorityCrossingDirection } from '../authority/AuthorityCrossing';
 import { useAuthorities } from '../../hooks/useAuthorities';
+import { useAuthorityStore } from '../../stores/authorityStore';
+import { OVERVIEW_AUTHORITY_ID } from '../../lib/authority';
+import { EmptyState, GhostButton, PrimaryButton } from './primitives';
 import { useAuthStore } from '../../stores/authStore';
 import { useT } from '../../i18n/LanguageProvider';
 import { useIntentWatcher } from '../../hooks/useIntentWatcher';
 import { useVaultClaimsWatcher } from '../../hooks/useVaultClaimsWatcher';
 import { usePortfolioAutoRefresh } from '../../hooks/useAggregatedPortfolio';
 import { SidebarIntentsCard } from '../intents/SidebarIntents';
-import { ResumedSettlements } from '../settlement/ResumedSettlements';
+import { SidebarSettlements } from '../settlement/SidebarSettlements';
 import type { VaultClaimEntry } from '../../hooks/useVaultClaimsWatcher';
 import type { PreparedIntent } from '../../services/v1Api';
 // AuthorityContextBar stays UNMOUNTED: per-account switching returned to the
@@ -55,26 +60,26 @@ import type { PreparedIntent } from '../../services/v1Api';
 // components/authority/AuthorityContextBar.tsx (now an adapter consumer).
 
 const BRAND_LOGO = '/astryum-asteroid.png'; // asteroid + wordmark — same lockup as the landing
+// The blue twin (founder 2026-08-08): identical lockup with the asteroid in
+// the Legacy indigo — the brand dresses for the product it is naming.
+const BRAND_LOGO_LEGACY = '/astryum-logo-azul-transparente.png';
 
-function LangToggle({ className = '' }: { className?: string }) {
-  const { lang, setLang } = useT();
+// Our community server: where users report bugs and send feedback, and where we
+// tell them what changed. Pinned next to Settings so it is reachable from every
+// screen (founder 2026-08-01).
+const DISCORD_INVITE = 'https://discord.gg/veXZr7a3hJ';
+
+// lucide dropped brand marks, so the Discord logo travels inline (simple-icons path).
+function DiscordIcon({ className = '' }: { className?: string }) {
   return (
-    <div className={`flex items-center rounded-lg border border-ink/10 bg-ink/[0.03] p-0.5 text-[11px] font-medium ${className}`}>
-      {(['es', 'en'] as const).map((l) => (
-        <button
-          key={l}
-          onClick={() => setLang(l)}
-          aria-pressed={lang === l}
-          className={`flex-1 px-2 py-1 rounded-md uppercase transition-colors ${
-            lang === l ? 'bg-volt text-volt-ink' : 'text-ink/45 hover:text-ink/80'
-          }`}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden focusable="false">
+      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+    </svg>
   );
 }
+
+// (LangToggle left the sidebar on 2026-08-08 — the language switch now lives
+// in Settings › Preferences, next to the theme.)
 
 // ─── Navigation model ───────────────────────────────────────────────────────
 // MVP IA: a single flat list, everything visible — no collapsible groups, no
@@ -100,16 +105,28 @@ type NavLeaf = { href: string; label: string; icon: LucideIcon };
 // Earn stays in BOTH modes (founder 2026-07-18: never strip it from the
 // Legacy menu). Estrategias also serves both modes — it just moved INSIDE
 // Earn (?view=strategies), so it no longer needs its own row (see below).
+// Order (founder 2026-08-03/04, after a first-user test): the reading order —
+// how much (Summary), where (Portfolio) — then Earn: it is THE function of
+// the product ("lo que nos da de comer a nosotros y a nuestros usuarios"),
+// so it sits above Wallets/Legacy. A separate /app/home landing page was
+// tried and REMOVED (founder 2026-08-04): the Summary already welcomes a
+// wallet-less account with its own connect panel — two front doors confused
+// more than they calmed.
+// Earn's highlight is POSITION ONLY (founder 2026-08-04): two colored
+// treatments were tried and retired the same day — a soft volt tint (read as
+// "selected") and a solid volt button (too loud). Do not re-introduce color
+// on a nav row to mark importance; the selected state owns the gold here.
+// Portfolio still sits ABOVE Legacy (founder 2026-07-19); Estrategias still
+// lives INSIDE Earn (?view=strategies, founder 2026-07-18) — /app/strategies
+// stays alive for old deep-links.
+// Naming (founder 2026-08-04): the overview at /app is called HOME — the
+// separate /app/home page was removed the same day, and its name moved here.
+// "Summary" survives only in internal ids (data-tour nav-summary, TourId,
+// stop-summary anchors) — renaming those buys nothing and breaks replays.
 const PRIMARY_NAV: NavLeaf[] = [
-  { href: '/app', label: 'Summary', icon: LayoutDashboard },
-  { href: '/app/asset-production', label: 'Earn', icon: Sprout },
-  // Estrategias left the nav (founder 2026-07-18): the registry lives INSIDE
-  // Earn now (?view=strategies door). The /app/strategies route stays alive
-  // for old deep-links.
-  // Portfolio sits ABOVE Legacy (founder 2026-07-19): in Legacy mode the menu
-  // reads Summary · Earn · Portfolio · Legacy. Astryum mode filters Legacy out,
-  // so its order (Summary · Earn · Portfolio · Wallets) is unchanged.
+  { href: '/app', label: 'Home', icon: HomeIcon },
   { href: '/app/portfolio', label: 'Portfolio', icon: Wallet },
+  { href: '/app/asset-production', label: 'Earn', icon: Sprout },
   { href: '/app/legacy', label: 'Legacy', icon: Landmark },
   { href: '/app/wallets', label: 'Wallets', icon: Wallet2 },
 ];
@@ -179,8 +196,30 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // (founder 2026-07-17): governed mode shows Legacy and hides Wallets.
   // The Summary toggle (ProductModeCard) and the sidebar switcher both write
   // this same state — they can never disagree.
-  const { activeGoverned, loading: authoritiesLoading } = useAuthorities();
-  const productMode: 'astryum' | 'legacy' = activeGoverned ? 'legacy' : 'astryum';
+  const { activeGoverned, loading: authoritiesLoading, setActive: setActiveAuthorityId } = useAuthorities();
+  // The product is a first-class, persisted choice (founder 2026-08-04: the
+  // LOBBY — legacy mode with nothing constituted yet must exist, or a fresh
+  // account's toggle is a dead switch). Activating/leaving a governed account
+  // keeps this in sync via setActiveAuthority; data scope still keys off
+  // activeGoverned — the lobby wears the product without claiming an account.
+  const productMode = useAuthorityStore((s) => s.productMode);
+  const { t } = useT();
+  const router = useRouter();
+  // The lobby wears the product but claims no account — and the shared pages
+  // (Home, Portfolio, Earn…) fall back to the OVERVIEW scope, which painted
+  // PERSONAL capital under the Legacy shell (founder 2026-08-04, caught while
+  // walking the menus). In Legacy mode with nothing governed, the shell shows
+  // the lobby invitation instead of anyone's data. Exempt: /app/legacy (it IS
+  // the lobby and the door to constitute) and /app/admin + /app/settings
+  // (account chrome, not capital surfaces).
+  const legacyLobby =
+    productMode === 'legacy' &&
+    !activeGoverned &&
+    !(
+      pathname?.startsWith('/app/legacy') ||
+      pathname?.startsWith('/app/admin') ||
+      pathname?.startsWith('/app/settings')
+    );
   // Founder flag from /auth/me (refreshMe hydrates it on every mount) — adds
   // the Admin row at the end of the menu, in both product modes.
   const isAdmin = useAuthStore((s) => s.isAdmin);
@@ -216,22 +255,29 @@ export default function AppShell({ children }: { children: ReactNode }) {
     members?: number;
     key: string;
   } | null>(null);
-  const prevGovernedId = useRef<string | null | undefined>(undefined);
+  const prevCross = useRef<{ mode: 'astryum' | 'legacy'; id: string | null } | undefined>(undefined);
   useEffect(() => {
-    const id = activeGoverned?.id ?? null;
-    // Data refreshes are not crossings: while authorities are (re)loading, an
-    // id transition is plumbing, not a user stepping between products — track
-    // it silently so no spurious crossing fires (bug 2026-07-21).
+    // The crossing tracks the PRODUCT, not just the account (founder
+    // 2026-08-04): entering the lobby (legacy with nothing constituted) is a
+    // crossing too — indigo, no council caption. Entering/changing a governed
+    // account keeps its constellation with the real quorum.
+    const cur = { mode: productMode, id: activeGoverned?.id ?? null };
+    // Data refreshes are not crossings: while authorities are (re)loading, a
+    // transition is plumbing, not a user stepping between products — track
+    // it silently so no spurious crossing fires (bug 2026-07-21). This also
+    // collapses click-while-loading into ONE crossing: the lobby flip is
+    // tracked silently and only the resolved activation plays.
     if (authoritiesLoading) {
-      prevGovernedId.current = id;
+      prevCross.current = cur;
       return;
     }
-    if (prevGovernedId.current !== undefined && prevGovernedId.current !== id) {
-      if (id) {
-        // null→id or id→otherId: entering a (new) governed chamber.
+    const prev = prevCross.current;
+    if (prev !== undefined && (prev.mode !== cur.mode || prev.id !== cur.id)) {
+      if (cur.mode === 'legacy' && (prev.mode !== 'legacy' || (cur.id && prev.id !== cur.id))) {
+        // astryum→legacy (lobby or account), or hopping between chambers.
         setCrossing({
           direction: 'to-legacy',
-          label: activeGoverned?.label || activeGoverned?.address.slice(0, 10),
+          label: activeGoverned ? activeGoverned.label || activeGoverned.address.slice(0, 10) : undefined,
           quorum:
             typeof activeGoverned?.quorum === 'number' && typeof activeGoverned?.memberCount === 'number'
               ? `${activeGoverned.quorum}/${activeGoverned.memberCount}`
@@ -241,26 +287,38 @@ export default function AppShell({ children }: { children: ReactNode }) {
           // hardcoded 3-of-5 whatever the council actually was).
           quorumMet: typeof activeGoverned?.quorum === 'number' ? activeGoverned.quorum : undefined,
           members: typeof activeGoverned?.memberCount === 'number' ? activeGoverned.memberCount : undefined,
-          key: `to-legacy:${id}:${Date.now()}`,
+          key: `to-legacy:${cur.id ?? 'lobby'}:${Date.now()}`,
         });
-      } else {
-        // id→null: leaving governed mode, back to personal.
+      } else if (cur.mode !== 'legacy' && prev.mode === 'legacy') {
+        // legacy→astryum: leaving the product, back to personal.
         setCrossing({ direction: 'to-personal', key: `to-personal:${Date.now()}` });
       }
     }
-    prevGovernedId.current = id;
-    // Keyed only on the id transition (matches the previous crossingSeal
-    // behaviour): label/quorum/address are read from the activeGoverned
-    // closure at the moment id changes, not tracked as separate triggers — a
-    // ledger read completing after the id settles must not replay the
+    prevCross.current = cur;
+    // Keyed on the (mode, id) transition: label/quorum are read from the
+    // activeGoverned closure at that moment, not tracked as separate triggers
+    // — a ledger read completing after the id settles must not replay the
     // crossing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGoverned?.id]);
+  }, [productMode, activeGoverned?.id]);
 
   return (
     <div
-      data-authority={activeGoverned ? 'governed' : 'single'}
-      className="relative min-h-screen bg-[var(--shell-bg)] text-ink overflow-x-hidden transition-colors duration-700"
+      /* data-authority moved UP to <html> (ThemeApplier): stamped here, the
+         copilot and every body portal sat outside it and stayed gold in
+         Legacy. One stamp, one source — the whole document flips. */
+      /* overflow-x-CLIP, never -hidden (founder 2026-08-04, "scrollbar que
+         aparece y desaparece en Home"): per the Overflow spec, when one axis
+         is `hidden` the other computes to `auto` — so `overflow-x-hidden`
+         turned this wrapper into a silent Y-axis SCROLL CONTAINER. The window
+         bar is hidden on html/body (globals.css), but this one is neither, so
+         the universal *::-webkit-scrollbar rule painted it an 8px bar. Home is
+         pinned to exactly one viewport (page.tsx: h-[calc(100dvh-4rem)] under
+         main's py-8), so the reveal cascade's 14px rise and the 60s/90s polls
+         tipped it in and out of overflow — the bar blinking on and off.
+         `clip` clips the same horizontal drift WITHOUT creating a scrollport
+         (and gives MobileBar's sticky the viewport back). */
+      className="relative min-h-screen bg-[var(--shell-bg)] text-ink overflow-x-clip transition-colors duration-700"
     >
       <BackgroundFx />
 
@@ -297,16 +355,45 @@ export default function AppShell({ children }: { children: ReactNode }) {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="px-4 md:px-8 py-8 max-w-7xl mx-auto"
           >
-            {children}
+            {legacyLobby ? (
+              authoritiesLoading ? (
+                // While the registry resolves, show neither product's data —
+                // a personal flash under the Legacy shell is the exact bug.
+                <div className="flex justify-center py-24" role="status" aria-label={t('Loading')}>
+                  <Loader2 size={20} className="animate-spin text-ink/40" />
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<Landmark size={20} />}
+                  title={t('No Legacy constituted yet')}
+                  hint={t(
+                    'This is the Legacy side of Astryum: it shows a council-governed account, and this profile has none yet. Personal capital stays on the Personal side — nothing is shown here until a council exists.',
+                  )}
+                  action={
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <PrimaryButton onClick={() => router.push('/app/legacy?constitute=1')}>
+                        <Landmark size={14} /> {t('Constitute a Legacy')}
+                      </PrimaryButton>
+                      <GhostButton onClick={() => setActiveAuthorityId(OVERVIEW_AUTHORITY_ID)}>
+                        {t('Back to Personal')}
+                      </GhostButton>
+                    </div>
+                  }
+                />
+              )
+            ) : (
+              children
+            )}
           </motion.main>
         </div>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} destinations={destinations} />
       <OnboardingModal />
-      {/* Settlements signed before a reload — resumed from localStorage and
-          watched to the same machine-gated green/red as the modals (R1). */}
-      <ResumedSettlements />
+      {/* The signature ceremony is INLINE now (founder 2026-08-08: the
+          full-screen blur takeover felt bolted-on) — SignedMark plays inside
+          each operation's own progress view: SettlementIndicator (EVM/Flare)
+          and XamanQRModal's signed cover (XRPL). Nothing shell-level left. */}
 
       <AnimatePresence>
         {crossing && (
@@ -335,9 +422,12 @@ function MobileBar({
   /** Intents waiting for the user's signature — the sidebar badge is hidden behind this button on mobile, so the burger carries the red dot. */
   intentsWaiting: number;
 }) {
+  // The brand dresses for the product (founder 2026-08-08): blue lockup in Legacy.
+  const brandLogo = useAuthorityStore((s) => s.productMode) === 'legacy' ? BRAND_LOGO_LEGACY : BRAND_LOGO;
+  const { t } = useT();
   return (
     <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 bg-[var(--shell-panel)] backdrop-blur-xl border-b border-ink/[0.05] transition-colors duration-700">
-      <button onClick={onMenu} className="relative text-ink/70 hover:text-ink" aria-label="Open menu">
+      <button onClick={onMenu} className="relative text-ink/70 hover:text-ink" aria-label={t('Open menu')}>
         <Menu className="w-5 h-5" />
         {intentsWaiting > 0 ? (
           <span className="absolute -top-1 -right-1 flex w-2.5 h-2.5" aria-hidden>
@@ -348,11 +438,11 @@ function MobileBar({
       </button>
       <Link href="/app" className="flex items-center" aria-label="Astryum">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={BRAND_LOGO} alt="Astryum" className="h-7 w-auto object-contain" />
+        <img src={brandLogo} alt="Astryum" className="h-7 w-auto object-contain" />
       </Link>
-      <button onClick={onOpenPalette} className="text-ink/70 hover:text-ink" aria-label="Search">
-        <Search className="w-5 h-5" />
-      </button>
+      {/* Same-width spacer where the search button lived (founder 2026-08-08:
+          search is the Co-pilot's job) — keeps the logo optically centred. */}
+      <span className="w-5" aria-hidden />
     </header>
   );
 }
@@ -382,6 +472,8 @@ function Sidebar({
   refreshClaims: () => void;
 }) {
   const { t } = useT();
+  // The brand dresses for the product (founder 2026-08-08): blue lockup in Legacy.
+  const brandLogo = useAuthorityStore((s) => s.productMode) === 'legacy' ? BRAND_LOGO_LEGACY : BRAND_LOGO;
 
   return (
     <>
@@ -411,7 +503,7 @@ function Sidebar({
             <Link href="/app" className="block group" aria-label="Astryum">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={BRAND_LOGO}
+                src={brandLogo}
                 alt="Astryum"
                 className="w-full h-auto max-h-16 object-contain transition-transform group-hover:scale-[1.02]"
               />
@@ -425,24 +517,16 @@ function Sidebar({
           <button
             onClick={onClose}
             className="lg:hidden absolute top-3 right-2 text-ink/60 hover:text-ink"
-            aria-label="Close menu"
+            aria-label={t('Close menu')}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* search */}
-        <div className="px-3 pb-3">
-          <button
-            onClick={onOpenPalette}
-            className="flex items-center gap-2.5 w-full rounded-lg border border-ink/[0.06] bg-ink/[0.03] text-ink/45 hover:text-ink/80 hover:border-ink/15 transition-colors px-3 py-2"
-            aria-label="Search and jump to anywhere"
-          >
-            <Search className="w-4 h-4 shrink-0" strokeWidth={2} />
-            <span className="flex-1 text-left text-sm">{t('Search…')}</span>
-            <kbd className="text-[10px] font-mono border border-ink/10 rounded px-1 py-0.5 text-ink/35">⌘K</kbd>
-          </button>
-        </div>
+        {/* No search row (founder 2026-08-08: "quita el boton de buscar, que no
+            se va a usar para nada — que le pregunten al copiloto"): questions
+            go to the Co-pilot below. The ⌘K command palette stays wired as a
+            keyboard-only power shortcut. */}
 
         {/* primary nav — flat, everything visible. The Intents card lives at
             the END of the menu (founder 2026-07-19): below the last nav row,
@@ -464,10 +548,18 @@ function Sidebar({
               refreshClaims={refreshClaims}
               onBeforeOpen={onClose}
             />
+            {/* In-flight operations live right under "To sign" (founder
+                2026-08-08): the floating bottom-right cards moved here so ONE
+                sidebar spot holds signatures-waiting AND ops-in-progress.
+                Minimised by default; renders nothing when nothing is live. */}
+            <SidebarSettlements />
           </div>
         </nav>
 
-        {/* pinned footer: co-pilot · language · settings · account */}
+        {/* pinned footer: co-pilot · discord · settings · account. The
+            language toggle moved to Settings › Preferences (founder
+            2026-08-08: "escondido en settings") — the sidebar stays about
+            destinations, not preferences. */}
         <div className="px-3 pt-3 pb-3 space-y-2 border-t border-ink/[0.06]">
           {/* The Co-pilot — the crew member who explains the ship. Gold-filled
               so it reads as THE helper, not one more nav row. */}
@@ -486,8 +578,8 @@ function Sidebar({
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-volt-ink/35 group-hover:bg-volt-ink/60 transition-colors" aria-hidden />
           </button>
-          <LangToggle />
-          <ul>
+          <ul className="space-y-0.5">
+            <DiscordRow onClick={onClose} />
             <NavRow item={SETTINGS_NAV} active={isActive(pathname, SETTINGS_NAV.href)} onClick={onClose} />
           </ul>
           <AccountCard />
@@ -550,7 +642,42 @@ function NavRow({
   );
 }
 
+/**
+ * The Discord door — same shape as a nav row, but it leaves the app: a real
+ * anchor, new tab, and the outward arrow that says so. No active state (it is
+ * never "the current page") and no ⌘K entry (the palette routes internally).
+ */
+function DiscordRow({ onClick }: { onClick?: () => void }) {
+  const { t } = useT();
+  return (
+    <li className="relative">
+      <a
+        href={DISCORD_INVITE}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onClick}
+        title={t('Report a bug or send us feedback')}
+        className="group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-ink/60 hover:text-ink hover:bg-ink/[0.04] transition-colors duration-200"
+      >
+        <DiscordIcon className="w-[18px] h-[18px] shrink-0 text-ink/45 group-hover:text-[#5865F2] transition-colors duration-200" />
+        <span className="flex-1 min-w-0 transition-transform duration-200 group-hover:translate-x-0.5">
+          Discord
+          <span className="block text-[10px] leading-none text-ink/35 mt-1 truncate">
+            {t('Bugs and feedback')}
+          </span>
+        </span>
+        <ArrowUpRight
+          className="w-3.5 h-3.5 shrink-0 text-ink/25 group-hover:text-ink/50 transition-colors"
+          strokeWidth={1.8}
+          aria-hidden
+        />
+      </a>
+    </li>
+  );
+}
+
 function AccountCard() {
+  const { t } = useT();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -565,8 +692,8 @@ function AccountCard() {
       <Link
         href="/app/settings"
         className="shrink-0"
-        aria-label="Account settings"
-        title="Account settings"
+        aria-label={t('Account settings')}
+        title={t('Account settings')}
       >
         {user?.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -581,7 +708,7 @@ function AccountCard() {
       <Link href="/app/settings" className="flex-1 min-w-0 group">
         <div className="text-sm font-medium text-ink/90 truncate group-hover:text-ink">{name}</div>
         <div className="text-[11px] text-ink/40 truncate">
-          {user?.username && address ? short : isDev ? 'Dev session' : 'Connected'}
+          {user?.username && address ? short : isDev ? t('Dev session') : t('Connected')}
         </div>
       </Link>
       <button
@@ -590,8 +717,8 @@ function AccountCard() {
           router.replace('/login');
         }}
         className="shrink-0 text-ink/40 hover:text-ink/80 transition-colors p-1"
-        aria-label="Logout"
-        title="Logout"
+        aria-label={t('Logout')}
+        title={t('Logout')}
       >
         <LogOut className="w-4 h-4" strokeWidth={1.6} />
       </button>

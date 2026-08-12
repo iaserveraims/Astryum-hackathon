@@ -4,11 +4,15 @@
 
 product
 
-DeFibro tiene dos superficies: la landing pública en `/` (brand) y la app privada en `/app/*` (product, 16+ pantallas). PRODUCT.md trata la app como el register primario porque es donde vive el valor real y la mayor superficie de diseño. La landing hereda el mismo sistema visual con ajustes de densidad y motion propios de marca.
+Astryum tiene dos superficies: la landing pública en `/` (brand) y la app privada en `/app/*` (product, 16+ pantallas). PRODUCT.md trata la app como el register primario porque es donde vive el valor real y la mayor superficie de diseño. La landing hereda el mismo sistema visual con ajustes de densidad y motion propios de marca.
 
 ## Users
 
-Usuario único en beta privada: el propietario del proyecto, gestor de su propio capital DeFi en Flare Mainnet (chainId 14). Perfil técnico, conocimiento DeFi medio-alto, autocustodia con MetaMask, Bifrost o WalletConnect. No es un trader degen ni un yield farmer, es alguien protegiendo posiciones reales: supply/borrow en Kinetic, liquidez concentrada en SparkDEX, stXRP en Firelight, FXRP como puente XRP↔Flare.
+Beta abierta (aprobación por email) desde el 5-ago-2026, en XRPL + Flare Mainnet (chainId 14). Dos perfiles:
+
+**Primario — el holder que no vive dentro de DeFi y no cede sus llaves** (el usuario objetivo declarado en `/about` y en `frontend/copy/GLOSSARY.md`): tiene XRP, firma con Xaman, no tiene wallet EVM ni quiere una. Viene por control, protección firmada y sucesión — no por «hacer que su XRP produzca».
+
+**Secundario — el operador técnico**: conocimiento DeFi medio-alto, autocustodia con MetaMask o Xaman. No es un trader degen ni un yield farmer, es alguien protegiendo posiciones reales: supply/borrow en Kinetic, liquidez concentrada en SparkDEX, stXRP en Firelight, FXRP como puente XRP↔Flare.
 
 Contexto de uso: revisa el estado del portfolio a diario, reacciona a triggers (Health Factor en zona watch, LP fuera de rango, precio cruzando soporte), firma transacciones preparadas por el sistema. Nunca delega la firma, nunca quiere auto-ejecución. Trabaja desde escritorio (uso principal) y consulta desde móvil.
 
@@ -16,7 +20,7 @@ El trabajo que necesita resuelto: ver de un vistazo si su capital está en riesg
 
 ## Product Purpose
 
-DeFibro es un sistema operativo DeFi no-custodial Flare-first, orientado a proteger capital antes que optimizar yield. Se sienta entre la wallet del usuario y el ecosistema DeFi de Flare, convirtiendo estado on-chain real en evaluación de riesgo determinística y transacciones preparadas listas para firmar.
+Astryum es la capa de control no-custodial para capital XRP a través de XRPL y Flare, orientada a proteger capital antes que optimizar yield. Se sienta entre la wallet del usuario y el ecosistema DeFi, convirtiendo estado on-chain real en evaluación de riesgo determinística y transacciones preparadas listas para firmar.
 
 Existe porque ninguna herramienta cubre el hueco: DeBank y Zapper muestran portfolio sin riesgo accionable, DeFi Saver hace automatización solo en Ethereum, y los risk dashboards institucionales (Gauntlet, Chaos Labs) no son operativos para un solo usuario. Flare específicamente no tiene su capa de gestión protección-first, y XRP via FAssets necesita visibilidad propia.
 
@@ -36,13 +40,13 @@ Objetivos emocionales: confianza tranquila (el sistema vigila por ti), control d
 
 **Casino crypto**: nada de neones, glow excesivo, gradientes saturados, animaciones constantes pidiendo atención. La UI no es una slot machine. Bloquea los blues eléctricos sobre fondos negros, los verdes/rojos parpadeantes en métricas, los confetti de "transaction confirmed".
 
-**Robinhood, Coinbase Wallet**: gamificación, FOMO copy, push notifications agresivos, "you earned X today" como dopamine hit. DeFibro no premia consultar, premia entender.
+**Robinhood, Coinbase Wallet**: gamificación, FOMO copy, push notifications agresivos, "you earned X today" como dopamine hit. Astryum no premia consultar, premia entender.
 
 **Plataformas degen tipo Hyperliquid, GMX UI**: APY destacado en colores fluorescentes, métricas de ganancia en titulares, leaderboards. Aquí el riesgo va primero; el yield es contexto.
 
 **Crypto exchanges genéricos (Binance, Bybit)**: tablas densas sin jerarquía visual, banners promocionales mezclados con datos críticos, 47 colores compitiendo por atención simultánea.
 
-**Web3 corporate de 2020**: gradientes azul-púrpura, ilustraciones isométricas de "DeFi connected", iconografía genérica de blockchain. DeFibro tiene un look propio, no el preset de Figma de hace cuatro años.
+**Web3 corporate de 2020**: gradientes azul-púrpura, ilustraciones isométricas de "DeFi connected", iconografía genérica de blockchain. Astryum tiene un look propio, no el preset de Figma de hace cuatro años.
 
 ## Design Principles
 

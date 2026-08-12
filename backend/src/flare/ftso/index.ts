@@ -8,6 +8,7 @@ export * from './constants';
 export * from './FTSOClient';
 export * from './FTSOPriceWatcher';
 export * from './DataProviderMonitor';
+export * from './ProviderRegistry';
 
 // Re-export commonly used items for convenience
 export {
@@ -29,3 +30,7 @@ export {
 export {
   DataProviderMonitor
 } from './DataProviderMonitor';
+
+export {
+  FtsoProviderRegistry
+} from './ProviderRegistry';

@@ -34,7 +34,11 @@ const VAULT_STATE: Record<string, Record<string, unknown>> = {
     // Withdrawal-period queue (redeem burns now, claim releases later).
     currentPeriod: 224n,
     currentPeriodEnd: 1_784_122_969n, // 2026-07-15T13:42:49Z
-    withdrawalsOf: 5_000_000n, // FakeContract ignores args → every period has this queued
+    nextPeriodEnd: 1_784_209_369n, // 2026-07-16T13:42:49Z — where a fresh exit lands
+    // withdrawalsOf returns ASSETS (FXRP) already, not shares — its body is
+    // _convertToAssetsTotals(...) in the verified impl. FakeContract ignores
+    // args → every probed period reports this much queued.
+    withdrawalsOf: 5_000_000n,
     isWithdrawClaimed: false,
     withdrawAssets: 5_002_000n,
     withdrawShares: 5_000_000n,
@@ -249,12 +253,25 @@ describe('Firelight queued exits — /vault-claims + /vault-claim/prepare', () =
     expect(res.body.currentPeriod).toBe(224);
     expect(res.body.pending.length).toBeGreaterThan(0);
     const cur = res.body.pending.find((p: { period: number }) => p.period === 224);
-    // 5 shares × 5.002/5.000 pro-rata = 5.002 FXRP estimated.
-    expect(cur.estFxrpBase).toBe('5002000');
+    // withdrawalsOf already reports the FXRP waiting — no second conversion.
+    expect(cur.queuedFxrpBase).toBe('5000000');
+    expect(cur.estFxrpBase).toBe('5000000');
     expect(cur.claimable).toBe(false); // period still running
     expect(cur.claimableAt).toBe('2026-07-15T13:42:49.000Z');
     const past = res.body.pending.find((p: { period: number }) => p.period === 223);
     expect(past.claimable).toBe(true);
+  });
+
+  it('lists an exit queued INSIDE the running period (currentPeriod + 1)', async () => {
+    // _requestWithdraw queues into currentPeriod()+1, so a withdrawal signed
+    // right now lives in period 225 — scanning from 224 down made the money
+    // invisible until the period rolled over (founder, 2026-08-01).
+    const res = await request(app).get(`/api/flare-demo/vault-claims/${EVM_WALLET}`);
+    const fresh = res.body.pending.find((p: { period: number }) => p.period === 225);
+    expect(fresh).toBeDefined();
+    expect(fresh.claimable).toBe(false);
+    // …and its ETA is the END of that next period, not this one's.
+    expect(fresh.claimableAt).toBe('2026-07-16T13:42:49.000Z');
   });
 
   it('prepare on a FINISHED period → one unsigned claimWithdraw call', async () => {
@@ -267,7 +284,8 @@ describe('Firelight queued exits — /vault-claims + /vault-claim/prepare', () =
     expect(res.body.calls[0].to).toBe(STXRP);
     // claimWithdraw(uint256) — 0xb13acedd (verified FirelightVault impl ABI).
     expect(res.body.calls[0].data.startsWith('0xb13acedd')).toBe(true);
-    expect(res.body.disclosure.estimatedFxrpOut).toBeCloseTo(5.002, 6);
+    expect(res.body.disclosure.fxrpQueued).toBeCloseTo(5, 6);
+    expect(res.body.disclosure.estimatedFxrpOut).toBeCloseTo(5, 6);
     expect(res.body.disclosure.defibroSigns).toBe(false);
   });
 

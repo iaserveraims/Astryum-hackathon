@@ -35,7 +35,8 @@ describe('§1.1 — EIP-5792 evaluation (per-call, not just the bundle)', () => 
   it('CONFIRMED but a call REVERTED ⇒ failed, naming which call', () => {
     const v = evaluate5792({ status: 'CONFIRMED', receipts: [{ status: 'success' }, { status: 'reverted' }] });
     expect(v).toMatchObject({ done: true, failed: true });
-    expect(v.reason).toMatch(/llamada 2/);
+    // Reasons travel as codes (settlementReasonText renders the sentence).
+    expect(v.reason).toBe('BATCH_CALL_REVERTED:2');
   });
 
   it('normalises heterogeneous status/receipt encodings', () => {

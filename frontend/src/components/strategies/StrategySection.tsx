@@ -40,31 +40,20 @@ import ManualStrategyBuilder from '../earn/ManualStrategyBuilder';
 import { StrategyLLMChat } from '../earn/StrategyLLMChat';
 import type { LaunchStrategy } from '../earn/StrategyAgent';
 import { RuleEditModal } from '../moneyflows/RuleEditModal';
+import { describeRule } from '../../lib/rules/describeRule';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 /** A rule that moves savings (escrow), not a DeFi MoneyFlow — kept out here. */
 function isEscrowRule(r: AutomationRule): boolean {
   return ((r.action ?? {}) as { kind?: string }).kind === 'escrow';
 }
 
-/** One plain-language line: what watches → what it prepares. */
+/** One plain-language line: what watches → what it prepares — from the ONE
+ *  shared reader (lib/rules/describeRule), so every surface says it the same. */
 function summarize(r: AutomationRule, t: (s: string) => string): string {
-  const trigger = (r.trigger ?? {}) as { type?: string; threshold?: number; minUSD?: number; asset?: string };
-  const action = (r.action ?? {}) as { kind?: string; protocolId?: string };
+  const action = (r.action ?? {}) as { protocolId?: string };
   const proto = action.protocolId ? ` · ${action.protocolId}` : '';
-  switch (trigger.type) {
-    case 'HF_BELOW':
-      return `${t('When HF <')} ${trigger.threshold} → ${t('prepare repay')}${proto}`;
-    case 'HF_CRITICAL':
-      return `${t('When HF <')} 1.2 → ${t('prepare repay')}${proto}`;
-    case 'REWARD_THRESHOLD':
-      return `${t('When rewards ≥')} $${trigger.minUSD} → ${t('prepare compound')}${proto}`;
-    case 'LTV_ABOVE':
-      return `${t('When LTV >')} ${trigger.threshold} → ${t('prepare')} ${action.kind ?? ''}`;
-    case 'IDLE_BALANCE':
-      return `${t('When idle')} ${trigger.asset ?? ''} > $${trigger.minUSD} → ${t('prepare')} ${action.kind ?? ''}`;
-    default:
-      return `${t('prepare')} ${action.kind ?? t('action')}${proto}`;
-  }
+  return `${describeRule(r.trigger as Record<string, unknown>, r.action as Record<string, unknown>, t)}${proto}`;
 }
 
 /** The mark for a rule: custom MoneyFlow (assistant) vs the two templates. */
@@ -97,7 +86,7 @@ export function MoneyFlowBuilderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <ModalOverlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-6 py-4">
           <div className="flex items-center gap-2.5">
@@ -143,7 +132,7 @@ export function MoneyFlowBuilderModal({
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 

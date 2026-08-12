@@ -29,9 +29,12 @@ const STXRP_REDEEM_ABI = [
   'function redeem(uint256 shares, address receiver, address owner) returns (uint256)',
 ];
 // The withdrawal-period queue of FirelightVault (ABI from the verified impl).
+// `nextPeriodEnd` added 2026-08-01: a redeem queues into currentPeriod()+1, so
+// the ETA of a just-signed exit is the END of that next period, not this one.
 const STXRP_CLAIM_ABI = [
   'function currentPeriod() view returns (uint256)',
   'function currentPeriodEnd() view returns (uint48)',
+  'function nextPeriodEnd() view returns (uint48)',
   'function withdrawalsOf(uint256 period, address owner) view returns (uint256)',
   'function withdrawAssets(uint256 period) view returns (uint256)',
   'function withdrawShares(uint256 period) view returns (uint256)',
@@ -42,13 +45,22 @@ const STXRP_CLAIM_ABI = [
 
 export interface FirelightPendingWithdrawal {
   period: number;
-  /** stXRP shares queued in this period (6 dec, burned already). */
-  sharesBase: string;
+  /**
+   * FXRP queued in this period for the owner, in base units (6 dec).
+   *
+   * This is what `withdrawalsOf` actually returns — ASSETS, not shares: its
+   * body is `_convertToAssetsTotals(withdrawSharesOf[period][account], …)`
+   * (verified against the verified impl source 2026-08-01). It used to be read
+   * as `sharesBase` and then converted to assets a SECOND time; the vault sits
+   * near 1.00 FXRP/share so the error hid inside the rounding, but the number
+   * was wrong by the share ratio and the label was wrong outright.
+   */
+  queuedFxrpBase: string;
   /** Estimated FXRP the claim will release (protocol data; null if unreadable). */
   estFxrpBase: string | null;
   /** true once the period has ended — claimWithdraw succeeds then. */
   claimable: boolean;
-  /** ISO time the period ends (only for the still-running period). */
+  /** ISO time this exit becomes claimable (null when the vault can't say yet). */
   claimableAt: string | null;
 }
 
@@ -129,7 +141,7 @@ export class FirelightAdapter extends BaseAdapter {
           wallet,
           kind: 'CLAIM',
           asset: this.addresses.stXRP!,
-          amount: BigInt(q.sharesBase),
+          amount: BigInt(q.queuedFxrpBase),
           raw: {
             kind: 'claim',
             token: 'stXRP',
@@ -138,13 +150,26 @@ export class FirelightAdapter extends BaseAdapter {
             ...(q.estFxrpBase
               ? { underlying: { symbol: 'XRP', amount: q.estFxrpBase, decimals: 6 } }
               : {}),
+            // The four facts every surface needs about money in flight. Shared
+            // shape across venues (Sceptre/Upshift emit the same keys) so the
+            // dashboard classifies exits without knowing the protocol.
+            exiting: true,
+            claimable: q.claimable,
+            availableAt: q.claimableAt,
+            expiresAt: null, // Firelight never expires a claim
+            // Firelight FIXES the assets at request time — `_requestWithdraw`
+            // does `withdrawAssets[period] += previewRedeem(shares)` (verified
+            // impl source, 2026-08-01). From the signature on, this money no
+            // longer compounds: it is an amount waiting for its release date,
+            // NOT capital at work. Sceptre's queue answers the opposite.
+            stillEarning: false,
             firelightClaim: {
               period: q.period,
               claimable: q.claimable,
               claimableAt: q.claimableAt,
               estFxrpBase: q.estFxrpBase,
             },
-            sharePriceSource: 'FirelightVault withdrawAssets/withdrawShares (live on-chain)',
+            sharePriceSource: 'FirelightVault withdrawalsOf() (live on-chain)',
           },
           discoveredAt: now,
         });
@@ -172,46 +197,64 @@ export class FirelightAdapter extends BaseAdapter {
     const { ethers } = await import('ethers');
     const v = new ethers.Contract(stXrp, STXRP_CLAIM_ABI, provider ?? this.provider.getHttpProvider());
 
-    const [curRaw, endRaw] = await Promise.all([
+    // Optional reads must never take the queue down with them: a vault
+    // deployment (or a test double) that lacks one of these getters would
+    // otherwise throw synchronously, before any .catch() could run.
+    const readOpt = async (fn: string): Promise<bigint | null> => {
+      try {
+        return (await (v[fn] as () => Promise<bigint>)()) ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const [curRaw, endRaw, nextEndRaw] = await Promise.all([
       v.currentPeriod() as Promise<bigint>,
-      v.currentPeriodEnd().catch(() => null) as Promise<bigint | null>,
+      readOpt('currentPeriodEnd'),
+      readOpt('nextPeriodEnd'),
     ]);
     const currentPeriod = Number(curRaw);
-    const currentPeriodEnd = endRaw != null ? new Date(Number(endRaw) * 1000).toISOString() : null;
+    const iso = (t: bigint | null) => (t != null ? new Date(Number(t) * 1000).toISOString() : null);
+    const currentPeriodEnd = iso(endRaw);
+    const nextPeriodEnd = iso(nextEndRaw);
 
+    // START AT currentPeriod + 1 — `_requestWithdraw` queues into
+    // `currentPeriod() + 1` (verified impl source, 2026-08-01), so scanning
+    // from currentPeriod downwards MISSED every exit signed inside the running
+    // period: the founder's money vanished from the dashboard between signing
+    // the withdrawal and the period rolling over (up to a full period).
     const from = Math.max(0, currentPeriod - lookback);
     const range: number[] = [];
-    for (let p = currentPeriod; p >= from; p--) range.push(p);
+    for (let p = currentPeriod + 1; p >= from; p--) range.push(p);
     // Cheap first pass (1 read per period), details only for the hits.
-    const queuedShares = await Promise.all(
+    const queuedAssets = await Promise.all(
       range.map((p) => v.withdrawalsOf(p, wallet).catch(() => 0n) as Promise<bigint>),
     );
     const pending: FirelightPendingWithdrawal[] = [];
     for (let i = 0; i < range.length; i++) {
       const period = range[i];
-      const shares = BigInt(queuedShares[i]);
-      if (shares <= 0n) continue;
-      const [claimed, totAssets, totShares] = await Promise.all([
-        v.isWithdrawClaimed(period, wallet).catch(() => false) as Promise<boolean>,
-        v.withdrawAssets(period).catch(() => 0n) as Promise<bigint>,
-        v.withdrawShares(period).catch(() => 0n) as Promise<bigint>,
-      ]);
+      // withdrawalsOf returns ASSETS (FXRP) already — see the interface note.
+      const assets = BigInt(queuedAssets[i]);
+      if (assets <= 0n) continue;
+      const claimed = (await v
+        .isWithdrawClaimed(period, wallet)
+        .catch(() => false)) as boolean;
       if (claimed) continue;
-      // Pro-rata over the period's totals; while the period still runs those
-      // may be unset → fall back to the live 4626 conversion.
-      let estFxrpBase: string | null = null;
-      if (BigInt(totShares) > 0n && BigInt(totAssets) > 0n) {
-        estFxrpBase = ((shares * BigInt(totAssets)) / BigInt(totShares)).toString();
-      } else {
-        const conv: bigint = await v.convertToAssets(shares).catch(() => 0n);
-        estFxrpBase = conv > 0n ? conv.toString() : null;
-      }
       pending.push({
         period,
-        sharesBase: shares.toString(),
-        estFxrpBase,
+        queuedFxrpBase: assets.toString(),
+        estFxrpBase: assets.toString(),
+        // claimWithdraw reverts unless `period < currentPeriod()` — the same
+        // condition the contract enforces, not an approximation of it.
         claimable: period < currentPeriod,
-        claimableAt: period === currentPeriod ? currentPeriodEnd : null,
+        // A period becomes claimable when the NEXT one starts: the exit queued
+        // for `currentPeriod` lands at currentPeriodEnd, and one queued for
+        // currentPeriod+1 lands at nextPeriodEnd. Further out we don't guess.
+        claimableAt:
+          period === currentPeriod
+            ? currentPeriodEnd
+            : period === currentPeriod + 1
+              ? nextPeriodEnd
+              : null,
       });
     }
     return { currentPeriod, currentPeriodEnd, pending };

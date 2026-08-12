@@ -25,7 +25,7 @@ import {
   type CouncilProposalRecord,
   type FormalStance,
 } from '../../services/v1Api';
-import { POSITION_MEMO_PREFIX, XRPSCAN_TX, sha256Hex, shortAddr } from '../../lib/xrpl/councilSigning';
+import { POSITION_MEMO_PREFIX, XRPSCAN_TX, awaitValidation, sha256Hex, shortAddr } from '../../lib/xrpl/councilSigning';
 
 const STANCES: Array<{ value: FormalStance; label: string; tone: 'success' | 'danger' | 'neutral' | 'warning' }> = [
   { value: 'for', label: 'In favour', tone: 'success' },
@@ -118,6 +118,18 @@ export default function FormalPositions({
     try {
       const prep = await councilProposalsApi.anchorPositionsPrepare(proposal.id, xrpl.address);
       const { txHash } = await xrpl.sendIntent({ tx: prep.xrplTx as never });
+      // Xaman reports "signed and submitted", not applied — wait for the
+      // VALIDATED ledger before recording the acta as anchored. A tec-failed
+      // anchor recorded as done is the unearned-success disease, in the DB.
+      const v = await awaitValidation(txHash);
+      if (!v.validated) {
+        throw new Error(
+          t('Broadcast accepted — still waiting for ledger validation. Check XRPScan in a moment; if it did not apply, anchor again.'),
+        );
+      }
+      if (v.finalResult !== 'tesSUCCESS') {
+        throw new Error(`${t('The ledger validated it but it FAILED:')} ${v.finalResult}`);
+      }
       await councilProposalsApi.anchorPositionsDone(proposal.id, txHash);
       onChanged();
     } catch (e) {

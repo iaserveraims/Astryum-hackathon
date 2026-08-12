@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 
 const router = Router();
@@ -12,9 +13,12 @@ const walletAddress = z.union([evmAddress, xrplAddress]);
 
 // Trigger schema covers V1 trigger catalog
 const triggerSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('HF_BELOW'), threshold: z.number() }),
+  // HF is a ratio where 1.0 = liquidation; a threshold ≤1 can never protect and
+  // one above 3 fires on every tick. LTV lives on the wire as a 0–1 ratio: an
+  // unbounded number let "30" (meaning 30%) save a rule that could never fire.
+  z.object({ type: z.literal('HF_BELOW'), threshold: z.number().gt(1).lte(3) }),
   z.object({ type: z.literal('HF_CRITICAL') }),
-  z.object({ type: z.literal('LTV_ABOVE'), threshold: z.number() }),
+  z.object({ type: z.literal('LTV_ABOVE'), threshold: z.number().gt(0).lte(1) }),
   z.object({ type: z.literal('LIQUIDATION_DISTANCE_USD'), minBuffer: z.number() }),
   z.object({ type: z.literal('OUT_OF_RANGE'), positionId: z.string().optional() }),
   z.object({ type: z.literal('OUT_OF_RANGE_DURATION'), minutes: z.number(), positionId: z.string().optional() }),
@@ -103,7 +107,7 @@ export function resolveRuleExpiry(input: {
   return provided.getTime() > cap.getTime() ? cap : provided;
 }
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const parsed = z.object({ address: walletAddress }).safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });
@@ -120,7 +124,7 @@ router.get('/', async (req: Request, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
   return res.json({ count: rules.length, rules });
-});
+}));
 
 router.post('/', async (req: Request, res: Response) => {
   const parsed = createRuleSchema.safeParse(req.body);
@@ -235,13 +239,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/:id/runs', async (req: Request, res: Response) => {
+router.get('/:id/runs', asyncHandler(async (req: Request, res: Response) => {
   const runs = await prisma.automationRun.findMany({
     where: { ruleId: req.params.id },
     orderBy: { triggeredAt: 'desc' },
     take: 50,
   });
   return res.json({ count: runs.length, runs });
-});
+}));
 
 export default router;

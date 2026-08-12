@@ -13,9 +13,11 @@
  * sucesión". This is a programmed, conditioned, revocable transfer constituted
  * in life. Every body ends with the honest legal caveat (forced-heirship).
  *
- * Bodies are Spanish (the product's constitution language today — same as the
- * previous single hardcoded template). Field labels are English t() keys so the
- * UI translates; the user can rewrite the assembled text freely afterwards.
+ * Bodies are BILINGUAL (founder 2026-08-11: an English page produced a Spanish
+ * document — now the document is born in the page's language and the user
+ * rewrites it freely afterwards; the anchored text is whatever they edit).
+ * Field labels, help lines and placeholders are English t() keys so the UI
+ * translates.
  */
 
 export type TemplateFieldType = 'text' | 'multiline' | 'number' | 'percent' | 'date';
@@ -30,6 +32,7 @@ export interface TemplateField {
   type: TemplateFieldType;
   /** Prefill value. Special tokens: '@today' (ISO date), '@account' (the Legacy address). */
   default?: string;
+  /** English t() key (or a language-neutral hint like 'r…') — the builder renders it through t(). */
   placeholder?: string;
 }
 
@@ -47,7 +50,8 @@ export interface ConstitutionTemplate {
    */
   available: boolean;
   fields: TemplateField[];
-  body: string;
+  /** The document text per language — the builder picks the page's language. */
+  body: { es: string; en: string };
 }
 
 /** Common closing blocks: maintenance, survival folder, legal caveat. */
@@ -66,12 +70,27 @@ AVISO: este documento no sustituye a un abogado. En muchos países existe la
 legítima: hay reglas que un tribunal puede anular. Consulta antes de constituir
 con patrimonio real.`;
 
+const COMMON_TAIL_EN = `MAINTENANCE
+Annual key rotation. One quorum signature a year as a heartbeat (the annual
+amendment of this constitution can be it). Annual review of successors. If a
+signer is lost, the quorum replaces them with their designated successor
+BEFORE any other operation if the margin fell to zero.
+
+SURVIVAL
+How to operate all of this without Astryum: {{supervivencia}}
+This document is anchored on XRPL by its SHA-256 fingerprint; every amendment
+is a new version signed by the quorum.
+
+NOTICE: this document does not replace a lawyer. Many countries have
+forced-heirship rules a court can override. Take advice before constituting
+with real capital.`;
+
 const F_SUPERVIVENCIA: TemplateField = {
   id: 'supervivencia',
   label: 'Survival folder URI',
   help: 'Where the offline instructions live (IPFS/Drive/paper location) — how to operate without Astryum.',
   type: 'text',
-  placeholder: 'ipfs://… / "caja fuerte de casa"',
+  placeholder: 'ipfs://… / "the safe at home"',
 };
 
 const F_FECHA: TemplateField = { id: 'fecha', label: 'Date', type: 'date', default: '@today' };
@@ -93,7 +112,7 @@ export const CONSTITUTION_TEMPLATES: ConstitutionTemplate[] = [
     recommendedCouncil: '3 keys · quorum 2 — all yours',
     available: false,
     fields: [
-      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Patrimonio de G' },
+      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'G’s patrimony' },
       F_FECHA,
       F_CUENTA,
       {
@@ -101,7 +120,7 @@ export const CONSTITUTION_TEMPLATES: ConstitutionTemplate[] = [
         label: 'Purpose',
         help: 'Why this patrimony exists, in your own words — what "long-term" means to you.',
         type: 'multiline',
-        placeholder: 'Proteger mi capital a largo plazo: que produzca sin poder venderse en un impulso, y que ninguna llave sola pueda tocarlo.',
+        placeholder: 'Protect my capital for the long run: let it produce without being sellable on an impulse, and let no single key touch it alone.',
       },
       {
         id: 'reservaPct',
@@ -122,13 +141,14 @@ export const CONSTITUTION_TEMPLATES: ConstitutionTemplate[] = [
         label: 'Your keys',
         help: 'One per line: "device/key — rADDRESS — where its backup lives". All of them are YOURS — this is protection from a single point of failure, with no third parties.',
         type: 'multiline',
-        placeholder: 'Móvil (Xaman) — r… — backup: caja fuerte casa\nHardware — r… — backup: banco\nMóvil viejo (Xaman) — r… — backup: casa de mis padres',
+        placeholder: 'Phone (Xaman) — r… — backup: home safe\nHardware — r… — backup: bank\nOld phone (Xaman) — r… — backup: my parents’ house',
       },
       { id: 'quorumN', label: 'Quorum', type: 'number', default: '2' },
       { id: 'totalN', label: 'Total keys', type: 'number', default: '3' },
       F_SUPERVIVENCIA,
     ],
-    body: `CONSTITUCIÓN DEL {{nombre}} — v1
+    body: {
+      es: `CONSTITUCIÓN DEL {{nombre}} — v1
 Fecha: {{fecha}} · Cuenta XRPL del Legacy: {{cuenta}}
 
 1. EL PROPÓSITO
@@ -157,6 +177,35 @@ Quórum: {{quorumN}} de {{totalN}}. Cambiar estas reglas o las llaves exige
 ese quórum.
 
 6. ${COMMON_TAIL}`,
+      en: `CONSTITUTION OF {{nombre}} — v1
+Date: {{fecha}} · Legacy XRPL account: {{cuenta}}
+
+1. THE PURPOSE
+This patrimony belongs to one person: its holder. It exists to:
+{{proposito}}
+
+2. THE PROTECTION
+The account obeys no single key: it obeys the quorum of the holder’s keys.
+A key that is lost, stolen or coerced can move nothing. The account’s
+master key is disabled: the account only obeys the quorum.
+
+3. THE UNTOUCHABLE
+The base capital is never sold. It produces, and one lives off what it
+produces. A reserve of {{reservaPct}}% stays in native XRP, on this
+account, outside the productive layer.
+
+4. THE FRUITS
+Of each cycle’s yield: {{capitalizaPct}}% is capitalized back into the
+patrimony; the rest stays at the holder’s disposal.
+
+5. THE KEYS
+All keys belong to the holder:
+{{llaves}}
+Quorum: {{quorumN}} of {{totalN}}. Changing these rules or the keys
+requires that quorum.
+
+6. ${COMMON_TAIL_EN}`,
+    },
   },
   {
     id: 'familiar',
@@ -166,7 +215,7 @@ ese quórum.
     recommendedCouncil: '4 signers · quorum 3',
     available: true,
     fields: [
-      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Legacy García' },
+      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'García Legacy' },
       F_FECHA,
       F_CUENTA,
       {
@@ -174,7 +223,7 @@ ese quórum.
         label: 'Purpose',
         help: 'What your great-grandchild will read: why this patrimony exists.',
         type: 'multiline',
-        placeholder: 'Que ninguna generación de esta familia empiece de cero…',
+        placeholder: 'That no generation of this family starts from zero…',
       },
       {
         id: 'reservaPct',
@@ -191,33 +240,34 @@ ese quórum.
         default: '30',
       },
       { id: 'causaPct', label: 'Fruits to a cause (%)', type: 'percent', default: '5' },
-      { id: 'causa', label: 'The cause', type: 'text', placeholder: 'Fundación / propósito' },
+      { id: 'causa', label: 'The cause', type: 'text', placeholder: 'Foundation / purpose' },
       {
         id: 'repartos',
         label: 'Distribution of the rest',
         help: 'One line per branch/beneficiary: "Name — %". The listed shares should add up to 100.',
         type: 'multiline',
-        placeholder: 'Rama de Ana — 50\nRama de Luis — 50',
+        placeholder: 'Ana’s branch — 50\nLuis’s branch — 50',
       },
       {
         id: 'condiciones',
         label: 'Beneficiary conditions',
         help: 'One per line: "Beneficiary: written condition". The council evaluates them by quorum — nothing applies itself.',
         type: 'multiline',
-        placeholder: 'Marco: recibe su parte al cumplir 25 años',
+        placeholder: 'Marco: receives his share at 25',
       },
       {
         id: 'firmantes',
         label: 'Council members',
         help: 'One per line: "Name — rADDRESS — successor: Name, rADDRESS". These stay in this document only.',
         type: 'multiline',
-        placeholder: 'Ana — r… — sucesor: Marco, r…',
+        placeholder: 'Ana — r… — successor: Marco, r…',
       },
       { id: 'quorumN', label: 'Quorum', type: 'number', default: '3' },
       { id: 'totalN', label: 'Total signers', type: 'number', default: '4' },
       F_SUPERVIVENCIA,
     ],
-    body: `CONSTITUCIÓN DEL {{nombre}} — v1
+    body: {
+      es: `CONSTITUCIÓN DEL {{nombre}} — v1
 Fecha: {{fecha}} · Cuenta XRPL del Legacy: {{cuenta}}
 
 1. EL PROPÓSITO
@@ -251,6 +301,41 @@ el capital dentro de los destinos aprobados y no recibe los activos jamás.
 Al expirar el plazo, el derecho se extingue.
 
 7. ${COMMON_TAIL}`,
+      en: `CONSTITUTION OF {{nombre}} — v1
+Date: {{fecha}} · Legacy XRPL account: {{cuenta}}
+
+1. THE PURPOSE
+This patrimony exists to: {{proposito}}
+
+2. THE UNTOUCHABLE
+The base capital is never sold. It produces, and one lives off what it
+produces. A reserve of {{reservaPct}}% stays in native XRP, on the
+council’s account, outside the productive layer.
+
+3. THE FRUITS
+Of each cycle’s yield: {{capitalizaPct}}% is capitalized back into the
+patrimony; {{causaPct}}% goes to {{causa}}; the rest is distributed:
+{{repartos}}
+
+4. BENEFICIARY CONDITIONS
+{{condiciones}}
+Every condition is evaluated by the council by quorum, under this written
+rule, with a record on the ledger. No condition applies itself.
+
+5. THE COUNCIL
+Signers:
+{{firmantes}}
+Quorum: {{quorumN}} of {{totalN}}. Changing these rules, the signers or the
+distributions requires that quorum. The account’s master key is disabled:
+the account only obeys the council.
+
+6. THE MANDATE
+The council may appoint a director for a defined term: they direct where
+the capital produces within the approved destinations and never receive
+the assets. When the term expires, the right expires with it.
+
+7. ${COMMON_TAIL_EN}`,
+    },
   },
   {
     id: 'hijo',
@@ -260,7 +345,7 @@ Al expirar el plazo, el derecho se extingue.
     recommendedCouncil: '3 signers · quorum 2',
     available: false,
     fields: [
-      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Fondo de Marco' },
+      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Marco’s fund' },
       F_FECHA,
       F_CUENTA,
       {
@@ -273,14 +358,14 @@ Al expirar el plazo, el derecho se extingue.
         id: 'proposito',
         label: 'Purpose',
         type: 'multiline',
-        placeholder: 'Su educación y su primer techo…',
+        placeholder: 'His education and his first home…',
       },
       {
         id: 'entregas',
         label: 'Deliveries and milestones',
         help: 'One per line: "condition/date → what is delivered". Dated deliveries are enforced by the ledger (escrow); condition-based ones are evaluated by the council.',
         type: 'multiline',
-        placeholder: 'Al cumplir 18 → 30% del fondo\nAl cumplir 25 → el resto',
+        placeholder: 'At 18 → 30% of the fund\nAt 25 → the rest',
       },
       {
         id: 'tutores',
@@ -292,7 +377,8 @@ Al expirar el plazo, el derecho se extingue.
       { id: 'totalN', label: 'Total signers', type: 'number', default: '3' },
       F_SUPERVIVENCIA,
     ],
-    body: `CONSTITUCIÓN DEL {{nombre}} — v1
+    body: {
+      es: `CONSTITUCIÓN DEL {{nombre}} — v1
 Fecha: {{fecha}} · Cuenta XRPL del Legacy: {{cuenta}}
 
 1. EL PROPÓSITO
@@ -313,6 +399,29 @@ ese quórum. La llave maestra de la cuenta está deshabilitada: la cuenta solo
 obedece al consejo.
 
 4. ${COMMON_TAIL}`,
+      en: `CONSTITUTION OF {{nombre}} — v1
+Date: {{fecha}} · Legacy XRPL account: {{cuenta}}
+
+1. THE PURPOSE
+This fund exists for {{beneficiario}}: {{proposito}}
+
+2. THE DELIVERIES
+{{entregas}}
+Dated deliveries are committed on the ledger (a programmed transfer:
+unbreakable until the date, recoverable afterwards if unclaimed).
+Condition-based deliveries are evaluated by the guardian council by quorum,
+under this written rule, with a record on the ledger. No condition applies
+itself.
+
+3. THE GUARDIAN COUNCIL
+Signers:
+{{tutores}}
+Quorum: {{quorumN}} of {{totalN}}. Changing these rules or the signers
+requires that quorum. The account’s master key is disabled: the account
+only obeys the council.
+
+4. ${COMMON_TAIL_EN}`,
+    },
   },
   {
     id: 'fundacion',
@@ -322,16 +431,16 @@ obedece al consejo.
     recommendedCouncil: '5 signers · quorum 3',
     available: false,
     fields: [
-      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Fondo Mar Limpio' },
+      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Clean Sea Fund' },
       F_FECHA,
       F_CUENTA,
-      { id: 'causa', label: 'The cause', type: 'multiline', placeholder: 'Qué sostiene este fondo y para quién…' },
+      { id: 'causa', label: 'The cause', type: 'multiline', placeholder: 'What this fund sustains, and for whom…' },
       {
         id: 'usoFrutos',
         label: 'Use of the fruits',
         help: 'Written rules for what the yield may fund (and what it may not).',
         type: 'multiline',
-        placeholder: 'Becas anuales…\nNunca gasto corriente de terceros…',
+        placeholder: 'Annual grants…\nNever third parties’ running expenses…',
       },
       {
         id: 'patronos',
@@ -343,7 +452,8 @@ obedece al consejo.
       { id: 'totalN', label: 'Total signers', type: 'number', default: '5' },
       F_SUPERVIVENCIA,
     ],
-    body: `CONSTITUCIÓN DEL {{nombre}} — v1
+    body: {
+      es: `CONSTITUCIÓN DEL {{nombre}} — v1
 Fecha: {{fecha}} · Cuenta XRPL del Legacy: {{cuenta}}
 
 1. LA CAUSA
@@ -366,6 +476,30 @@ ese quórum. La llave maestra de la cuenta está deshabilitada: la cuenta solo
 obedece al consejo.
 
 5. ${COMMON_TAIL}`,
+      en: `CONSTITUTION OF {{nombre}} — v1
+Date: {{fecha}} · Legacy XRPL account: {{cuenta}}
+
+1. THE CAUSE
+{{causa}}
+
+2. THE UNTOUCHABLE
+The base capital is never sold and never donated: it produces, and the
+cause lives off what it produces.
+
+3. USE OF THE FRUITS
+{{usoFrutos}}
+Every use is approved by the board of trustees by quorum, under this
+written rule, with a record on the ledger.
+
+4. THE BOARD OF TRUSTEES
+Signers:
+{{patronos}}
+Quorum: {{quorumN}} of {{totalN}}. Changing these rules or the signers
+requires that quorum. The account’s master key is disabled: the account
+only obeys the council.
+
+5. ${COMMON_TAIL_EN}`,
+    },
   },
   {
     id: 'negocio',
@@ -375,18 +509,20 @@ obedece al consejo.
     recommendedCouncil: '5 signers · quorum 3',
     available: false,
     fields: [
-      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Legacy Taller Roca' },
+      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Taller Roca Legacy' },
       F_FECHA,
       F_CUENTA,
-      { id: 'proposito', label: 'Purpose', type: 'multiline', placeholder: 'Que el negocio siga produciendo para…' },
+      { id: 'proposito', label: 'Purpose', type: 'multiline', placeholder: 'That the business keeps producing for…' },
       { id: 'director', label: 'Director', help: 'Name of the person who directs where the capital produces.', type: 'text' },
-      { id: 'plazo', label: 'Term of the mandate', type: 'text', default: '12 meses' },
+      // The default is an English t() key — the builder resolves defaults
+      // through t(), so the ES page prefills "12 meses".
+      { id: 'plazo', label: 'Term of the mandate', type: 'text', default: '12 months' },
       {
         id: 'limites',
         label: 'Director’s limits',
         help: 'What the director may and may not do. They never receive the assets.',
         type: 'multiline',
-        placeholder: 'Solo destinos aprobados por el consejo…',
+        placeholder: 'Only council-approved destinations…',
       },
       {
         id: 'firmantes',
@@ -398,7 +534,8 @@ obedece al consejo.
       { id: 'totalN', label: 'Total signers', type: 'number', default: '5' },
       F_SUPERVIVENCIA,
     ],
-    body: `CONSTITUCIÓN DEL {{nombre}} — v1
+    body: {
+      es: `CONSTITUCIÓN DEL {{nombre}} — v1
 Fecha: {{fecha}} · Cuenta XRPL del Legacy: {{cuenta}}
 
 1. EL PROPÓSITO
@@ -421,6 +558,30 @@ cesión exige ese quórum. La llave maestra de la cuenta está deshabilitada:
 la cuenta solo obedece al consejo.
 
 5. ${COMMON_TAIL}`,
+      en: `CONSTITUTION OF {{nombre}} — v1
+Date: {{fecha}} · Legacy XRPL account: {{cuenta}}
+
+1. THE PURPOSE
+{{proposito}}
+
+2. THE MANDATE
+The council appoints {{director}} as director for a term of {{plazo}}: they
+direct where the capital produces within the approved destinations and
+never receive the assets. When the term expires, the right expires with
+it; renewing or revoking it requires the quorum.
+
+3. THE DIRECTOR’S LIMITS
+{{limites}}
+
+4. THE COUNCIL
+Signers:
+{{firmantes}}
+Quorum: {{quorumN}} of {{totalN}}. Changing these rules, the signers or the
+mandate requires that quorum. The account’s master key is disabled: the
+account only obeys the council.
+
+5. ${COMMON_TAIL_EN}`,
+    },
   },
   {
     id: 'simple',
@@ -430,7 +591,7 @@ la cuenta solo obedece al consejo.
     recommendedCouncil: '3 signers · quorum 2',
     available: false,
     fields: [
-      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'Ahorro de los niños' },
+      { id: 'nombre', label: 'Legacy name', type: 'text', placeholder: 'The kids’ savings' },
       F_FECHA,
       F_CUENTA,
       {
@@ -450,7 +611,8 @@ la cuenta solo obedece al consejo.
       { id: 'totalN', label: 'Total signers', type: 'number', default: '3' },
       F_SUPERVIVENCIA,
     ],
-    body: `CONSTITUCIÓN DEL {{nombre}} — v1
+    body: {
+      es: `CONSTITUCIÓN DEL {{nombre}} — v1
 Fecha: {{fecha}} · Cuenta XRPL del Legacy: {{cuenta}}
 
 1. EL PROPÓSITO
@@ -469,6 +631,26 @@ ese quórum. La llave maestra de la cuenta está deshabilitada: la cuenta solo
 obedece al consejo.
 
 4. ${COMMON_TAIL}`,
+      en: `CONSTITUTION OF {{nombre}} — v1
+Date: {{fecha}} · Legacy XRPL account: {{cuenta}}
+
+1. THE PURPOSE
+Set aside and deliver on written dates, with no productive layer.
+
+2. THE DELIVERIES
+{{beneficiarios}}
+Each dated delivery is committed on the ledger (a programmed transfer:
+unbreakable until the date, recoverable afterwards if unclaimed).
+
+3. THE COUNCIL
+Signers:
+{{firmantes}}
+Quorum: {{quorumN}} of {{totalN}}. Changing these rules or the signers
+requires that quorum. The account’s master key is disabled: the account
+only obeys the council.
+
+4. ${COMMON_TAIL_EN}`,
+    },
   },
 ];
 
@@ -479,18 +661,26 @@ export function resolveDefault(field: TemplateField, account: string | null): st
   return field.default ?? '';
 }
 
+/** Matches the pending marker in either language — the builder counts with it. */
+export const PENDING_MARKER_RE = /\[(?:PENDIENTE|PENDING):/g;
+
 /**
- * Assemble the document: replace each {{slot}} with its value, or a visible
- * [PENDIENTE: label] marker when empty — an honest gap beats a silent hole.
+ * Assemble the document in the page's language: replace each {{slot}} with its
+ * value, or a visible [PENDING/PENDIENTE: label] marker when empty — an honest
+ * gap beats a silent hole. `translateLabel` (pass the UI's t) renders the
+ * field label in the document's language.
  */
 export function assembleConstitution(
   template: ConstitutionTemplate,
   values: Record<string, string>,
+  opts: { lang: 'es' | 'en'; translateLabel?: (label: string) => string },
 ): string {
-  return template.body.replace(/\{\{(\w+)\}\}/g, (_m, id: string) => {
+  const marker = opts.lang === 'es' ? 'PENDIENTE' : 'PENDING';
+  return template.body[opts.lang].replace(/\{\{(\w+)\}\}/g, (_m, id: string) => {
     const v = values[id]?.trim();
     if (v) return v;
     const field = template.fields.find((f) => f.id === id);
-    return `[PENDIENTE: ${field?.label ?? id}]`;
+    const label = field?.label ?? id;
+    return `[${marker}: ${opts.translateLabel ? opts.translateLabel(label) : label}]`;
   });
 }

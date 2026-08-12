@@ -71,11 +71,11 @@ export class NonceSeatTakenError extends Error {}
  * userOp distinto). Puro: decodifica el nonce de los bytes persistidos.
  * Un hash idéntico NO es conflicto (re-prepare idempotente del mismo op).
  */
-export function findNonceSeatConflicts(
-  rows: Array<{ userOpData: string; userOpHash: string }>,
+export function findNonceSeatConflicts<T extends { userOpData: string; userOpHash: string }>(
+  rows: T[],
   nonce: bigint,
   newUserOpHash: string,
-): Array<{ userOpData: string; userOpHash: string }> {
+): T[] {
   const abi = AbiCoder.defaultAbiCoder();
   return rows.filter((r) => {
     if (r.userOpHash.toLowerCase() === newUserOpHash.toLowerCase()) return false;
@@ -86,6 +86,28 @@ export function findNonceSeatConflicts(
       return false; // fila corrupta — no puede reclamar el asiento
     }
   });
+}
+
+/**
+ * Un handoff preparado y NUNCA firmado es un asiento abandonado — no debe
+ * tapiar al usuario para siempre (2026-07: el fundador lo golpeó preparando y
+ * no firmando durante una prueba). Parte los conflictos por edad: los más
+ * viejos que el TTL se invalidan SOLOS (el usuario cerró/no firmó a tiempo);
+ * solo uno FRESCO — que podría estar firmado y en vuelo — hace esperar. Puro.
+ * Sin `createdAt` → tratado como fresco (defecto seguro: preserva el guard).
+ */
+export function classifySeatConflicts<T extends { createdAt?: Date }>(
+  conflicts: T[],
+  ttlMs: number,
+  nowMs: number,
+): { stale: T[]; fresh: T[] } {
+  const stale: T[] = [];
+  const fresh: T[] = [];
+  for (const c of conflicts) {
+    const age = c.createdAt ? nowMs - c.createdAt.getTime() : 0;
+    (age >= ttlMs ? stale : fresh).push(c);
+  }
+  return { stale, fresh };
 }
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -475,14 +497,25 @@ export async function buildDirectMintHandoff(
     const queued = await findQueuedHandoffsByPersonalAccount(personalAccount);
     const conflicts = findNonceSeatConflicts(queued, nonce, userOpHash);
     if (conflicts.length > 0) {
-      if (!input.supersedePendingNonce) {
-        throw new NonceSeatTakenError(
-          `NONCE_SEAT_TAKEN: el PA ${personalAccount} ya tiene ${conflicts.length} handoff(s) pendiente(s) con el nonce ${nonce} ` +
-            `(${conflicts.map((c) => c.userOpHash.slice(0, 10)).join(', ')}) y solo UNO puede ejecutar. ` +
-            'Si aquel Payment NO se firmó, repite con supersede=true (quedará invalidado); si se firmó, espera a que ejecute.',
-        );
+      // El asiento se libera SOLO: los conflictos abandonados (más viejos que el
+      // TTL, nunca firmados a tiempo) se invalidan sin error; solo uno FRESCO —
+      // que podría estar firmado y en vuelo — hace esperar, y aún ese se libera
+      // al instante vía /handoff/release cuando el usuario cancela.
+      const ttlMs = Math.max(Number(process.env.HANDOFF_SEAT_TTL_MIN || 5), 1) * 60_000;
+      const { stale, fresh } = classifySeatConflicts(conflicts, ttlMs, Date.now());
+      if (stale.length > 0) {
+        await markHandoffsSuperseded(stale.map((c) => c.userOpHash));
       }
-      await markHandoffsSuperseded(conflicts.map((c) => c.userOpHash));
+      if (fresh.length > 0) {
+        if (!input.supersedePendingNonce) {
+          throw new NonceSeatTakenError(
+            `NONCE_SEAT_TAKEN: el PA ${personalAccount} tiene una orden 0xFE reciente sin ejecutar en el nonce ${nonce} ` +
+              `(${fresh.map((c) => c.userOpHash.slice(0, 10)).join(', ')}). Si la firmaste, espera unos segundos a que ejecute; ` +
+              `si la cancelaste, vuelve a intentarlo — el asiento se libera al cancelar o solo en ${Math.round(ttlMs / 60_000)} min.`,
+          );
+        }
+        await markHandoffsSuperseded(fresh.map((c) => c.userOpHash));
+      }
     }
   } catch (e) {
     if (e instanceof NonceSeatTakenError) throw e;

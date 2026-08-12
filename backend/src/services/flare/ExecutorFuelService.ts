@@ -76,9 +76,19 @@ const FEE_TIERS = [3000, 500, 10000, 100];
 
 export type { AlertLevel } from '../OpsAlertService';
 
-/** Alerta del executor — canal común de operaciones (OpsAlertService). */
-export async function executorAlert(level: AlertLevel, message: string): Promise<void> {
-  return opsAlert('0xFE-executor', level, message);
+/**
+ * Alerta del executor — canal común de operaciones (OpsAlertService).
+ *
+ * `opts.runbook` es lo que convierte el aviso en acción: quien lo lea en el
+ * móvil debe poder arreglarlo sin abrir el repo. Ponlo SIEMPRE que exista un
+ * arreglo conocido (mismo contrato que los probes del Sentinel).
+ */
+export async function executorAlert(
+  level: AlertLevel,
+  message: string,
+  opts?: { runbook?: string; key?: string; facts?: Record<string, string | number | boolean | null | undefined> },
+): Promise<void> {
+  return opsAlert('0xFE-executor', level, message, opts);
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -201,8 +211,13 @@ export function assertDailyFeeBudget(
     void executorAlert(
       'critical',
       `PRESUPUESTO DIARIO DE FEES FDC AGOTADO: ${ethers.formatEther(feeLedger.spentWei)} FLR gastados en la ventana, ` +
-        `tope ${budgetFlr()} FLR (FLARE_EXECUTOR_DAILY_FEE_BUDGET_FLR)${reserveNote}. No se pagan más attestations hasta que ruede la ventana — ` +
-        'si el gasto es legítimo, sube el tope; si no, algo está reintentando con dinero real: revisar /executor-health.',
+        `tope ${budgetFlr()} FLR (FLARE_EXECUTOR_DAILY_FEE_BUDGET_FLR)${reserveNote}. No se pagan más attestations hasta que ruede la ventana`,
+      {
+        key: 'fee-budget:exhausted',
+        runbook:
+          'Si el gasto es legítimo (día de ceremonia), sube FLARE_EXECUTOR_DAILY_FEE_BUDGET_FLR en Railway. Si no lo es, ' +
+          'algo está reintentando con dinero real: /app/admin → Sistema → Desatascar y aparca al culpable.',
+      },
     );
   }
   throw new FeeBudgetExceeded(
@@ -230,8 +245,13 @@ export function recordFeeSpend(feeWei: bigint, now: number = Date.now()): void {
   void executorAlert(
     'warn',
     `presupuesto diario de fees FDC al ${pct}%: ${ethers.formatEther(feeLedger.spentWei)}/${budgetFlr()} FLR ` +
-      `gastados; quedan ${remainingWei === 0n ? '0' : ethers.formatEther(remainingWei)} FLR (~${Math.floor(remainingFlr / 20)} attestations). ` +
-      'Si hoy hay ceremonia o ventana de jueces: sube FLARE_EXECUTOR_DAILY_FEE_BUDGET_FLR o pausa un carril ANTES de agotarlo.',
+      `gastados; quedan ${remainingWei === 0n ? '0' : ethers.formatEther(remainingWei)} FLR (~${Math.floor(remainingFlr / 20)} attestations)`,
+    {
+      key: 'fee-budget:near-cap',
+      runbook:
+        'Si hoy hay ceremonia o ventana de jueces, sube FLARE_EXECUTOR_DAILY_FEE_BUDGET_FLR en Railway (o pausa un carril) ' +
+        'ANTES de agotarlo: agotado, ningún 0xFE nuevo se ejecuta hasta que ruede la ventana de 24 h.',
+    },
   );
 }
 
@@ -511,6 +531,9 @@ async function swapExactInputSingle(
 /* El chequeo de combustible — una pasada por tick del watcher                */
 /* ────────────────────────────────────────────────────────────────────────── */
 
+/** Última vez que se avisó de la reserva de rescate (anti-repetición horaria). */
+const rescueState = { alertedAt: 0 };
+
 export interface RefuelOutcome {
   stage: 'refueled' | 'skipped' | 'starved' | 'failed';
   detail: string;
@@ -586,13 +609,28 @@ export async function checkExecutorFuel(
   // en 0.5 FLR a gas de Flare; por debajo ni el swap salvavidas es seguro.
   const rescueReserveWei = envFlr('FLARE_EXECUTOR_RESCUE_RESERVE_FLR', '0.5');
   if (flrWei < rescueReserveWei) {
-    await executorAlert(
-      'critical',
-      `executor ${wallet.address} con ${ethers.formatEther(flrWei)} FLR — por debajo de la reserva de rescate ` +
-        `(${ethers.formatEther(rescueReserveWei)} FLR): ni el swap de refuel es seguro. RECARGA MANUAL YA.`,
-    );
+    // Una vez por hora, no en cada tick: el tick corre cada minuto y un canal
+    // que repite el mismo crítico 60 veces por hora se silencia — y entonces
+    // no sirve el día que grita de verdad. El estado vigente sigue visible en
+    // /app/admin (gauges + Sentinel) aunque el aviso no se repita.
+    if (Date.now() - rescueState.alertedAt >= 3_600_000) {
+      rescueState.alertedAt = Date.now();
+      await executorAlert(
+        'critical',
+        `executor ${wallet.address} con ${ethers.formatEther(flrWei)} FLR — por debajo de la reserva de rescate ` +
+          `(${ethers.formatEther(rescueReserveWei)} FLR): ni el swap de refuel es seguro.`,
+        {
+          key: 'fuel:rescue',
+          facts: { executor: wallet.address, flr: ethers.formatEther(flrWei) },
+          runbook:
+            `RECARGA MANUAL YA: manda FLR a ${wallet.address}. Sin gas no se ejecuta ni un mint y los 0xFE firmados ` +
+            'se quedan esperando (el XRP del usuario sigue a salvo en el Core Vault).',
+        },
+      );
+    }
     return gauges;
   }
+  rescueState.alertedAt = 0;
 
   gauges.refuel = await maybeRefuel(provider, wallet, fxrpAddr, flrWei, fxrpUBA, log);
 
@@ -623,7 +661,13 @@ async function maybeRefuel(
     await executorAlert(
       'critical',
       `refuel imposible: el executor no tiene FXRP que swapear (saldo ${ethers.formatEther(flrWei)} FLR ` +
-        `< umbral ${ethers.formatEther(minWei)}). Recarga manual de FLR o FXRP.`,
+        `< umbral ${ethers.formatEther(minWei)})`,
+      {
+        key: 'fuel:starved',
+        runbook:
+          `Manda FLR (o FXRP) a ${wallet.address}. Si el sweep se está llevando demasiado FXRP, sube ` +
+          'FLARE_EXECUTOR_KEEP_FXRP en Railway para que quede buffer de trabajo.',
+      },
     );
     return { stage: 'starved', detail: 'sin FXRP propio para repostar' };
   }
@@ -708,6 +752,12 @@ async function maybeRefuel(
     await executorAlert(
       'critical',
       `refuel FALLÓ (saldo ${ethers.formatEther(flrWei)} FLR, umbral ${ethers.formatEther(minWei)}): ${detail}`,
+      {
+        key: 'fuel:refuel-failed',
+        runbook:
+          `Recarga FLR a mano en ${wallet.address} para no depender del swap. Si el fallo habla de cotización o pool, ` +
+          'SparkDEX no tiene liquidez FXRP/WFLR ahora mismo: reintentará solo en el próximo tick.',
+      },
     );
     return { stage: 'failed', detail };
   }

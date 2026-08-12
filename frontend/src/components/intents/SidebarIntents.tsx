@@ -36,13 +36,56 @@ import { backdropFade, modalPop } from '../ui/motion';
 import { FriendlyError } from '../../lib/authError';
 import { useT } from '../../i18n/LanguageProvider';
 import { useAuthorities } from '../../hooks/useAuthorities';
-import type { PreparedIntent } from '../../services/v1Api';
+import Link from 'next/link';
+import { councilProposalsApi, type CouncilProposalRecord, type PreparedIntent } from '../../services/v1Api';
 import type { VaultClaimEntry } from '../../hooks/useVaultClaimsWatcher';
 import { VaultClaimModal } from '../positions/VaultClaimModal';
 import { actionLabel, shortAddr, FLARESCAN_TX, WaitingCard } from './intentPresentation';
 import { useIntentSigning } from './useIntentSigning';
+import { useModalRegistration } from '../ui/ModalPortal';
 
 const MAX_ROWS = 3;
+
+/**
+ * The council's live proposals, for the sidebar tray.
+ *
+ * The card was TITLED "Proposals" in Legacy mode and showed none of them
+ * (founder 2026-08-03): it listed automation intents and vault claims, so a
+ * decision waiting for three family signatures was invisible unless someone
+ * opened the Legacy tab. Read-only, polled gently — the tray never signs.
+ */
+function useCouncilProposals(account: string | null): CouncilProposalRecord[] {
+  const [rows, setRows] = useState<CouncilProposalRecord[]>([]);
+  useEffect(() => {
+    if (!account) {
+      setRows([]);
+      return;
+    }
+    let alive = true;
+    const load = () => {
+      void councilProposalsApi
+        .list([account], true)
+        .then((r) => {
+          if (alive) setRows(r.proposals ?? []);
+        })
+        .catch(() => {
+          /* the tray degrades to empty; the Legacy tab is the source of truth */
+        });
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [account]);
+  return rows;
+}
+
+/** Days left, floored at 0 — "expires today" reads better than "-1 days". */
+function daysLeft(iso: string): number {
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
+}
 
 /** Short local "day month, HH:mm" for the in-flight ETA. */
 function etaLabel(iso: string | null): string {
@@ -79,9 +122,10 @@ export function SidebarIntentsCard({
 }) {
   const { t } = useT();
   // In Legacy (a governed authority is active) this same surface IS the council
-  // proposals tray → title it "Proposals"; in Personal it stays "Intents".
+  // proposals tray → title it "Proposals"; in Personal it is what it does:
+  // things waiting for the user's signature ("intent" is architecture, R3).
   const { activeGoverned } = useAuthorities();
-  const cardTitle = activeGoverned ? t('Proposals') : t('Intents');
+  const cardTitle = activeGoverned ? t('Proposals') : t('To sign');
   const [open, setOpen] = useState(false);
   /** The queued exit being claimed right now (opens VaultClaimModal). */
   const [claimOpen, setClaimOpen] = useState<VaultClaimEntry | null>(null);
@@ -112,9 +156,11 @@ export function SidebarIntentsCard({
 
   const visible = useMemo(() => waiting.filter((i) => !hiddenIds.has(i.id)), [waiting, hiddenIds]);
   const claimableNow = useMemo(() => claims.filter((c) => c.claimable).length, [claims]);
-  // The badge counts everything that needs the user: signatures + ready claims.
-  const count = visible.length + claimableNow;
-  const hasAnything = visible.length > 0 || claims.length > 0;
+  const proposals = useCouncilProposals(activeGoverned?.address ?? null);
+  // The badge counts everything that needs the user: signatures, ready claims
+  // and the council's live proposals — the decisions with a deadline.
+  const count = visible.length + claimableNow + proposals.length;
+  const hasAnything = visible.length > 0 || claims.length > 0 || proposals.length > 0;
 
   const signing = useIntentSigning((intentId) => {
     setHiddenIds((s) => new Set(s).add(intentId));
@@ -158,6 +204,56 @@ export function SidebarIntentsCard({
           </p>
         ) : (
           <div className="mt-2.5 space-y-3">
+            {/* The council's live proposals — what the family has to decide,
+                with the three facts that decide whether to act now: WHAT it
+                moves (the order's own summary), how many signatures are in,
+                and how long is left before it expires. */}
+            {proposals.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.1em] text-ink/35 px-1 mb-1">
+                  {t('Council proposals')}
+                </div>
+                <div className="space-y-0.5">
+                  {proposals.slice(0, MAX_ROWS).map((p) => {
+                    const signed = p.signatures.reduce((s, x) => s + x.weight, 0);
+                    const days = daysLeft(p.expiresAt);
+                    return (
+                      <Link
+                        key={p.id}
+                        href="/app/legacy"
+                        onClick={() => onBeforeOpen?.()}
+                        className="group block rounded-lg px-2 py-1.5 hover:bg-ink/[0.06] transition-colors"
+                        title={t('Open the proposal inbox')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="flex-1 min-w-0 truncate text-[12px] text-ink/90">
+                            {p.title || p.txType}
+                          </span>
+                          <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-volt opacity-80 group-hover:opacity-100">
+                            {p.status === 'ready' ? t('Emit') : t('Sign')}
+                            <ChevronRight className="w-3 h-3" />
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-ink/40 truncate">
+                          {signed}/{p.quorum} {t('signed')} ·{' '}
+                          {days === 0 ? t('expires today') : `${days} ${t('days left')}`}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  {proposals.length > MAX_ROWS && (
+                    <Link
+                      href="/app/legacy"
+                      onClick={() => onBeforeOpen?.()}
+                      className="block px-2 py-1 text-[11px] text-ink/45 hover:text-ink/75 transition-colors"
+                    >
+                      +{proposals.length - MAX_ROWS} {t('more')}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Waiting signatures — automation-prepared intents. */}
             {visible.length > 0 && (
               <div>
@@ -297,6 +393,10 @@ function IntentSignModal({
   const { t } = useT();
   const { evm, sign, dismiss, signingId, busyId, actionError, lastSigned, settling } = signing;
 
+  // Own portal (AnimatePresence lives outside), so register by hand: the page
+  // scroll stays locked and background pollers hold still while this is up.
+  useModalRegistration();
+
   return (
     <motion.div
       variants={backdropFade}
@@ -358,8 +458,8 @@ function IntentSignModal({
                     ? t('Signed — taking longer than normal, still watching the chain.')
                     : t('Signed — settling on Flare…')}
                 </p>
-                <span className="text-xs text-ink/55 font-mono break-all select-all">
-                  {shortAddr(settling.ref)}
+                <span className="text-xs text-ink/55 break-all select-all">
+                  {t('Receipt')}: <span className="font-mono">{shortAddr(settling.ref)}</span>
                 </span>
               </div>
             </Card>
@@ -390,8 +490,8 @@ function IntentSignModal({
             <EmptyState
               bare
               icon={<FileSignature className="w-8 h-8 text-ink/40" />}
-              title="Nothing waiting for your signature"
-              hint="Automations leave prepared intents here when they fire."
+              title={t('Nothing waiting for your signature')}
+              hint={t('Automations leave prepared intents here when they fire.')}
             />
           ) : (
             <div className="space-y-4">

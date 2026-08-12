@@ -33,12 +33,22 @@
  *
  * Config:
  *   XRPL_KEEPER_ENABLED=true         — flag (#10: nada sin flag)
- *   XRPL_KEEPER_SEED=s…              — cuenta PROPIA del keeper (paga sus fees)
+ *   XRPL_KEEPER_SEED=s…              — cuenta PROPIA del keeper (paga sus fees);
+ *                                      vale family seed o secret numbers de Xaman
  *   XRPL_KEEPER_ACCOUNTS=rA,rB       — cuentas cuyos escrows vigila
  *   XRPL_KEEPER_INTERVAL_MIN=60      — cadencia del tick
  *
- * Cada tx lleva el SourceTag de Make Waves (los builders lo estampan) → cada
- * finish/cancel del keeper cuenta para el leaderboard.
+ * ── Atribución: estas tx van SIN el SourceTag del proyecto ──────────────────
+ * Las firma una cuenta OPERATIVA de Astryum y las dispara un cron. Las bases
+ * del Make Waves definen la unidad de actividad por el FIRMANTE — *«An Active
+ * User means an XRPL address that has signed at least 1 transaction carrying
+ * your Source Tag»* (T&C v1.0 §6) — y prohíben *«self-dealing, scripted
+ * transactions or other forms of metric manipulation»* (§7) bajo pena de
+ * descalificación. Etiquetar estas tx metería nuestra propia dirección en el
+ * recuento de cuentas activas del proyecto: +1 dirección frente a un listón de
+ * 300, a cambio de exponer el premio entero. Por eso los builders reciben
+ * `attribution: 'operational'` (ver config/xrplSourceTag). La actividad real
+ * del usuario ya está atribuida: el EscrowCreate lo firmó él, con tag.
  */
 
 import { rippleTimeToISOTime } from 'xrpl';
@@ -127,12 +137,28 @@ export class XrplEscrowKeeper {
   async tick(): Promise<void> {
     this.lastRunAt = new Date();
     const accounts = parseAccounts(process.env.XRPL_KEEPER_ACCOUNTS);
+    const failed: string[] = [];
     for (const account of accounts) {
       try {
         await this.sweepAccount(account);
       } catch (e) {
+        failed.push(`${account}: ${(e as Error).message}`);
         console.error(`[xrpl-escrow-keeper] sweep de ${account} falló: ${(e as Error).message}`);
       }
+    }
+    // Latido para el Sentinel (2026-08-03): este keeper avisaba de lo que hacía,
+    // pero no de que seguía vivo. Si su ciclo se para, nadie lo notaba.
+    try {
+      const { markAgentTick } = await import('./ops/agentHeartbeats');
+      const everyMs = Math.max(Number(process.env.XRPL_KEEPER_INTERVAL_MIN || 60), 5) * 60_000;
+      markAgentTick('xrpl-escrow-keeper', {
+        title: 'Keeper de escrows XRPL',
+        everyMs,
+        ok: failed.length === 0,
+        ...(failed.length > 0 ? { detail: failed.join(' · ') } : {}),
+      });
+    } catch {
+      /* el latido nunca puede tumbar el tick que lo emite */
     }
   }
 
@@ -173,10 +199,19 @@ export class XrplEscrowKeeper {
       return;
     }
 
-    const { Client, Wallet } = await import('xrpl');
-    const wallet = Wallet.fromSeed(seed);
+    const { Client } = await import('xrpl');
+    const { xrplWalletFromSecret } = await import('../utils/xrplSecret');
+    // NUNCA Wallet.fromSeed suelto: xrpl.js 4.5 deriva ed25519 por defecto y con
+    // una seed secp256k1 (la de Xaman) firmaría desde OTRA cuenta. Ver xrplSecret.
+    const wallet = xrplWalletFromSecret(seed);
     const build = action === 'finish' ? buildEscrowFinish : buildEscrowCancel;
-    const { xrplTx } = build({ account: wallet.classicAddress, owner: escrow.owner, offerSequence });
+    const { xrplTx } = build({
+      account: wallet.classicAddress,
+      owner: escrow.owner,
+      offerSequence,
+      // Cuenta propia + cron ⇒ jamás el tag del proyecto (cabecera §Atribución).
+      attribution: 'operational',
+    });
 
     const client = new Client(process.env.XRPL_WS_URL || 'wss://xrplcluster.com', {
       connectionTimeout: 10_000,

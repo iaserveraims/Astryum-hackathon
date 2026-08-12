@@ -79,8 +79,23 @@ export function dedupeWallets(userAddress: string | undefined, wallets: WalletRe
     // Old builds could register the same address under a different `network`,
     // leaving duplicate rows. Keep the row that carries the user's nickname —
     // collapsing to the unnamed one made every surface show the raw address
-    // even though the rename was saved.
-    if (!existing || (!existing.label && w.label)) map.set(key, w);
+    // even though the rename was saved. The identity fields (label/colour/
+    // glyph) are MERGED across the duplicates, not dropped with the losing
+    // row — same rule as the Wallets screen's dedupe, so every surface
+    // resolves the same name for the same address.
+    if (!existing) {
+      map.set(key, w);
+    } else {
+      const winner = !existing.label && w.label ? w : existing;
+      const loser = winner === w ? existing : w;
+      map.set(key, {
+        ...winner,
+        label: winner.label ?? loser.label,
+        color: winner.color ?? loser.color ?? null,
+        icon: winner.icon ?? loser.icon ?? null,
+        walletType: winner.walletType ?? loser.walletType,
+      });
+    }
   }
   if (userAddress && !map.has(keyFor(userAddress))) {
     map.set(keyFor(userAddress), { address: userAddress, label: 'Login wallet', chainId: 14 });
@@ -90,6 +105,47 @@ export function dedupeWallets(userAddress: string | undefined, wallets: WalletRe
 
 /** The demo reads exactly two rails: Flare (14) and XRPL (pseudo 1440002). */
 export const DEMO_CHAIN_IDS = new Set([14, 1440002]);
+
+/* ------------------------------------------------------------------------ */
+/* What a wallet HOLDS — the one shared reading.                            */
+/* ------------------------------------------------------------------------ */
+
+export interface WalletHolding {
+  /** Upper-cased asset symbol (raw 0x contract keys are dropped, never shown). */
+  symbol: string;
+  /** USD value across every non-debt position of that asset. */
+  usd: number;
+  /** Real quantity when the snapshot carries a price (qty = USD / price,
+   *  the buildAssetDetail rule). No price → no quantity; never invented. */
+  qty?: number;
+}
+
+const HOLDING_DEBT_KINDS = new Set(['debt', 'borrow']);
+
+/**
+ * The tokens a wallet holds, biggest first — ONE criterion shared by the
+ * Summary band, the Wallets screen and any future surface (a debt is an
+ * obligation, not a holding; dust ≤ $0.01 and raw-address asset keys are
+ * dropped rather than shown as noise).
+ */
+export function walletHoldings(snap: PortfolioSnapshot): WalletHolding[] {
+  const byAsset: Record<string, { usd: number; qty?: number }> = {};
+  for (const p of snap.positions) {
+    const kind = String(p.kind ?? '').toLowerCase();
+    if (HOLDING_DEBT_KINDS.has(kind)) continue;
+    const usd = Math.abs(typeof p.amountUSD === 'number' ? p.amountUSD : 0);
+    if (usd <= 0.01) continue;
+    const asset = String(p.asset ?? '').trim();
+    if (!asset || /^0x[0-9a-f]{6,}$/i.test(asset)) continue;
+    const entry = (byAsset[asset.toUpperCase()] ??= { usd: 0 });
+    entry.usd += usd;
+    const price = typeof p.priceUSD === 'number' ? p.priceUSD : 0;
+    if (price > 0) entry.qty = (entry.qty ?? 0) + usd / price;
+  }
+  return Object.entries(byAsset)
+    .sort((a, b) => b[1].usd - a[1].usd)
+    .map(([symbol, v]) => ({ symbol, usd: v.usd, qty: v.qty }));
+}
 
 function groupPositions(
   positions: PortfolioSnapshot['positions'],

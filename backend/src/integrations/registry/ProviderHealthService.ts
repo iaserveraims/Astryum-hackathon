@@ -1,4 +1,5 @@
 import { IntegrationRegistry, registry as defaultRegistry } from './IntegrationRegistry';
+import { StubProvider } from './StubProvider';
 import type { ProviderHealth } from '../interfaces/IProvider';
 
 const HEALTH_TIMEOUT_MS = 5_000;
@@ -61,7 +62,7 @@ export class ProviderHealthService {
             lastCheckAt: h.lastCheckAt ?? new Date().toISOString(),
           };
           this.registry.updateHealth(p.id, enriched);
-          await this.trackTransition(p.id, enriched.status !== 'down');
+          await this.trackTransition(p, enriched.status !== 'down');
         } catch (err) {
           this.registry.updateHealth(p.id, {
             status: 'down',
@@ -69,7 +70,7 @@ export class ProviderHealthService {
             lastCheckAt: new Date().toISOString(),
             reason: (err as Error).message,
           });
-          await this.trackTransition(p.id, false, (err as Error).message);
+          await this.trackTransition(p, false, (err as Error).message);
         }
       }),
     );
@@ -80,8 +81,19 @@ export class ProviderHealthService {
    * guardaba el estado, pero nadie se enteraba. 3 ticks 'down' consecutivos
    * (~3 min) → warn por el canal común; recuperación tras haber alertado →
    * info. Sin flag: sin webhook configurado esto es solo log, como antes.
+   *
+   * Los STUBS no alertan jamás (2026-08-01): un placeholder sin provider real
+   * cableado responde 'down' por construcción y no puede recuperarse — su
+   * aviso no es accionable y entierra los reales. Su estado sigue visible en
+   * el panel admin; el día que se cablee el provider real, alerta solo.
    */
-  private async trackTransition(id: string, healthy: boolean, reason?: string): Promise<void> {
+  private async trackTransition(
+    p: { id: string },
+    healthy: boolean,
+    reason?: string,
+  ): Promise<void> {
+    if (p instanceof StubProvider) return;
+    const id = p.id;
     if (healthy) {
       this.downTicks.delete(id);
       if (this.alertedDown.delete(id)) {

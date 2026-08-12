@@ -59,3 +59,34 @@ export function healthTone(score: number | null): 'success' | 'warning' | 'dange
   if (score >= 30) return 'warning';
   return 'danger';
 }
+
+/* ------------------------------------------------------------------ */
+/* Canonical HF word + tone (Fase 1, 2026-07-30)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The ONE plain-language reading of a raw health factor, shared by every
+ * surface that renders one. Before this, four different band scales coexisted
+ * (cutoffs at 1.1 / 1.2 / 1.5 / 2.0 depending on the file), so HF 1.3 was
+ * green on one screen and amber on the next. Bands align with the protection
+ * presets (Cautious 1.50 / Balanced 1.25 / Tight 1.10): if 1.5 is the
+ * cautious ALERT threshold, then 1.5–2 is healthy, not yellow.
+ *
+ * The rule of the spec (R1.2): an HF never renders alone — word first, number
+ * second, anchor explained ("1.00 = liquidation").
+ */
+export function hfWord(
+  hf: number | null | undefined,
+  t: (s: string) => string,
+): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } {
+  if (hf == null || !Number.isFinite(hf)) return { label: t('no debt'), tone: 'neutral' };
+  if (hf >= 2) return { label: t('very healthy'), tone: 'success' };
+  if (hf >= 1.5) return { label: t('healthy'), tone: 'success' };
+  if (hf >= 1.2) return { label: t('keep an eye on it'), tone: 'warning' };
+  return { label: t('at risk'), tone: 'danger' };
+}
+
+/** Tone alone, for pills/bars that already carry the word elsewhere. */
+export function hfTone(hf: number | null | undefined): 'success' | 'warning' | 'danger' | 'neutral' {
+  return hfWord(hf, (s) => s).tone;
+}

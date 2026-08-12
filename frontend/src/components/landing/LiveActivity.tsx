@@ -14,8 +14,15 @@
  * operations from the executor's audit rows. No mock data, ever: an empty
  * feed renders as an honest "no operations in this window", because a
  * transparency section that fakes activity would defeat its own purpose.
- * Amounts and hashes are public chain data; user addresses never travel
- * (aviso de privacidad §3.2).
+ *
+ * The public cupo (founder 2026-08-01, before the beta opens): the LIST is
+ * closed — it keeps the operations already published (ours, from testing) and
+ * nothing new enters, not even ours. A tx hash is an identifier: whoever opens
+ * it on the explorer sees the account behind it, its amount and its whole
+ * history (aviso §3.2). The COUNTER stays live and whole: an aggregate that
+ * names nobody. The copy below states both, because a section that showed a
+ * frozen list while promising "every operation, live" would be lying to prove
+ * honesty.
  */
 
 import { useEffect, useState } from 'react';
@@ -99,19 +106,25 @@ export default function LiveActivity({ lang }: { lang: Lang }) {
               <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: GOLD }} />
             </span>
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/45" style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-              {T('Transparencia · en vivo', 'Transparency · live', lang)}
+              {/* El contador sigue en vivo; la muestra de abajo está cerrada.
+                  El eyebrow ya no dice "en vivo" para no prometer un directo
+                  que la lista dejó de ser. */}
+              {T('Transparencia · comprobable', 'Transparency · verifiable', lang)}
             </p>
           </div>
           <h2
             className="mx-auto mt-4 max-w-2xl text-center font-bold text-white text-balance"
             style={{ fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', lineHeight: 1.12, letterSpacing: '-0.03em' }}
           >
-            {T('No nos creas: compruébalo en la cadena.', "Don't take our word for it: check the chain.", lang)}
+            {/* Retitled 2026-07-29 (founder OK): on /proof this section lives
+                under a hero that already says "we don't ask for trust" — the
+                headline now adds information instead of repeating the claim. */}
+            {T('Operaciones reales, comprobantes públicos.', 'Real operations, public receipts.', lang)}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed text-white/50">
             {T(
-              'Cada operación ejecutada desde Astryum, en tiempo real y con su comprobante público. Ningún dato es nuestro: los enlaces van a los exploradores de XRPL y Flare, donde cualquiera puede verificarlo.',
-              'Every operation executed through Astryum, in real time and with its public receipt. None of this data is ours: the links go to the XRPL and Flare explorers, where anyone can verify it.',
+              'El contador sigue vivo y recoge todas las operaciones liquidadas desde Astryum. Debajo dejamos una muestra cerrada de operaciones nuestras, con su comprobante público: los enlaces van a los exploradores de XRPL y Flare, donde cualquiera puede verificarlo sin nosotros.',
+              'The counter stays live and covers every operation settled through Astryum. Below we keep a closed sample of our own operations, with its public receipt: the links go to the XRPL and Flare explorers, where anyone can verify it without us.',
               lang,
             )}
           </p>
@@ -130,13 +143,17 @@ export default function LiveActivity({ lang }: { lang: Lang }) {
               <p className="py-6 text-center text-sm text-white/40">
                 {feed
                   ? T(
-                      'Sin operaciones en esta ventana todavía — cuando las haya, aparecerán aquí solas.',
-                      'No operations in this window yet — when there are, they will show up here on their own.',
+                      'No hay ninguna operación en la muestra publicada.',
+                      'There is no operation in the published sample.',
                       lang,
                     )
                   : T('Leyendo la cadena…', 'Reading the chain…', lang)}
               </p>
             ) : (
+              <>
+              <p className="pt-3 text-[10px] uppercase tracking-[0.18em] text-white/30" style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+                {T('Muestra cerrada · operaciones nuestras', 'Closed sample · our own operations', lang)}
+              </p>
               <ul className="divide-y divide-white/5">
                 {rows.map((r, i) => (
                   <li key={`${r.flareTxHash ?? r.xrplTxHash ?? i}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm">
@@ -170,12 +187,13 @@ export default function LiveActivity({ lang }: { lang: Lang }) {
                   </li>
                 ))}
               </ul>
+              </>
             )}
 
             <p className="mt-3 border-t border-white/8 pt-3 text-[11px] leading-relaxed text-white/35">
               {T(
-                'Datos on-chain públicos (hashes e importes). Nunca mostramos direcciones de usuarios. Se actualiza cada 30 s.',
-                'Public on-chain data (hashes and amounts). We never show user addresses. Refreshes every 30 s.',
+                'Datos on-chain públicos (hashes e importes) de operaciones nuestras. Las de nuestros usuarios no se publican aquí: el hash de una transacción lleva a su cuenta en el explorador, así que tampoco enseñamos el hash. El contador se actualiza cada 30 s; la muestra está cerrada.',
+                'Public on-chain data (hashes and amounts) from our own operations. Our users’ operations are never published here: a transaction hash leads to their account on the explorer, so we don’t show the hash either. The counter refreshes every 30 s; the sample is closed.',
                 lang,
               )}
             </p>

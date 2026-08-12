@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { safeErrorDetail } from '../utils/safeError';
 import { PortfolioEngine } from '../engines/portfolio/PortfolioEngine';
 import { registry } from '../integrations/registry/IntegrationRegistry';
 import { bootstrapRegistry } from '../integrations/registry/bootstrap';
@@ -65,7 +66,7 @@ router.get('/', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'portfolio_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -87,7 +88,7 @@ router.get('/snapshot/latest', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'latest_snapshot_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -110,7 +111,7 @@ router.post('/snapshot', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'snapshot_create_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -132,7 +133,7 @@ router.get('/breakdown', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'breakdown_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -171,7 +172,7 @@ router.get('/history', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'history_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -196,7 +197,7 @@ router.get('/canonical', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'canonical_portfolio_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });

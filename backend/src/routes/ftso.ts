@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { FTSOClient, FTSOPriceWatcher, DataProviderMonitor } from '../flare/ftso';
+import { FTSOClient, FTSOPriceWatcher, DataProviderMonitor, FtsoProviderRegistry } from '../flare/ftso';
 import { isValidFTSOSymbol } from '../flare/ftso/constants';
 import winston from 'winston';
 
@@ -62,6 +62,10 @@ try {
 } catch (error) {
   logger.error('Failed to initialize FTSO services', { error });
 }
+
+// No RPC involved — safe to build outside the try (its only failure mode is
+// an empty list at request time, never a throw).
+const providerRegistry = new FtsoProviderRegistry({ network, logger });
 
 // ===============================
 // PRICE ENDPOINTS
@@ -431,6 +435,28 @@ router.get('/provider/:address/history', async (req: Request, res: Response) => 
       error: error.message || 'Failed to fetch provider history'
     });
   }
+});
+
+/**
+ * GET /api/ftso/providers/registry
+ * Listed data providers (name + delegation address) from the public
+ * TowoLabs registry — the same directory the Flare explorers render.
+ * Served A–Z: a directory, not a ranking (invariant #9). Empty on failure —
+ * the delegate form's manual address input never depends on this.
+ */
+router.get('/providers/registry', async (_req: Request, res: Response) => {
+  const providers = await providerRegistry.getListedProviders();
+
+  res.json({
+    success: true,
+    data: providers,
+    meta: {
+      timestamp: new Date(),
+      network,
+      count: providers.length,
+      source: 'TowoLabs/ftso-signal-providers'
+    }
+  });
 });
 
 /**

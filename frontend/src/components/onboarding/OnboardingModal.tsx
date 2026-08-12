@@ -24,7 +24,7 @@ function Mark() {
 }
 
 export default function OnboardingModal() {
-  const { lang, setLang } = useT();
+  const { lang, setLang, t } = useT();
   const es = lang === 'es';
   const router = useRouter();
 
@@ -63,18 +63,18 @@ export default function OnboardingModal() {
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: EASE }}
-        className="relative w-full max-w-lg rounded-2xl border border-ink/10 bg-surface-1 overflow-hidden"
+        className="relative w-full max-w-lg my-auto rounded-2xl border border-ink/10 bg-surface-1 overflow-hidden"
         style={{ boxShadow: '0 40px 120px rgba(0,0,0,0.7)' }}
       >
         {/* header */}
         <div className="flex items-center justify-between px-6 pt-6">
           <Mark />
-          <button onClick={onSkip} className="flex items-center gap-1.5 text-xs text-ink/40 hover:text-ink/80 transition-colors" aria-label="Skip setup">
+          <button onClick={onSkip} className="flex items-center gap-1.5 text-xs text-ink/40 hover:text-ink/80 transition-colors" aria-label={t('Skip setup')}>
             {es ? 'Omitir' : 'Skip'} <X className="w-3.5 h-3.5" />
           </button>
         </div>

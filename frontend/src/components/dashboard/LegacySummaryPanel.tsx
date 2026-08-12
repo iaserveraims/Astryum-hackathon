@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarClock, Landmark, Users } from 'lucide-react';
 import { Card, HairlineCell, HairlineGroup, MicroLabel, Pill } from '../ui/primitives';
 import { useT } from '../../i18n/LanguageProvider';
+import { fmtQtyActive } from '../../lib/format';
 import { useAuthorityAccount } from '../../lib/authority/useAuthorityAccount';
 import {
   xrplLegacy,
@@ -33,7 +34,7 @@ function shortAddr(a: string): string {
 
 function fmtXrp(n?: number | null): string {
   if (n == null || !Number.isFinite(n)) return '—';
-  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return fmtQtyActive(n, 2); // app-locale aware (Fase 3; was en-US pinned)
 }
 
 /** Next future release among the escrows, if any. */

@@ -293,6 +293,10 @@ export class XamanWalletService implements WalletService {
           qrPng: payload.refs?.qr_png,
           deeplink: payload.next?.always,
           purpose: 'signin',
+          // options.expire is 300s on every payload we create — feed the
+          // modal's countdown so the QR never dies in silence (F6).
+          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          pushed: payload.pushed === true,
         });
       }
 
@@ -678,6 +682,8 @@ export class XamanWalletService implements WalletService {
                   cleanup();
                   resolve(account);
                 } else {
+                  // Same terminal distinction as the WS path (see above).
+                  emitXamanStatus(status.meta.expired ? 'expired' : 'rejected');
                   cleanup();
                   resolve(null);
                 }
@@ -726,8 +732,11 @@ export class XamanWalletService implements WalletService {
 
             clearTimeout(timeoutId);
 
-            // Rejected / cancelled / expired → no account.
+            // Rejected / cancelled / expired → no account. Tell the modal WHICH
+            // terminal state this is: a "no" is a choice and a timeout is a
+            // timeout — neither should vanish into a generic red error.
             if (statusUpdate.signed === false || statusUpdate.cancelled || statusUpdate.expired) {
+              emitXamanStatus(statusUpdate.expired ? 'expired' : 'rejected');
               cleanup();
               resolve(null);
               return;
@@ -991,6 +1000,8 @@ export class XamanWalletService implements WalletService {
           qrPng: payloadResponse.refs?.qr_png,
           deeplink: payloadResponse.next?.always,
           purpose: 'message',
+          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          pushed: payloadResponse.pushed === true,
         });
       }
 
@@ -1064,6 +1075,8 @@ export class XamanWalletService implements WalletService {
           deeplink: payloadResponse.next?.always,
           purpose: 'transaction',
           summary: describeXrplTx(transaction),
+          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          pushed: payloadResponse.pushed === true,
         });
       }
 
@@ -1139,6 +1152,8 @@ export class XamanWalletService implements WalletService {
         qrPng: payloadResponse.refs?.qr_png,
         deeplink: payloadResponse.next?.always,
         purpose: 'message',
+        expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+        pushed: payloadResponse.pushed === true,
       });
     }
 
@@ -1223,6 +1238,8 @@ export class XamanWalletService implements WalletService {
           deeplink: payloadResponse.next?.always,
           purpose: 'transaction',
           summary: describeXrplTx(transaction),
+          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          pushed: payloadResponse.pushed === true,
         });
       }
 
@@ -1314,6 +1331,24 @@ export class XamanWalletService implements WalletService {
     } catch { /* push is best-effort — the QR path stays available */ }
   }
 
+  // Remove a stored token by VALUE (the caller only knows the token it attached,
+  // not which account key it was stored under).
+  private dropUserToken(token: string): void {
+    try {
+      const raw = localStorage.getItem('xaman-user-tokens');
+      if (!raw) return;
+      const tokens = JSON.parse(raw) as Record<string, string>;
+      let changed = false;
+      for (const account of Object.keys(tokens)) {
+        if (tokens[account] === token) {
+          delete tokens[account];
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem('xaman-user-tokens', JSON.stringify(tokens));
+    } catch { /* best-effort — worst case the dead token lingers */ }
+  }
+
   private userTokenFor(address: string | undefined | null): string | undefined {
     try {
       if (!address) return undefined;
@@ -1386,6 +1421,14 @@ export class XamanWalletService implements WalletService {
           console.info(
             `[Xaman] payload ${data.uuid} (${payload.txjson?.TransactionType ?? '?'}) — pushed: ${data.pushed === true}`,
           );
+
+          // A token Xaman refused to push with is dead (app reinstalled, push
+          // permission revoked, device changed). Forget it, or every later
+          // payload keeps "pushing" into the void — the next signed payload
+          // re-captures a live token via storeUserToken.
+          if (payload.user_token && data.pushed === false) {
+            this.dropUserToken(payload.user_token);
+          }
 
           // Remember the last payload: if its signature is missed live (tab
           // closed, ws drop), resolveUserToken() recovers the push token from it.

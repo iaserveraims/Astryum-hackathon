@@ -48,6 +48,11 @@ jest.mock('../../services/JurisdictionService', () => ({
   jurisdictionService: { isDefiExecutionAllowed: () => ({ allowed: true }) },
 }));
 
+// §1.3: the router now enforces the Legacy gate server-side. These tests
+// exercise the proposal machinery, not the gate (that has its own suite) —
+// the global switch opens it without touching the (unmocked) users table.
+process.env.LEGACY_ENABLED = 'true';
+
 import crypto from 'crypto';
 import express from 'express';
 import request from 'supertest';

@@ -195,10 +195,12 @@ export default function OrbitStatusCard() {
               tanto detalle"). */}
           <div className="border-t border-ink/[0.06] max-h-[300px] overflow-y-auto px-4 py-3">
             <MicroLabel>{es ? 'Bitácora de a bordo' : 'Ship log'}</MicroLabel>
-            {/* Only the last FOUR versions (founder 2026-07-27) — the log is a
-                pulse, not an archive. */}
+            {/* Last TWELVE versions (founder 2026-08-08, superseding the four of
+                2026-07-27): most releases are visual/perf one-liners, so with
+                only four a DeFi entry scrolled out of sight within days. The
+                panel keeps its height — beyond it, the list scrolls. */}
             <ul className="mt-2.5 space-y-3.5">
-              {CHANGELOG.slice(0, 4).map((entry) => {
+              {CHANGELOG.slice(0, 12).map((entry) => {
                 const defi = entry.items.filter((i) => i.kind === 'defi');
                 const otherKinds = [
                   ...new Set(

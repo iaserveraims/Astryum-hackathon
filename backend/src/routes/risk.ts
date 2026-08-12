@@ -6,6 +6,8 @@ import { registry } from '../integrations/registry/IntegrationRegistry';
 import { bootstrapRegistry } from '../integrations/registry/bootstrap';
 import type { CanonicalRisk } from '../canonical/types/Risk';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { safeErrorDetail } from '../utils/safeError';
 import { riskInboxService } from '../services/RiskInboxService';
 import { resistanceLayerService } from '../services/ResistanceLayerService';
 import { PositionPerformanceService } from '../services/PositionPerformanceService';
@@ -37,7 +39,7 @@ router.get('/portfolio', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'risk_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -67,7 +69,7 @@ router.get('/positions/:positionId', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'risk_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -82,7 +84,7 @@ router.get('/positions/:positionId/performance', async (req: Request, res: Respo
   } catch (err) {
     return res.status(500).json({
       error: 'performance_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -112,7 +114,7 @@ router.post('/simulate-market-drop', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'simulate_drop_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -137,7 +139,7 @@ router.get('/canonical', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(500).json({
       error: 'canonical_risk_failed',
-      message: err instanceof Error ? err.message : String(err),
+      message: safeErrorDetail(err),
     });
   }
 });
@@ -149,15 +151,15 @@ router.get('/inbox', requireSiweAuth, async (req: Request, res: Response) => {
     const items = await riskInboxService.list(req.siwe!.userId);
     return res.json({ success: true, data: { items, total: items.length } });
   } catch (err) {
-    return res.status(500).json({ success: false, error: 'INBOX_FAILED', detail: (err as Error).message });
+    return res.status(500).json({ success: false, error: 'INBOX_FAILED', detail: safeErrorDetail(err) });
   }
 });
 
-router.post('/inbox/:id/ack', requireSiweAuth, async (req: Request, res: Response) => {
+router.post('/inbox/:id/ack', requireSiweAuth, asyncHandler(async (req: Request, res: Response) => {
   const ok = await riskInboxService.acknowledge(req.params.id, req.siwe!.userId);
   if (!ok) return res.status(404).json({ success: false, error: 'ITEM_NOT_FOUND' });
   return res.json({ success: true });
-});
+}));
 
 router.post('/assess', requireSiweAuth, (req: Request, res: Response) => {
   const { fromChainId, toChainId, asset } = req.body ?? {};

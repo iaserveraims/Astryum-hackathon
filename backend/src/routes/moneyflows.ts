@@ -21,6 +21,7 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 import { canonicalMoneyFlowSchema } from '../canonical/moneyflow/CanonicalMoneyFlow';
 import { translateCmfToEvmRules } from '../canonical/moneyflow/CanonicalEvmTranslator';
@@ -51,7 +52,7 @@ router.post('/translate', (req: Request, res: Response) => {
 // for whatever wallet is active, and the EVM-only regex used to 400 every
 // XRPL wallet (console spam, 2026-07-19). Same loose schema as the flow-level
 // routes; unknown addresses simply return an empty list.
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const parsed = z.object({ address: z.string().min(4).max(64) }).safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });
@@ -79,7 +80,7 @@ router.get('/', async (req: Request, res: Response) => {
     rules: flowRules,
   }));
   return res.json({ count: flows.length, flows });
-});
+}));
 
 // GET /api/moneyflows/capability — what each chain's translator compiles TODAY.
 router.get('/capability', (_req: Request, res: Response) => {
@@ -88,7 +89,7 @@ router.get('/capability', (_req: Request, res: Response) => {
 
 // GET /api/moneyflows/apy-markets — the curated markets an APY rule can watch
 // (addresses stay server-side; the UI never hardcodes a contract).
-router.get('/apy-markets', async (_req: Request, res: Response) => {
+router.get('/apy-markets', asyncHandler(async (_req: Request, res: Response) => {
   const { knownApyMarkets, readSupplyAprs } = await import('../services/flare/MarketRatesService');
   const markets = knownApyMarkets();
   // Best-effort live rate so the creator shows the CURRENT number with source.
@@ -100,7 +101,7 @@ router.get('/apy-markets', async (_req: Request, res: Response) => {
       source: 'supplyRatePerTimestamp (live, per-second rate, simple APR)',
     })),
   });
-});
+}));
 
 /** Resolve the flow's rule ids, scoped to the caller-named wallet address —
  *  a canonicalRef never operates on rules that hang off someone else's wallet. */
@@ -119,18 +120,18 @@ async function flowRuleIds(canonicalRef: string, address: string): Promise<strin
 const flowBodySchema = z.object({ address: z.string().min(4).max(64) });
 
 // POST /api/moneyflows/:ref/pause — instant, owner-side, whole flow.
-router.post('/:ref/pause', async (req: Request, res: Response) => {
+router.post('/:ref/pause', asyncHandler(async (req: Request, res: Response) => {
   const parsed = flowBodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
   const ids = await flowRuleIds(req.params.ref, parsed.data.address);
   if (ids.length === 0) return res.status(404).json({ error: 'flow_not_found' });
   await prisma.automationRule.updateMany({ where: { id: { in: ids } }, data: { enabled: false } });
   return res.json({ ok: true, paused: ids.length });
-});
+}));
 
 // POST /api/moneyflows/:ref/resume — re-arm the flow; expired rules stay off
 // (renewal = a new create, so the TTL clamp always re-runs).
-router.post('/:ref/resume', async (req: Request, res: Response) => {
+router.post('/:ref/resume', asyncHandler(async (req: Request, res: Response) => {
   const parsed = flowBodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
   const ids = await flowRuleIds(req.params.ref, parsed.data.address);
@@ -146,16 +147,16 @@ router.post('/:ref/resume', async (req: Request, res: Response) => {
     });
   }
   return res.json({ ok: true, resumed: result.count, expiredSkipped: ids.length - result.count });
-});
+}));
 
 // DELETE /api/moneyflows/:ref?address= — remove the whole flow.
-router.delete('/:ref', async (req: Request, res: Response) => {
+router.delete('/:ref', asyncHandler(async (req: Request, res: Response) => {
   const parsed = flowBodySchema.safeParse({ address: req.query.address });
   if (!parsed.success) return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });
   const ids = await flowRuleIds(req.params.ref, parsed.data.address);
   if (ids.length === 0) return res.status(404).json({ error: 'flow_not_found' });
   await prisma.automationRule.deleteMany({ where: { id: { in: ids } } });
   return res.status(200).json({ ok: true, deleted: ids.length });
-});
+}));
 
 export default router;

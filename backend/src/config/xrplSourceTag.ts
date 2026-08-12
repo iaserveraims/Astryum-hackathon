@@ -17,6 +17,25 @@
  * Every future XRPL builder (EscrowCreate, OfferCreate, AMMDeposit…) must
  * import {@link getXrplSourceTag} and stamp its txjson — that is the rule that
  * keeps "no Astryum-composed tx leaves without the tag" true.
+ *
+ * ── The one carve-out: transactions Astryum itself signs ────────────────────
+ * The tag attributes activity to the project, and the Challenge rules define
+ * the unit of that activity as the SIGNER: *"An Active User means an XRPL
+ * address that has signed at least 1 transaction carrying your Source Tag"*
+ * (Make Waves T&C v1.0 §6). The same rules prohibit *"self-dealing, scripted
+ * transactions or other forms of metric manipulation"* (§7) on pain of
+ * disqualification and forfeiture of any prize.
+ *
+ * An operational Astryum account (the escrow keeper's `XRPL_KEEPER_SEED`) is
+ * OURS and its ticks are scripted. Stamping the project tag on those would
+ * enrol our own address as an "active account" of the project — literally the
+ * §7 pattern, for a gain of +1 address against a 300-address bar. So:
+ *
+ *   attribution 'user'        → the USER signs it   → stamp the tag (default)
+ *   attribution 'operational' → ASTRYUM signs it    → NEVER stamp the tag
+ *
+ * The default is 'user' because that is the overwhelming case and an omitted
+ * tag is silently lost attribution; the operational path has to say so.
  */
 
 const UINT32_MAX = 0xffffffff;
@@ -52,8 +71,21 @@ export function getXrplSourceTag(): number | undefined {
   return cached;
 }
 
-/** Stamp an XRPL txjson object with the project SourceTag (no-op when unset). */
-export function withSourceTag<T extends Record<string, unknown>>(txjson: T): T & { SourceTag?: number } {
+/**
+ * Who signs the transaction being composed — decides whether the project tag
+ * belongs on it. See the carve-out in this file's header.
+ */
+export type XrplTxAttribution = 'user' | 'operational';
+
+/**
+ * Stamp an XRPL txjson object with the project SourceTag (no-op when unset,
+ * and no-op for `operational` transactions Astryum signs with its own key).
+ */
+export function withSourceTag<T extends Record<string, unknown>>(
+  txjson: T,
+  attribution: XrplTxAttribution = 'user',
+): T & { SourceTag?: number } {
+  if (attribution === 'operational') return txjson;
   const tag = getXrplSourceTag();
   return tag === undefined ? txjson : { ...txjson, SourceTag: tag };
 }

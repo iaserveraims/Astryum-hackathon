@@ -23,12 +23,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, X, Loader2, AlertTriangle, Zap } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
+import { describeAction } from '../../lib/rules/describeRule';
 import {
   moneyflows as moneyflowsApi,
   rules as rulesApi,
   type CanonicalMoneyFlow,
   type CmfStep,
 } from '../../services/v1Api';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 /** A wallet the flow's rules can bind to: the one that holds the position and
  *  transacts on Flare (Smart Account of a linked Xaman, or a linked EVM wallet). */
@@ -52,9 +54,10 @@ function triggerLabel(step: CmfStep, t: (s: string) => string): string {
   const tr = step.trigger;
   switch (tr.kind) {
     case 'health-factor':
-      return `${t('When Health Factor drops below')}`;
+      return `${t('Alert me when my cushion (health factor) drops below')}`;
     case 'ltv':
-      return `${t('When LTV rises above')}`;
+      // The person edits a % — the wire keeps the 0–1 ratio (seed case R1.1).
+      return `${t('Borrowed share — alert me above')} (%)`;
     case 'reward':
       return `${t('When claimable rewards exceed')} (USD)`;
     case 'idle-balance':
@@ -64,9 +67,22 @@ function triggerLabel(step: CmfStep, t: (s: string) => string): string {
   }
 }
 
+/** The scale, one line under the input — a bare number box was the trap. */
+function triggerHint(step: CmfStep, t: (s: string) => string): string | null {
+  const kind = step.trigger.kind;
+  if (kind === 'health-factor') return t('1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.');
+  if (kind === 'ltv') return t('How much of your borrowing limit you are using. Above 80% liquidation risk is high.');
+  return null;
+}
+
 function triggerValueOf(step: CmfStep): string {
   const tr = step.trigger;
-  if (tr.kind === 'health-factor' || tr.kind === 'ltv') return String(tr.threshold);
+  if (tr.kind === 'ltv') {
+    // Display in % (legacy out-of-range rows saved as "30" already mean 30%).
+    const ratio = Number(tr.threshold);
+    return String(ratio > 1 ? Math.round(ratio) : Math.round(ratio * 100));
+  }
+  if (tr.kind === 'health-factor') return String(tr.threshold);
   if (tr.kind === 'reward' || tr.kind === 'idle-balance') return String(tr.minUsd);
   return '';
 }
@@ -75,7 +91,7 @@ function actionSummary(step: CmfStep, t: (s: string) => string): string {
   const a = step.actions[0];
   if (!a) return '';
   const venue = a.venue?.protocolId ? ` · ${a.venue.protocolId}` : '';
-  return `${t('prepare')} ${a.verb} ${a.asset.symbol}${venue}`;
+  return `${describeAction({ kind: a.verb }, t)} — ${a.asset.symbol}${venue}`;
 }
 
 export function CmfReviewModal({
@@ -124,10 +140,12 @@ export function CmfReviewModal({
       policy: { ...cmf.policy, cooldownMinutes: Math.round(parseFloat(cooldown) || 0) },
       steps: cmf.steps.map((s) => {
         const edit = steps[s.level];
-        const n = parseFloat(edit?.triggerValue ?? '');
+        const n = parseFloat(String(edit?.triggerValue ?? '').replace(',', '.'));
         const trigger = { ...s.trigger } as CmfStep['trigger'];
         if (Number.isFinite(n)) {
-          if (trigger.kind === 'health-factor' || trigger.kind === 'ltv') trigger.threshold = n;
+          if (trigger.kind === 'health-factor') trigger.threshold = n;
+          // The field shows %, the wire keeps the 0–1 ratio (seed case R1.1).
+          if (trigger.kind === 'ltv') trigger.threshold = Math.min(99, Math.max(1, n)) / 100;
           if (trigger.kind === 'reward' || trigger.kind === 'idle-balance') trigger.minUsd = n;
         }
         const actions = s.actions.map((a, i) =>
@@ -172,7 +190,7 @@ export function CmfReviewModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div className="flex items-center gap-3">
@@ -181,7 +199,7 @@ export function CmfReviewModal({
             </div>
             <div>
               <h2 className="text-base font-semibold text-ink">{t('Custom MoneyFlow')}</h2>
-              <p className="text-xs text-ink/40 mt-0.5">{t('Drafted by the assistant — nothing runs until you review and sign')}</p>
+              <p className="text-xs text-ink/40 mt-0.5">{t('Drafted by the assistant. Watching is free and touches nothing — when it fires, we will ask YOU to sign.')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors">
@@ -247,6 +265,9 @@ export function CmfReviewModal({
                   onChange={(e) => setStep(s.level, { triggerValue: e.target.value })}
                   className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
                 />
+                {triggerHint(s, t) && (
+                  <p className="text-[11px] text-ink/40 mt-1.5">{triggerHint(s, t)}</p>
+                )}
               </div>
               {steps[s.level]?.amountValue !== undefined && (
                 <div>
@@ -310,11 +331,11 @@ export function CmfReviewModal({
               className="flex-1 flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20 disabled:opacity-50"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              {t('Activate MoneyFlow')}
+              {t('Turn on the watch (nothing is signed now)')}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

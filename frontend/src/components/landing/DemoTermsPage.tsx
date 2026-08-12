@@ -35,16 +35,16 @@ const RISKS = (lang: Lang) => [
   {
     title: T('Dinero real, bajo topes', 'Real money, under caps', lang),
     body: T(
-      'La demo opera con XRP real en mainnet. Precisamente por eso existe un tope por operación y un límite diario de volumen — la app te muestra los valores vigentes antes de operar. Los topes acotan lo máximo que un fallo puede exponer mientras validamos; son parte del diseño de esta fase, no un ajuste opcional.',
-      'The demo operates with real XRP on mainnet. That is exactly why there is a per-operation cap and a daily volume limit — the app shows you the values in force before you act. The caps bound the most a failure can expose while we validate; they are part of this phase by design, not an optional setting.',
+      'La demo opera con XRP real en mainnet. Por eso los carriles de estrategia llevan un tope por operación y un límite diario de volumen, y el panel te muestra cuánto llevas consumido. Los topes acotan lo que un fallo puede exponer mientras validamos; son parte del diseño de esta fase, no un ajuste opcional.',
+      'The demo operates with real XRP on mainnet. That is why the strategy rails carry a per-operation cap and a daily volume limit, and the dashboard shows how much of it you have used. The caps bound what a failure can expose while we validate; they are part of this phase by design, not an optional setting.',
       lang,
     ),
   },
   {
     title: T('Tú firmas todo — y es irreversible', 'You sign everything — and it is irreversible', lang),
     body: T(
-      'Cada operación la firmas tú, en tu wallet. Una transacción firmada es irreversible por diseño de las cadenas. No tenemos tus claves ni forma de tenerlas — el servidor aborta el arranque si detecta una clave de usuario en su entorno — así que no podemos mover, bloquear ni recuperar tus fondos. Revisa siempre antes de firmar.',
-      'You sign every operation yourself, in your wallet. A signed transaction is irreversible by design of the chains. We do not hold your keys and have no way to — the server aborts start-up if it detects a user key in its environment — so we cannot move, freeze or recover your funds. Always review before signing.',
+      'Cada operación la firmas tú, en tu wallet. Una transacción firmada es irreversible por diseño de las cadenas. No tenemos tus claves ni forma de tenerlas — el servidor aborta el arranque si encuentra una clave privada EVM en su entorno — así que no podemos mover, bloquear ni recuperar tus fondos. Revisa siempre antes de firmar.',
+      'You sign every operation yourself, in your wallet. A signed transaction is irreversible by design of the chains. We do not hold your keys and have no way to — the server aborts start-up if it finds a raw EVM private key in its environment — so we cannot move, freeze or recover your funds. Always review before signing.',
       lang,
     ),
   },
@@ -72,15 +72,83 @@ const RISKS = (lang: Lang) => [
       lang,
     ),
   },
+  {
+    title: T('Las reglas preparan — jamás firman, y no son un seguro', 'Rules prepare — they never sign, and they are no insurance', lang),
+    body: T(
+      'Las reglas que configures (protecciones, cosechas, movimientos programados) preparan transacciones cuando se cumple tu condición — nunca las firman ni las envían: te llegan a ti, a la wallet dueña de la posición, para que las firmes. Ninguna automatización tiene discreción: el sistema no elige importes, destinos ni momentos fuera de los parámetros que tú fijaste. No garantizamos que una regla se dispare a tiempo ni que llegue antes que el mercado: si nuestros sistemas están caídos cuando tu condición se cumple, la transacción puede llegar tarde o no llegar, y el riesgo de la posición sigue siendo tuyo. En cuentas gobernadas por varias firmas (consejo), una orden solo sale con el quórum que vosotros configurasteis en la propia cadena; esa orden lleva incluida una fee de servicio de 0,2 XRP que se paga en el momento de la firma —no cuando la prueba se entrega después— y es visible antes de firmar: si la entrega posterior falla, la fee ya está pagada.',
+      'The rules you configure (protections, harvests, scheduled moves) prepare transactions when your condition is met — they never sign or send them: they reach you, at the wallet that owns the position, for you to sign. No automation has discretion: the system picks no amounts, destinations or timing outside the parameters you set. We do not guarantee a rule fires on time or beats the market: if our systems are down when your condition is met, the prepared transaction may arrive late or not at all, and the position risk remains yours. On accounts governed by several signers (a council), an order only leaves with the quorum you configured on-chain; that order carries a 0.2 XRP service fee paid at the moment of signing — not when the proof is delivered afterwards — and visible before you sign: if the later delivery fails, the fee is already paid.',
+      lang,
+    ),
+  },
+  {
+    title: T('Tus datos, y lo que la cadena hace imborrable', 'Your data, and what the chain makes indelible', lang),
+    body: T(
+      'Queda registrada tu aceptación de estas condiciones con la versión del texto y la fecha — al crear la cuenta, y también al entrar al panel si accediste con wallet o si cambiamos un texto de forma material. Lo que firmas se publica en cadenas públicas para siempre — ni nosotros ni nadie puede borrarlo — y, para completar ciertas operaciones, cuentas operativas nuestras publican transacciones que referencian la tuya: cualquiera que analice la cadena puede ver que tu dirección operó a través de Astryum. El detalle completo de qué tratamos, quién lo recibe y cómo ejercer tus derechos está en el Aviso de privacidad.',
+      'Your acceptance of these terms is recorded with the text version and date — when you create the account, and also on entering the dashboard if you signed in with a wallet or if we change a text materially. What you sign is published on public chains forever — neither we nor anyone can erase it — and, to complete certain operations, operational accounts of ours publish transactions referencing yours: anyone analysing the chain can see your address operated through Astryum. The full detail of what we process, who receives it and how to exercise your rights lives in the Privacy notice.',
+      lang,
+    ),
+  },
+  {
+    title: T('Responsabilidad: limitada a 50 €, con las excepciones de ley', 'Liability: capped at €50, with the legal carve-outs', lang),
+    body: T(
+      'Dentro de los límites que la ley permite, nuestra responsabilidad total por esta demo se limita a 50 €. La demo no tiene coste de suscripción ni de acceso; las únicas fees que existen se muestran antes de firmar. Este límite no se aplica en casos de dolo o negligencia grave, ni donde la ley de consumo no permita limitarla — nada en esta página limita derechos que la ley te reconozca como consumidor. Tampoco respondemos del comportamiento de los protocolos de terceros, de la variación de precio de tus activos, de las decisiones que tomes con la información que mostramos, ni de la indisponibilidad de redes, nodos o wallets ajenas.',
+      'Within the limits the law allows, our total liability for this demo is capped at €50. The demo has no subscription or access cost; the only fees that exist are shown before you sign. This cap does not apply in cases of wilful misconduct or gross negligence, nor where consumer law does not allow limiting it — nothing on this page limits rights the law grants you as a consumer. Nor do we answer for third-party protocol behaviour, price movements of your assets, decisions you make with the information we show, or the unavailability of networks, nodes or third-party wallets.',
+      lang,
+    ),
+  },
+];
+
+/**
+ * Rules of use — added 2026-08-01. The audit (legal/16) found the published
+ * page was a risk notice without the protective clauses every benchmarked
+ * product carries: minimum age, excluded territories, suspension right and
+ * tax responsibility. Applicable law and forum stay DELIBERATELY absent —
+ * that clause is the lawyer's (Rome I / Brussels I bis nuance, legal/02 §12).
+ */
+const RULES = (lang: Lang) => [
+  {
+    title: T('Solo mayores de edad', 'Adults only', lang),
+    body: T(
+      'La demo es para mayores de 18 años. Al crear una cuenta o aceptar estas condiciones declaras que los tienes. No hacemos verificación de identidad en esta fase — precisamente por eso te lo preguntamos y registramos tu declaración; si eres menor, no uses la demo.',
+      'The demo is for people 18 or older. By creating an account or accepting these terms you declare that you are. We do no identity verification in this phase — which is exactly why we ask and record your declaration; if you are a minor, do not use the demo.',
+      lang,
+    ),
+  },
+  {
+    title: T('Desde dónde no se puede usar', 'Where it cannot be used from', lang),
+    body: T(
+      'La demo no puede usarse desde territorios sujetos a sanciones internacionales (entre otros: Corea del Norte, Irán, Siria, Cuba, Rusia, Bielorrusia y las regiones de Crimea, Donetsk y Luhansk), ni por personas incluidas en listas de sanciones. Al usarla declaras que no es tu caso. Hoy no aplicamos bloqueo por localización — la región que operas la declaras tú — así que esta regla funciona por declaración, y te la contamos tal cual. Además, los protocolos de destino imponen sus propias restricciones territoriales en sus términos, que te aplican al usarlos.',
+      'The demo cannot be used from territories under international sanctions (among others: North Korea, Iran, Syria, Cuba, Russia, Belarus and the regions of Crimea, Donetsk and Luhansk), nor by persons on sanctions lists. By using it you declare that this is not your case. We do not geoblock by location today — you declare the region you operate — so this rule works by declaration, and we tell you so plainly. Destination protocols additionally impose their own territorial restrictions in their terms, which apply to you when you use them.',
+      lang,
+    ),
+  },
+  {
+    title: T('Podemos suspender cuentas — tu capital no se toca', 'We can suspend accounts — your capital is untouched', lang),
+    body: T(
+      'Podemos suspender o cerrar una cuenta ante abuso del servicio, fraude, incumplimiento de estas reglas o requerimiento legal. Y aquí la arquitectura juega a tu favor: como nunca custodiamos, suspender una cuenta jamás retiene tu dinero — tu capital sigue en tus wallets y en los protocolos, operable sin nosotros.',
+      'We can suspend or close an account for service abuse, fraud, breach of these rules or legal requirement. And here the architecture works in your favour: since we never hold custody, suspending an account never withholds your money — your capital stays in your wallets and in the protocols, operable without us.',
+      lang,
+    ),
+  },
+  {
+    title: T('Tus impuestos y el uso del servicio', 'Your taxes and use of the service', lang),
+    body: T(
+      'Las obligaciones fiscales derivadas de tus operaciones son tuyas: no hacemos cálculo ni retención de impuestos. La demo se ofrece para tu uso personal; no está permitido atacar el servicio, sondearlo en busca de vulnerabilidades sin avisarnos, ni usarlo para actividades ilícitas. El nombre y el contenido de Astryum son del operador; el código publicado en nuestro repositorio mantiene la licencia que lo acompaña.',
+      'Tax obligations arising from your operations are yours: we do no tax calculation or withholding. The demo is offered for your personal use; attacking the service, probing it for vulnerabilities without telling us, or using it for unlawful activity is not permitted. The Astryum name and content belong to the operator; the code published in our repository keeps the license that accompanies it.',
+      lang,
+    ),
+  },
 ];
 
 const PIPELINE = (lang: Lang) => [
   {
     step: '01',
-    title: T('Se construye — sin firmar', 'It is built — unsigned', lang),
+    title: T('Se prepara — sin firmar', 'It is prepared — unsigned', lang),
+    // GLOSSARY reconciliation 2026-07-29: "prepara" / "transacción", never
+    // "compila" / "payload".
     body: T(
-      'Astryum compila tu acción en una transacción SIN firmar: qué contrato toca, qué función llama, con qué parámetros. El payload completo es tuyo antes de que exista firma alguna.',
-      'Astryum compiles your action into an UNSIGNED transaction: which contract it touches, which function it calls, with which parameters. The full payload is yours before any signature exists.',
+      'Astryum prepara tu acción en una transacción SIN firmar: qué contrato toca, qué función llama, con qué parámetros. La transacción completa es tuya antes de que exista firma alguna.',
+      'Astryum prepares your action as an UNSIGNED transaction: which contract it touches, which function it calls, with which parameters. The full transaction is yours before any signature exists.',
       lang,
     ),
   },
@@ -88,8 +156,8 @@ const PIPELINE = (lang: Lang) => [
     step: '02',
     title: T('Se simula y se enseña', 'It is simulated and shown', lang),
     body: T(
-      'Antes de llegar a tu wallet, la operación se simula y se te muestra entera: efecto esperado, costes (incluida la fee del ejecutor, que fija el protocolo, no Astryum) y los chequeos que pasa. Sin sorpresas ni letra pequeña.',
-      'Before it reaches your wallet, the operation is simulated and shown to you whole: expected effect, costs (including the executor fee, set by the protocol, not by Astryum) and the checks it passes. No surprises, no small print.',
+      'Antes de llegar a tu wallet se te muestra entera: efecto esperado, costes (incluida la fee del ejecutor, que fija el protocolo, no Astryum) y los chequeos que pasa. En los carriles de estrategia de Flare y en las órdenes de consejo, además, se simula contra la cadena antes de que firmes. Sin sorpresas ni letra pequeña.',
+      'Before it reaches your wallet it is shown to you whole: expected effect, costs (including the executor fee, set by the protocol, not by Astryum) and the checks it passes. On the Flare strategy rails and on council orders it is additionally simulated against the chain before you sign. No surprises, no small print.',
       lang,
     ),
   },
@@ -137,6 +205,16 @@ export default function DemoTermsPage() {
                   lang,
                 )}
               </p>
+              {/* The version stamp is not decoration: the acceptance recorded on
+                  each account stores THIS string, so a user can check which text
+                  they accepted. Must match DEMO_TERMS_VERSION (routes/auth.ts). */}
+              <p className="mx-auto mt-4 font-mono text-[11px] text-white/35">
+                {T(
+                  'Última actualización: 1 de agosto de 2026 · Versión 2026-08-01.1',
+                  'Last updated: 1 August 2026 · Version 2026-08-01.1',
+                  lang,
+                )}
+              </p>
             </Reveal>
           </section>
 
@@ -167,6 +245,27 @@ export default function DemoTermsPage() {
                   )}
                 </p>
               </Reveal>
+            </div>
+          </section>
+
+          {/* the rules of use — the clauses that protect both sides */}
+          <section className="px-6 pb-20">
+            <div className="mx-auto max-w-3xl">
+              <Reveal>
+                <h2 className="text-center font-bold text-white" style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.02em' }}>
+                  {T('Las reglas de uso', 'The rules of use', lang)}
+                </h2>
+              </Reveal>
+              <div className="mt-8 space-y-4">
+                {RULES(lang).map((r, i) => (
+                  <Reveal key={r.title} delay={0.05 * i}>
+                    <div className="rounded-2xl p-5" style={CARD}>
+                      <h3 className="text-[15px] font-semibold text-white">{r.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-white/55">{r.body}</p>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
             </div>
           </section>
 
@@ -230,6 +329,16 @@ export default function DemoTermsPage() {
                   'Questions or problems: astryum@astryum.xyz · If we change this page materially, we will announce it in the app.',
                   lang,
                 )}
+              </p>
+              <p className="mx-auto mt-3 max-w-lg font-mono text-[10.5px] leading-relaxed text-white/30">
+                {T(
+                  'Astryum lo opera una persona física establecida en el Principat d’Andorra. Identificación completa del operador, tratamiento de datos y representante en la UE: ',
+                  'Astryum is operated by a natural person established in the Principality of Andorra. Full operator identification, data processing and EU representative: ',
+                  lang,
+                )}
+                <a href="/privacy" className="underline" style={{ color: GOLD_SOFT }}>
+                  {T('Aviso de privacidad', 'Privacy notice', lang)}
+                </a>
               </p>
             </Reveal>
           </section>

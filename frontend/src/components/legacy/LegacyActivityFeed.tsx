@@ -115,7 +115,7 @@ const KIND_LABEL: Record<FeedKind, string> = {
 /** Flare execution status for an emitted council order — read lazily on expand.
  *  A submitted proposal that is NOT a council order simply returns nothing; we
  *  stay silent rather than claim a Flare leg that never existed. */
-function FlareLeg({ txHash }: { txHash: string }) {
+function FlareLeg({ txHash, account }: { txHash: string; account: string }) {
   const { t } = useT();
   const [state, setState] = useState<{ loading: boolean; executed?: boolean; flareTxHash?: string | null; none?: boolean }>({
     loading: true,
@@ -123,7 +123,7 @@ function FlareLeg({ txHash }: { txHash: string }) {
   useEffect(() => {
     let alive = true;
     xrplLegacy
-      .councilOrderStatus(txHash)
+      .councilOrderStatus(txHash, account)
       .then((st) => {
         if (!alive) return;
         // Only assert a Flare leg with POSITIVE evidence: a relay record exists,
@@ -137,7 +137,7 @@ function FlareLeg({ txHash }: { txHash: string }) {
     return () => {
       alive = false;
     };
-  }, [txHash]);
+  }, [txHash, account]);
   if (state.loading) {
     return (
       <p className="text-[12px] text-ink/45">
@@ -475,7 +475,7 @@ export default function LegacyActivityFeed({
                           )}
                         </div>
                         {/* Flare leg — only shows for an emitted council order */}
-                        {e.proposal.status === 'submitted' && e.txHash && <FlareLeg txHash={e.txHash} />}
+                        {e.proposal.status === 'submitted' && e.txHash && <FlareLeg txHash={e.txHash} account={account} />}
                         {(e.proposal.status === 'collecting' || e.proposal.status === 'ready') && (
                           <div className="flex flex-wrap items-center gap-2">
                             <GhostButton onClick={onGoToProposals}>

@@ -244,7 +244,7 @@ export default function IntentsPage() {
 
       {history.length > 0 && (
         <section className="space-y-3">
-          <SectionTitle>History</SectionTitle>
+          <SectionTitle>{t('History')}</SectionTitle>
           <Card padded={false} className="divide-y divide-ink/5">
             {history.map((intent) => (
               <HistoryRow key={intent.id} intent={intent} />

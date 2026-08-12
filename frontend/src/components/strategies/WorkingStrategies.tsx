@@ -142,7 +142,14 @@ export function useStrategyGroups(reloadKey = 0): StrategyGroup[] | null {
           }
           // Exit rail for the partner vaults: shares (amount) + live price.
           const protoLower = proto.toLowerCase();
-          if (protoLower === 'upshift' && (meta?.vaultKey === 'earnxrp' || meta?.vaultKey === 'monarq')) {
+          // SUPPLY only: an Upshift CLAIM row is capital ALREADY queued to
+          // leave (its shares are with the vault), so offering an exit over it
+          // would build an instantRedeem the wallet cannot fill.
+          if (
+            protoLower === 'upshift' &&
+            kind.toUpperCase() === 'SUPPLY' &&
+            (meta?.vaultKey === 'earnxrp' || meta?.vaultKey === 'monarq')
+          ) {
             g.vaultExit = {
               vault: meta.vaultKey,
               sharesBase: String(p.amount ?? '0'),

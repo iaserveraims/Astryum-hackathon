@@ -43,8 +43,9 @@ export interface VaultClaimEntry {
   /** The 0x account that queued the exit (EVM wallet or Smart Account). */
   owner: string;
   period: number;
-  /** stXRP shares queued (base units, 6 dec — already burned). */
-  sharesBase: string;
+  /** FXRP queued for release (base units, 6 dec). The stXRP shares burned at
+   *  redeem — `withdrawalsOf` reports the assets waiting, not shares. */
+  queuedFxrpBase: string;
   /** Estimated FXRP the claim releases (base units); null if unreadable. */
   estFxrpBase: string | null;
   /** true once the period ended — claimWithdraw succeeds now. */
@@ -142,7 +143,7 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
               owner: string;
               pending?: Array<{
                 period: number;
-                sharesBase: string;
+                queuedFxrpBase: string;
                 estFxrpBase: string | null;
                 claimable: boolean;
                 claimableAt: string | null;
@@ -163,7 +164,7 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
             vaultLabel: 'stXRP',
             owner: r.owner,
             period: p.period,
-            sharesBase: p.sharesBase,
+            queuedFxrpBase: p.queuedFxrpBase,
             estFxrpBase: p.estFxrpBase,
             claimable: p.claimable,
             claimableAt: p.claimableAt,

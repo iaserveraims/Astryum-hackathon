@@ -42,6 +42,15 @@ export interface DeduplicatablePosition {
   amountUSD: number;
   kind: string;    // 'STAKE' | 'SUPPLY' | 'FREE' | ...
   protocolId?: string;
+  /** `external: true` marks a row from an indexer (CoinStats/DeBank/on-chain
+   *  multichain reader). Only those can be the double-count this file exists
+   *  to remove — see the WARNING in deduplicateLSTPositions. */
+  metadata?: Record<string, unknown>;
+}
+
+/** An indexer row, as opposed to a verified read by one of our own adapters. */
+function isExternal(p: DeduplicatablePosition): boolean {
+  return p.metadata?.external === true;
 }
 
 /**
@@ -56,6 +65,15 @@ export interface DeduplicatablePosition {
  * This is a best-effort heuristic for display purposes — it does not affect
  * on-chain accounting. The exact overlap depends on timing of snapshots from
  * external providers.
+ *
+ * WARNING — only EXTERNAL rows may be dropped (fixed 2026-08-01). Staking FLR
+ * does NOT consume the FLR left in the wallet: they are two real, separate
+ * balances. Applied to our own adapters this rule deleted live capital — a
+ * wallet holding 1,000 FLR plus $X of sFLR had up to $X of its FREE FLR erased
+ * from the dashboard, because NativeBalanceAdapter's eth_getBalance read was
+ * mistaken for an indexer's duplicate of the staked underlying. Our adapters
+ * read one balance each, straight from the chain; they never double-report, so
+ * they are never the duplicate this function is here to remove.
  */
 export function deduplicateLSTPositions<T extends DeduplicatablePosition>(
   positions: T[],
@@ -80,7 +98,7 @@ export function deduplicateLSTPositions<T extends DeduplicatablePosition>(
   const result: T[] = [];
   for (const p of positions) {
     const sym = p.asset.toLowerCase();
-    if (p.kind === 'FREE' && receiptCoverage[sym] !== undefined) {
+    if (p.kind === 'FREE' && isExternal(p) && receiptCoverage[sym] !== undefined) {
       const covered = receiptCoverage[sym];
       if (p.amountUSD <= covered) {
         // Fully covered by receipt token(s) — omit this FREE position

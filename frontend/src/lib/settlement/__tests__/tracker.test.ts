@@ -112,7 +112,8 @@ describe('tracker — evm-5792 rail (§1.1/§1.2)', () => {
     h.track(startPending('evm-5792', 'bundle-2'));
     await h.drain();
     expect(last(h).status).toBe('failed');
-    expect(last(h).reason).toMatch(/llamada 2/);
+    // Reasons travel as codes (settlementReasonText renders the sentence).
+    expect(last(h).reason).toBe('BATCH_CALL_REVERTED:2');
   });
 
   it('a wallet without getCallsStatus goes to an honest STALLED after N probes — and a late confirm still settles (§3)', async () => {

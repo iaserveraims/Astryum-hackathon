@@ -18,7 +18,7 @@ import { buildProductAssistantSystemPrompt } from '../config/productAssistantPro
 
 dotenv.config(); // loads backend/.env
 
-const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-opus-4-8';
+const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-haiku-4-5';
 
 interface CageTest {
   id: string;

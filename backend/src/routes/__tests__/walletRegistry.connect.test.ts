@@ -86,13 +86,42 @@ const tx = {
   },
 };
 
+/** Active tx-bindings, so DELETE /mine/:id can be asserted on. */
+const bindingRows: { id: string; userId: string; address: string; isActive: boolean }[] = [];
+
 const prismaFake = {
   $transaction: async (fn: (t: typeof tx) => unknown) => fn(tx),
   wallet: {
-    // PATCH /mine/:id reads the row outside the transaction.
+    // PATCH and DELETE /mine/:id read the row outside the transaction.
     findFirst: async ({ where }: any) => {
       const r = rows.find((x) => x.id === where.id && x.userId === where.userId);
-      return r ? { id: r.id, ecosystem: r.ecosystem, purpose: r.purpose, permissions: r.permissions } : null;
+      return r
+        ? {
+            id: r.id,
+            address: r.address,
+            ecosystem: r.ecosystem,
+            purpose: r.purpose,
+            permissions: r.permissions,
+          }
+        : null;
+    },
+    delete: async ({ where }: any) => {
+      const i = rows.findIndex((x) => x.id === where.id);
+      const [row] = rows.splice(i, 1);
+      return row;
+    },
+    update: tx.wallet.update,
+  },
+  walletBinding: {
+    updateMany: async ({ where, data }: any) => {
+      const targets = bindingRows.filter(
+        (b) =>
+          b.userId === where.userId &&
+          where.address.in.includes(b.address) &&
+          b.isActive === where.isActive,
+      );
+      targets.forEach((b) => Object.assign(b, data));
+      return { count: targets.length };
     },
   },
 };
@@ -126,6 +155,7 @@ function connectXrpl(address: string) {
 
 beforeEach(() => {
   rows.length = 0;
+  bindingRows.length = 0;
   seq = 0;
 });
 
@@ -166,14 +196,81 @@ describe('POST /api/wallets/connect — one primary per ecosystem', () => {
   });
 });
 
-describe('POST /api/wallets/connect — auto-nickname "<Chain> N"', () => {
-  const XRPL_3 = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh';
+/**
+ * Bug (2026-08-01): a Xaman r-address reached /connect declared as
+ * `ecosystem: 'evm', network: 'flare', chainId: 14` (the Wallets page
+ * auto-registers `user.address`, which falls back to the first linked wallet).
+ * It was stored lower-cased under the EVM rail and auto-named "Flare 2" — a
+ * phantom twin of the user's real XRPL wallet, with no balance and no way to
+ * delete it. The ecosystem must follow the ADDRESS, never the caller's claim.
+ */
+describe('POST /api/wallets/connect — the ecosystem must match the address', () => {
+  it('rejects an XRPL address declared as EVM (phantom "Flare N" regression)', async () => {
+    const res = await request(app).post('/api/wallets/connect').send({
+      address: XRPL_2.toLowerCase(),
+      walletType: 'siwe',
+      network: 'flare',
+      chainId: 14,
+      caip2: 'eip155:14',
+      ecosystem: 'evm',
+      purpose: 'watch',
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ADDRESS_ECOSYSTEM_MISMATCH');
+    expect(rows).toHaveLength(0);
+  });
 
-  it('names tracked wallets sequentially per rail: XRPL 1, XRPL 2 / Flare 1', async () => {
+  it('rejects an EVM address declared as XRPL', async () => {
+    const res = await request(app).post('/api/wallets/connect').send({
+      address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      walletType: 'manual',
+      network: 'xrpl',
+      ecosystem: 'xrpl',
+      purpose: 'watch',
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ADDRESS_ECOSYSTEM_MISMATCH');
+    expect(rows).toHaveLength(0);
+  });
+
+  it('still accepts each address on its own rail', async () => {
+    expect((await connectXrpl(XRPL_1)).status).toBe(200);
+    const evm = await request(app).post('/api/wallets/connect').send({
+      address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      walletType: 'metamask',
+      network: 'flare',
+      chainId: 14,
+      ecosystem: 'evm',
+      purpose: 'watch',
+    });
+    expect(evm.status).toBe(200);
+    expect(rows).toHaveLength(2);
+  });
+});
+
+describe('DELETE /api/wallets/mine/:id', () => {
+  it('deactivates a case-sensitive XRPL binding (it only matched lower-case before)', async () => {
+    const created = await connectXrpl(XRPL_1);
+    bindingRows.push({ id: 'b1', userId: 'u1', address: XRPL_1, isActive: true });
+
+    const res = await request(app).delete(`/api/wallets/mine/${created.body.data.wallet.id}`);
+
+    expect(res.status).toBe(200);
+    expect(rows).toHaveLength(0);
+    expect(bindingRows[0].isActive).toBe(false); // stayed true before the fix
+  });
+});
+
+describe('POST /api/wallets/connect — nickname is the USER\'s, never invented', () => {
+  // The "<Chain> N" auto-nickname generator was RETIRED (founder 2026-08-08:
+  // their own Xaman read "XRPL 1" everywhere — the machine name shadowed the
+  // provider's in the display rule). No nickname from the client = NULL
+  // stored; the frontend shows the provider name or the short address.
+  it('stores NULL when the client sends no nickname (no "<Chain> N" invention)', async () => {
     const a = await connectXrpl(XRPL_1);
     const b = await connectXrpl(XRPL_2);
-    expect(a.body.data.wallet.nickname).toBe('XRPL 1');
-    expect(b.body.data.wallet.nickname).toBe('XRPL 2');
+    expect(a.body.data.wallet.nickname ?? null).toBeNull();
+    expect(b.body.data.wallet.nickname ?? null).toBeNull();
 
     const c = await request(app).post('/api/wallets/connect').send({
       address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
@@ -183,15 +280,7 @@ describe('POST /api/wallets/connect — auto-nickname "<Chain> N"', () => {
       ecosystem: 'evm',
       purpose: 'watch',
     });
-    expect(c.body.data.wallet.nickname).toBe('Flare 1');
-  });
-
-  it('never reuses a number after a deletion (next = max + 1)', async () => {
-    await connectXrpl(XRPL_1); // XRPL 1
-    await connectXrpl(XRPL_2); // XRPL 2
-    rows.splice(rows.findIndex((r) => r.address === XRPL_1), 1); // delete XRPL 1
-    const res = await connectXrpl(XRPL_3);
-    expect(res.body.data.wallet.nickname).toBe('XRPL 3'); // not a duplicate "XRPL 2"
+    expect(c.body.data.wallet.nickname ?? null).toBeNull();
   });
 
   it('an explicit nickname from the client wins over the auto-name', async () => {

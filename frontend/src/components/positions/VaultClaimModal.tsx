@@ -16,7 +16,7 @@
  * discloses every number.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Loader2, AlertTriangle, HandCoins } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
@@ -28,6 +28,14 @@ import { getUserRegion } from '../../lib/region';
 import { startPending } from '../../lib/settlement/settlement';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
+import { releaseHandoffSeat } from '../../lib/wallet/handoffRelease';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { DispatchXrpField } from './DispatchXrpField';
+import { translateError } from '../../lib/errors/translateError';
+import { fmtQtyActive } from '../../lib/format';
+import { PreflightNotice } from '../preflight/PreflightNotice';
+import { preflightSaysFail, type PreflightInfo } from '../../lib/preflight';
+import { ECOSYSTEM_ACCENT } from '../../lib/ui/ecosystem';
 
 const API_BASE = getApiBase();
 
@@ -58,7 +66,7 @@ function authHeaders(): Record<string, string> {
 }
 
 function fmt(n: number, digits = 6): string {
-  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+  return fmtQtyActive(n, digits); // app-locale aware (Fase 3)
 }
 
 interface PreparedEvm {
@@ -66,6 +74,7 @@ interface PreparedEvm {
   chainId: number;
   account: string;
   calls: Array<{ to: string; data: string; value: string; chainId: number; label: string }>;
+  preflight?: PreflightInfo;
   disclosure: Record<string, unknown> & { note?: string };
 }
 
@@ -73,6 +82,9 @@ interface PreparedXrpl {
   rail: 'xrpl';
   personalAccount: string;
   xrplPayment: unknown;
+  /** 0xFE memo — identifica el asiento de nonce para liberarlo si se cancela. */
+  memoHex?: string;
+  preflight?: PreflightInfo;
   disclosure: Record<string, unknown> & { note?: string };
 }
 
@@ -113,6 +125,23 @@ export function VaultClaimModal({
   // Destino del claim (rail PA): FXRP al Smart Account, o encadenar la
   // redención y recibir XRP NATIVO en la wallet XRPL dueña (unmint atómico).
   const [claimDest, setClaimDest] = useState<'pa' | 'xrpl'>('pa');
+
+  // Abandonar una orden 0xFE preparada y NO firmada libera su asiento de nonce
+  // (el usuario no queda tapiado por NONCE_SEAT_TAKEN). Cleanup de desmontaje
+  // vía ref (captura X, Escape y cierre del padre); nunca tras firmar.
+  const seatRef = useRef<{ memoHex?: string; abandonable: boolean }>({ abandonable: false });
+  seatRef.current = {
+    memoHex: prepared?.rail === 'xrpl' ? prepared.memoHex : undefined,
+    abandonable: prepared?.rail === 'xrpl' && phase === 'review',
+  };
+  useEffect(() => {
+    return () => {
+      if (seatRef.current.abandonable) releaseHandoffSeat(seatRef.current.memoHex);
+    };
+  }, []);
+  const releaseSeatIfUnsigned = () => {
+    if (prepared?.rail === 'xrpl' && phase === 'review') releaseHandoffSeat(prepared.memoHex);
+  };
 
   const estFxrp = claim.estFxrpBase != null ? Number(claim.estFxrpBase) / 1e6 : null;
   const eta = claim.claimableAt ? new Date(claim.claimableAt).toLocaleString() : null;
@@ -192,7 +221,7 @@ export function VaultClaimModal({
       setPrepared(resBody as PreparedEvm | PreparedXrpl);
       setPhase('review');
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      setError(translateError(e, t).message);
       setPhase('form');
     }
   }
@@ -214,11 +243,11 @@ export function VaultClaimModal({
         );
         settlement.track(handle, { onSettled: onChanged });
       }
+      // Signed ≠ done: the parent refresh now waits for onSettled (a premature
+      // onChanged() dropped the "in flight" row while the op was still live).
       setPhase('done');
-      onChanged();
     } catch (e) {
-      const err = e as { shortMessage?: string; message?: string };
-      setError(err.shortMessage ?? err.message ?? String(e));
+      setError(translateError(e, t).message);
       setPhase('review'); // prepared payload still valid — retry the signature
     }
   }
@@ -226,9 +255,9 @@ export function VaultClaimModal({
   const disclosure = prepared?.disclosure;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-2xl my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl grid place-items-center border text-amber-300 border-amber-400/30 bg-amber-400/10">
               <HandCoins className="w-5 h-5" />
@@ -248,7 +277,7 @@ export function VaultClaimModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {error && (
             <div className="bg-red-500/5 border border-red-500/25 rounded-xl p-3 text-xs text-red-300 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -282,7 +311,7 @@ export function VaultClaimModal({
 
               {claim.claimable ? (
                 <div className="bg-emerald-500/5 border border-emerald-500/25 rounded-xl p-3 text-xs text-emerald-200 leading-relaxed">
-                  {t('The withdrawal period ended — this releases the FXRP straight to your wallet. Claiming pays only gas; the exit fee was already taken at redeem.')}
+                  {t('The withdrawal period ended — this releases the FXRP straight to your wallet. The only cost is the network fee (cents; your wallet shows the exact figure before signing). The exit fee was already taken when you requested the withdrawal — nothing else is charged.')}
                 </div>
               ) : (
                 <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-200 leading-relaxed">
@@ -294,17 +323,26 @@ export function VaultClaimModal({
                   dueña — claim + redención en el MISMO dispatch (2026-07-26). */}
               {!ownerIsEvmWallet && (
                 <div className="flex gap-2">
-                  {(['pa', 'xrpl'] as const).map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setClaimDest(d)}
-                      className={`flex-1 text-xs py-2 rounded-xl border transition-colors ${
-                        claimDest === d ? 'border-volt/40 bg-volt/10 text-ink' : 'border-ink/10 bg-ink/5 text-ink/50'
-                      }`}
-                    >
-                      {d === 'pa' ? t('FXRP to your Smart Account') : t('Native XRP to your XRPL wallet')}
-                    </button>
-                  ))}
+                  {/* The color IS the arrow (founder 2026-07-30): Flare reads
+                      rose, XRPL reads blue — plus the timing, the only
+                      difference a person cares about. */}
+                  {(['pa', 'xrpl'] as const).map((d) => {
+                    const accent = ECOSYSTEM_ACCENT[d === 'pa' ? 'flare' : 'xrpl'];
+                    return (
+                      <button
+                        key={d}
+                        onClick={() => setClaimDest(d)}
+                        className={`flex-1 text-xs py-2 rounded-xl border transition-colors ${
+                          claimDest === d ? `${accent.selected} text-ink` : `${accent.idle} text-ink/50`
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} aria-hidden />
+                          {d === 'pa' ? t('Keep it on Flare (instant)') : t('To my XRP wallet (minutes to hours)')}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               {!ownerIsEvmWallet && claimDest === 'xrpl' && (
@@ -314,22 +352,7 @@ export function VaultClaimModal({
               )}
 
               {!ownerIsEvmWallet && (
-                <div>
-                  <label className="text-xs text-ink/40 block mb-2">
-                    {t('Dispatch XRP (comes back to you as FXRP)')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={xrpForMint}
-                    onChange={(e) => setXrpForMint(e.target.value)}
-                    className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
-                  />
-                  <p className="text-[10px] text-ink/35 mt-1.5">
-                    {t("This exit was queued from your Smart Account, so the claim rides a 0xFE userOp: it must carry an XRPL Payment to the FAssets Core Vault (Xaman will show it, e.g. 1 XRP). It comes back to your Smart Account as FXRP minus the protocol's fees, with the exact figures shown before you sign. Nothing goes to Astryum.")}
-                  </p>
-                </div>
+                <DispatchXrpField value={xrpForMint} onChange={setXrpForMint} t={t} />
               )}
 
               <button
@@ -337,7 +360,7 @@ export function VaultClaimModal({
                 disabled={!claim.claimable}
                 className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
               >
-                {claim.claimable ? t('Prepare (unsigned)') : t('Available when the period ends')}
+                {claim.claimable ? t('Review before signing') : t('Available when the period ends')}
               </button>
             </>
           )}
@@ -355,8 +378,8 @@ export function VaultClaimModal({
                 {disclosure?.period != null && (
                   <Row label={t('Withdrawal period')} value={String(disclosure.period)} />
                 )}
-                {disclosure?.sharesQueued != null && (
-                  <Row label={t('Shares queued')} value={fmt(Number(disclosure.sharesQueued))} />
+                {disclosure?.fxrpQueued != null && (
+                  <Row label={t('Queued for release')} value={`${fmt(Number(disclosure.fxrpQueued), 4)} FXRP`} />
                 )}
                 {disclosure?.estimatedFxrpOut != null && (
                   <Row label={t('You receive (est.)')} value={`${fmt(Number(disclosure.estimatedFxrpOut), 4)} FXRP`} />
@@ -374,10 +397,10 @@ export function VaultClaimModal({
                   <Row label={t('Dispatch XRP (comes back to you as FXRP)')} value={fmt(Number(disclosure.mintCoupledXrp))} />
                 )}
                 {prepared.rail === 'xrpl' && disclosure?.mintingFeeXrp != null && (
-                  <Row label={t('Minting fee')} value={`${fmt(Number(disclosure.mintingFeeXrp), 6)} XRP`} />
+                  <Row label={t('Minting fee')} value={`${fmt(Number(disclosure.mintingFeeXrp), 2)} XRP`} />
                 )}
                 {prepared.rail === 'xrpl' && disclosure?.executorFeeXrp != null && (
-                  <Row label={t('Executor fee')} value={`${fmt(Number(disclosure.executorFeeXrp), 6)} XRP`} />
+                  <Row label={t('Executor fee')} value={`${fmt(Number(disclosure.executorFeeXrp), 2)} XRP`} />
                 )}
                 {prepared.rail === 'xrpl' && disclosure?.fxrpMintedSideEffect != null && (
                   <Row
@@ -389,21 +412,34 @@ export function VaultClaimModal({
               {typeof disclosure?.note === 'string' && (
                 <p className="text-[11px] text-ink/45 leading-relaxed">{disclosure.note}</p>
               )}
-              <button
-                onClick={sign}
-                className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20"
-              >
-                {prepared.rail === 'xrpl' ? t('Sign in Xaman') : t('Sign in wallet')}
-              </button>
-              <button
-                onClick={() => {
-                  setPrepared(null);
-                  setPhase('form');
-                }}
-                className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
-              >
-                {t('Back')}
-              </button>
+              {/* Invariant #11 — the dry-run verdict, before the wallet opens. */}
+              <PreflightNotice preflight={prepared.preflight} />
+              {prepared.rail === 'xrpl' && preflightSaysFail(prepared.preflight) && owningXrpl && (
+                <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-200 leading-relaxed">
+                  {t('The account that signs is your XRPL wallet')}{' '}
+                  <span className="font-mono">{owningXrpl.slice(0, 8)}…{owningXrpl.slice(-4)}</span> —{' '}
+                  {t('send it ~2 XRP (from an exchange or another wallet) and come back. Your money on Flare is untouched.')}
+                </div>
+              )}
+              {/* Sign stays reachable while the disclosure scrolls. */}
+              <div className="sticky bottom-0 -mx-6 bg-surface-1 px-6 pt-3 space-y-4">
+                <button
+                  onClick={sign}
+                  className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20"
+                >
+                  {prepared.rail === 'xrpl' ? t('Sign in Xaman') : t('Sign in wallet')}
+                </button>
+                <button
+                  onClick={() => {
+                    releaseSeatIfUnsigned();
+                    setPrepared(null);
+                    setPhase('form');
+                  }}
+                  className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
+                >
+                  {t('Back')}
+                </button>
+              </div>
             </>
           )}
 
@@ -420,14 +456,21 @@ export function VaultClaimModal({
             <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
               <SettlementIndicator
                 state={settlement.state}
-                settledText={t('Claim settled — the FXRP is in your wallet.')}
+                // R8.1: the success line follows the DESTINATION — with the
+                // XRPL exit the FXRP is NOT in any wallet yet: the FAssets
+                // agent pays the XRP minutes-to-hours later.
+                settledText={
+                  claimDest === 'xrpl'
+                    ? t('Claim confirmed — your XRP is on its way to your XRPL wallet (minutes to hours).')
+                    : t('Claim settled — the FXRP is in your wallet.')
+                }
                 pendingText={t('Claim signed — settling on Flare…')}
               />
               <button
                 onClick={onClose}
                 className="mt-1 w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
               >
-                {t('Done')}
+                {settlement.state.status === 'settled' ? t('Done') : t('Keep waiting in the background')}
               </button>
             </div>
           )}
@@ -437,6 +480,6 @@ export function VaultClaimModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

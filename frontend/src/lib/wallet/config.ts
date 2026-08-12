@@ -9,17 +9,13 @@
  * relay transactions on behalf of the user. All sendTransaction calls flow through
  * the user's wallet partner via wagmi's eth_sendTransaction abstraction.
  *
- * SUPPORTED CHAINS (V1):
- *   - Ethereum Mainnet (1)
- *   - Arbitrum One (42161)
- *   - Base (8453)
- *   - Optimism (10)
- *   - Polygon (137)
- *   - BNB Smart Chain (56)
- *   - Avalanche C-Chain (43114)
- *   - Flare Mainnet (14)
+ * CONNECTABLE CHAIN (this beta):
+ *   - Flare Mainnet (14) — the only network wagmi/AppKit expose, reached with
+ *     MetaMask alone. See MULTI_VM_CONNECT_ENABLED below.
  *
- * Solana, XRPL, Aptos use their own adapters (not wagmi).
+ * The other seven EVM chains stay in EVM_NETWORKS_ALL, built and unwired.
+ * XRPL (Xaman) is the second accepted wallet and never passes through wagmi;
+ * Solana and Aptos keep their own adapters, currently without an entry point.
  */
 
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
@@ -44,11 +40,33 @@ export const WALLET_CONNECT_PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'defibro-dev-placeholder';
 
 /**
- * EVM chains exposed to wagmi.
- * Order matters: first chain is the default for wallet partner connection.
- * Ethereum has the most pool liquidity, so it leads. Users can switch via NetworkSwitcher.
+ * ─── The connect rail of this beta (founder 2026-08-04) ──────────────────────
+ * Only TWO wallets may be connected: MetaMask on Flare Mainnet (chain 14) and
+ * Xaman on XRPL. XRPL never touches wagmi/AppKit (it has its own service), so
+ * on this layer the rule reads: MetaMask, Flare, nothing else.
+ *
+ * Everything below that isn't Flare/MetaMask stays BUILT but INERT — the
+ * multi-VM adapters, the eight EVM chains and the connectable-ecosystem
+ * helpers are preserved for when the control plane opens beyond the demo; they
+ * simply have no entry point while this flag is false.
  */
-export const EVM_NETWORKS = [
+export const MULTI_VM_CONNECT_ENABLED: boolean = false;
+
+/**
+ * MetaMask's id in the WalletConnect Explorer registry — the key AppKit filters
+ * its picker by (includeWalletIds/featuredWalletIds). Announced (EIP-6963) and
+ * injected connectors are matched against this same id, so a second extension
+ * (Rabby, Phantom's EVM mode, Coinbase…) never reaches the list.
+ */
+export const METAMASK_WALLET_ID =
+  'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96';
+
+/**
+ * Every EVM chain the control plane knows how to execute on. BUILT, not wired:
+ * while MULTI_VM_CONNECT_ENABLED is false the wallet layer exposes Flare alone
+ * (see EVM_NETWORKS below), so this list is the shelf, not the rail.
+ */
+export const EVM_NETWORKS_ALL = [
   mainnet,
   arbitrum,
   base,
@@ -60,6 +78,17 @@ export const EVM_NETWORKS = [
 ] as [AppKitNetwork, ...AppKitNetwork[]];
 
 /**
+ * EVM chains exposed to wagmi — Flare Mainnet (14) and nothing else.
+ *
+ * The app has been Flare-only at the surface for a while (NetworkSwitcher is
+ * the "V1 Flare-only enforcer", SIWE pins Chain ID 14). Keeping seven other
+ * chains inside wagmi meant a wallet connected on Ethereum was still a valid
+ * wagmi session, and its address got filed as an Ethereum row. One chain in the
+ * config makes the rule structural instead of cosmetic.
+ */
+export const EVM_NETWORKS = [flare] as [AppKitNetwork, ...AppKitNetwork[]];
+
+/**
  * Solana mainnet network. Single-chain VM. Routed by AppKit through the
  * SolanaAdapter; wagmi never sees it.
  */
@@ -69,16 +98,16 @@ export const SOLANA_NETWORKS = [solana] as [AppKitNetwork, ...AppKitNetwork[]];
 export const BITCOIN_NETWORKS = [bitcoin] as [AppKitNetwork, ...AppKitNetwork[]];
 
 /**
- * All AppKit networks across every VM. The AppKit modal renders a unified
- * wallet picker — EVM users see MetaMask/WC/Coinbase/Rabby/Bifrost; Solana
- * users see Phantom/Solflare; Bitcoin users see Xverse/Leather; they share the
- * same Connect button.
+ * Networks offered by the connect modal. Flare only: the picker can't hand back
+ * a session on a chain this beta refuses to link. Solana/Bitcoin are appended
+ * only when the multi-VM rail is switched back on — their adapters stay built
+ * either way (see appkit.ts).
  */
-export const APPKIT_NETWORKS = [
-  ...EVM_NETWORKS,
-  ...SOLANA_NETWORKS,
-  ...BITCOIN_NETWORKS,
-] as [AppKitNetwork, ...AppKitNetwork[]];
+export const APPKIT_NETWORKS = (
+  MULTI_VM_CONNECT_ENABLED
+    ? [...EVM_NETWORKS_ALL, ...SOLANA_NETWORKS, ...BITCOIN_NETWORKS]
+    : [...EVM_NETWORKS]
+) as [AppKitNetwork, ...AppKitNetwork[]];
 
 /** App metadata shown by wallet partners during the connection handshake. */
 export const APP_METADATA = {

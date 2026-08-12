@@ -34,41 +34,128 @@ export const POSITION_MEMO_PREFIX = 'astryum-council-position:';
 export async function createMemberPayload(
   txjson: Record<string, unknown>,
   signer: string,
-): Promise<{ uuid: string; qrPng?: string; deeplink?: string }> {
+): Promise<{ uuid: string; qrPng?: string; deeplink?: string; pushed?: boolean }> {
   const body = (withSigners: boolean) => ({
     txjson,
     options: { submit: false, multisign: true, expire: 1440, ...(withSigners ? { signers: [signer] } : {}) },
     // Xaman caps custom_meta.identifier (~45 chars → 413). Keep it short.
     custom_meta: { identifier: `ms-${signer.slice(-6)}-${Date.now().toString(36)}`, blob: { purpose: 'LEGACY_COUNCIL_SIGNATURE', signer } },
+    // Ours, stripped by the route: WHO this request is for, so it can look up
+    // that member's push token and send the request to their phone.
+    pushPayloadFor: signer,
   });
+  // The session token travels so the route can reach the backend's token store
+  // server-side. The token itself never comes back to this browser.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (typeof window !== 'undefined') {
+    const jwt = window.localStorage.getItem('auth_token');
+    if (jwt) headers.Authorization = `Bearer ${jwt}`;
+  }
   let res = await fetch('/api/xaman/create-payload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body(true)),
   });
   if (!res.ok) {
     res = await fetch('/api/xaman/create-payload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body(false)),
     });
   }
-  if (!res.ok) throw new Error(`Xaman payload failed (${res.status})`);
+  if (!res.ok) {
+    // The route names the cause (rejected credentials, upstream refusal…);
+    // carry it to the member's pill instead of a bare status code.
+    const info = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(info?.error ? info.error : `Xaman payload failed (${res.status})`);
+  }
   const data = await res.json();
-  return { uuid: data.uuid, qrPng: data.refs?.qr_png, deeplink: data.next?.always };
+  // `pushed` is Xaman's own answer: true = it rang their phone, false = the QR
+  // is the only way in. Surfaced so the UI can say which, instead of leaving a
+  // member waiting for a notification that was never sent.
+  return { uuid: data.uuid, qrPng: data.refs?.qr_png, deeplink: data.next?.always, pushed: data.pushed === true };
 }
 
 export async function pollStatus(
   uuid: string,
 ): Promise<{ signed?: boolean; cancelled?: boolean; expired?: boolean; hex?: string }> {
   try {
-    const res = await fetch(`/api/xaman/status/${uuid}`);
+    // Same session header as the create call: signing is when Xaman issues the
+    // push token, and the route stores it (server-side) for the next request.
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const jwt = window.localStorage.getItem('auth_token');
+      if (jwt) headers.Authorization = `Bearer ${jwt}`;
+    }
+    const res = await fetch(`/api/xaman/status/${uuid}`, { headers });
     if (!res.ok) return {};
     const data = await res.json();
     return { signed: data?.meta?.signed, cancelled: data?.meta?.cancelled, expired: data?.meta?.expired, hex: data?.response?.hex };
   } catch {
     return {};
   }
+}
+
+/**
+ * Wait until the ledger VALIDATES a submitted tx and report its final result.
+ *
+ * The submit's engine_result is PRELIMINARY: a preliminary tesSUCCESS can
+ * still land as tec* in the validated ledger — the proven family case is 6
+ * validated-but-failed council txns (tecINSUFFICIENT_RESERVE among them).
+ * Painting green off the preliminary code is the "unearned success" disease;
+ * this is the cure at the source. Ledgers close every 3-5 s, so a validated
+ * verdict normally arrives within one or two polls.
+ */
+export async function awaitValidation(
+  hash: string,
+  opts?: { timeoutMs?: number; intervalMs?: number },
+): Promise<{ validated: boolean; finalResult?: string; timedOut?: boolean }> {
+  const timeoutMs = opts?.timeoutMs ?? 20_000;
+  const intervalMs = opts?.intervalMs ?? 2_500;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    for (const node of SUBMIT_NODES) {
+      try {
+        const res = await fetch(node, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method: 'tx', params: [{ transaction: hash }] }),
+        });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const r = json?.result;
+        if (r?.validated === true) {
+          return { validated: true, finalResult: r?.meta?.TransactionResult as string | undefined };
+        }
+        // txnNotFound while the tx is in flight is normal — keep waiting.
+      } catch {
+        /* next node */
+      }
+    }
+    if (Date.now() >= deadline) return { validated: false, timedOut: true };
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
+export interface ConfirmedSubmit {
+  /** Preliminary engine_result from the submit (kept for diagnostics). */
+  engine: string;
+  hash?: string;
+  message?: string;
+  /** True once the tx was seen in a VALIDATED ledger. */
+  validated: boolean;
+  /** meta.TransactionResult from the validated ledger — the only real verdict. */
+  finalResult?: string;
+  /** Gave up waiting: the tx may still validate — check the explorer. */
+  timedOut?: boolean;
+}
+
+/** Submit and only report success the way the ledger does: validated. */
+export async function submitAndConfirm(txBlob: string): Promise<ConfirmedSubmit> {
+  const sub = await broadcast(txBlob);
+  if (sub.engine !== 'tesSUCCESS' || !sub.hash) return { ...sub, validated: false };
+  const v = await awaitValidation(sub.hash);
+  return { ...sub, ...v };
 }
 
 export async function broadcast(txBlob: string): Promise<{ engine: string; hash?: string; message?: string }> {

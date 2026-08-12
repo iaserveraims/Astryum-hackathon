@@ -209,7 +209,7 @@ function ManifestCard({ email, lang }: { email: string; lang: Lang }) {
   const reduce = useReducedMotion();
   const { callsign, coords } = signalIdentity(email.trim().toLowerCase());
   const fields = [
-    { k: 'CALL-SIGN', v: callsign },
+    { k: es ? 'INDICATIVO' : 'CALL-SIGN', v: callsign },
     { k: es ? 'COORDENADAS' : 'COORDINATES', v: coords },
     { k: es ? 'CANAL' : 'CHANNEL', v: maskEmail(email) },
   ];
@@ -241,7 +241,7 @@ function ManifestCard({ email, lang }: { email: string; lang: Lang }) {
         <p className="mt-2 text-sm text-white/60 max-w-md">
           {es
             ? 'Estás en el manifiesto. Te avisaremos por correo cuando abra tu oleada de embarque.'
-            : "You're on the manifest. We'll email you when your boarding wave opens."}
+            : 'You’re on the manifest. We’ll email you when your boarding wave opens.'}
         </p>
 
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -372,7 +372,7 @@ function Console({
       <div className="p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <span className="font-mono text-[9px] uppercase tracking-[0.2em]" style={{ color: GOLD_SOFT }}>
-            {es ? 'Uplink · astryum.relay' : 'Uplink · astryum.relay'}
+            {es ? 'Enlace · astryum.relay' : 'Uplink · astryum.relay'}
           </span>
           <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/30">
             {intent === 'demo'
@@ -460,17 +460,25 @@ function Console({
           )}
           {phase === 'error' && (
             <span className="text-[13px]" style={{ color: '#f87171' }}>
-              {es ? 'El relé no responde. Prueba de nuevo o ' : "The relay isn't answering. Try again or "}
+              {es ? 'El relé no responde. Prueba de nuevo o ' : 'The relay isn’t answering. Try again or '}
               <a href={FALLBACK_MAILTO} className="underline underline-offset-2" style={{ color: GOLD_SOFT }}>
-                {es ? 'envía tu señal directa →' : 'send your signal directly →'}
+                {es ? 'envía tu señal directamente →' : 'send your signal directly →'}
               </a>
             </span>
           )}
           {phase === 'idle' && (
             <span className="text-[12px] text-white/55">
               {es
-                ? 'Solo usamos tu correo para el aviso de embarque. Nada más.'
-                : 'We only use your email for the boarding call. Nothing else.'}
+                ? 'Solo usamos tu correo para el aviso de embarque. Nada más. '
+                : 'We only use your email for the boarding call. Nothing else. '}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 text-white/45 transition-colors hover:text-white/70"
+              >
+                {es ? 'Tus datos' : 'Your data'}
+              </a>
             </span>
           )}
         </div>
@@ -561,14 +569,14 @@ export default function EarlyAccessPage() {
     intent === 'demo'
       ? es
         ? 'Estamos sentando a la tripulación por oleadas. Deja tu correo y serás de los primeros a los mandos.'
-        : "We're seating the crew in waves. Leave your email and you'll be among the first at the controls."
+        : 'We’re seating the crew in waves. Leave your email and you’ll be among the first at the controls.'
       : intent === 'legacy'
         ? es
-          ? 'Consejos, constituciones y transferencias programadas sobre XRPL — construidos, abriendo pronto. Deja tu correo y te llamaremos para constituir uno de los primeros consejos.'
+          ? 'Consejos, constituciones y transferencias programadas sobre XRPL — construidos; abren pronto. Deja tu correo y te llamaremos para constituir uno de los primeros consejos.'
           : 'Councils, constitutions and programmed transfers on XRPL — built, opening soon. Leave your email and we’ll call you to constitute one of the first councils.'
         : es
           ? 'Astryum abre por oleadas. Deja tu correo y te llamaremos cuando tu asiento esté listo.'
-          : "Astryum opens in waves. Leave your email and we'll call you when your seat is ready.";
+          : 'Astryum opens in waves. Leave your email and we’ll call you when your seat is ready.';
 
   return (
     <div
@@ -654,8 +662,19 @@ export default function EarlyAccessPage() {
 
         <footer className="px-6 py-8 text-center flex flex-col items-center gap-3">
           <HackathonFooterNote lang={lang} tone="dark" />
+          {/* Legal links: this page COLLECTS an email, so it is a collection
+              point under art. 13 — it shipped without a single link to the
+              notice (audit 2026-08-01). Also Llei 20/2014: visible, permanent. */}
+          <span className="flex items-center gap-3 text-[11px]">
+            <a href="/demo-terms" className="text-white/35 underline-offset-2 transition-colors hover:text-white/70 hover:underline">
+              {es ? 'Condiciones' : 'Terms'}
+            </a>
+            <a href="/privacy" className="text-white/35 underline-offset-2 transition-colors hover:text-white/70 hover:underline">
+              {es ? 'Privacidad' : 'Privacy'}
+            </a>
+          </span>
           <span className="text-[11px] text-white/35">
-            {es ? 'No-custodial · Siempre tú firmas' : 'Non-custodial · You always sign'} · Astryum © 2026
+            {es ? 'No-custodia · Tú siempre firmas' : 'Non-custodial · You always sign'} · Astryum © 2026
           </span>
         </footer>
       </div>

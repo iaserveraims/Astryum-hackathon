@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 // Lightweight Zod type guard without importing zod types directly
 type MaybeZodSchema = { safeParse?: (data: any) => { success: boolean; data?: any; error?: any } } | undefined;
 import Joi from 'joi';
+import { clientIp } from './clientIp';
 
 // Validation schemas
 export const workspaceSchema = Joi.object({
@@ -144,19 +145,29 @@ function sanitizeInput(obj: any): any {
 
 // Rate limiting for security
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+// Full-map sweep at most once a minute — the per-bucket expiry check below
+// still resets each caller's own window on read.
+const CLEANUP_INTERVAL_MS = 60_000;
+let lastCleanupAt = 0;
 
 export const rateLimit = (maxRequests: number = 100, windowMs: number = 15 * 60 * 1000) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // Health check is a lightweight probe — never consume quota
     if (req.path === '/health') return next();
 
-    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    // clientIp(): the app does not trust proxy, so behind Railway req.ip is the
+    // proxy address — one shared bucket for every visitor (same fix as the
+    // waitlist/auth/admin limiters).
+    const clientIP = clientIp(req);
     const currentTime = Date.now();
 
-    // Clean expired entries
-    for (const [ip, data] of rateLimitMap.entries()) {
-      if (currentTime > data.resetTime) {
-        rateLimitMap.delete(ip);
+    // Clean expired entries (bounded: one pass per CLEANUP_INTERVAL_MS)
+    if (currentTime - lastCleanupAt >= CLEANUP_INTERVAL_MS) {
+      lastCleanupAt = currentTime;
+      for (const [ip, data] of rateLimitMap.entries()) {
+        if (currentTime > data.resetTime) {
+          rateLimitMap.delete(ip);
+        }
       }
     }
 

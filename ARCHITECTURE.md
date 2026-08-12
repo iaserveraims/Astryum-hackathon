@@ -2,7 +2,8 @@
 
 > The system shape. Reconciled with [Defibro-Validated_Architecture.md](Defibro-Validated_Architecture.md)
 > (the validated plan, 2026-06-20). The rules this shape must never break are in
-> [INVARIANTS.md](INVARIANTS.md); the locked choices behind it are in [DECISIONS.md](DECISIONS.md).
+> [INVARIANTS.md](INVARIANTS.md); the locked choices behind it are in [DECISIONS.md](DECISIONS.md);
+> the operating summary is in [CLAUDE.md](CLAUDE.md).
 
 ---
 

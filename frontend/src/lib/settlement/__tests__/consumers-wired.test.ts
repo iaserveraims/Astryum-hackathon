@@ -61,11 +61,16 @@ describe('every wallet-signing surface consumes the settlement machine', () => {
   it('loadAllPending has a REAL consumer — the resume path is wired into the shell', () => {
     // The 2026-07-25 scan found loadAllPending with zero consumers (the same
     // hole R1 had): pin the whole rehydration cable at the source level.
+    // 2026-08-08: the visible surface moved from the floating bottom-right
+    // cards (ResumedSettlements) to the sidebar card under "To sign"
+    // (SidebarSettlements), and the hook now ALSO listens for pendings saved
+    // mid-session (PENDING_CHANGED_EVENT from savePending).
     expect(read('lib/settlement/resume.ts')).toMatch(/loadAllPending\(/);
     expect(read('lib/settlement/resume.ts')).toMatch(/startedAt: p\.startedAt/); // ceiling from the SIGNATURE
-    expect(read('lib/settlement/useResumePendingSettlements.ts')).toMatch(/resumeAllPending\(/);
-    expect(read('components/settlement/ResumedSettlements.tsx')).toMatch(/useResumePendingSettlements\(/);
-    expect(read('components/ui/AppShell.tsx')).toMatch(/<ResumedSettlements \/>/);
+    expect(read('lib/settlement/useResumePendingSettlements.ts')).toMatch(/resumePending\(/);
+    expect(read('lib/settlement/useResumePendingSettlements.ts')).toMatch(/PENDING_CHANGED_EVENT/);
+    expect(read('components/settlement/SidebarSettlements.tsx')).toMatch(/useResumePendingSettlements\(/);
+    expect(read('components/ui/AppShell.tsx')).toMatch(/<SidebarSettlements \/>/);
   });
 
   it('done-views render success through SettlementIndicator, not a hardcoded green', () => {
@@ -78,7 +83,9 @@ describe('every wallet-signing surface consumes the settlement machine', () => {
   it('transfers: BOTH rails track — the XRPL Payment settles on LEDGER VALIDATION, no exemptions left', () => {
     const src = read('components/wallet/WalletTransferModals.tsx');
     expect(src).toMatch(/settlement\.track\(handle\)/); // EVM rail
-    expect(src).toMatch(/startPending\('xrpl-tx'/); // XRPL rail — the last premature green
+    // XRPL rail — a plain Payment settles on ledger validation; a PA dispatch
+    // (0xFE, paMemoHex set) settles only when the EXECUTOR runs it on Flare.
+    expect(src).toMatch(/startPending\(paMemoHex \? 'xrpl-mint' : 'xrpl-tx'/);
     expect(src).not.toMatch(/Transfer signed and submitted/); // the old unconditional copy is gone
   });
 
@@ -88,5 +95,14 @@ describe('every wallet-signing surface consumes the settlement machine', () => {
     expect(src).toMatch(/startPending\('council-order'/);
     // the enrichment poll must no longer decide success on its own:
     expect(src).not.toMatch(/if \(st\.executed\)/);
+  });
+
+  it('ProposalInbox: emitting a council order tracks the machine (the async path was the 2026-07-29 hole)', () => {
+    // The relay itself starts SERVER-SIDE on /submitted; the inbox must still
+    // consume the machine so "emitted" never reads as "executed".
+    const src = read('components/legacy/ProposalInbox.tsx');
+    expect(src).toMatch(/useSettlement\(/);
+    expect(src).toMatch(/startPending\('council-order'/);
+    expect(src).toMatch(/councilOrder\?\.isOrder/);
   });
 });

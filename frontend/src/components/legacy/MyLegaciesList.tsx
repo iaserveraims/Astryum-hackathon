@@ -21,10 +21,16 @@
  * pointers follow the user across devices. legacyLocal remains the wizard's
  * local write-buffer; useAuthorities drains it into the registry. State is
  * always read fresh from the ledger (L1).
+ *
+ * It renders `legacies`, NOT every governed candidate (founder 2026-07-28):
+ * being connected while you are a MEMBER of someone else's council does not
+ * make your own account a Legacy. Only a confirmed council, or an account you
+ * deliberately pointed at, belongs on this page.
  */
 import { useCallback, useState } from 'react';
-import { Check, ExternalLink, Landmark, Loader2, Pencil, Plus, RefreshCw, ScrollText, Users, X } from 'lucide-react';
+import { ArrowLeftRight, Check, ExternalLink, Landmark, Loader2, Pencil, Plus, RefreshCw, ScrollText, Users, X } from 'lucide-react';
 import { Card, EmptyState, GhostButton, PageHeader, Pill, PrimaryButton } from '../ui/primitives';
+import { RevealGroup, RevealItem } from '../ui/motion';
 import { useT } from '../../i18n/LanguageProvider';
 import { governedAccountsApi, type LegacyHealth } from '../../services/v1Api';
 import { useAuthorities, invalidateAuthorityCache } from '../../hooks/useAuthorities';
@@ -62,14 +68,16 @@ export default function MyLegaciesList({
   onSelect,
   onConstituteNew,
 }: {
-  /** Open a Legacy on a chosen surface — the two doors live on the card now. */
-  onSelect: (account: string, surface: 'constitute' | 'govern') => void;
+  /** Open a Legacy on a chosen surface — the three doors live on the card now. */
+  onSelect: (account: string, surface: 'constitute' | 'govern', tab?: 'movements') => void;
   onConstituteNew: () => void;
 }) {
   const { t } = useT();
   // The SAME source the authority switcher reads — connected council +
-  // registry pointers, enriched from the ledger (health, council shape).
-  const { governedCandidates, loading, reload } = useAuthorities();
+  // registry pointers, enriched from the ledger (health, council shape) —
+  // narrowed to the ones that ARE Legacies: a wallet that is only a MEMBER of
+  // someone else's council is a signer, not a Legacy of its own.
+  const { legacies, loading, reload } = useAuthorities();
   // Nickname editing. Registry label is the portable name; legacyLocal is
   // kept in sync so the wizard's local readers agree.
   const [editing, setEditing] = useState<string | null>(null);
@@ -134,23 +142,30 @@ export default function MyLegaciesList({
         </GhostButton>
       </div>
 
-      {governedCandidates.length === 0 ? (
+      {legacies.length === 0 ? (
         <EmptyState
           icon={<Users size={20} />}
           title={t('No Legacies yet')}
           hint={t(
-            'Constitute a new one — and if you already govern one, open its address in the first step: it will appear here.',
+            'A Legacy is an XRPL account governed by a council of real people — a quorum the ledger itself enforces. Constitute a new one, or open the address of one you already govern in the first step: it will appear here.',
           )}
+          action={
+            <PrimaryButton onClick={onConstituteNew}>
+              <Plus size={14} /> {t('Constitute a new Legacy')}
+            </PrimaryButton>
+          }
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {governedCandidates.map((c) => {
+        // The cards settle in one after another (immersion pass 2026-08-04) —
+        // the same house cascade every page already speaks.
+        <RevealGroup className="grid gap-3 sm:grid-cols-2">
+          {legacies.map((c) => {
             const nickname = nicknameOf(c);
             const isEditing = editing === c.address;
             return (
               // Two doors per card (founder ask 2026-07-19): you choose the
               // Constitution or the Governance of this Legacy BEFORE entering.
-              <div key={c.address} className="group rounded-2xl">
+              <RevealItem key={c.address} className="group rounded-2xl">
               <Card className="p-4 transition hover:border-ink/25 hover:bg-ink/[0.04]">
                 <div className="space-y-2.5">
                   {/* Identity: nickname big, address small — never capital. */}
@@ -189,7 +204,7 @@ export default function MyLegaciesList({
                               setDraft(nickname ?? '');
                               setEditing(c.address);
                             }}
-                            className="shrink-0 text-ink/30 opacity-0 transition group-hover:opacity-100 hover:text-ink/70"
+                            className="shrink-0 rounded text-ink/25 transition hover:text-ink/70 focus-visible:text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40"
                             aria-label={t('Edit nickname')}
                           >
                             <Pencil size={12} />
@@ -250,29 +265,45 @@ export default function MyLegaciesList({
                     )}
                   </div>
 
-                  {/* The two doors: pick where to go before entering. */}
+                  {/* The three doors: pick where to go before entering. Layout
+                      2+1 like a personal wallet card — Movements is the verb
+                      you reach for most, so it gets its own full-width row.
+                      The labels are the SURFACE names (Constitute / Govern —
+                      renamed 2026-08-04): "Constitution" promised the document
+                      and delivered the whole ceremony. A door says where the
+                      door goes. */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => onSelect(c.address, 'constitute')}
-                      className="flex items-center justify-center gap-1.5 rounded-lg border border-ink/12 bg-ink/[0.03] px-2.5 py-2 text-[13px] text-ink/70 transition hover:border-ink/25 hover:bg-ink/[0.07] hover:text-ink"
+                      aria-label={`${t('Constitute')} · ${nickname ?? shortAddr(c.address)}`}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-ink/12 bg-ink/[0.03] px-2.5 py-2 text-[13px] text-ink/70 transition hover:border-ink/25 hover:bg-ink/[0.07] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0"
                     >
-                      <ScrollText size={14} /> {t('Constitution')}
+                      <ScrollText size={14} /> {t('Constitute')}
                     </button>
                     <button
                       type="button"
                       onClick={() => onSelect(c.address, 'govern')}
-                      className="flex items-center justify-center gap-1.5 rounded-lg border border-volt/25 bg-volt/[0.08] px-2.5 py-2 text-[13px] text-ink/80 transition hover:border-volt/45 hover:bg-volt/[0.14] hover:text-ink"
+                      aria-label={`${t('Govern')} · ${nickname ?? shortAddr(c.address)}`}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-volt/25 bg-volt/[0.08] px-2.5 py-2 text-[13px] text-ink/80 transition hover:border-volt/45 hover:bg-volt/[0.14] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0"
                     >
-                      <Landmark size={14} /> {t('Governance')}
+                      <Landmark size={14} /> {t('Govern')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(c.address, 'govern', 'movements')}
+                      aria-label={`${t('Movements')} · ${nickname ?? shortAddr(c.address)}`}
+                      className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-ink/12 bg-ink/[0.03] px-2.5 py-2 text-[13px] text-ink/70 transition hover:border-ink/25 hover:bg-ink/[0.07] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0"
+                    >
+                      <ArrowLeftRight size={14} /> {t('Movements')}
                     </button>
                   </div>
                 </div>
               </Card>
-              </div>
+              </RevealItem>
             );
           })}
-        </div>
+        </RevealGroup>
       )}
     </div>
   );

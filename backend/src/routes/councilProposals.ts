@@ -29,6 +29,7 @@ import {
   convertHexToString,
 } from 'xrpl';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 import { withSourceTag } from '../config/xrplSourceTag';
 import { xrplProvider } from '../integrations/providers/chain/XRPLProvider';
@@ -41,8 +42,13 @@ import {
   BlobVerificationError,
 } from '../connectors/protocols/xrpl/XrplBlobVerifier';
 import { jurisdictionService } from '../services/JurisdictionService';
+import { requireLegacyAccess } from '../middleware/requireLegacyAccess';
 
 const router = Router();
+// §1.3 (2026-08-02): the WHOLE proposal inbox is a council-only surface — the
+// same fail-closed predicate the Legacy toggle uses, now enforced server-side.
+// (Mounted after requireSiweAuth; family members are on LEGACY_ACCESS_EMAILS.)
+router.use(requireLegacyAccess);
 
 const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const xrplAddress = z.string().regex(XRPL_ADDRESS_RE, 'not an XRPL account (r…)');
@@ -100,7 +106,7 @@ const createSchema = z.object({
   region: z.string().optional(),
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const gate = gateCouncil(regionOf(req));
   if (gate) return void res.status(gate.status).json({ error: gate.error });
   const userId = req.siwe?.userId;
@@ -151,13 +157,13 @@ router.post('/', async (req: Request, res: Response) => {
     }
     return void res.status(400).json({ error: 'PREPARE_FAILED', detail: (e as Error).message });
   }
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /?accounts=rA,rB[&status=live] — the inbox read. Blobs are omitted here
 // (GET /:id carries them for the combining browser).
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const raw = String(req.query.accounts ?? '');
   const accounts = raw
     .split(',')
@@ -183,17 +189,17 @@ router.get('/', async (req: Request, res: Response) => {
     proposals.push(p);
   }
   return void res.json({ proposals });
-});
+}));
 
 // GET /:id — full detail, blobs included (the combining browser needs them).
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const row = await prisma.councilProposal.findUnique({
     where: { id: req.params.id },
     include: { signatures: { orderBy: { signedAt: 'asc' } }, positions: true },
   });
   if (!row) return void res.status(404).json({ error: 'NOT_FOUND' });
   return void res.json({ proposal: await withEffectiveStatus(row) });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /:id/signatures — a member submits their signed blob. Verified against
@@ -202,7 +208,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const signatureSchema = z.object({ signerAccount: xrplAddress, blobHex: z.string().min(32) });
 
-router.post('/:id/signatures', async (req: Request, res: Response) => {
+router.post('/:id/signatures', asyncHandler(async (req: Request, res: Response) => {
   const parsed = signatureSchema.safeParse(req.body);
   if (!parsed.success) {
     return void res
@@ -246,7 +252,7 @@ router.post('/:id/signatures', async (req: Request, res: Response) => {
     quorum: p.quorum,
     signedBy: signatures.map((s) => s.signerAccount),
   });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMAL POSITIONS — the deliberative record (the acta, NOT a chat).
@@ -334,7 +340,7 @@ const positionSchema = z.object({
   blobHex: z.string().min(32),
 });
 
-router.post('/:id/positions', async (req: Request, res: Response) => {
+router.post('/:id/positions', asyncHandler(async (req: Request, res: Response) => {
   const parsed = positionSchema.safeParse(req.body);
   if (!parsed.success) {
     return void res
@@ -396,7 +402,7 @@ router.post('/:id/positions', async (req: Request, res: Response) => {
     },
   });
   return void res.status(201).json({ position });
-});
+}));
 
 // POST /:id/positions/anchor/prepare — compose the UNSIGNED 1-drop batch
 // anchor: sha256 of the sorted position hashes, in the memo of a personal
@@ -404,7 +410,7 @@ router.post('/:id/positions', async (req: Request, res: Response) => {
 // emitter's own wallet (a normal personal tx — no council Sequence touched).
 const anchorPrepareSchema = z.object({ emitterAccount: xrplAddress, region: z.string().optional() });
 
-router.post('/:id/positions/anchor/prepare', async (req: Request, res: Response) => {
+router.post('/:id/positions/anchor/prepare', asyncHandler(async (req: Request, res: Response) => {
   const gate = gateCouncil(regionOf(req));
   if (gate) return void res.status(gate.status).json({ error: gate.error });
   const parsed = anchorPrepareSchema.safeParse(req.body);
@@ -439,10 +445,10 @@ router.post('/:id/positions/anchor/prepare', async (req: Request, res: Response)
     Memos: [{ Memo: { MemoData: Buffer.from(memo, 'utf8').toString('hex').toUpperCase() } }],
   });
   return void res.json({ xrplTx, batchHash, positionsCount: p.positions.length });
-});
+}));
 
 // POST /:id/positions/anchored — record the anchor's ledger hash.
-router.post('/:id/positions/anchored', async (req: Request, res: Response) => {
+router.post('/:id/positions/anchored', asyncHandler(async (req: Request, res: Response) => {
   const parsed = submittedSchema.safeParse(req.body);
   if (!parsed.success) {
     return void res
@@ -456,12 +462,12 @@ router.post('/:id/positions/anchored', async (req: Request, res: Response) => {
     data: { positionsAnchor: parsed.data.txHash },
   });
   return void res.json({ ok: true, proposal });
-});
+}));
 
 // POST /:id/submitted — the broadcasting browser reports the ledger hash.
 const submittedSchema = z.object({ txHash: z.string().trim().min(8).max(128) });
 
-router.post('/:id/submitted', async (req: Request, res: Response) => {
+router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) => {
   const parsed = submittedSchema.safeParse(req.body);
   if (!parsed.success) {
     return void res
@@ -477,11 +483,36 @@ router.post('/:id/submitted', async (req: Request, res: Response) => {
     where: { id: row.id },
     data: { status: 'submitted', txHash: parsed.data.txHash },
   });
-  return void res.json({ ok: true, proposal });
-});
+
+  // A council order emitted from the inbox must reach Flare WITHOUT depending
+  // on the reporting browser: start the courtesy relay server-side, here. This
+  // closes the 2026-07-29 hole (order validated on XRPL, never executed on
+  // Flare) for the async path. Best-effort: the emit report never fails on it.
+  let councilOrder:
+    | { isOrder: true; relay: 'started' | 'already-relaying' | 'relayer-disabled' | 'not-launched' }
+    | undefined;
+  try {
+    const { isCouncilOrderPayment, launchCouncilOrderRelay } = await import(
+      '../services/flare/CouncilOrderRelayLauncher'
+    );
+    if (isCouncilOrderPayment(row.txjson)) {
+      if (process.env.FLARE_EXECUTOR_ENABLED !== 'true') {
+        councilOrder = { isOrder: true, relay: 'relayer-disabled' };
+      } else if (!/^[0-9A-Fa-f]{64}$/.test(parsed.data.txHash)) {
+        councilOrder = { isOrder: true, relay: 'not-launched' };
+      } else {
+        const r = launchCouncilOrderRelay(parsed.data.txHash);
+        councilOrder = { isOrder: true, relay: r.started ? 'started' : 'already-relaying' };
+      }
+    }
+  } catch {
+    /* detection is best-effort — the relay stays permissionless and retryable */
+  }
+  return void res.json({ ok: true, proposal, ...(councilOrder ? { councilOrder } : {}) });
+}));
 
 // POST /:id/withdraw — only the proposer's app-account, only while live.
-router.post('/:id/withdraw', async (req: Request, res: Response) => {
+router.post('/:id/withdraw', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe?.userId;
   if (!userId) return void res.status(401).json({ error: 'missing_siwe_session' });
   const row = await prisma.councilProposal.findUnique({ where: { id: req.params.id } });
@@ -497,6 +528,6 @@ router.post('/:id/withdraw', async (req: Request, res: Response) => {
     data: { status: 'withdrawn' },
   });
   return void res.json({ ok: true, proposal });
-});
+}));
 
 export default router;

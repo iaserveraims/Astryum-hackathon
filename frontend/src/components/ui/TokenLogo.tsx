@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FXRP_FAMILY } from '@/lib/assetLogos';
 
 // CoinGecko stable asset CDN — industry standard used by Uniswap, Aave, etc.
 // Covers ~95% of DeFi tokens by TVL. Falls back to JSDelivr for long tail.
@@ -23,7 +24,11 @@ const LOGO_MAP: Record<string, string> = {
   // CoinGecko's "xrp-symbol-white" PNG is a DARK mark — invisible on the dark
   // UI. The cryptocurrency-icons build carries the navy-circle + white-X mark.
   XRP:     'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/xrp.svg',
-  FXRP:    'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/xrp.svg',
+  // FXRP is NOT XRP: it is the FAssets representation on Flare and carries its
+  // own mark (the X on Flare crimson). Self-hosted so the flagship asset never
+  // depends on a third-party CDN — and so no CDN learns who is looking at it.
+  // Flare-side receipts backed by FXRP read as FXRP too.
+  ...FXRP_FAMILY,
   // ── Stablecoins ──────────────────────────────────────────────────────────────
   USDC:    'https://assets.coingecko.com/coins/images/6319/small/usdc.png',
   USDT:    'https://assets.coingecko.com/coins/images/325/small/Tether.png',

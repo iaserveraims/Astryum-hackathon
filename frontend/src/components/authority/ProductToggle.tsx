@@ -13,7 +13,7 @@
  * aggregated overview of simple wallets.
  */
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Landmark, Wallet } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useT } from '../../i18n/LanguageProvider';
@@ -28,7 +28,7 @@ type Product = 'personal' | 'legacy';
 
 export default function ProductToggle() {
   const { t } = useT();
-  const { productMode, setProductMode, accounts } = useAuthorityAccount();
+  const { productMode, setProductMode, accounts, loading: accountsLoading } = useAuthorityAccount();
   const router = useRouter();
   const pathname = usePathname();
   const legacy = productMode === 'legacy';
@@ -52,25 +52,52 @@ export default function ProductToggle() {
     if (pathname === '/app/legacy') router.push('/app/wallets');
   }, [legacyAccessKnown, legacyAccess, legacy, pathname, setProductMode, router]);
 
-  // Flipping the product also carries the user to the destination that only
-  // exists in that product (founder 2026-07-20): the Wallets↔Legacy nav rows
-  // swap with the mode, so staying on the hidden one leaves you on a page the
-  // menu no longer lists. Only redirect FROM the pair's other side — every
-  // shared page (Summary, Earn, Portfolio…) stays put.
+  // Entering Legacy (founder 2026-08-04, "vía libre a todos"): the flip is
+  // now UNCONDITIONAL for accounts with access — setProductMode activates the
+  // governed account when one exists, or flips into the LOBBY (indigo shell,
+  // Legacy nav, no account claimed) when nothing is constituted yet. The
+  // popups (demo / no access) stay inside setProductMode. This layer only
+  // navigates and upgrades:
+  //
+  //  1. /app/wallets only exists in Personal → carry the user over NOW (the
+  //     mode already flipped, lobby or account — founder 2026-07-20).
+  //  2. Accounts still LOADING → park the intent; when the registry answers
+  //     with a governed account, re-entering ACTIVATES it in place (the
+  //     crossing plays once — loading transitions are tracked silently).
+  //  3. Resolved and truly nothing governed → the panel (Constituir door).
+  const [pendingLegacy, setPendingLegacy] = useState(false);
+  const enterLegacy = useCallback(() => {
+    setProductMode('legacy');
+    // Popup branches (demo / no access) were handled inside setProductMode —
+    // never navigate on an intercepted flip. getState(): click-time read.
+    if (isDemoMode() || !useAuthStore.getState().legacyAccess) return;
+    if (pathname === '/app/wallets') {
+      router.push('/app/legacy');
+    }
+    const hasGoverned = accounts.some((a) => a.kind === 'governed');
+    if (hasGoverned) return;
+    if (accountsLoading) {
+      setPendingLegacy(true);
+      return;
+    }
+    if (pathname !== '/app/legacy') router.push('/app/legacy');
+  }, [accounts, accountsLoading, pathname, router, setProductMode]);
+
+  useEffect(() => {
+    if (!pendingLegacy || accountsLoading) return;
+    setPendingLegacy(false);
+    enterLegacy();
+  }, [pendingLegacy, accountsLoading, enterLegacy]);
+
   const select = (mode: 'astryum' | 'legacy') => {
-    setProductMode(mode);
     if (mode === 'astryum') {
+      setPendingLegacy(false);
+      setProductMode('astryum');
       // Leaving Legacy always lands on Wallets (Personal always has it).
       if (pathname === '/app/legacy') router.push('/app/wallets');
       return;
     }
-    // Entering Legacy only actually switches when the account HAS access and
-    // a council exists, outside the gated public demo (setProductMode is a
-    // no-op / opens the coming-soon popup otherwise) — never navigate to a
-    // page whose mode flip was intercepted, or the user lands stranded on a
-    // hidden page in Personal.
-    const canEnterLegacy = !isDemoMode() && legacyAccess && accounts.some((a) => a.kind === 'governed');
-    if (canEnterLegacy && pathname === '/app/wallets') router.push('/app/legacy');
+    enterLegacy();
   };
 
   return (

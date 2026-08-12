@@ -9,6 +9,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 import { agentKeyService } from '../services/AgentKeyService';
 import { agentContextBuilder } from '../services/AgentContextBuilder';
@@ -34,7 +35,10 @@ const ChatBodySchema = z.object({
   conversationId: z.string().optional(),
 });
 
-router.post('/chat', async (req: Request, res: Response) => {
+// Wrapped whole: the conversation/message/context awaits BEFORE the SSE
+// section have no try/catch — a rejection there must reach the error
+// middleware instead of hanging the client.
+router.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   const parse = ChatBodySchema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: 'INVALID_BODY', details: parse.error.flatten() });
@@ -153,14 +157,14 @@ router.post('/chat', async (req: Request, res: Response) => {
   } finally {
     res.end();
   }
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P-AGENT-1: CONVERSATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
 // GET /api/agent/conversations
-router.get('/conversations', async (req: Request, res: Response) => {
+router.get('/conversations', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const convs = await prisma.agentConversation.findMany({
     where: { userId },
@@ -169,10 +173,10 @@ router.get('/conversations', async (req: Request, res: Response) => {
     select: { id: true, title: true, createdAt: true, updatedAt: true },
   });
   res.json({ conversations: convs });
-});
+}));
 
 // GET /api/agent/conversations/:id
-router.get('/conversations/:id', async (req: Request, res: Response) => {
+router.get('/conversations/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const conv = await prisma.agentConversation.findFirst({
     where: { id: req.params.id, userId },
@@ -183,10 +187,10 @@ router.get('/conversations/:id', async (req: Request, res: Response) => {
     return;
   }
   res.json(conv);
-});
+}));
 
 // DELETE /api/agent/conversations/:id
-router.delete('/conversations/:id', async (req: Request, res: Response) => {
+router.delete('/conversations/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const conv = await prisma.agentConversation.findFirst({ where: { id: req.params.id, userId } });
   if (!conv) {
@@ -195,14 +199,14 @@ router.delete('/conversations/:id', async (req: Request, res: Response) => {
   }
   await prisma.agentConversation.delete({ where: { id: req.params.id } });
   res.json({ deleted: true });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P-AGENT-1: SETTINGS (API key + model)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // GET /api/agent/settings
-router.get('/settings', async (req: Request, res: Response) => {
+router.get('/settings', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const keyRecord = await agentKeyService.getUserKeyRecord(userId);
   const mcpConns = await prisma.userMCPConnection.findMany({
@@ -215,10 +219,10 @@ router.get('/settings', async (req: Request, res: Response) => {
       : { hasKey: false },
     mcpConnections: mcpConns,
   });
-});
+}));
 
 // PUT /api/agent/settings  — save/update Anthropic API key + model
-router.put('/settings', async (req: Request, res: Response) => {
+router.put('/settings', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const schema = z.object({
     apiKey: z.string().min(10).optional(),
@@ -260,7 +264,7 @@ router.put('/settings', async (req: Request, res: Response) => {
   }
 
   res.status(400).json({ error: 'NOTHING_TO_UPDATE' });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P-AGENT-2: MCP CATALOG + CONNECTIONS
@@ -272,7 +276,7 @@ router.get('/mcp/catalog', (_req: Request, res: Response) => {
 });
 
 // POST /api/agent/mcp/connect
-router.post('/mcp/connect', async (req: Request, res: Response) => {
+router.post('/mcp/connect', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const schema = z.object({
     serverId: z.string().min(1),
@@ -301,15 +305,15 @@ router.post('/mcp/connect', async (req: Request, res: Response) => {
   });
 
   res.json({ connected: true, serverId: conn.serverId, serverName: conn.serverName });
-});
+}));
 
 // DELETE /api/agent/mcp/:serverId
-router.delete('/mcp/:serverId', async (req: Request, res: Response) => {
+router.delete('/mcp/:serverId', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { serverId } = req.params;
   await prisma.userMCPConnection.deleteMany({ where: { userId, serverId } });
   res.json({ disconnected: true, serverId });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P-AGENT-2: DOCUMENTS
@@ -320,7 +324,7 @@ const ALLOWED_TYPES = ['text/plain', 'text/markdown', 'application/json'];
 
 // POST /api/agent/documents/upload
 // Accepts raw text body. For PDF we'd use a multipart upload — keeping text-first for now.
-router.post('/documents/upload', async (req: Request, res: Response) => {
+router.post('/documents/upload', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const schema = z.object({
     filename: z.string().min(1).max(255),
@@ -341,10 +345,10 @@ router.post('/documents/upload', async (req: Request, res: Response) => {
   });
 
   res.json({ id: doc.id, filename: doc.filename, sizeBytes: doc.sizeBytes, uploadedAt: doc.uploadedAt });
-});
+}));
 
 // GET /api/agent/documents
-router.get('/documents', async (req: Request, res: Response) => {
+router.get('/documents', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const docs = await prisma.agentDocument.findMany({
     where: { userId },
@@ -352,10 +356,10 @@ router.get('/documents', async (req: Request, res: Response) => {
     select: { id: true, filename: true, contentType: true, sizeBytes: true, source: true, uploadedAt: true },
   });
   res.json({ documents: docs });
-});
+}));
 
 // DELETE /api/agent/documents/:id
-router.delete('/documents/:id', async (req: Request, res: Response) => {
+router.delete('/documents/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const doc = await prisma.agentDocument.findFirst({ where: { id: req.params.id, userId } });
   if (!doc) {
@@ -364,7 +368,7 @@ router.delete('/documents/:id', async (req: Request, res: Response) => {
   }
   await prisma.agentDocument.delete({ where: { id: req.params.id } });
   res.json({ deleted: true });
-});
+}));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P-AGENT-3: AGENT RULES CRUD
@@ -383,17 +387,17 @@ const RuleCreateSchema = z.object({
 });
 
 // GET /api/agent/rules
-router.get('/rules', async (req: Request, res: Response) => {
+router.get('/rules', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const rules = await prisma.agentRule.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
   });
   res.json({ rules });
-});
+}));
 
 // POST /api/agent/rules
-router.post('/rules', async (req: Request, res: Response) => {
+router.post('/rules', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const parse = RuleCreateSchema.safeParse(req.body);
   if (!parse.success) {
@@ -406,10 +410,10 @@ router.post('/rules', async (req: Request, res: Response) => {
     data: { userId, ...rest, triggerConfig },
   });
   res.status(201).json(rule);
-});
+}));
 
 // PUT /api/agent/rules/:id
-router.put('/rules/:id', async (req: Request, res: Response) => {
+router.put('/rules/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const existing = await prisma.agentRule.findFirst({ where: { id: req.params.id, userId } });
   if (!existing) {
@@ -430,10 +434,10 @@ router.put('/rules/:id', async (req: Request, res: Response) => {
     data: { ...restData, ...(tc !== undefined ? { triggerConfig: tc as any } : {}) },
   });
   res.json(updated);
-});
+}));
 
 // DELETE /api/agent/rules/:id
-router.delete('/rules/:id', async (req: Request, res: Response) => {
+router.delete('/rules/:id', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const existing = await prisma.agentRule.findFirst({ where: { id: req.params.id, userId } });
   if (!existing) {
@@ -442,10 +446,10 @@ router.delete('/rules/:id', async (req: Request, res: Response) => {
   }
   await prisma.agentRule.delete({ where: { id: req.params.id } });
   res.json({ deleted: true });
-});
+}));
 
 // POST /api/agent/rules/:id/trigger  — manual trigger
-router.post('/rules/:id/trigger', async (req: Request, res: Response) => {
+router.post('/rules/:id/trigger', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const rule = await prisma.agentRule.findFirst({ where: { id: req.params.id, userId } });
   if (!rule) {
@@ -510,6 +514,6 @@ router.post('/rules/:id/trigger', async (req: Request, res: Response) => {
   }
 
   res.json({ triggered: true, conversationId: conv.id, response: responseText });
-});
+}));
 
 export default router;

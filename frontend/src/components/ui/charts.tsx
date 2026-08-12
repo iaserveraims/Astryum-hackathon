@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { animate, useReducedMotion } from 'framer-motion';
 import { useBalanceVisibility, MASK } from '../../stores/balanceVisibilityStore';
+import { useT } from '../../i18n/LanguageProvider';
+import { formatMoneyCompact } from '../../lib/formatMoney';
 import {
   PieChart,
   Pie,
@@ -36,18 +38,41 @@ const PALETTE = [
   '#94A3B8', // slate
 ];
 
-// Entity-locked hues — colour follows the ENTITY, never its rank. The two
-// main assets keep their colour in every donut/legend no matter how big the
-// slice is or which lens (asset/chain) produced the name:
-//   XRP family / XRPL  → blue   ·  FLR family / Flare → pink
+// Entity-locked hues — colour follows the ENTITY, never its rank. The main
+// assets keep their colour in every donut/legend no matter how big the slice
+// is or which lens (asset/chain) produced the name:
+//   XRP / XRPL → cobalt  ·  FXRP → light blue  ·  FLR family / Flare → pink
+//
+// FXRP left the cobalt it shared with XRP (founder 2026-08-04: "no puede ser
+// que tengan el mismo color") — two slices of the same ring reading identical
+// is the one thing a donut may never do. It takes a LIGHTER STEP OF THE SAME
+// BLUE, not a new hue, for two reasons: it says what FXRP is (the same asset in
+// wrapped form, not a different coin), and lightness is the only separation
+// that survives colour blindness — cobalt vs cyan collapses to ΔE ~4 under
+// deutan/protan, cobalt vs this ΔE 16.6 (validated, OKLab ×100; ≥8 is the
+// target). Its one close neighbour is the slate idle state, which no longer
+// shares a ring with assets.
 const ENTITY_COLORS: Record<string, string> = {
   XRP: '#5B8DEF',
-  FXRP: '#5B8DEF',
+  FXRP: '#93C5FD',
   XRPL: '#5B8DEF',
   FLR: '#EC4899',
   WFLR: '#EC4899',
   SFLR: '#EC4899',
   FLARE: '#EC4899',
+};
+
+// State labels (not assets) that can share a ring with entity slices. Money
+// LEAVING a venue (a queued vault exit, arriving on a known date) takes amber —
+// moving, not parked. Slate stays RESERVED for idle capital: the "Assets
+// Earning" ring no longer draws an idle slice (2026-08-04 — it only charts
+// capital placed in a venue), but the hue must never be handed to an asset, so
+// a grey wedge can only ever mean "not working".
+const STATE_COLORS: Record<string, string> = {
+  'NOT EARNING': '#94A3B8',
+  'SIN GENERAR': '#94A3B8',
+  'ON THE WAY': '#D97706',
+  'EN CAMINO': '#D97706',
 };
 
 /**
@@ -60,7 +85,7 @@ export function chartColorsFor(names: string[]): string[] {
   const out = new Array<string>(names.length);
   const used = new Set<string>();
   names.forEach((n, i) => {
-    const locked = ENTITY_COLORS[n.toUpperCase()];
+    const locked = ENTITY_COLORS[n.toUpperCase()] ?? STATE_COLORS[n.toUpperCase()];
     if (locked) {
       out[i] = locked;
       used.add(locked);
@@ -109,6 +134,7 @@ export function AllocationDonut({
   /** Fill the parent's height instead of a fixed px height (parent must size itself). */
   fill?: boolean;
 }) {
+  const { t } = useT();
   const entries = Object.entries(data)
     .filter(([, v]) => Math.abs(v) > 0.01)
     .map(([name, value]) => ({ name, value: Math.abs(value) }))
@@ -121,7 +147,7 @@ export function AllocationDonut({
   const hidden = useBalanceVisibility((s) => s.hidden);
 
   if (entries.length === 0) {
-    return <div className="h-[220px] flex items-center justify-center text-ink/30 text-sm">No data</div>;
+    return <div className="h-[220px] flex items-center justify-center text-ink/30 text-sm">{t('No data')}</div>;
   }
   const total = entries.reduce((s, e) => s + e.value, 0);
   const colors = chartColorsFor(entries.map((e) => e.name));
@@ -157,18 +183,17 @@ export function AllocationDonut({
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div className="text-xs text-ink/40">total</div>
+        <div className="text-xs text-ink/40">{t('total')}</div>
         <div className="text-base font-mono text-ink">{hidden ? MASK : fmtCompactUSD(total)}</div>
       </div>
     </div>
   );
 }
 
+// Delegates to the ONE money voice (locale-aware; the local version printed
+// "$2500" — the last survivor without thousands separators).
 function fmtCompactUSD(v: number): string {
-  if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(v) >= 10_000) return `$${(v / 1_000).toFixed(1)}K`;
-  if (Math.abs(v) >= 1_000) return `$${v.toFixed(0)}`;
-  return `$${v.toFixed(2)}`;
+  return formatMoneyCompact(v);
 }
 
 // Real token amounts read as "12.4" / "3.2K" — full precision lives in tooltips.
@@ -233,10 +258,11 @@ export function AllocationLegend({
  *  HF >= 2 → emerald, 1.5..2 → blue, 1.2..1.5 → amber, <1.2 → red
  */
 export function HealthFactorGauge({ value, height = 180 }: { value?: number; height?: number }) {
+  const { t } = useT();
   if (value === undefined || value === null) {
     return (
       <div style={{ height }} className="flex items-center justify-center text-ink/30 text-sm">
-        No HF data
+        {t('No HF data')}
       </div>
     );
   }
@@ -267,7 +293,7 @@ export function HealthFactorGauge({ value, height = 180 }: { value?: number; hei
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div className="text-xs text-ink/40">Health Factor</div>
+        <div className="text-xs text-ink/40">{t('Health Factor')}</div>
         <div className="text-3xl font-mono font-semibold" style={{ color }}>
           {value.toFixed(2)}
         </div>
@@ -287,8 +313,9 @@ export function DriversBars({
 }: {
   drivers: { name: string; contribution: number }[];
 }) {
+  const { t } = useT();
   if (drivers.length === 0) {
-    return <div className="text-ink/40 text-sm py-2">No drivers</div>;
+    return <div className="text-ink/40 text-sm py-2">{t('No drivers')}</div>;
   }
   return (
     <ul className="space-y-3 text-sm">
@@ -329,12 +356,13 @@ export function PerfLine({
   color?: string;
   formatY?: (v: number) => string;
 }) {
+  const { t } = useT();
   // Global hide-balances: the curve's SHAPE stays, the y-axis figures and
   // tooltip amounts mask with the rest of the app.
   const hidden = useBalanceVisibility((s) => s.hidden);
   const fmt = hidden ? () => MASK : formatY;
   if (points.length === 0) {
-    return <div style={{ height }} className="flex items-center justify-center text-ink/30 text-sm">No history</div>;
+    return <div style={{ height }} className="flex items-center justify-center text-ink/30 text-sm">{t('No history')}</div>;
   }
   return (
     <div style={{ height }}>
@@ -393,13 +421,14 @@ export function MiniArea({
   height?: number;
   formatY?: (v: number) => string;
 }) {
+  const { t } = useT();
   // Global hide-balances: tooltip amounts mask, the sparkline shape stays.
   const hidden = useBalanceVisibility((s) => s.hidden);
   const fmt = hidden ? () => MASK : formatY;
   if (points.length < 2) {
     return (
       <div style={{ height }} className="flex items-center justify-center text-ink/30 text-xs">
-        No history yet
+        {t('No history yet')}
       </div>
     );
   }

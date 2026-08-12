@@ -46,6 +46,29 @@ export interface GetTimelineOptions {
 }
 
 /**
+ * Whether we could actually SEE the chain on this read.
+ *
+ * Familia "éxito no ganado" (2026-08-03): cuando el explorador de Flare se cayó,
+ * el timeline devolvió [] y la pantalla dijo "No activity yet" — afirmando un
+ * hecho sobre el capital del usuario que no podíamos saber. Un [] por ceguera y
+ * un [] por cartera tranquila NO son la misma respuesta y no pueden pintarse
+ * igual, así que el estado del explorador viaja con los eventos hasta la UI.
+ */
+export interface ExplorerReadStatus {
+  /** false = el explorador no contestó: lo que devolvemos es caché, no la verdad. */
+  readonly ok: boolean;
+  /** Motivo textual del fallo, para el panel y para la frase de la UI. */
+  readonly reason?: string;
+  /** Fecha del evento más reciente que SÍ tenemos en caché ("visto hasta…"). */
+  readonly cachedThrough?: string;
+}
+
+export interface TimelineResult {
+  readonly events: CanonicalActivityEvent[];
+  readonly explorer: ExplorerReadStatus;
+}
+
+/**
  * V1.1 Activity Timeline. Canonical-shaped events for a wallet, sourced from
  * the Flarescan explorer provider with selector-based classification, cached
  * in Prisma `ActivityEvent` for fast subsequent reads.
@@ -60,33 +83,50 @@ export class ActivityService {
     wallet: string,
     opts: GetTimelineOptions = {},
   ): Promise<CanonicalActivityEvent[]> {
-    if (!wallet) return [];
+    return (await this.getTimelineWithStatus(wallet, opts)).events;
+  }
 
+  /**
+   * Igual que `getTimeline`, pero devuelve TAMBIÉN si el explorador contestó.
+   * Quien pinta la pantalla necesita distinguir "no hay movimientos" de "no
+   * podemos verlos ahora mismo"; `getTimeline` se queda como atajo para quien
+   * solo quiere los eventos.
+   */
+  async getTimelineWithStatus(
+    wallet: string,
+    opts: GetTimelineOptions = {},
+  ): Promise<TimelineResult> {
+    if (!wallet) return { events: [], explorer: { ok: true } };
+
+    let explorer: ExplorerReadStatus = { ok: true };
     if (opts.forceRefresh) {
-      await this.refreshFromExplorer(wallet).catch((err) =>
-        console.warn(`[activity] refresh failed: ${(err as Error).message}`),
-      );
+      explorer = (await this.refreshFromExplorer(wallet)).explorer;
     }
 
-    const cached = await this.readCache(wallet, opts);
-    if (cached.length > 0 || !opts.forceRefresh) {
-      // If cache empty and we haven't refreshed, refresh once before returning.
-      if (cached.length === 0 && !opts.forceRefresh) {
-        await this.refreshFromExplorer(wallet).catch((err) =>
-          console.warn(`[activity] refresh failed: ${(err as Error).message}`),
-        );
-        return this.readCache(wallet, opts);
-      }
-      return cached;
+    let events = await this.readCache(wallet, opts);
+    // Caché vacía sin refresco pedido: mira el explorador UNA vez antes de
+    // responder — es justo el caso en el que un [] se leería como "no hay nada".
+    if (events.length === 0 && !opts.forceRefresh) {
+      explorer = (await this.refreshFromExplorer(wallet)).explorer;
+      events = await this.readCache(wallet, opts);
     }
-    return cached;
+
+    if (!explorer.ok) {
+      explorer = { ...explorer, cachedThrough: await this.newestCachedAt(wallet) };
+    }
+    return { events, explorer };
   }
 
   /**
    * Pulls latest txs and token transfers from Flarescan, classifies into
    * `ActivityType`, and upserts to cache. Idempotent on `(wallet, txHash, logIndex)`.
+   *
+   * Nunca lanza: un explorador caído no puede tumbar la pantalla. Pero tampoco
+   * se traga el fallo en silencio — sale en `explorer.ok` para que el llamante
+   * pueda decir la verdad. Una sola de las dos lecturas que falle ya deja el
+   * timeline incompleto, así que cuenta como ceguera.
    */
-  async refreshFromExplorer(wallet: string): Promise<number> {
+  async refreshFromExplorer(wallet: string): Promise<{ written: number; explorer: ExplorerReadStatus }> {
     const traceId = randomUUID();
     const [txs, transfers] = await Promise.allSettled([
       this.cp.call<{ address: string }, FlarescanTx[]>(
@@ -116,7 +156,29 @@ export class ActivityService {
         await this.upsert(ev).then(() => written++).catch(() => undefined);
       }
     }
-    return written;
+
+    const failures = [txs, transfers]
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map((r) => (r.reason as Error)?.message ?? String(r.reason));
+    if (failures.length > 0) {
+      console.warn(`[activity] explorer read failed for ${wallet}: ${failures.join(' | ')}`);
+      return { written, explorer: { ok: false, reason: failures[0] } };
+    }
+    return { written, explorer: { ok: true } };
+  }
+
+  /** Timestamp del evento más reciente en caché — el "visto hasta" honesto. */
+  private async newestCachedAt(wallet: string): Promise<string | undefined> {
+    try {
+      const row = await prisma.activityEvent.findFirst({
+        where: { wallet: wallet.toLowerCase() },
+        orderBy: { timestamp: 'desc' },
+        select: { timestamp: true },
+      });
+      return row?.timestamp.toISOString();
+    } catch {
+      return undefined;
+    }
   }
 
   private async readCache(

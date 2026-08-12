@@ -14,6 +14,8 @@
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import type { SettlementState } from '../../lib/settlement/settlement';
+import { settlementReasonText } from '../../lib/settlement/reasonText';
+import { SignedMark } from './SignedMark';
 
 export function SettlementIndicator({
   state,
@@ -37,14 +39,13 @@ export function SettlementIndicator({
       <div className="w-12 h-12 rounded-2xl grid place-items-center bg-tone-danger/10 border border-tone-danger/25 text-tone-danger">
         <AlertTriangle className="w-6 h-6" />
       </div>
-    ) : state.status === 'stalled' ? (
-      <div className="w-12 h-12 rounded-2xl grid place-items-center bg-tone-warning/10 border border-tone-warning/25 text-tone-warning">
-        <Loader2 className="w-6 h-6 animate-spin" />
-      </div>
     ) : (
-      <div className="w-12 h-12 rounded-2xl grid place-items-center bg-volt/10 border border-volt/25 text-volt">
-        <Loader2 className="w-6 h-6 animate-spin" />
-      </div>
+      // pending AND stalled share this ONE slot on purpose: the ceremony
+      // (SignedMark plays once on mount, then rests as the drawn autograph —
+      // founder 2026-08-08: the full-screen overlay version is retired) must
+      // NOT replay when a pending op merely turns stalled. The "still
+      // watching" affordance moves to the tiny spinner beside the headline.
+      <SignedMark className="my-1" />
     );
 
   const headline =
@@ -59,33 +60,44 @@ export function SettlementIndicator({
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       {icon}
-      <p className="text-sm text-ink font-medium">{headline}</p>
-      {state.reason && state.status !== 'settled' && (
+      <p className="text-sm text-ink font-medium inline-flex items-center justify-center gap-2">
+        {(state.status === 'pending' || state.status === 'stalled') && (
+          <Loader2
+            className={`w-3.5 h-3.5 animate-spin shrink-0 ${state.status === 'stalled' ? 'text-tone-warning' : 'text-ink/40'}`}
+          />
+        )}
+        {headline}
+      </p>
+      {state.status !== 'settled' && settlementReasonText(state.reason, t) && (
         <p
           className={`text-[11px] max-w-xs leading-relaxed ${
             state.status === 'failed' ? 'text-tone-danger' : 'text-tone-warning'
           }`}
         >
-          {state.reason}
+          {settlementReasonText(state.reason, t)}
         </p>
       )}
-      {state.explorerUrl ? (
-        <a
-          href={state.explorerUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-volt hover:underline font-mono break-all"
-        >
-          {state.ref.slice(0, 14)}…{state.ref.slice(-8)}
-          <ExternalLink className="w-3 h-3" />
-        </a>
-      ) : (
-        // A 5792 bundle id has no explorer page yet — still shown, selectable,
-        // so the user can check it in their wallet (never an invisible op).
-        <span className="text-xs text-ink/55 font-mono break-all select-all" title={state.ref}>
-          {state.ref.slice(0, 14)}…{state.ref.slice(-8)}
-        </span>
-      )}
+      {/* R6.10: the hash never dangles unlabelled — it is the user's receipt. */}
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-ink/40">{t('Receipt')}:</span>
+        {state.explorerUrl ? (
+          <a
+            href={state.explorerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-volt hover:underline font-mono break-all"
+          >
+            {state.ref.slice(0, 14)}…{state.ref.slice(-8)}
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        ) : (
+          // A 5792 bundle id has no explorer page yet — still shown, selectable,
+          // so the user can check it in their wallet (never an invisible op).
+          <span className="text-ink/55 font-mono break-all select-all" title={state.ref}>
+            {state.ref.slice(0, 14)}…{state.ref.slice(-8)}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

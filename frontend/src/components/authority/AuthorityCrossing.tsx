@@ -76,6 +76,20 @@ const DURATION_S = 1.5;
 const DURATION_MS = 1500;
 const REDUCED_MS = 300;
 
+// The destination's own brand mark rides the crossing (founder 2026-08-08):
+// entering Legacy the BLUE asteroid ignites at the constellation's heart;
+// coming home the GOLD asteroid blooms at the centre as the comet departs.
+// Both are transparent PNGs so they sit on the frosted glass in both themes.
+// Both are the TIGHT crops (huge transparent canvases made every render read
+// tiny — founder: "aparece muy chiquitito"); they sit on the frosted glass in
+// both themes.
+const MARK_LEGACY = '/astryum-mark-azul-transparente.png';
+// The GOLD standalone mark is the neon-glow asteroid cropped square from
+// astryum_logo-nobackground.png (founder 2026-08-08: "pon la imagen
+// astryum_logo-nobackground" — the flat lockup crop kept reading wrong to
+// them). New filename on purpose: busts any cache of the old slivered crop.
+const MARK_PERSONAL = '/astryum-mark-gold-glow.png';
+
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /** Stagger classes for star twinkle — same rotation the Earn scenes use. */
@@ -104,7 +118,10 @@ function GlassPane({ ms }: { ms: number }) {
 function Halo() {
   return (
     <motion.div
-      className="absolute inset-0 m-auto h-[340px] w-[340px] rounded-full"
+      // vmin-capped: fixed 340px was wider than a 320px phone and the bloom
+      // read as a clipped band instead of a circle; ≥400px viewports keep the
+      // exact 340px look
+      className="absolute inset-0 m-auto h-[85vmin] w-[85vmin] max-h-[340px] max-w-[340px] rounded-full"
       style={{ background: 'radial-gradient(circle, var(--authority-solid) 0%, transparent 62%)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: [0, 0.16, 0.16, 0] }}
@@ -151,18 +168,26 @@ export function ConstellationMark({
   quorumMet = 3,
   size = 120,
   drawn = true,
+  centerAsteroid = false,
 }: {
   members?: number;
   quorumMet?: number;
   size?: number;
   drawn?: boolean;
+  /** Crossing mode (founder 2026-08-08): the Legacy's central star becomes
+   *  the BLUE brand asteroid — the product's own mark lighting the pact. */
+  centerAsteroid?: boolean;
 }) {
   const c = 60;
   // Display clamp: the mark stays legible for real XRPL signer lists (2–8
   // stars); the caption below carries the exact figures either way.
   const n = Math.min(8, Math.max(2, Math.round(members)));
   const met = Math.min(n, Math.max(0, Math.round(quorumMet)));
-  const stars = councilStars(n, met, c, 42);
+  // Council orbit at 46 (was 42): widened together with the asteroid size-up
+  // below — the mark grows AND keeps its air to the ring, instead of growing
+  // into it (founder 2026-08-08: "adapta la animación al nuevo tamaño").
+  const orbit = 46;
+  const stars = councilStars(n, met, c, orbit);
   const pact = `M${stars.map((s) => `${s.x} ${s.y}`).join(' L')} Z`;
 
   const fadeIn = (from: number, to: number) =>
@@ -181,7 +206,7 @@ export function ConstellationMark({
         <circle
           cx={c}
           cy={c}
-          r={42}
+          r={orbit}
           fill="none"
           stroke="var(--authority-solid)"
           strokeOpacity={0.3}
@@ -235,11 +260,28 @@ export function ConstellationMark({
         </motion.g>
       ))}
 
-      {/* the Legacy's own star, lit the moment the pact closes */}
-      <motion.g {...fadeIn(0.5, 0.62)}>
-        <circle cx={c} cy={c} r={13} fill="var(--authority-solid)" fillOpacity={0.12} />
-        <path d={starPath(c, c, 7)} fill="var(--authority-solid)" className="eicon-star eicon-d1" />
-      </motion.g>
+      {/* the Legacy's own star, lit the moment the pact closes — in crossing
+          mode it IS the blue brand asteroid, settling in with a gentle scale */}
+      {centerAsteroid ? (
+        <motion.g
+          style={{ transformOrigin: `${c}px ${c}px` }}
+          {...(drawn
+            ? {
+                initial: { opacity: 0, scale: 0.55 },
+                animate: { opacity: [0, 0, 1, 1], scale: [0.55, 0.55, 1, 1] },
+                transition: { duration: DURATION_S, times: [0, 0.5, 0.68, 1], ease: EASE_OUT_EXPO },
+              }
+            : {})}
+        >
+          <circle cx={c} cy={c} r={28} fill="var(--authority-solid)" fillOpacity={0.12} />
+          <image href={MARK_LEGACY} x={c - 32} y={c - 32} width={64} height={64} />
+        </motion.g>
+      ) : (
+        <motion.g {...fadeIn(0.5, 0.62)}>
+          <circle cx={c} cy={c} r={13} fill="var(--authority-solid)" fillOpacity={0.12} />
+          <path d={starPath(c, c, 7)} fill="var(--authority-solid)" className="eicon-star eicon-d1" />
+        </motion.g>
+      )}
     </svg>
   );
 }
@@ -249,22 +291,11 @@ export function ConstellationMark({
 function CometGlyph({ size = 64 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 120 120" fill="none" aria-hidden>
-      <defs>
-        <radialGradient id="acx-cg-head" cx="0.35" cy="0.3" r="1">
-          <stop offset="0%" stopColor="#FFFDF4" />
-          <stop offset="55%" stopColor="var(--authority-solid)" />
-          <stop offset="100%" stopColor="var(--authority-solid)" stopOpacity="0.15" />
-        </radialGradient>
-        <linearGradient id="acx-cg-trail" x1="1" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--authority-solid)" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="var(--authority-solid)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
       <ellipse
         cx={60}
         cy={60}
-        rx={50}
-        ry={30}
+        rx={53}
+        ry={34}
         fill="none"
         stroke="var(--authority-solid)"
         strokeOpacity={0.35}
@@ -272,12 +303,10 @@ function CometGlyph({ size = 64 }: { size?: number }) {
         strokeDasharray="0.1 6"
         strokeLinecap="round"
       />
-      <g strokeLinecap="round">
-        <path d="M52 68 L92 28" stroke="url(#acx-cg-trail)" strokeWidth={2.4} />
-        <path d="M58 76 L88 46" stroke="url(#acx-cg-trail)" strokeWidth={1.5} opacity={0.7} />
-        <path d="M44 60 L70 34" stroke="url(#acx-cg-trail)" strokeWidth={1.5} opacity={0.7} />
-      </g>
-      <circle cx={48} cy={72} r={7} fill="url(#acx-cg-head)" />
+      {/* the comet is the BRAND asteroid now (founder 2026-08-08): the gold
+          mark rides its home orbit — its PNG carries its own cauda. Sized up
+          with the orbit widened to match (60 inside 53×34). */}
+      <image href={MARK_PERSONAL} x={30} y={30} width={60} height={60} />
     </svg>
   );
 }
@@ -331,7 +360,7 @@ export default function AuthorityCrossing({
           transition={{ duration: REDUCED_MS / 1000, times: [0, 0.25, 0.7, 1], ease: 'easeInOut' }}
         >
           {direction === 'to-legacy' ? (
-            <ConstellationMark members={members} quorumMet={quorumMet} size={64} drawn={false} />
+            <ConstellationMark members={members} quorumMet={quorumMet} size={64} drawn={false} centerAsteroid />
           ) : (
             <CometGlyph size={64} />
           )}
@@ -403,7 +432,7 @@ function ToLegacyScene({
         animate={{ opacity: [1, 1, 0] }}
         transition={{ duration: DURATION_S, times: [0, 0.85, 1], ease: 'easeInOut' }}
       >
-        <ConstellationMark members={members} quorumMet={quorumMet} size={116} />
+        <ConstellationMark members={members} quorumMet={quorumMet} size={116} centerAsteroid />
 
         {label ? (
           <motion.span
@@ -461,18 +490,6 @@ function ToPersonalScene() {
         className="absolute inset-0 m-auto h-[86vmin] w-[86vmin] max-h-[520px] max-w-[520px]"
         aria-hidden
       >
-        <defs>
-          <radialGradient id="acx-head" cx="0.35" cy="0.3" r="1">
-            <stop offset="0%" stopColor="#FFFDF4" />
-            <stop offset="55%" stopColor="var(--authority-solid)" />
-            <stop offset="100%" stopColor="var(--authority-solid)" stopOpacity="0.15" />
-          </radialGradient>
-          <linearGradient id="acx-trail" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--authority-solid)" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="var(--authority-solid)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
         {/* everything shares ONE envelope: quick fade-in, held, gone by 1 */}
         <motion.g animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: DURATION_S, times: [0, 0.1, 0.84, 1] }}>
           {/* ambient sky */}
@@ -547,26 +564,30 @@ function ToPersonalScene() {
             </motion.g>
           ))}
 
-          {/* the homeward asteroid — head + CometMark's cauda travel as one
-              group THROUGH the exact centre: in from the lower-left, a beat
-              at (200,200), out to the upper-right. The head sits at local
-              (200,200), so the pause IS the centre of the screen. */}
-          <motion.g
-            initial={{ x: -84, y: 62, opacity: 0 }}
-            animate={{ x: [-84, -84, 0, 0, 84], y: [62, 62, 0, 0, -62], opacity: [0, 0, 1, 1, 0] }}
-            transition={{
-              duration: DURATION_S,
-              default: { duration: DURATION_S, times: [0, 0.12, 0.42, 0.6, 0.95], ease: 'easeInOut' },
-              opacity: { duration: DURATION_S, times: [0, 0.12, 0.3, 0.82, 1], ease: 'easeInOut' },
-            }}
-          >
-            <path d="M196 203 L172 221" stroke="url(#acx-trail)" strokeWidth={2.2} strokeLinecap="round" />
-            <path d="M199 206 L182 220" stroke="url(#acx-trail)" strokeWidth={1.4} strokeLinecap="round" opacity={0.7} />
-            <path d="M193 199 L176 212" stroke="url(#acx-trail)" strokeWidth={1.4} strokeLinecap="round" opacity={0.7} />
-            <circle cx={200} cy={200} r={6} fill="url(#acx-head)" />
-          </motion.g>
+          {/* (the abstract homeward comet left this scene — founder
+              2026-08-08: the BRAND asteroid below is the traveller now) */}
         </motion.g>
       </svg>
+
+      {/* the destination's own mark (founder 2026-08-08, sized up on request:
+          "aparece muy chiquitito"): the GOLD brand asteroid IS the whole
+          centre now — the abstract comet is gone — blooming as the council's
+          table dissolves, held, gone with the envelope */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <motion.img
+          src={MARK_PERSONAL}
+          alt=""
+          width={84}
+          height={84}
+          initial={{ opacity: 0, scale: 0.55 }}
+          animate={{ opacity: [0, 0, 1, 1, 0], scale: [0.55, 0.55, 1, 1, 1.04] }}
+          transition={{ duration: DURATION_S, times: [0, 0.34, 0.52, 0.86, 1], ease: EASE_OUT_EXPO }}
+        />
+      </motion.div>
 
       <motion.div
         className="absolute inset-0 flex items-center justify-center"

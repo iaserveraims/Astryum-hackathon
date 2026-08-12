@@ -7,6 +7,7 @@ import type {
 import type { ProtocolAction } from '../../../types/domain/Protocol';
 import type { SimulationResult } from '../../../types/domain/Intent';
 import { FLARE_MULTICALL3, type FlareLpV2Venue } from '../../../config/flareLpVenues';
+import { getRedis } from '../../../database/redisClient';
 
 /**
  * Generic tracker for UniV2-style LP tokens on Flare — one registered instance
@@ -47,11 +48,16 @@ type EthersNS = (typeof import('ethers'))['ethers'];
 
 /** factory (lowercase) → cached pair list. Shared across instances/scans. */
 const pairsCache = new Map<string, { pairs: string[]; at: number }>();
+/** factory (lowercase) → in-flight enumeration. Concurrent cold scans (one per
+ *  wallet in the dashboard fan-out) must share ONE factory sweep — without this
+ *  each wallet re-enumerated the whole factory simultaneously. */
+const pairsInflight = new Map<string, Promise<string[]>>();
 /** token address (lowercase) → symbol. Chain-wide. */
 const symbolCache = new Map<string, string>();
 
 export function _resetFlareLpV2Caches(): void {
   pairsCache.clear();
+  pairsInflight.clear();
   symbolCache.clear();
 }
 
@@ -90,7 +96,8 @@ export class FlareLpV2Adapter extends BaseAdapter {
     return out;
   }
 
-  /** All pair addresses of this factory (cached 6h in-process). */
+  /** All pair addresses of this factory (cached 6h in-process + Redis, single
+   *  in-flight sweep shared by concurrent callers). */
   private async allPairs(
     ethers: EthersNS,
     provider: unknown,
@@ -98,6 +105,37 @@ export class FlareLpV2Adapter extends BaseAdapter {
     const key = this.venue.factory.toLowerCase();
     const hit = pairsCache.get(key);
     if (hit && Date.now() - hit.at < PAIRS_CACHE_TTL_MS) return hit.pairs;
+
+    const pending = pairsInflight.get(key);
+    if (pending) return pending;
+    const p = this.enumeratePairs(ethers, provider, key).finally(() =>
+      pairsInflight.delete(key),
+    );
+    pairsInflight.set(key, p);
+    return p;
+  }
+
+  private async enumeratePairs(
+    ethers: EthersNS,
+    provider: unknown,
+    key: string,
+  ): Promise<string[]> {
+    // Redis survives deploys — without it every fresh container re-enumerated
+    // whole factories (BlazeSwap ≈ 1,900 pairs) on its first portfolio read.
+    const redis = getRedis();
+    const redisKey = `flare:lpv2:pairs:${key}`;
+    if (redis) {
+      try {
+        const cached = await redis.get(redisKey);
+        if (cached) {
+          const pairs = JSON.parse(cached) as string[];
+          pairsCache.set(key, { pairs, at: Date.now() });
+          return pairs;
+        }
+      } catch {
+        // fall through to on-chain enumeration
+      }
+    }
 
     const factory = new ethers.Contract(this.venue.factory, FACTORY_ABI, provider as never);
     const length = Number(await factory.allPairsLength());
@@ -114,6 +152,13 @@ export class FlareLpV2Adapter extends BaseAdapter {
       pairs.push(String(addr));
     }
     pairsCache.set(key, { pairs, at: Date.now() });
+    if (redis) {
+      try {
+        await redis.setex(redisKey, Math.floor(PAIRS_CACHE_TTL_MS / 1000), JSON.stringify(pairs));
+      } catch {
+        // cache write is best-effort
+      }
+    }
     return pairs;
   }
 

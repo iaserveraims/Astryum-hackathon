@@ -16,8 +16,8 @@
  * Web Crypto only (no node:crypto): the SAME helpers run in the Edge
  * middleware and the Node route handler.
  *
- * Launch day: set ACCESS_GATE_OPEN=1 and the whole gate steps aside — no
- * deploy, no code change.
+ * Launch day: set ACCESS_GATE_OPEN=1 (or `true`) and the whole gate steps
+ * aside — no deploy, no code change.
  */
 
 export const GATE_COOKIE = 'astryum_gate';
@@ -73,6 +73,27 @@ export async function verifyGateToken(secret: string, token: string | undefined)
 export type GateMode = 'open' | 'enforced' | 'closed';
 
 /**
+ * The launch switch, spelled the way a human types it into a dashboard.
+ *
+ * It used to accept the literal '1' and nothing else — so `ACCESS_GATE_OPEN=true`
+ * (the spelling its own sibling flag uses, BETA_REGISTRATION_OPEN=true on
+ * Railway) left the gate shut with no signal anywhere. A launch switch that
+ * fails silently on the obvious spelling is a trap, and it sprang once already.
+ *
+ * Deliberately MORE generous than backend betaGate.isBetaRegistrationOpen(),
+ * which pins the literal 'true' and nothing else — do not "unify" them. That
+ * one decides who may CREATE AN ACCOUNT and must fail closed on a typo; this
+ * one only draws back a pre-launch curtain. Account creation stays guarded by
+ * the backend gate + the waitlist approval behind it either way, so the worst
+ * this flag can do when it reads generously is show the login card to someone
+ * the backend will still turn away in plain words.
+ */
+const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+export function gateOpenFlag(value?: string): boolean {
+  return TRUTHY.has((value ?? '').trim().toLowerCase());
+}
+
+/**
  * How the gate behaves given the server env:
  *   'open'     — launch switch on, or dev without config → no gate.
  *   'enforced' — code + secret present → cookie required.
@@ -80,7 +101,7 @@ export type GateMode = 'open' | 'enforced' | 'closed';
  *                until the envs are seeded; safer than silently public).
  */
 export function gateMode(env: { open?: string; code?: string; secret?: string; nodeEnv?: string }): GateMode {
-  if (env.open === '1') return 'open';
+  if (gateOpenFlag(env.open)) return 'open';
   const configured = Boolean(env.code?.trim()) && Boolean(env.secret?.trim());
   if (configured) return 'enforced';
   return env.nodeEnv === 'production' ? 'closed' : 'open';

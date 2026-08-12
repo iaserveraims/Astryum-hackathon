@@ -1,13 +1,13 @@
 /**
- * oauthVerify — cryptographic verification of Google / Apple identity tokens.
+ * oauthVerify — cryptographic verification of third-party identity tokens.
  *
- * The frontend obtains an OpenID Connect id_token in the browser (Google
- * Identity Services popup / Sign in with Apple JS) and POSTs it to
- * /api/auth/oauth/:provider. NOTHING in that token is trusted until this
- * module has:
+ * The frontend obtains an OpenID Connect id_token (Google Identity Services
+ * popup / Sign in with Apple JS / the XRP Identity authorization-code+PKCE
+ * exchange) and it reaches /api/auth/oauth/*. NOTHING in that token is trusted
+ * until this module has:
  *
  *   1. fetched the provider's published JWKS (cached in-process),
- *   2. verified the RS256 signature against the key the token names (kid),
+ *   2. verified the signature against the key the token names (kid),
  *   3. checked issuer, audience (our client id) and expiry via jwt.verify.
  *
  * Zero new dependencies — same philosophy as AuthService's scrypt: Node's
@@ -18,13 +18,20 @@
  * 503 oauth_not_configured until the env is set. Comma-separated values are
  * accepted (e.g. a web + an iOS client id later).
  *
- *   GOOGLE_OAUTH_CLIENT_ID  → aud for Google  (…apps.googleusercontent.com)
- *   APPLE_OAUTH_CLIENT_ID   → aud for Apple   (the Services ID, e.g. xyz.astryum.web)
+ *   GOOGLE_OAUTH_CLIENT_ID      → aud for Google (…apps.googleusercontent.com)
+ *   APPLE_OAUTH_CLIENT_ID       → aud for Apple  (the Services ID, e.g. xyz.astryum.web)
+ *   XRPL_IDENTITY_CLIENT_ID     → aud for XRP Identity (account.xrpl.in)
+ *
+ * XRP Identity note: it is a plain OIDC provider (node-oidc-provider) run for
+ * the XRPL ecosystem. Its id_token says WHO the person is — it carries no XRPL
+ * address, no credential and no KYC claim. Which ledger account a user controls
+ * is still proven the only way it can be: a signature, via the wallet-binding
+ * rail. The two layers stack; neither replaces the other.
  */
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
-export type OAuthProvider = 'google' | 'apple';
+export type OAuthProvider = 'google' | 'apple' | 'xrplid';
 
 export interface OAuthClaims {
   provider: OAuthProvider;
@@ -41,6 +48,12 @@ interface ProviderConfig {
   jwksUrl: string;
   issuers: string[];
   audienceEnv: string;
+  /**
+   * Signing algorithms this provider is allowed to use. Kept per-provider and
+   * narrow on purpose: an id_token arriving with an algorithm its issuer never
+   * uses is an attack, not config drift.
+   */
+  algs: jwt.Algorithm[];
 }
 
 const PROVIDERS: Record<OAuthProvider, ProviderConfig> = {
@@ -49,16 +62,28 @@ const PROVIDERS: Record<OAuthProvider, ProviderConfig> = {
     // Google documents both forms of iss.
     issuers: ['https://accounts.google.com', 'accounts.google.com'],
     audienceEnv: 'GOOGLE_OAUTH_CLIENT_ID',
+    algs: ['RS256'],
   },
   apple: {
     jwksUrl: 'https://appleid.apple.com/auth/keys',
     issuers: ['https://appleid.apple.com'],
     audienceEnv: 'APPLE_OAUTH_CLIENT_ID',
+    algs: ['RS256'],
+  },
+  xrplid: {
+    // Verified against https://account.xrpl.in/.well-known/openid-configuration
+    // (2026-08-09): issuer, jwks_uri, and id_token_signing_alg_values_supported
+    // ["EdDSA","RS256","ES256"]. Our client is registered as RS256 — the value
+    // the whole rail already verifies — so the narrow list stays narrow.
+    jwksUrl: 'https://account.xrpl.in/jwks',
+    issuers: ['https://account.xrpl.in'],
+    audienceEnv: 'XRPL_IDENTITY_CLIENT_ID',
+    algs: ['RS256'],
   },
 };
 
 export function isOAuthProvider(value: string): value is OAuthProvider {
-  return value === 'google' || value === 'apple';
+  return value === 'google' || value === 'apple' || value === 'xrplid';
 }
 
 export function oauthProviderConfigured(provider: OAuthProvider): boolean {
@@ -137,9 +162,8 @@ export async function verifyOAuthIdToken(provider: OAuthProvider, idToken: strin
   const decoded = jwt.decode(idToken, { complete: true });
   if (!decoded || typeof decoded === 'string') fail('oauth_token_malformed');
   const { kid, alg } = decoded.header;
-  // Both providers sign id_tokens with RS256; anything else is an attack, not
-  // a config drift.
-  if (alg !== 'RS256' || !kid) fail('oauth_token_malformed');
+  // An algorithm the issuer does not use is an attack, not config drift.
+  if (!kid || !config.algs.includes(alg as jwt.Algorithm)) fail('oauth_token_malformed');
 
   let key: crypto.KeyObject;
   try {
@@ -154,7 +178,7 @@ export async function verifyOAuthIdToken(provider: OAuthProvider, idToken: strin
     // jsonwebtoken types want non-empty tuples; both lists are guaranteed
     // non-empty (audiences checked above, issuers are literals).
     payload = jwt.verify(idToken, key, {
-      algorithms: ['RS256'],
+      algorithms: config.algs,
       audience: audiences as [string, ...string[]],
       issuer: config.issuers as [string, ...string[]],
     }) as jwt.JwtPayload;

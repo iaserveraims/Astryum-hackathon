@@ -17,6 +17,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../database/prismaClient';
+import { assertSignupAllowed } from '../config/betaGate';
 import type { OAuthClaims } from './oauthVerify';
 
 const ACCESS_TTL_SECONDS  = 24 * 60 * 60;   // 24h
@@ -96,6 +97,11 @@ export class AuthService {
     if (existing) {
       throw Object.assign(new Error('email_taken'), { code: 'email_taken' });
     }
+
+    // Closed beta: only founder-approved waitlist emails may create an
+    // account (betaGate throws not_invited). AFTER the email_taken check so
+    // an existing user is still told to just sign in.
+    await assertSignupAllowed(normalised);
 
     const passwordHash = await hashPassword(password);
 
@@ -192,6 +198,9 @@ export class AuthService {
       if (!claims.emailVerified) {
         throw Object.assign(new Error('oauth_email_unverified'), { code: 'oauth_email_unverified' });
       }
+      // Closed beta: same gate as email registration — the create branch only.
+      // A returning OAuth user (resolved above) never reaches this.
+      await assertSignupAllowed(claims.email);
       const username =
         profile?.username?.trim() ||
         claims.name?.trim() ||

@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { AlertTriangle, Loader2, Pencil, X } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { rules as rulesApi, type AutomationRule } from '../../services/v1Api';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 const USDT0_DECIMALS = 6;
 
@@ -27,8 +28,15 @@ interface EditableField {
   label: string;
   value: string;
   min?: number;
+  max?: number;
   step?: number;
   unit?: string;
+  /** One plain-language line under the input — what the number means. */
+  hint?: string;
+  /** Render as a range slider (percent-style knobs) with the value beside it. */
+  slider?: boolean;
+  /** Named presets rendered as chips above the input. */
+  presets?: Array<{ label: string; value: number }>;
   /** Write the parsed value back into trigger/action. */
   apply: (n: number, trigger: Record<string, unknown>, action: Record<string, unknown>) => void;
 }
@@ -43,10 +51,17 @@ function fieldsOf(rule: AutomationRule, t: (s: string) => string): EditableField
     case 'HF_BELOW':
       out.push({
         key: 'threshold',
-        label: t('Stop-loss Health Factor'),
+        label: t('Alert me when my cushion (health factor) drops below'),
         value: String(trigger.threshold ?? ''),
         min: 1.01,
+        max: 3,
         step: 0.05,
+        hint: t('1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.'),
+        presets: [
+          { label: t('Cautious (1.50)'), value: 1.5 },
+          { label: t('Balanced (1.25)'), value: 1.25 },
+          { label: t('Tight (1.10)'), value: 1.1 },
+        ],
         apply: (n, tr, ac) => {
           tr.threshold = n;
           // PROTECT restore keeps targetHF == threshold (template contract).
@@ -55,18 +70,28 @@ function fieldsOf(rule: AutomationRule, t: (s: string) => string): EditableField
         },
       });
       break;
-    case 'LTV_ABOVE':
+    case 'LTV_ABOVE': {
+      // The user thinks in %, the wire keeps the 0–1 ratio. Legacy rows saved by
+      // the old editor with "30" (meaning 30%) render as the % the user meant,
+      // so one Save writes the valid ratio back and revives the dead rule.
+      const raw = Number(trigger.threshold ?? 0);
+      const pctValue = raw > 1 ? Math.round(raw) : Math.round(raw * 100);
       out.push({
         key: 'threshold',
-        label: `${t('LTV above')} (0–1)`,
-        value: String(trigger.threshold ?? ''),
-        min: 0.01,
-        step: 0.01,
+        label: t('Borrowed share — alert me above'),
+        value: pctValue > 0 ? String(Math.min(99, pctValue)) : '',
+        min: 1,
+        max: 99,
+        step: 1,
+        unit: '%',
+        slider: true,
+        hint: t('How much of your borrowing limit you are using. Above 80% liquidation risk is high.'),
         apply: (n, tr) => {
-          tr.threshold = n;
+          tr.threshold = n / 100;
         },
       });
       break;
+    }
     case 'REWARD_THRESHOLD':
     case 'IDLE_BALANCE':
       out.push({
@@ -122,9 +147,11 @@ function fieldsOf(rule: AutomationRule, t: (s: string) => string): EditableField
       key: 'repayPct',
       label: t('% of live debt to repay'),
       value: params.pct != null ? String(params.pct) : '',
-      min: 0.01,
-      step: 5,
+      min: 1,
+      max: 100,
+      step: 1,
       unit: '%',
+      slider: true,
       apply: (n, _tr, ac) => {
         const p = (ac.params ?? {}) as Record<string, unknown>;
         p.pct = Math.min(100, n);
@@ -160,16 +187,20 @@ export function RuleEditModal({
     const trigger = JSON.parse(JSON.stringify(rule.trigger ?? {})) as Record<string, unknown>;
     const action = JSON.parse(JSON.stringify(rule.action ?? {})) as Record<string, unknown>;
     for (const f of fields) {
-      const n = parseFloat(vals[f.key]);
-      if (!Number.isFinite(n) || n < (f.min ?? 0)) {
-        setError(`${t('Invalid value for')} "${f.label}"`);
+      const n = parseFloat(String(vals[f.key]).replace(',', '.'));
+      if (!Number.isFinite(n) || n < (f.min ?? 0) || (f.max != null && n > f.max)) {
+        const range = f.max != null ? `${f.min ?? 0}–${f.max}` : `≥ ${f.min ?? 0}`;
+        const unit = f.unit ? ` ${f.unit}` : '';
+        setError(
+          `${t('Enter a value between')} ${range}${unit}. ${t('You typed')}: ${vals[f.key] || '—'}.`,
+        );
         return;
       }
       f.apply(n, trigger, action);
     }
     const cd = Math.round(parseFloat(cooldown));
     if (!Number.isFinite(cd) || cd < 0) {
-      setError(`${t('Invalid value for')} "${t('Cooldown')}"`);
+      setError(`${t('Enter a value between')} 0–10080 min. ${t('You typed')}: ${cooldown || '—'}.`);
       return;
     }
     setBusy(true);
@@ -178,15 +209,16 @@ export function RuleEditModal({
       onSaved();
       onClose();
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      console.error('[RuleEditModal] save failed', e);
+      setError(t('Could not save the changes. Nothing was modified — try again in a minute.'));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm my-auto shadow-2xl overflow-hidden">
         <div className="flex items-start justify-between px-5 py-4 border-b border-ink/5">
           <div className="flex items-center gap-2.5">
             <span className="grid h-9 w-9 place-items-center rounded-lg border border-volt/30 bg-volt/10 text-volt">
@@ -205,7 +237,9 @@ export function RuleEditModal({
         <div className="px-5 py-4 space-y-3">
           {fields.length === 0 && (
             <p className="text-[11px] text-ink/45">
-              {t('This rule has no editable threshold — only its cooldown can change here.')}
+              {String((rule.trigger as Record<string, unknown> | null)?.type ?? '') === 'HF_CRITICAL'
+                ? t('This rule watches the fixed critical level (health factor 1.2) — that number cannot change, by design. You can only adjust how often it alerts you.')
+                : t('This rule has no editable threshold — only its cooldown can change here.')}
             </p>
           )}
           {fields.map((f) => (
@@ -214,19 +248,57 @@ export function RuleEditModal({
                 {f.label}
                 {f.unit && <span className="text-ink/30"> · {f.unit}</span>}
               </label>
-              <input
-                type="number"
-                min={f.min}
-                step={f.step}
-                value={vals[f.key]}
-                onChange={(e) => setVals((s) => ({ ...s, [f.key]: e.target.value }))}
-                className="w-full px-3.5 py-2.5 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
-              />
+              {f.presets && (
+                <div className="flex gap-1.5 mb-1.5">
+                  {f.presets.map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => setVals((s) => ({ ...s, [f.key]: String(p.value) }))}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] transition-colors ${
+                        parseFloat(String(vals[f.key]).replace(',', '.')) === p.value
+                          ? 'border-volt/50 bg-volt/10 text-volt'
+                          : 'border-ink/10 bg-ink/5 text-ink/60 hover:bg-ink/10'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {f.slider ? (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={f.min}
+                    max={f.max}
+                    step={f.step}
+                    value={Number(vals[f.key]) || f.min || 0}
+                    onChange={(e) => setVals((s) => ({ ...s, [f.key]: e.target.value }))}
+                    className="flex-1 accent-volt"
+                  />
+                  <span className="w-14 text-right font-mono text-sm text-ink tabular-nums">
+                    {vals[f.key] || '—'}
+                    {f.unit === '%' ? ' %' : ''}
+                  </span>
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  min={f.min}
+                  max={f.max}
+                  step={f.step}
+                  value={vals[f.key]}
+                  onChange={(e) => setVals((s) => ({ ...s, [f.key]: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
+                />
+              )}
+              {f.hint && <p className="text-[11px] text-ink/40 mt-1">{f.hint}</p>}
             </div>
           ))}
           <div>
             <label className="text-xs text-ink/40 block mb-1.5">
-              {t('Cooldown')}
+              {t('Minimum wait between alerts')}
               <span className="text-ink/30"> · min</span>
             </label>
             <input
@@ -262,8 +334,11 @@ export function RuleEditModal({
               {t('Save changes')}
             </button>
           </div>
+          <p className="text-[11px] text-ink/45 pt-1">
+            {t('Saving moves no money and signs nothing. When the rule fires, we will ask YOU to sign.')}
+          </p>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

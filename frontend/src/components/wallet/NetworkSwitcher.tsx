@@ -1,107 +1,82 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-
-const FLARE_CHAIN_ID = 14;
-const FLARE_CHAIN_HEX = '0xe'; // 14
-const FLARE_RPC = 'https://flare-api.flare.network/ext/C/rpc';
-const FLARE_EXPLORER = 'https://flarescan.com';
+import { usePathname } from 'next/navigation';
+import { FLARE_CHAIN_ID, FLARE_ADD_CHAIN_PARAMS, CHAINLIST_FLARE_URL } from '../../lib/wallet/flareChain';
+import { useSwitchToFlare } from '../../lib/wallet/useSwitchToFlare';
+import { getStoredLang } from '../../i18n/LanguageProvider';
+import { translate } from '../../i18n/dict';
 
 /**
- * V1 FINAL Flare-only enforcer.
+ * V1 FINAL Flare-only enforcer — the app-wide safety net.
  *
- * If user's wallet is connected to a chain other than Flare Mainnet, render a
- * banner with a "Switch to Flare" button. Calls wallet_switchEthereumChain or
- * wallet_addEthereumChain (4902) as fallback.
+ * If the user's CONNECTED EVM wallet is on a chain other than Flare Mainnet,
+ * render a banner with a "Switch to Flare" button. The switch/add engine and
+ * its failure contract live in useSwitchToFlare (shared with the active
+ * wallet's card in WalletManager — the contextual surface).
+ *
+ * Shown ONLY when the site has an active EVM connection — a visitor whose
+ * MetaMask extension merely exists (e.g. a Xaman-rail user) never sees it.
+ * Raw wallet error text is never rendered.
  *
  * V1 explicitly disallows: Songbird, Coston2, Ethereum, Solana, anything ≠ 14.
  */
 export function NetworkSwitcher() {
-  const [chainId, setChainId] = useState<number | null>(null);
-  const [switching, setSwitching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const pathname = usePathname();
+  const flare = useSwitchToFlare();
 
-  const refreshChain = useCallback(async () => {
-    const eth = (typeof window !== 'undefined' && (window as any).ethereum) || null;
-    if (!eth) return;
-    try {
-      const hex: string = await eth.request({ method: 'eth_chainId' });
-      setChainId(parseInt(hex, 16));
-    } catch {
-      setChainId(null);
-    }
-  }, []);
+  // The public marketing landing must never show ops banners (same guard as
+  // EnvironmentBanner): here the in-flow strip rendered UNDER the landing's
+  // fixed hackathon banner while shoving the hero down by its own height.
+  if (pathname === '/') return null;
+  if (!flare.wrongNetwork) return null;
 
-  useEffect(() => {
-    refreshChain();
-    const eth = (typeof window !== 'undefined' && (window as any).ethereum) || null;
-    if (!eth?.on) return;
-    const handler = () => refreshChain();
-    eth.on('chainChanged', handler);
-    eth.on('accountsChanged', handler);
-    return () => {
-      eth.removeListener?.('chainChanged', handler);
-      eth.removeListener?.('accountsChanged', handler);
-    };
-  }, [refreshChain]);
+  const t = (s: string) => translate(getStoredLang(), s);
 
-  const switchToFlare = useCallback(async () => {
-    const eth = (typeof window !== 'undefined' && (window as any).ethereum) || null;
-    if (!eth) {
-      setError('No EVM wallet detected');
-      return;
-    }
-    setSwitching(true);
-    setError(null);
-    try {
-      await eth.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: FLARE_CHAIN_HEX }],
-      });
-    } catch (err: any) {
-      // 4902 = chain not added → try to add it
-      if (err?.code === 4902) {
-        try {
-          await eth.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: FLARE_CHAIN_HEX,
-                chainName: 'Flare Mainnet',
-                nativeCurrency: { name: 'Flare', symbol: 'FLR', decimals: 18 },
-                rpcUrls: [FLARE_RPC],
-                blockExplorerUrls: [FLARE_EXPLORER],
-              },
-            ],
-          });
-        } catch (addErr: any) {
-          setError(addErr?.message ?? 'Failed to add Flare network');
-        }
-      } else {
-        setError(err?.message ?? 'Failed to switch network');
-      }
-    } finally {
-      setSwitching(false);
-      refreshChain();
-    }
-  }, [refreshChain]);
-
-  // Hide entirely when on the right chain or wallet not connected.
-  if (chainId === null || chainId === FLARE_CHAIN_ID) return null;
+  if (flare.manualNeeded) {
+    return (
+      <div className="w-full bg-red-950 border-b border-red-500/60 text-red-100 text-sm py-2 px-4 font-mono">
+        <p>
+          {t('Your wallet can’t add Flare automatically. Add it manually with these details, or open Chainlist:')}{' '}
+          <a
+            href={CHAINLIST_FLARE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline font-medium hover:text-white"
+          >
+            {t('Open Chainlist')} ↗
+          </a>
+        </p>
+        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 text-xs text-red-200">
+          <dt>{t('Network name')}</dt>
+          <dd>{FLARE_ADD_CHAIN_PARAMS.chainName}</dd>
+          <dt>RPC URL</dt>
+          <dd>{FLARE_ADD_CHAIN_PARAMS.rpcUrls[0]}</dd>
+          <dt>Chain ID</dt>
+          <dd>{FLARE_CHAIN_ID}</dd>
+          <dt>{t('Currency symbol')}</dt>
+          <dd>{FLARE_ADD_CHAIN_PARAMS.nativeCurrency.symbol}</dd>
+          <dt>{t('Block explorer')}</dt>
+          <dd>{FLARE_ADD_CHAIN_PARAMS.blockExplorerUrls[0]}</dd>
+        </dl>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-red-950 border-b border-red-500/60 text-red-100 text-sm py-2 px-4 flex items-center justify-between font-mono">
       <span>
-        Wrong network for this action — Astryum needs Flare Mainnet here. Switch network to continue.
+        {t("You're on another network — this app runs on Flare.")}
+        {flare.declined && (
+          <span className="ml-2">{t("No problem — you can switch whenever you're ready.")}</span>
+        )}
       </span>
       <button
-        onClick={switchToFlare}
-        disabled={switching}
-        className="ml-4 px-3 py-1 rounded bg-red-100 text-red-950 font-medium hover:bg-white disabled:opacity-50"
+        onClick={flare.switchToFlare}
+        disabled={flare.switching}
+        className="ml-4 px-3 py-1 rounded bg-red-100 text-red-950 font-medium hover:bg-white disabled:opacity-50 whitespace-nowrap"
       >
-        {switching ? 'Switching…' : 'Switch to Flare'}
+        {flare.switching ? t('Switching…') : t('Switch to Flare')}
       </button>
-      {error && <span className="ml-3 text-xs text-red-200">{error}</span>}
     </div>
   );
 }

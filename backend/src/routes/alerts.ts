@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 
 const router = Router();
@@ -11,7 +12,7 @@ const evmAddress = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'invalid_wallet');
 const xrplAddress = z.string().regex(/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/, 'invalid_wallet');
 const walletAddress = z.union([evmAddress, xrplAddress]);
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const parsed = z
     .object({
       address: walletAddress,
@@ -39,7 +40,7 @@ router.get('/', async (req: Request, res: Response) => {
     take: 100,
   });
   return res.json({ count: alerts.length, alerts });
-});
+}));
 
 router.patch('/:id/read', async (req: Request, res: Response) => {
   try {

@@ -1,0 +1,73 @@
+Astryum Source-Available License, version 1.0
+Copyright (c) 2026 Astryum (astryum.xyz)
+
+The copyright holder is the operator of Astryum, identified with full legal
+detail (name, Andorran tax number, professional address) on the published
+legal pages at astryum.xyz. That identification is deliberately kept out of
+this repository: git history is permanent, and this repository is public.
+Licensing contact: astryum@astryum.xyz.
+
+All rights reserved, except as expressly granted below.
+
+1. GRANT — WHAT YOU MAY DO
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to:
+
+  a) read, review, audit and analyse the Software, in whole or in part, for any
+     purpose — including security review, regulatory due diligence, academic
+     study, journalism, and evaluation of the project by grant, hackathon or
+     investment reviewers;
+  b) run the Software privately for the purposes in (a), including on test
+     networks and against public blockchain networks with the user's own funds;
+  c) quote and reproduce excerpts of the Software in reviews, reports, papers
+     and filings, with attribution.
+
+This grant is deliberately wide on inspection: the security and regulatory
+claims this project makes are only meaningful if anyone can check them against
+the code.
+
+2. RESTRICTIONS — WHAT YOU MAY NOT DO
+
+Without a separate written licence from the copyright holder, you may not:
+
+  a) use the Software, or any derivative of it, to provide a service to third
+     parties, whether or not for a fee;
+  b) distribute, sublicense, sell, or host the Software or a derivative of it
+     as a product or service offering;
+  c) remove or alter this licence, the copyright notices, or the regulatory
+     notices in the source (in particular the invariants that keep the Software
+     non-custodial).
+
+3. THIRD-PARTY COMPONENTS
+
+The Software depends on third-party packages distributed under their own
+licences, which are unaffected by this licence and continue to govern those
+components. Protocol specifications, ABIs and interface definitions of public
+blockchain protocols referenced here belong to their respective authors.
+
+4. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The Software prepares blockchain transactions for the user to sign in their own
+wallet. Signed blockchain transactions are irreversible. Running this Software
+against a live network risks loss of funds, and that risk is entirely the
+user's.
+
+5. NOTHING HERE IS AN OFFER OF A REGULATED SERVICE
+
+Publication of this source code is not an offer, solicitation or provision of
+any financial, investment or crypto-asset service in any jurisdiction. The
+Software never holds user keys, never signs on a user's behalf, and never
+executes with discretion — see INVARIANTS.md.
+
+6. CONTACT
+
+Licensing enquiries, including commercial-use licences: astryum@astryum.xyz

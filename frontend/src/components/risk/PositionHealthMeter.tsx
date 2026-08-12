@@ -7,12 +7,14 @@
  * and an XRPL lending position tomorrow use it identically.
  *
  * Encoding notes: the bar maps HF 1.0 (liquidation) → empty and HF ≥ 2.0 →
- * full; status colors follow the app-wide HF convention (≥2 emerald, ≥1.5
- * yellow, ≥1.2 orange, <1.2 red) and identity is never color-alone — the
- * numeric HF and the liquidation price always render as text next to the bar.
+ * full; bands come from the ONE canonical scale (lib/healthScore hfWord — this
+ * file's own 4-step split was one of four competing scales) and identity is
+ * never color-alone: the plain-language word, the numeric HF and the
+ * liquidation price always render as text next to the bar.
  */
 
 import { useT } from '../../i18n/LanguageProvider';
+import { hfWord } from '../../lib/healthScore';
 
 export interface PositionHealthMeterProps {
   healthFactor?: number | null;
@@ -22,20 +24,19 @@ export interface PositionHealthMeterProps {
   currentPriceUSD?: number | null;
 }
 
-function hfBarClass(hf: number): string {
-  if (hf >= 2) return 'bg-emerald-400';
-  if (hf >= 1.5) return 'bg-yellow-400';
-  if (hf >= 1.2) return 'bg-orange-400';
-  return 'bg-red-400';
-}
+const BAR_CLASS: Record<string, string> = {
+  success: 'bg-emerald-400',
+  warning: 'bg-yellow-400',
+  danger: 'bg-red-400',
+  neutral: 'bg-white/30',
+};
 
-function hfTextClass(hf?: number | null): string {
-  if (hf == null) return 'text-white/30';
-  if (hf >= 2) return 'text-emerald-400';
-  if (hf >= 1.5) return 'text-yellow-400';
-  if (hf >= 1.2) return 'text-orange-400';
-  return 'text-red-400';
-}
+const TEXT_CLASS: Record<string, string> = {
+  success: 'text-emerald-400',
+  warning: 'text-yellow-400',
+  danger: 'text-red-400',
+  neutral: 'text-white/30',
+};
 
 function fmtPrice(v: number): string {
   return v >= 100 ? v.toFixed(2) : v.toFixed(4);
@@ -48,6 +49,7 @@ export function PositionHealthMeter({
 }: PositionHealthMeterProps) {
   const { t } = useT();
   const hf = typeof healthFactor === 'number' && isFinite(healthFactor) ? healthFactor : null;
+  const w = hfWord(hf, t);
   // HF 1.0 = liquidation = empty bar; HF ≥ 2.0 = full bar.
   const fill = hf != null ? Math.max(0, Math.min(1, hf - 1)) : 0;
 
@@ -55,7 +57,15 @@ export function PositionHealthMeter({
     <div className="min-w-[140px]">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[10px] text-white/40">{t('Health')}</span>
-        <span className={`font-mono text-xs ${hfTextClass(hf)}`}>{hf != null ? hf.toFixed(2) : '—'}</span>
+        <span className={`text-xs ${TEXT_CLASS[w.tone]}`}>
+          {hf != null ? (
+            <>
+              {w.label} <span className="font-mono">({hf.toFixed(2)})</span>
+            </>
+          ) : (
+            '—'
+          )}
+        </span>
       </div>
       <div
         className="mt-1 h-1.5 rounded-full bg-white/10 overflow-hidden"
@@ -67,7 +77,7 @@ export function PositionHealthMeter({
         title={hf != null ? `HF ${hf.toFixed(2)} (1.00 = ${t('liquidation')})` : t('No health reading')}
       >
         {hf != null && (
-          <div className={`h-full rounded-full ${hfBarClass(hf)}`} style={{ width: `${fill * 100}%` }} />
+          <div className={`h-full rounded-full ${BAR_CLASS[w.tone]}`} style={{ width: `${fill * 100}%` }} />
         )}
       </div>
       <div className="mt-1 text-[10px] text-white/40">

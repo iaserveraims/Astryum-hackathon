@@ -174,6 +174,53 @@ describe('ActivityService', () => {
     expect(events).toEqual([]);
   });
 
+  // Familia "éxito no ganado" (2026-08-03): el explorador de Flare se cayó, el
+  // timeline devolvió [] y la pantalla dijo "No activity yet" — un hecho sobre
+  // el capital del usuario que no podíamos saber. Un [] por ceguera tiene que
+  // llegar a la UI marcado como tal.
+  it('flags explorer.ok=false when the read failed — an empty list by blindness is not an empty history', async () => {
+    const cp = {
+      call: jest.fn().mockRejectedValue(new Error('flarescan_unreachable: down')),
+    } as unknown as ControlPlane;
+    const svc = new ActivityService(cp);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const r = await svc.getTimelineWithStatus(WALLET, { forceRefresh: true });
+    warn.mockRestore();
+    expect(r.events).toEqual([]);
+    expect(r.explorer.ok).toBe(false);
+    expect(r.explorer.reason).toContain('flarescan_unreachable');
+  });
+
+  it('flags explorer.ok=true when the explorer answers an honestly empty wallet', async () => {
+    const svc = new ActivityService(makeCp([], []));
+    const r = await svc.getTimelineWithStatus(WALLET, { forceRefresh: true });
+    expect(r.events).toEqual([]);
+    expect(r.explorer.ok).toBe(true);
+  });
+
+  // Media lectura es lectura incompleta: si tokentx cae y txlist no, faltan
+  // transferencias ERC-20 en el timeline y el usuario no puede enterarse.
+  it('flags explorer.ok=false when only ONE of the two reads failed', async () => {
+    const cp = {
+      call: jest.fn(async (capability: string) => {
+        if (capability === 'explorer.getActivity') {
+          return {
+            data: [],
+            source: { providerId: 'flarescan', providerType: 'explorer', trustLevel: 'indexer_verified', fetchedAt: new Date().toISOString(), traceId: 't' },
+            cached: false,
+          };
+        }
+        throw new Error('flarescan_http_503');
+      }),
+    } as unknown as ControlPlane;
+    const svc = new ActivityService(cp);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const r = await svc.getTimelineWithStatus(WALLET, { forceRefresh: true });
+    warn.mockRestore();
+    expect(r.explorer.ok).toBe(false);
+    expect(r.explorer.reason).toContain('503');
+  });
+
   // Bug family "lectura ciega al código de resultado" (instance 6): a mined but
   // REVERTED borrow()/supply() has a receipt and did nothing — Flarescan flags it
   // isError='1' / txreceipt_status='0'. Rendering it as a completed action lets the

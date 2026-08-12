@@ -42,6 +42,17 @@ export const BORDER_FAINT = 'rgba(255,255,255,0.06)';
 export const BORDER = 'rgba(255,255,255,0.08)';
 export const BORDER_STRONG = 'rgba(255,255,255,0.14)';
 
+// ─── Touch detection ────────────────────────────────────────────────────────
+// Hover-driven effects (magnetic pull, pointer parallax) assume a real cursor.
+// Touch browsers synthesize mousemove on tap and never fire mouseleave, which
+// left buttons displaced under the finger and parallax frozen at the tap point.
+let hoverNoneMql: MediaQueryList | null = null;
+function isTouchOnly(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (!hoverNoneMql) hoverNoneMql = window.matchMedia('(hover: none)');
+  return hoverNoneMql.matches;
+}
+
 // ─── Shared pointer signal ──────────────────────────────────────────────────
 // One window-level pointer listener feeds normalized [-0.5, 0.5] motion values.
 // Components subscribe via springs; no re-renders, no per-component listener.
@@ -68,7 +79,9 @@ export function usePointerParallax(stiffness = 60, damping = 18) {
   const x = useSpring(px, { stiffness, damping, mass: 0.4 });
   const y = useSpring(py, { stiffness, damping, mass: 0.4 });
   useEffect(() => {
-    if (reduce) return;
+    // Touch drags fire pointermove too — without a cursor the parallax is
+    // noise, and the springs would animate on every scroll swipe for nothing.
+    if (reduce || isTouchOnly()) return;
     if (listeners === 0) window.addEventListener('pointermove', onPointer, { passive: true });
     listeners += 1;
     return () => {
@@ -95,7 +108,7 @@ export function Magnetic({
   const y = useSpring(useMotionValue(0), { stiffness: 220, damping: 16, mass: 0.3 });
 
   const onMove = (e: React.MouseEvent) => {
-    if (reduce || !ref.current) return;
+    if (reduce || isTouchOnly() || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
     x.set((e.clientX - (r.left + r.width / 2)) * strength);
     y.set((e.clientY - (r.top + r.height / 2)) * strength);
@@ -145,7 +158,7 @@ export function SpotlightCard({
     const py = (e.clientY - r.top) / r.height;
     el.style.setProperty('--mx', `${px * 100}%`);
     el.style.setProperty('--my', `${py * 100}%`);
-    if (tilt && !reduce) {
+    if (tilt && !reduce && !isTouchOnly()) {
       rotY.set((px - 0.5) * intensity);
       rotX.set((0.5 - py) * intensity);
     }

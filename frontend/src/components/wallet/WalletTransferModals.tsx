@@ -45,11 +45,19 @@ import {
 import { useWalletPartner } from '../../lib/wallet/useWalletPartner';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { useUniversalConnect } from '../../lib/wallet/useUniversalConnect';
+import { translateError } from '../../lib/errors/translateError';
+import { fmtQtyActive } from '../../lib/format';
 import { useT } from '../../i18n/LanguageProvider';
 import { getApiBase } from '../../lib/env';
 import { startPending } from '../../lib/settlement/settlement';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
+import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { TokenLogo } from '@/components/ui/TokenLogo';
+import { useOwningXrpl } from '../../lib/wallet/paOwnership';
+import { DispatchXrpField } from '../positions/DispatchXrpField';
+import { releaseHandoffSeat } from '../../lib/wallet/handoffRelease';
+import { getUserRegion } from '../../lib/region';
 
 const API_BASE = getApiBase();
 
@@ -61,6 +69,11 @@ const RAIL_NETWORK: Record<TransferRail, string> = { evm: 'Flare', xrpl: 'XRPL' 
 
 function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+/** Guard against raw backend floats (0.30000000000000004) reaching the review. */
+function fmtAmt(v: number, digits = 6): string {
+  return fmtQtyActive(Number(v), digits); // app-locale aware (Fase 3)
 }
 
 function walletLabel(w: BackendWallet): string {
@@ -117,9 +130,9 @@ export function WalletReceiveModal({
       : t('this network');
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-sm my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div>
             <h2 className="text-base font-semibold text-ink flex items-center gap-2">
               <QrCode className="w-4 h-4 text-volt" />
@@ -134,7 +147,7 @@ export function WalletReceiveModal({
           </button>
         </div>
 
-        <div className="px-6 py-6 flex flex-col items-center gap-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 flex flex-col items-center gap-4">
           {!fixedWallet && wallets && wallets.length > 0 && (
             <select
               value={selectedId}
@@ -179,7 +192,7 @@ export function WalletReceiveModal({
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
@@ -278,6 +291,28 @@ export function WalletSendModal({
   const rail = wallet ? transferRailOf(wallet) : null;
 
   const [phase, setPhase] = useState<Phase>('form');
+
+  // Is the EVM source actually a Smart Account (PA)? Then NO EVM key exists
+  // for it — the founder hit the "switch to an account that cannot exist"
+  // wall live (2026-07-30). A PA source signs in Xaman (its OWNING XRPL) via
+  // the 0xFE dispatch: redeem routes to /pa-unmint, the rest gates honestly.
+  const xrplCandidates = useMemo(
+    () => wallets.map((w) => w.address).filter((a) => /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(a)),
+    [wallets],
+  );
+  const { owningXrpl: sourceOwningXrpl } = useOwningXrpl(
+    rail === 'evm' && wallet ? wallet.address : null,
+    xrplCandidates,
+  );
+  const sourceIsPa = !!sourceOwningXrpl;
+  const [xrpForMint, setXrpForMint] = useState('1');
+  // 0xFE nonce seat of an unsigned prepared order — released when abandoned
+  // (re-prepare or close) so the user is never walled by NONCE_SEAT_TAKEN.
+  const [paMemoHex, setPaMemoHex] = useState<string | undefined>(undefined);
+  const close = () => {
+    if (paMemoHex && phase !== 'done' && phase !== 'signing') releaseHandoffSeat(paMemoHex);
+    onClose();
+  };
   const [errorMsg, setErrorMsg] = useState('');
   const [prepared, setPrepared] = useState<PreparedTransfer | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -347,17 +382,19 @@ export function WalletSendModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet?.address]);
 
-  // The wallet partner that will SIGN must hold this exact address.
-  const signerAddress = rail === 'xrpl' ? xrpl.address : evm.address;
-  const signerConnected = rail === 'xrpl' ? xrpl.isConnected : evm.isConnected;
-  const signerMatches =
-    !!wallet && !!signerAddress && signerAddress.toLowerCase() === wallet.address.toLowerCase();
+  // The wallet partner that will SIGN must hold this exact address. A Smart
+  // Account source has NO EVM key: its signer is the OWNING XRPL in Xaman.
+  const signerAddress = sourceIsPa || rail === 'xrpl' ? xrpl.address : evm.address;
+  const signerConnected = sourceIsPa || rail === 'xrpl' ? xrpl.isConnected : evm.isConnected;
+  const signerMatches = sourceIsPa
+    ? !!xrpl.address && xrpl.address === sourceOwningXrpl
+    : !!wallet && !!signerAddress && signerAddress.toLowerCase() === wallet.address.toLowerCase();
 
   async function connectSigner() {
     setErrorMsg('');
     setConnecting(true);
     try {
-      if (rail === 'xrpl') {
+      if (sourceIsPa || rail === 'xrpl') {
         await connect.connectXrpl();
       } else {
         // This button only shows when the connected account is NOT the sender —
@@ -447,6 +484,54 @@ export function WalletSendModal({
     setErrorMsg('');
     setPhase('preparing');
     try {
+      // Smart Account source: no EVM key exists — the plain EVM endpoints
+      // would demand an impossible signer. Redeem routes to the built 0xFE
+      // rail (/pa-unmint, signs in Xaman); everything else gates honestly.
+      if (sourceIsPa) {
+        if (mode !== 'redeem') {
+          throw new Error(
+            t('Sending from your Astryum account to a Flare address is not wired here yet — use Withdraw on your position instead.'),
+          );
+        }
+        if (paMemoHex) releaseHandoffSeat(paMemoHex); // abandoned draft → free the seat
+        const res = await fetch(`${API_BASE}/flare-demo/pa-unmint/prepare`, {
+          method: 'POST',
+          headers: authHeaders(),
+          credentials: 'include',
+          body: JSON.stringify({
+            xrplAddress: sourceOwningXrpl,
+            amountFxrpBase: String(Math.round((parseFloat(amount) || 0) * 1e6)),
+            xrplDest: destAddress,
+            amountXrpForMint: parseFloat(xrpForMint) || 1,
+            region: getUserRegion(),
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.detail || body.error || `HTTP ${res.status}`);
+        setPaMemoHex(body.memoHex as string | undefined);
+        const d = (body.disclosure ?? {}) as Record<string, unknown>;
+        // Adapt to this modal's disclosure shape so the review shows real rows.
+        setPrepared({
+          rail: 'xrpl',
+          xrplPayment: body.xrplPayment,
+          disclosure: {
+            action: 'bridge-redeem-fxrp',
+            asset: 'XRP (FXRP)',
+            network: 'Flare → XRPL (FAssets redemption)',
+            amount: Number(d.fxrpRedeemed ?? amount),
+            from: String(body.personalAccount ?? wallet.address),
+            to: String(d.xrplDestination ?? destAddress),
+            astryumFee: 0,
+            networkFee: `${t('Travels inside the')} ${d.mintCoupledXrp ?? xrpForMint} XRP ${t('dispatch (your signature) — net cost ≈ 0.3 XRP; the rest returns to your account as FXRP.')}`,
+            disclosedToUser: true,
+            defibroSigns: false,
+            note: String(d.note ?? ''),
+            minimumRedeemXrp: (d.redeemMinimumXrp as number | undefined) ?? undefined,
+          },
+        } as PreparedXrplTransfer);
+        setPhase('review');
+        return;
+      }
       // Same-rail → plain transfer; cross-rail → the FAssets bridge endpoint.
       const endpoint =
         mode === 'mint'
@@ -493,7 +578,10 @@ export function WalletSendModal({
         const { txHash: hash } = await xrpl.sendIntent({ tx: prepared.xrplPayment as never });
         // Signed ≠ validated: the machine follows the Payment to its ledger
         // validation — the last surface that painted green on submit alone.
-        settlement.track(startPending('xrpl-tx', hash));
+        // A PA dispatch (0xFE) is done only when the EXECUTOR runs it on
+        // Flare, so it tracks the mint rail, not mere ledger validation.
+        settlement.track(startPending(paMemoHex ? 'xrpl-mint' : 'xrpl-tx', hash));
+        if (paMemoHex) setPaMemoHex(undefined); // signed — the seat is spent, never released
       } else {
         if (!evm.isConnected) throw new Error(t('Connect your EVM wallet (Flare) to continue'));
         const { handle } = await evm.sendIntentCalls(
@@ -504,7 +592,7 @@ export function WalletSendModal({
       setPhase('done');
     } catch (e) {
       const err = e as { shortMessage?: string; message?: string };
-      setErrorMsg(err.shortMessage ?? err.message ?? String(e));
+      setErrorMsg(translateError(e, t).message);
       setPhase('error');
     }
   }
@@ -521,6 +609,12 @@ export function WalletSendModal({
   // the XRPL side. Floored to 6 decimals — the resolution every rail accepts.
   const XRPL_FEE_HEADROOM = 0.0001;
   const FLR_GAS_HEADROOM = 0.01;
+  /** The XRPL wallet is the STEERING WHEEL of the user's Astryum account:
+   *  every 0xFE order needs ~1 XRP of carrier payment. Draining it to zero
+   *  strands the Smart Account until the user refunds from outside (founder
+   *  hit this live, 2026-07-30) — MAX keeps this back, and the warning below
+   *  fires whenever a typed amount would leave less. */
+  const XRPL_STEERING_RESERVE = 2;
   const maxSendable: string | null = (() => {
     if (!rail) return null;
     const floor6 = (n: number) => Math.floor(Math.max(0, n) * 1e6) / 1e6;
@@ -531,15 +625,25 @@ export function WalletSendModal({
     } else {
       if (!balance) return null;
       const spendable = parseFloat(balance.balance) || 0;
-      max = floor6(spendable - (rail === 'xrpl' ? XRPL_FEE_HEADROOM : FLR_GAS_HEADROOM));
+      max = floor6(
+        spendable - (rail === 'xrpl' ? XRPL_FEE_HEADROOM + XRPL_STEERING_RESERVE : FLR_GAS_HEADROOM),
+      );
     }
     return max > 0 ? max.toFixed(6).replace(/\.?0+$/, '') : null;
   })();
+  /** True when the typed amount would leave the XRPL account below the
+   *  steering reserve — the money still SENDS (it is theirs), but never in
+   *  silence. */
+  const drainsXrplSteering =
+    rail === 'xrpl' &&
+    balance != null &&
+    (parseFloat(amount) || 0) > 0 &&
+    (parseFloat(balance.balance) || 0) - (parseFloat(amount) || 0) < XRPL_STEERING_RESERVE;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/5">
+    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-2xl my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+        <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div>
             <h2 className="text-base font-semibold text-ink flex items-center gap-2">
               <ArrowUpRight className="w-4 h-4 text-volt" />
@@ -549,12 +653,12 @@ export function WalletSendModal({
               {wallet ? `${t('From')} ${walletLabel(wallet)}` : t('Choose the sending wallet')}
             </p>
           </div>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors mt-1">
+          <button onClick={close} className="text-ink/40 hover:text-ink transition-colors mt-1">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {/* Unsupported rail / nothing to send from — explain instead of pretending */}
           {!rail && (
             <p className="text-xs text-ink/50 bg-ink/5 border border-ink/10 rounded-xl px-4 py-3">
@@ -603,7 +707,10 @@ export function WalletSendModal({
                             : 'border-ink/10 bg-ink/5 text-ink/50 hover:text-ink'
                         }`}
                       >
-                        {a}
+                        <span className="flex items-center justify-center gap-1.5">
+                          <TokenLogo symbol={a} size="xs" />
+                          {a}
+                        </span>
                         <span className="block text-[10px] font-normal mt-0.5 opacity-70">
                           {a === 'FLR' ? t('Native · stays on Flare') : t('XRP on Flare · can unmint to XRPL')}
                         </span>
@@ -768,8 +875,21 @@ export function WalletSendModal({
                     {t('XRPL keeps a 1 XRP base reserve locked in the sending account.')}
                   </p>
                 )}
+                {/* The trap the founder hit live (2026-07-30): minting ALL the
+                    XRP strands the Smart Account — no carrier payment, no way
+                    to withdraw or convert until refunded from outside. */}
+                {drainsXrplSteering && (
+                  <div className="mt-2 bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-200 leading-relaxed">
+                    {t('This would leave your XRPL wallet almost empty. Your Astryum account is steered FROM it — every order needs ~1 XRP of carrier payment. Keep at least ~2 XRP or you will not be able to withdraw or convert until you refund it from outside.')}
+                  </div>
+                )}
               </div>
 
+              {/* PA source redeeming to XRPL → the order rides the 0xFE
+                  dispatch signed in Xaman (there is no EVM key to connect). */}
+              {sourceIsPa && mode === 'redeem' && (
+                <DispatchXrpField value={xrpForMint} onChange={setXrpForMint} t={t} />
+              )}
               <button
                 onClick={prepare}
                 disabled={phase === 'preparing'}
@@ -781,7 +901,7 @@ export function WalletSendModal({
                     {t('Building unsigned payload…')}
                   </>
                 ) : (
-                  t('Prepare transfer')
+                  t('Review before signing')
                 )}
               </button>
             </>
@@ -794,7 +914,7 @@ export function WalletSendModal({
                 <div className="flex items-center justify-between px-4 py-2.5">
                   <span className="text-ink/40 text-xs">{t('Amount')}</span>
                   <span className="font-mono text-ink">
-                    {prepared.disclosure.amount} {prepared.disclosure.asset}
+                    {fmtAmt(prepared.disclosure.amount)} {prepared.disclosure.asset}
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
@@ -815,7 +935,14 @@ export function WalletSendModal({
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
                   <span className="text-ink/40 text-xs">{t('Astryum fee')}</span>
-                  <span className="text-emerald-300 text-xs">0</span>
+                  {/* Read from the disclosure — a hardcoded 0 would lie the day a fee exists. */}
+                  {Number(prepared.disclosure.astryumFee ?? 0) === 0 ? (
+                    <span className="text-emerald-300 text-xs">0 · {t('we charge nothing')}</span>
+                  ) : (
+                    <span className="font-mono text-ink text-xs">
+                      {fmtAmt(prepared.disclosure.astryumFee)} {prepared.disclosure.asset}
+                    </span>
+                  )}
                 </div>
                 {/* FAssets mint breakdown — fees come out of the XRP paid */}
                 {prepared.disclosure.netFxrp != null && (
@@ -823,19 +950,19 @@ export function WalletSendModal({
                     <div className="flex items-center justify-between px-4 py-2.5">
                       <span className="text-ink/40 text-xs">{t('Mint fee')}</span>
                       <span className="font-mono text-ink/80 text-xs">
-                        {prepared.disclosure.mintingFeeXrp} XRP
+                        {fmtAmt(prepared.disclosure.mintingFeeXrp ?? 0)} XRP
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-4 py-2.5">
                       <span className="text-ink/40 text-xs">{t('Executor fee')}</span>
                       <span className="font-mono text-ink/80 text-xs">
-                        {prepared.disclosure.executorFeeXrp} XRP
+                        {fmtAmt(prepared.disclosure.executorFeeXrp ?? 0)} XRP
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-4 py-2.5">
                       <span className="text-ink/40 text-xs">{t('Destination receives')}</span>
                       <span className="font-mono text-emerald-300 text-xs">
-                        ≈ {prepared.disclosure.netFxrp} FXRP
+                        ≈ {fmtAmt(prepared.disclosure.netFxrp)} FXRP
                       </span>
                     </div>
                   </>
@@ -844,7 +971,7 @@ export function WalletSendModal({
                   <div className="flex items-center justify-between px-4 py-2.5">
                     <span className="text-ink/40 text-xs">{t('On-chain minimum')}</span>
                     <span className="font-mono text-ink/80 text-xs">
-                      {prepared.disclosure.minimumRedeemXrp} XRP
+                      {fmtAmt(prepared.disclosure.minimumRedeemXrp)} XRP
                     </span>
                   </div>
                 )}
@@ -868,12 +995,17 @@ export function WalletSendModal({
                 <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-1.5 text-amber-200 text-sm font-medium">
                     <Wallet className="w-4 h-4" />
-                    {rail === 'xrpl' ? t('This transfer signs in Xaman (XRPL)') : t('This transfer signs in your EVM wallet (Flare)')}
+                    {sourceIsPa || rail === 'xrpl'
+                      ? t('This transfer signs in Xaman (XRPL)')
+                      : t('This transfer signs in your EVM wallet (Flare)')}
                   </div>
                   <p className="text-xs text-amber-200/70 mb-3">
                     {signerConnected
                       ? t('The wallet connected in your wallet app is a different account. Switch to') +
-                        ' ' + shortAddr(prepared.disclosure.from) + ' ' + t('and reconnect.')
+                        ' ' +
+                        // A PA never signs itself — its OWNING XRPL does.
+                        shortAddr(sourceIsPa && sourceOwningXrpl ? sourceOwningXrpl : prepared.disclosure.from) +
+                        ' ' + t('and reconnect.')
                       : t('The required wallet is not connected. Connect it to sign this transfer.')}
                   </p>
                   <button
@@ -882,12 +1014,13 @@ export function WalletSendModal({
                     className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-100 text-sm font-medium hover:bg-amber-400/25 transition-all disabled:opacity-50"
                   >
                     {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wallet className="w-4 h-4" />}
-                    {rail === 'xrpl' ? t('Connect Xaman (XRPL)') : t('Connect EVM wallet')}
+                    {sourceIsPa || rail === 'xrpl' ? t('Connect Xaman (XRPL)') : t('Connect EVM wallet')}
                   </button>
                 </div>
               )}
 
-              <div className="flex gap-2">
+              {/* Sign stays reachable while the disclosure scrolls. */}
+              <div className="sticky bottom-0 -mx-6 -mb-5 bg-surface-1 px-6 pb-5 pt-3 flex gap-2">
                 <button
                   onClick={() => setPhase('form')}
                   disabled={phase === 'signing'}
@@ -903,8 +1036,10 @@ export function WalletSendModal({
                   {phase === 'signing' ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      {rail === 'xrpl' ? t('Sign in Xaman…') : t('Sign in your wallet…')}
+                      {sourceIsPa || rail === 'xrpl' ? t('Sign in Xaman…') : t('Sign in your wallet…')}
                     </>
+                  ) : sourceIsPa || rail === 'xrpl' ? (
+                    t('Sign in Xaman')
                   ) : (
                     t('Sign in your wallet')
                   )}
@@ -943,7 +1078,7 @@ export function WalletSendModal({
               />
               {prepared?.disclosure.action === 'bridge-mint-fxrp' && (
                 <p className="text-xs text-ink/50 max-w-xs">
-                  {t('The FXRP lands on Flare once the permissionless executor finalizes the mint — rate limits can delay it, never reject it.')}
+                  {t('Your XRP will appear on Flare as FXRP in a few minutes. Sometimes it takes a little longer — it is never lost.')}
                 </p>
               )}
               {prepared?.disclosure.action === 'bridge-redeem-fxrp' && (
@@ -967,6 +1102,6 @@ export function WalletSendModal({
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

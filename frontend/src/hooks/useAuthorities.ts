@@ -15,7 +15,7 @@
  * only cached in-memory for a minute — Astryum stores pointers, never state.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMyWallets } from './useMyWallets';
 import { useAuthorityStore } from '@/stores/authorityStore';
 import { useXrplWalletPartner } from '@/lib/wallet/useXrplWalletPartner';
@@ -28,6 +28,7 @@ import {
 } from '@/services/v1Api';
 import {
   LEGACY_LOCAL_CHANGED_EVENT,
+  claimLegacyLocalOwner,
   getLegacyNickname,
   readObservedLegacies,
 } from '@/components/legacy/legacyLocal';
@@ -73,15 +74,59 @@ async function syncLocalPointers(known: Set<string>): Promise<boolean> {
 // Module-scoped caches (useMyWallets pattern): survive navigation, cleared on
 // logout via invalidateAuthorityCache.
 let registryCache: GovernedAccountRecord[] | null = null;
+// In-flight dedupe + freshness window for the registry (portfolioStore's
+// `inflight` pattern): every mounted instance used to fire its own
+// governedAccountsApi.list() on mount. One load (list + drain + relist) now
+// serves all concurrent instances, and a mount within REGISTRY_FRESH_MS of the
+// last completed load skips the revalidate. reload() and the wizard's local
+// writes bypass both (force).
+const REGISTRY_FRESH_MS = 30_000;
+let registryFetchedAt = 0;
+let registryInflight: Promise<GovernedAccountRecord[]> | null = null;
 const ledgerCache = new Map<string, { at: number; read: GovernedLedgerRead }>();
 const LEDGER_TTL_MS = 60_000;
 
 const pendingSigCache = new Map<string, { at: number; counts: Record<string, number> }>();
 
+// The result caches above are written only AFTER resolving, so N instances
+// mounting together used to fire N identical reads before any entry existed.
+// These maps cache the PROMISE at fire time so concurrent mounts share one
+// read; a settled/rejected read drops its entry so the next mount can retry.
+const ledgerInflight = new Map<string, Promise<GovernedLedgerRead>>();
+const pendingSigInflight = new Map<string, Promise<Record<string, number>>>();
+
 export function invalidateAuthorityCache(): void {
   registryCache = null;
+  registryFetchedAt = 0;
+  registryInflight = null;
   ledgerCache.clear();
+  ledgerInflight.clear();
   pendingSigCache.clear();
+  pendingSigInflight.clear();
+}
+
+function loadRegistry(force: boolean): Promise<GovernedAccountRecord[]> {
+  if (!force && registryInflight) return registryInflight;
+  const run = (async () => {
+    // Ownership gate (2026-08-11): the local write-buffer belongs to ONE
+    // signed-in user. Claim it BEFORE reading pointers — a user switch wipes
+    // the previous user's pointers here, before the drain below could write
+    // them into this user's registry. No resolved user ⇒ no drain at all.
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) claimLegacyLocalOwner(userId);
+    let { accounts } = await governedAccountsApi.list();
+    const drained = userId
+      ? await syncLocalPointers(new Set(accounts.map((a) => a.address)))
+      : false;
+    if (drained) ({ accounts } = await governedAccountsApi.list());
+    registryCache = accounts;
+    registryFetchedAt = Date.now();
+    return accounts;
+  })().finally(() => {
+    if (registryInflight === run) registryInflight = null;
+  });
+  registryInflight = run;
+  return run;
 }
 
 async function readLedger(address: string): Promise<GovernedLedgerRead> {
@@ -118,6 +163,11 @@ export function useAuthorities(): {
    *  `authorities` hides connected non-councils (they already have their
    *  simple row). */
   governedCandidates: GovernedAuthority[];
+  /** The subset of `governedCandidates` that are actually LEGACIES: a
+   *  confirmed council, or an account the user deliberately registered. This
+   *  is what "My Legacies" renders — a wallet that is merely connected (and is
+   *  only a MEMBER of someone else's council) never belongs there. */
+  legacies: GovernedAuthority[];
   active: Authority;
   /** The active authority when it is governed, else null — the context bar,
    *  theme and governed-only surfaces key off this. */
@@ -170,6 +220,9 @@ export function useAuthorities(): {
   const [registryLoading, setRegistryLoading] = useState(() => registryCache === null);
   const [ledger, setLedger] = useState<Record<string, GovernedLedgerRead>>({});
   const [nonce, setNonce] = useState(0);
+  // reload() and the wizard's local writes must ALWAYS hit the network — they
+  // bypass the registry freshness window and the in-flight dedupe (force).
+  const forceRef = useRef(false);
 
   // Registry load, draining any local wizard pointers the registry misses.
   useEffect(() => {
@@ -177,21 +230,32 @@ export function useAuthorities(): {
       setRegistryLoading(false);
       return;
     }
+    const force = forceRef.current;
+    forceRef.current = false;
+    // Fresh enough and nothing in flight → keep the cached paint, skip the
+    // revalidate for this mount.
+    if (
+      !force &&
+      registryInflight === null &&
+      registryCache !== null &&
+      Date.now() - registryFetchedAt < REGISTRY_FRESH_MS
+    ) {
+      setRegistry(registryCache);
+      setRegistryLoading(false);
+      return;
+    }
     let alive = true;
     if (registryCache === null) setRegistryLoading(true);
-    void (async () => {
-      try {
-        let { accounts } = await governedAccountsApi.list();
-        const drained = await syncLocalPointers(new Set(accounts.map((a) => a.address)));
-        if (drained) ({ accounts } = await governedAccountsApi.list());
-        registryCache = accounts;
+    loadRegistry(force)
+      .then((accounts) => {
         if (alive) setRegistry(accounts);
-      } catch {
+      })
+      .catch(() => {
         /* offline / 401 — keep whatever we had; governed entries just miss */
-      } finally {
+      })
+      .finally(() => {
         if (alive) setRegistryLoading(false);
-      }
-    })();
+      });
     return () => {
       alive = false;
     };
@@ -202,6 +266,7 @@ export function useAuthorities(): {
   useEffect(() => {
     const onLocalChange = () => {
       registryCache = null;
+      forceRef.current = true;
       setNonce((n) => n + 1);
     };
     window.addEventListener(LEGACY_LOCAL_CHANGED_EVENT, onLocalChange);
@@ -210,7 +275,19 @@ export function useAuthorities(): {
 
   const candidates = useMemo<GovernedCandidate[]>(() => {
     const out: GovernedCandidate[] = [];
-    if (xrplConnected) out.push({ address: xrplConnected, source: 'connected' });
+    if (xrplConnected) {
+      // The connected wallet may ALSO be a registered pointer. Carry its
+      // registry identity so rename/remove work on it, and so `legacies` can
+      // tell a DELIBERATE pointer from a wallet that merely happens to be
+      // connected (the rNaFf case: a council MEMBER, not a Legacy).
+      const reg = registry.find((r) => r.address === xrplConnected);
+      out.push({
+        address: xrplConnected,
+        source: 'connected',
+        registryId: reg?.id,
+        label: reg?.label ?? undefined,
+      });
+    }
     for (const r of registry) {
       if (!out.some((c) => c.address === r.address)) {
         out.push({ address: r.address, source: 'registered', registryId: r.id, label: r.label ?? undefined });
@@ -231,9 +308,20 @@ export function useAuthorities(): {
         continue;
       }
       setLedger((l) => ({ ...l, [c.address]: { ...(l[c.address] ?? {}), loading: true } }));
-      void readLedger(c.address).then((read) => {
-        ledgerCache.set(c.address, { at: Date.now(), read });
-        if (alive) setLedger((l) => ({ ...l, [c.address]: read }));
+      // Share ONE in-flight read per address across every mounted instance
+      // (readLedger never rejects — errors come back as an error read).
+      let read = ledgerInflight.get(c.address);
+      if (!read) {
+        const started = readLedger(c.address).then((r) => {
+          ledgerCache.set(c.address, { at: Date.now(), read: r });
+          if (ledgerInflight.get(c.address) === started) ledgerInflight.delete(c.address);
+          return r;
+        });
+        ledgerInflight.set(c.address, started);
+        read = started;
+      }
+      void read.then((r) => {
+        if (alive) setLedger((l) => ({ ...l, [c.address]: r }));
       });
     }
     return () => {
@@ -266,19 +354,34 @@ export function useAuthorities(): {
     }
     let alive = true;
     const mine = new Set(myXrplKey.split(',').filter(Boolean));
-    void councilProposalsApi
-      .list(accounts, true)
-      .then(({ proposals }) => {
-        const counts: Record<string, number> = {};
-        for (const a of accounts) counts[a] = 0;
-        for (const p of proposals) {
-          if (p.status !== 'collecting') continue;
-          const signed = new Set(p.signatures.map((s) => s.signerAccount));
-          if (p.signerList.some((s) => mine.has(s.account) && !signed.has(s.account))) {
-            counts[p.account] = (counts[p.account] ?? 0) + 1;
+    // Share ONE in-flight read per cacheKey (same fix as the ledger reads: the
+    // result cache was only written after resolving, so simultaneous mounts
+    // fired N identical reads). A rejection drops the entry to allow retry.
+    let read = pendingSigInflight.get(cacheKey);
+    if (!read) {
+      const started = councilProposalsApi
+        .list(accounts, true)
+        .then(({ proposals }) => {
+          const counts: Record<string, number> = {};
+          for (const a of accounts) counts[a] = 0;
+          for (const p of proposals) {
+            if (p.status !== 'collecting') continue;
+            const signed = new Set(p.signatures.map((s) => s.signerAccount));
+            if (p.signerList.some((s) => mine.has(s.account) && !signed.has(s.account))) {
+              counts[p.account] = (counts[p.account] ?? 0) + 1;
+            }
           }
-        }
-        pendingSigCache.set(cacheKey, { at: Date.now(), counts });
+          pendingSigCache.set(cacheKey, { at: Date.now(), counts });
+          return counts;
+        })
+        .finally(() => {
+          if (pendingSigInflight.get(cacheKey) === started) pendingSigInflight.delete(cacheKey);
+        });
+      pendingSigInflight.set(cacheKey, started);
+      read = started;
+    }
+    void read
+      .then((counts) => {
         if (alive) setPendingSig(counts);
       })
       .catch(() => {
@@ -307,6 +410,16 @@ export function useAuthorities(): {
         } satisfies GovernedAuthority;
       }),
     [candidates, ledger, pendingSig],
+  );
+
+  // "My Legacies" is a list of LEGACIES, not of accounts that happen to be in
+  // scope (founder 2026-07-28). A connected wallet shows there only once the
+  // ledger CONFIRMS it is a council, or when the user deliberately pointed at
+  // it (a registry entry). Without this, every signer sees their own member
+  // account listed as if it were a Legacy it merely helps govern.
+  const legacies = useMemo<GovernedAuthority[]>(
+    () => governedCandidates.filter((g) => g.hasCouncil === true || !!g.registryId),
+    [governedCandidates],
   );
 
   const authorities = useMemo<Authority[]>(() => {
@@ -354,6 +467,7 @@ export function useAuthorities(): {
   return {
     authorities,
     governedCandidates,
+    legacies,
     active,
     activeGoverned: isGoverned(active) ? active : null,
     setActive,
@@ -361,6 +475,7 @@ export function useAuthorities(): {
     reload: useCallback(() => {
       registryCache = null;
       ledgerCache.clear();
+      forceRef.current = true;
       setNonce((n) => n + 1);
     }, []),
   };

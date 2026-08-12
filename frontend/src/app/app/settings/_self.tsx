@@ -45,7 +45,7 @@ function Band({ label }: { label: string }) {
 }
 
 export default function SettingsPage() {
-  const { t, lang } = useT();
+  const { t, lang, setLang } = useT();
   const es = lang === 'es';
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -200,6 +200,29 @@ export default function SettingsPage() {
                 <span className={`text-xs font-medium transition-colors ${theme === 'light' ? 'text-ink/80' : 'text-ink/35'}`}>
                   {t('Light')}
                 </span>
+              </div>
+            </div>
+            {/* Language — moved here from the sidebar (founder 2026-08-08:
+                "escondido en settings"): same ES/EN pair, now living with the
+                other preferences instead of taking a sidebar slot. */}
+            <div className="flex items-center justify-between gap-4 py-2 border-b border-ink/5">
+              <div>
+                <div className="text-sm text-ink/90">{t('Language')}</div>
+                <div className="text-xs text-ink/40 mt-0.5">{t('Texts and number formats.')}</div>
+              </div>
+              <div className="flex items-center rounded-lg border border-ink/10 bg-ink/[0.03] p-0.5 text-[11px] font-medium shrink-0">
+                {(['es', 'en'] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    aria-pressed={lang === l}
+                    className={`px-3 py-1 rounded-md uppercase transition-colors ${
+                      lang === l ? 'bg-volt text-volt-ink' : 'text-ink/45 hover:text-ink/80'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
             </div>
             {/* Expert-mode toggle hidden for the demo (authStore.setExpertMode preserved). */}

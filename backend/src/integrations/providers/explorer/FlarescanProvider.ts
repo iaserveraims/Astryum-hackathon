@@ -8,6 +8,11 @@ import type {
   HealthStatus,
 } from '../../interfaces/IProvider';
 import type { ProviderType, TrustLevel, SourceRecord } from '../../../canonical/types/Source';
+import {
+  EXPLORER_HEALTH_QUERY,
+  explorerHost,
+  flareExplorerBases,
+} from '../../../config/flareExplorer';
 
 const CAPS: ReadonlyArray<Capability> = Object.freeze([
   'explorer.getActivity',
@@ -16,7 +21,6 @@ const CAPS: ReadonlyArray<Capability> = Object.freeze([
   'explorer.getInternalTxs',
 ]);
 
-const DEFAULT_BASE = process.env.FLARESCAN_API_URL || 'https://flare-explorer.flare.network/api';
 const HEALTH_TIMEOUT_MS = 5000;
 
 interface ExplorerResponse<T> {
@@ -29,6 +33,11 @@ interface ExplorerResponse<T> {
  * Public Flarescan / flare-explorer indexer client. trust=indexer_verified so
  * results don't satisfy hard policy checks (P9..P14) but are good enough for
  * activity timeline and verification metadata.
+ *
+ * Two doors, not one (2026-08-03): the Blockscout API went 503 across every
+ * /api path and took the whole activity rail with it. Every read walks the
+ * bases in `config/flareExplorer` in order and sticks to whichever one answered,
+ * so a single indexer's outage degrades latency instead of blinding the rail.
  */
 export class FlarescanProvider implements IProvider {
   readonly id = 'flarescan';
@@ -37,30 +46,60 @@ export class FlarescanProvider implements IProvider {
   readonly priority = 80;
   readonly capabilities = CAPS;
 
-  constructor(private readonly baseUrl: string = DEFAULT_BASE) {}
+  private readonly bases: string[];
+  /** Sticky: index of the last base that answered — the next read starts there. */
+  private preferred = 0;
 
+  constructor(bases: string | ReadonlyArray<string> = flareExplorerBases()) {
+    this.bases = typeof bases === 'string' ? [bases] : [...bases];
+    if (this.bases.length === 0) throw new Error('FlarescanProvider: no explorer base configured');
+  }
+
+  /**
+   * Ping every door with a query the three flavours (Blockscout, Routescan,
+   * Etherscan) all understand, and READ THE BODY: Routescan answers HTTP 200
+   * with `{"status":"0","message":"NOTOK"}` to an action it doesn't know, so a
+   * status-code-only check would paint an error green.
+   *
+   * healthy = the primary answered · degraded = only a fallback did (the rail
+   * works, but say which door and why) · down = nobody answered.
+   */
   async health(): Promise<ProviderHealth> {
     const startedAt = Date.now();
-    try {
-      const res = await fetchWithTimeout(
-        `${this.baseUrl}?module=block&action=eth_block_number`,
-        HEALTH_TIMEOUT_MS,
-      );
-      const latencyMs = Date.now() - startedAt;
-      const status: HealthStatus = res.ok ? 'healthy' : 'degraded';
-      return {
-        status,
-        latencyMs,
-        lastCheckAt: new Date().toISOString(),
-        reason: res.ok ? undefined : `HTTP ${res.status}`,
-      };
-    } catch (err) {
-      return {
-        status: 'down',
-        lastCheckAt: new Date().toISOString(),
-        reason: (err as Error).message,
-      };
+    const failures: string[] = [];
+    for (let i = 0; i < this.bases.length; i++) {
+      const base = this.bases[i];
+      try {
+        await this.probe(base);
+        const latencyMs = Date.now() - startedAt;
+        this.preferred = i;
+        const status: HealthStatus = i === 0 ? 'healthy' : 'degraded';
+        return {
+          status,
+          latencyMs,
+          lastCheckAt: new Date().toISOString(),
+          reason:
+            i === 0
+              ? undefined
+              : `sirviendo desde ${explorerHost(base)} — ${failures.join(' | ')}`,
+        };
+      } catch (err) {
+        failures.push(`${explorerHost(base)}: ${(err as Error).message}`);
+      }
     }
+    return {
+      status: 'down',
+      latencyMs: Date.now() - startedAt,
+      lastCheckAt: new Date().toISOString(),
+      reason: `ningún explorador de Flare responde — ${failures.join(' | ')}`,
+    };
+  }
+
+  private async probe(base: string): Promise<void> {
+    const res = await fetchWithTimeout(`${base}?${EXPLORER_HEALTH_QUERY}`, HEALTH_TIMEOUT_MS);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = (await res.json()) as ExplorerResponse<string>;
+    if (json.status !== '1') throw new Error(`API ${json.message ?? 'respuesta sin status'}`);
   }
 
   async call<TIn, TOut>(
@@ -126,12 +165,39 @@ export class FlarescanProvider implements IProvider {
     return { data: data as TOut, source, cached: false };
   }
 
+  /**
+   * Walk the doors starting at the last one that worked. Only a real failure
+   * moves on: "No transactions found" is a legitimate empty answer, not an
+   * outage, so it never triggers failover (otherwise a quiet wallet would
+   * hammer every indexer on every read).
+   */
   private async query<T>(
     module: string,
     action: string,
     params: Record<string, string | number>,
   ): Promise<T> {
-    const url = new URL(this.baseUrl);
+    const failures: string[] = [];
+    for (let i = 0; i < this.bases.length; i++) {
+      const idx = (this.preferred + i) % this.bases.length;
+      const base = this.bases[idx];
+      try {
+        const out = await this.queryBase<T>(base, module, action, params);
+        this.preferred = idx;
+        return out;
+      } catch (err) {
+        failures.push(`${explorerHost(base)}: ${(err as Error).message}`);
+      }
+    }
+    throw new Error(`flarescan_unreachable: ${failures.join(' | ')}`);
+  }
+
+  private async queryBase<T>(
+    base: string,
+    module: string,
+    action: string,
+    params: Record<string, string | number>,
+  ): Promise<T> {
+    const url = new URL(base);
     url.searchParams.set('module', module);
     url.searchParams.set('action', action);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));

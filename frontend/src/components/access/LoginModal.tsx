@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { submitGateCode } from './accessConfig';
 import TurnstileWidget, { turnstileEnabled } from '../security/TurnstileWidget';
+import { getStoredLang } from '@/i18n/LanguageProvider';
 
 function errorCopy(error: string | undefined): string {
   switch (error) {
@@ -41,6 +42,8 @@ export default function LoginModal({
   open: boolean;
   onClose: () => void;
 }) {
+  // Mounted on the landing, OUTSIDE LanguageProvider — resolve the stored language directly.
+  const es = getStoredLang() === 'es';
   const router = useRouter();
   const codeRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState('');
@@ -95,7 +98,7 @@ export default function LoginModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto"
           onClick={onClose}
         >
           <motion.div
@@ -104,16 +107,16 @@ export default function LoginModal({
             exit={{ scale: 0.92, y: 20, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md mx-4"
+            className="relative w-full max-w-md mx-4 my-auto"
           >
             <div className="absolute -inset-px rounded-2xl opacity-70 blur-md" style={{ background: 'radial-gradient(120% 120% at 50% 0%, rgba(201,162,39,0.45), rgba(201,162,39,0.05) 60%, transparent)' }} />
             <div className="relative bg-zinc-950 border border-white/10 rounded-2xl p-8">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white tracking-tight">Acceso restringido</h2>
+                <h2 className="text-xl font-semibold text-white tracking-tight">{es ? 'Acceso restringido' : 'Restricted access'}</h2>
                 <button
                   onClick={onClose}
                   className="text-white/40 hover:text-white/80 transition-colors text-sm"
-                  aria-label="Cerrar"
+                  aria-label={es ? 'Cerrar' : 'Close'}
                 >
                   ESC
                 </button>
@@ -122,7 +125,7 @@ export default function LoginModal({
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs text-white/50 mb-2">
-                    Código de acceso
+                    {es ? 'Código de acceso' : 'Access code'}
                   </label>
                   <input
                     ref={codeRef}

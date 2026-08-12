@@ -28,19 +28,38 @@ CÓMO CONVERSAS:
 - Sé BREVE fuera de la tabla: la tabla es la sustancia, no la adornes con párrafos. Responde en el idioma del usuario y quédate en él.`;
 
 /**
+ * A COUNCIL (governed account) moves its capital through the cage on Flare, and
+ * that contract only knows `directTo` (supply into a whitelisted venue) and
+ * `recall` (bring it back) — it has NO borrow function. The carry route is
+ * therefore impossible for that capital, not merely discouraged: the route
+ * lives in the code, the impossibility lives in the contract. The metrics table
+ * already arrives without the carry rows; this says why, so the model explains
+ * the absence instead of inventing an option it cannot compile.
+ */
+const GOVERNED_CAGE = `
+CUENTA GOBERNADA POR UN CONSEJO (importante):
+- La persona opera una cuenta cuyo capital se mueve por ORDEN DEL CONSEJO a través de la vasija en Flare. Esa vasija solo sabe dos movimientos: poner principal a trabajar en un venue autorizado (directTo) y traerlo de vuelta (recall). NO tiene función de préstamo.
+- Por tanto la ruta CON PRÉSTAMO (carry: pedir USDT0 contra el colateral) NO está disponible para esta cuenta. No la propongas, no la calcules, no la presentes como alternativa "para más adelante". Si la persona pregunta por ella, dilo con honestidad y en una frase: la vasija no tiene función de préstamo, así que un consejo no puede pedir prestado; la ruta de solo supply (sin deuda) sí está disponible.
+- Todo lo demás sigue igual: neutral, números crudos, nunca recomiendas.`;
+
+/**
  * Build the strategy-assistant system prompt. When a metrics table is available
  * (the user has stated an amount and the live rates resolved), it is appended so
  * the LLM presents REAL numbers; otherwise the LLM asks for the amount first.
  */
-export function buildStrategyAssistantSystemPrompt(metricsTable?: string): string {
+export function buildStrategyAssistantSystemPrompt(
+  metricsTable?: string,
+  opts?: { governed?: boolean },
+): string {
+  const cage = opts?.governed ? CAGE + '\n' + GOVERNED_CAGE : CAGE;
   if (!metricsTable) {
     return (
-      CAGE +
+      cage +
       '\n\n(Todavía no hay tabla de métricas: aún no conoces la cantidad de XRP o las tasas no han resuelto. ' +
       'Pide la cantidad de XRP para poder calcular las opciones. No inventes números.)'
     );
   }
-  return CAGE + '\n\n--- TABLA DE MÉTRICAS (números reales; preséntala tal cual, sin reordenar ni recomendar) ---\n' + metricsTable;
+  return cage + '\n\n--- TABLA DE MÉTRICAS (números reales; preséntala tal cual, sin reordenar ni recomendar) ---\n' + metricsTable;
 }
 
 /**

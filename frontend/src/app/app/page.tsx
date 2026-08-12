@@ -16,6 +16,7 @@ import { AllocationDonut, AllocationLegend, OrbitDial } from '@/components/ui/ch
 import OrbitStatusCard from '@/components/dashboard/OrbitStatusCard';
 import DemoCapUsageCard from '@/components/dashboard/DemoCapUsageCard';
 import ProductTour from '@/components/onboarding/ProductTour';
+import { FirstWalletGuide } from '@/components/wallet/FirstWalletGuide';
 // ProductModeCard is UNMOUNTED (founder 2026-07-18): the product toggle moved
 // to the sidebar (components/authority/ProductToggle.tsx). Card preserved at
 // components/dashboard/ProductModeCard.tsx.
@@ -38,13 +39,15 @@ import {
   type RiskSnapshot,
 } from '@/services/v1Api';
 import { useAuthorityWallets } from '@/hooks/useAuthorityWallets';
-import { walletColorResolver, walletIconResolver, type WalletIconSlug } from '@/lib/walletIdentity';
+import { walletColorResolver, walletIconResolver, walletNameResolver, type WalletIconSlug } from '@/lib/walletIdentity';
 import WalletGlyphIcon from '@/components/wallet/WalletGlyphIcon';
+import { TokenLogo } from '@/components/ui/TokenLogo';
 import { useAggregatedPortfolio } from '@/hooks/useAggregatedPortfolio';
-import { EVM_ADDRESS_RE } from '@/lib/portfolioMerge';
+import { EVM_ADDRESS_RE, walletHoldings } from '@/lib/portfolioMerge';
 import { healthScoreFromHF, healthTone, healthWords } from '@/lib/healthScore';
 import { useBalanceVisibility, MASK } from '@/stores/balanceVisibilityStore';
 import { formatMoney, formatMoneyCompact } from '@/lib/formatMoney';
+import { positionState, nextArrival } from '@/lib/positionKinds';
 
 const SEV_TONE: Record<string, 'danger' | 'warning' | 'info' | 'neutral'> = {
   CRITICAL: 'danger',
@@ -113,6 +116,9 @@ function assetQuantities(positions: PortfolioSnapshot['positions']): Record<stri
 }
 
 // Engine kind enums → words a person would use (same register as Portfolio).
+// PARKED 2026-07-30 (with prettyKinds/onlyEarningKinds below): the Assets
+// Earning ring stopped charting kinds — it now splits the WHOLE capital by
+// asset + idle. Kept inert per repo rule; grep for callers before reviving.
 const KIND_WORD: Record<string, string> = {
   free: 'Idle',
   supply: 'Supplied',
@@ -137,9 +143,9 @@ function prettyKinds(data: Record<string, number>): Record<string, number> {
   return out;
 }
 
-// Kinds that actually generate for the holder — idle wallet balance (free) and
-// open debt (borrow) sit in the portfolio but earn nothing, so the "Assets
-// Earning" donut would lie if it counted them.
+// Which kinds earn, which are debt, which are money in flight: ONE classifier,
+// shared with Portfolio (lib/positionKinds). This page used to keep its own
+// Set, and it knew nothing about CLAIM — a queued vault exit read as "idle".
 const EARNING_KIND_WORDS = new Set(['supply', 'stake', 'staking', 'lp', 'reward', 'rewards']);
 
 function onlyEarningKinds(data: Record<string, number>): Record<string, number> {
@@ -177,14 +183,10 @@ export default function OverviewPage() {
   const { wallets: myWallets, loading: walletsResolving } = useAuthorityWallets();
   const walletsKey = myWallets.map((w) => w.address).join(',').toLowerCase();
 
-  // Nickname per wallet (editable any time in Wallets) — addresses never show
-  // when the user has named the wallet.
-  const labelFor = useMemo(() => {
-    const key = (a: string) => (EVM_ADDRESS_RE.test(a) ? a.toLowerCase() : a);
-    const map = new Map<string, string>();
-    for (const w of myWallets) if (w.label) map.set(key(w.address), w.label);
-    return (a: string) => map.get(key(a)) ?? `${a.slice(0, 6)}…${a.slice(-4)}`;
-  }, [myWallets]);
+  // Wallet display name — the ONE shared rule (walletIdentity): nickname,
+  // else the provider's proper name, else the short address. Same resolver
+  // as Wallets and Portfolio, so the same wallet never wears two names.
+  const labelFor = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);
 
   // The wallet's personal colour follows it everywhere (walletIdentity):
   // the same hue in Wallets, these rows, and the performance bars.
@@ -289,17 +291,59 @@ export default function OverviewPage() {
   const showDashboard = hasCapitalSurface || surfaceUndecided;
   const showWelcome = !hasCapitalSurface && !surfaceUndecided;
 
-  // "Assets Earning" ring: the earning kinds when any exist; otherwise the
-  // honest complement — all capital idle — so the ring is present whenever
-  // there IS capital (an empty box reads as a bug, not as "nothing earns").
-  const earningData = prettyKinds(onlyEarningKinds(snap?.breakdown.byKind ?? {}));
-  const earningTotal = Object.values(earningData).reduce((s, v) => s + v, 0);
-  const generatingDonut =
-    earningTotal > 0.01
-      ? earningData
-      : (snap?.totalUSD ?? 0) > 0.01
-        ? { [es ? 'Sin generar' : 'Not earning']: snap!.totalUSD }
-        : {};
+  // "Assets Earning" ring (founder 2026-08-04: "en el donut assets earning
+  // debes sacar el Not earning del lado del donut, allí solo irá la disposición
+  // de los assets en vaults"): the ring charts ONLY capital placed in a venue,
+  // broken down BY ASSET. The idle remainder used to ride in the ring as one
+  // slate slice — on most accounts it WAS the ring, a single grey circle that
+  // said nothing about allocation. It still reads, in figures, in the split
+  // line above the donut (Working · On the way · Not earning), so nothing is
+  // hidden: it just stops competing with the allocation for the eye. Debt never
+  // enters either side, matching totalUSD's gross-assets semantics.
+  //
+  // In-flight STAYS in the ring (founder 2026-08-01: "he hecho withdraw y estos
+  // activos no van a llegar hasta el día 2"): money leaving a venue is still
+  // sitting AT the venue, only with an exit date — it belongs to the placed
+  // capital, in its own amber slice, never mistaken for idle coins.
+  //
+  // Consequence, by design: this ring's centre total is the capital at work, so
+  // it no longer matches My Assets. That difference IS the reading.
+  const inflightLabel = es ? 'En camino' : 'On the way';
+  const workingByAsset: Record<string, number> = {};
+  const workingQty: Record<string, number> = {};
+  let idleUSD = 0;
+  let inflightUSD = 0;
+  const inflightPositions: PortfolioSnapshot['positions'] = [];
+  for (const p of snap?.positions ?? []) {
+    const state = positionState(p);
+    if (state === 'debt') continue;
+    const usd = typeof p.amountUSD === 'number' ? Math.abs(p.amountUSD) : 0;
+    if (usd === 0) continue;
+    if (state === 'earning') {
+      const asset = typeof p.asset === 'string' && p.asset ? p.asset : '—';
+      workingByAsset[asset] = (workingByAsset[asset] ?? 0) + usd;
+      const price = typeof p.priceUSD === 'number' ? p.priceUSD : 0;
+      if (price > 0) workingQty[asset] = (workingQty[asset] ?? 0) + usd / price;
+    } else if (state === 'inflight') {
+      inflightUSD += usd;
+      inflightPositions.push(p);
+    } else {
+      idleUSD += usd;
+    }
+  }
+  const workingUSD = Object.values(workingByAsset).reduce((s, v) => s + v, 0);
+  // Partial snapshots can carry totals without position rows — still show the
+  // honest all-idle ring rather than an empty box next to a filled My Assets.
+  if (workingUSD + idleUSD + inflightUSD <= 0.01 && (snap?.totalUSD ?? 0) > 0.01) {
+    idleUSD = snap!.totalUSD;
+  }
+  const generatingDonut: Record<string, number> = {
+    ...workingByAsset,
+    ...(inflightUSD > 0.01 ? { [inflightLabel]: inflightUSD } : {}),
+  };
+  // The date the in-flight money lands — the ONE fact the founder was missing.
+  // Read from the adapter's own claim data; no arrival date, no promise.
+  const inflightArrival = nextArrival(inflightPositions);
 
   // Personalised, time-of-day greeting — the assistant welcome. "Captain" is the
   // mission-control fallback when there's no name yet. The hour is read after
@@ -352,7 +396,7 @@ export default function OverviewPage() {
           steps={[
             { target: null, title: t('Welcome aboard'), body: t('This is your control deck. A one-minute walk through the sidebar and you will know where everything lives. You can skip and replay it any time from Settings.') },
             { target: 'switcher', title: t('Two products, one dashboard'), body: t('Astryum Personal and Astryum Legacy. Flip it here — the whole dashboard re-tints and the menu follows the product you are operating.') },
-            { target: 'nav-summary', title: t('Summary'), body: t('The overview: net worth, health, alerts and how each wallet is performing — always scoped to the active account.') },
+            { target: 'nav-summary', title: t('Home'), body: t('The overview: net worth, health, alerts and how each wallet is performing — always scoped to the active account.') },
             { target: 'nav-asset-production', title: t('Earn'), body: t('Where capital goes to work: ready-made strategies, the AI agent, and your strategy registry. You always sign in your own wallet.') },
             { target: 'nav-legacy', title: t('Legacy'), body: t('Council-governed accounts: capital under rules that a quorum signs. Constitute one or govern the ones you sit on.') },
             { target: 'nav-portfolio', title: t('Portfolio'), body: t('Every position, token and movement across your wallets — with filters, health readings and export.') },
@@ -371,6 +415,13 @@ export default function OverviewPage() {
           </div>
         )}
       </RevealItem>
+
+      {/* LegacyVaultCard is UNMOUNTED here (founder 2026-08-01: "Legacy debe
+          ser igual que Personal"). The cage's capital now enters the portfolio
+          pipeline SERVER-SIDE (LegacyCagePositionsService → XrplBalanceProvider
+          attributes the vault to the council account), so net worth, the
+          earning ring and My Assets count it like any personal position — no
+          special hero card. The card itself stays mounted inside /app/legacy. */}
 
       {showWelcome && (
         <RevealItem>
@@ -430,8 +481,8 @@ export default function OverviewPage() {
 
           {/* The wallets, promoted to their own band (founder 2026-07-25):
               they used to sit squeezed under the net-worth figure. Rows link
-              to Wallets — each card of the Summary sends you where its
-              content is managed. */}
+              into Portfolio scoped to that wallet (2026-08-01) — the Summary
+              sends you where the row's own content lives. */}
           {perWallet.length > 0 ? (
             <RevealItem className="shrink-0">
               <WalletsBand perWallet={perWallet} labelFor={labelFor} colorFor={colorFor} iconFor={iconFor} es={es} t={t} />
@@ -473,6 +524,12 @@ export default function OverviewPage() {
             <DonutCard
               title={t('Assets Earning')}
               data={generatingDonut}
+              qty={Object.keys(workingQty).length > 0 ? workingQty : undefined}
+              split={
+                workingUSD + idleUSD + inflightUSD > 0.01
+                  ? { working: workingUSD, idle: idleUSD, inflight: inflightUSD, arrivesAt: inflightArrival }
+                  : undefined
+              }
               href="/app/asset-production?view=strategies"
               loading={!snap}
             />
@@ -494,6 +551,11 @@ export default function OverviewPage() {
 
 // ── Welcome (no wallet connected) ─────────────────────────────────────────────
 function WelcomePanel({ es, t }: { es: boolean; t: (s: string) => string }) {
+  // First-wallet guide (founder 2026-08-08): users landing from an exchange
+  // own tokens but no wallet — for them "Connect wallet" is a wall, so the
+  // welcome panel carries its own door into the step-by-step guide. Mounted
+  // WITHOUT connect handlers: its last step hands over to /app/wallets?add=1.
+  const [showGuide, setShowGuide] = useState(false);
   return (
     <Card glow spotlight padded={false} className="relative overflow-hidden p-8 md:p-12">
       <div
@@ -530,7 +592,16 @@ function WelcomePanel({ es, t }: { es: boolean; t: (s: string) => string }) {
             {t('Explore Earn')} <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} />
           </Link>
         </div>
+        {/* Text link, not a third button: the two CTAs above keep their
+            hierarchy; this catches the exchange-only user before they bounce. */}
+        <button
+          onClick={() => setShowGuide(true)}
+          className="mt-4 text-[13px] text-ink/50 underline underline-offset-4 decoration-ink/25 hover:text-ink hover:decoration-ink/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 rounded"
+        >
+          {t('I don’t have a wallet yet — show me how')}
+        </button>
       </div>
+      {showGuide && <FirstWalletGuide onClose={() => setShowGuide(false)} />}
     </Card>
   );
 }
@@ -659,6 +730,18 @@ function NetWorthCard({
   );
 }
 
+// PARKED 2026-08-01 (with signedMoney below): the Wallets band no longer draws
+// a P&L range. Two reasons, in order. (1) It could not be read: a track with a
+// round knob and a figure on each side reads as a SLIDER you set, not as a
+// range you are shown, and the only explanation lived in a hover title.
+// (2) Worse, it was not true at this size — the flow filter below only discards
+// a jump that is BOTH >25% and >$50, so on a $7 wallet every transfer in or out
+// was booked as profit or loss (live rows showed −$51.25 all-time-low on a
+// $7.60 wallet, and +$27.01 all-time-high on a $0.87 one). Showing invented
+// performance is exactly what invariant #9 forbids. Reviving this needs REAL
+// deposit/withdrawal records from the backend, not a heuristic. Kept inert per
+// repo rule; grep for callers before reviving.
+//
 // Deposit-aware P&L range (founder 2026-07-26: "si el usuario mete de golpe
 // 1000 XRP que no suba al 200%"): without flow data, a single-step jump that
 // is BOTH >25% of the previous snapshot and >$50 is treated as money moved
@@ -687,14 +770,169 @@ function signedMoney(v: number): string {
   return `${v < 0 ? '−' : '+'}${formatMoneyCompact(Math.abs(v))}`;
 }
 
+// ── What a wallet holds, in one line ─────────────────────────────────────────
+// Reads straight off the snapshot's own positions: the top assets by value and,
+// when the money is out working, the venue it sits in ("XRP · FXRP · Kinetic").
+// No history, no heuristic, nothing that can drift from the truth — if the
+// snapshot says it, the row says it. Debt legs are excluded: an open borrow is
+// not something the wallet HOLDS, and it is already reported by the health
+// reading beside it. Asset keys that arrive as raw addresses (some adapters
+// key by contract) are dropped rather than shown as 0x noise.
+const HOLDING_DEBT_KINDS = new Set(['debt', 'borrow']);
+
+/** Symbols (by value, biggest first) + the venue holding most of the money.
+ *  The symbols come from the SHARED walletHoldings (portfolioMerge) — the
+ *  same reading the Wallets screen paints — so the two surfaces can never
+ *  disagree about what a wallet holds. */
+function holdingsOf(snap: PortfolioSnapshot): { symbols: string[]; venue: string | null } {
+  const byVenue: Record<string, number> = {};
+  for (const p of snap.positions) {
+    const kind = String(p.kind ?? '').toLowerCase();
+    if (HOLDING_DEBT_KINDS.has(kind)) continue;
+    const usd = Math.abs(typeof p.amountUSD === 'number' ? p.amountUSD : 0);
+    if (usd <= 0.01) continue;
+    const proto = String(p.protocolId ?? '').trim();
+    // "wallet" / "wallet-8453" = the balance sits in the wallet itself, which
+    // is the absence of a venue, not a venue.
+    if (proto && !/^wallet(-\d+)?$/i.test(proto)) {
+      byVenue[proto] = (byVenue[proto] ?? 0) + usd;
+    }
+  }
+  const venues = Object.entries(byVenue)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k]) => k);
+  return {
+    symbols: walletHoldings(snap).map((h) => h.symbol),
+    venue: venues.length ? venues[0].charAt(0).toUpperCase() + venues[0].slice(1) : null,
+  };
+}
+
+/** The same reading as words — for the row's tooltip and its screen-reader text. */
+function holdingsLine(snap: PortfolioSnapshot, es: boolean): string {
+  const { symbols, venue } = holdingsOf(snap);
+  if (!symbols.length && !venue) return es ? 'sin activos' : 'no assets';
+  const head = symbols.slice(0, 2).join(' · ');
+  const more = symbols.length > 2 ? ` +${symbols.length - 2}` : '';
+  return `${head}${more}${venue ? `${symbols.length ? ' · ' : ''}${venue}` : ''}`;
+}
+
+// ── What the capital in a wallet is DOING ────────────────────────────────────
+// The meter's numbers, read through the SHARED classifier (lib/positionKinds)
+// so this row and the Summary ring can never disagree about what "working"
+// means — including the CLAIM kind, money already leaving a venue, which is
+// neither working nor idle.
+//
+// The denominator is the wallet's ASSETS: open debt is excluded, exactly as
+// positionKinds prescribes. Two reasons it must not become a fourth segment
+// here: it would double-encode what the health reading beside the meter already
+// says, and in the light theme the debt token (#BA1C1C) and the volt token
+// (#977217) sit at CVD ΔE 5.9 (deutan) — a red/gold pair a deuteranope cannot
+// separate. Checked with the dataviz validator, not by eye.
+function capitalMix(snap: PortfolioSnapshot): {
+  assetsUSD: number;
+  earningPct: number;
+  inflightPct: number;
+} {
+  let earning = 0;
+  let inflight = 0;
+  let assets = 0;
+  for (const p of snap.positions) {
+    const state = positionState(p);
+    if (state === 'debt') continue;
+    const usd = Math.abs(typeof p.amountUSD === 'number' ? p.amountUSD : 0);
+    if (usd <= 0.01) continue;
+    assets += usd;
+    if (state === 'earning') earning += usd;
+    else if (state === 'inflight') inflight += usd;
+  }
+  if (assets <= 0) return { assetsUSD: 0, earningPct: 0, inflightPct: 0 };
+  return { assetsUSD: assets, earningPct: (earning / assets) * 100, inflightPct: (inflight / assets) * 100 };
+}
+
+// ── How a wallet stands, in words ────────────────────────────────────────────
+// The 3-level dot never said what it meant, so now it carries its word (spec
+// R1.2: a health reading never renders alone — word first, number second).
+//
+// The score is the repo's calibrated 0–100 (lib/healthScore, 100 reserved for
+// zero debt), and it is printed ONLY when the wallet carries debt — which is
+// the only case where it varies. Founder 2026-08-01 asked for a health
+// percentage on every row; on a wallet with no borrow the scale pins at 100 by
+// definition, so four rows reading "100/100" would teach nothing and "100/100"
+// on an empty wallet would be plain odd. Word when there is nothing to score,
+// word + score the moment there is.
+function healthLine(
+  snap: PortfolioSnapshot,
+  hf: number | null,
+  hasDebt: boolean,
+  es: boolean,
+): { text: string; tone: 'success' | 'warning' | 'danger' | 'neutral'; detail: string | null } {
+  const empty = (snap.netWorthUSD ?? 0) < 0.01 && snap.positions.length === 0;
+  if (empty) return { text: es ? 'Sin actividad' : 'No activity', tone: 'neutral', detail: null };
+  // Just the word. The "· sin deuda" qualifier that rode with it left
+  // 2026-08-01 (founder: "sin deuda a fuera") — at 100 the word IS the reading,
+  // and the reason behind it stays one hover away.
+  if (!hasDebt) {
+    return {
+      text: es ? 'Sana' : 'Healthy',
+      tone: 'success',
+      detail: es ? 'Sin deuda abierta — nada puede liquidarse' : 'No open debt — nothing can be liquidated',
+    };
+  }
+  const score = healthScoreFromHF(hf, true);
+  const word = healthWords(score, es);
+  return {
+    text: score != null ? `${word} · ${score}/100` : word,
+    tone: healthTone(score),
+    detail: hf != null ? `HF ${hf.toFixed(2)} — 1.00 = ${es ? 'liquidación' : 'liquidation'}` : null,
+  };
+}
+
+// ── The capital meter ────────────────────────────────────────────────────────
+// Two fills over a recessive track: working, in flight, and whatever is left is
+// money sitting still. Marks follow the dataviz spec — thin, rounded ends, a
+// 2px SURFACE GAP between segments (never a border to separate them), and the
+// value always carried by a direct label beside the bar, never by colour alone.
+//
+// Palette = the design system's own status tokens, validated with the skill's
+// checker in both themes and both authorities rather than by eye: chroma, CVD
+// separation, normal-vision separation and contrast pass everywhere; the light
+// theme's worst pair is protan ΔE 7.7, which the spec allows only WITH
+// secondary encoding — hence the gap, the direct label and the legend, all
+// three present. The categorical "lightness band" check fails by design: these
+// are reserved status colours, not interchangeable identity slots.
+function CapitalMeter({ earningPct, inflightPct }: { earningPct: number; inflightPct: number }) {
+  const e = Math.max(0, Math.min(100, earningPct));
+  const f = Math.max(0, Math.min(100 - e, inflightPct));
+  return (
+    <span className="relative block h-1.5 w-full rounded-full bg-ink/[0.07]" aria-hidden>
+      {e > 0.5 && (
+        <span className="absolute inset-y-0 left-0 rounded-full bg-tone-success/85" style={{ width: `${e}%` }} />
+      )}
+      {f > 0.5 && (
+        <span
+          className="absolute inset-y-0 rounded-full bg-volt/85"
+          style={{ left: `calc(${e}% + 2px)`, width: `max(2px, calc(${f}% - 2px))` }}
+        />
+      )}
+    </span>
+  );
+}
+
 // ── Wallets band — the per-wallet rows, promoted to their own organism ────────
 // They used to sit squeezed under the net-worth figure; now they take the full
 // width Capital Performance occupied (preserved at
-// components/dashboard/PerformanceCard.tsx). Each row: the wallet's identity
-// (glyph + colour), its 3-level health dot, its P&L RANGE — all-time low to
-// all-time high of the deposit-adjusted profit curve (pnlRange above), with
-// the marker at today — and its net worth. Rows link to Wallets (founder
-// 2026-07-25: "los tokens te manden a las wallets").
+// components/dashboard/PerformanceCard.tsx).
+//
+// Each row answers the two questions a summary owes you about a wallet, both
+// read straight off its snapshot: HOW IT STANDS (health dot + its word) and
+// WHAT IS INSIDE (top assets + the venue they work in), then its net worth.
+// The P&L range that lived here until 2026-08-01 is parked above (pnlRange) —
+// it read as a slider and, on small wallets, priced transfers as performance.
+//
+// Rows link to Portfolio SCOPED TO THAT WALLET (founder 2026-08-01: "al pulsar
+// encima, que lleve a la posición de esa cartera en portfolio") — the row
+// states what is inside, so the click must open exactly that, not the wallet
+// admin screen it pointed at before (founder 2026-07-25).
 function WalletsBand({
   perWallet,
   labelFor,
@@ -719,85 +957,138 @@ function WalletsBand({
     neutral: 'bg-ink/25',
   };
   const rows = [...perWallet].sort((a, b) => (b.snap.netWorthUSD ?? 0) - (a.snap.netWorthUSD ?? 0));
+  const anyAssets = rows.some((w) => capitalMix(w.snap).assetsUSD > 0);
+  // Past four wallets the rows tighten instead of the band growing: 6 wallets
+  // at the loose rhythm ate ~265px of a dashboard that owes the user one
+  // viewport. Nothing is hidden — every wallet keeps its row.
+  const dense = rows.length > 4;
   return (
     <Card spotlight padded={false} className="overflow-hidden">
-      <div className="flex items-center justify-between px-5 pt-3.5 pb-2.5">
-        <h3 className="text-[15px] font-semibold tracking-tight text-ink">
+      {/* Header carries the legend, centred between the title and Manage
+          (founder 2026-08-01) — a whole strip at the foot for three words was
+          furniture. It sits in the flow, never absolutely positioned, so it can
+          not collide with either side; below sm it steps aside entirely (the
+          rows drop their word there too and the tooltip carries the reading). */}
+      <div className="flex items-center gap-3 px-5 pt-3.5 pb-2.5">
+        <h3 className="text-[15px] font-semibold tracking-tight text-ink shrink-0">
           {t('Wallets')}
           <span className="ml-2 text-xs font-normal text-ink/35">{rows.length}</span>
         </h3>
+        {anyAssets && (
+          <div className="hidden sm:flex flex-1 items-center justify-center gap-4 text-[10px] text-ink/35">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-1.5 rounded-full bg-tone-success/85" aria-hidden /> {es ? 'trabajando' : 'working'}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-1.5 rounded-full bg-volt/85" aria-hidden /> {es ? 'en camino' : 'in flight'}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-1.5 rounded-full bg-ink/[0.12]" aria-hidden /> {es ? 'quieto' : 'sitting still'}
+            </span>
+          </div>
+        )}
         <Link
           href="/app/wallets"
-          className="inline-flex items-center gap-1 text-[11px] text-ink/40 hover:text-volt transition-colors"
+          className="ml-auto sm:ml-0 shrink-0 inline-flex items-center gap-1 text-[11px] text-ink/40 hover:text-volt transition-colors"
         >
           {es ? 'Gestionar' : 'Manage'} <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
         </Link>
       </div>
-      {/* Two columns past 3 wallets so the band never grows the page past the
-          one-viewport contract. */}
-      <div className={`border-t border-ink/[0.05] px-5 py-2 ${rows.length > 3 ? 'lg:grid lg:grid-cols-2 lg:gap-x-8' : ''}`}>
+      {/* ONE column, always. The two-column split (rows.length > 3) left
+          2026-08-01: an enriched row needs ~700px of card width, so two of them
+          need ~1460px — more than the shell leaves even at 2xl, and the columns
+          squeezed the meter to nothing. Many wallets are absorbed by `dense`
+          above, not by splitting. */}
+      <div className="border-t border-ink/[0.05] px-5 py-2">
         {rows.map((w) => {
           const hf = typeof w.risk?.healthFactor === 'number' ? w.risk.healthFactor : null;
           const hasDebt = (w.snap.debtUSD ?? 0) > 0.01;
-          const tone = healthTone(healthScoreFromHF(hf, hasDebt));
+          const health = healthLine(w.snap, hf, hasDebt, es);
+          const tone = health.tone;
           const color = colorFor(w.address);
           const icon = iconFor(w.address);
-          const range = pnlRange(w.history);
-          const span = range ? range.ath - range.atl : 0;
-          const pos = range && span > 0 ? ((range.cur - range.atl) / span) * 100 : 50;
+          const { symbols } = holdingsOf(w.snap);
+          const holdings = holdingsLine(w.snap, es);
+          const mix = capitalMix(w.snap);
+          const working = Math.round(mix.earningPct + mix.inflightPct);
+          const workingWord = mix.assetsUSD <= 0
+            ? (es ? 'sin activos' : 'no assets')
+            : working >= 1
+              ? (es ? 'trabajando' : 'working')
+              : (es ? 'quieto' : 'sitting still');
           return (
             <Link
               key={w.address}
-              href="/app/wallets"
+              // Lands on the Overview lens with the wallet pre-selected
+              // (founder 2026-08-12: ?tab=positions dropped you one lens too
+              // deep). tab=overview is EXPLICIT on purpose: without it the
+              // page restores the last persisted lens, not Overview.
+              href={`/app/portfolio?wallet=${encodeURIComponent(w.address)}&tab=overview`}
               title={
                 es
-                  ? 'Recorrido de beneficio de la wallet (depósitos y retiradas descontados): mínimo histórico · hoy · máximo histórico'
-                  : 'The wallet’s profit range (deposits and withdrawals excluded): all-time low · today · all-time high'
+                  ? `${labelFor(w.address)} — ${health.text}${health.detail ? ` (${health.detail})` : ''} · ${holdings} · ${working}% del capital trabajando${mix.inflightPct >= 1 ? `, ${Math.round(mix.inflightPct)}% en camino` : ''}. Abre esta cartera en Portfolio.`
+                  : `${labelFor(w.address)} — ${health.text}${health.detail ? ` (${health.detail})` : ''} · ${holdings} · ${working}% of the capital working${mix.inflightPct >= 1 ? `, ${Math.round(mix.inflightPct)}% in flight` : ''}. Opens this wallet in Portfolio.`
               }
-              className="group flex items-center gap-3 rounded-lg px-1 -mx-1 py-2 hover:bg-ink/[0.025] transition-colors"
+              className="group block rounded-lg px-1 -mx-1 hover:bg-ink/[0.025] transition-colors"
             >
-              {/* Personal glyph (walletIdentity) wins when set, painted in the
-                  wallet's own colour; otherwise the plain colour dot. */}
-              {icon ? (
-                <WalletGlyphIcon icon={icon} size={14} color={color} className="shrink-0" />
-              ) : (
-                <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-ink/20" style={{ background: color }} aria-hidden />
-              )}
-              <span className="w-28 md:w-32 truncate text-[13px] text-ink/80">{labelFor(w.address)}</span>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotBg[tone]}`} aria-hidden />
-              {/* P&L range — ATL to ATH of the deposit-adjusted curve, marker
-                  at today. Easy read: left is the worst it's been, right the
-                  best, and the dot is where the wallet stands now. */}
-              {range ? (
-                <>
-                  <span className="hidden sm:block w-14 text-right font-mono tabular-nums text-[10px] text-tone-danger/90 shrink-0">
-                    {hidden ? MASK : signedMoney(range.atl)}
-                  </span>
-                  <span
-                    className="relative h-1.5 flex-1 rounded-full"
-                    style={{
-                      background:
-                        'linear-gradient(90deg, hsl(var(--tone-danger) / 0.22), hsl(var(--ink) / 0.05) 50%, hsl(var(--tone-success) / 0.22))',
-                    }}
-                  >
-                    <span
-                      className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full ring-2 ring-surface-1 transition-[left] duration-500"
-                      style={{ left: `calc(${Math.max(0, Math.min(100, pos))}% - 5px)`, background: color }}
-                    />
-                  </span>
-                  <span className="hidden sm:block w-14 font-mono tabular-nums text-[10px] text-tone-success/90 shrink-0">
-                    {hidden ? MASK : signedMoney(range.ath)}
-                  </span>
-                </>
-              ) : (
-                <span className="flex-1 text-center text-[10px] text-ink/25">
-                  {es ? 'historial en construcción' : 'history building'}
+              {/* No background tint. A share-of-capital fill in the wallet's own
+                  colour lived here for one deploy and left the same day
+                  (founder 2026-08-01: "el sombreado del alrededor en color azul
+                  y gris debe desaparecer") — at row height it read as a
+                  selection highlight stuck behind the name, not as weight. The
+                  balance figure carries the size of a wallet on its own. */}
+              <span className={`flex items-center gap-2.5 ${dense ? 'py-1.5' : 'py-2'}`}>
+                {/* Personal glyph (walletIdentity) wins when set, painted in the
+                    wallet's own colour; otherwise the plain colour dot. */}
+                {icon ? (
+                  <WalletGlyphIcon icon={icon} size={14} color={color} className="shrink-0" />
+                ) : (
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-ink/20" style={{ background: color }} aria-hidden />
+                )}
+                <span className="w-20 md:w-24 truncate text-[13px] text-ink/80 shrink-0">{labelFor(w.address)}</span>
+                {/* What's inside, wearing its real face — the marks carry the
+                    identity, the venue name follows in text. Not a balance, so
+                    the hide-balances eye leaves it alone. */}
+                <span className="hidden sm:flex items-center shrink-0 w-[3.25rem]">
+                  {symbols.slice(0, 3).map((s, i) => (
+                    <span key={s} className="relative" style={{ marginLeft: i === 0 ? 0 : -6, zIndex: 3 - i }}>
+                      <TokenLogo symbol={s} size="xs" className="ring-1 ring-surface-1" />
+                    </span>
+                  ))}
                 </span>
-              )}
-              <span className="w-24 text-right font-mono tabular-nums text-sm text-ink shrink-0">
-                {hidden ? MASK : formatMoney(w.snap.netWorthUSD)}
+                {/* No venue column. It named the place ("Firelight", "in the
+                    wallet") and left 2026-08-01: founder — "con la indicación de
+                    working o sitting still se sabe dónde está el asset". True at
+                    this altitude, and the 90px it freed is what lets six wallets
+                    sit comfortably in one column. The venue name survives in the
+                    row's tooltip and one click away in Portfolio. */}
+                {/* The row's hero reading: how much of this wallet's capital is
+                    actually at work. Bar + direct label, never colour alone. */}
+                <span className="flex-1 min-w-[2.5rem]">
+                  <CapitalMeter earningPct={mix.earningPct} inflightPct={mix.inflightPct} />
+                </span>
+                {/* Narrow screens keep the figure and drop the word — the
+                    legend at the foot still names the colours. */}
+                <span className="w-9 sm:w-[6.5rem] shrink-0 text-[11px] text-ink/55">
+                  <span className="font-mono tabular-nums text-ink/80">{mix.assetsUSD > 0 ? `${working}%` : '—'}</span>{' '}
+                  <span className="hidden sm:inline text-ink/40">{workingWord}</span>
+                </span>
+                {/* How it stands — the dot keeps the colour, the word makes it
+                    legible. Only warning/danger tint the text; a healthy wallet
+                    stays quiet so the loud ones are the ones you notice. */}
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotBg[tone]}`} aria-hidden />
+                <span
+                  className={`hidden md:block w-[6.5rem] truncate text-[11px] shrink-0 ${
+                    tone === 'danger' ? 'text-tone-danger/90' : tone === 'warning' ? 'text-tone-warning/90' : 'text-ink/45'
+                  }`}
+                >
+                  {health.text}
+                </span>
+                <span className="w-20 md:w-24 text-right font-mono tabular-nums text-sm text-ink shrink-0">
+                  {hidden ? MASK : formatMoney(w.snap.netWorthUSD)}
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0 text-ink/25 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
               </span>
-              <ArrowRight className="w-3.5 h-3.5 shrink-0 text-ink/25 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
             </Link>
           );
         })}
@@ -929,24 +1220,60 @@ function Reading({
   );
 }
 
+// The donut's orbital frame — the sized box plus the dashed orbit and its
+// moonlet (the landing's solar hero, miniaturised). Shared by the charted ring
+// and the at-rest ring so both land in exactly the same place on the card: when
+// the first position starts working, the ring fills without the card reflowing.
+function DonutFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative shrink-0 m-2 w-[190px] h-[190px] md:w-[210px] md:h-[210px] lg:w-auto lg:h-[calc(100%-1rem)] lg:min-h-[140px] lg:max-h-[216px] lg:aspect-square">
+      <div className="donut-orbit absolute -inset-2.5 rounded-full border border-dashed border-volt/20" aria-hidden>
+        <span
+          className="absolute w-[5px] h-[5px] rounded-full bg-volt-soft"
+          style={{ top: '3%', left: '50%', boxShadow: '0 0 8px hsl(var(--volt-soft) / 0.9), 0 0 20px hsl(var(--volt) / 0.5)' }}
+        />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 // ── Allocation donuts — clickable, distinct colours, no caption noise ─────────
 function DonutCard({
   title,
   data,
   qty,
+  split,
   href,
   loading = false,
 }: {
   title: string;
   data: Record<string, number>;
   qty?: Record<string, number>;
+  /** Working vs in-flight vs idle aggregate figures (Assets Earning) — the
+      one-line split whose working side the ring then breaks down by asset.
+      `inflight` is money leaving a venue; `arrivesAt` is the date it lands
+      (protocol data — absent when the venue can't say yet). */
+  split?: { working: number; idle: number; inflight?: number; arrivesAt?: string | null };
   href: string;
   /** Snapshot still on its way: hold the donut's footprint with a quiet pulse
       instead of flashing "Nothing to chart yet" and reflowing when it lands. */
   loading?: boolean;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  // Same eye as everywhere: the split's dollar figures mask, percentages stay.
+  const hidden = useBalanceVisibility((s) => s.hidden);
   const empty = Object.keys(data).length === 0;
+  const inflight = split?.inflight ?? 0;
+  const splitTotal = split ? split.working + split.idle + inflight : 0;
+  // Short, locale-obeying arrival date ("2 ago" / "2 Aug") — same rule as every
+  // other number on the dashboard: it follows the language in use.
+  const arrival = split?.arrivesAt
+    ? new Date(split.arrivesAt).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', {
+        day: 'numeric',
+        month: 'short',
+      })
+    : null;
   return (
     <Link href={href} className="group block h-full min-h-0">
       <Card hover spotlight padded={false} className="h-full p-5 flex flex-col">
@@ -954,6 +1281,31 @@ function DonutCard({
           <h3 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h3>
           <ArrowRight className="w-4 h-4 shrink-0 text-ink/30 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
         </div>
+        {/* The split line survives an empty ring (2026-08-04): with every coin
+            parked the ring has nothing to draw, and this line IS the reading —
+            hiding it would leave the card mute about capital it can see. */}
+        {split && splitTotal > 0 && (
+          <div className="shrink-0 -mt-2 mb-3 text-[11px] font-mono tabular-nums text-ink/45">
+            {t('Working')}{' '}
+            <span className="text-ink/85">{hidden ? MASK : formatMoneyCompact(split.working)}</span>
+            <span className="text-ink/35"> ({Math.round((split.working / splitTotal) * 100)}%)</span>
+            {inflight > 0.01 && (
+              <>
+                <span className="mx-1.5 text-ink/25">·</span>
+                {t('On the way')}{' '}
+                <span className="text-ink/85">{hidden ? MASK : formatMoneyCompact(inflight)}</span>
+                <span className="text-ink/35"> ({Math.round((inflight / splitTotal) * 100)}%)</span>
+                {/* The date the venue releases it — protocol data, never a
+                    promise: no date read, no date shown. */}
+                {arrival && <span className="text-ink/35"> · {t('lands')} {arrival}</span>}
+              </>
+            )}
+            <span className="mx-1.5 text-ink/25">·</span>
+            {t('Not earning')}{' '}
+            <span className="text-ink/85">{hidden ? MASK : formatMoneyCompact(split.idle)}</span>
+            <span className="text-ink/35"> ({Math.round((split.idle / splitTotal) * 100)}%)</span>
+          </div>
+        )}
         {empty && loading ? (
           <div className="flex-1 flex items-center gap-6 py-4" aria-hidden>
             <div className="m-2 h-[170px] w-[170px] shrink-0 animate-pulse rounded-full border-[22px] border-ink/[0.05]" />
@@ -963,26 +1315,45 @@ function DonutCard({
               ))}
             </div>
           </div>
+        ) : empty && split && splitTotal > 0 ? (
+          /* Capital seen, none of it placed: the ring has nothing to draw and
+             draws nothing — an empty band, never a full grey circle standing in
+             for idle money (that is what the split line above is for). Same
+             frame as the charted ring so the card holds its shape. */
+          <div className="flex-1 min-h-0 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <DonutFrame>
+              {/* Same band as the charted ring — a radial gradient, not a
+                  border, so the 62%/92% radii hold at every size the
+                  one-viewport contract gives this box. */}
+              <div
+                className="absolute inset-[4%] rounded-full"
+                style={{ background: 'radial-gradient(closest-side, transparent 67%, hsl(var(--ink) / 0.05) 67.5%)' }}
+                aria-hidden
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <div className="text-xs text-ink/40">total</div>
+                <div className="text-base font-mono text-ink/50">{hidden ? MASK : formatMoneyCompact(0)}</div>
+              </div>
+            </DonutFrame>
+            <div className="flex-1 w-full min-w-0 sm:pr-2">
+              <p className="text-sm text-ink/70">{t('Nothing at work yet')}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-ink/40">
+                {t('This ring charts only capital placed in a vault. Pick a strategy and it shows up here.')}
+              </p>
+            </div>
+          </div>
         ) : empty ? (
           <div className="flex-1 grid place-items-center py-10 text-ink/40 text-sm">{t('Nothing to chart yet')}</div>
         ) : (
           /* Donut big on the left, legend breathing on the right — one organic
              read: shape first, detail beside it. Stacks on small screens.
-             A dashed outer ring with a moonlet turns the allocation into a
-             small orbital system — the landing's solar hero, miniaturised.
              On lg the donut takes whatever height the one-viewport contract
              left for this row (AllocationDonut `fill`), instead of a fixed
              box forcing the page to scroll. */
           <div className="flex-1 min-h-0 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            <div className="relative shrink-0 m-2 w-[190px] h-[190px] md:w-[210px] md:h-[210px] lg:w-auto lg:h-[calc(100%-1rem)] lg:min-h-[140px] lg:max-h-[216px] lg:aspect-square">
-              <div className="donut-orbit absolute -inset-2.5 rounded-full border border-dashed border-volt/20" aria-hidden>
-                <span
-                  className="absolute w-[5px] h-[5px] rounded-full bg-volt-soft"
-                  style={{ top: '3%', left: '50%', boxShadow: '0 0 8px hsl(var(--volt-soft) / 0.9), 0 0 20px hsl(var(--volt) / 0.5)' }}
-                />
-              </div>
+            <DonutFrame>
               <AllocationDonut data={data} fill />
-            </div>
+            </DonutFrame>
             <div className="flex-1 w-full min-w-0 sm:pr-2">
               <AllocationLegend data={data} qty={qty} showUSD />
             </div>

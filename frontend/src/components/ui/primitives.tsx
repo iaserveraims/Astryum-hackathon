@@ -391,6 +391,7 @@ export function EmptyState({
   icon,
   variant = 'neutral',
   bare = false,
+  action,
 }: {
   title: ReactNode;
   hint?: ReactNode;
@@ -398,6 +399,9 @@ export function EmptyState({
   variant?: 'neutral' | 'error' | 'loading';
   /** True when rendering INSIDE an existing Card/panel — no second box. */
   bare?: boolean;
+  /** Optional call-to-action rendered under the hint — an empty first run
+   *  should offer the next step, not just describe the absence. */
+  action?: ReactNode;
 }) {
   const tr = useTNode();
   const tones: Record<string, string> = {
@@ -410,6 +414,7 @@ export function EmptyState({
       {icon ? <IconTile size="lg" className="mb-4">{icon}</IconTile> : null}
       <div className={`text-sm font-medium ${tones[variant]}`}>{tr(title)}</div>
       {hint ? <div className="text-sm text-ink/45 mt-2 max-w-md leading-relaxed">{tr(hint)}</div> : null}
+      {action ? <div className="mt-5">{action}</div> : null}
     </>
   );
   if (bare) {
@@ -424,18 +429,22 @@ export function PrimaryButton({
   disabled,
   type = 'button',
   className = '',
+  'aria-label': ariaLabel,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   type?: 'button' | 'submit';
   className?: string;
+  /** Accessible name for icon-only usages — the visual stays icon-clean. */
+  'aria-label'?: string;
 }) {
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-volt text-volt-ink text-sm font-semibold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_8px_24px_-10px_hsl(var(--volt)/0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 ${className}`}
     >
       {children}
@@ -448,16 +457,20 @@ export function GhostButton({
   onClick,
   disabled,
   className = '',
+  'aria-label': ariaLabel,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
+  /** Accessible name for icon-only usages — the visual stays icon-clean. */
+  'aria-label'?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] text-ink/80 text-sm hover:bg-ink/[0.06] hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 ${className}`}
     >
       {children}

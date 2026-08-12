@@ -62,7 +62,11 @@ const LOGO_HERO = '/astryum_logo-nobackground.png'; // same asset the hero sun u
 // ─── Products & palettes ─────────────────────────────────────────────────────
 // Legacy's indigo family converts the dashboard's governed tokens
 // (globals.css [data-authority='governed']: --volt 234 89% 74% etc.) to hex.
-// The asteroid sun stays gold in both — the brand mark never re-tints.
+// Each product's sun is its OWN asteroid; the two hero PNGs share the exact
+// same geometry (1536×1024 canvas, asteroid 445px wide centred at 746,446) so
+// the sun renders at the SAME size in both products — astryum-hero-azul.png
+// is composed from asteroide_corregido_transparente to match the gold hero
+// (founder 2026-08-08: "rebaja el tamaño del asteroide en el sistema solar").
 export type JourneyProduct = 'personal' | 'legacy';
 type Product = JourneyProduct;
 
@@ -73,6 +77,9 @@ type Palette = {
   planetRim: string; // dark rim of the planet gradient
   glowSecondary: string; // outer halo of the planet glow
   planets: [string, string, string, string]; // outer → inner ring
+  /** The star this system orbits — each product brings its OWN asteroid
+   *  (founder 2026-08-08, superseding "the mark stays gold in both"). */
+  hero: string;
 };
 
 const PALETTES: Record<Product, Palette> = {
@@ -83,6 +90,7 @@ const PALETTES: Record<Product, Palette> = {
     planetRim: '#4a3608',
     glowSecondary: 'rgba(201,162,39,0.45)',
     planets: ['#B89B3B', '#E8C25A', GOLD, '#F2D27A'],
+    hero: LOGO_HERO,
   },
   legacy: {
     accent: '#828DF8',
@@ -91,6 +99,7 @@ const PALETTES: Record<Product, Palette> = {
     planetRim: '#1E2247',
     glowSecondary: 'rgba(130,141,248,0.45)',
     planets: ['#6B78E8', '#A5B1FD', '#828DF8', '#C7D2FE'],
+    hero: '/astryum-hero-azul.png',
   },
 };
 
@@ -135,7 +144,7 @@ type Stop = {
 const STOPS_PERSONAL: Stop[] = [
   {
     id: 'summary',
-    label: 'Summary',
+    label: 'Home',
     num: '01',
     planet: 3,
     dock: 'right',
@@ -145,13 +154,16 @@ const STOPS_PERSONAL: Stop[] = [
     enH: 'All your capital, at a glance.',
     esB: 'Cuánto tienes, en qué wallets vive y si algo necesita tu atención hoy. Y cuando hay miradas cerca, los saldos se ocultan con un toque.',
     enB: "How much you hold, which wallets it lives in and whether anything needs your attention today. When someone's looking over your shoulder, balances hide with one tap.",
+    // "en órbita" — the coined state the artifact's dial teaches visually
+    // right beside this copy (GLOSSARY §8); also kills the health overlap
+    // with the Portfolio stop, which owns that story.
     esPoints: [
-      'Patrimonio neto y salud de posiciones, en una sola lectura',
+      'Patrimonio neto y cuánto está en órbita, trabajando — en una sola lectura',
       'Rendimiento por wallet y por horizonte (hoy · semana · mes · año)',
       'Saldos ocultables con un toque, para mirar sin enseñar',
     ],
     enPoints: [
-      'Net worth and position health, in one reading',
+      'Net worth and how much is in orbit, working — in one reading',
       'Performance per wallet and per horizon (today · week · month · year)',
       'Balances hide with one tap, for looking without showing',
     ],
@@ -169,15 +181,18 @@ const STOPS_PERSONAL: Stop[] = [
     enH: 'Put your assets to work. Understanding what they do.',
     esB: 'Estrategias reales en Flare, explicadas en lenguaje claro antes de firmar. Los tipos se muestran siempre como dato del protocolo, con su fuente — nunca como una promesa nuestra.',
     enB: 'Real strategies on Flare, explained in plain language before you sign. Rates always appear as protocol data, with their source — never as a promise from us.',
+    // Point 1 no longer parrots the body (the exit path is the fear the Home
+    // never answered); point 2 drops the third "antes de firmar" of the stop;
+    // point 3: "prepara", never "compila" (GLOSSARY §2).
     esPoints: [
-      'Estrategias reales en Flare mainnet, explicadas en claro',
-      'Cada coste, conversión y riesgo a la vista antes de firmar',
-      'Descríbela con tus palabras: el agente la compila, tú decides',
+      'Cada estrategia declara sus pasos y su camino de salida',
+      'Costes, conversiones y riesgos desglosados, sin letra pequeña',
+      'Descríbela con tus palabras: el agente la prepara, tú decides',
     ],
     enPoints: [
-      'Real strategies on Flare mainnet, explained plainly',
-      'Every cost, conversion and risk visible before you sign',
-      'Describe it in your words: the agent compiles, you decide',
+      'Every strategy declares its steps and its exit path',
+      'Costs, conversions and risks broken down — no fine print',
+      'Describe it in your words: the agent prepares it, you decide',
     ],
     Artifact: EarnArtifact,
   },
@@ -193,13 +208,15 @@ const STOPS_PERSONAL: Stop[] = [
     enH: 'Every position, health in plain sight.',
     esB: 'Todas tus redes y wallets en una sola vista viva: qué tienes, dónde está trabajando y a qué distancia queda cada posición de un problema.',
     enB: "All your networks and wallets in one living view: what you hold, where it's working and how far each position sits from trouble.",
+    // Point 1 no longer parrots the body — the history (with its receipts) is
+    // real product surface the Home never mentioned.
     esPoints: [
-      'Todas tus redes y wallets en una sola vista viva',
+      'El histórico de cada wallet, operación a operación',
       'Salud y precio de liquidación, posición a posición',
       'Filtra por wallet, red, activo o periodo',
     ],
     enPoints: [
-      'Every network and wallet in one living view',
+      "Every wallet's history, operation by operation",
       'Health and liquidation price, position by position',
       'Filter by wallet, network, asset or period',
     ],
@@ -215,8 +232,10 @@ const STOPS_PERSONAL: Stop[] = [
     end: 0.85,
     esH: 'Tus llaves nunca salen de tu wallet.',
     enH: 'Your keys never leave your wallet.',
-    esB: 'Conecta MetaMask o Xaman, o vigila una dirección en solo lectura. Astryum prepara cada operación; la firma es siempre tuya, en tu wallet.',
-    enB: 'Connect MetaMask or Xaman, or watch an address in read-only. Astryum prepares every action; the signature is always yours, in your wallet.',
+    // The headline above owns the page's ONE keys claim — the body adds the
+    // prepare-and-hand-over fact instead of restating it (GLOSSARY §6.6).
+    esB: 'Conecta MetaMask o Xaman, o vigila una dirección en solo lectura. Astryum prepara cada operación y te la entrega lista para revisar.',
+    enB: 'Connect MetaMask or Xaman, or watch an address in read-only. Astryum prepares every action and hands it over, ready for your review.',
     esPoints: [
       'MetaMask, Xaman o cualquier dirección en solo lectura',
       'Firmar se autoriza wallet a wallet — mirar no exige nada',
@@ -237,25 +256,25 @@ const STOPS_PERSONAL: Stop[] = [
 const STOPS_LEGACY: Stop[] = [
   {
     id: 'summary',
-    label: 'Summary',
+    label: 'Home',
     num: '01',
     planet: 3,
     dock: 'right',
     start: 0.22,
     end: 0.38,
     esH: 'El patrimonio del Legacy, a la vista de todos.',
-    enH: "The Legacy's wealth, in everyone's sight.",
+    enH: "The Legacy's wealth, in plain sight for everyone.",
     esB: 'Cuánto hay, dónde vive y qué espera una decisión del consejo. La misma lectura clara, ahora para un capital que se gobierna entre varios.',
     enB: 'How much there is, where it lives and what awaits a council decision. The same clear reading, now for capital governed together.',
     esPoints: [
-      'La lectura del consejo: cuánto hay y qué espera decisión',
+      'La lectura del consejo: cuánto hay y qué espera una decisión',
       'El mismo panel claro, sobre capital gobernado entre varios',
       'Todos los miembros ven lo mismo; nadie mueve nada solo',
     ],
     enPoints: [
       "The council's reading: how much there is and what awaits a decision",
       'The same clear panel, over capital governed together',
-      'Every member sees the same; no one moves anything alone',
+      'Every member sees the same thing; no one moves anything alone',
     ],
     Artifact: SummaryArtifact,
   },
@@ -272,7 +291,7 @@ const STOPS_LEGACY: Stop[] = [
     esB: 'Las mismas estrategias reales en Flare, pero aquí nadie mueve nada solo: Astryum prepara la operación y es el consejo quien la firma por quórum.',
     enB: "The same real strategies on Flare — but here no one moves anything alone: Astryum prepares the action and it's the council that signs it, by quorum.",
     esPoints: [
-      'Las mismas estrategias reales de Flare mainnet',
+      'Las mismas estrategias reales en Flare mainnet',
       'Astryum prepara la operación; el consejo la firma por quórum',
       'Condiciones a la vista antes de cada firma',
     ],
@@ -318,7 +337,7 @@ const STOPS_LEGACY: Stop[] = [
     esH: 'Capital que solo se mueve por quórum.',
     enH: 'Capital that only moves by quorum.',
     esB: 'Constituye un Legacy en XRPL: un consejo de firmantes, una constitución y transferencias programadas. Tú propones; el consejo firma; Astryum nunca firma ni custodia.',
-    enB: 'Constitute a Legacy on XRPL: a council of signers, a constitution and programmed transfers. You propose; the council signs; Astryum never signs, never custodies.',
+    enB: 'Constitute a Legacy on XRPL: a council of signers, a constitution and programmed transfers. You propose; the council signs; Astryum never signs, never takes custody.',
     esPoints: [
       'Un consejo de firmantes con pesos y quórum (p. ej. 3 de 5)',
       'Constitución y transferencias programadas, ancladas en XRPL',
@@ -491,6 +510,16 @@ const SCENE_CSS = `
      the whole first frame inside 100svh. At >=770px tall this resolves to the
      original 480px cap — full-size parity is untouched. */
   @media (min-width: 1024px) { .solar-scene-j { width: clamp(280px, min(38vw, 62svh), 480px); } }
+  /* Phones (static twin only — the pinned stage never renders below lg): the
+     orbit pills carry fixed 27px offsets + nowrap labels tuned for the 480px
+     desktop scene; at 320-375px the outer ring's "Coordina" pill overran the
+     viewport and the hero's overflow-hidden cut it in half. Shrink the scene
+     so ring + pill fit, and tighten the pills to match. */
+  @media (max-width: 640px) {
+    .solar-scene-j { width: min(66vw, 300px); }
+    .sj-pill { top: 18px !important; left: 14px !important; padding: 2px 8px !important; }
+    .sj-pill > span:last-child { font-size: 9px !important; letter-spacing: 0.12em !important; }
+  }
   .solar-stage-j { position: absolute; inset: 0; transform-style: preserve-3d; }
   /* The ring element is a PURE 3D carrier: transform only. Its visible line
      lives in .solar-ringline-j, and dimming/blur live on leaf wrappers —
@@ -668,23 +697,38 @@ function ProductSwitch({
     { key: 'legacy', label: 'Legacy', bg: PALETTES.legacy.accent, ink: '#0B0D26' },
   ];
   return (
-    <div
-      role="group"
-      aria-label={T('Producto', 'Product', lang)}
-      className="inline-flex items-center gap-0.5 p-1 rounded-full"
-      style={{ border: `1px solid ${BORDER}`, background: 'rgba(10,10,10,0.55)', backdropFilter: 'blur(8px)' }}
-    >
-      {opts.map((o) => (
-        <button
-          key={o.key}
-          onClick={() => setProduct(o.key)}
-          aria-pressed={product === o.key}
-          className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
-          style={product === o.key ? { background: o.bg, color: o.ink } : { color: 'rgba(255,255,255,0.45)' }}
+    <div className="flex flex-col items-center gap-2">
+      <div
+        role="group"
+        aria-label={T('Producto', 'Product', lang)}
+        className="inline-flex items-center gap-0.5 p-1 rounded-full"
+        style={{ border: `1px solid ${BORDER}`, background: 'rgba(10,10,10,0.55)', backdropFilter: 'blur(8px)' }}
+      >
+        {opts.map((o) => (
+          <button
+            key={o.key}
+            onClick={() => setProduct(o.key)}
+            aria-pressed={product === o.key}
+            // py-2.5 (was py-2): this is the mobile journey's only control
+            // besides the CTAs and 32px sat under the touch minimum
+            className="px-4 py-2.5 rounded-full text-xs font-semibold transition-colors"
+            style={product === o.key ? { background: o.bg, color: o.ink } : { color: 'rgba(255,255,255,0.45)' }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {/* Legacy is validating on mainnet and not open yet — the toggle says so
+          the moment it is selected, in BOTH journey variants (founder
+          2026-07-29: honest label, not a hidden product). */}
+      {product === 'legacy' && (
+        <span
+          className="text-[10px] font-mono uppercase tracking-[0.18em] px-2.5 py-1 rounded-full text-center max-w-[90vw]"
+          style={{ color: PALETTES.legacy.soft, background: 'rgba(10,10,10,0.55)', border: `1px solid ${BORDER}` }}
         >
-          {o.label}
-        </button>
-      ))}
+          {T('En validación en mainnet · abre pronto', 'Validating on mainnet · opening soon', lang)}
+        </span>
+      )}
     </div>
   );
 }
@@ -773,6 +817,17 @@ function JourneyScene({
       el = el.offsetParent as HTMLElement | null;
     }
     const W = cam.offsetWidth;
+    // Unmeasurable stage (display:none below lg — e.g. an iPad rotating
+    // portrait→landscape mid-scroll): W/clientWidth are 0 and buildCamera
+    // would divide 0/0 into NaN keyframes; the exponential smoother then
+    // latches NaN forever (NaN + x = NaN, the settle epsilon never fires) and
+    // the scene's transform is dropped for the rest of the session. Park the
+    // camera and let the next real measure reseed the smoother.
+    if (!sticky.clientWidth || !sticky.clientHeight || !W) {
+      camera.current = null;
+      smoothCam.current = null;
+      return;
+    }
     camera.current = buildCamera({
       vw: sticky.clientWidth,
       vh: sticky.clientHeight,
@@ -781,6 +836,10 @@ function JourneyScene({
       W,
       desktop: sticky.clientWidth >= 1024,
     });
+    // Reseed on every re-measure: a geometry jump (rotation, URL bar) should
+    // snap to the fresh keyframes, not ease from a stale — possibly broken —
+    // smoothed state.
+    smoothCam.current = null;
   }, [stickyRef]);
 
   useLayoutEffect(() => {
@@ -811,6 +870,9 @@ function JourneyScene({
       const tx = pieceSmooth(p, cam.pts, cam.xs);
       const ty = pieceSmooth(p, cam.pts, cam.ys);
       const ts = pieceSmooth(p, cam.pts, cam.ss);
+      // Never let a non-finite target into the smoother — one NaN write would
+      // stick to every later frame and drop the stage transform entirely.
+      if (!Number.isFinite(tx + ty + ts)) return;
       if (!smoothCam.current) smoothCam.current = { x: tx, y: ty, s: ts, tilt: tiltTarget };
       const c = smoothCam.current;
       const k = 1 - Math.exp(-dt * 7.5); // ~130ms time constant
@@ -1042,9 +1104,10 @@ function JourneyScene({
               );
             })}
           </motion.div>
-          {/* Astryum — the star this system orbits (glow baked into the asset;
-              the brand mark stays gold in both products). 50% (was 54%) and
-              carries its own tilt + a masked specular sweep for volume. */}
+          {/* Astryum — the star this system orbits. Each product brings its
+              own asteroid (founder 2026-08-08): gold hero for Personal, the
+              blue mark for Legacy — palette.hero, like every other color
+              here. 50% (was 54%), own tilt + masked specular sweep. */}
           <motion.div
             className="absolute"
             style={{ top: '50%', left: '50%', x: '-50%', y: '-50%', zIndex: 2, width: '50%', opacity: mv.sun, filter: mv.sunF }}
@@ -1054,14 +1117,14 @@ function JourneyScene({
               style={{ rotateX: mv.sunRX, rotateY: mv.sunRY, transformPerspective: 600, transformStyle: 'preserve-3d' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_HERO} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              <img src={palette.hero} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
               {/* pointer-lit facet sweep — clipped to the asteroid itself */}
               <motion.div
                 className="absolute inset-0"
                 style={{
                   background: mv.sunSpec,
-                  WebkitMaskImage: `url(${LOGO_HERO})`,
-                  maskImage: `url(${LOGO_HERO})`,
+                  WebkitMaskImage: `url(${palette.hero})`,
+                  maskImage: `url(${palette.hero})`,
                   WebkitMaskSize: '100% 100%',
                   maskSize: '100% 100%',
                   mixBlendMode: 'screen',
@@ -1082,13 +1145,18 @@ function TakeoffKicker({ progress, lang, product, palette }: { progress: MotionV
   return (
     <motion.div aria-hidden className="absolute inset-x-0 top-[15svh] z-30 text-center px-6 pointer-events-none" style={{ opacity, y }}>
       <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: palette.soft }}>
+        {/* "piezas", never "instrumentos" — GLOSSARY §2 */}
         {product === 'legacy'
           ? T('El recorrido · Astryum Legacy', 'The tour · Astryum Legacy', lang)
-          : T('El recorrido · Cuatro instrumentos', 'The tour · Four instruments', lang)}
+          : T('El recorrido · Cuatro piezas', 'The tour · Four pieces', lang)}
       </div>
       <p className="mt-3 text-white/55 text-sm md:text-base max-w-md mx-auto">
         {product === 'legacy'
-          ? T('El mismo puesto de mando, para capital gobernado por un consejo.', 'The same mission control, for council-governed capital.', lang)
+          ? T(
+              'El mismo puesto de mando, para capital gobernado por un consejo. En validación en mainnet — abre pronto.',
+              'The same mission control, for council-governed capital. Validating on mainnet — opening soon.',
+              lang,
+            )
           : T('Esto es lo que ves al entrar. Sin promesas: el producto.', 'This is what you see when you step in. No promises: the product.', lang)}
       </p>
     </motion.div>
@@ -1213,35 +1281,11 @@ function FinaleBlock({
   );
 }
 
-// ─── Scroll cue — the hero's cue, retargeted at the first stop ───────────────
-function JourneyCue({ progress, lang, active, palette }: { progress: MotionValue<number>; lang: Lang; active: boolean; palette: Palette }) {
-  const opacity = useTransform(progress, [0, 0.05], [1, 0]);
-  // visibility (not just pointer-events) — an opacity-0 button would otherwise
-  // still take keyboard focus and get announced by screen readers.
-  const visibility = useTransform(opacity, (v) => (v < 0.02 ? 'hidden' : 'visible'));
-  return (
-    <motion.button
-      onClick={() => document.getElementById('stop-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-      aria-label={T('Desplázate para descubrir', 'Scroll to explore', lang)}
-      className="absolute left-1/2 -translate-x-1/2 bottom-7 z-30 hidden md:flex flex-col items-center gap-2 group"
-      style={{ opacity, visibility, pointerEvents: active ? 'auto' : 'none' }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.8, delay: 1.1 }}
-    >
-      <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-white/35 group-hover:text-white/60 transition-colors">
-        {T('Explora', 'Scroll', lang)}
-      </span>
-      <motion.span
-        className="block w-px"
-        style={{ height: 24, background: `linear-gradient(180deg, rgba(${palette.rgb},0.7), transparent)`, transformOrigin: 'top' }}
-        initial={{ scaleY: 0, opacity: 0 }}
-        animate={{ scaleY: [0, 1, 1, 0], opacity: [0, 0.9, 0.9, 0] }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.35, 0.75, 1] }}
-      />
-    </motion.button>
-  );
-}
+// JourneyCue RETIRED (user test 2026-08-03): the in-stage cue died at 5% of the
+// track, only existed ≥md, and first-time visitors never noticed it. Its job
+// moved to the page-level PersistentScrollCue in LandingPage.tsx — bigger,
+// capsule-backed, alive through the whole scroll. Recover from git history if
+// an in-stage cue is ever wanted again.
 
 // ─── Static fallback (<lg twin + prefers-reduced-motion) ─────────────────────
 // No track, no sticky, no scrub: the hero at its resting pose followed by the
@@ -1280,7 +1324,10 @@ function StaticScene({ lang, palette }: { lang: Lang; palette: Palette }) {
                       }}
                     />
                     <LeaderLine rgb={palette.rgb} />
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap" style={PILL_HERO}>
+                    {/* PILL_TOUR, not PILL_HERO: this variant IS the phone
+                        render, and blur under the rotateX chain is Safari's
+                        jank source #1 (see the pill-finish note above) */}
+                    <div className="sj-pill flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap" style={PILL_TOUR}>
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
                       <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-white/85">{es ? p.prEs : p.prEn}</span>
                     </div>
@@ -1293,7 +1340,7 @@ function StaticScene({ lang, palette }: { lang: Lang; palette: Palette }) {
       </div>
       <div className="absolute" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 2, width: '50%' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={LOGO_HERO} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        <img src={palette.hero} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
       </div>
     </div>
   );
@@ -1344,20 +1391,31 @@ function StaticJourney({
 }) {
   return (
     <>
-      <section id={`${idPrefix}journey`} className="relative min-h-[94svh] flex items-center px-6 md:px-10 lg:px-16 pt-36 md:pt-32 pb-20 overflow-hidden">
-        <div className="absolute top-[140px] left-1/2 -translate-x-1/2 z-30">
-          <ProductSwitch product={product} setProduct={setProduct} lang={lang} />
-        </div>
-        <div className="max-w-6xl mx-auto w-full grid lg:grid-cols-[1.15fr,0.85fr] gap-12 lg:gap-16 items-center relative z-10">
-          <div>{hero}</div>
-          <div className="flex justify-center">
-            <StaticScene lang={lang} palette={palette} />
+      <section id={`${idPrefix}journey`} className="relative min-h-[94svh] flex items-center px-6 md:px-10 lg:px-16 pt-36 md:pt-32 pb-20 overflow-hidden scroll-mt-32">
+        <div className="w-full">
+          {/* In flow, NOT absolute at top-[140px] (that offset was tuned for
+              the pinned lg stage, where the switch floats over empty space):
+              here the stacked hero top-aligns at the padding line and the
+              pinned pill painted straight over the status badge — with the
+              Legacy notice wrapping to three lines on top of the H1. */}
+          <div className="mb-10 flex justify-center relative z-30">
+            <ProductSwitch product={product} setProduct={setProduct} lang={lang} />
+          </div>
+          <div className="max-w-6xl mx-auto w-full grid lg:grid-cols-[1.15fr,0.85fr] gap-12 lg:gap-16 items-center relative z-10">
+            <div>{hero}</div>
+            <div className="flex justify-center">
+              <StaticScene lang={lang} palette={palette} />
+            </div>
           </div>
         </div>
       </section>
       <div key={product}>
+        {/* Stop sections: overflow-hidden because the planet badge's decorative
+            dark halo paints ~78px past its own box — off the left viewport edge
+            on phones — and iOS 15 doesn't support the root's overflow-x:clip
+            backstop. scroll-mt-32: the fixed banner+header stack is ~124px. */}
         {stops.map((s) => (
-          <section key={s.id} id={`${idPrefix}stop-${s.id}`} className="relative py-14 md:py-20 px-6 md:px-10 lg:px-16 scroll-mt-24">
+          <section key={s.id} id={`${idPrefix}stop-${s.id}`} className="relative py-14 md:py-20 px-6 md:px-10 lg:px-16 scroll-mt-32 overflow-hidden">
             <div className="max-w-3xl mx-auto flex flex-col sm:flex-row gap-7 items-start">
               <StaticPlanetBadge planet={s.planet} palette={palette} />
               <div>
@@ -1583,7 +1641,6 @@ export default function SolarJourney({
             <JourneyStopPanel key={s.id} stop={s} progress={scrollYProgress} lang={lang} active={phase === i} palette={palette} />
           ))}
           <FinaleBlock progress={scrollYProgress} lang={lang} cta={finaleCta} active={phase === 'finale'} product={product} palette={palette} />
-          <JourneyCue progress={scrollYProgress} lang={lang} active={phase === 'hero'} palette={palette} />
 
           {/* hero-frame only (founder 2026-07-22): fades on takeoff, returns at
               the top. Sits at 104px — clear of the fixed header's hit area,

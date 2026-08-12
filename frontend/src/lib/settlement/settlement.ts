@@ -116,7 +116,8 @@ export function evaluate5792(result: CallsStatusLike): { done: boolean; failed: 
   const receipts = result.receipts ?? [];
   const revertedIdx = receipts.findIndex((r) => !isReceiptSuccess(r?.status));
   if (revertedIdx >= 0) {
-    return { done: true, failed: true, reason: `la llamada ${revertedIdx + 1} del batch revirtió on-chain` };
+    // Code, not prose — the UI translates (settlementReasonText).
+    return { done: true, failed: true, reason: `BATCH_CALL_REVERTED:${revertedIdx + 1}` };
   }
   return { done: true, failed: false };
 }
@@ -166,9 +167,15 @@ export interface PendingRef {
   startedAt: number;
 }
 
+/** Fired on window every time a pending is saved — lets shell surfaces (the
+ *  sidebar "In progress" card) pick up ops signed AFTER their own mount,
+ *  without the modal and the shell having to know about each other. */
+export const PENDING_CHANGED_EVENT = 'astryum:settlement-pending-changed';
+
 export function savePending(p: PendingRef): void {
   try {
     window.localStorage.setItem(PENDING_PREFIX + p.ref, JSON.stringify(p));
+    window.dispatchEvent(new Event(PENDING_CHANGED_EVENT));
   } catch {
     /* private mode — resume-on-reload unavailable, no green invented */
   }

@@ -107,7 +107,8 @@ export function trackSettlement(
         }
         if (result) {
           const v = evaluate5792(result);
-          if (v.done && v.failed) return finish(toFailed(current, v.reason ?? 'el batch falló on-chain'));
+          // Reasons travel as CODES — the UI translates (settlementReasonText).
+          if (v.done && v.failed) return finish(toFailed(current, v.reason ?? 'BATCH_FAILED'));
           if (v.done) {
             const receipts = result.receipts ?? [];
             const raw = receipts[receipts.length - 1]?.transactionHash;
@@ -115,13 +116,13 @@ export function trackSettlement(
             return finish(toSettled(current, tx ? { ref: tx, explorerUrl: explorerUrlFor('evm', tx) } : undefined));
           }
         } else if (failedProbes >= UNSUPPORTED_5792_PROBES) {
-          emit(toStalled(current, 'la wallet no permite confirmar el batch automáticamente — comprueba el estado con la referencia'));
+          emit(toStalled(current, 'NO_AUTOCONFIRM'));
         }
       } else if (initial.rail === 'evm') {
         const receipt = await deps.getTxReceipt(initial.ref).catch(() => null);
         if (receipt) {
           if (isReceiptSuccess(receipt.status)) return finish(toSettled(current));
-          return finish(toFailed(current, 'la transacción revirtió on-chain'));
+          return finish(toFailed(current, 'REVERTED'));
         }
       } else if (initial.rail === 'xrpl-tx') {
         const validated = await deps.getXrplTxValidated(initial.ref).catch(() => null);
@@ -134,7 +135,7 @@ export function trackSettlement(
         if (executed === true) return finish(toSettled(current));
       }
       if (current.status === 'pending' && isPastCeiling(initial.rail, startedAt, deps.now())) {
-        emit(toStalled(current, 'está tardando más de lo normal — seguimos vigilando la cadena'));
+        emit(toStalled(current, 'STALLED_SLOW'));
       }
     } finally {
       if (!cancelled && !final) schedule();

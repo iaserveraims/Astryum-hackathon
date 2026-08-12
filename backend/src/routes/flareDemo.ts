@@ -20,6 +20,7 @@
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
+import { safeErrorDetail } from '../utils/safeError';
 import { jurisdictionService } from '../services/JurisdictionService';
 import { getProtocolAddresses } from '../config/protocolAddresses';
 import { buildE1Handoff, buildE3Handoff, buildDirectMintHandoff, buildVaultEntryHandoff, buildVaultRotateHandoff, readMinimumRedeemAmountUBA, mintFeeDisclosure, readDirectMintParams, computeNetMint, buildRedeemToXrplCall, readFxrpBalance, resolveRedemptionExecutor, NonceSeatTakenError } from '../connectors/protocols/flare/FlareDirectMintService';
@@ -144,7 +145,7 @@ router.get('/cap-status', async (req: Request, res: Response) => {
     const status = await getDemoCapStatus(address, req.siwe?.userId);
     return res.json({ ...status, active: process.env.FLARE_DEFI_ENABLED === 'true' });
   } catch (e) {
-    return res.status(500).json({ error: 'CAP_STATUS_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'CAP_STATUS_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -156,7 +157,14 @@ const DROPS = 1_000_000; // 1 XRP = 1e6 drops; FXRP/USDT0 UBA = 6 dec
 // FTSOAdapter). deposit() wraps, delegate(provider, bips) delegates vote power.
 const WNAT_ADDRESS = '0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d';
 const WNAT_DEPOSIT_SELECTOR = '0xd0e30db0'; // deposit() payable
-const WNAT_ABI = ['function delegate(address to, uint256 bips)'];
+const WNAT_ABI = [
+  'function delegate(address to, uint256 bips)',
+  // E2 exit rail (2026-07-31): unwrap + undelegate + the reads that size them.
+  'function withdraw(uint256 amount)',
+  'function undelegateAll()',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function delegatesOf(address owner) view returns (address[] delegateAddresses, uint256[] bips, uint256 count, uint256 delegationMode)',
+];
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 // XRPL classic address (base58, no 0/O/I/l). Rejects EVM/garbage before any RPC call.
 const XRPL_CLASSIC_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
@@ -661,7 +669,7 @@ router.get('/personal-account', async (req: Request, res: Response) => {
 
     return res.json({ xrplAddress: xrpl, personalAccount, walletRegistered });
   } catch (e) {
-    return res.status(500).json({ error: 'PA_RESOLVE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'PA_RESOLVE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -748,7 +756,7 @@ router.post('/e1/prepare', async (req: Request, res: Response) => {
           return res.status(409).json({ error: `KWYH_DANGER_${label}`, flags: data.flags });
         }
       } catch (e) {
-        scanner[label] = { error: (e as Error).message };
+        scanner[label] = { error: safeErrorDetail(e) };
       }
     }
 
@@ -915,7 +923,7 @@ router.post('/e1/prepare', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
-    return res.status(500).json({ error: 'E1_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'E1_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -993,7 +1001,7 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
           return res.status(409).json({ error: `KWYH_DANGER_${label}`, flags: data.flags });
         }
       } catch (e) {
-        scanner[label] = { error: (e as Error).message };
+        scanner[label] = { error: safeErrorDetail(e) };
       }
     }
 
@@ -1115,7 +1123,7 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
-    return res.status(500).json({ error: 'E3_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'E3_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -1265,7 +1273,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
           return res.status(409).json({ error: `KWYH_DANGER_${label.toUpperCase()}`, flags: data.flags });
         }
       } catch (e) {
-        scanner[label] = { error: (e as Error).message };
+        scanner[label] = { error: safeErrorDetail(e) };
       }
     }
 
@@ -1470,7 +1478,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
-    return res.status(500).json({ error: 'VAULT_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'VAULT_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -1559,7 +1567,175 @@ router.post('/e2/prepare', async (req: Request, res: Response) => {
       },
     });
   } catch (e) {
-    return res.status(500).json({ error: 'E2_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'E2_PREPARE_FAILED', detail: safeErrorDetail(e) });
+  }
+});
+
+/** Read WNat delegations → [{ provider, bips }] with only the active (>0) rows. */
+async function readDelegations(
+  wnat: ethers.Contract,
+  account: string,
+): Promise<Array<{ provider: string; bips: number }>> {
+  const result = await wnat.delegatesOf(account);
+  const addresses: string[] = result.delegateAddresses ?? result[0] ?? [];
+  const bips: bigint[] = result.bips ?? result[1] ?? [];
+  const out: Array<{ provider: string; bips: number }> = [];
+  for (let i = 0; i < addresses.length; i++) {
+    const b = Number(bips[i] ?? 0n);
+    if (b > 0) out.push({ provider: addresses[i], bips: b });
+  }
+  return out;
+}
+
+/**
+ * GET /api/flare-demo/e2/position?account=0x…
+ * Read layer of the E2 exit: live WFLR balance + delegations of the wallet.
+ * Observe-wide read — nothing here is signable, so no execution gate.
+ */
+router.get('/e2/position', async (req: Request, res: Response) => {
+  try {
+    const account = safeGetAddress(req.query.account);
+    if (!account) return res.status(400).json({ error: 'INVALID_ACCOUNT' });
+
+    const provider = flareProvider();
+    const wnat = new ethers.Contract(WNAT_ADDRESS, WNAT_ABI, provider);
+    const [balanceWei, delegations] = await Promise.all([
+      wnat.balanceOf(account) as Promise<bigint>,
+      readDelegations(wnat, account),
+    ]);
+
+    let flrPriceUSD = 0;
+    try {
+      const priceProvider = await createFTSOPriceProvider();
+      flrPriceUSD = await priceProvider.getPriceUSD('FLR');
+    } catch {
+      /* price is informational — the balance read must not fail with it */
+    }
+
+    return res.json({
+      account,
+      balanceWflrWei: balanceWei.toString(),
+      balanceWflr: Number(ethers.formatUnits(balanceWei, 18)),
+      delegations,
+      flrPriceUSD,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: 'E2_POSITION_FAILED', detail: safeErrorDetail(e) });
+  }
+});
+
+/**
+ * POST /api/flare-demo/e2/exit/prepare
+ * Body: { account, amountFlr? | max: true, region? }
+ * The reverse of /e2/prepare: unwrap WFLR → FLR in the SAME wallet
+ * (WNat.withdraw), preceded by undelegateAll ONLY on a full exit. A partial
+ * unwrap keeps the delegation percentages on the remaining WFLR (WNat
+ * delegation is %-of-balance). Returns UNSIGNED EVM calls + disclosure —
+ * the user signs in their own wallet; Astryum never signs.
+ */
+router.post('/e2/exit/prepare', async (req: Request, res: Response) => {
+  try {
+    const {
+      account,
+      amountFlr,
+      max = false,
+      region = null,
+    } = (req.body ?? {}) as {
+      account?: string;
+      amountFlr?: number | string;
+      max?: boolean;
+      region?: string | null;
+    };
+
+    // 0. VALIDATION — before the gate, before any RPC (hermetic-test contract).
+    const accountAddr = safeGetAddress(account);
+    if (!accountAddr) return res.status(400).json({ error: 'INVALID_ACCOUNT' });
+    const wantsMax = max === true;
+    const amount = Number(amountFlr);
+    if (!wantsMax && !isPositiveFinite(amount)) {
+      return res.status(400).json({ error: 'INVALID_AMOUNT' });
+    }
+
+    // 1. GATING (flag + geofence) — the Flare DeFi module sits behind both.
+    const gate = gateFlareDemo(region);
+    if (gate) return res.status(gate.status).json({ error: gate.error });
+
+    // 2. READ — the exact WFLR balance sizes MAX and catches over-asks with
+    //    honest numbers instead of a wallet-side revert.
+    const provider = flareProvider();
+    const wnat = new ethers.Contract(WNAT_ADDRESS, WNAT_ABI, provider);
+    const [balanceWei, delegations] = await Promise.all([
+      wnat.balanceOf(accountAddr) as Promise<bigint>,
+      readDelegations(wnat, accountAddr),
+    ]);
+    if (balanceWei <= 0n) {
+      return res.status(400).json({ error: 'NO_WFLR', detail: 'This wallet holds no WFLR to unwrap.' });
+    }
+
+    const amountWei = wantsMax ? balanceWei : ethers.parseUnits(String(amount), 18);
+    if (amountWei > balanceWei) {
+      return res.status(400).json({
+        error: 'INSUFFICIENT_WFLR',
+        holder: accountAddr,
+        balanceWflr: Number(ethers.formatUnits(balanceWei, 18)),
+        requestedFlr: Number(ethers.formatUnits(amountWei, 18)),
+      });
+    }
+    const fullExit = amountWei === balanceWei;
+    const undelegates = fullExit && delegations.length > 0;
+    const amountHuman = Number(ethers.formatUnits(amountWei, 18));
+
+    // 3. BUILD (unsigned) — undelegate first on a full exit, then unwrap.
+    const iface = new ethers.Interface(WNAT_ABI);
+    const calls = [
+      ...(undelegates
+        ? [{
+            to: WNAT_ADDRESS,
+            data: iface.encodeFunctionData('undelegateAll', []),
+            value: '0',
+            chainId: FLARE_CHAIN_ID,
+            label: 'Undelegate all WFLR vote power',
+          }]
+        : []),
+      {
+        to: WNAT_ADDRESS,
+        data: iface.encodeFunctionData('withdraw', [amountWei]),
+        value: '0',
+        chainId: FLARE_CHAIN_ID,
+        label: `Unwrap ${amountHuman} WFLR → FLR`,
+      },
+    ];
+
+    // 4. DISCLOSURE (#6) — price is informational, never blocking.
+    let flrPriceUSD = 0;
+    try {
+      const priceProvider = await createFTSOPriceProvider();
+      flrPriceUSD = await priceProvider.getPriceUSD('FLR');
+    } catch {
+      /* informational */
+    }
+
+    return res.json({
+      rail: 'evm',
+      chainId: FLARE_CHAIN_ID,
+      account: accountAddr,
+      calls,
+      disclosure: {
+        amountFlr: amountHuman,
+        balanceWflr: Number(ethers.formatUnits(balanceWei, 18)),
+        fullExit,
+        undelegates,
+        delegations,
+        flrPriceUSD,
+        disclosedToUser: true,
+        defibroSigns: false,
+        note: undelegates
+          ? 'Full exit: the delegation is removed and every WFLR unwraps back to FLR in the same wallet. FTSO rewards already accrued stay claimable afterwards.'
+          : 'Partial unwrap: the delegation percentages stay on the remaining WFLR. FTSO rewards already accrued stay claimable afterwards.',
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ error: 'E2_EXIT_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -2053,7 +2229,7 @@ router.post('/a1/prepare', async (req: Request, res: Response) => {
       },
     });
   } catch (e) {
-    return res.status(500).json({ error: 'A1_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'A1_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -2213,7 +2389,7 @@ router.post('/supply-usdt0/prepare', async (req: Request, res: Response) => {
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
     if (repliedAmountBelowMintFees(res, e)) return;
-    return res.status(500).json({ error: 'SUPPLY_USDT0_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'SUPPLY_USDT0_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -2226,7 +2402,7 @@ router.post('/supply-usdt0/prepare', async (req: Request, res: Response) => {
  */
 router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response) => {
   try {
-    const { xrplAddress, evmWallet, asset, amountBase, amountXrpForMint, unmintToXrpl, region = null, walletId = 0 } =
+    const { xrplAddress, evmWallet, asset, amountBase, amountXrpForMint, unmintToXrpl, keepInPa, region = null, walletId = 0 } =
       (req.body ?? {}) as {
         xrplAddress?: string;
         evmWallet?: string;
@@ -2236,6 +2412,12 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
         /** true = la última pierna redime a XRP NATIVO hacia la wallet XRPL
          *  dueña del PA, en vez de transferir el FXRP a una wallet EVM. */
         unmintToXrpl?: boolean;
+        /** true = sin pierna de transfer: el activo sale del mercado ISO y se
+         *  QUEDA en el propio Personal Account como saldo libre («sacar el
+         *  capital del vault a la misma wallet», founder 2026-07-30). Flag
+         *  explícito a propósito: un evmWallet ausente por bug sigue siendo
+         *  400, nunca un keep silencioso. */
+        keepInPa?: boolean;
         region?: string | null;
         walletId?: number;
       };
@@ -2250,8 +2432,9 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
     if (wantsUnmint && asset !== 'fxrp') {
       return res.status(400).json({ error: 'UNMINT_REQUIRES_FXRP', detail: 'Only FXRP can be redeemed to native XRP.' });
     }
-    const evmWalletAddr = wantsUnmint ? null : safeGetAddress(evmWallet);
-    if (!wantsUnmint && !evmWalletAddr) {
+    const wantsKeep = keepInPa === true && !wantsUnmint;
+    const evmWalletAddr = wantsUnmint || wantsKeep ? null : safeGetAddress(evmWallet);
+    if (!wantsUnmint && !wantsKeep && !evmWalletAddr) {
       return res.status(400).json({ error: 'INVALID_EVM_WALLET' });
     }
     if (asset !== 'usdt0' && asset !== 'fxrp') {
@@ -2313,8 +2496,10 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
     }
     const lastLeg = wantsUnmint
       ? await buildRedeemToXrplCall(provider, { amountUBA: redeemTotalUBA, xrplDestination: xrplAddress.trim() })
-      : await buildErc20TransferCall({ token, to: evmWalletAddr!, amount });
-    const inner = [...withdrawBatch, lastLeg]; // [redeemUnderlying, transfer|redeemAmount] — atomic
+      : wantsKeep
+        ? null // keep-in-PA: the ISO redeem alone — the asset stays as free PA balance
+        : await buildErc20TransferCall({ token, to: evmWalletAddr!, amount });
+    const inner = lastLeg ? [...withdrawBatch, lastLeg] : [...withdrawBatch]; // [redeemUnderlying, (transfer|redeemAmount)?] — atomic
     const handoff = await buildDirectMintHandoff(
       provider,
       {
@@ -2323,7 +2508,7 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
         innerCalls: inner,
         walletId: Number(walletId) || 0,
         supersedePendingNonce: wantsSupersede(req),
-        action: wantsUnmint ? 'pa-withdraw-transfer:fxrp->xrpl' : `pa-withdraw-transfer:${asset}`,
+        action: wantsUnmint ? 'pa-withdraw-transfer:fxrp->xrpl' : wantsKeep ? `pa-withdraw-keep:${asset}` : `pa-withdraw-transfer:${asset}`,
       },
       unmintParams ? { params: unmintParams } : undefined,
     );
@@ -2343,13 +2528,17 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
           label: `withdraw ${asset.toUpperCase()} from ISO`,
           compoundErrorCode: true,
         },
-        {
-          to: lastLeg.to,
-          data: lastLeg.calldata,
-          value: lastLeg.value,
-          label: wantsUnmint ? 'redeem FXRP → native XRP' : `transfer ${asset.toUpperCase()} → EVM wallet`,
-          dependsOnPrior: true,
-        },
+        ...(lastLeg
+          ? [
+              {
+                to: lastLeg.to,
+                data: lastLeg.calldata,
+                value: lastLeg.value,
+                label: wantsUnmint ? 'redeem FXRP → native XRP' : `transfer ${asset.toUpperCase()} → EVM wallet`,
+                dependsOnPrior: true,
+              },
+            ]
+          : []),
       ]),
     );
 
@@ -2361,7 +2550,7 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
       userOpData: handoff.userOpData,
       preflight,
       disclosure: {
-        action: wantsUnmint ? 'withdraw-fxrp-unmint' : `withdraw-${asset}-transfer`,
+        action: wantsUnmint ? 'withdraw-fxrp-unmint' : wantsKeep ? `withdraw-${asset}-keep` : `withdraw-${asset}-transfer`,
         asset,
         token,
         amount: Number(amount) / DROPS,
@@ -2372,7 +2561,9 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
               fxrpRedeemed: Number(redeemTotalUBA) / DROPS,
               redeemMinimumXrp: minRedeemUBA != null ? Number(minRedeemUBA) / DROPS : null,
             }
-          : { evmWallet: evmWalletAddr }),
+          : wantsKeep
+            ? { keepsInPersonalAccount: true }
+            : { evmWallet: evmWalletAddr }),
         mintCoupledXrp: mintXrp,
         ...mintFeeDisclosure(handoff.net),
         fxrpMintedSideEffect: Number(handoff.net.netToPersonalAccountUBA) / DROPS,
@@ -2380,13 +2571,15 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
         defibroSigns: false,
         note: wantsUnmint
           ? `Withdraws ${Number(amount) / DROPS} FXRP from the Kinetic ISO market and redeems it — plus the ${Number(handoff.net.netToPersonalAccountUBA) / DROPS} FXRP this very dispatch mints — to NATIVE XRP, all in one atomic 0xFE userOp you sign in Xaman. The FAssets agent pays the XRP (minus the protocol redemption fee) to the XRPL wallet that OWNS this Smart Account; the burn is immediate at execution, the XRP arrives after (minutes to hours). DERISK order still applies: withdraw USDT0 → repay in full → only then withdraw FXRP. Execution on Flare is completed by an executor after your signature; until it runs, your XRP waits safely at the Core Vault.`
-          : `Withdraws ${asset.toUpperCase()} from the Kinetic ISO market and transfers it from your Personal Account to your EVM wallet, in one atomic 0xFE userOp you sign in Xaman. Mint-coupled: also mints a small FXRP into your PA. Protection: follow with the EVM-direct repay (/a1/prepare). DERISK order: withdraw USDT0 → repay in full → withdraw FXRP. Execution on Flare is completed by an executor after your signature; until it runs, your XRP waits safely at the Core Vault.`,
+          : wantsKeep
+            ? `Withdraws ${asset.toUpperCase()} from the Kinetic ISO market and KEEPS it in your Personal Account (Smart Account) as free balance — no transfer out, one atomic 0xFE userOp you sign in Xaman. Mint-coupled: also mints a small FXRP into your PA. Execution on Flare is completed by an executor after your signature; until it runs, your XRP waits safely at the Core Vault.`
+            : `Withdraws ${asset.toUpperCase()} from the Kinetic ISO market and transfers it from your Personal Account to your EVM wallet, in one atomic 0xFE userOp you sign in Xaman. Mint-coupled: also mints a small FXRP into your PA. Protection: follow with the EVM-direct repay (/a1/prepare). DERISK order: withdraw USDT0 → repay in full → withdraw FXRP. Execution on Flare is completed by an executor after your signature; until it runs, your XRP waits safely at the Core Vault.`,
       },
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
     if (repliedAmountBelowMintFees(res, e)) return;
-    return res.status(500).json({ error: 'PA_WITHDRAW_TRANSFER_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'PA_WITHDRAW_TRANSFER_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -2801,13 +2994,37 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
     if (repliedAmountBelowMintFees(res, e)) return;
-    return res.status(500).json({ error: 'PA_REPAY_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'PA_REPAY_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
 /* ----------------------------------------------------------------------- */
 /* PA-UNMINT — la vuelta a XRP nativo del usuario insignia (walletless)      */
 /* ----------------------------------------------------------------------- */
+
+/**
+ * POST /api/flare-demo/handoff/release
+ * Body: { memoHex }
+ * Libera el asiento de nonce de un handoff 0xFE preparado y NO firmado (el
+ * usuario canceló o cerró sin firmar) → lo marca 'superseded' al instante para
+ * que pueda preparar otro sin esperar al TTL. Solo toca filas 'queued'; jamás
+ * vuelve inejecutable una firmada (el executor la resuelve por hash). No
+ * mintea, no mueve nada, idempotente. Cubre TODAS las acciones del PA porque
+ * todas comparten el mismo handoff 0xFE.
+ */
+router.post('/handoff/release', async (req: Request, res: Response) => {
+  const memoHex =
+    typeof (req.body as { memoHex?: unknown })?.memoHex === 'string'
+      ? (req.body as { memoHex: string }).memoHex.trim()
+      : '';
+  if (!memoHex) return res.status(400).json({ error: 'MISSING_MEMO' });
+  try {
+    const { releaseQueuedHandoffByMemo } = await import('../services/flare/DirectMintHandoffStore');
+    return res.json({ released: await releaseQueuedHandoffByMemo(memoHex) });
+  } catch (e) {
+    return res.status(500).json({ error: 'HANDOFF_RELEASE_FAILED', detail: safeErrorDetail(e) });
+  }
+});
 
 /**
  * GET /api/flare-demo/pa-fxrp/:owner
@@ -2828,7 +3045,7 @@ router.get('/pa-fxrp/:owner', async (req: Request, res: Response) => {
       redeemMinimumXrp: minUBA != null ? Number(minUBA) / DROPS : null,
     });
   } catch (e) {
-    return res.status(500).json({ error: 'PA_FXRP_READ_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'PA_FXRP_READ_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -2970,7 +3187,7 @@ router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
     if (repliedAmountBelowMintFees(res, e)) return;
-    return res.status(500).json({ error: 'PA_UNMINT_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'PA_UNMINT_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3079,7 +3296,7 @@ router.get('/iso-legs/:owner', async (req: Request, res: Response) => {
       checkedAt: new Date().toISOString(),
     });
   } catch (e) {
-    return res.status(500).json({ error: 'ISO_LEGS_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'ISO_LEGS_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3181,7 +3398,7 @@ router.post('/iso-withdraw/prepare', async (req: Request, res: Response) => {
       },
     });
   } catch (e) {
-    return res.status(500).json({ error: 'ISO_WITHDRAW_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'ISO_WITHDRAW_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3338,7 +3555,7 @@ router.post('/e1-borrow/prepare', async (req: Request, res: Response) => {
       },
     });
   } catch (e) {
-    return res.status(500).json({ error: 'E1_BORROW_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'E1_BORROW_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3507,10 +3724,18 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
         vault === 'firelight'
           ? await new FirelightAdapter().buildRedeemBatch({ sharesUBA: shares, receiver: evmAddr, owner: evmAddr })
           : await new UpshiftVaultAdapter().buildInstantRedeemBatch({ vaultKey: vault, sharesUBA: shares, receiver: evmAddr });
+      // Invariant #11 — dry-run before signature (this route lacked it while
+      // its sibling prepares all carry one).
+      const preflight = await preflightEvmCalls(
+        provider,
+        evmAddr,
+        inner.map((a): EvmPreflightCall => ({ to: a.to, data: a.calldata, value: a.value, label: 'redeem shares' })),
+      );
       return res.json({
         rail: 'evm',
         chainId: FLARE_CHAIN_ID,
         account: evmAddr,
+        preflight,
         calls: toEvmCalls(inner, [
           vault === 'firelight'
             ? `Redeem ${sharesHuman} stXRP — queues the FXRP; claim it after ${claimableAt ?? 'the period ends'}`
@@ -3551,12 +3776,23 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
       action: `vault-withdraw:${vault}`,
     });
 
+    // Invariant #11 — dry-run BOTH rails of the hand-off (mirror of pa-repay).
+    const preflight = mergePreflights(
+      await preflightXrplPayment(handoff.xrplPayment as unknown as Record<string, unknown>, xrplAddr),
+      await preflightEvmCalls(
+        provider,
+        handoff.personalAccount,
+        inner.map((a): EvmPreflightCall => ({ to: a.to, data: a.calldata, value: a.value, label: 'redeem shares' })),
+      ),
+    );
+
     return res.json({
       rail: 'xrpl',
       personalAccount: handoff.personalAccount,
       xrplPayment: handoff.xrplPayment,
       memoHex: handoff.memoHex,
       userOpData: handoff.userOpData,
+      preflight,
       disclosure: {
         ...disclosureBase,
         fxrpDestination: receiver,
@@ -3572,7 +3808,7 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
-    return res.status(500).json({ error: 'VAULT_WITHDRAW_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'VAULT_WITHDRAW_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3597,7 +3833,7 @@ router.get('/vault-claims/:owner', async (req: Request, res: Response) => {
     const state = await new FirelightAdapter().readPendingWithdrawals(owner, flareProvider(), 60);
     return res.json({ owner, vault: 'firelight', ...state, checkedAt: new Date().toISOString() });
   } catch (e) {
-    return res.status(500).json({ error: 'VAULT_CLAIMS_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'VAULT_CLAIMS_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3672,17 +3908,26 @@ router.post('/vault-claim/prepare', async (req: Request, res: Response) => {
       action: 'vault-claim',
       vault: 'firelight',
       period: periodNum,
-      sharesQueued: Number(entry.sharesBase) / DROPS,
+      // withdrawalsOf returns FXRP, not shares (the shares burned at redeem) —
+      // the old `sharesQueued` label described the wrong thing.
+      fxrpQueued: Number(entry.queuedFxrpBase) / DROPS,
       estimatedFxrpOut: estFxrp,
       disclosedToUser: true,
       defibroSigns: false,
     };
 
     if (evmAddr) {
+      // Invariant #11 — dry-run before signature.
+      const preflight = await preflightEvmCalls(
+        provider,
+        evmAddr,
+        inner.map((a): EvmPreflightCall => ({ to: a.to, data: a.calldata, value: a.value, label: 'claim withdrawal' })),
+      );
       return res.json({
         rail: 'evm',
         chainId: FLARE_CHAIN_ID,
         account: evmAddr,
+        preflight,
         calls: toEvmCalls(inner, [
           `Claim ≈${estFxrp ?? '?'} FXRP from Firelight (withdrawal period ${periodNum})`,
         ]),
@@ -3740,12 +3985,22 @@ router.post('/vault-claim/prepare', async (req: Request, res: Response) => {
       },
       unmintParams ? { params: unmintParams } : undefined,
     );
+    // Invariant #11 — dry-run BOTH rails of the hand-off.
+    const preflight = mergePreflights(
+      await preflightXrplPayment(handoff.xrplPayment as unknown as Record<string, unknown>, xrplAddr),
+      await preflightEvmCalls(
+        provider,
+        handoff.personalAccount,
+        claimInner.map((a): EvmPreflightCall => ({ to: a.to, data: a.calldata, value: a.value, label: 'claim withdrawal' })),
+      ),
+    );
     return res.json({
       rail: 'xrpl',
       personalAccount: handoff.personalAccount,
       xrplPayment: handoff.xrplPayment,
       memoHex: handoff.memoHex,
       userOpData: handoff.userOpData,
+      preflight,
       disclosure: {
         ...disclosureBase,
         ...(wantsUnmint
@@ -3766,7 +4021,7 @@ router.post('/vault-claim/prepare', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
-    return res.status(500).json({ error: 'VAULT_CLAIM_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'VAULT_CLAIM_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -3943,7 +4198,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
           return res.status(409).json({ error: `KWYH_DANGER_${label.toUpperCase()}`, flags: data.flags });
         }
       } catch (e) {
-        scanner[label] = { error: (e as Error).message };
+        scanner[label] = { error: safeErrorDetail(e) };
       }
     }
 
@@ -4147,7 +4402,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof NonceSeatTakenError) return res.status(409).json({ error: 'NONCE_SEAT_TAKEN', detail: e.message });
-    return res.status(500).json({ error: 'VAULT_ROTATE_PREPARE_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'VAULT_ROTATE_PREPARE_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -4188,7 +4443,7 @@ router.get('/mint-status/:txHash', async (req: Request, res: Response) => {
       checkedAt: new Date().toISOString(),
     });
   } catch (e) {
-    return res.status(500).json({ error: 'MINT_STATUS_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'MINT_STATUS_FAILED', detail: safeErrorDetail(e) });
   }
 });
 
@@ -4202,7 +4457,7 @@ router.get('/executor-health', async (_req: Request, res: Response) => {
     const { directMintExecutorWatcher } = await import('../services/flare/DirectMintExecutorService');
     return res.json({ ...directMintExecutorWatcher.health(), checkedAt: new Date().toISOString() });
   } catch (e) {
-    return res.status(500).json({ error: 'EXECUTOR_HEALTH_FAILED', detail: (e as Error).message });
+    return res.status(500).json({ error: 'EXECUTOR_HEALTH_FAILED', detail: safeErrorDetail(e) });
   }
 });
 

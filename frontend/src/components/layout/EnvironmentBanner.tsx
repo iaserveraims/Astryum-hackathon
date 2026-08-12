@@ -5,6 +5,7 @@ import { getApiBase } from '../../lib/env';
 import { usePathname } from 'next/navigation';
 import { isPreviewActive } from '../../services/previewData';
 import { LIVE_CHANGED_EVENT } from '../../lib/demoMode';
+import { getStoredLang } from '../../i18n/LanguageProvider';
 
 type Status = 'unknown' | 'mock' | 'real-ok' | 'real-down';
 
@@ -114,7 +115,9 @@ export function EnvironmentBanner() {
 
   const demoStrip = preview ? (
     <div className="w-full bg-amber-900/50 border-b border-amber-500/40 text-amber-100 text-xs py-1.5 px-3 text-center font-mono tracking-wider">
-      ⚠ DATOS DE EJEMPLO · demo pública — conecta una wallet para ver datos reales.
+      {getStoredLang() === 'es'
+        ? '⚠ DATOS DE EJEMPLO · demo pública — conecta una wallet para ver datos reales.'
+        : '⚠ SAMPLE DATA · public demo — connect a wallet to see real data.'}
     </div>
   ) : null;
 
@@ -154,7 +157,9 @@ export function EnvironmentBanner() {
       <>
         {devBypassStrip}
         <div className="w-full bg-red-950 border-b border-red-500/60 text-red-100 text-xs py-1.5 px-3 text-center font-mono tracking-wider">
-          🛑 BACKEND DOWN — {HEALTH_URL} unreachable. Operations will fail. Retrying every {CHECK_INTERVAL_MS / 1000}s…
+          {getStoredLang() === 'es'
+            ? `🛑 BACKEND CAÍDO — ${HEALTH_URL} no responde. Las operaciones fallarán. Reintentando cada ${CHECK_INTERVAL_MS / 1000}s…`
+            : `🛑 BACKEND DOWN — ${HEALTH_URL} unreachable. Operations will fail. Retrying every ${CHECK_INTERVAL_MS / 1000}s…`}
         </div>
       </>
     );

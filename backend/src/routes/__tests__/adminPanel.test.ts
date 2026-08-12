@@ -96,12 +96,13 @@ function mockHealthyCounts() {
   mockGovernedAccountCount.mockResolvedValue(1);
   mockCouncilProposalCount.mockResolvedValue(2);
   mockWaitlistFindMany.mockResolvedValue([
-    { email: 'spam@mailinator.com', source: 'early-access', lang: 'en', createdAt: new Date(2) },
-    { email: 'bot@example.com', source: 'early-access', lang: 'en', createdAt: new Date(1) },
-    { email: 'real@astryum.xyz', source: 'early-access', lang: 'en', createdAt: new Date(0) },
-    { email: 'other@astryum.xyz', source: 'register', lang: 'en', createdAt: new Date(0) },
-    { email: 'another@astryum.xyz', source: 'register', lang: 'en', createdAt: new Date(0) },
-    { email: 'third@astryum.xyz', source: 'register', lang: 'en', createdAt: new Date(0) },
+    { email: 'spam@mailinator.com', source: 'early-access', lang: 'en', createdAt: new Date(2), approvedAt: null, invitedAt: null },
+    { email: 'bot@example.com', source: 'early-access', lang: 'en', createdAt: new Date(1), approvedAt: null, invitedAt: null },
+    // One approved seat (beta gate) so waitlistApproved counts clean rows only.
+    { email: 'real@astryum.xyz', source: 'early-access', lang: 'en', createdAt: new Date(0), approvedAt: new Date(5), invitedAt: new Date(6) },
+    { email: 'other@astryum.xyz', source: 'register', lang: 'en', createdAt: new Date(0), approvedAt: null, invitedAt: null },
+    { email: 'another@astryum.xyz', source: 'register', lang: 'en', createdAt: new Date(0), approvedAt: null, invitedAt: null },
+    { email: 'third@astryum.xyz', source: 'register', lang: 'en', createdAt: new Date(0), approvedAt: null, invitedAt: null },
   ]);
   mockUserFindMany.mockResolvedValue([
     // An email account that later linked Google: BOTH badges must surface,
@@ -204,13 +205,15 @@ describe('GET /api/admin-panel/overview — gate', () => {
     const res = await request(buildApp()).get('/api/admin-panel/overview');
 
     expect(res.status).toBe(200);
-    // 6 raw rows, 2 noise (mailinator + example.com) → 4 clean, split 1/3 by source.
+    // 6 raw rows, 2 noise (mailinator + example.com) → 4 clean, split 1/3 by
+    // source, exactly 1 of them with a beta-gate seat.
     expect(res.body.counts).toEqual({
       users: 3,
       wallets: 5,
       governedAccounts: 1,
       councilProposals: 2,
       waitlistSignups: 4,
+      waitlistApproved: 1,
       waitlistNoise: 2,
       waitlistBySource: { 'early-access': 1, register: 3 },
       usersByProvider: { email: 2, apple: 1 },

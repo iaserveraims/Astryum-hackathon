@@ -225,8 +225,8 @@ function PerformanceModal({
   // card's box and painted ON TOP of the neighbouring cards instead of
   // covering the viewport.
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-3xl my-auto" onClick={(e) => e.stopPropagation()}>
         <Card padded={false} className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold tracking-tight text-ink">{t('Performance')}</h3>

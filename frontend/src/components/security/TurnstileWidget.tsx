@@ -12,6 +12,7 @@
  * so the widget mints a fresh token for the retry.
  */
 import { useEffect, useRef, useState } from 'react';
+import { getStoredLang } from '@/i18n/LanguageProvider';
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? '';
 const SCRIPT_ID = 'cf-turnstile-api';
@@ -127,7 +128,9 @@ export default function TurnstileWidget({
   if (failed) {
     return (
       <p className={`text-[11px] text-red-400/80 ${className ?? ''}`}>
-        No se pudo cargar la verificación anti-bot. Recarga la página.
+        {getStoredLang() === 'es'
+          ? 'No se pudo cargar la verificación anti-bot. Recarga la página.'
+          : 'The anti-bot check could not load. Reload the page.'}
       </p>
     );
   }

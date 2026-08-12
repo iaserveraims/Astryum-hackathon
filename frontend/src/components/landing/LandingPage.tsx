@@ -27,9 +27,12 @@
  * Non-custodial invariant lives in the copy: Astryum never signs, never custodies,
  * never executes with discretion. The user always signs.
  *
- * App access is gated behind a hidden admin door (5 clicks on the logo within 1.5s,
- * or Ctrl+Shift+L) that grants the session flag and opens the access console at
- * /login; the public CTA points at early-access.
+ * The six gold CTAs open the beta itself (/login) since 2026-08-05. That door is
+ * ALSO the one the server-side access gate guards (middleware.ts): with
+ * ACCESS_GATE_OPEN unset the gate is 'enforced' and every visitor without the
+ * signed cookie is turned away — GateNotice below is what tells them so. The
+ * hidden admin door (5 clicks on the logo within 1.5s, or Ctrl+Shift+L) opens
+ * the access-code modal that mints that cookie.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -79,10 +82,21 @@ const GOLD_SOFT = 'hsl(var(--volt-soft, 45 75% 62%))';
 // The boarding desk: email capture (POST /api/waitlist) + mission socials.
 // Replaces the provisional mailto — the mailto survives inside /early-access
 // as the fallback when the relay (backend) is down.
-const EARLY_ACCESS_URL = '/early-access';
+// INERT since 2026-08-07 (founder: "NO URL ASTRYUM EARLY ACCESS"): nothing on
+// the beta path may divert to the seat list. Kept — the page still reaches
+// /early-access through DEMO_URL below, which is the demo waitlist, not the
+// beta door.
+export const EARLY_ACCESS_URL = '/early-access';
+// The gold CTAs open the BETA itself (founder 2026-08-04: registration is
+// open — BETA_REGISTRATION_OPEN=true — so the door is /login, not the
+// waitlist).
+const BETA_URL = '/login';
 // The demo door also boards through the manifest (?intent=demo adapts the copy).
 // Judges enter the real app through the hidden admin door (logo ×5 / Ctrl+Shift+L).
 const DEMO_URL = '/early-access?intent=demo';
+// Permanent Discord invite (no expiry, no use limit) — the ONLY official invite;
+// X and the server itself point back here, so a changed link must change everywhere.
+const DISCORD_URL = 'https://discord.gg/veXZr7a3hJ';
 // Feature flag — the XRPL governance act (rack + FAssets bridge + two-layer frame
 // copy in nav/hero/stats/boarding-pass). Founder call 2026-07-14: keep it HIDDEN
 // until the Legacy flows are further developed. Flip to true to bring the whole
@@ -156,9 +170,11 @@ function SpaceBackdrop({ legacy }: { legacy: boolean }) {
       <div className="absolute inset-x-0 top-0 h-[60vh] lp-horizon-governed lp-fade-layer" style={{ opacity: legacy ? 1 : 0 }} />
       {/* living star / asteroid field — constellation lines follow the theme */}
       <StarfieldCanvas accent={legacy ? '130,141,248' : '201,162,39'} />
-      {/* ambient gold auras for depth — drift + pointer parallax */}
+      {/* ambient gold auras for depth — drift + pointer parallax. Half-size
+          below md: a 680px layer with a 44px blur is ~2× a phone's viewport
+          and pure GPU cost over the animating star canvas. */}
       <motion.div
-        className="absolute -top-40 -left-32 w-[680px] h-[680px] rounded-full aurora-drift"
+        className="absolute -top-40 -left-32 w-[380px] h-[380px] md:w-[680px] md:h-[680px] rounded-full aurora-drift"
         style={{
           x: reduce ? 0 : auraAx,
           y: reduce ? 0 : auraAy,
@@ -167,7 +183,7 @@ function SpaceBackdrop({ legacy }: { legacy: boolean }) {
         }}
       />
       <motion.div
-        className="absolute bottom-[-18%] right-[-10%] w-[620px] h-[620px] rounded-full aurora-drift"
+        className="absolute bottom-[-18%] right-[-10%] w-[340px] h-[340px] md:w-[620px] md:h-[620px] rounded-full aurora-drift"
         style={{
           x: reduce ? 0 : auraBx,
           y: reduce ? 0 : auraBy,
@@ -352,7 +368,9 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
         <button
           key={l}
           onClick={() => setLang(l)}
-          className="px-3 py-1.5 rounded-full text-xs font-medium transition-all uppercase"
+          // taller below sm — on a phone this is one of only three header
+          // controls and 28px was under the touch minimum
+          className="px-3 py-2.5 sm:py-1.5 rounded-full text-xs font-medium transition-all uppercase"
           style={{ background: lang === l ? GOLD : 'transparent', color: lang === l ? '#000' : 'rgba(255,255,255,0.4)' }}
         >
           {l}
@@ -408,19 +426,20 @@ function ModeToggle({
 // `strong` bumps the static shadow one notch — used where the Final CTA lost its
 // pulsing halo, so the button itself carries a touch more weight at the close.
 function AccessCTA({ label, size = 'md', strong = false }: { label: string; size?: 'sm' | 'md' | 'lg'; strong?: boolean }) {
-  const pad = size === 'lg' ? 'px-9 py-4 text-base' : size === 'sm' ? 'px-4 py-2 text-sm' : 'px-6 py-3 text-sm';
+  // lg tightens below sm: at px-9/text-base the Spanish label overran the
+  // 272px content column of a 320px phone and wrapped mid-pill.
+  const pad = size === 'lg' ? 'px-5 py-3.5 text-sm sm:px-9 sm:py-4 sm:text-base' : size === 'sm' ? 'px-4 py-2 text-sm' : 'px-6 py-3 text-sm';
   const shadow = strong ? '0 10px 34px hsl(var(--volt) / 0.36)' : '0 8px 30px hsl(var(--volt) / 0.28)';
   return (
+    // No trailing arrow (founder 2026-08-03: arrows left every landing
+    // button — the ONLY arrow on the page is the scroll cue's).
     <Magnetic strength={0.4} className="inline-block">
       <a
-        href={EARLY_ACCESS_URL}
-        className={`group inline-flex items-center gap-2.5 rounded-xl font-semibold text-black transition-all hover:brightness-105 ${pad}`}
+        href={BETA_URL}
+        className={`inline-flex items-center justify-center max-w-full rounded-xl font-semibold text-black whitespace-nowrap transition-all hover:brightness-105 ${pad}`}
         style={{ background: GOLD, boxShadow: shadow }}
       >
         {label}
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-1">
-          <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </a>
     </Magnetic>
   );
@@ -449,8 +468,9 @@ const NAV: Array<{ id?: string; href?: string; es: string; en: string }> = [
       ]
     : []),
   ...(SHOW_XRPL_ACT ? [{ id: 'xrpl', es: 'Gobernanza · XRPL', en: 'Governance · XRPL' }] : []),
-  // The standalone pages: the platform in depth + the people behind it.
+  // The standalone pages: the platform in depth, the proof, the people behind it.
   { href: '/what-we-offer', es: 'Qué ofrecemos', en: 'What we offer' },
+  { href: '/proof', es: 'La prueba', en: 'Proof' },
   { href: '/about', es: 'Quiénes somos', en: 'About us' },
 ];
 
@@ -458,17 +478,26 @@ function Header({
   lang,
   setLang,
   onSecretLogin,
+  product = 'personal',
 }: {
   lang: Lang;
   setLang: (l: Lang) => void;
   onSecretLogin: () => void;
+  /** The landing's product toggle re-tints the page — the brand follows
+   *  (founder 2026-08-08): blue lockup while Legacy is on stage. */
+  product?: 'personal' | 'legacy';
 }) {
   const es = lang === 'es';
+  const logoSrc = product === 'legacy' ? '/astryum-logo-azul-transparente.png' : LOGO_MARK;
   const [clicks, setClicks] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onLogo = (e: React.MouseEvent) => {
     e.preventDefault();
+    // `#top` has no target in journey mode — take the visitor home explicitly
+    // so the logo isn't a dead tap on phones (the 5-click admin door remains).
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setClicks((p) => {
       const n = p + 1;
       if (timer.current) clearTimeout(timer.current);
@@ -491,7 +520,7 @@ function Header({
   };
 
   // Floating header: translucent + compact once scrolled; hides on scroll-down,
-  // reappears on scroll-up.
+  // reappears on scroll-up (never while the mobile menu is open).
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -506,77 +535,138 @@ function Header({
     });
   }, [scrollY]);
 
+  const goTo = (n: (typeof NAV)[number]) => {
+    setMenuOpen(false);
+    if (n.href) window.location.assign(n.href);
+    else scrollTo(n.id!);
+  };
+
   return (
     <motion.header
       className="fixed inset-x-0 z-40"
       // Sits below the hackathon-disclosure strip; the hide slide is deeper so
       // the bar clears the viewport even with the extra top offset.
       style={{ top: BANNER_H }}
-      animate={{ y: hidden ? '-180%' : '0%' }}
+      animate={{ y: hidden && !menuOpen ? '-180%' : '0%' }}
       transition={{ duration: 0.4, ease: EASE }}
     >
       <div
-        className="mx-auto flex items-center justify-between gap-4 transition-all duration-300"
+        className="mx-auto transition-all duration-300"
         style={{
           maxWidth: scrolled ? 1120 : 1280,
           margin: scrolled ? '10px auto' : '16px auto',
           padding: scrolled ? '8px 14px 8px 18px' : '10px 16px 10px 20px',
           borderRadius: 16,
-          background: scrolled ? 'rgba(12,11,9,0.72)' : 'transparent',
-          border: `1px solid ${scrolled ? 'rgba(255,255,255,0.09)' : 'transparent'}`,
-          backdropFilter: scrolled ? 'blur(16px)' : 'none',
+          background: scrolled || menuOpen ? 'rgba(12,11,9,0.72)' : 'transparent',
+          border: `1px solid ${scrolled || menuOpen ? 'rgba(255,255,255,0.09)' : 'transparent'}`,
+          backdropFilter: scrolled || menuOpen ? 'blur(16px)' : 'none',
+          WebkitBackdropFilter: scrolled || menuOpen ? 'blur(16px)' : 'none',
           width: 'calc(100% - 32px)',
         }}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <a href="#top" onClick={onLogo} className="shrink-0 flex items-center" style={{ opacity: clicks > 0 ? 0.55 + clicks * 0.09 : 1 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO_MARK} alt="Astryum" style={{ height: 52, width: 'auto', display: 'block' }} />
-          </a>
-          <span className="hidden lg:block text-[10px] text-white/25 tracking-[0.16em] uppercase font-mono truncate">
-            Financial Control. Total Clarity.
-          </span>
-        </div>
-
-        <nav className="hidden md:flex items-center gap-0.5">
-          {NAV.map((n) =>
-            n.href ? (
-              <a
-                key={n.href}
-                href={n.href}
-                className="px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors hover:text-white"
-                style={{ color: 'rgba(255,255,255,0.55)' }}
-              >
-                {es ? n.es : n.en}
-              </a>
-            ) : (
-              <button
-                key={n.id}
-                onClick={() => scrollTo(n.id!)}
-                className="px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors hover:text-white"
-                style={{ color: 'rgba(255,255,255,0.55)' }}
-              >
-                {es ? n.es : n.en}
-              </button>
-            ),
-          )}
-        </nav>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <LangToggle lang={lang} setLang={setLang} />
-          <Magnetic strength={0.35} className="hidden sm:inline-block">
-            <a
-              href={EARLY_ACCESS_URL}
-              className="group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold text-black transition-transform"
-              style={{ background: GOLD, boxShadow: '0 6px 22px hsl(var(--volt) / 0.22)' }}
-            >
-              {es ? 'Acceso anticipado' : 'Early access'}
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover:translate-x-0.5">
-                <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+        <div className="flex items-center justify-between gap-3 md:gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <a href="#top" onClick={onLogo} className="shrink-0 flex items-center" style={{ opacity: clicks > 0 ? 0.55 + clicks * 0.09 : 1 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoSrc} alt="Astryum" className="h-10 md:h-[52px] w-auto block" />
             </a>
-          </Magnetic>
+            <span className="hidden xl:block text-[10px] text-white/25 tracking-[0.16em] uppercase font-mono truncate">
+              Financial Control. Total Clarity.
+            </span>
+          </div>
+
+          {/* lg, not md: at 768–1023px the four labels + logo + CTA overrun the
+              row by ~100px (iPad portrait, phone landscape) — tablets use the
+              same menu button as phones. */}
+          <nav className="hidden lg:flex items-center gap-0.5">
+            {NAV.map((n) =>
+              n.href ? (
+                <a
+                  key={n.href}
+                  href={n.href}
+                  className="px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors hover:text-white"
+                  style={{ color: 'rgba(255,255,255,0.55)' }}
+                >
+                  {es ? n.es : n.en}
+                </a>
+              ) : (
+                <button
+                  key={n.id}
+                  onClick={() => scrollTo(n.id!)}
+                  className="px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors hover:text-white"
+                  style={{ color: 'rgba(255,255,255,0.55)' }}
+                >
+                  {es ? n.es : n.en}
+                </button>
+              ),
+            )}
+          </nav>
+
+          <div className="flex items-center gap-2 md:gap-2.5 shrink-0">
+            <LangToggle lang={lang} setLang={setLang} />
+            <Magnetic strength={0.35} className="hidden sm:inline-block">
+              <a
+                href={BETA_URL}
+                className="inline-flex items-center px-3.5 py-2 rounded-xl text-[13px] font-semibold text-black transition-transform"
+                style={{ background: GOLD, boxShadow: '0 6px 22px hsl(var(--volt) / 0.22)' }}
+              >
+                {es ? 'Entra en la beta' : 'Enter the beta'}
+              </a>
+            </Magnetic>
+            {/* the mobile/tablet menu door — below lg the nav above is
+                display:none, and without this button a phone visitor could
+                reach nothing but the language toggle */}
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-expanded={menuOpen}
+              aria-label={menuOpen ? (es ? 'Cerrar menú' : 'Close menu') : es ? 'Abrir menú' : 'Open menu'}
+              className="lg:hidden inline-flex items-center justify-center w-11 h-11 -my-1 rounded-xl transition-colors hover:bg-white/[0.06]"
+              style={{ border: `1px solid ${BORDER}`, color: 'rgba(255,255,255,0.75)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                {menuOpen ? (
+                  <path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                ) : (
+                  <path d="M2.5 5H15.5M2.5 9H15.5M2.5 13H15.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {/* the menu sheet — plain list inside the header pill, tap targets ≥44px */}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.nav
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: EASE }}
+              className="lg:hidden overflow-hidden"
+              aria-label={es ? 'Menú' : 'Menu'}
+            >
+              <div className="pt-3 mt-3 flex flex-col" style={{ borderTop: `1px solid ${BORDER}` }}>
+                {NAV.map((n) => (
+                  <button
+                    key={n.href ?? n.id}
+                    onClick={() => goTo(n)}
+                    className="w-full text-left px-2 py-3 rounded-lg text-[15px] font-medium transition-colors hover:bg-white/[0.05]"
+                    style={{ color: 'rgba(255,255,255,0.75)' }}
+                  >
+                    {es ? n.es : n.en}
+                  </button>
+                ))}
+                <a
+                  href={BETA_URL}
+                  className="sm:hidden mt-2 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-black"
+                  style={{ background: GOLD, boxShadow: '0 6px 22px hsl(var(--volt) / 0.22)' }}
+                >
+                  {es ? 'Entra en la beta' : 'Enter the beta'}
+                </a>
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
       </div>
     </motion.header>
   );
@@ -599,17 +689,22 @@ function HeroContent({ lang }: { lang: Lang }) {
       >
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
         <span className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: GOLD_SOFT }}>
+          {/* Doctrine pruning (founder 2026-07-29): the badge carries the status
+              fact only — the H1 right below already closes on "Tu firma." */}
           {SHOW_XRPL_ACT
             ? es
-              ? 'Tú tienes las llaves · XRPL + Flare mainnet'
-              : 'You hold the keys · XRPL + Flare mainnet'
+              ? 'En vivo · XRPL + Flare mainnet'
+              : 'Live · XRPL + Flare mainnet'
             : es
-              ? 'Tú tienes las llaves · En Flare mainnet'
-              : 'You hold the keys · Live on Flare'}
+              ? 'En vivo · Flare mainnet'
+              : 'Live · Flare mainnet'}
         </span>
       </motion.div>
 
-      <h1 className="font-bold text-white" style={{ fontSize: 'clamp(2.6rem, 6.4vw, 5rem)', lineHeight: 1.04, letterSpacing: '-0.035em' }}>
+      {/* clamp floor lowered from 2.6rem: at 320px the old 41.6px floor pushed
+          the nowrap "Tu capital." past the column and overflow-hidden ate the
+          period. Everything ≥525px wide renders exactly as before. */}
+      <h1 className="font-bold text-white" style={{ fontSize: 'clamp(2.1rem, 6.4vw, 5rem)', lineHeight: 1.04, letterSpacing: '-0.035em' }}>
         {/* Each sentence is an unbreakable unit: on narrow columns the line
             wraps BETWEEN "Tu capital." and "Tu control.", never mid-sentence
             ("Tu capital. Tu / control." — founder 2026-07-25: "pierde
@@ -643,13 +738,16 @@ function HeroContent({ lang }: { lang: Lang }) {
         className="mt-6 text-white/55 leading-relaxed max-w-xl"
         style={{ fontSize: 'clamp(15px, 1.4vw, 18px)' }}
       >
+        {/* Rewritten 2026-07-29 (founder pick, option 1): plants the money-in-
+            motion principle the journey's finale closes on — the page ends
+            where it began. Also retires the GLOSSARY-banned "tu XRP finance". */}
         {SHOW_XRPL_ACT
           ? es
-            ? 'Tu XRP está disperso entre protocolos, rindiendo poco. Astryum reúne tu XRP finance en un solo sitio, sobre dos capas: XRPL gobierna cómo se comporta tu capital; Flare hace que produzca. Fácil para cualquiera, hecho para todos.'
-            : 'Your XRP sits scattered across protocols, earning little. Astryum brings your XRP finance into one place, on two layers: XRPL governs how your capital behaves; Flare makes it produce. Easy for anyone, built for everyone.'
+            ? 'El dinero quieto no trabaja. Astryum reúne tu XRP en un solo puesto de mando, sobre dos capas: XRPL gobierna cómo se comporta tu capital; Flare lo pone en movimiento.'
+            : 'Money that sits still does no work. Astryum brings your XRP into a single mission control, on two layers: XRPL governs how your capital behaves; Flare sets it in motion.'
           : es
-            ? 'Tu XRP está disperso entre protocolos, rindiendo poco. Astryum reúne tu XRP finance en un solo sitio — empezando por ponerlo a trabajar, con un umbral de seguridad que fijas tú — con más en camino. Fácil para cualquiera, hecho para todos.'
-            : 'Your XRP sits scattered across protocols, earning little. Astryum brings your XRP finance into one place — starting with putting it to work, with a safety threshold you set — with more coming. Easy for anyone, built for everyone.'}
+            ? 'El dinero quieto no trabaja. Astryum reúne tu XRP en un solo puesto de mando: lo ves claro, lo pones en movimiento cuando tú decides, y sabes en todo momento qué está haciendo.'
+            : 'Money that sits still does no work. Astryum brings your XRP into a single mission control: you see it clearly, you set it in motion when you decide, and you always know what it is doing.'}
       </motion.p>
 
       <motion.div
@@ -658,7 +756,7 @@ function HeroContent({ lang }: { lang: Lang }) {
         transition={{ duration: 0.7, delay: 0.7 }}
         className="mt-9 flex flex-wrap items-center gap-4"
       >
-        <AccessCTA label={es ? 'Solicita acceso anticipado' : 'Request early access'} size="lg" />
+        <AccessCTA label={es ? 'Entra en la beta' : 'Enter the beta'} size="lg" />
         <Magnetic strength={0.3} className="inline-block">
           <a
             href={DEMO_URL}
@@ -1030,7 +1128,7 @@ function FlareHeader({ lang }: { lang: Lang }) {
       </h2>
       <p className="mt-4 text-white/45 max-w-2xl" style={{ fontSize: 'clamp(14px, 1.3vw, 17px)' }}>
         {es
-          ? 'Tres estrategias reales, en vivo en Flare hoy — una carry de FXRP protegida, supply simple de FXRP, y delegación de FLR. Con más en camino.'
+          ? 'Tres estrategias reales, en vivo en Flare hoy — una carry de FXRP protegida, supply simple de FXRP y delegación de FLR. Con más en camino.'
           : 'Three real strategies, live on Flare today — a protected FXRP carry, simple FXRP lending, and FLR delegation. More coming.'}
       </p>
     </div>
@@ -1654,7 +1752,7 @@ function XrplGovernance({ lang }: { lang: Lang }) {
           </h2>
           <p className="mt-4 text-white/45 max-w-2xl" style={{ fontSize: 'clamp(14px, 1.3vw, 17px)' }}>
             {es
-              ? 'Tres instrumentos para decidir en grupo qué pasa con vuestro capital — construidos sobre lo que XRPL sabe hacer de nacimiento, abriendo pronto. Sin promesas: solo lo que existe.'
+              ? 'Tres instrumentos para decidir en grupo qué pasa con vuestro capital — construidos sobre lo que XRPL sabe hacer de nacimiento; abren pronto. Sin promesas: solo lo que existe.'
               : 'Three instruments for deciding together what happens to your capital — built on what XRPL can do natively, opening soon. No promises: just what exists.'}
           </p>
         </Reveal>
@@ -1692,7 +1790,7 @@ function XrplGovernance({ lang }: { lang: Lang }) {
           >
             <div className="text-sm text-white/60 leading-relaxed max-w-xl">
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] block mb-1.5" style={{ color: GOLD_SOFT }}>
-                {es ? 'Construido · abriendo pronto' : 'Built · opening soon'}
+                {es ? 'Construido · abre pronto' : 'Built · opening soon'}
               </span>
               {es
                 ? 'Los consejos se leen directamente del ledger, las constituciones se sellan desde tu navegador y las transferencias salen sin firmar — las firma tu consejo. Siempre con los costes a la vista antes de firmar. Estamos constituyendo los primeros consejos.'
@@ -1769,7 +1867,7 @@ const CHAPTERS: Chapter[] = [
   },
   {
     kind: 'audit',
-    es: ['Bitácora', 'Cada acción, trazable', 'Simulado antes de firmar. Registrado después del settlement — cada acción en tu historial de actividad, cada una con su transacción on-chain.'],
+    es: ['Bitácora', 'Cada acción, trazable', 'Simulado antes de firmar. Registrado después de la liquidación — cada acción en tu historial de actividad, cada una con su transacción on-chain.'],
     en: ['Flight Log', 'Every action, traceable', 'Simulated before you sign. Recorded after settlement — every action in your activity log, each with its transaction on-chain.'],
     esSimple: ['Un registro de todo lo que pasa', 'Cada movimiento queda apuntado con su hora y su comprobante on-chain. Puedes volver atrás y revisar lo que quieras, cuando quieras.'],
     enSimple: ['A record of everything that happens', 'Every move is logged with its time and its on-chain receipt. You can go back and check anything, whenever you want.'],
@@ -2121,7 +2219,7 @@ function DocsSection({ lang }: { lang: Lang }) {
     },
     {
       href: `${DOCS_BASE}/roadmap`,
-      es: ['Roadmap & milestones', 'Qué construimos ahora y qué viene después.'],
+      es: ['Roadmap e hitos', 'Qué construimos ahora y qué viene después.'],
       en: ['Roadmap & milestones', 'What we build now and what comes next.'],
     },
     {
@@ -2215,7 +2313,7 @@ export function PrincipleBreak({ lang }: { lang: Lang }) {
   );
 }
 
-function SignatureBreak({ lang }: { lang: Lang }) {
+function SignatureBreak({ lang, product = 'personal' }: { lang: Lang; product?: 'personal' | 'legacy' }) {
   const es = lang === 'es';
   const reduce = useReducedMotion();
   const ref = useRef<HTMLElement>(null);
@@ -2261,7 +2359,9 @@ function SignatureBreak({ lang }: { lang: Lang }) {
           aria-hidden
         />
       </motion.div>
-      <div className="relative flex flex-col items-center justify-center px-6 pt-28 md:pt-32 pb-10 md:pb-12" style={{ minHeight: '100vh' }}>
+      {/* svh, not vh — on iOS 100vh is the URL-bar-hidden height and left dead
+          scroll at the page close */}
+      <div className="relative flex flex-col items-center justify-center px-6 pt-28 md:pt-32 pb-10 md:pb-12" style={{ minHeight: '100svh' }}>
         <motion.div
           className="relative text-center max-w-3xl"
           style={reduce ? undefined : { opacity: copyOpacity, y: copyY }}
@@ -2278,7 +2378,7 @@ function SignatureBreak({ lang }: { lang: Lang }) {
               crossbar, the tall t (crossed on the pen-lift), the y's descender
               loop, and a paraph that turns over the exit stroke and sweeps
               back clean UNDER the name — it never strikes the letters */}
-          <svg viewBox="0 0 285 96" width="270" className="mx-auto mt-3" fill="none" aria-hidden>
+          <svg viewBox="0 0 285 96" width="270" className="mx-auto mt-3 max-w-full h-auto" fill="none" aria-hidden>
             <motion.path
               d="M 14 66 C 20 52, 30 22, 40 13 C 44 9.5, 48 16, 51 30 C 54 43, 57 57, 60 63.5 C 55 67, 47 60, 47 52 C 47 45, 54 42, 59 45 C 62 47, 62 50, 61.5 52.5 C 62.5 55, 65 56, 68 54 C 72 51, 76 46, 79 46.5 C 82 47, 82 51, 79.5 53.5 C 77 56, 74.5 58.5, 76.5 61.5 C 78.5 64.5, 84 63, 87 58.5 C 90 54, 93.5 40, 95.5 30 C 96.5 25, 99.5 24.5, 100 29 C 101 36.5, 98.5 55, 103 61.5 C 106 65.5, 111 62, 113.5 57 C 116.5 52, 120 47.5, 123 47 C 126 46.5, 126.5 49.5, 125.5 52.5 C 124.5 55.5, 123.5 58.5, 125.5 61 C 128 63.5, 132 61.5, 134.5 57.5 C 137.5 53, 141 47, 144.5 46 C 148 45.2, 149 49, 148 53 C 147 57, 145.5 61, 146.5 65 C 148 70, 146 76, 140.5 78 C 135.5 79.5, 132.5 75.5, 135 70.5 C 137.5 65.5, 144 61, 151 57.5 C 155 54.5, 159 48, 162.5 46.5 C 165 45.5, 166 48, 165 51.5 C 164 55.5, 162.5 60, 165 62.5 C 167.5 65, 172 61, 175 56 C 178 51, 182 46.5, 185 46.5 C 188 46.5, 188 50, 187 53 C 186 56, 185 59, 187 61.5 C 189 64, 193 60, 196 55.5 C 199 51, 203 46.5, 206 47 C 209 47.5, 209 51, 208 54 C 207 57.5, 206.5 60.5, 209 62 C 214 64, 222 57, 230 48 C 237 40, 244 32, 251 26"
               stroke="hsl(var(--volt-deep))"
@@ -2308,6 +2408,17 @@ function SignatureBreak({ lang }: { lang: Lang }) {
               ? 'Nunca custodiamos. Nunca ejecutamos por ti. Astryum prepara la acción — y la entrega a tu wallet.'
               : 'We never custody. We never execute for you. Astryum prepares the action — and hands it to your wallet.'}
           </p>
+          {/* the door to /proof — the claim above is verifiable, and this is
+              where the page says so (founder 2026-07-29) */}
+          <a
+            href="/proof"
+            // py-2 -my-2: touch-sized hit area (this is the only route link on
+            // the whole mobile page body) without moving the layout
+            className="mt-4 inline-block py-2 -my-2 text-[13px] font-semibold underline underline-offset-4 decoration-1 hover:opacity-80"
+            style={{ color: 'hsl(var(--volt-deep))' }}
+          >
+            {es ? 'No nos creas: mira la prueba' : 'Don’t take our word for it — see the proof'}
+          </a>
         </motion.div>
 
         {/* the boarding desk, folded into the light beat (journey mode) — the
@@ -2317,9 +2428,38 @@ function SignatureBreak({ lang }: { lang: Lang }) {
           <motion.div className="relative w-full mt-14 md:mt-16" style={reduce ? undefined : { opacity: copyOpacity }}>
             <BoardingPass lang={lang} />
             <div className="mt-9 flex justify-center">
-              <AccessCTA label={es ? 'Solicita acceso anticipado' : 'Request early access'} size="lg" strong />
+              <AccessCTA label={es ? 'Entra en la beta' : 'Enter the beta'} size="lg" strong />
             </div>
           </motion.div>
+        )}
+
+        {/* the page's other two doors, restated at the close (user test
+            2026-08-03: after the whole tour, a first-timer had no way into
+            what-we-offer/about without scrolling back to the header). The
+            proof already has its door under the signature — these are the
+            remaining two, ink on cream, quieter than the CTA above. */}
+        {SHOW_JOURNEY && (
+          <div className="relative w-full mt-12 md:mt-14 flex flex-col items-center gap-4">
+            <span className="text-[11px] font-mono uppercase tracking-[0.18em]" style={{ color: 'rgba(20,18,14,0.45)' }}>
+              {es ? 'Sigue explorando' : 'Keep exploring'}
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <a
+                href="/what-we-offer"
+                className="inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-[13px] font-semibold transition-colors hover:bg-black/[0.04]"
+                style={{ borderColor: 'rgba(20,18,14,0.18)', color: 'rgba(20,18,14,0.75)' }}
+              >
+                {es ? 'Qué ofrecemos' : 'What we offer'}
+              </a>
+              <a
+                href="/about"
+                className="inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-[13px] font-semibold transition-colors hover:bg-black/[0.04]"
+                style={{ borderColor: 'rgba(20,18,14,0.18)', color: 'rgba(20,18,14,0.75)' }}
+              >
+                {es ? 'Quiénes somos' : 'About us'}
+              </a>
+            </div>
+          </div>
         )}
 
         {/* the footer, folded into the cream — ink on light, and no repeated
@@ -2332,10 +2472,17 @@ function SignatureBreak({ lang }: { lang: Lang }) {
             {/* the hackathon disclosure — ink variant on the cream field */}
             <HackathonFooterNote lang={lang} tone="ink" />
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                {/* the SVG glyph, not the PNG mark — the PNG is drawn for dark
-                    backgrounds and vanishes on the cream */}
-                <AsteroidGlyph size={18} />
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                {/* the REAL brand mark, per product (founder 2026-08-08 — the
+                    old white PNG vanished on cream; these carry dark bodies
+                    and colored trails, so they read on the light field) */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={product === 'legacy' ? '/astryum-mark-azul-transparente.png' : '/astryum-mark-gold-glow.png'}
+                  alt=""
+                  aria-hidden
+                  style={{ width: 26, height: 26, display: 'block' }}
+                />
                 <span className="text-[13px] font-semibold" style={{ color: 'rgba(20,18,14,0.78)' }}>
                   Astryum
                 </span>
@@ -2343,7 +2490,19 @@ function SignatureBreak({ lang }: { lang: Lang }) {
                   Financial Control. Total Clarity.
                 </span>
               </div>
-              <span className="text-xs" style={{ color: 'rgba(20,18,14,0.4)' }}>Astryum © 2026</span>
+              <div className="flex items-center gap-4">
+                <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="text-xs transition-opacity hover:opacity-70" style={{ color: 'rgba(20,18,14,0.5)' }}>
+                  Discord
+                </a>
+                {/* Legal pages — ink variant on the cream field */}
+                <a href="/demo-terms" className="text-xs transition-opacity hover:opacity-70" style={{ color: 'rgba(20,18,14,0.5)' }}>
+                  {es ? 'Condiciones' : 'Terms'}
+                </a>
+                <a href="/privacy" className="text-xs transition-opacity hover:opacity-70" style={{ color: 'rgba(20,18,14,0.5)' }}>
+                  {es ? 'Privacidad y aviso legal' : 'Privacy & legal'}
+                </a>
+                <span className="text-xs" style={{ color: 'rgba(20,18,14,0.4)' }}>Astryum © 2026</span>
+              </div>
             </div>
           </footer>
         )}
@@ -2366,7 +2525,9 @@ function BoardingPass({ lang }: { lang: Lang }) {
   const fields = [
     { k: es ? 'Custodia' : 'Custody', v: es ? 'Tuya' : 'Yours' },
     { k: es ? 'Comisiones' : 'Fees', v: es ? 'Visibles antes' : 'Shown first' },
-    { k: es ? 'Claves' : 'Keys', v: es ? 'Nunca salen' : 'Never leave' },
+    // "Claves · Nunca salen" retired (2026-07-29): the light beat two screens
+    // up just said it — simulation is the fact the Home never states.
+    { k: es ? 'Simulación' : 'Simulation', v: es ? 'Siempre previa' : 'Always first' },
   ];
   const barcode = [2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 2, 1, 3, 1, 2, 2, 1];
   return (
@@ -2396,12 +2557,15 @@ function BoardingPass({ lang }: { lang: Lang }) {
               This mote is the one surviving loop of the Final CTA: everything
               else nearby (comet, pulsing halo) is gone, so its light stays
               earned. View-gated (useInView) so it doesn't run off-screen. */}
+          {/* min-w-0/truncate on the endpoints + a narrower rail floor: at
+              320px the two nowrap labels overran the card and overflow-hidden
+              cut the destination clean off */}
           <div className="mt-6 flex items-center gap-3">
-            <div className="shrink-0">
+            <div className="shrink min-w-0">
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/30">{es ? 'Origen' : 'From'}</div>
-              <div className="mt-1 text-sm font-semibold text-white whitespace-nowrap">{es ? 'Tu wallet' : 'Your wallet'}</div>
+              <div className="mt-1 text-sm font-semibold text-white whitespace-nowrap truncate">{es ? 'Tu wallet' : 'Your wallet'}</div>
             </div>
-            <div ref={routeRef} className="relative flex-1 h-8 min-w-[70px]" aria-hidden>
+            <div ref={routeRef} className="relative flex-1 h-8 min-w-[40px]" aria-hidden>
               <svg viewBox="0 0 120 24" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" fill="none">
                 <line x1="2" y1="12" x2="110" y2="12" stroke="hsl(var(--volt) / 0.4)" strokeWidth="1.4" strokeDasharray="3 5" />
                 <path d="M110 7.5 L118 12 L110 16.5" stroke="hsl(var(--volt) / 0.7)" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" />
@@ -2415,19 +2579,21 @@ function BoardingPass({ lang }: { lang: Lang }) {
                 />
               )}
             </div>
-            <div className="shrink-0 text-right">
+            <div className="shrink min-w-0 text-right">
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/30">{es ? 'Destino' : 'To'}</div>
-              <div className="mt-1 text-sm font-semibold whitespace-nowrap" style={{ color: GOLD_SOFT }}>
+              <div className="mt-1 text-sm font-semibold whitespace-nowrap truncate" style={{ color: GOLD_SOFT }}>
                 {SHOW_XRPL_ACT ? 'XRPL + Flare' : 'Flare mainnet'}
               </div>
             </div>
           </div>
 
-          {/* the terms — the invariants, printed on the ticket */}
-          <div className="mt-6 grid grid-cols-3 gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+          {/* the terms — the invariants, printed on the ticket. 2 cols below
+              sm: three ~76px mono labels don't fit 232px of card, and the
+              third field was clipped off entirely at 320px */}
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
             {fields.map((f) => (
-              <div key={f.k}>
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/30">{f.k}</div>
+              <div key={f.k} className="min-w-0">
+                <div className="font-mono text-[10px] uppercase tracking-[0.1em] sm:tracking-[0.16em] text-white/30 truncate">{f.k}</div>
                 <div className="mt-1 text-[13px] font-semibold text-white/85">{f.v}</div>
               </div>
             ))}
@@ -2541,7 +2707,7 @@ function FinalCta({ lang }: { lang: Lang }) {
               <Reveal delay={0.28}>
                 <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                   {/* the halo's gone; the button carries a touch more static shadow instead */}
-                  <AccessCTA label={es ? 'Solicita acceso anticipado' : 'Request early access'} size="lg" strong />
+                  <AccessCTA label={es ? 'Entra en la beta' : 'Enter the beta'} size="lg" strong />
                   {/* Journey on: one door at the close (founder call 2026-07-21). */}
                   {!SHOW_JOURNEY && (
                     <Magnetic strength={0.3} className="inline-block">
@@ -2591,7 +2757,17 @@ function Footer({ lang }: { lang: Lang }) {
             <span className="text-white/45">Financial Control. Total Clarity.</span>
           </div>
           <div className="flex items-center gap-6">
-            <span>{es ? 'No-custodial · Siempre tú firmas' : 'Non-custodial · You always sign'}</span>
+            <span>{es ? 'No-custodia · Tú siempre firmas' : 'Non-custodial · You always sign'}</span>
+            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="text-white/30 transition-colors hover:text-white/60">
+              Discord
+            </a>
+            {/* Legal pages — reachable from the landing itself (Llei 20/2014: visible, permanent) */}
+            <a href="/demo-terms" className="text-white/30 transition-colors hover:text-white/60">
+              {es ? 'Condiciones' : 'Terms'}
+            </a>
+            <a href="/privacy" className="text-white/30 transition-colors hover:text-white/60">
+              {es ? 'Privacidad y aviso legal' : 'Privacy & legal'}
+            </a>
             <span className="text-white/20">Astryum © 2026</span>
           </div>
         </div>
@@ -2695,10 +2871,12 @@ function JourneyTimeline({
   progress,
   raw,
   product,
+  lang,
 }: {
   progress: MotionValue<number>;
   raw: MotionValue<number>;
   product: JourneyProduct;
+  lang: 'es' | 'en';
 }) {
   const [marks, setMarks] = useState<TimelineMark[]>([]);
   const marksRef = useRef(marks);
@@ -2733,21 +2911,26 @@ function JourneyTimeline({
 
   useEffect(() => {
     const ids = product === 'legacy' ? ['summary', 'earn', 'portfolio', 'legacy'] : ['summary', 'earn', 'portfolio', 'wallets'];
-    const labels = product === 'legacy' ? ['Summary', 'Earn', 'Portfolio', 'Legacy'] : ['Summary', 'Earn', 'Portfolio', 'Wallets'];
+    const labels = product === 'legacy' ? ['Home', 'Earn', 'Portfolio', 'Legacy'] : ['Home', 'Earn', 'Portfolio', 'Wallets'];
     const measure = () => {
       const j = document.getElementById('journey');
       const denom = document.documentElement.scrollHeight - window.innerHeight;
       const span = j ? j.offsetHeight - window.innerHeight : 0;
+      // Park the HUD the instant the cream field's first pixel would show.
+      // Computed BEFORE the early return: below lg the pinned track is
+      // display:none (span <= 0) but the 3px hairline still renders — without
+      // this, hideBeyond stayed Infinity on phones and the gold hairline kept
+      // glowing over the cream close.
+      const lb = document.getElementById('light-beat');
+      hideBeyond.current =
+        lb && denom > 0
+          ? Math.max(0, (lb.getBoundingClientRect().top + window.scrollY - window.innerHeight) / denom)
+          : Infinity;
       // span <= 0 → the static variant is on screen (PRM); no pinned track to mark.
       if (!j || denom <= 0 || span <= 0) {
         setMarks([]);
         return;
       }
-      // Park the HUD the instant the cream field's first pixel would show.
-      const lb = document.getElementById('light-beat');
-      hideBeyond.current = lb
-        ? Math.max(0, (lb.getBoundingClientRect().top + window.scrollY - window.innerHeight) / denom)
-        : Infinity;
       const toDoc = (c: number) => (c * span) / denom;
       setMarks(
         TIMELINE_CENTERS.map((c, i) => ({
@@ -2813,7 +2996,7 @@ function JourneyTimeline({
           can never meet the header; slides out through the edge when idle */}
       {marks.length > 0 && (
         <nav
-          aria-label="Itinerario del viaje"
+          aria-label={lang === 'es' ? 'Itinerario del viaje' : 'Journey itinerary'}
           className="hidden lg:flex fixed right-4 z-[60] flex-col items-end gap-1"
           onPointerEnter={() => {
             hovering.current = true;
@@ -2838,6 +3021,175 @@ function JourneyTimeline({
         </nav>
       )}
     </>
+  );
+}
+
+// ─── Gate bounce notice ─────────────────────────────────────────────────────────────
+// The answer the gold CTA owed the visitor. When the access gate refuses a
+// request for /login, middleware.ts sends them home with ?gate=closed instead
+// of bouncing in silence — this reads the marker, says what happened and points
+// at the only door that IS open (the seat list). Without it the tap simply
+// reloaded the landing: on the founder's desktop the gate cookie made the CTA
+// work, on every phone and iPad it read as a broken button (2026-08-07).
+// The param is stripped on mount so a refresh doesn't replay the notice.
+function GateNotice({ lang }: { lang: Lang }) {
+  const reduce = useReducedMotion();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('gate') !== 'closed') return;
+      setOpen(true);
+      url.searchParams.delete('gate');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const es = lang === 'es';
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          role="status"
+          aria-live="polite"
+          // Bottom, not top: at the top it painted straight over the H1 and the
+          // product switch — the visitor lost the page to read the notice.
+          // 100px clears PersistentScrollCue (64px capsule at bottom-6).
+          className="fixed left-1/2 bottom-[100px] z-[55] w-[calc(100%-32px)] max-w-[440px] rounded-2xl px-5 py-4"
+          style={{
+            x: '-50%',
+            border: '1px solid hsl(var(--volt) / 0.32)',
+            background: 'rgba(12,11,9,0.92)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            boxShadow: '0 22px 60px rgba(0,0,0,0.5)',
+          }}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          transition={{ duration: 0.4, ease: EASE }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: GOLD_SOFT }}>
+                {es ? 'El acceso está cerrado ahora mismo' : 'Access is closed right now'}
+              </div>
+              {/* No waitlist door here (founder 2026-08-07: "NO URL ASTRYUM
+                  EARLY ACCESS"). The gold CTA promises the beta, so diverting a
+                  refused visitor to the seat list would answer a question they
+                  did not ask. This states the fact and stops. */}
+              <p className="mt-2 text-[13px] leading-relaxed text-white/65">
+                {es
+                  ? 'Tu pulsación ha llegado: es la puerta la que no está abierta, no el botón. Estamos en ello.'
+                  : 'Your tap did register — it is the door that is not open, not the button. We are on it.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setOpen(false)}
+              aria-label={es ? 'Cerrar aviso' : 'Dismiss notice'}
+              className="shrink-0 -mr-1 -mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Persistent scroll cue ──────────────────────────────────────────────────────────
+// User test 2026-08-03: a first-time visitor's eye went straight to the gold
+// CTAs and never found the old hero cue (a 10px label + 1px hairline that died
+// at 5% of the track and only existed ≥md) — they didn't know the tour was
+// BELOW. This cue replaces it at PAGE level: bigger, capsule-backed for
+// contrast, on every viewport size, and alive through the WHOLE scroll so the
+// visitor always knows there is more. It dresses in ink once the cream close
+// (#light-beat) reaches the screen — gold on cream reads as noise, same call
+// as the timeline's parking brake — and only leaves when less than ~half a
+// viewport of page remains, because then the cue would lie.
+function PersistentScrollCue({ lang }: { lang: Lang }) {
+  const reduced = useReducedMotion();
+  const [mode, setMode] = useState<'dark' | 'light' | 'hidden'>('dark');
+
+  useEffect(() => {
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - window.innerHeight;
+      const y = window.scrollY;
+      if (max - y < window.innerHeight * 0.55) {
+        setMode('hidden');
+        return;
+      }
+      const beat = document.getElementById('light-beat');
+      if (beat && beat.getBoundingClientRect().top < window.innerHeight * 0.55) {
+        setMode('light');
+        return;
+      }
+      setMode('dark');
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    compute();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+
+  const hidden = mode === 'hidden';
+  const light = mode === 'light';
+  // Symbol only (founder 2026-08-03: "nada de texto"): a big double chevron
+  // pointing down — the ONE arrow allowed on the page. The label lives in
+  // aria-label for screen readers.
+  const chevrons = (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 6.5L12 13L19 6.5" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" opacity={0.45} />
+      <path d="M5 12.5L12 19L19 12.5" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+  return (
+    <motion.button
+      onClick={() => window.scrollBy({ top: Math.round(window.innerHeight * 0.85), behavior: 'smooth' })}
+      aria-label={T('Sigue bajando para ver más', 'Keep scrolling to see more', lang)}
+      tabIndex={hidden ? -1 : 0}
+      className={`fixed left-1/2 bottom-6 z-[60] grid place-items-center rounded-full border backdrop-blur-md transition-colors duration-500 ${
+        light
+          ? 'border-black/15 bg-white/45 hover:bg-white/60'
+          : 'border-white/10 bg-black/35 hover:bg-black/50'
+      }`}
+      style={{ x: '-50%', width: 64, height: 64, color: light ? 'hsl(var(--volt-deep))' : 'hsl(var(--volt))' }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={
+        hidden
+          ? { opacity: 0, y: 8, transitionEnd: { visibility: 'hidden' } }
+          : { opacity: 1, y: 0, visibility: 'visible' }
+      }
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+    >
+      {reduced ? (
+        chevrons
+      ) : (
+        <motion.span
+          className="grid place-items-center"
+          animate={{ y: [-3, 5, -3] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          {chevrons}
+        </motion.span>
+      )}
+    </motion.button>
   );
 }
 
@@ -2918,6 +3270,11 @@ export default function LandingPage() {
           Legacy (the accent vars flip via data-authority; these are the two
           hex gradients vars can't reach) */}
       <style>{`
+        /* No rubber-band chaining while the landing is mounted: the page ends
+           on the cream light-beat, and the bottom bounce flashed the root's
+           near-black under it on iOS/Android. (Trades away pull-to-refresh on
+           this page only.) */
+        html { overscroll-behavior-y: none; }
         .lp-root { background: #080808; transition: background-color 1s ease; }
         [data-authority='governed'].lp-root { background: #070810; }
         .lp-base { background: radial-gradient(130% 90% at 50% -15%, #1a150b 0%, #100d08 38%, #080807 100%); }
@@ -2933,20 +3290,24 @@ export default function LandingPage() {
         .lp-theming, .lp-theming * { transition-property: color, background-color, border-color, fill, stroke, box-shadow; transition-duration: 0.9s; transition-timing-function: ease; }
       `}</style>
       {/* top scroll-progress bar, with the planet itinerary marked on it */}
-      <JourneyTimeline progress={progress} raw={scrollYProgress} product={product} />
+      <JourneyTimeline progress={progress} raw={scrollYProgress} product={product} lang={lang} />
+      {/* page-long "keep scrolling" capsule — the tour lives below the fold */}
+      <PersistentScrollCue lang={lang} />
+      {/* the access gate's answer, when it turned a gold CTA away */}
+      <GateNotice lang={lang} />
       <SpaceBackdrop legacy={product === 'legacy'} />
       {crossing && <LandingCrossing key={crossing.n} to={crossing.to} onDone={() => setCrossing(null)} />}
       <div className="relative z-10">
         {/* hackathon disclosure — persistent strip; the header sits BANNER_H lower */}
         <HackathonBanner lang={lang} />
-        <Header lang={lang} setLang={setLang} onSecretLogin={openDoor} />
+        <Header lang={lang} setLang={setLang} onSecretLogin={openDoor} product={product === 'legacy' ? 'legacy' : 'personal'} />
         <main>
           {SHOW_JOURNEY ? (
             <SolarJourney
               lang={lang}
               hero={<HeroContent lang={lang} />}
               finaleCta={
-                <AccessCTA label={lang === 'es' ? 'Solicita acceso anticipado' : 'Request early access'} size="lg" strong />
+                <AccessCTA label={lang === 'es' ? 'Entra en la beta' : 'Enter the beta'} size="lg" strong />
               }
               product={product}
               onProductChange={setProduct}
@@ -2998,7 +3359,7 @@ export default function LandingPage() {
               replacing the repeated hero headline there. Component preserved
               above for re-mount. The page ends on the light beat — signature,
               boarding desk, one door and the footer folded into the cream. */}
-          <SignatureBreak lang={lang} />
+          <SignatureBreak lang={lang} product={product === 'legacy' ? 'legacy' : 'personal'} />
           {!SHOW_JOURNEY && <Narrative lang={lang} />}
           {/* PartnerMarquee removed for the hackathon build (aspirational logos out). */}
           {/* DocsSection hidden until the GitBook space is published (its links 404) — restore post-E1. */}

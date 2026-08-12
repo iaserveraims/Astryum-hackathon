@@ -43,6 +43,7 @@ import {
   googleOAuthEnabled,
   renderGoogleButton,
 } from '../../lib/oauth';
+import { beginXrplIdentityLogin, fetchXrplIdentityConfig } from '../../lib/xrplIdentity/login';
 
 const StarfieldCanvas = dynamic(() => import('../../components/landing/StarfieldCanvas'), { ssr: false });
 
@@ -79,6 +80,12 @@ function errorToCopy(code: string, lang: Lang): string {
       return T('Esta cuenta está deshabilitada.', 'This account is disabled.', lang);
     case 'oauth_email_unverified':
       return T('Ese proveedor no verifica tu email — usa email y contraseña.', 'That provider does not verify your email — use email + password.', lang);
+    case 'not_invited':
+      return T(
+        'Beta cerrada: este email aún no tiene plaza. Pide acceso en astryum.xyz/early-access y te escribiremos cuando tu plaza esté aprobada — crea la cuenta con ese mismo email.',
+        "Closed beta: this email doesn't have a seat yet. Request access at astryum.xyz/early-access and we'll email you when your seat is approved — create the account with that same email.",
+        lang,
+      );
     default:
       return code;
   }
@@ -602,6 +609,9 @@ export default function LoginPage() {
   const [payload, setPayload] = useState<DecodePayload | null>(null);
   const [stubHover, setStubHover] = useState(false);
   const [signing, setSigning] = useState(false);
+  // XRP Identity door: hidden until the backend confirms a client id is
+  // registered. Starts false so the card never flashes a door that isn't there.
+  const [xrplIdReady, setXrplIdReady] = useState(false);
   // Anti-bot: one Turnstile token per submit (single-use — resetSignal mints
   // a fresh one after every failed attempt).
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -624,6 +634,14 @@ export default function LoginPage() {
     return () => {
       alive.current = false;
     };
+  }, []);
+
+  // Ask the backend whether the XRP Identity door exists yet. It answers 503
+  // (→ null) until its client id is registered, and the button stays hidden.
+  useEffect(() => {
+    void fetchXrplIdentityConfig().then((config) => {
+      if (alive.current) setXrplIdReady(Boolean(config));
+    });
   }, []);
 
   useEffect(() => {
@@ -806,6 +824,34 @@ export default function LoginPage() {
     }
   };
 
+  // XRP Identity — the ecosystem's own door, and Astryum's main one. Unlike
+  // Google/Apple there is no popup and no token in the browser: we leave for
+  // the provider with a PKCE challenge and come back to /auth/xrpl-identity/
+  // callback with a one-time code the backend redeems.
+  const onXrplIdentity = async () => {
+    if (phase !== 'form' || signing) return;
+    setFormError('');
+    setNotice('');
+    try {
+      await beginXrplIdentityLogin('/app');
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      setNotice(
+        code === 'xrplid_redirect_not_registered'
+          ? T(
+              'Esta dirección aún no está registrada en XRP Identity.',
+              'This origin is not registered with XRP Identity yet.',
+              lang,
+            )
+          : T(
+              'Canal XRP Identity aún no operativo — entra con email de momento.',
+              'XRP Identity channel not open yet — use email for now.',
+              lang,
+            ),
+      );
+    }
+  };
+
   const onAppleClick = async () => {
     if (!appleOAuthEnabled()) {
       onOAuthNotConfigured('Apple');
@@ -984,6 +1030,50 @@ export default function LoginPage() {
                       >
                         {formError ? `✗ ${formError}` : `◆ ${notice}`}
                       </motion.div>
+                    )}
+
+                    {/* The main door: the XRPL ecosystem's own identity.
+                        Astryum runs on XRPL, so the entrance is XRPL's too —
+                        one account for the ecosystem, and the wallet you
+                        already use to sign. Email stays below as a fallback,
+                        not as an equal.
+
+                        It only renders once the backend confirms the provider
+                        is configured. A gold hero button that answers "channel
+                        not open yet" is a dead button, and we have paid for
+                        that lesson already (the beta bounce, 2026-08-07). The
+                        day XRPL_IDENTITY_CLIENT_ID lands in Railway, this door
+                        appears on its own — no deploy needed. */}
+                    {xrplIdReady && (
+                      <>
+                        <button
+                          onClick={() => void onXrplIdentity()}
+                          disabled={busy || signing}
+                          className="mt-6 w-full inline-flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-[13.5px] font-semibold transition-colors disabled:opacity-50"
+                          style={{
+                            border: `1px solid ${GOLD}`,
+                            background: 'rgba(232,194,90,0.10)',
+                            color: GOLD,
+                          }}
+                        >
+                          {T('Entrar con XRP Identity', 'Continue with XRP Identity', lang)}
+                        </button>
+                        <p className="mt-2 text-center font-mono text-[10px] leading-relaxed text-white/35">
+                          {T(
+                            'Tu identidad del ecosistema XRPL. Para operar, firmarás con tu wallet.',
+                            'Your XRPL ecosystem identity. To operate, you will sign with your wallet.',
+                            lang,
+                          )}
+                        </p>
+
+                        {EMAIL_AUTH && (
+                          <div className="my-5 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.18em] text-white/30">
+                            <span className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                            {T('o con tu email', 'or with your email', lang)}
+                            <span className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {EMAIL_AUTH && (
@@ -1185,7 +1275,17 @@ export default function LoginPage() {
                             >
                               {T('aviso de riesgos de la demo', 'demo risk notice', lang)}
                             </a>
-                            {T(' — demo experimental con XRP real, bajo topes.', ' — an experimental demo with real XRP, under caps.', lang)}
+                            {T(' — demo experimental con XRP real, bajo topes — y declaras ser mayor de 18 años. Tus datos, en el ', ' — an experimental demo with real XRP, under caps — and you declare you are 18 or older. Your data, in the ', lang)}
+                            <a
+                              href="/privacy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 transition-colors hover:text-white/70"
+                              style={{ color: GOLD_SOFT }}
+                            >
+                              {T('aviso de privacidad', 'privacy notice', lang)}
+                            </a>
+                            {T('.', '.', lang)}
                           </p>
                         )}
                       </form>

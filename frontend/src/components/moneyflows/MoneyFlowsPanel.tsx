@@ -23,6 +23,7 @@ import { Card, MicroLabel, Pill } from '../ui/primitives';
 import { useT } from '../../i18n/LanguageProvider';
 import { moneyflows as moneyflowsApi, rules as rulesApi, type AutomationRule } from '../../services/v1Api';
 import { RuleEditModal } from './RuleEditModal';
+import { describeAction, describeTrigger } from '../../lib/rules/describeRule';
 
 export type MoneyFlowsMode = 'personal' | 'governed';
 
@@ -40,24 +41,11 @@ interface LooseRule extends AutomationRule {
   address: string;
 }
 
+// One rule, one sentence — the shared reader (lib/rules/describeRule) speaks
+// for triggers everywhere; the council payment keeps its amount+destination
+// detail because that is the fact a family checks.
 function triggerText(trigger: Record<string, unknown>, t: (s: string) => string): string {
-  const type = String(trigger?.type ?? '');
-  switch (type) {
-    case 'HF_BELOW':
-      return `${t('HF below')} ${trigger.threshold}`;
-    case 'HF_CRITICAL':
-      return `${t('HF below')} 1.2 (${t('critical')})`;
-    case 'LTV_ABOVE':
-      return `${t('LTV above')} ${Number(trigger.threshold) * 100}%`;
-    case 'REWARD_THRESHOLD':
-      return `${t('rewards over')} $${trigger.minUSD}`;
-    case 'IDLE_BALANCE':
-      return `${t('idle')} ${trigger.asset} > $${trigger.minUSD}`;
-    case 'TIME_TRIGGER':
-      return `${t('on schedule')} (${trigger.cron} UTC)`;
-    default:
-      return type || t('trigger');
-  }
+  return describeTrigger(trigger, t);
 }
 
 function actionText(action: Record<string, unknown>, t: (s: string) => string): string {
@@ -65,14 +53,11 @@ function actionText(action: Record<string, unknown>, t: (s: string) => string): 
   if (kind === 'councilPayment') {
     const p = (action.params ?? {}) as Record<string, unknown>;
     const xrp = Number(p.amountDrops ?? 0) / 1_000_000;
-    return `${t('propose payment of')} ${xrp} XRP → ${String(p.destination ?? '').slice(0, 10)}…`;
-  }
-  if (kind === 'councilOrder') {
-    const p = (action.params ?? {}) as Record<string, unknown>;
-    return `${t('propose vault order')}: ${String(p.orderAction ?? '')}`;
+    const dst = String(p.destination ?? '');
+    return `${t('propose payment of')} ${xrp} XRP → ${dst.slice(0, 6)}…${dst.slice(-4)}`;
   }
   const proto = action.protocolId ? ` · ${action.protocolId}` : '';
-  return `${t('prepare')} ${kind}${proto}`;
+  return `${describeAction(action, t)}${proto}`;
 }
 
 function expiryText(expiresAt: string | null | undefined, t: (s: string) => string): { label: string; expired: boolean } {

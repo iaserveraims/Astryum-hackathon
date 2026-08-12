@@ -123,6 +123,39 @@ describe('PortfolioRiskEngine', () => {
     expect(r.liquidationDistanceUSD).toBeUndefined();
   });
 
+  test('SIN DEUDA (Lend-only con HF residual) → sin HF ni liquidación (bug 2026-07-29 "at risk" con LTV 0%)', () => {
+    // Una posición Lend que arrastra un hf=1.0 residual NO puede liquidarse sin
+    // borrow: el HealthStrip debe caer en "No debt to watch", no en "at risk".
+    const r = PortfolioRiskEngine.evaluate(
+      snap({
+        debtUSD: 0,
+        collateralUSD: 1000,
+        positions: [
+          {
+            protocolId: 'kinetic',
+            chainId: 14,
+            kind: 'SUPPLY',
+            asset: '0xfxrp',
+            amount: '1000000000',
+            amountUSD: 1000,
+            priceUSD: 2,
+            metrics: { hf: 1.0, liquidationPrice: 1.0852 },
+            metadata: { symbol: 'FXRP' },
+            takenAt: new Date(),
+          },
+        ],
+        breakdown: {
+          byProtocol: { kinetic: 1000 },
+          byAsset: { '0xfxrp': 1000 },
+          byKind: { SUPPLY: 1000, BORROW: 0, LP: 0, STAKE: 0, REWARD: 0, FREE: 0 },
+        },
+      })
+    );
+    expect(r.healthFactor).toBeUndefined();
+    expect(r.liquidationPriceUSD).toBeUndefined();
+    expect(r.ltv).toBe(0); // 0 deuda / colateral = 0, no "at risk"
+  });
+
   test('asset concentration > 80% → warning', () => {
     const r = PortfolioRiskEngine.evaluate(
       snap({

@@ -127,9 +127,10 @@ describe('verifyOAuthIdToken — rejection', () => {
 });
 
 describe('config helpers', () => {
-  test('isOAuthProvider narrows exactly google|apple', () => {
+  test('isOAuthProvider narrows exactly google|apple|xrplid', () => {
     expect(isOAuthProvider('google')).toBe(true);
     expect(isOAuthProvider('apple')).toBe(true);
+    expect(isOAuthProvider('xrplid')).toBe(true);
     expect(isOAuthProvider('github')).toBe(false);
   });
 
@@ -138,5 +139,12 @@ describe('config helpers', () => {
     expect(oauthProviderConfigured('apple')).toBe(false);
     process.env.APPLE_OAUTH_CLIENT_ID = 'xyz.astryum.web';
     expect(oauthProviderConfigured('apple')).toBe(true);
+  });
+
+  test('xrplid stays unconfigured until its client id is set', () => {
+    delete process.env.XRPL_IDENTITY_CLIENT_ID;
+    expect(oauthProviderConfigured('xrplid')).toBe(false);
+    process.env.XRPL_IDENTITY_CLIENT_ID = 'astryum-web';
+    expect(oauthProviderConfigured('xrplid')).toBe(true);
   });
 });

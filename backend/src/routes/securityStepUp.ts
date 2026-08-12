@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { requireStepUp } from '../middleware/requireStepUp';
 import {
   issueChallenge,
@@ -22,11 +23,11 @@ const featureEnum = z.enum(STEP_UP_FEATURES as [StepUpFeature, ...StepUpFeature[
 const actionEnum = z.enum(['read', 'write']);
 
 // ── GET /config ──────────────────────────────────────────────────────────────
-router.get('/config', async (req: Request, res: Response) => {
+router.get('/config', asyncHandler(async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   const config = await getConfig(userId);
   return res.json({ config, features: STEP_UP_FEATURES });
-});
+}));
 
 // ── PUT /config ──────────────────────────────────────────────────────────────
 // Tightening locks is itself protected once wallet_security:write is locked,
@@ -42,7 +43,7 @@ const putConfigSchema = z.object({
 router.put(
   '/config',
   requireStepUp('wallet_security', 'write'),
-  async (req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     const parsed = putConfigSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.issues });
@@ -50,7 +51,7 @@ router.put(
     const userId = req.siwe!.userId;
     const config = await setConfig(userId, parsed.data);
     return res.json({ config });
-  }
+  })
 );
 
 // ── POST /challenge ──────────────────────────────────────────────────────────

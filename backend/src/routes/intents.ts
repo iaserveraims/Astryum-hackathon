@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { IntentEngine } from '../engines/intent/IntentEngine';
 
 /**
@@ -21,20 +22,20 @@ const address = z
 
 /** GET /api/intents?address=0x… — newest first, all lifecycle states (the UI
  *  separates "waiting for signature" from history by status). */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const parsed = z.object({ address }).safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });
   }
   const intents = await IntentEngine.getInstance().listUserIntents(parsed.data.address);
   return res.json({ count: intents.length, intents });
-});
+}));
 
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const intent = await IntentEngine.getInstance().getIntent(req.params.id);
   if (!intent) return res.status(404).json({ error: 'intent_not_found' });
   return res.json(intent);
-});
+}));
 
 router.post('/:id/cancel', async (req: Request, res: Response) => {
   try {

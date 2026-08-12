@@ -34,8 +34,12 @@ import { translateCmfToEvmRules } from '../canonical/moneyflow/CanonicalEvmTrans
 import type { CanonicalMoneyFlow } from '../canonical/moneyflow/CanonicalMoneyFlow';
 
 const router = Router();
+// Haiku by default (founder 2026-08-08 — maximum savings). The numbers the user
+// sees come from StrategyMetricsService (tested math), never from the LLM, so
+// the small model only carries the conversational layer; raise via env
+// (STRATEGY_ASSISTANT_MODEL) if the compose/transfer compilers ever need it.
 const MODEL =
-  process.env.STRATEGY_ASSISTANT_MODEL || process.env.PRODUCT_ASSISTANT_MODEL || 'claude-opus-4-8';
+  process.env.STRATEGY_ASSISTANT_MODEL || process.env.PRODUCT_ASSISTANT_MODEL || 'claude-haiku-4-5';
 const FLARE_CHAIN_ID = 14;
 const MANTISSA = 1e18;
 // Kinetic is a Benqi-style fork: rates are per SECOND (*RatePerTimestamp);
@@ -130,7 +134,22 @@ const BodySchema = z.object({
    * verb to regex) without re-triggering it on every later strategy question.
    */
   transferThread: z.boolean().optional(),
+  /**
+   * True when the active authority is a COUNCIL (governed account). Its capital
+   * only reaches a venue through the cage on Flare, whose vocabulary is
+   * `directTo` (supply) and `recall` (bring back) — there is no borrow function
+   * in it. So the carry options are dropped from the table BEFORE the model
+   * sees them: an option it never receives is an option it cannot propose.
+   * This is a UX gate, not the safety one — the safety one is the contract
+   * itself, which has no borrow to call, and the governed Earn modal, which
+   * only ever composes a council order.
+   */
+  governed: z.boolean().optional(),
 });
+
+/** Said in the table itself, so the model explains the absence honestly. */
+const GOVERNED_NO_BORROW_NOTE =
+  'La cuenta activa está gobernada por un consejo. Su capital entra en un venue por orden del consejo a través de la vasija en Flare, que solo sabe suministrar (directTo) y retirar (recall): NO tiene función de préstamo. Por eso la ruta con préstamo (carry) no está disponible para esta cuenta y no aparece arriba — dilo con honestidad si la persona pregunta por ella, y no la propongas.';
 
 /* ── Simple wallet-to-wallet transfers, compiled by the agent ──────────────
  * The LLM COMPILES {from, to, amount, asset}; the payload itself still comes
@@ -175,7 +194,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'INVALID_BODY', details: parse.error.flatten() });
     return;
   }
-  const { message, history = [], amountXrp, targetUsd, mode, wallets, transferThread } = parse.data;
+  const { message, history = [], amountXrp, targetUsd, mode, wallets, transferThread, governed } = parse.data;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -222,6 +241,16 @@ router.post('/chat', async (req: Request, res: Response) => {
     if (rates) {
       try {
         metrics = StrategyMetricsService.computeCarryOptions(amountXrp, rates, { targetUsd });
+        // A council cannot borrow (see `governed` above): drop the carry rows
+        // and say why, so neither the model nor the table can offer a route the
+        // cage has no function to execute.
+        if (governed) {
+          metrics = {
+            ...metrics,
+            options: metrics.options.filter((o) => o.kind === 'lend-only'),
+            notes: [...metrics.notes, GOVERNED_NO_BORROW_NOTE],
+          };
+        }
         table = StrategyMetricsService.toContextTable(metrics);
       } catch {
         metrics = undefined;
@@ -230,7 +259,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
   }
 
-  const system = buildStrategyAssistantSystemPrompt(table);
+  const system = buildStrategyAssistantSystemPrompt(table, { governed });
   const messages: Anthropic.MessageParam[] = [
     ...history.slice(-18).map((m) => ({ role: m.role, content: m.content })),
     { role: 'user' as const, content: message },

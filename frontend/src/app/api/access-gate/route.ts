@@ -13,7 +13,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'crypto';
-import { GATE_COOKIE, GATE_TTL_MS, gateMode, signGateToken, verifyGateToken } from '../../../lib/accessGate';
+import { GATE_COOKIE, GATE_TTL_MS, gateMode, gateOpenFlag, signGateToken, verifyGateToken } from '../../../lib/accessGate';
 
 export const runtime = 'nodejs';
 
@@ -118,15 +118,63 @@ export async function POST(req: NextRequest) {
   return res;
 }
 
+/**
+ * Why the launch switch is not opening the gate (2026-08-07).
+ *
+ * "Lo he puesto en Vercel" + `open:false` had no way to tell three very
+ * different problems apart, and each has a different fix:
+ *
+ *   switch.seen=false → this deployment cannot see ACCESS_GATE_OPEN at all.
+ *       Vercel binds env vars to a BUILD: setting one does not touch the
+ *       deployment already running. Redeploy — or the var is scoped to
+ *       Preview/Development instead of Production, or sits on another project.
+ *   switch.seen=true, accepted=false → the deployment sees it but the VALUE is
+ *       not an affirmative (a stray quote, a pasted `ACCESS_GATE_OPEN=1`, an
+ *       invisible character). Accepted: 1 / true / yes / on.
+ *
+ * Leaks nothing: `open` was already public here, the code and the secret are
+ * never read, and only the length of the switch value is reported so a
+ * trailing space or a wrapping quote is visible without printing it.
+ */
+function switchDiagnostics() {
+  const raw = process.env.ACCESS_GATE_OPEN;
+  return {
+    seen: typeof raw === 'string' && raw.trim() !== '',
+    accepted: gateOpenFlag(raw),
+    length: typeof raw === 'string' ? raw.length : 0,
+    configured: Boolean(process.env.ACCESS_GATE_CODE?.trim()) && Boolean(process.env.ACCESS_GATE_SECRET?.trim()),
+  };
+}
+
+/**
+ * WHICH build is answering, and under WHICH environment's env vars.
+ *
+ * Without this, "I set it in Vercel" and "the server does not see it" could
+ * not be reconciled: there was no way to tell a stale deployment from a fresh
+ * one that genuinely lacks the variable, and no way to notice that the URL
+ * being tested was answering as `preview` rather than `production` (env vars
+ * are scoped per environment, so a preview deployment reads a different set).
+ * Both fields are injected by Vercel itself — nothing to configure.
+ * The commit sha is public (the repo is a due-diligence artifact) and is cut
+ * to 7 chars, the same thing `git log --oneline` prints.
+ */
+function buildDiagnostics() {
+  return {
+    sha: (process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7) || 'local',
+    env: process.env.VERCEL_ENV ?? 'local',
+  };
+}
+
 export async function GET(req: NextRequest) {
   const mode = currentMode();
-  if (mode === 'open') return NextResponse.json({ access: true, open: true });
-  if (mode === 'closed') return NextResponse.json({ access: false, open: false });
+  const gate = { mode, switch: switchDiagnostics(), build: buildDiagnostics() };
+  if (mode === 'open') return NextResponse.json({ access: true, open: true, gate });
+  if (mode === 'closed') return NextResponse.json({ access: false, open: false, gate });
   const verdict = await verifyGateToken(
     (process.env.ACCESS_GATE_SECRET as string).trim(),
     req.cookies.get(GATE_COOKIE)?.value,
   );
-  return NextResponse.json({ access: verdict.valid, open: false });
+  return NextResponse.json({ access: verdict.valid, open: false, gate });
 }
 
 export async function DELETE() {

@@ -20,6 +20,7 @@ import { GhostButton, MicroLabel, Pill, PrimaryButton } from '../ui/primitives';
 import { useT } from '../../i18n/LanguageProvider';
 import {
   CONSTITUTION_TEMPLATES,
+  PENDING_MARKER_RE,
   assembleConstitution,
   resolveDefault,
   type ConstitutionTemplate,
@@ -40,7 +41,9 @@ export default function ConstitutionBuilder({
   onUse: (text: string) => void;
   onClose: () => void;
 }) {
-  const { t } = useT();
+  // The document is born in the page's language (founder 2026-08-11): `lang`
+  // picks the template body, `t` localizes labels, defaults and the marker.
+  const { t, lang } = useT();
   // Restore the draft on mount: typed work survives a refresh/deploy. The
   // helpers no-op under SSR/private mode, so the lazy initializers are safe.
   const [picked, setPicked] = useState<ConstitutionTemplate | null>(() => {
@@ -62,7 +65,9 @@ export default function ConstitutionBuilder({
   const pick = (tpl: ConstitutionTemplate) => {
     setPicked(tpl);
     const initial: Record<string, string> = {};
-    for (const f of tpl.fields) initial[f.id] = resolveDefault(f, account);
+    // Literal defaults run through t() so linguistic ones ("12 months")
+    // prefill in the page's language; numbers and dates pass through as-is.
+    for (const f of tpl.fields) initial[f.id] = t(resolveDefault(f, account));
     // Re-picking the template a draft was saved under resumes it (draft wins
     // over defaults); picking a different template starts clean.
     const draft = account ? getConstitutionDraft(account) : undefined;
@@ -70,11 +75,11 @@ export default function ConstitutionBuilder({
   };
 
   const assembled = useMemo(
-    () => (picked ? assembleConstitution(picked, values) : ''),
-    [picked, values],
+    () => (picked ? assembleConstitution(picked, values, { lang, translateLabel: t }) : ''),
+    [picked, values, lang, t],
   );
   const pendingCount = useMemo(
-    () => (assembled.match(/\[PENDIENTE:/g) ?? []).length,
+    () => (assembled.match(PENDING_MARKER_RE) ?? []).length,
     [assembled],
   );
 
@@ -164,7 +169,7 @@ export default function ConstitutionBuilder({
                 onChange={(e) => setValues((v) => ({ ...v, [f.id]: e.target.value }))}
                 rows={3}
                 spellCheck={false}
-                placeholder={f.placeholder}
+                placeholder={f.placeholder ? t(f.placeholder) : undefined}
                 className={`${inputCls} font-mono text-[12px]`}
               />
             ) : (
@@ -174,7 +179,7 @@ export default function ConstitutionBuilder({
                 value={values[f.id] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [f.id]: e.target.value }))}
                 spellCheck={false}
-                placeholder={f.placeholder}
+                placeholder={f.placeholder ? t(f.placeholder) : undefined}
                 className={inputCls}
               />
             )}
@@ -197,7 +202,7 @@ export default function ConstitutionBuilder({
         </PrimaryButton>
         {pendingCount > 0 && (
           <span className="text-[11px] text-tone-warning">
-            {t('Pending fields are marked [PENDIENTE] in the text — fill them here or edit them there.')}
+            {t('Pending fields are marked [PENDING] in the text — fill them here or edit them there.')}
           </span>
         )}
         {pendingCount === 0 && (

@@ -277,7 +277,10 @@ router.get('/overview', async (req: Request, res: Response) => {
     prisma.waitlistSignup.findMany({
       orderBy: { createdAt: 'desc' },
       take: 10_000,
-      select: { email: true, source: true, lang: true, createdAt: true },
+      // approvedAt/invitedAt: the beta gate's state, so the Waitlist tab can
+      // show who has a seat and the approve button (writes live in
+      // adminBetaGate.ts — this surface stays read-only).
+      select: { email: true, source: true, lang: true, createdAt: true, approvedAt: true, invitedAt: true },
     }),
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
@@ -306,12 +309,14 @@ router.get('/overview', async (req: Request, res: Response) => {
   const waitlistBySource: Record<string, number> = {};
   const clean: typeof allSignups = [];
   let waitlistNoise = 0;
+  let waitlistApproved = 0;
   for (const row of allSignups) {
     if (isNoiseEmail(row.email)) {
       waitlistNoise += 1;
       continue;
     }
     clean.push(row);
+    if (row.approvedAt != null) waitlistApproved += 1;
     waitlistBySource[row.source] = (waitlistBySource[row.source] ?? 0) + 1;
   }
 
@@ -326,6 +331,7 @@ router.get('/overview', async (req: Request, res: Response) => {
       governedAccounts,
       councilProposals,
       waitlistSignups: clean.length,
+      waitlistApproved,
       waitlistNoise,
       waitlistBySource,
       usersByProvider,
