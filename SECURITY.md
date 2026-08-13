@@ -7,7 +7,7 @@ and we answer them.
 
 - **Nothing in this repository has been externally audited.** That includes the Solidity contracts
   (`LegacyVault`, `XrplCouncilBridge`, `LegacyStackFactory`), the backend, and the frontend.
-  External review of the contracts is the first item on our roadmap, and until
+  External review of the contracts is the first item on our [roadmap](docs/ROADMAP.md), and until
   it happens our stated policy is founder capital only, in small amounts.
 - The deployed contracts are **immutable** — no proxy, no upgrade path. A confirmed vulnerability
   in a deployed contract cannot be patched; it is mitigated operationally and migrated away from.

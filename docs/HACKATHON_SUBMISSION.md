@@ -1,222 +1,132 @@
-# Astryum — Flare Summer Signal 2026 · BUILD DETAILS
+# Astryum — Build details
 
-Single source of truth for the DoraHacks BUIDL. If the BUIDL page and this file disagree, this file
-is wrong and should be corrected — never the other way around.
+**Non-custodial capital control for XRPFi — one interface that turns understanding into action, and every action into a transaction you sign yourself.**
 
-Deep technical companion: [FLARE_INTEGRATION.md](./FLARE_INTEGRATION.md) ·
-Direction beyond the hackathon: [VISION.md](./VISION.md)
+**Bounty 1 — Interoperable Asset Products.** Companion docs in the repo: `FLARE_INTEGRATION.md`, `VISION.md`, `regulatory/MICA_BOUNDARIES.md`.
 
----
+## The problem, the user, and why Flare
 
-## Form fields
+**The user.** Someone holding XRP in Xaman who wants that capital to do something. There are millions of them and almost nothing built for them.
 
-**Vision (max 256 chars — 250 used):**
+**The problem.** For that person to earn on their XRP today, they must learn a second chain, install a second wallet, acquire a gas token they do not own, trust a bridge, find a lending market, judge for themselves whether it is safe, sign approvals they cannot read, and then notice a liquidation before it happens. Tools exist for parts of it: non-custodial dashboards show the picture but stop short of acting, and the products that remove the most work — exchanges — do it by taking the keys. Nobody removes the whole burden, security included, while leaving the user in control. **That is the gap Astryum fills.**
 
-> We put every DeFi position you hold across XRPL and Flare on one screen, open access to DeFi protocols, compose the hard transactions for you, guard against liquidation, and keep family patrimony in yield-bearing assets. Astryum never signs — you do.
+**Why Flare, specifically.** Because this product cannot exist anywhere else. FAssets is what turns XRP into working collateral; the FDC is what turns an XRPL signature into a proof a contract can act on; Smart Accounts are what let an XRPL user operate on Flare **without ever holding FLR**; FTSO is what prices the risk. Remove any one of those four and there is no product left — not a degraded one, none.
 
-**Bounty:** 1 — Interoperable Asset Products
-**Categories:** DeFi · Wallet · Account Abstraction · Chain Abstraction · Infra / API
-**Sub-categories:** Non-custodial control plane · Cross-chain yield coordination · Liquidation
-protection · Inheritance & patrimony · Intent-based execution · FAssets / FXRP
-**L1s:** Flare · XRP Ledger — **L2s:** none — **Appchains:** none
-**Other open source ecosystems:** FAssets · FTSO · FDC · Flare Smart Accounts · Xaman · Kinetic ·
-Firelight · Sceptre · SparkDEX · DefiLlama
+## What Astryum solves, and how we approached this BUIDL
 
----
+**What Astryum solves.** One place where a person has everything they need to control on-chain capital — not a wallet, not a dashboard, but the layer above both that does the work: earn markets inside the app, strategies signed once that execute only within signed bounds, and family wealth held under rules a contract enforces. Capital management at a level normally reserved for private banking, available to anyone with a wallet, without ever asking for their keys.
 
-# Astryum
+**Where this came from.** Astryum began as a tool we built for ourselves — one screen to see our own capital and a way to act on it without six tabs open. It became a product when it was obvious that the gap we were closing for ourselves is the same one in front of millions of XRP holders. That origin is why it is opinionated about the things that actually annoy a user.
 
-**Non-custodial capital control for XRPFi — one interface that turns understanding into action, and
-every action into a transaction you sign yourself.**
+**Why we submitted this kind of BUIDL.** This hackathon was not on our roadmap. We were already building, already deployed on mainnet. We entered because **Bounty 1 is precisely our ground** — FXRP as an interoperable asset a person can hold, deploy, protect, inherit and unwind. Had the bounty been anything else, we would not be here. And where most entries are a broad demonstration of one layer, we did the opposite: a narrow vertical slice cutting through **every** layer — wallet, capital view, entry, risk, exit and family governance — thin but complete, with no placeholder in the path.
 
-## The problem, the user, and why Flare — in fifteen seconds
+**On dogfooding, precisely.** Our own capital runs through the rail, in small amounts, and we are deliberately not scaling that up yet. Two reasons, both honest. The contracts are unaudited, so we cap our own exposure exactly as we would ask anyone else to. And while the product is being judged partly on traction, putting our full balance to work would inflate the very counters we are asking you to read. **The numbers on our proof page are small because they are real, not because the product cannot do more.**
 
-**The user.** Someone holding XRP in Xaman who wants that capital to do something. There are
-millions of them and almost nothing built for them.
+**The path we are taking.** Two things earn traction, sequenced deliberately. First, arrival: interface and onboarding have to be one motion — a user who must understand the system before seeing their own money has already left. Second, action in one place: moving capital has to be simple, and every tool they need has to be there.
 
-**The problem.** For that person to earn on their XRP today, they must learn a second chain, install
-a second wallet, acquire a gas token they do not own, trust a bridge, find a lending market, and
-then notice a liquidation before it happens. Every tool that offers to remove that work asks for
-custody in exchange. **Astryum removes the work without removing the keys.**
+**Where this goes.** Abstraction without amputation. Most products that hide DeFi's complexity also take away its power — a simple screen, and no way left to automate or compose. We want the complexity gone and the capability intact: the first capital control plane operable with a single XRPL wallet. Personal and Legacy are the same wallet and the same interface — what changes is not the technology but the **governance**: one person deciding, or a family quorum deciding.
 
-**Why Flare, specifically.** Because this product cannot exist anywhere else. FAssets is what turns
-XRP into working collateral; the FDC is what turns an XRPL signature into a proof a contract can
-act on; Smart Accounts are what let an XRPL user operate on Flare **without ever holding FLR**; FTSO
-is what prices the risk. Remove any one of those four and there is no product left — not a degraded
-one, none. The full counterfactual, primitive by primitive, is the next section.
+**Principles.** *Free to see, paid to act.* We do not charge users to view, aggregate or monitor their capital — sight of your own money should never sit behind a paywall. Astryum earns two ways, both disclosed: a fee when it **composes** a transaction, on screen before anything is signed; and a share of the fees that volume generates at the venues users reach through us. **We are paid for volume, never for placement** — no protocol can buy a position or a ranking, because we do not rank and we do not recommend: we show protocol data with its source named, and the user decides. *Custody is a design failure, not a feature* — every convenience that seems to require it has a non-custodial construction available to anyone willing to build it. It is harder. It is the point.
 
 |  |  |
 |---|---|
 | **Where it runs** | **Flare Mainnet (chain 14) + XRPL Mainnet**, with real capital. Testnet is refused by the code at boot. |
-| **Bounty** | 1 — Interoperable Asset Products. FXRP is the working asset, not a demo asset. |
-| **The one flow to watch** | XRP in Xaman → FXRP → collateral on Kinetic → monitored position → unwound back to XRP. One signature in, one signature out. Proven on mainnet with real funds. |
-| **Proof** | Our own contracts deployed and verified on Flare mainnet, a family council that has executed real orders on-chain, and an FXRP round trip completed with real XRP. Addresses and verification commands below. |
+| **The one flow to watch** | XRP in Xaman → FXRP → collateral on Kinetic → monitored position → unwound back to XRP. One signature in, one signature out. Proven on mainnet. |
 | **The line** | Astryum never signs, never custodies, never executes. Every backend route is prepare-only. |
 | **New work** | 682 commits inside the program window — 70% of the repository's entire history. |
 
+## Who it serves — both ends of the curve
+
+- **The XRP holder who has never used DeFi.** One screen instead of six, one signature instead of a bridge sequence, every fee disclosed before the QR appears, and the exit shown at the same time as the entry.
+- **The experienced user who has lost the thread.** Unsigned calldata they can inspect, addresses resolved live on-chain, risk math computed rather than eyeballed, and a proof page that reads from the chain, not our database.
+- **The family with capital and no structure.** Inheritance that does not depend on a lawyer's goodwill, a custodian's solvency or an heir's discipline — Astryum Legacy, below.
+
+The beginner is protected by defaults; the expert is respected by transparency. **Astryum never becomes a counterparty.**
+
 ## Why XRPL and Flare specifically
 
-The honest test is the counterfactual — remove a primitive and see what stops working. Full version
-with the strongest evidence for each, in [FLARE_INTEGRATION.md](./FLARE_INTEGRATION.md).
+The honest test is the counterfactual — remove a primitive and see what stops working. Full version in [FLARE_INTEGRATION.md](./FLARE_INTEGRATION.md).
 
 | Primitive | Verdict | If you removed it |
 |---|---|---|
 | **Smart Accounts** | `ESSENTIAL` | No XRPL-native product — every user would need FLR first |
 | **FAssets / FXRP** direct minting | `ESSENTIAL` | Every entry dies; XRP never becomes working collateral |
-| **FDC** — direct-mint rail | `ESSENTIAL` | The mint is never released |
-| **FDC** — council bridge | `MEANINGFUL` | Astryum Legacy loses its whole governance model |
+| **FDC** — an XRPL signature becoming an action on Flare | `ESSENTIAL` | There is no product. Every signature in Astryum, Personal or Legacy, is made on XRPL; the attestation is what proves it happened and what carries the order it committed to. Without it nothing crosses — no mint, no position, no governance |
 | **FTSO** — sizing, trigger price, alerts | `ESSENTIAL` | Leverage sizing and liquidation triggers break |
 | **FCC / TEE** | absent | Nothing — we are not competing in that bounty and do not claim it |
 
-**Nothing here is a superficial REST call.** The only HTTP requests in the entire Flare path go to
-the FDC verifier and DA layer, which have no on-chain alternative — and they terminate in a Merkle
-verification inside a contract we wrote and deployed.
+**One primitive, two rails.** The same attestation type (`XRPPayment`, `0x08`) carries a user's mint on the Personal side and a council's order on the Legacy side, through different contracts and different relayers. And none of it is a superficial REST call: the only HTTP requests in the whole Flare path go to the FDC verifier and DA layer, which have no on-chain alternative, and they end in a Merkle verification inside a contract we wrote and deployed.
 
-Remove XRPL and the council disappears: the quorum, the master-key-off ceremony and the DID-anchored
-constitution are XRPL primitives, and there is no cheaper place to turn "N people agreed" into a
-fact a contract can verify. Neither chain is decoration.
+Remove XRPL and the council disappears too: the quorum, the master-key-off ceremony and the DID-anchored constitution are XRPL primitives, and there is no cheaper place to turn "N people agreed" into a fact a contract can verify.
 
-## What Is Astryum?
+## How the working model operates
 
-Astryum is a control plane for on-chain capital, built for XRP holders and for the XRPFi ecosystem
-forming around FAssets.
-
-It reads your positions across XRPL and Flare, shows them on one screen, composes the transactions
-those positions need, and hands them to your wallet unsigned. Every backend route is
-**prepare-only**: it returns an unsigned payload plus a fee and price disclosure, and stops.
-
-Instead of forcing a user across disconnected wallets, bridges, protocol front-ends, explorers and
-spreadsheets, Astryum connects every step inside one continuous surface:
-
-**See → Understand → Decide → Sign once → Verify → Unwind**
-
-Two products sit on the same engine:
-
-- **Astryum Personal** — one person, one account, capital that works.
-- **Astryum Legacy** — a family council, capital that cannot be sold.
-
-## The Problem We Solve
-
-Blockchain ecosystems ship strong infrastructure and leave the user holding the integration work.
-
-An XRP holder who wants to put capital to work faces:
-
-- Positions scattered across chains with no single view
-- A second chain to learn, a second wallet to install, a gas token they do not own
-- Bridges with their own trust assumptions
-- Protocol interfaces that assume you already know what a health factor is
-- Liquidation risk that is visible only if you go looking for it
-- Exit paths that are undocumented until you need one
-- Inheritance that has no on-chain answer at all
-
-Understanding the ecosystem is necessary. It is not sufficient. A user who has learned what FXRP is
-still cannot act on that knowledge without a tool that composes the transaction for them — and most
-tools that offer to do that ask for custody in exchange.
-
-**Astryum removes the integration work without removing the keys.**
-
-## Who It Serves — Both Ends of the Curve
-
-Astryum is deliberately built for two users at once, because in XRPFi they are the same person at
-different moments.
-
-**The XRP holder who has never used DeFi.** Holds XRP in Xaman, knows what yield is, and has been
-stopped by the fact that using it means learning a second chain, a second wallet and a bridge. They
-get one screen instead of six, one signature instead of a bridge sequence, plain-language
-disclosure of every fee before the QR appears, a security scan of the destination they did not have
-to request, and an exit path shown at the same time as the entry.
-
-**The experienced user who has lost the thread.** Positions across XRPL and Flare, spread over
-wallets, with no single place showing what they own or what is at risk. They get unsigned calldata
-they can inspect, contract addresses resolved live on-chain rather than copied from a document,
-receipt tokens never conflated with execution contracts, health-factor and trigger-price math
-computed rather than eyeballed, a preflight simulation of every call, and a public proof page that
-reads state from the chain instead of from our database.
-
-**The family with capital and no structure.** Wants inheritance that does not depend on a lawyer's
-goodwill, a custodian's solvency, or an heir's discipline. Astryum Legacy makes the rules something
-a contract enforces and a council governs.
-
-Neither user gives up their keys. The beginner is protected by defaults; the expert is respected by
-transparency. **In both cases the user's life in XRPFi gets measurably better, and in neither case
-does Astryum become a counterparty.**
-
-## How the Working Model Operates
-
-An XRPL user who has never held FLR can act on Flare. The mechanism is **Flare Smart Accounts +
-FAssets direct minting** (memo opcode `0xFE`):
+An XRPL user who has never held FLR can act on Flare. The mechanism is **Flare Smart Accounts + FAssets direct minting** (memo opcode `0xFE`):
 
 1. Astryum encodes the batch of Flare calls the user asked for into `userOpData`.
-2. It returns an **unsigned XRPL Payment** whose memo commits `keccak256(userOpData)`. The user
-   signs that single Payment in Xaman.
-3. Astryum's executor watches the FAssets Core Vault, requests an **FDC `XRPPayment` attestation**
-   (type `0x08`) for the validated transaction, and calls
-   `AssetManagerFXRP.executeDirectMintingWithData(proof, data)`.
-4. The contract accepts **only** the exact bytes the memo committed — `keccak256(_data)`, sender and
-   nonce all have to match. XRP becomes FXRP and the committed calls run inside the user's Personal
-   Account, atomically.
+2. It returns an **unsigned XRPL Payment** whose memo commits `keccak256(userOpData)`. The user signs that single Payment in Xaman.
+3. Astryum's executor watches the FAssets Core Vault, requests an **FDC `XRPPayment` attestation** (type `0x08`), and calls `AssetManagerFXRP.executeDirectMintingWithData(proof, data)`.
+4. The contract accepts **only** the exact bytes the memo committed — hash, sender and nonce all have to match. XRP becomes FXRP and the committed calls run inside the user's Personal Account, atomically.
 
-The executor is a dispatcher, not an authority. It pays gas and the FDC attestation fee from
-Astryum's own wallet, and has **zero discretion**: it either executes what the user signed, or the
-transaction reverts. Its key is environment-only and never touches user funds.
+The executor is a dispatcher, not an authority — the piece that does the most and decides the least. It pays gas and the attestation fee from Astryum's own wallet, keeps itself funded by swapping its disclosed fee through one allowlisted venue on fixed parameters, and has **zero discretion**: it either executes the exact bytes the user signed, or the transaction reverts. Its key is environment-only and never touches user funds. Full anatomy in `FLARE_INTEGRATION.md`.
+
+## The assistant layer — the AI compiles, the user signs
+
+Astryum has five conversational surfaces, and none of them can move money. That is not a policy we promise; it is how they are built.
+
+- **Product assistant** — a conversational manual and GPS of the app for people new to crypto. Public, no login, explains concepts and navigation. **It has no tools**, so it structurally cannot build a payload.
+- **Legacy discovery assistant** — helps a non-expert work out which inheritance setup fits what they want to protect. Public and stateless; the family's real names and constitution text never leave the browser.
+- **Portfolio assistant** — answers questions about the user's own data: positions, rules, tax events, capital summary. Forbidden by its own system contract from giving investment advice, naming a "best" protocol, or claiming it can execute anything.
+- **Strategy assistant** — turns natural language into strategy parameters. The model interprets intent; it does **not** compute the numbers — those come from tested, deterministic risk math with live rates — and it never builds or signs the payload.
+- **Agent workspace** — conversations, documents and rules, with MCP connectors.
+
+The rule across all of them: **the AI compiles, the user signs, deterministic logic executes.** The agent has zero unilateral discretion, and the public assistants are given no tools at all, so the constraint is enforced by construction rather than by prompt.
 
 ## Astryum Personal — the flagship flow, end to end
 
-**This is the one flow to follow if you only have time for one.** It is complete in both
-directions, it has run on mainnet with real funds, and it is what the demo video shows.
+**This is the one flow to follow if you only have time for one.** It is complete in both directions, it has run on mainnet with real funds, and it is what the demo video shows.
 
-**A:** the user holds XRP in Xaman and has never touched Flare.
-**B:** the user holds a working, monitored Flare position and can unwind it back to XRP in their own
-wallet.
+**A:** XRP in Xaman, never having touched Flare. **B:** a working, monitored Flare position that can be unwound back to XRP in the user's own wallet.
 
-1. **Connect.** Two doors only: Xaman for XRPL, MetaMask pinned to Flare (chain 14). Binding is
-   read-only, by signature. Nothing moves.
-2. **See.** The Capital Map puts balances and DeFi positions from both ecosystems on one screen,
-   priced live from FTSO. Watch-only works with any r-address.
-3. **Choose an entry.** The legs that are actually built:
-   - **E1** — XRP → FXRP → supplied as collateral, USDT0 borrowed on Kinetic ISO. One Xaman
-     signature.
-   - **E3** — XRP → FXRP → yield-bearing vaults (Firelight stXRP / earnXRP, ERC-4626).
-   - **E2** — FLR → WFLR → vote power delegated to an FTSO data provider. MetaMask, EVM direct.
-4. **Disclose and simulate.** Before the QR appears: live mint fee, executor fee, price source, the
-   borrow's disclosed exception, a KWYH/GoPlus scan of the target, and a preflight simulation of
-   every call. Fees visible before signing is an invariant, not a setting.
+1. **Connect.** Two doors only: Xaman for XRPL, MetaMask pinned to Flare (chain 14). Binding is read-only, by signature. Nothing moves.
+2. **See.** The Capital Map puts balances and DeFi positions from both ecosystems on one screen, priced live from FTSO. Watch-only works with any r-address.
+3. **Choose an entry.** The legs that are actually built: **E1** — XRP → FXRP → supplied as collateral, USDT0 borrowed on Kinetic ISO, one Xaman signature · **E3** — XRP → FXRP → yield-bearing ERC-4626 vaults (Firelight stXRP / earnXRP) · **E2** — FLR → WFLR → vote power delegated to an FTSO data provider, EVM direct.
+4. **Disclose and simulate.** Before the QR appears: live mint fee, executor fee, price source, and a preflight simulation of every call. Fees visible before signing is an invariant, not a setting.
 5. **Sign once, in Xaman.** The intent shows as *To sign → In flight* and is tracked to settlement.
-6. **Live.** The position appears with its health factor, and the risk math computes the **trigger
-   price** — the FXRP/USD level at which it gets liquidated — plus the exact USDT0 repayment that
-   restores a target health factor.
-7. **Protect.** `A1` builds the unsigned `[approve, repayBorrowBehalf]` the user signs in MetaMask
-   to lift the health factor. The shortfall is computed, not estimated.
-8. **Exit, step by step.** Withdraw USDT0 → repay in full → withdraw FXRP collateral → unmint FXRP
-   back to XRP at the user's own XRPL address. Proven end-to-end on mainnet with real funds:
-   ~10 XRP returned in about two minutes.
+6. **Live.** The position appears with its health factor, and the risk math computes the **trigger price** — the FXRP/USD level at which it gets liquidated — plus the exact repayment that restores a target health factor.
+7. **Protect.** `A1` builds the unsigned `[approve, repayBorrowBehalf]` the user signs to lift the health factor. The shortfall is computed, not estimated.
+8. **Exit, step by step.** Withdraw USDT0 → repay in full → withdraw FXRP collateral → unmint FXRP back to XRP at the user's own XRPL address. Proven on mainnet with real funds: ~10 XRP returned in about two minutes.
 
-Every step returns unsigned calldata. The user's key signs; Astryum's never does.
+Every step returns unsigned calldata. The user's key signs; ours never does.
+
+### Proof of the rail — one operation, two chains
+
+A single real operation, published live on our proof page and verifiable on both ledgers:
+
+| | |
+|---|---|
+| **XRPL Payment the user signed** | `B196DA6ED1C575DB3311A8F8268F8D50A174E372A635BFB7830C1A3FE95F470F` |
+| **Its memo** | `FE00000000000003 0D40 C49FA9F1…A529` — opcode `FE`, then the `keccak256` of the exact Flare calls |
+| **The Flare transaction that executed it** | `0xa03bed993626b924c18f0267f54d5d91d53637ae7b12bccfadbe1fc299d13ac5` |
+| **Executor that delivered the proof** | `0xD8767C3C4dC0A1E13F23368B172a5ff78B54CecE` |
+
+Open the XRPL transaction, read the memo, hash the `userOpData` we publish, confirm it matches — then open the Flare transaction and watch those exact bytes execute. **That is the entire trust model in two clicks:** the user's signature commits the bytes, and nothing else can ever run.
 
 ## Astryum Legacy — A to B
 
 **A:** a family with capital and no structure.
-**B:** an on-chain estate whose principal cannot be sold — not by the founder, not by Astryum, not
-by a future heir — while its yield flows to named people under a constitution the family wrote.
+**B:** an on-chain estate whose principal cannot be sold — not by the founder, not by Astryum, not by a future heir — while its yield flows to named people under a constitution the family wrote.
 
 Six gated steps:
 
 1. **Account** — the family's XRPL account.
-2. **Council** — a `SignerList` multisig. Astryum prepares the unsigned `SignerListSet`; the members
-   sign.
-3. **Rehearsal** — the council signs a real, harmless transaction. A quorum that cannot act in a
-   rehearsal will not act in a crisis.
-4. **Door closed** — `lsfDisableMaster` set, no RegularKey. From here, **a valid transaction from
-   that account is proof of quorum.** Everything downstream rests on this.
-5. **Constitution** — the family's text, SHA-256'd and anchored on XRPL via `DIDSet`. The hash
-   becomes `constitutionRef`. No anchor, no cage: the text precedes the code.
-6. **Capital** — the council signs **one** XRPL Payment whose memo commits a batch that creates the
-   cage (`LegacyStackFactory.create`), approves, and deposits FXRP into a vault whose address is
-   knowable before it exists (CREATE2). The factory verifies `msg.sender` is the council's own
-   Personal Account — only a quorum can bring its own cage into the world. One Legacy, one cage.
+2. **Council** — a `SignerList` multisig. Astryum prepares the unsigned `SignerListSet`; the members sign.
+3. **Rehearsal** — the council signs a real, harmless transaction. A quorum that cannot act in a rehearsal will not act in a crisis.
+4. **Door closed** — `lsfDisableMaster` set, no RegularKey. From here, **a valid transaction from that account is proof of quorum.** Everything downstream rests on this.
+5. **Constitution** — the family's text, SHA-256'd and anchored on XRPL via `DIDSet`, becoming `constitutionRef`. No anchor, no cage: the text precedes the code.
+6. **Capital** — the council signs **one** XRPL Payment whose memo commits a batch that creates the cage (`LegacyStackFactory.create`), approves, and deposits FXRP into a vault whose address is knowable before it exists (CREATE2). The factory verifies `msg.sender` is the council's own Personal Account — only a quorum can create its own cage.
 
-That signature deliberately does **not** put the capital to work. Locking family capital away and
-deciding where it works are two decisions, and they get two signatures.
+That signature deliberately does **not** put the capital to work. Locking family capital away and deciding where it works are two decisions, and they get two signatures.
 
 ### Governing it afterwards — "XRPL governs" made literal
 
@@ -232,8 +142,7 @@ XrplCouncilBridge.execute(proof, orderData)   ← permissionless: the authority 
 LegacyVault.<councilFunction>(...)            ← the cage decides what that call may do
 ```
 
-The bridge holds no funds and has no owner with power. Double anti-replay: consumed transaction id
-**and** a sequential nonce.
+The bridge holds no funds and has no owner with power. Double anti-replay: consumed transaction id **and** a sequential nonce.
 
 ### What the code enforces — not the policy, the code
 
@@ -246,67 +155,54 @@ The bridge holds no funds and has no owner with power. Double anti-replay: consu
 | Migration only to a successor with the same council and the same constitution | the code |
 | Who is a payee, which venue gets approved, when direction is ceded | the council's quorum |
 
-Every governance mutation must present the current `constitutionRef` and emits it, so parameters
-stay chained to the version of the text they implement.
+Every governance mutation must present the current `constitutionRef` and emits it, so parameters stay chained to the version of the text they implement.
 
-### Limits stated, not hidden
+### Proof of the council circuit
 
-The FDC attests *transactions, not ledger state*: no contract can prove on-chain that the council
-account is multisig-only. That is a **ceremony fact** — publicly auditable on XRPL, re-verified at
-every rehearsal. And the stack is immutable: a deployed bug is not patched, it is migrated away
-from, under a 30-day timelock with verified continuity. The product says both out loud, and the
-cage's irreversibility sits behind an explicit four-checkbox acceptance enforced server-side, with
-the accepted text hashed into the audit log.
+| | |
+|---|---|
+| **Council anchor (XRPL)** | `rK4tsuGhmbhaNQuvucL8n1RKLtARBCp3qm` |
+| **Constitution hash on-chain** | `0x7884821f6b8c52495ba5fa8a0970550b1964a33c6e7b7564428bc860e40efc36` |
+| **Orders executed through the FDC circuit** | **4** |
+| **A real order — the quorum's XRPL signature** | `720C2D1D8EC2DC79B413F8FF28E6B3F3662F84B09AC47FC2AAE73A9206B898D4` |
+| **The same order executing on Flare** | `0x241c4efd4f97b026f32167ad0989bb1223ca0f917df3d1ec139295356ab38e1b` |
+
+## A regulatory architecture, chosen on purpose
+
+Astryum's architecture was designed to stay outside the CASP perimeter under MiCA — not discovered to be outside it afterwards. Prepare-only is the reason: the system composes unsigned payloads and stops, so custody (Art. 3(1)(16)(1)) and execution of orders on behalf of clients (Art. 3(1)(16)(5)) never arise, because Astryum never holds a user asset and never transmits a signed order. The assistants return factual, deterministic context with a mandatory disclaimer, keeping them clear of investment advice (Art. 3(1)(16)(8)). The only place a regulated CASP touches user capital is the fiat on-ramp, where a licensed third party runs its own flow.
+
+Those boundaries are written down as red lines in the repository, mapped article by article, and code that changes one must update that document in the same pull request. It is not a disclaimer bolted on at the end — it is a constraint the codebase is built against.
 
 ## Bounty 1 — Interoperable Asset Products
 
-FXRP is not a demonstration asset in Astryum. It is the working asset.
+FXRP is not a demonstration asset in Astryum. It is the working asset: minted from real XRP through FAssets direct minting, supplied as collateral on Kinetic, deposited into ERC-4626 vaults, locked inside an inheritance vessel a family council governs from XRPL, and redeemed back to XRP at the user's own r-address. The interoperability *is* the product — the user never leaves Xaman, never holds FLR, and never stops owning their keys.
 
-It is minted from real XRP through FAssets direct minting, supplied as collateral on Kinetic,
-deposited into ERC-4626 vaults, locked inside an inheritance vessel a family council governs from
-XRPL, and redeemed back to XRP at the user's own r-address. The interoperability *is* the product:
-the user never leaves Xaman, never holds FLR, and never stops owning their keys.
-
-Our contribution to the bounty is the **utility layer** for interoperable assets — the tooling that
-makes an FAsset something you can hold, deploy, monitor, protect, inherit and unwind, with every
-step composed for you and signed by you.
+Our contribution is the **utility layer** for interoperable assets.
 
 ## What existed before the program, and what was built during it
 
 We brought an existing project and we say so plainly.
 
-**Before June 29:** the chain-agnostic core — canonical intent engine, policy guard, capital
-aggregation, multi-wallet coordination, the prepare-only boundary. Read-heavy, EVM-and-XRPL
-generic, with **no Flare execution path**.
+**Before June 29.** The chain-agnostic core — intent engine, policy guard, capital aggregation, multi-wallet coordination, the prepare-only boundary — plus a first Flare layer we had built and then parked: WFLR wrapping, FTSO delegation and reward claiming, the Sceptre adapter, and the connector path they ran through. What did not exist was the part that mattered: no FAssets, no Smart Accounts, no FDC — and so no way for an XRP holder to act on Flare at all.
 
-**Built during Flare Summer Signal — 682 commits between June 29 and August 14, 70% of the
-repository's entire history:**
+**What the program changed** was not that we started building on Flare, but that FAssets, the FDC and Smart Accounts turned out to be exactly the tools Astryum needed. That is when the parked work became a product.
 
-- The whole `0xFE` rail: encoder, handoff store, and an automated executor with FDC attestation
-  caching, a persisted daily fee budget, fuel checks, permanent-abort detection, and parking of
-  operations that can never succeed
-- Every Flare venue adapter that ships: Kinetic ISO (supply, borrow, repay, withdraw),
-  Firelight / earnXRP ERC-4626 vaults, Sceptre, plus exit-queue accounting so capital sitting in a
-  14-day unstake window is visible instead of invisible
-- Liquidation protection: health-factor math, trigger price, derisk shortfall, and the unsigned
-  repay leg
+**Built during Flare Summer Signal — 682 commits between June 29 and August 14, 70% of the repository's entire history:**
+
+- The whole `0xFE` rail: encoder, handoff store, and an automated executor with FDC attestation caching, a persisted daily fee budget, fuel checks, permanent-abort detection, and parking of operations that can never succeed
+- The venue adapters the product actually runs on: Kinetic ISO (supply, borrow, repay, withdraw) and Firelight / earnXRP ERC-4626 vaults, plus exit-queue accounting so capital sitting in a 14-day unstake window is visible instead of invisible
+- Liquidation protection: health-factor math, trigger price, derisk shortfall, and the unsigned repay leg
 - The full FXRP round trip — mint proven, and **unmint back to XRP proven end-to-end on mainnet**
-- All of Astryum Legacy: the vault, the XRPL council bridge, the factory, the six-step ceremony,
-  constitution anchoring, the disclosure gate, and the governance surface
-- Two mainnet contract deployments with verified sources, and a real council ceremony executed
-  on-chain
-- Production operations: a sentinel running 13 checks every five minutes that alerts only on state
-  transitions, a public proof page reading contract state live, and an admin surface for every
-  operational gauge
-- Bilingual Spanish/English product surface, and a private beta with an approval gate
+- All of Astryum Legacy: vault, XRPL council bridge, factory, the six-step ceremony, constitution anchoring, the disclosure gate and the governance surface — plus two mainnet deployments with verified sources and real council orders executed on-chain
+- The assistant layer: five conversational surfaces, none with the ability to sign
+- Production operations: a sentinel running 18 automated checks every five minutes that alerts only on state transitions, a public proof page reading contract state live, and an admin surface for every operational gauge
+- Bilingual Spanish/English product surface, and an open beta
 
-**Ported and improved:** the generic intent engine now emits Flare Smart Account userOps; the price
-layer, previously vendor-fed, now reads FTSO on-chain and refuses to proceed on a stale price.
+**Ported and improved:** the generic intent engine now emits Flare Smart Account userOps; the price layer, previously vendor-fed, now reads FTSO on-chain and refuses to proceed on a stale price.
 
 ## Deployments and proof of operation
 
-**Flare Mainnet — chain ID 14.** Mainnet is enforced by the code itself: the backend throws at boot
-rather than start against a testnet (`backend/src/config/chainConfigs.ts`).
+**Flare Mainnet — chain ID 14.** Mainnet is enforced by the code: the backend throws at boot rather than start against a testnet.
 
 | Contract | Address | Creation transaction | Block |
 |---|---|---|---|
@@ -314,210 +210,93 @@ rather than start against a testnet (`backend/src/config/chainConfigs.ts`).
 | `LegacyVaultDeployer` | `0x2717A6Aa5162f8c5e5D7574F112eFC9438Cb66f6` | born inside the factory's constructor | 66707923 |
 | `XrplCouncilBridge` | `0x02aE9FcB76768e42B8d3ED9fe842238A6616b26F` | `0xde33f4d1b2f26d3857c2f48c25ca4459f3707b5cd7fcd39b24e5b2328228da39` | 65664695 |
 | `LegacyVault` | `0xc8379C79779cCe3B738424892709fE0d4339E3b1` | `0x5614c15ef49fa454f9af6eec2e522b05357243eb09cbad2ef38558d7cb7302c7` | 65664695 |
-| `bind(vault)` — after this call the deployer holds no power | — | `0x98d0a892f685905353ee6e552c7c0062ffb4a629a921aae1d6ccf51d8471fea0` | 65664695 |
 
 Sources verified on the explorer. No proxy, no upgrade path, every constructor parameter eternal.
 
 **Verify it live, in thirty seconds, trusting nobody:**
 
 ```bash
-RPC=https://flare-api.flare.network/ext/C/rpc
-cast call 0xF93A8A0bd93e95514fF02285349b0b1c1a5a3e0a "DEPLOYER()(address)"  --rpc-url $RPC
-cast call 0xF93A8A0bd93e95514fF02285349b0b1c1a5a3e0a "SOURCE_ID()(bytes32)" --rpc-url $RPC
+cast call 0xF93A8A0bd93e95514fF02285349b0b1c1a5a3e0a "SOURCE_ID()(bytes32)" \
+  --rpc-url https://flare-api.flare.network/ext/C/rpc
 ```
 
-The second call returns `0x5852500000…` — ASCII **`XRP`**. That immutable value is the proof this is
-the mainnet factory: a testnet factory would read `testXRP` and would produce bridges incapable of
-verifying a single real proof. It cannot be changed, and every bridge born from this factory
-inherits it.
+It returns `0x5852500000…` — ASCII **`XRP`**. That immutable value proves this is the mainnet factory: a testnet one would read `testXRP`. It cannot be changed, and every bridge born from this factory inherits it.
 
-**Live application state** — contract addresses and settled-operation counters read from the chain,
-not from a database: **https://astryum.xyz/proof**
-
-**XRPL Mainnet** — councils, constitutions anchored via `DIDSet`, and all user signing through
-Xaman. Aggregate proof of operation is published on the proof page; per-transaction ledger
-references identify our own accounts and are available to judges on request rather than published.
-
-**Coston2** is used for contract iteration only. Nothing that touches a family's capital ships from
-a testnet rehearsal alone.
-
-## Testing and Validation
-
-Astryum was validated with real capital on mainnet, not only in a development environment.
-
-- **21 settled operations** in the public counter — real transactions with real value, not a
-  scripted demo
-- **4 Legacy council orders executed on-chain** through the FDC circuit
-- A real council ceremony run end-to-end on mainnet: quorum signature → FDC attestation → bridge →
-  vault call completed
-- FXRP mint and unmint both proven end-to-end with real XRP
-- **58 Foundry tests** on the contracts — 22 vault, 18 bridge, 15 factory, 3 fuzzed invariants
-- **83 tests** across the Flare connectors and adapters
-- Private beta with invited users behind an approval gate
-- Founder capital only, in small amounts, until an external audit — a stated policy, not a
-  discovered limitation
-
-We deployed to mainnet knowing what it costs: every write through the FDC rail carries an
-attestation fee, and an early bug burned real FLR retrying operations that could never succeed. The
-fix — a pre-payment guard, attestation caching, a persisted daily budget and permanent-abort
-parking — is in the repository, and the reason it exists is in the commit history. That is what
-running in production looks like.
+**Live application state**, read from the chain rather than from a database: **https://astryum.xyz/proof**
 
 ## Verify every claim
 
-We would rather be checked than believed. Each claim in this document has something you can open.
+We would rather be checked than believed.
 
 | Claim | How to check it, without asking us |
 |---|---|
-| The contracts are ours, deployed and verified | Addresses and creation transactions in the table above; sources verified on the explorer |
-| This is mainnet, not a testnet dressed up | `cast call … "SOURCE_ID()(bytes32)"` returns ASCII `XRP`. It is `immutable`, and every bridge born from the factory inherits it |
+| The rail really works end to end | Follow the two transaction hashes above across XRPL and Flare, and hash the memo yourself |
+| The executor is real and active | `getTransactionCount` on `0xD876…CecE` — **325 transactions signed on Flare** |
 | The bridge really verifies FDC proofs | `XrplCouncilBridge.sol:140-141` resolves `FdcVerification` from the Flare Contract Registry on every call. 18 tests, one per guard |
 | Only an XRPL quorum can create its own vault | `LegacyStackFactory.sol:229-231` reverts unless `msg.sender` is the council's own Personal Account, resolved from `MasterAccountController` |
-| The cage cannot release principal | Read `LegacyVault` on the explorer: there is no `withdrawPrincipal()`, no `transferTo(arbitrary)`, no proxy |
-| The vault's rules match the family's text | Read `constitutionRef()` and `feeSchedule()` on-chain and compare them with the anchored constitution |
-| Astryum does not sign for users | Every `/prepare` route returns unsigned payloads; `assertNoCustodialKeys()` refuses to boot if a user key is present in the environment |
-| Operations really settled | Live counters on https://astryum.xyz/proof, read from the chain rather than from our database |
-| The tests exist and pass | `cd contracts && forge test` → 58 |
-| The work was done in the program window | `git log --since=2026-06-29 --until=2026-08-15 --oneline \| wc -l` → 682 of 976 total |
+| The cage cannot release principal | Read `LegacyVault` on the explorer: no `withdrawPrincipal()`, no `transferTo(arbitrary)`, no proxy |
+| Astryum does not sign for users | Every `/prepare` route returns unsigned payloads; `assertNoCustodialKeys()` refuses to boot if a user key is in the environment |
+| The work was done in the program window | `git log --since=2026-06-29 --until=2026-08-15 --oneline \| wc -l` → 682 of 976. `forge test` → 58 |
 
 ## What is real, what is trusted, and what is not finished
 
-The most useful thing we can give a judge is an honest map of our own maturity.
+**Real — exercised on mainnet with real value:** the `0xFE` rail end to end (XRP → FXRP → position), FXRP redemption back to XRP at the user's own r-address, and the council circuit in full — quorum signature → FDC attestation → bridge → vault call. Our executor has signed 325 transactions on Flare, all checkable on-chain.
 
-**Real — exercised on mainnet with real value:**
+**Built and tested, not all of it exercised on mainnet yet.** Every operation on the `0xFE` rail costs real XRP and a real FDC attestation fee, so we prioritised proving the paths that matter — entry, protection, exit, redemption and the council circuit — rather than touching every route once for show. What has not run is not disguised: settlement state is machine-gated against on-chain confirmation, so the product cannot paint a green check it has not earned.
 
-- The `0xFE` rail end to end: XRP → FXRP → position on Flare. Our executor has signed 274
-  transactions on Flare across the program.
-- FXRP redemption back to XRP at the user's own r-address.
-- The council circuit in full: quorum signature → FDC attestation → bridge → vault call. Four
-  orders executed on-chain, in both a synchronous ceremony and an asynchronous signing tray.
-- 21 settled operations in the public counter.
+**Trusted rather than enforced — the three we cannot code away:**
 
-**Built and tested, but not yet exercised on mainnet.** Of the constructors that have a live surface
-in the app, 14 have run with real money and 20 have not. Each `0xFE` operation costs real XRP plus
-an FDC attestation fee, with a hard ceiling of roughly four per day across the whole system, so
-exercising everything is a question of budget and calendar rather than readiness. The ones that have
-not run are not disguised: the product does not paint a green check it has not earned, and
-settlement state is machine-gated against on-chain confirmation.
-
-**Trusted rather than enforced — the three dependencies we cannot code away, stated plainly:**
-
-1. **That a council's XRPL account is genuinely multisig-only.** The FDC attests transactions, not
-   ledger state, so no contract can prove it. It is publicly auditable on XRPL and re-verified at
-   every rehearsal — but it is a ceremony fact, not a code fact.
+1. **That a council's XRPL account is genuinely multisig-only.** The FDC attests transactions, not ledger state, so no contract can prove it. Publicly auditable on XRPL and re-verified at every rehearsal — but a ceremony fact, not a code fact.
 2. **The FDC's attestation providers.** We verify the Merkle proof; we do not verify the providers.
-3. **Our executor being alive.** It cannot steal, redirect or alter anything — the contract accepts
-   only the exact bytes the user signed — but if it stops, a signed operation waits instead of
-   completing. That is a liveness dependency, not a custody one, and removing it is on the roadmap.
+3. **Our executor being alive.** It cannot steal, redirect or alter anything, but if it stops a signed operation waits instead of completing. A liveness dependency, not a custody one — removing it is on the roadmap.
 
-**Not finished:**
+**Not finished:** the contracts are **unaudited**, and external review before third-party capital is the first item on the roadmap. Principal can leave the cage only by migrating to a successor vessel under a 30-day timelock — the governed release path is designed, not built. Six tests are red across three suites, two because they make real network calls: documented rather than skipped.
 
-- The contracts are **unaudited**. External review before any third-party capital is a stated
-  policy, and it is the first item on the roadmap.
-- Principal can leave the cage only by migrating to a successor vessel. The governed release path is
-  designed, not built.
-- Six tests are red across three suites, two of them because they make real network calls. Known
-  since before the program window, documented rather than quietly skipped.
-- The application is in **private beta** behind an approval gate.
+**Nothing here is mocked.** Figures come from on-chain reads or from a protocol's own API with the source named; when a value cannot be fetched, the product says so instead of substituting an estimate.
 
-**Nothing here is mocked.** Figures in the product come from on-chain reads or from a protocol's own
-API with the source named; when a value cannot be fetched, the product says so instead of
-substituting an estimate.
+## How Astryum helps Flare
 
-## How Astryum Helps Flare
+Turning FXRP from a bridged token into working capital with a visible round trip, and bringing XRPL users onto Flare **without requiring them to acquire FLR**. Exercising FAssets, FDC, Smart Accounts and FTSO together in one production flow. Demonstrating that FDC can carry **governance**, not only price and payment data.
 
-- Turns FXRP from a bridged token into working capital with a visible round trip
-- Brings XRPL users onto Flare **without requiring them to acquire FLR**
-- Exercises FAssets, FDC, Smart Accounts and FTSO together in one production flow
-- Sends better-informed users to Flare protocols — Kinetic, Firelight, Sceptre — with the risk
-  already disclosed
-- Demonstrates that FDC can carry **governance**, not only price and payment data
-- Makes exit paths and exit queues legible, which raises trust in the whole ecosystem
-- Serves the Spanish-speaking market in its own language
-- Proves a non-custodial architecture that a regulated European entity can operate
+## Where FLEC Hub fits — same funnel, opposite end
 
-## Where FLEC Hub Fits — Same Funnel, Opposite End
+FLEC Hub, also submitted here, takes a Spanish-speaking newcomer from zero to *understanding* an interoperable asset. Astryum begins where that journey ends — and also serves the user who never took it. **Education without a destination is a lesson; a destination without education is an empty product.**
 
-FLEC Hub, also submitted to this hackathon, takes a Spanish-speaking newcomer from zero to
-*understanding* an interoperable asset: learn what FAssets and FXRP are, prepare a wallet safely,
-obtain test FXRP, use it inside a real application, verify the result on-chain.
+## Business model
 
-Astryum begins where that journey ends — and also serves the user who never took it.
+Astryum has **no token**. Revenue is a disclosed service fee — never float, never spread on custody.
 
-FLEC Hub's evidence is that the barrier to FAssets adoption is comprehension, not capital.
-Astryum's evidence is that comprehension alone does not move capital: the tooling on the other side
-has to be worth arriving at, and it has to work for people who arrive without the lesson.
+- **Composition fee**, shown before the user signs. Fee disclosure is an invariant of the codebase, not a setting. The executor runs at cost: the fee covers the FDC attestation and gas, priced live from FTSO.
+- **Venue revenue share** — protocols receiving volume through Astryum share part of the fees that volume generates. Paid for volume, never for placement, and disclosed like every other cost.
+- **Protocol fee hook in Astryum Legacy** — capped at 10% of realized yield by the constructor, default 0, eternal once deployed. The family's own lineage cut always comes first.
 
-**Education without a destination is a lesson. A destination without education is an empty
-product.** Flare needs both, and the handoff is a concrete, buildable path: *learn on Coston2 → act
-on mainnet.* Two independent teams, from opposite ends of the same funnel, arrived at the same
-conclusion about what XRPFi is missing.
+Astryum's own revenue is the only money Astryum ever signs for.
 
-## Business Model
+## Roadmap and next steps
 
-Astryum has **no token**. Revenue is a disclosed service fee, never float, never spread on custody.
+Direction, not dates. Our objective after this program is a **Flare ecosystem grant**, and we are building toward that application rather than toward a prize. We say it plainly because it is the honest answer to "what happens after August": **we were going to build this anyway.** A grant would change the speed, not the direction.
 
-- **Execution fee**, shown before the user signs. Fee disclosure is an invariant of the codebase,
-  not a setting.
-- **Executor run at cost** — the fee covers the FDC attestation and gas, priced live from FTSO.
-- **Protocol fee hook in Astryum Legacy** — capped at 10% of realized yield by the constructor,
-  default 0, and eternal once deployed. The family's own lineage cut (10–40%, chosen by the quorum)
-  always comes first.
-- **Partner revenue** from venues and fiat on-ramps, disclosed at the point of use.
-- **B2B potential**: the same prepare-only control plane serves family offices, wealth advisers and
-  protocols that need a non-custodial front end they do not have to build.
-
-Astryum's own revenue is the only money Astryum ever signs for. User funds are never in that path.
-
-## Roadmap
-
-Direction, not dates. Full version in [VISION.md](./VISION.md).
-
-1. **External audit of the Legacy contracts** before any third-party capital enters —
-   non-negotiable, already stated in the repository
-2. **The release vessel** — a governed path for principal to leave the cage under conditions the
-   constitution defines. Today principal can only migrate to a successor; that is deliberate, and
-   it is not yet complete as a product
-3. **Watch-only by r-address**, so anyone can see their capital before trusting anything with a
-   signature
+1. **External audit of the Legacy contracts** before any third-party capital enters — non-negotiable
+2. **The release vessel** — a governed path for principal to leave the cage under conditions the constitution defines. Today it can only migrate to a successor: deliberate, and not yet complete
+3. **Watch-only by r-address**, so anyone can see their capital before trusting anything with a signature
 4. **More FAssets and more venues** as they reach mainnet, each gated behind its own risk scanner
-5. **Conditional orders with no delegated keys** — deterministic intents the user signs once,
-   executed permissionlessly, with limits enforced on-chain. The agent compiles; the user signs;
-   trustless logic executes inside signed bounds
-6. **Portable credentials on XRPL** for verifiable eligibility without Astryum ever holding personal
-   data
-7. **Spanish-first onboarding partnerships**, including the FLEC Hub handoff
+5. **Conditional orders with no delegated keys** — the agent compiles, the user signs, trustless logic executes inside signed, on-chain-enforced bounds
+6. **Portable credentials on XRPL** — verifiable eligibility without us holding personal data
 
-## Stack
+**Stack:** TypeScript / Node · Next.js · Solidity 0.8.24 + Foundry · Postgres · xrpl.js · ethers v6. Every DeFi surface sits behind a feature flag and a per-jurisdiction geofence.
 
-TypeScript / Node (Express) backend · Next.js frontend · Solidity 0.8.24 + Foundry · Prisma /
-Postgres · xrpl.js · ethers v6 · Xaman for XRPL signing, MetaMask for EVM. Every DeFi surface sits
-behind a feature flag and a per-jurisdiction geofence.
-
-## Demo and Project Links
+## Demo and project links
 
 - **Live application:** https://astryum.xyz
-- **Public proof page:** https://astryum.xyz/proof — contract addresses and settled-operation
-  counters, read live from the chain
+- **Public proof page:** https://astryum.xyz/proof
 - **Demo video:** *[pending]*
 - **Repository:** *[pending]*
 - **X:** https://x.com/Astryum_
-- **Judge access:** *[pending — the app is in private beta behind an approval gate; a pre-approved
-  account or an open-gate window must be stated here or judges cannot get in]*
 
-## Safety Notice
+## Safety notice
 
-Astryum operates on **mainnet with real assets**. It never requests a seed phrase or a private key,
-never holds user funds, and never signs on a user's behalf. Every transaction is signed by the user
-in their own wallet.
+Astryum operates on **mainnet with real assets**. It never requests a seed phrase or a private key, never holds user funds, and never signs on a user's behalf. Yield figures are presented as **protocol data with a named source**, never as an offer, a promise or a guarantee by Astryum.
 
-Yield figures are presented as **protocol data with a named source**, never as an offer, a promise
-or a guarantee by Astryum.
+The Legacy contracts are **immutable and unaudited**. Until an external audit, only founder capital in small amounts is in scope, and the cage's irreversibility must be explicitly accepted before any principal enters.
 
-The Legacy contracts are **immutable and unaudited**. A deployed bug is not patched — it is migrated
-away from, under a 30-day timelock with verified continuity. Until an external audit, only founder
-capital in small amounts is in scope, and the cage's irreversibility must be explicitly accepted
-before any principal enters, with the accepted text hashed into an audit log.
-
-DeFi carries risk of loss, including total loss. Astryum reduces the risk of *operating* — mistakes,
-blind spots, missed liquidations — not the risk of the underlying markets or protocols.
+DeFi carries risk of loss, including total loss. Astryum reduces the risk of *operating* — mistakes, blind spots, missed liquidations — not the risk of the underlying markets or protocols.
