@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Astryum - Plataforma de gestión DeFi completa",
   "author": "Astryum Team",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "workspaces": [
     "frontend",

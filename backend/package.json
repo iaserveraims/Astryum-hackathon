@@ -140,8 +140,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/astryum-backend.git"
+    "url": "git+https://github.com/iaserveraims/Astryum-hackathon.git"
   },
   "author": "Astryum Team",
-  "license": "MIT"
+  "license": "SEE LICENSE IN LICENSE"
 }
