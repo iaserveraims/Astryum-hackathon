@@ -6,11 +6,11 @@
  *
  * Revenue model:
  *   - ENSO_FEE_BPS (default 15 = 0.15%) embedded in every route/bundle request.
- *   - Fee goes directly to DEFIBRO_FEE_WALLET on-chain — Astryum never holds funds.
+ *   - Fee goes directly to ASTRYUM_FEE_WALLET on-chain — Astryum never holds funds.
  *   - disclosedToUser: true — always disclosed before user signs.
  *
  * Regulatory invariants (never remove):
- *   authorization.defibroRelays: false
+ *   authorization.astryumRelays: false
  *   referralAttribution.disclosedToUser: true
  *   Astryum never calls sendTransaction / broadcastTransaction
  *
@@ -100,8 +100,8 @@ export class EnsoProvider implements IProvider {
     const raw = parseInt(process.env.ENSO_FEE_BPS ?? String(DEFAULT_FEE_BPS), 10);
     return isNaN(raw) ? DEFAULT_FEE_BPS : raw;
   }
-  private get feeWallet(): string { return process.env.DEFIBRO_FEE_WALLET ?? ''; }
-  private get referralCode(): string { return process.env.DEFIBRO_ENSO_REFERRAL_CODE ?? ''; }
+  private get feeWallet(): string { return process.env.ASTRYUM_FEE_WALLET ?? ''; }
+  private get referralCode(): string { return process.env.ASTRYUM_ENSO_REFERRAL_CODE ?? ''; }
 
   private headers(): Record<string, string> {
     const h: Record<string, string> = {
@@ -387,7 +387,7 @@ export class EnsoProvider implements IProvider {
 
   /**
    * Wraps getBundleCalldata result into a full IntentPayload.
-   * authorization.defibroRelays is always false.
+   * authorization.astryumRelays is always false.
    */
   async prepareBundle(params: EnsoBundleParams): Promise<IntentPayload> {
     const bundle = await this.getBundleCalldata(params);
@@ -410,7 +410,7 @@ export class EnsoProvider implements IProvider {
         action: params.actions.length === 1 ? params.actions[0].action : 'bundle',
         protocol: 'enso',
         description: `Enso atomic bundle [${actionSummary}]. Fee: ${(this.feeBps / 100).toFixed(2)}%`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
 
@@ -420,14 +420,14 @@ export class EnsoProvider implements IProvider {
         attributionBps: this.feeBps,
         disclosedToUser: true,
         disclosureText:
-          `Astryum fee: ${(this.feeBps / 100).toFixed(2)}% → ${this.feeWallet.slice(0, 8) || 'DEFIBRO_FEE_WALLET'}… ` +
+          `Astryum fee: ${(this.feeBps / 100).toFixed(2)}% → ${this.feeWallet.slice(0, 8) || 'ASTRYUM_FEE_WALLET'}… ` +
           '(embedded in Enso calldata, goes directly to Astryum fee wallet)',
       },
 
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 

@@ -7,11 +7,11 @@
  *
  * Revenue model:
  *   - SQUID_FEE_BPS (default 15 = 0.15%) passed as `feeBps` in every request.
- *   - Squid routes the fee to DEFIBRO_FEE_WALLET via `integratorAddress`.
+ *   - Squid routes the fee to ASTRYUM_FEE_WALLET via `integratorAddress`.
  *   - disclosedToUser: true — always disclosed before user signs.
  *
  * Regulatory invariants (never remove):
- *   authorization.defibroRelays: false
+ *   authorization.astryumRelays: false
  *   referralAttribution.disclosedToUser: true
  *   Astryum never calls sendTransaction / broadcastTransaction
  *
@@ -155,11 +155,11 @@ export class SquidRouterProvider implements IProvider {
   }
 
   private get feeWallet(): string {
-    return process.env.DEFIBRO_FEE_WALLET ?? '';
+    return process.env.ASTRYUM_FEE_WALLET ?? '';
   }
 
   private get integratorId(): string {
-    return process.env.SQUID_INTEGRATOR_ID ?? 'defibro';
+    return process.env.SQUID_INTEGRATOR_ID ?? 'astryum';
   }
 
   private headers(): Record<string, string> {
@@ -349,7 +349,7 @@ export class SquidRouterProvider implements IProvider {
 
   /**
    * Wraps a getQuote result into a full IntentPayload.
-   * authorization.defibroRelays: false — always.
+   * authorization.astryumRelays: false — always.
    */
   async prepareIntent(params: SquidQuoteParams): Promise<IntentPayload> {
     const quote = await this.getQuote(params);
@@ -377,7 +377,7 @@ export class SquidRouterProvider implements IProvider {
         description:
           `Squid ${isBridge ? 'cross-chain bridge' : 'swap'} via Axelar. ` +
           `Fee: ${(this.feeBps / 100).toFixed(2)}%. Est. duration: ${quote.estimatedDuration}s.`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
 
@@ -387,14 +387,14 @@ export class SquidRouterProvider implements IProvider {
         disclosedToUser: true,
         disclosureText:
           `Astryum fee: ${(this.feeBps / 100).toFixed(2)}% → ` +
-          `${this.feeWallet.slice(0, 10) || 'DEFIBRO_FEE_WALLET'}… ` +
+          `${this.feeWallet.slice(0, 10) || 'ASTRYUM_FEE_WALLET'}… ` +
           '(embedded via Squid integratorAddress)',
       },
 
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 

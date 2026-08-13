@@ -135,7 +135,7 @@ export function buildAmmDeposit(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         `Astryum builds this unsigned AMMDeposit; you sign it in Xaman. It ${modeNote} into the ` +
         `${pair} XLS-30 pool and you receive LP tokens. ${POOL_FEE_NOTE}`,
@@ -217,7 +217,7 @@ export function buildAmmWithdraw(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         `Astryum builds this unsigned AMMWithdraw; you sign it in Xaman. It ${modeNote} from the ` +
         `${pair} XLS-30 pool.`,

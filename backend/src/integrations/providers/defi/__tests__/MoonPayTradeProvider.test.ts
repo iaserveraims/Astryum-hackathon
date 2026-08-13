@@ -31,7 +31,7 @@ function ctx() {
 function enableProvider() {
   process.env.MOONPAY_TRADE_API_KEY = 'test-b2b-key';
   process.env.MOONPAY_TRADE_ENABLED = 'true';
-  process.env.DEFIBRO_FEE_WALLET = '0xFeeWallet';
+  process.env.ASTRYUM_FEE_WALLET = '0xFeeWallet';
 }
 
 afterEach(() => {
@@ -39,7 +39,7 @@ afterEach(() => {
   delete process.env.MOONPAY_TRADE_API_KEY;
   delete process.env.MOONPAY_TRADE_ENABLED;
   delete process.env.MOONPAY_TRADE_FEE_BPS;
-  delete process.env.DEFIBRO_FEE_WALLET;
+  delete process.env.ASTRYUM_FEE_WALLET;
 });
 
 const mockQuoteResponse = {
@@ -192,7 +192,7 @@ describe('MoonPayTradeProvider', () => {
       expect(intent.intentId).toBeDefined();
       expect(intent.status).toBe('pending_user_review');
       expect(intent.tx.to).toBe('0xAavePool');
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.authorization.userMustAuthorize).toBe(true);
       expect(intent.referralAttribution.disclosedToUser).toBe(true);
       expect(intent.metadata.protocol).toContain('moonpay-trade:aave_v3');

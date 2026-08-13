@@ -29,7 +29,7 @@ describe('buildConstitutionAnchor — the Legacy constitution DIDSet (vía b)', 
     expect('SigningPubKey' in xrplTx).toBe(false);
     // invariant #6 + honest copy: a DID registers, it does NOT enforce
     expect(disclosure.disclosedToUser).toBe(true);
-    expect(disclosure.defibroSigns).toBe(false);
+    expect(disclosure.astryumSigns).toBe(false);
     expect(disclosure.facts.enforcesByItself).toBe(false);
     expect(disclosure.facts.amendableByQuorum).toBe(true);
     expect(disclosure.note).toMatch(/does not enforce/);

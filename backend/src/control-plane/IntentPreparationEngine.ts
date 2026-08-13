@@ -25,9 +25,9 @@ import { partnerPolicyGuard } from '../services/partners/PartnerPolicyGuard';
 
 const INTENT_TTL_SECONDS = 300; // 5 minutes
 
-const DEFIBRO_FEE_WALLET = process.env.DEFIBRO_FEE_WALLET ?? '';
-const DEFIBRO_REFERRAL_CODE = process.env.DEFIBRO_REFERRAL_CODE ?? 'defibro';
-const DEFIBRO_ATTRIBUTION_BPS = parseInt(process.env.DEFIBRO_ATTRIBUTION_BPS ?? '15', 10); // 0.15%
+const ASTRYUM_FEE_WALLET = process.env.ASTRYUM_FEE_WALLET ?? '';
+const ASTRYUM_REFERRAL_CODE = process.env.ASTRYUM_REFERRAL_CODE ?? 'astryum';
+const ASTRYUM_ATTRIBUTION_BPS = parseInt(process.env.ASTRYUM_ATTRIBUTION_BPS ?? '15', 10); // 0.15%
 const ONEINCH_API_URL = process.env.ONEINCH_API_URL ?? 'https://api.1inch.dev/swap/v6.0';
 const ONEINCH_API_KEY = process.env.ONEINCH_API_KEY ?? '';
 
@@ -37,9 +37,9 @@ function nowPlusTtl(): string {
 
 function buildReferralAttribution(disclosureText: string) {
   return {
-    referralCode: DEFIBRO_REFERRAL_CODE,
-    referralWallet: DEFIBRO_FEE_WALLET,
-    attributionBps: DEFIBRO_ATTRIBUTION_BPS,
+    referralCode: ASTRYUM_REFERRAL_CODE,
+    referralWallet: ASTRYUM_FEE_WALLET,
+    attributionBps: ASTRYUM_ATTRIBUTION_BPS,
     disclosedToUser: true as const,
     disclosureText,
   };
@@ -49,7 +49,7 @@ function buildAuthorization() {
   return {
     mode: 'user_authorized_partner_relay' as const,
     userMustAuthorize: true as const,
-    defibroRelays: false as const,
+    astryumRelays: false as const,
     singleUseSession: true as const,
   };
 }
@@ -120,8 +120,8 @@ export class IntentPreparationEngine {
       dst: params.toToken,
       amount: params.amount,
       slippage: (slippageBps / 100).toString(),
-      referrerAddress: DEFIBRO_FEE_WALLET,
-      fee: (DEFIBRO_ATTRIBUTION_BPS / 100).toString(),
+      referrerAddress: ASTRYUM_FEE_WALLET,
+      fee: (ASTRYUM_ATTRIBUTION_BPS / 100).toString(),
     });
 
     const payload: IntentPayload = {
@@ -138,18 +138,18 @@ export class IntentPreparationEngine {
         action: 'swap',
         protocol: '1inch',
         description: `Swap via 1inch on chain ${params.chainId}`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
       referralAttribution: buildReferralAttribution(
-        `Astryum referral: ${DEFIBRO_ATTRIBUTION_BPS / 100}% → ${DEFIBRO_FEE_WALLET.slice(0, 8)}…`,
+        `Astryum referral: ${ASTRYUM_ATTRIBUTION_BPS / 100}% → ${ASTRYUM_FEE_WALLET.slice(0, 8)}…`,
       ),
       authorization: buildAuthorization(),
       policy: this._runPolicy(payload_skeleton(params.chainId, txData.tx.to), {
         userId: params.walletAddress,
         slippageBps,
         requiresFeeWallet: true,
-        feeWalletConfigured: !!DEFIBRO_FEE_WALLET,
+        feeWalletConfigured: !!ASTRYUM_FEE_WALLET,
         referralDisclosedToUser: true,
         txPayloadChainId: params.chainId,
         txPayloadTo: txData.tx.to,
@@ -243,9 +243,9 @@ export class IntentPreparationEngine {
     }
     partnerPolicyGuard.assertSessionAllowed({
       partnerId: partner.id,
-      defibroExecutes: false,
-      defibroCustody: false,
-      defibroOrderTransmission: false,
+      astryumExecutes: false,
+      astryumCustody: false,
+      astryumOrderTransmission: false,
     });
 
     return calldataBuilder.prepare({
@@ -285,9 +285,9 @@ export class IntentPreparationEngine {
       const LIDO_CONTRACT = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84';
       // submit(address referral) — payable, sends ETH, receives stETH 1:1
       // Function selector: 0xa1903eab (submit(address))
-      const referralPadded = DEFIBRO_FEE_WALLET.replace('0x', '').padStart(64, '0');
+      const referralPadded = ASTRYUM_FEE_WALLET.replace('0x', '').padStart(64, '0');
       const data = `0xa1903eab${referralPadded}`;
-      const description = `Stake ETH via Lido → stETH. Referral: ${DEFIBRO_FEE_WALLET.slice(0, 8)}… — No cooldown for stETH (liquid). Unstake requires Lido withdrawal queue (7-14 days).`;
+      const description = `Stake ETH via Lido → stETH. Referral: ${ASTRYUM_FEE_WALLET.slice(0, 8)}… — No cooldown for stETH (liquid). Unstake requires Lido withdrawal queue (7-14 days).`;
       return this._buildStakePayload(intentId, params, LIDO_CONTRACT, data, params.amount, description);
     }
 
@@ -384,7 +384,7 @@ export class IntentPreparationEngine {
       {
         userId: params.walletAddress,
         requiresFeeWallet: true,
-        feeWalletConfigured: !!DEFIBRO_FEE_WALLET,
+        feeWalletConfigured: !!ASTRYUM_FEE_WALLET,
         referralDisclosedToUser: true,
         txPayloadChainId: chainId,
         txPayloadTo: contractAddress,
@@ -407,11 +407,11 @@ export class IntentPreparationEngine {
         action: 'stake',
         protocol: params.protocol,
         description,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
       referralAttribution: buildReferralAttribution(
-        `Astryum referral: ${DEFIBRO_ATTRIBUTION_BPS / 100}% via referral → ${DEFIBRO_FEE_WALLET.slice(0, 8)}…`,
+        `Astryum referral: ${ASTRYUM_ATTRIBUTION_BPS / 100}% via referral → ${ASTRYUM_FEE_WALLET.slice(0, 8)}…`,
       ),
       authorization: buildAuthorization(),
       policy: policyResult,
@@ -489,9 +489,9 @@ export class IntentPreparationEngine {
   }
 
   private _assertFeeWallet(): void {
-    if (!DEFIBRO_FEE_WALLET) {
+    if (!ASTRYUM_FEE_WALLET) {
       throw new Error(
-        'P33: DEFIBRO_FEE_WALLET not configured. ' +
+        'P33: ASTRYUM_FEE_WALLET not configured. ' +
         'Set env var before preparing any intent with referral attribution.',
       );
     }
@@ -526,7 +526,7 @@ export class IntentPreparationEngine {
       {
         userId: walletAddress,
         requiresFeeWallet: true,
-        feeWalletConfigured: !!DEFIBRO_FEE_WALLET,
+        feeWalletConfigured: !!ASTRYUM_FEE_WALLET,
         referralDisclosedToUser: true,
         txPayloadChainId: chainId,
         intentSource: params.intentSource ?? 'user',
@@ -549,11 +549,11 @@ export class IntentPreparationEngine {
         action,
         protocol,
         description,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
       referralAttribution: buildReferralAttribution(
-        `Astryum referral: ${DEFIBRO_ATTRIBUTION_BPS / 100}% → ${DEFIBRO_FEE_WALLET.slice(0, 8)}…`,
+        `Astryum referral: ${ASTRYUM_ATTRIBUTION_BPS / 100}% → ${ASTRYUM_FEE_WALLET.slice(0, 8)}…`,
       ),
       authorization: buildAuthorization(),
       policy: policyResult,

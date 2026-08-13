@@ -458,7 +458,7 @@ export async function buildCouncilOrderHandoff(input: {
     order: { ...encoded, bridge: cfg.bridge, vault: cfg.vault, chain: cfg.chain, constitutionRef },
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned XRPL Payment; your council quorum signs it. Its memo ' +
         'commits the EXACT order below (keccak256 of the bytes): after the ledger validates it, the ' +

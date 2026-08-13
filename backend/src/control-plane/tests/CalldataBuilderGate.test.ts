@@ -53,12 +53,12 @@ describe('GATE — Aave V3 USDC supply on Ethereum (ContractRegistry path)', () 
   beforeAll(() => {
     // P33 requires a fee wallet to be configured; partnerAllowsReferralFee=false
     // means no fee is actually embedded.
-    process.env.DEFIBRO_FEE_WALLET =
-      process.env.DEFIBRO_FEE_WALLET || '0x000000000000000000000000000000000000dEaD';
+    process.env.ASTRYUM_FEE_WALLET =
+      process.env.ASTRYUM_FEE_WALLET || '0x000000000000000000000000000000000000dEaD';
   });
 
   test('builds supply calldata to the Aave V3 Pool and passes policy (no KYC)', async () => {
-    // Lazy require AFTER env is set (module reads DEFIBRO_FEE_WALLET at load).
+    // Lazy require AFTER env is set (module reads ASTRYUM_FEE_WALLET at load).
     const { calldataBuilder } = require('../CalldataBuilder');
 
     const intent = await calldataBuilder.prepare({

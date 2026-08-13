@@ -33,7 +33,7 @@ router.post('/register/options', requireSiweAuth, async (req: Request, res: Resp
   if (guard503(res)) return;
   const userId = req.siwe!.userId;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-  const userName = user?.email || `defibro-${userId.slice(0, 8)}`;
+  const userName = user?.email || `astryum-${userId.slice(0, 8)}`;
   try {
     const options = await getRegistrationOptions(userId, userName);
     return res.json(options);

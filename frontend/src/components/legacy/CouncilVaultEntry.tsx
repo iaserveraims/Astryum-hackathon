@@ -55,7 +55,7 @@ const ZERO = BigInt(0);
 /** Both rails end in the same place: an unsigned XRPL tx for the quorum. */
 interface PendingOrder {
   xrplTx: Record<string, unknown>;
-  disclosure: { disclosedToUser: true; defibroSigns: false; note: string; facts: Record<string, string | number | boolean> };
+  disclosure: { disclosedToUser: true; astryumSigns: false; note: string; facts: Record<string, string | number | boolean> };
   title: string;
   /** Funding is a mint, not a council order — it says so on the review screen. */
   kind: 'fund' | 'order';

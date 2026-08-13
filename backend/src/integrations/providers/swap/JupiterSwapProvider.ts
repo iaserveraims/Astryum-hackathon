@@ -7,11 +7,11 @@
  * Revenue model:
  *   - JUPITER_FEE_BPS (default 20 = 0.20%) passed as platformFeeBps in every quote.
  *   - Jupiter embeds the fee; at swap time it goes to JUPITER_FEE_ACCOUNT
- *     (Solana token account — set JUPITER_FEE_ACCOUNT env var, e.g. a Defibro-owned ATA).
+ *     (Solana token account — set JUPITER_FEE_ACCOUNT env var, e.g. a Astryum-owned ATA).
  *   - disclosedToUser: true — always disclosed before user signs.
  *
  * Regulatory invariants (never remove):
- *   authorization.defibroRelays: false
+ *   authorization.astryumRelays: false
  *   referralAttribution.disclosedToUser: true
  *   Astryum never calls sendTransaction / signTransaction
  *
@@ -89,7 +89,7 @@ export class JupiterSwapProvider implements IProvider {
   }
 
   private get feeAccount(): string {
-    return process.env.JUPITER_FEE_ACCOUNT ?? process.env.DEFIBRO_FEE_WALLET ?? '';
+    return process.env.JUPITER_FEE_ACCOUNT ?? process.env.ASTRYUM_FEE_WALLET ?? '';
   }
 
   async health(): Promise<ProviderHealth> {
@@ -244,7 +244,7 @@ export class JupiterSwapProvider implements IProvider {
   /**
    * Wraps prepareSwap result into a minimal intent-compatible payload.
    * The swapTransaction (base64) is placed in tx.data for the Solana wallet to sign.
-   * authorization.defibroRelays: false — always.
+   * authorization.astryumRelays: false — always.
    */
   buildIntentPayload(
     swap: JupiterSwapResult,
@@ -255,8 +255,8 @@ export class JupiterSwapProvider implements IProvider {
     status: 'pending_user_review';
     tx: { data: string; chainKey: 'solana:mainnet'; lastValidBlockHeight: number };
     referralAttribution: { bps: number; account: string; disclosedToUser: true };
-    authorization: { defibroRelays: false; userMustAuthorize: true };
-    metadata: { inputMint: string; outputMint: string; inAmount: string; outAmount: string; preparedBy: 'defibro' };
+    authorization: { astryumRelays: false; userMustAuthorize: true };
+    metadata: { inputMint: string; outputMint: string; inAmount: string; outAmount: string; preparedBy: 'astryum' };
     expiry: { expiresAt: string; ttlSeconds: number };
   } {
     return {
@@ -273,7 +273,7 @@ export class JupiterSwapProvider implements IProvider {
         disclosedToUser: true,
       },
       authorization: {
-        defibroRelays: false,
+        astryumRelays: false,
         userMustAuthorize: true,
       },
       metadata: {
@@ -281,7 +281,7 @@ export class JupiterSwapProvider implements IProvider {
         outputMint: quote.outputMint,
         inAmount: quote.inAmount,
         outAmount: quote.outAmount,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
       },
       expiry: {
         expiresAt: new Date(Date.now() + 60_000).toISOString(), // 60s — Solana block validity window

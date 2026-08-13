@@ -34,7 +34,7 @@ function handleUnauthorized(): void {
   unauthorizedHandled = true;
   try {
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('defibro-auth-storage');
+    localStorage.removeItem('astryum-auth-storage');
   } catch {}
   if (!window.location.pathname.startsWith('/login')) {
     window.location.replace('/login');
@@ -866,7 +866,7 @@ export interface PreparedSwap {
     note: string | null;
     fee: string | null;
     expiresAt: string;
-    defibro: { signed: false; custodied: false };
+    astryum: { signed: false; custodied: false };
   };
   disclosure: string;
 }
@@ -1079,7 +1079,7 @@ export interface PartnerSession {
   partnerSessionUrl: string;
   expiresAt: string;
   status: string;
-  compliance: { partnerExecutes: true; defibroExecutes: false; defibroCustody: false; destinationIsUserWallet: true };
+  compliance: { partnerExecutes: true; astryumExecutes: false; astryumCustody: false; destinationIsUserWallet: true };
 }
 
 export const partnersApi = {
@@ -1131,7 +1131,7 @@ export interface MoonPayTradeIntent {
   tx: { to: string; data: string; value: string; gasLimit: string; chainId: number };
   metadata: { action: string; protocol: string; description: string; preparedAt: string };
   referralAttribution: { attributionBps: number; disclosedToUser: true; disclosureText: string };
-  authorization: { userMustAuthorize: true; defibroRelays: false };
+  authorization: { userMustAuthorize: true; astryumRelays: false };
   expiry?: { expiresAt: string; ttlSeconds: number };
 }
 
@@ -1518,7 +1518,7 @@ export interface XrplTxHandoff {
   xrplTx: Record<string, unknown> & { TransactionType: string };
   disclosure: {
     disclosedToUser: true;
-    defibroSigns: false;
+    astryumSigns: false;
     note: string;
     facts: Record<string, string | number | boolean>;
   };
@@ -2402,7 +2402,7 @@ export interface LegacyVaultState {
 /** A composed cage disclosure — the facts before any signature (#6). */
 export interface CageDisclosure {
   disclosedToUser: true;
-  defibroSigns: false;
+  astryumSigns: false;
   note: string;
   facts: Record<string, string | number | boolean>;
 }

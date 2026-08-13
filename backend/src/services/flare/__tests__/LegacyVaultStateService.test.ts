@@ -175,7 +175,7 @@ describe('funding the cage (approve + deposit)', () => {
     expect(plan.calls[1].to).toBe(vaultState().vault);
     expect(plan.calls[1].data.startsWith('0xb6b55f25')).toBe(true); // deposit(uint256)
     expect(plan.calls.every((c) => c.value === '0')).toBe(true);
-    expect(plan.disclosure.defibroSigns).toBe(false);
+    expect(plan.disclosure.astryumSigns).toBe(false);
   });
 
   it('encodes the exact amount the funder asked for', () => {

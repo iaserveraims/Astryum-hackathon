@@ -17,11 +17,11 @@
  *
  * Revenue model:
  *   - No explicit fee BPS — CoW's referral program shares solver surplus with Astryum.
- *   - appData encodes Astryum referral info (DEFIBRO_COW_APP_CODE).
+ *   - appData encodes Astryum referral info (ASTRYUM_COW_APP_CODE).
  *   - Surplus is distributed by CoW's settlement contract post-batch.
  *
  * Regulatory invariants (never remove):
- *   authorization.defibroRelays: false
+ *   authorization.astryumRelays: false
  *   referralAttribution.disclosedToUser: true
  *   Astryum never calls sendTransaction on the CoW order — only on the ERC-20 approval
  *
@@ -124,11 +124,11 @@ export class CoWSwapProvider implements IProvider {
   ];
 
   private get appCode(): string {
-    return process.env.DEFIBRO_COW_APP_CODE ?? 'Astryum';
+    return process.env.ASTRYUM_COW_APP_CODE ?? 'Astryum';
   }
 
   private get feeWallet(): string {
-    return process.env.DEFIBRO_FEE_WALLET ?? '';
+    return process.env.ASTRYUM_FEE_WALLET ?? '';
   }
 
   private apiBase(chainId: number): string {
@@ -343,7 +343,7 @@ export class CoWSwapProvider implements IProvider {
               `Sign the CoW order via EIP-712 to complete.`
             : `CoW MEV-protected swap (step 1/2: approve GPv2VaultRelayer). ` +
               `After approval, sign the CoW order via EIP-712.`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
         // EIP-712 order data for the frontend to use in wallet_signTypedData
         ...(({ cowOrder: quote.order, cowSettlementContract: GPV2_SETTLEMENT }) as any),
@@ -359,7 +359,7 @@ export class CoWSwapProvider implements IProvider {
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 

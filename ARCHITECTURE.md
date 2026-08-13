@@ -1,21 +1,20 @@
-# ARCHITECTURE.md — Defibro
+# ARCHITECTURE.md — Astryum
 
-> The system shape. Reconciled with [Defibro-Validated_Architecture.md](Defibro-Validated_Architecture.md)
-> (the validated plan, 2026-06-20). The rules this shape must never break are in
-> [INVARIANTS.md](INVARIANTS.md); the locked choices behind it are in [DECISIONS.md](DECISIONS.md);
-> the operating summary is in [CLAUDE.md](CLAUDE.md).
+> The system shape, reconciled with the validated architecture plan (2026-06-20). The rules
+> this shape must never break are in [INVARIANTS.md](INVARIANTS.md); the locked choices behind
+> it are in [DECISIONS.md](DECISIONS.md); the product overview is in [README.md](README.md).
 
 ---
 
 ## 0. The anchor
 
-**The base is not XRPL. The base is Defibro's chain-agnostic core.**
+**The base is not XRPL. The base is Astryum's chain-agnostic core.**
 
 Two distinct "bases":
 
 | | What it is | Single or multi |
 |---|---|---|
-| **Coordination base** | Defibro core: canonical intent, Capital Map, PolicyGuard, orchestration, audit, UX | **Single** — built once, reused everywhere |
+| **Coordination base** | Astryum core: canonical intent, Capital Map, PolicyGuard, orchestration, audit, UX | **Single** — built once, reused everywhere |
 | **Origin / wallet base** | Where capital + signing start | **Multi** — XRPL/Xaman, EVM/MetaMask, Solana/Phantom |
 
 XRPL is the **flagship origin** (the XRP wedge), not the universal base. See
@@ -27,14 +26,14 @@ XRPL is the **flagship origin** (the XRP wedge), not the universal base. See
 
 - **Observe (read-only): wide.** All chains, all assets — the Capital Map.
 - **Execute: narrow.** Per ecosystem, via that ecosystem's best partner. The user **always
-  signs**; Defibro builds the intent/calldata and is invisible in the execution path.
+  signs**; Astryum builds the intent/calldata and is invisible in the execution path.
 
 ```
 ORIGINS  (multi, user-held)
   XRPL/Xaman        EVM/MetaMask        Solana/Phantom
        │                  │                   │
        ▼                  ▼                   ▼
-DEFIBRO CORE  (single, chain-agnostic — THE base)
+ASTRYUM CORE  (single, chain-agnostic — THE base)
   Intelligence · Canonical Intent · Capital Map ·
   PolicyGuard · Mandate engine · Orchestration · Audit
        │
@@ -57,7 +56,7 @@ Claude copilot (NLP → intent only — no execution discretion), MCP Ripple/XRP
 Tenderly (pre-sign simulation), oracles (Flare FTSO under `backend/src/flare/ftso/`).
 
 ### 2.2 Canonical Intent (the moat, built once)
-`DEFIBRO_ACTION.*` engine (closed core), PolicyGuard (P1–P27 + KYC P38), Goals / Strategies /
+`ASTRYUM_ACTION.*` engine (closed core), PolicyGuard (P1–P27 + KYC P38), Goals / Strategies /
 Moneyflows, the mandate engine, and the multi-wallet connection layer. Prepare-only:
 - `control-plane/IntentPreparationEngine` + `CalldataBuilder` build **unsigned** payloads.
 - `partners/RegulatedRelayBoundary` is the explicit prep↔hand-off boundary: it creates an
@@ -102,7 +101,7 @@ ComposableCoW (conditional EVM orders, permissionless WatchTower), Gelato / Chai
 - **EVM conditional / agentic** = **ComposableCoW** (1 signature, permissionless WatchTower) and/
   or **ERC-4337 / EIP-7702 session keys with on-chain enforced bounds** (scoped via ERC-7715).
 - **Turnkey** = embedded-wallet UX where the **user authorizes via passkey only** for user funds.
-- The agent has **zero unilateral discretion**; Defibro never executes, broadcasts, or custodies.
+- The agent has **zero unilateral discretion**; Astryum never executes, broadcasts, or custodies.
 
 See [INVARIANTS.md](INVARIANTS.md) #2–#5.
 
@@ -117,8 +116,8 @@ See [INVARIANTS.md](INVARIANTS.md) #2–#5.
 - **Turnkey delegated-agent-signing** (off-chain policy). **V1.1, MiCA-gated.** If ever used,
   compose with ERC-4337 so bounds are on-chain. (Distinct from the V1 passkey-only embedded
   wallet, which is LOCKED.)
-- **Treasury signing.** `services/wallet/TurnkeyTreasuryService` signs **Defibro's own revenue**
-  (fees/affiliate) inside Turnkey's TEE under org policy. This is Defibro's **own money**, not
+- **Treasury signing.** `services/wallet/TurnkeyTreasuryService` signs **Astryum's own revenue**
+  (fees/affiliate) inside Turnkey's TEE under org policy. This is Astryum's **own money**, not
   user custody — it must **never** be extended to user funds (that would cross the custody line).
 
 ---
@@ -135,11 +134,11 @@ inherited risks.
 
 ## 6. Competitive boundary
 
-Luminite / SparkDEX = Flare-centric wallet + DEX. Defibro **integrates SparkDEX as an execution
+Luminite / SparkDEX = Flare-centric wallet + DEX. Astryum **integrates SparkDEX as an execution
 venue**; it does not compete as a wallet or DEX. Differentiation = multi-wallet coordination
 across ecosystems, not a better single-chain wallet. See [DECISIONS.md ADR-006](DECISIONS.md).
 
 ---
 
 *Phasing lives in [DECISIONS.md](DECISIONS.md) §Phasing. When this doc and an older
-`/docs/context/` plan disagree, this doc + DECISIONS.md win.*
+internal working note disagree, this doc + DECISIONS.md win.*

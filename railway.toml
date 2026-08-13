@@ -1,4 +1,4 @@
-# Railway deployment configuration — DeFiBro backend
+# Railway deployment configuration — Astryum backend
 #
 # Build context: repository root (required so Dockerfile can COPY backend/).
 # The Dockerfile (backend/Dockerfile) builds the TypeScript, generates the

@@ -19,7 +19,7 @@ export interface AgentContext {
   documents: Array<{ id: string; filename: string; contentType: string; content: string }>;
   mcpServers: ActiveMCPServer[];
   rules: Array<{ id: string; name: string; triggerType: string; isActive: boolean }>;
-  keySource: 'user' | 'defibro';
+  keySource: 'user' | 'astryum';
   model: string;
 }
 
@@ -47,7 +47,7 @@ export class AgentContextBuilder {
       documents,
       mcpServers: mcpConnections,
       rules,
-      keySource: keyRes?.source ?? 'defibro',
+      keySource: keyRes?.source ?? 'astryum',
       model: keyRes?.model ?? 'claude-haiku-4-5-20251001',
     };
   }

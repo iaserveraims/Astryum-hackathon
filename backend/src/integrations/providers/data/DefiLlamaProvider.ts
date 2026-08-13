@@ -72,8 +72,8 @@ const COOLDOWN_MAP: Record<string, number> = {
 };
 
 // Known fee attribution types per DefiLlama protocol slug.
-//   referrer_address — 1inch-style: Astryum passes DEFIBRO_FEE_WALLET as referrer EVM address
-//   referral_code    — Aave/Compound-style: Astryum passes DEFIBRO_REFERRAL_CODE (uint16)
+//   referrer_address — 1inch-style: Astryum passes ASTRYUM_FEE_WALLET as referrer EVM address
+//   referral_code    — Aave/Compound-style: Astryum passes ASTRYUM_REFERRAL_CODE (uint16)
 //   revenue_share    — liquid staking protocols with built-in node operator revenue split
 const FEE_TYPE_MAP: Record<string, string> = {
   'aave-v3':                         'referral_code',

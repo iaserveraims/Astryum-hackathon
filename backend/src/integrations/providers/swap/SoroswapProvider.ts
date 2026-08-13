@@ -22,11 +22,11 @@
  *
  * Revenue model:
  *   - SOROSWAP_FEE_BPS (default 30 = 0.30%) sent as `feeBps` in every quote.
- *   - `referralId` = DEFIBRO_FEE_WALLET (Stellar address) on build.
+ *   - `referralId` = ASTRYUM_FEE_WALLET (Stellar address) on build.
  *   - disclosedToUser: true — always disclosed before the user signs.
  *
  * Regulatory invariants (never remove):
- *   defibroRelays: false · Astryum never calls sign / submit · fee disclosed.
+ *   astryumRelays: false · Astryum never calls sign / submit · fee disclosed.
  *
  * Chain: Stellar (pseudo chainId 1500001). NOT EVM.
  */
@@ -100,7 +100,7 @@ export class SoroswapProvider implements IProvider {
   }
   /** Stellar address that receives the integrator fee (referralId). */
   private get referralId(): string {
-    return process.env.SOROSWAP_FEE_WALLET ?? process.env.DEFIBRO_FEE_WALLET ?? '';
+    return process.env.SOROSWAP_FEE_WALLET ?? process.env.ASTRYUM_FEE_WALLET ?? '';
   }
 
   private headers(): Record<string, string> {

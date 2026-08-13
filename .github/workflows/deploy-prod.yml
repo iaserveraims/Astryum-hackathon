@@ -1,5 +1,5 @@
 # Deploy is handled automatically by Railway on push to main.
-# Railway is connected directly to iaserveraims/DeFiBro.
+# Railway is connected directly to iaserveraims/Astryum.
 #
 # This file used to contain ONLY the two comment lines above — no `on:`/`jobs:` —
 # which GitHub reports as a workflow failure on every push (a red ✗ with zero

@@ -15,7 +15,7 @@ export interface XrplTxDisclosure {
   /** Invariant #6 — fees/facts visible before signing. Always true. */
   disclosedToUser: true;
   /** Invariant #1 — Astryum never signs. Always false. */
-  defibroSigns: false;
+  astryumSigns: false;
   /** Plain-language description of exactly what the user is about to sign. */
   note: string;
   /** The numbers behind the note (amounts, dates, fees as protocol data). */

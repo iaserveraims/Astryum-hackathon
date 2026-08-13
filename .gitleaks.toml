@@ -27,5 +27,5 @@ regexes = [
 paths = [
   # Archived pre-V1 research notes — no runtime code, values are public
   # token addresses used in API request examples.
-  '''OUT OF DEFIBRO/''',
+  '''OUT OF ASTRYUM/''',
 ]

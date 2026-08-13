@@ -178,7 +178,7 @@ router.post('/prepare', async (req: Request, res: Response) => {
             astryumFee: 0,
             networkFee: 'Gas in FLR, shown by your wallet before you confirm',
             disclosedToUser: true,
-            defibroSigns: false,
+            astryumSigns: false,
             note: 'Transfers FXRP (the FAssets representation of XRP on Flare) from your wallet to the destination — a plain ERC-20 transfer, nothing is minted or redeemed. You sign in your own EVM wallet; Astryum never signs, never custodies, never broadcasts.',
           },
         });
@@ -200,7 +200,7 @@ router.post('/prepare', async (req: Request, res: Response) => {
           astryumFee: 0,
           networkFee: 'Gas in FLR, shown by your wallet before you confirm',
           disclosedToUser: true,
-          defibroSigns: false,
+          astryumSigns: false,
           note: 'Transfers native FLR from your wallet to the destination. You sign in your own EVM wallet; Astryum never signs, never custodies, never broadcasts.',
         },
       });
@@ -244,7 +244,7 @@ router.post('/prepare', async (req: Request, res: Response) => {
         astryumFee: 0,
         networkFee: 'XRPL network fee (~0.000012 XRP), shown in Xaman before you sign',
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note: 'Transfers XRP from your wallet to the destination. You sign in Xaman; Astryum never signs, never custodies, never broadcasts. If the destination account is new, XRPL requires the base reserve (1 XRP) to activate it.',
       },
     });
@@ -332,7 +332,7 @@ router.post('/bridge/xrpl-to-flare/prepare', async (req: Request, res: Response)
         astryumFee: 0,
         networkFee: 'XRPL network fee (~0.000012 XRP), shown in Xaman before you sign',
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note: 'One XRPL Payment to the FXRP Core Vault with your destination encoded in the memo. Minting + executor fees are deducted from the payment; a permissionless executor finalizes the mint on Flare (rate limits can delay it, never reject it). You sign in Xaman; Astryum never signs, never custodies, never broadcasts.',
       },
     });
@@ -395,7 +395,7 @@ router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response)
         astryumFee: 0,
         networkFee: 'Gas in FLR, shown by your wallet before you confirm',
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note: 'Burns your FXRP on Flare via AssetManagerFXRP.redeemAmount; the FAssets agent then pays the XRP (minus the protocol redemption fee) to your XRPL address. Large requests can be fulfilled partially or by several agents; if an agent misses its payment window, the redemption default process reimburses you from its collateral. You sign in your own EVM wallet; Astryum never signs, never custodies, never broadcasts.',
       },
     });

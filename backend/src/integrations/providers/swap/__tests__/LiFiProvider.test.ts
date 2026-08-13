@@ -7,7 +7,7 @@ beforeEach(() => {
   mockFetch.mockReset();
   delete process.env.LIFI_FEE_BPS;
   delete process.env.LIFI_API_KEY;
-  delete process.env.DEFIBRO_FEE_WALLET;
+  delete process.env.ASTRYUM_FEE_WALLET;
 });
 
 function mockOkJson(body: unknown) {
@@ -108,7 +108,7 @@ describe('LiFiProvider', () => {
     };
 
     it('returns quote with fee disclosure', async () => {
-      process.env.DEFIBRO_FEE_WALLET = '0xFeeWallet000000000000000000000000000001';
+      process.env.ASTRYUM_FEE_WALLET = '0xFeeWallet000000000000000000000000000001';
       process.env.LIFI_FEE_BPS = '15';
       mockOkJson(mockQuoteBody);
 
@@ -136,13 +136,13 @@ describe('LiFiProvider', () => {
       expect(result.fee.bps).toBe(15);
     });
 
-    it('embeds integrator=defibro and fee in query string', async () => {
+    it('embeds integrator=astryum and fee in query string', async () => {
       process.env.LIFI_FEE_BPS = '15';
       mockOkJson(mockQuoteBody);
       const provider = new LiFiProvider();
       await provider.getQuote(quoteParams);
       const calledUrl = mockFetch.mock.calls[0][0] as string;
-      expect(calledUrl).toContain('integrator=defibro');
+      expect(calledUrl).toContain('integrator=astryum');
       expect(calledUrl).toContain('fee=0.0015');
     });
 
@@ -250,7 +250,7 @@ describe('LiFiProvider', () => {
       const provider = new LiFiProvider();
       await provider.getRoutes(routesParams);
       const callBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
-      expect(callBody.integrator).toBe('defibro');
+      expect(callBody.integrator).toBe('astryum');
       expect(callBody.fee).toBeCloseTo(0.0015);
       expect(callBody.options.fee).toBeCloseTo(0.0015);
     });
@@ -263,8 +263,8 @@ describe('LiFiProvider', () => {
   });
 
   describe('prepareIntent()', () => {
-    it('returns IntentPayload with defibroRelays:false', async () => {
-      process.env.DEFIBRO_FEE_WALLET = '0xFeeWallet000000000000000000000000000001';
+    it('returns IntentPayload with astryumRelays:false', async () => {
+      process.env.ASTRYUM_FEE_WALLET = '0xFeeWallet000000000000000000000000000001';
       mockOkJson({
         id: 'q1',
         type: 'lifi',
@@ -299,7 +299,7 @@ describe('LiFiProvider', () => {
       expect(intent.status).toBe('pending_user_review');
       expect(intent.tx.chainId).toBe(1);
       expect(intent.tx.data).toBe('0xintentdata');
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.authorization.userMustAuthorize).toBe(true);
       expect(intent.referralAttribution.disclosedToUser).toBe(true);
       expect(intent.metadata.action).toBe('bridge'); // cross-chain

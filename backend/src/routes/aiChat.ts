@@ -43,7 +43,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       response: safeResponse,
       contextBuiltAt,
       source: {
-        providerId: 'defibro-ai',
+        providerId: 'astryum-ai',
         trustLevel: 'aggregator',
         fetchedAt: new Date().toISOString(),
       },

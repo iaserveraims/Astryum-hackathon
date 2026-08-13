@@ -5,7 +5,7 @@
  * ACTION_SHAPE encoding (e.g. a Curve stableswap). Before this wiring the pool
  * was display-only (throw ACTION_SHAPE_NOT_FOUND). Now prepare() must fall back
  * to Enso, build calldata to the Enso router, and keep the regulatory invariants
- * (defibroRelays:false, policy gate, fee disclosure).
+ * (astryumRelays:false, policy gate, fee disclosure).
  *
  * Both the registry and Enso are mocked so the test needs no DB or network.
  */
@@ -94,8 +94,8 @@ jest.mock('../../integrations/providers/defi/EnsoProvider', () => ({
 
 describe('GATE — Enso long-tail fallback (unknown contractKind)', () => {
   beforeAll(() => {
-    process.env.DEFIBRO_FEE_WALLET =
-      process.env.DEFIBRO_FEE_WALLET || '0x000000000000000000000000000000000000dEaD';
+    process.env.ASTRYUM_FEE_WALLET =
+      process.env.ASTRYUM_FEE_WALLET || '0x000000000000000000000000000000000000dEaD';
   });
 
   afterEach(() => {
@@ -126,7 +126,7 @@ describe('GATE — Enso long-tail fallback (unknown contractKind)', () => {
     expect(intent.tx.chainId).toBe(1);
     expect(intent.metadata.protocol).toBe('curve-dex');
     expect(intent.metadata.description).toContain('Enso');
-    expect(intent.authorization.defibroRelays).toBe(false);
+    expect(intent.authorization.astryumRelays).toBe(false);
     expect(intent.policy.passed).toBe(true);
     // actionType 'supply' maps to Enso 'deposit'
     expect(canHandleMock).toHaveBeenCalledWith('curve-dex', 1, 'deposit');

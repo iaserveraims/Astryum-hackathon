@@ -1,8 +1,8 @@
-# DECISIONS.md — Defibro
+# DECISIONS.md — Astryum
 
 > Locked architecture decisions, ADR-style. This file is **authoritative** where it conflicts
-> with older docs in `/docs/context/` (those are historical context, kept for due diligence).
-> Source of the 2026-06-20 batch: [Defibro-Validated_Architecture.md](Defibro-Validated_Architecture.md).
+> with older internal working notes (historical context, not published in this repo).
+> Source of the 2026-06-20 batch: the validated architecture plan.
 > The hard rules these decisions must respect live in [INVARIANTS.md](INVARIANTS.md); the system
 > shape they produce is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -11,14 +11,14 @@ Status legend: **LOCKED** (decided, build to it) · **GATED** (decided, but bloc
 
 ---
 
-## ADR-001 — The base is Defibro's chain-agnostic core, not XRPL · LOCKED · 2026-06-20
+## ADR-001 — The base is Astryum's chain-agnostic core, not XRPL · LOCKED · 2026-06-20
 
 **Context.** Earlier framing risked treating XRPL as the universal base. Routing all capital
 through XRPL would mean bridging a user's Base USDC / Arbitrum ETH / Solana SOL into XRPL first —
 more hops, more bridges, more code, more dependency. That is the opposite of "minimum
 construction, partners do the work."
 
-**Decision.** The unified base is **Defibro's core** (canonical intent, Capital Map, PolicyGuard,
+**Decision.** The unified base is **Astryum's core** (canonical intent, Capital Map, PolicyGuard,
 orchestration, audit), built once and chain-agnostic. **Origins are multi by necessity**
 (XRPL/Xaman, EVM/MetaMask, Solana/Phantom) because users hold capital in different places. XRPL
 is the **flagship origin** — the XRP wedge — not the base.
@@ -57,11 +57,11 @@ on the EVM majors (Enso); Flare is the wedge/flagship, not where dev capacity ov
   and/or **ERC-4337 / EIP-7702 session keys with on-chain enforced bounds**.
 - **Turnkey = embedded-wallet UX where the USER authorizes (passkey) ONLY.** Turnkey's
   **delegated-agent-signing** (off-chain policy) is the delegated-signing pattern → see ADR-005.
-- **Reaffirmed:** Defibro constructs intent for the user to sign; it never executes, broadcasts,
+- **Reaffirmed:** Astryum constructs intent for the user to sign; it never executes, broadcasts,
   or custodies; the agent has **zero unilateral discretion**.
 
 **Consequences.** [INVARIANTS.md](INVARIANTS.md) #2–#4. Triggers are deterministic, user-signed
-intents; permissionless execution; never delegated keys to Defibro.
+intents; permissionless execution; never delegated keys to Astryum.
 
 ---
 
@@ -72,7 +72,7 @@ Gelato). It is now decided.
 
 **Decision.** **Turnkey**, used in **passkey-only** mode for user funds: a sub-organization whose
 root authenticator is the user's own passkey; keys generated in Turnkey's TEE, **never** seen by
-Defibro, **user-exportable**. Backend `TurnkeyWalletProvider` advertises `canSign: true`,
+Astryum, **user-exportable**. Backend `TurnkeyWalletProvider` advertises `canSign: true`,
 `canBroadcast: false`, `userControlledKeys: true`.
 
 **Consequences.** Satisfies the sovereignty test ([INVARIANTS.md](INVARIANTS.md) #6). Turnkey's
@@ -100,7 +100,7 @@ TODO. Keep it that way until the gated module lands.)
 
 ## ADR-006 — Competitive positioning: Luminite / SparkDEX · LOCKED
 
-**Decision.** Luminite / SparkDEX are **Flare-centric wallet + DEX** products. Defibro
+**Decision.** Luminite / SparkDEX are **Flare-centric wallet + DEX** products. Astryum
 **integrates SparkDEX as an execution venue**; it does **not** compete as a wallet or a DEX.
 
 **Consequences.** Do **not** build wallet/DEX features to rival them. User-facing copy and venue
@@ -194,7 +194,7 @@ positioning, not N products to build** — build one deeply, show the generality
 - This supersedes the LegacyPanel's link-out-to-xApp hand-off for council accounts (kept only as a
   fallback), and the `Astryum_Legacy_Motor_Trazabilidad_Fiscal` §10 verdict that the tax engine
   "cannot be a hackathon deliverable" (based on a misread 21-Jul deadline; the Final Assessment is
-  21-Sep — see project memory).
+  21-Sep).
 
 ---
 
@@ -206,7 +206,7 @@ placed on top of an account whose authority is a quorum**. A normal wallet has o
 point of failure. A governed wallet replaces the key with a quorum: lose a key and you keep operating
 (within quorum margin), a stolen key moves nothing, coercion of one signer is not enough. The keys can
 be physical (Tangem/Ledger) — a quorum of cold keys Astryum coordinates and never touches. Introduces
-no new scope; it makes explicit the product `CLAUDE.md` already described and the pieces built this
+no new scope; it makes explicit the product the docs already described and the pieces built this
 week (`d0908b4`, `2f54fee`) already implement without having named it.
 
 **Decision.** Treat authority-as-quorum as the Capa-0 primitive and build every capability on top of
@@ -246,11 +246,15 @@ signers, not the actual signing subset — a conservative overpay (never fails o
 
 **Cross-chain (PMW) stays 🔴 NOT BUILDABLE — PMW has not launched.** The council can be a co-signer of
 the TEE (the TEE does not sign without data providers AND co-signers), so the invariant survives — but
-it is vision with a gate, never a present promise (this is what sank Torch). Full essay + roadmap:
-`docs/context/Astryum_ADR-009_Wallet_Gobernada_2026-07-15.md`. **The same TTL + two-channel-revocation
+it is vision with a gate, never a present promise (this is what sank Torch). Full essay + roadmap
+live in an internal ADR-009 working note. **The same TTL + two-channel-revocation
 guardrails extend to XLS-75 governed delegation when it lands (roadmap #8, gated on
 `PermissionDelegationV1_1`): the council grants concrete, expiring, revocable permissions — it delegates
-permissions, never capital — `docs/context/Astryum_Delegacion_Gobernada_XLS-75_2026-07-19.md`.**
+permissions, never capital (internal XLS-75 working note).**
+
+*Update 2026-08-12: two of the "not built yet" items above have since shipped — the unsigned
+`SignerListSet` builder (`XrplCouncilService`) and the Legacy stack (`LegacyVault` + bridge +
+factory), deployed on Flare mainnet 2026-08-06; addresses in [contracts/README.md](contracts/README.md).*
 
 ---
 
@@ -277,11 +281,11 @@ decentralized or risk declared (today: Flare Foundation on Google CC); the 5 que
 is EVM-pure, `IntentPayload.ts:7-14`); external audit. `AuthorityAccount.executors[]` (switcher
 review, design-only) is the single data-model commitment already taken — PMW accounts and XLS-75
 delegations both enter through it without redesign. **Torch line: always told as "where the
-architecture goes, with these gates" — never as present.** Full essay + verification file:line:
-`docs/context/Astryum_ADR-010_Autoridad_Pura_Brazos_PMW_2026-07-17.md`. **XLS-75 governed delegation
+architecture goes, with these gates" — never as present.** Full essay + file:line verification
+live in an internal ADR-010 working note. **XLS-75 governed delegation
 (delegates permissions, not capital; hard gate = `PermissionDelegationV1_1` live on mainnet — the V1
-was disabled sep-2025 for a fee-drain bug) is specified in
-`docs/context/Astryum_Delegacion_Gobernada_XLS-75_2026-07-19.md` (roadmap piece #8, zero build).**
+was disabled sep-2025 for a fee-drain bug) is specified in an internal XLS-75 working note
+(roadmap piece #8, zero build).**
 
 ---
 
@@ -299,5 +303,5 @@ was disabled sep-2025 for a fee-drain bug) is specified in
 
 ---
 
-*New decisions append here as ADRs. When one supersedes an older `/docs/context/` statement, say
+*New decisions append here as ADRs. When one supersedes an older internal note, say
 so explicitly in the ADR rather than editing history.*

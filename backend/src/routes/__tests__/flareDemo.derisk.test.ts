@@ -78,7 +78,7 @@ describe('POST /api/flare-demo/a1/prepare — DERISK shortfall disclosure (M7)',
     expect(d.coveredByWithdraw).toBe(false);
     expect(d.note).toMatch(/top up 0\.05 USDT0/);
     expect(d.disclosedToUser).toBe(true);
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
   });
 
   it('withdrawal covers the full repay → shortfall 0, no top-up warning', async () => {

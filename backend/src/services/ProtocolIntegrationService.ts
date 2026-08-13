@@ -7,7 +7,7 @@
  *
  * INVARIANTS:
  *   - Astryum never calls sendTransaction — only builds calldata
- *   - authorization.defibroRelays: false on all resulting IntentPayloads
+ *   - authorization.astryumRelays: false on all resulting IntentPayloads
  *   - Detected actions use arg names matching CalldataBuilder._resolveArgs()
  */
 

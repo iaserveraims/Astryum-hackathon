@@ -17,32 +17,32 @@ afterEach(() => {
 
 const OK = {
   partnerId: 'moonpay-onramp',
-  defibroExecutes: false,
-  defibroCustody: false,
-  defibroOrderTransmission: false,
+  astryumExecutes: false,
+  astryumCustody: false,
+  astryumOrderTransmission: false,
 };
 
 describe('PartnerPolicyGuard (P19/P20/P21/P26/P27)', () => {
   const g = new PartnerPolicyGuard();
 
-  test('P19 — defibroExecutes must be false', () => {
+  test('P19 — astryumExecutes must be false', () => {
     process.env.MOONPAY_ENABLED = 'true';
-    expect(() => g.assertSessionAllowed({ ...OK, defibroExecutes: true })).toThrow(
+    expect(() => g.assertSessionAllowed({ ...OK, astryumExecutes: true })).toThrow(
       /P19/,
     );
   });
 
-  test('P20 — defibroCustody must be false', () => {
+  test('P20 — astryumCustody must be false', () => {
     process.env.MOONPAY_ENABLED = 'true';
-    expect(() => g.assertSessionAllowed({ ...OK, defibroCustody: true })).toThrow(
+    expect(() => g.assertSessionAllowed({ ...OK, astryumCustody: true })).toThrow(
       /P20/,
     );
   });
 
-  test('P20b — defibroOrderTransmission must be false', () => {
+  test('P20b — astryumOrderTransmission must be false', () => {
     process.env.MOONPAY_ENABLED = 'true';
     expect(() =>
-      g.assertSessionAllowed({ ...OK, defibroOrderTransmission: true }),
+      g.assertSessionAllowed({ ...OK, astryumOrderTransmission: true }),
     ).toThrow(/P20b/);
   });
 

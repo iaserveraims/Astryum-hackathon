@@ -28,8 +28,8 @@ function baseParams() {
 
 describe('CalldataBuilder — Flare connector neck + FLARE_DEFI_ENABLED gate (#8)', () => {
   beforeAll(() => {
-    process.env.DEFIBRO_FEE_WALLET =
-      process.env.DEFIBRO_FEE_WALLET || '0x000000000000000000000000000000000000dEaD';
+    process.env.ASTRYUM_FEE_WALLET =
+      process.env.ASTRYUM_FEE_WALLET || '0x000000000000000000000000000000000000dEaD';
     process.env.KINETIC_COMPTROLLER = COMPTROLLER;
     process.env.KINETIC_KUSDCE = KUSDCE;
     require('../../config/protocolAddresses').resetAddressCache();
@@ -54,7 +54,7 @@ describe('CalldataBuilder — Flare connector neck + FLARE_DEFI_ENABLED gate (#8
       .parseTransaction({ data: intent.tx.data });
     expect(parsed.name).toBe('mint');
     // Same regulatory envelope as every other path.
-    expect(intent.authorization.defibroRelays).toBe(false);
+    expect(intent.authorization.astryumRelays).toBe(false);
     expect(intent.referralAttribution.disclosedToUser).toBe(true);
   });
 });

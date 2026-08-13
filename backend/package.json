@@ -1,7 +1,7 @@
 {
-  "name": "defibro-backend",
+  "name": "astryum-backend",
   "version": "1.0.0",
-  "description": "DeFibro Backend API - DeFi Management Platform",
+  "description": "Astryum Backend API - DeFi Management Platform",
   "main": "dist/index-simple.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --clear src/index-simple.ts",
@@ -28,14 +28,14 @@
     "prisma:migrate:deploy": "node scripts/guard-prod-db.js && prisma migrate deploy",
     "prisma:seed": "node scripts/guard-prod-db.js && ts-node prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "mcp:dev": "ts-node src/mcp/defibro-mcp-server.ts",
-    "mcp:start": "node dist/mcp/defibro-mcp-server.js",
+    "mcp:dev": "ts-node src/mcp/astryum-mcp-server.ts",
+    "mcp:start": "node dist/mcp/astryum-mcp-server.js",
     "verify:kinetic": "ts-node src/scripts/verify-kinetic.ts",
     "probe:kinetic": "ts-node src/scripts/probe-kinetic-wallet.ts",
     "e1:prepare": "ts-node src/scripts/e1-prepare.ts",
     "golden-path": "bash scripts/golden-path.sh",
-    "docker:build": "docker build -t defibro-backend .",
-    "docker:run": "docker run -p 3001:3001 defibro-backend",
+    "docker:build": "docker build -t astryum-backend .",
+    "docker:run": "docker run -p 3001:3001 astryum-backend",
     "precommit": "npm run lint && npm run test"
   },
   "dependencies": {
@@ -140,8 +140,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/defibro-backend.git"
+    "url": "git+https://github.com/your-username/astryum-backend.git"
   },
-  "author": "DeFibro Team",
+  "author": "Astryum Team",
   "license": "MIT"
 }

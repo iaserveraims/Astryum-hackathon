@@ -905,7 +905,7 @@ router.post('/vault-yield/harvest/prepare', requireLegacyAccess, async (req: Req
       call: buildHarvestCall(state.vault, venueId),
       disclosure: {
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           amount > 0n
             ? `This realizes ${formatBaseUnits(amount, state.asset.decimals)} ${state.asset.symbol} that venue #${venueId} has earned ABOVE what was put in, and credits it to the payees. The principal is not touched. Anyone may send this — it pays you nothing.`
@@ -1035,7 +1035,7 @@ router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Reque
       userOpData: handoff.userOpData,
       disclosure: {
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           `Claims the ${formatBaseUnits(owed, state.asset.decimals)} ${state.asset.symbol} of yield this Legacy owes you and ` +
           `redeems it to native XRP at ${dest}. This is YIELD only — the principal stays in the vault, where no function ` +
@@ -1302,7 +1302,7 @@ router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res
       },
       disclosure: {
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           `The quorum signs ONE payment of ${amountXrp} XRP. It is minted into FXRP, delivered to this Legacy's own ` +
           `account on Flare, and deposited into the vault as PRINCIPAL (about ` +
@@ -1577,7 +1577,7 @@ router.post('/cage-create/prepare', requireLegacyAccess, async (req: Request, re
       },
       disclosure: {
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           `The quorum signs ONE payment of ${amountXrp} XRP, and this Legacy's own cage is born on Flare: a vault at ` +
           `${predicted.vault} that obeys ONLY this council (its XRPL address is written into the bridge at birth and can ` +

@@ -128,7 +128,7 @@ class TurnkeyWalletProvider implements IProvider {
         const data = {
           valid: Boolean(input.signedPayloadHash),
           scheme: 'eip712',
-          validatedBy: 'defibro-relay-boundary',
+          validatedBy: 'astryum-relay-boundary',
         };
         return { data: data as unknown as TOut, source, cached: false };
       }

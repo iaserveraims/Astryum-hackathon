@@ -14,7 +14,7 @@
  *
  * Revenue model:
  *   - MOONPAY_TRADE_FEE_BPS (default 20 = 0.20%) embedded per B2B agreement.
- *   - Fee routed to DEFIBRO_FEE_WALLET per MoonPay Trade partner terms.
+ *   - Fee routed to ASTRYUM_FEE_WALLET per MoonPay Trade partner terms.
  *   - disclosedToUser: true — always shown before user signs.
  *
  * Requirements:
@@ -23,7 +23,7 @@
  *   Both must be set — provider stays disabled (returns 503) otherwise.
  *
  * Regulatory invariants (never remove):
- *   authorization.defibroRelays: false
+ *   authorization.astryumRelays: false
  *   referralAttribution.disclosedToUser: true
  *   Astryum never holds funds — returns unsigned calldata only.
  *   MoonPay Trade executes on behalf of the user after their on-device signature.
@@ -114,7 +114,7 @@ export class MoonPayTradeProvider implements IProvider {
   }
 
   private get feeWallet(): string {
-    return process.env.DEFIBRO_FEE_WALLET ?? '';
+    return process.env.ASTRYUM_FEE_WALLET ?? '';
   }
 
   private assertEnabled(): void {
@@ -227,7 +227,7 @@ export class MoonPayTradeProvider implements IProvider {
       marketId: params.marketId,
       feeBps: this.feeBps,
       feeRecipient: this.feeWallet,
-      integratorId: 'defibro',
+      integratorId: 'astryum',
     };
 
     const res = await fetch(`${MOONPAY_TRADE_API_BASE}/quote`, {
@@ -316,7 +316,7 @@ export class MoonPayTradeProvider implements IProvider {
           `MoonPay Trade ${actionLabel[params.action]} via ${params.protocol}. ` +
           (quote.estimatedApy != null ? `Est. APY: ${(quote.estimatedApy * 100).toFixed(2)}%. ` : '') +
           `Fee: ${(this.feeBps / 100).toFixed(2)}%.`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
 
@@ -326,14 +326,14 @@ export class MoonPayTradeProvider implements IProvider {
         disclosedToUser: true,
         disclosureText:
           `Astryum fee: ${(this.feeBps / 100).toFixed(2)}% → ` +
-          `${this.feeWallet.slice(0, 10) || 'DEFIBRO_FEE_WALLET'}… ` +
+          `${this.feeWallet.slice(0, 10) || 'ASTRYUM_FEE_WALLET'}… ` +
           '(embedded via MoonPay Trade B2B partner agreement)',
       },
 
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 

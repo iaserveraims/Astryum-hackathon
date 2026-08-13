@@ -16,7 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   // Canonical PUBLIC domain for social cards. Hardcoded on purpose: NEXT_PUBLIC_APP_URL
-  // points at the SSO-protected internal domain (defibro.xyz), so og:image must NOT use
+  // points at the SSO-protected internal domain (astryum.xyz), so og:image must NOT use
   // it — a crawler would fetch the image from there and hit Vercel's login page instead
   // of the PNG. astryum.xyz is the public domain the landing is shared from.
   metadataBase: new URL('https://astryum.xyz'),

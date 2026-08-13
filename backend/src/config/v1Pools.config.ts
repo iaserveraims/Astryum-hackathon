@@ -3,7 +3,7 @@
  *
  * SINGLE SOURCE OF TRUTH for WHICH pools the Asset Production screen shows and
  * HOW each one routes to execution. Mirrors the LOCKED set in
- * docs/context/Defibro_Plan_Implementacion_Completo_2026-06-12.md (D3, líneas 73-77).
+ * docs/context/Astryum_Plan_Implementacion_Completo_2026-06-12.md (D3, líneas 73-77).
  *
  * INVARIANTS respected here (see /CLAUDE.md):
  *   #3  receiptTokenAddress ≠ executionContractAddress — entries reference the
@@ -17,7 +17,7 @@
  *   Stellar Soroban contract ids resolve inside Blend/Soroswap providers.
  *
  * ROUTER tells the intent layer WHO builds the unsigned calldata. The regulatory
- * envelope (authorization.defibroRelays:false, referralAttribution.disclosedToUser:true,
+ * envelope (authorization.astryumRelays:false, referralAttribution.disclosedToUser:true,
  * PolicyGuard P38, anomaly-block, simulation, audit/receipt) is ALWAYS applied by the
  * single intent chokepoint — the router only swaps the calldata SOURCE:
  *   'registry'  → ContractRegistry + CalldataBuilder ACTION_SHAPE_BY_KIND (EVM PATH A/B)

@@ -44,7 +44,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       resetTours: () => set({ toursDone: {} }),
     }),
     {
-      name: 'defibro:onboarding',
+      name: 'astryum:onboarding',
       partialize: (s) => ({ completed: s.completed, goal: s.goal, toursDone: s.toursDone }),
     },
   ),

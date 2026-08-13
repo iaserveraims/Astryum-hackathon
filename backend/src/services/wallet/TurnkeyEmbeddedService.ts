@@ -119,10 +119,10 @@ async function defaultClientFactory(): Promise<TurnkeySubOrgClient> {
     async createSubOrgWithWallet({ userId, passkey }) {
       const apiClient = turnkey.apiClient() as any;
       const res = await apiClient.createSubOrganization({
-        subOrganizationName: `defibro-user-${userId}`,
+        subOrganizationName: `astryum-user-${userId}`,
         rootUsers: [
           {
-            userName: passkey.authenticatorName ?? `defibro-${userId}`,
+            userName: passkey.authenticatorName ?? `astryum-${userId}`,
             userEmail: passkey.email,
             apiKeys: [],
             oauthProviders: [],
@@ -143,7 +143,7 @@ async function defaultClientFactory(): Promise<TurnkeySubOrgClient> {
         rootQuorumThreshold: 1,
         // One EVM account; the private key is generated + held in Turnkey's TEE.
         wallet: {
-          walletName: `defibro-embedded-${userId}`,
+          walletName: `astryum-embedded-${userId}`,
           accounts: DEFAULT_ETHEREUM_ACCOUNTS,
         },
       });

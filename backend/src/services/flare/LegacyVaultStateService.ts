@@ -327,7 +327,7 @@ export interface VaultDepositPlan {
   calls: UnsignedEvmCall[];
   disclosure: {
     disclosedToUser: true;
-    defibroSigns: false;
+    astryumSigns: false;
     note: string;
     facts: Record<string, string | number | boolean>;
   };
@@ -384,7 +384,7 @@ export function buildVaultDepositCalls(
     ],
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         `This adds ${human} ${state.asset.symbol} to the vault as PRINCIPAL. Principal cannot be withdrawn to any address — ` +
         'the vault has no such function. It can only be put to work in the council\'s whitelisted venues and recalled back ' +

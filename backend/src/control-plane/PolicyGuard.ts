@@ -52,10 +52,10 @@ interface EvaluateOpts {
   readonly monthlyValueUsedUSD?: number;
   /** P25: confidence level of the position data backing this intent. 'unknown' blocks. */
   readonly positionConfidenceLevel?: 'verified' | 'probable' | 'detected' | 'unknown';
-  /** P26: whether DEFIBRO_FEE_WALLET is configured (required for swap actions). */
+  /** P26: whether ASTRYUM_FEE_WALLET is configured (required for swap actions). */
   readonly feeWalletConfigured?: boolean;
-  /** P27: if a partner session set defibroExecutes=true, block — Astryum never auto-executes. */
-  readonly partnerDefibroExecutes?: boolean;
+  /** P27: if a partner session set astryumExecutes=true, block — Astryum never auto-executes. */
+  readonly partnerAstryumExecutes?: boolean;
   /** P28–P29: origin of the intent. 'unknown' emits a warning; 'ai_copilot' requires user confirmation. */
   readonly intentSource?: 'user' | 'automation' | 'ai_copilot' | 'partner' | 'unknown';
   /** P28: AI-sourced intents must have explicit user confirmation before they can be signed. */
@@ -494,16 +494,16 @@ export class PolicyGuard {
       block(
         c,
         'swap_fee_wallet_not_configured',
-        'DEFIBRO_FEE_WALLET env var not set — swap blocked until fee wallet is configured',
+        'ASTRYUM_FEE_WALLET env var not set — swap blocked until fee wallet is configured',
       );
     }
 
-    // P27 — partner session defibroExecutes must always be false
-    if (opts.partnerDefibroExecutes === true) {
+    // P27 — partner session astryumExecutes must always be false
+    if (opts.partnerAstryumExecutes === true) {
       block(
         c,
         'partner_auto_execute_forbidden',
-        'defibroExecutes must always be false — the user must confirm execution inside the partner UI; Astryum never executes on the user\'s behalf',
+        'astryumExecutes must always be false — the user must confirm execution inside the partner UI; Astryum never executes on the user\'s behalf',
       );
     }
 
@@ -559,12 +559,12 @@ export class PolicyGuard {
       );
     }
 
-    // P33 — DEFIBRO_FEE_WALLET must be configured for any swap/stake/supply that embeds referral
+    // P33 — ASTRYUM_FEE_WALLET must be configured for any swap/stake/supply that embeds referral
     if (opts.requiresFeeWallet && !opts.feeWalletConfigured) {
       block(
         c,
         'fee_wallet_not_configured',
-        'DEFIBRO_FEE_WALLET env var not set — cannot embed referral attribution in calldata',
+        'ASTRYUM_FEE_WALLET env var not set — cannot embed referral attribution in calldata',
       );
     }
 

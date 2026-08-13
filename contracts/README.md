@@ -2,9 +2,9 @@
 
 **Qué es.** La vasija epocal de Astryum Legacy: el contrato donde el capital productivo de un
 Legacy vive sin poder venderse. El código enjaula el **principal** (no existe `withdrawPrincipal()`,
-ni `transferTo(arbitrary)`, ni proxy); los **frutos** los gobierna el consejo. Diseño completo y
-decisiones del fundador (D1a-D7) en
-`docs/context/Astryum_Legacy_Auditoria_Constitucion_Producto_2026-07-13.md`.
+ni `transferTo(arbitrary)`, ni proxy); los **frutos** los gobierna el consejo. El diseño completo y
+las decisiones del fundador (D1a-D7) viven en una nota de trabajo interna (no publicada en
+este repo).
 
 > ⚠️ **Inmutable e irreversible.** Un bug desplegado no se parchea: se migra a una vasija
 > sucesora (30 días de timelock + continuidad verificada) o se convive con él. Recomendación
@@ -94,9 +94,9 @@ validez de la tx atestiguada ES la prueba del quórum.
 `backend/src/connectors/protocols/xrpl/XrplCouncilOrderService.ts`,
 `backend/src/services/flare/LegacyOrderRelayService.ts` (+ `LegacyOrderStore.ts`),
 rutas `POST /xrpl-defi/council-order/{prepare,relay}` + `GET …/status`, y
-`frontend/src/components/legacy/CouncilOrderCard.tsx` (superficie Govern). BuildSpec y decisiones
-eternas del deploy gobernado en `docs/context/Astryum_Legacy_Enforcement_FDC_BuildSpec_2026-07-16.md`
-y `…_Mainnet_Deploy_Decisiones_2026-07-16.md`.
+`frontend/src/components/legacy/CouncilOrderCard.tsx` (superficie Govern). El BuildSpec y las
+decisiones eternas del deploy gobernado viven en notas de trabajo internas (no publicadas en
+este repo).
 
 ### Deploy del stack gobernado
 

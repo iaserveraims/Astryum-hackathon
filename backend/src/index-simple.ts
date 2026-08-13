@@ -55,7 +55,7 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'defibro-backend' },
+  defaultMeta: { service: 'astryum-backend' },
   transports: [
     ...(process.env.NODE_ENV !== 'production' ? [
       new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
@@ -218,7 +218,7 @@ app.get('/api/status', (req: Request, res: Response) => {
   res.json({
     status: 'running',
     timestamp: new Date().toISOString(),
-    message: 'DeFibro API is running successfully!',
+    message: 'Astryum API is running successfully!',
     endpoints: {
       health: '/health',
       status: '/api/status'
@@ -531,7 +531,7 @@ io.on('connection', (socket) => {
         data: data,
         timestamp: new Date().toISOString(),
         clientId: generateClientId(),
-        server: 'defibro-backend'
+        server: 'astryum-backend'
       };
 
       // Echo only back to the sender — never broadcast a client's message to
@@ -662,7 +662,7 @@ io.on('connection', (socket) => {
   // ✅ MEJORADO: Mensaje de bienvenida más informativo
   socket.emit('message', JSON.stringify({
     type: 'welcome',
-    message: 'Conectado a DeFibro WebSocket',
+    message: 'Conectado a Astryum WebSocket',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     features: ['Real-time prices', 'Portfolio updates', 'Strategy notifications']
@@ -837,7 +837,7 @@ async function startServer() {
     console.log('[BOOT] about to listen on', HOST + ':' + PORT);
     server.listen(PORT, HOST, () => {
       console.log('[BOOT] server.listen callback fired — accepting requests');
-      logger.info(`🚀 Servidor DeFibro iniciado en http://${HOST}:${PORT}`);
+      logger.info(`🚀 Servidor Astryum iniciado en http://${HOST}:${PORT}`);
       logger.info(`📊 Health check disponible en http://${HOST}:${PORT}/health`);
       logger.info(`🔌 WebSocket disponible en ws://${HOST}:${PORT}`);
       logger.info(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);

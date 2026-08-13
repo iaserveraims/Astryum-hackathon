@@ -1,7 +1,7 @@
 # Astryum — Strategy Spec: "Carry FXRP Protegido" (Track 1)
 
 **Living reference for the strategy. Update as you build.**
-**Last updated:** 2026-07-25 (rev 3 — Cable 1 BUILT + PA-native repay) · **Build spec (source of truth):** [docs/context/Astryum_BuildSpec_Carry_FXRP_2026-06-30.md](docs/context/Astryum_BuildSpec_Carry_FXRP_2026-06-30.md)
+**Last updated:** 2026-07-25 (rev 3 — Cable 1 BUILT + PA-native repay) · **Build spec (source of truth):** internal working note (not published in this repo)
 **Read with:** [INVARIANTS.md](INVARIANTS.md) · [DECISIONS.md](DECISIONS.md)
 
 > **Scope:** only up to FXRP. No redeem to native XRP (roadmap). Everything inside the Kinetic **ISO** market (FXRP-USDT0-STFXRP, isolated comptroller — distinct contracts from the primary Kinetic market).
@@ -12,7 +12,7 @@
 
 ## 0. Invariant (confirmed in every flow below)
 
-Astryum/Defibro **never signs, never broadcasts.** Every action produces an **UNSIGNED** payload the user signs in their own wallet (**Interpretation A**: the user signs the exact pre-built tx; zero delegated discretion). The `defibroSigns: false` / `disclosedToUser: true` fields on every prepare response are the machine-checkable proof. Confirmed per cable in §2.
+Astryum/Astryum **never signs, never broadcasts.** Every action produces an **UNSIGNED** payload the user signs in their own wallet (**Interpretation A**: the user signs the exact pre-built tx; zero delegated discretion). The `astryumSigns: false` / `disclosedToUser: true` fields on every prepare response are the machine-checkable proof. Confirmed per cable in §2.
 
 ---
 
@@ -46,7 +46,7 @@ Astryum/Defibro **never signs, never broadcasts.** Every action produces an **UN
 **DERISK scope:** unwinds down to **FXRP + USDT0 back in the wallet.** Redeem FXRP→native XRP is **roadmap, not built.**
 
 ### Economics (display only, never a promise — invariant #9)
-FXRP supply earns ~2% APY (incl. RFLR) which offsets part of the negative USDT0 carry (borrow ~15.5% vs supply ~14%). The collateral works; it is not dead. All APYs shown are protocol data with source, never a Defibro offer.
+FXRP supply earns ~2% APY (incl. RFLR) which offsets part of the negative USDT0 carry (borrow ~15.5% vs supply ~14%). The collateral works; it is not dead. All APYs shown are protocol data with source, never a Astryum offer.
 
 ---
 
@@ -66,7 +66,7 @@ FXRP supply earns ~2% APY (incl. RFLR) which offsets part of the negative USDT0 
 - **On-chain addresses (mainnet, from `.env`):** ISO comptroller `0x15F69897E6aEBE0463401345543C26d1Fd994abB` · kFXRP_ISO `0xD1b7A5eFa9bd88F291F7A4563a8f6185c0249CB3` · kUSDT0_ISO `0xad7e7989796414c9572da9854DEb1B920724fd09` · FXRP `0xAd552A648C74D49E10027AB8a618A3ad4901c5bE` · USDT0 underlying resolved live via `kUSDT0_ISO.underlying()`.
 - **Tests:** 30 green across the Kinetic + ISO-math suites.
 - **Pending for full sign-off:** read-only dry-run on mainnet (part of the integration step) + a `/a1/prepare` route test (E1/E2 currently have none — thin orchestration over tested units).
-- **Invariant:** returns unsigned calls only, `defibroSigns:false`, USDT0 resolved on-chain not guessed. The **signer is the user's EVM wallet** (repayBorrowBehalf lets the EVM wallet clear the PA's debt). ✅
+- **Invariant:** returns unsigned calls only, `astryumSigns:false`, USDT0 resolved on-chain not guessed. The **signer is the user's EVM wallet** (repayBorrowBehalf lets the EVM wallet clear the PA's debt). ✅
 
 ### PA-SIDE LEGS — carry re-supply + protection/DERISK withdraw & transfer ✅ BUILT & TESTED
 - **What:** all PA-side actions run as arbitrary `Call[]` inside a **0xFE userOp** (the E1 mechanism), wrapped by the proven `buildDirectMintHandoff`.
@@ -76,9 +76,9 @@ FXRP supply earns ~2% APY (incl. RFLR) which offsets part of the negative USDT0 
   - `FlareSmartAccountService.buildErc20TransferCall({ token, to, amount })` → `[token.transfer(evmWallet, amount)]` (the PA→EVM move).
   - Routes: `POST /supply-usdt0/prepare` and `POST /pa-withdraw-transfer/prepare` (asset `usdt0`|`fxrp`) — each returns the UNSIGNED XRPL Payment (0xFE) + disclosure.
 - **Files:** [KineticAdapter.ts](backend/src/connectors/protocols/adapters/KineticAdapter.ts), [FlareSmartAccountService.ts](backend/src/connectors/protocols/flare/FlareSmartAccountService.ts), [flareDemo.ts](backend/src/routes/flareDemo.ts) · tests in [KineticAdapter.iso.test.ts](backend/src/connectors/protocols/adapters/__tests__/KineticAdapter.iso.test.ts) + [FlareSmartAccountService.test.ts](backend/src/connectors/protocols/flare/__tests__/FlareSmartAccountService.test.ts).
-- **Mint-coupling (disclosed):** because 0xFE dispatches via `executeDirectMintingWithData`, each PA userOp also mints a small FXRP into the PA from the `amountXrpForMint` paid. Send the minimum; the mint + fees are in the disclosure. For protection this is benign (extra collateral). This is a property of Flare's userOp dispatch, not a Defibro choice.
+- **Mint-coupling (disclosed):** because 0xFE dispatches via `executeDirectMintingWithData`, each PA userOp also mints a small FXRP into the PA from the `amountXrpForMint` paid. Send the minimum; the mint + fees are in the disclosure. For protection this is benign (extra collateral). This is a property of Flare's userOp dispatch, not a Astryum choice.
 - **Coverage note:** `encodeAction` was NOT reusable here — it resolves markets only via `KINETIC_KTOKEN_ENV` (`USDC.E, SFLR, WETH, FLRETH`), no USDT0/ISO awareness — so dedicated ISO sibling builders were the right call.
-- **Invariant:** every route returns unsigned payloads, `defibroSigns:false`; the USDT0 underlying is resolved on-chain. ✅
+- **Invariant:** every route returns unsigned payloads, `astryumSigns:false`; the USDT0 underlying is resolved on-chain. ✅
 
 ### CABLE 1 — Automation override ✅ BUILT (verified 2026-07-25)
 `KineticAdapter.buildTransactionIntent` is overridden for `repay`: on trigger it computes the LIVE restore amount (`computeRepayToRestoreHF` over the user's signed `targetHF`), fills `txData` with `repayBorrowBehalf` and carries the `approve` as `preState.prerequisiteCalls` — the Intents surface batches both into one EVM signature. Degrades honestly: env unconfigured → warning without calldata; HF recovered → "nothing to repay" without payload. The walletless twin is the PA-native repay above (nudge pattern: the trigger's intent card deep-links to the position, where the 0xFE payload is composed fresh and signed in Xaman).
@@ -117,9 +117,9 @@ Sequence: `/pa-withdraw-transfer` (usdt0) → `/a1/prepare` (mode=full) → `/pa
 ---
 
 ## 6. Invariant confirmation per flow
-- **E1 open (built):** unsigned XRPL Payment; user signs in Xaman; Defibro reads fees/price live and discloses. ✅
-- **A1 repay (Cable 2, built):** unsigned EVM `[approve, repayBorrowBehalf]`; user signs in MetaMask; USDT0 underlying resolved on-chain; `defibroSigns:false`. ✅
-- **Carry re-supply + protection/DERISK PA legs (built):** unsigned XRPL Payment wrapping a 0xFE userOp `Call[]`; user signs in Xaman (Interpretation A); mint + fees disclosed. Defibro builds, never signs. ✅
+- **E1 open (built):** unsigned XRPL Payment; user signs in Xaman; Astryum reads fees/price live and discloses. ✅
+- **A1 repay (Cable 2, built):** unsigned EVM `[approve, repayBorrowBehalf]`; user signs in MetaMask; USDT0 underlying resolved on-chain; `astryumSigns:false`. ✅
+- **Carry re-supply + protection/DERISK PA legs (built):** unsigned XRPL Payment wrapping a 0xFE userOp `Call[]`; user signs in Xaman (Interpretation A); mint + fees disclosed. Astryum builds, never signs. ✅
 - **Test coverage:** 83 tests green across the Flare connectors + adapters (Kinetic adapter/ISO/metrics/encode, KineticIsoMath, FlareSmartAccountService, FlareDirectMintService, etc.). Route layer mirrors the E1/E2 pattern (thin orchestration over tested units); mainnet read-only dry-run is the remaining sign-off step.
 
 ---

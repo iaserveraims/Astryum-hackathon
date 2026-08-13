@@ -34,7 +34,7 @@ describe('buildEscrowCreate — the savings escrow (XRP only)', () => {
     expect('SigningPubKey' in xrplTx).toBe(false);
     // invariant #6 disclosure
     expect(disclosure.disclosedToUser).toBe(true);
-    expect(disclosure.defibroSigns).toBe(false);
+    expect(disclosure.astryumSigns).toBe(false);
     expect(disclosure.facts.selfEscrow).toBe(true);
     expect(disclosure.facts.amountXrp).toBe(5); // dropsToXrp returns a number in xrpl.js 4.x
     // the owner reserve is ALWAYS disclosed, figure or not (#6)
@@ -147,7 +147,7 @@ describe('buildEscrowCancel — permissionless recovery (the promise the Create 
     expect('SigningPubKey' in xrplTx).toBe(false);
     // invariant #6 — the cancel's one load-bearing fact: funds go to the OWNER
     expect(disclosure.disclosedToUser).toBe(true);
-    expect(disclosure.defibroSigns).toBe(false);
+    expect(disclosure.astryumSigns).toBe(false);
     expect(disclosure.facts.fundsReturnToOwner).toBe(true);
     expect(disclosure.facts.permissionlessAfterCancelAfter).toBe(true);
     expect(disclosure.note).toMatch(/returns to the account that created/);

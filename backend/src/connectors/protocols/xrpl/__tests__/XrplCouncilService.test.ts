@@ -36,7 +36,7 @@ describe('buildSignerListSet', () => {
     expect(out.xrplTx.SignerEntries).toHaveLength(5);
     expect(out.xrplTx.SourceTag).toBe(TAG);
     expect(out.disclosure.disclosedToUser).toBe(true);
-    expect(out.disclosure.defibroSigns).toBe(false);
+    expect(out.disclosure.astryumSigns).toBe(false);
     expect(out.disclosure.facts.quorumMargin).toBe(2);
   });
 
@@ -83,7 +83,7 @@ describe('buildDisableMaster', () => {
     expect(out.xrplTx.SetFlag).toBe(4); // asfDisableMaster
     expect(out.xrplTx.SourceTag).toBe(TAG);
     expect(out.disclosure.disclosedToUser).toBe(true);
-    expect(out.disclosure.defibroSigns).toBe(false);
+    expect(out.disclosure.astryumSigns).toBe(false);
     expect(out.disclosure.facts.reversibleWithoutQuorum).toBe(false);
     // The note must be honest about the irreversible, quorum-only consequence.
     expect(out.disclosure.note).toMatch(/master key/i);

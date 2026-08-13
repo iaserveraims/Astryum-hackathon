@@ -42,7 +42,7 @@ export class PersonaKYCProvider {
     this.webhookSecret = process.env.PERSONA_WEBHOOK_SECRET ?? '';
     this.templateId = process.env.PERSONA_TEMPLATE_ID ?? '';
     this.appRedirectBase =
-      process.env.PERSONA_REDIRECT_BASE_URL ?? 'https://defibro.app/app/kyc';
+      process.env.PERSONA_REDIRECT_BASE_URL ?? 'https://astryum.xyz/app/kyc';
 
     const enabled = process.env.PERSONA_KYC_ENABLED !== 'false';
     if (enabled) {

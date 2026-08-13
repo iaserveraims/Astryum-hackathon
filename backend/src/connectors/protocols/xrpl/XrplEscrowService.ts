@@ -87,7 +87,7 @@ export function buildEscrowCreate(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         `Astryum builds this unsigned EscrowCreate; you sign it in Xaman. It locks ${dropsToXrp(
           input.amountDrops,
@@ -166,7 +166,7 @@ export function buildEscrowFinish(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned EscrowFinish; whoever sends it signs with their own key. ' +
         'It releases a time-based escrow to its destination — possible for anyone once FinishAfter ' +
@@ -231,7 +231,7 @@ export function buildEscrowCancel(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned EscrowCancel; whoever sends it signs with their own key. ' +
         'It cancels an expired escrow — possible for anyone once CancelAfter has passed (the ' +

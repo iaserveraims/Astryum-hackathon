@@ -327,7 +327,7 @@ export const useWalletStore = create<WalletState>()(
         }
       }),
       {
-        name: 'defibro-wallet-store',
+        name: 'astryum-wallet-store',
         partialize: (state) => ({
           // Only persist these fields, excluding temporary data that causes object recreation
           wallets: state.wallets.map(wallet => ({

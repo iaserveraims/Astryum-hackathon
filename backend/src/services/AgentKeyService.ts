@@ -14,7 +14,7 @@ const TAG_BYTES = 16;
 // ⚠ OPS: if user keys were ALREADY stored under the dev default, re-encrypt them
 // with the new secret BEFORE setting it (read old → write new), or they become
 // undecryptable. See docs/context/Astryum_BuildSpec_3_Componentes §C3.
-const DEV_MASTER_SECRET = 'defibro-dev-secret-32bytes!!!!!';
+const DEV_MASTER_SECRET = 'astryum-dev-secret-32bytes!!!!!';
 
 function getMasterKey(): Buffer {
   const secret = process.env.AGENT_KEY_SECRET || process.env.JWT_SECRET;
@@ -53,7 +53,7 @@ function decrypt(encoded: string): string {
 
 export interface KeyResolution {
   key: string;
-  source: 'user' | 'defibro';
+  source: 'user' | 'astryum';
   model: string;
 }
 
@@ -123,9 +123,9 @@ export class AgentKeyService {
         // fall through to Astryum key
       }
     }
-    const defibro = process.env.ANTHROPIC_API_KEY;
-    if (!defibro) throw new Error('No Anthropic API key available. Please add your key in Settings → Agent.');
-    return { key: defibro, source: 'defibro', model: 'claude-haiku-4-5-20251001' };
+    const astryum = process.env.ANTHROPIC_API_KEY;
+    if (!astryum) throw new Error('No Anthropic API key available. Please add your key in Settings → Agent.');
+    return { key: astryum, source: 'astryum', model: 'claude-haiku-4-5-20251001' };
   }
 
   /** Encrypt an arbitrary string (reused for MCP API keys) */

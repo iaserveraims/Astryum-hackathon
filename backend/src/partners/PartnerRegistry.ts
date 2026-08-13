@@ -3,9 +3,9 @@
  *
  * The single source of truth for "who routes an execution intent" in Astryum.
  * Per the 2026-06-01 regulatory audit and architectural principles
- * (CLAUDE.md §0 + DEFIBRO DOCS):
+ * (CLAUDE.md §0 + ASTRYUM DOCS):
  *
- *   "Defibro never executes, never broadcasts, never has discretion;
+ *   "Astryum never executes, never broadcasts, never has discretion;
  *    every execution path passes through a registered partner."
  *
  * Three partner types — clean MiCA framing:
@@ -256,7 +256,7 @@ const PARTNERS: ReadonlyArray<RegisteredPartner> = Object.freeze([
     id: 'oneinch',
     displayName: '1inch Aggregation',
     type: 'WALLET_PARTNER',
-    enabled: () => !!(process.env.ONEINCH_API_KEY && process.env.DEFIBRO_FEE_WALLET),
+    enabled: () => !!(process.env.ONEINCH_API_KEY && process.env.ASTRYUM_FEE_WALLET),
     operations: ['swap'],
     chains: [1, 42161, 8453, 10, 137, 56, 43114],
     allowsReferralFee: true,

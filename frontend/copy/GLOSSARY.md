@@ -75,9 +75,9 @@ SparkDEX · DeFi · MiCA · CASP · mainnet · wallet (femenino en ES: "tu walle
    ("100% seguro") es exactamente como hablan los timos — fuera.
 3. **MiCA es posición propia, no hecho certificado:** "estamos estructurados para no ser un
    CASP" / "we are structured not to be a CASP" — nunca "no somos un CASP" / "we are not a
-   CASP" como afirmación jurídica. (Ver `legal/00-perimetro.md` §4.4: la autoclasificación
-   tajante publicada antes del dictamen es un punto de atención.) Se suaviza el verbo, no el
-   contenido.
+   CASP" como afirmación jurídica. (El análisis interno de perímetro legal señala que la
+   autoclasificación tajante publicada antes del dictamen es un punto de atención.) Se suaviza
+   el verbo, no el contenido.
 4. **Tasas y rendimientos: siempre dato del protocolo con fuente**, nunca promesa nuestra.
    Prohibido: "recomendamos", "garantizado", "gana X% con nosotros", "el agente decide",
    "real yield / rendimiento real" como reclamo.

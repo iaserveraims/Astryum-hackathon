@@ -461,10 +461,10 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
       'swap.getQuote',
       'swap.prepareTransaction',
     ],
-    enabled: !!(process.env.ONEINCH_API_KEY && process.env.DEFIBRO_FEE_WALLET),
+    enabled: !!(process.env.ONEINCH_API_KEY && process.env.ASTRYUM_FEE_WALLET),
     description:
       '1inch Aggregation API v6. Astryum earns integrator fees (ONEINCH_FEE_BPS, default 0.25%) on every swap. ' +
-      'Fee embedded in calldata by 1inch — goes directly to DEFIBRO_FEE_WALLET. Astryum never holds funds.',
+      'Fee embedded in calldata by 1inch — goes directly to ASTRYUM_FEE_WALLET. Astryum never holds funds.',
   },
   // P15: Hedera (HBAR) — public HashIO JSON-RPC relay, no API key
   {
@@ -537,7 +537,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
     description:
       'Soroswap Stellar DEX aggregator. Returns UNSIGNED XDR; user signs in a ' +
       'Stellar wallet (Freighter/Lobstr). Fee: SOROSWAP_FEE_BPS (default 30) via ' +
-      'referralId → SOROSWAP_FEE_WALLET/DEFIBRO_FEE_WALLET. Self-disables without ' +
+      'referralId → SOROSWAP_FEE_WALLET/ASTRYUM_FEE_WALLET. Self-disables without ' +
       'SOROSWAP_API_KEY. Stellar-only, NOT EVM. Astryum never signs.',
   },
   // P14: Li.Fi — cross-chain swap + bridge aggregator (EVM, 60+ chains)
@@ -554,7 +554,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
     enabled: true,
     description:
       'Li.Fi cross-chain swap + bridge aggregator (60+ EVM chains). ' +
-      'Fee: LIFI_FEE_BPS (default 15 = 0.15%) via integrator=defibro fee param. ' +
+      'Fee: LIFI_FEE_BPS (default 15 = 0.15%) via integrator=astryum fee param. ' +
       'Optional LIFI_API_KEY for higher rate limits. ' +
       'NOT Flare (14) — use internal protocol adapters. Astryum never signs.',
   },
@@ -634,7 +634,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
     enabled: !!process.env.ENSO_API_KEY,
     description:
       'Enso Finance DeFi workflow composition. Supports atomic multi-step bundles across 200+ protocols. ' +
-      'Fee: ENSO_FEE_BPS (default 15 = 0.15%) embedded in calldata → DEFIBRO_FEE_WALLET. ' +
+      'Fee: ENSO_FEE_BPS (default 15 = 0.15%) embedded in calldata → ASTRYUM_FEE_WALLET. ' +
       'Astryum never holds funds. Flare (chainId 14) excluded — use internal protocol adapters.',
   },
   // FASE 5: Market data enrichment — DexScreener (real-time DEX pair data)
@@ -751,7 +751,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
   // FASE 8: Squid Router — Axelar-based cross-chain swap + bridge (complementary to Li.Fi)
   // Use when Axelar routes give better rates or for Cosmos ↔ EVM flows.
   // 70+ chains. SQUID_INTEGRATOR_ID required (free registration at axelar.network/squid).
-  // Fee: SQUID_FEE_BPS (default 15 = 0.15%) routed to DEFIBRO_FEE_WALLET via integratorAddress.
+  // Fee: SQUID_FEE_BPS (default 15 = 0.15%) routed to ASTRYUM_FEE_WALLET via integratorAddress.
   {
     id: 'squid',
     type: 'data',
@@ -767,7 +767,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
     description:
       'Squid Router v2 — Axelar-based cross-chain swap + bridge aggregator (70+ chains). ' +
       'Complementary to Li.Fi for Axelar-native routes. ' +
-      'Fee: SQUID_FEE_BPS (default 15 = 0.15%) via integratorAddress → DEFIBRO_FEE_WALLET. ' +
+      'Fee: SQUID_FEE_BPS (default 15 = 0.15%) via integratorAddress → ASTRYUM_FEE_WALLET. ' +
       'SQUID_INTEGRATOR_ID required. NOT Flare (14). Astryum never signs.',
   },
   // FASE 8: CoW Protocol — MEV-protected batch auction swaps (EIP-712 signing, not eth_sendTransaction)

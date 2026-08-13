@@ -56,7 +56,7 @@ model User {
   updatedAt            DateTime  @updatedAt
 
   // KYC / Identity — Persona KYC provider (V1.2)
-  // DeFiBro never stores documents — only the approval signal from the provider.
+  // Astryum never stores documents — only the approval signal from the provider.
   kycVerified          Boolean   @default(false)
   kycTier              String    @default("none") // 'none' | 'basic' | 'advanced'
   kycLevel             String?   // 'tier1' | 'tier2' as reported by Persona
@@ -166,7 +166,7 @@ model Wallet {
   /// and the default signer for new operations in that ecosystem.
   isPrimary    Boolean  @default(false)
 
-  /// Role of this wallet in DeFiBro:
+  /// Role of this wallet in Astryum:
   ///   'sign'             → user signs operations with it (active execution)
   ///   'watch'            → Capital Map only (replaces legacy WalletWatchlist)
   ///   'both'             → sign + watch (typical for connected wallets)
@@ -199,7 +199,7 @@ model Wallet {
 // An IntentBundle sequences multiple signatures across ecosystems when the
 // user's source ecosystem differs from the destination protocol's. Bundle
 // invariants (REGULATORY — never relax):
-//   - DeFiBro never broadcasts. Each step is signed by the user's wallet
+//   - Astryum never broadcasts. Each step is signed by the user's wallet
 //     partner; the wallet partner transmits.
 //   - Step N+1 NEVER advances until Step N reports status='confirmed' AND
 //     the partner status endpoint validates the transfer succeeded.
@@ -1177,7 +1177,7 @@ model Migration {
 }
 
 // ============================================================================
-// CORE DOMAIN — Defibro engines (Chain, Protocol, Position, Intent, Automation)
+// CORE DOMAIN — Astryum engines (Chain, Protocol, Position, Intent, Automation)
 // ============================================================================
 
 // Non-EVM chains use synthetic negative chainIds: XRPL=-1, Solana=-2, Bitcoin=-3.
@@ -1430,7 +1430,7 @@ enum IntentAuthorizationSessionStatus {
   user_authorized
   cancelled
   expired
-  // NOTE: no submitted/confirmed/failed/relayed — DeFiBro does not track broadcast lifecycle
+  // NOTE: no submitted/confirmed/failed/relayed — Astryum does not track broadcast lifecycle
 }
 
 model AutomationRule {
@@ -1810,10 +1810,10 @@ model PartnerIntent {
   destinationChainId      Int       // 14 (Flare) or 1 (Ethereum) or ...
 
   // MiCA compliance flags (immutable, validated at creation)
-  partnerExecutes         Boolean   @default(true)      // NOT user, NOT DeFiBro
-  defibroExecutes         Boolean   @default(false)     // ALWAYS false
-  defibroCustody          Boolean   @default(false)     // ALWAYS false
-  defibroOrderTransmission Boolean @default(false)     // ALWAYS false
+  partnerExecutes         Boolean   @default(true)      // NOT user, NOT Astryum
+  astryumExecutes         Boolean   @default(false)     // ALWAYS false
+  astryumCustody          Boolean   @default(false)     // ALWAYS false
+  astryumOrderTransmission Boolean @default(false)     // ALWAYS false
 
   // User action tracking
   userConfirmedInsidePartner Boolean @default(false)
@@ -1841,7 +1841,7 @@ model RegulatedPartnerSession {
   partnerIntentId   String    @unique
   partnerId         String    // "moonpay"
 
-  // Partner's session ID (opaque to DeFiBro)
+  // Partner's session ID (opaque to Astryum)
   partnerSessionId  String    @unique            // From MoonPay: session_abc_123
   partnerSessionUrl String                      // https://moonpay.com/session/...
 
@@ -2127,8 +2127,8 @@ model DeFiInteraction {
   @@map("defi_interactions")
 }
 
-// V1.1 S4 — Unsigned transaction prepared by DeFiBro for user-controlled wallet to sign.
-// DeFiBro never signs. Source wallet must be user-controlled (NEVER a partner/MoonPay wallet).
+// V1.1 S4 — Unsigned transaction prepared by Astryum for user-controlled wallet to sign.
+// Astryum never signs. Source wallet must be user-controlled (NEVER a partner/MoonPay wallet).
 model WalletIntent {
   id            String   @id @default(cuid())
   userId        String
@@ -2306,7 +2306,7 @@ model IntentAuthorizationSession {
   payloadHash        String
   authorizationProof Json?
   // authorizationProof = { signedPayloadHash, signedAt, walletAddress, signatureScheme }
-  // NO txHash — DeFiBro does not receive or process broadcast results
+  // NO txHash — Astryum does not receive or process broadcast results
   cancelReason       String?
   expiresAt          DateTime
   createdAt          DateTime @default(now())
@@ -2393,7 +2393,7 @@ model AgentDocument {
   contentType String   // 'pdf' | 'txt' | 'md' | 'json'
   content     String   @db.Text // extracted text
   sizeBytes   Int
-  source      String   @default("user_upload") // 'user_upload' | 'defibro_report' | 'defibro_audit'
+  source      String   @default("user_upload") // 'user_upload' | 'astryum_report' | 'astryum_audit'
   uploadedAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2626,7 +2626,7 @@ model BackupStrategy {
   // Array of IntentPayload-shaped defensive actions (e.g. repay if HF < 1.3)
   defensiveIntents   Json
   // 'pre_auth' = user signs a conditional authorization upfront
-  // 'notify'   = DeFiBro sends push notification, user signs on demand
+  // 'notify'   = Astryum sends push notification, user signs on demand
   activationMode     String   @default("notify") // 'pre_auth' | 'notify'
   preAuthExpiryDays  Int      @default(30)
   createdAt          DateTime @default(now())

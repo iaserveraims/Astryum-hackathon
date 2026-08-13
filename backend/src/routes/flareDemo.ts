@@ -1,6 +1,6 @@
 /**
  * Flare mainnet DEMO routes — the two live "entradas" shown in the Earn surface
- * (docs/context/Defibro_Demos_Mainnet_Flare_Plan_2026-06-22.md):
+ * (docs/context/Astryum_Demos_Mainnet_Flare_Plan_2026-06-22.md):
  *
  *   E1 — FXRP entry  (rail: Xaman → Flare Smart Account)
  *        XRP → direct-mint FXRP → supply collateral + borrow USDT0 on Kinetic ISO.
@@ -855,7 +855,7 @@ router.post('/e1/prepare', async (req: Request, res: Response) => {
           targetHF: Number(targetHF),
           triggerPriceUSD: trigger.triggerPriceUSD,
           disclosedToUser: true,
-          defibroSigns: false,
+          astryumSigns: false,
           note:
             'Astryum builds these unsigned EVM calls; you sign them in your own Flare wallet. Your FXRP enters Kinetic directly — no XRPL mint, no minting fee. USDT0 borrow is a gated demo exception (non-EU-facing).',
         },
@@ -914,7 +914,7 @@ router.post('/e1/prepare', async (req: Request, res: Response) => {
         triggerPriceUSD: e1.a1.triggerPriceUSD,
         redeemMinimumXrp: minRedeemUBA != null ? Number(minRedeemUBA) / DROPS : null,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           'Astryum builds this unsigned XRPL Payment; you sign it in Xaman. USDT0 borrow is a gated demo exception (non-EU-facing). Exiting (repay + withdraw) returns FXRP.' +
           fxrpExitWarning(minRedeemUBA) +
@@ -1070,7 +1070,7 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
           noDebt: true,
           noLiquidationRisk: true,
           disclosedToUser: true,
-          defibroSigns: false,
+          astryumSigns: false,
           note:
             'Astryum builds these unsigned EVM calls; you sign them in your own Flare wallet. Your FXRP is supplied directly as a plain deposit — no XRPL mint, no borrow, no liquidation. Withdraw returns FXRP.',
         },
@@ -1114,7 +1114,7 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
         noLiquidationRisk: true,
         redeemMinimumXrp: minRedeemUBA != null ? Number(minRedeemUBA) / DROPS : null,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           'Astryum builds this unsigned XRPL Payment; you sign it in Xaman. Your XRP is minted to FXRP and supplied as a plain deposit — no borrow, no liquidation. Withdraw returns FXRP.' +
           fxrpExitWarning(minRedeemUBA) +
@@ -1376,7 +1376,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
       noDebt: true,
       noLiquidationRisk: true,
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
     };
 
     // 4-EVM. DIRECT ENTRY (no XRPL mint): deposit the wallet's own FXRP into
@@ -1561,7 +1561,7 @@ router.post('/e2/prepare', async (req: Request, res: Response) => {
         bips: bipsInt,
         flrPriceUSD,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           'FTSO delegation rewards accrue per reward epoch (~3.5 days) and are a protocol datum — not a Astryum yield offer. You sign wrap + delegate in your EVM wallet.',
       },
@@ -1728,7 +1728,7 @@ router.post('/e2/exit/prepare', async (req: Request, res: Response) => {
         delegations,
         flrPriceUSD,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note: undelegates
           ? 'Full exit: the delegation is removed and every WFLR unwraps back to FLR in the same wallet. FTSO rewards already accrued stay claimable afterwards.'
           : 'Partial unwrap: the delegation percentages stay on the remaining WFLR. FTSO rewards already accrued stay claimable afterwards.',
@@ -1929,7 +1929,7 @@ router.post('/a1/prepare', async (req: Request, res: Response) => {
           targetHF: Number(targetHF),
           fxrpPriceUSD,
           disclosedToUser: true,
-          defibroSigns: false,
+          astryumSigns: false,
           note: `Health factor ${restore.currentHF.toFixed(3)} is already at/above the target ${Number(targetHF)}; no repay needed.`,
         },
       });
@@ -2025,7 +2025,7 @@ router.post('/a1/prepare', async (req: Request, res: Response) => {
                   debtUsdt0: Number(debt) / DROPS,
                   walletUsdt0: 0,
                   disclosedToUser: true,
-                  defibroSigns: false,
+                  astryumSigns: false,
                   note: 'La wallet firmante no tiene USDT0, pero el hueco se puede comprar con TU propio FXRP o FLR (swap en SparkDEX dentro del mismo batch que firmas). Elige el activo del fill y vuelve a preparar.',
                 },
               });
@@ -2208,7 +2208,7 @@ router.post('/a1/prepare', async (req: Request, res: Response) => {
             }
           : {}),
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           'Astryum builds these unsigned EVM calls (approve + repayBorrowBehalf); you sign them in your EVM wallet. This repays the Personal Account’s USDT0 debt and lifts its health factor. The USDT0 must already sit in the signing wallet (moved PA→EVM beforehand).' +
           (fillApplied
@@ -2331,7 +2331,7 @@ router.post('/supply-usdt0/prepare', async (req: Request, res: Response) => {
           usdt0Token,
           holder: evmAddr,
           disclosedToUser: true,
-          defibroSigns: false,
+          astryumSigns: false,
           note:
             'Re-supplies borrowed USDT0 into the Kinetic ISO market (the carry). This position is held by your own Flare wallet — you sign the approve + supply calls directly.',
         },
@@ -2381,7 +2381,7 @@ router.post('/supply-usdt0/prepare', async (req: Request, res: Response) => {
         ...mintFeeDisclosure(handoff.net),
         fxrpMintedSideEffect: Number(handoff.net.netToPersonalAccountUBA) / DROPS,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           'Re-supplies borrowed USDT0 into the Kinetic ISO market (the carry ~14% APY). Runs as a 0xFE userOp on your Personal Account — you sign the XRPL Payment in Xaman. Mint-coupled: also mints a small FXRP into your PA from the XRP paid. Execution on Flare is completed by an executor after your signature; until it runs, your XRP waits safely at the Core Vault.',
       },
@@ -2568,7 +2568,7 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
         ...mintFeeDisclosure(handoff.net),
         fxrpMintedSideEffect: Number(handoff.net.netToPersonalAccountUBA) / DROPS,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note: wantsUnmint
           ? `Withdraws ${Number(amount) / DROPS} FXRP from the Kinetic ISO market and redeems it — plus the ${Number(handoff.net.netToPersonalAccountUBA) / DROPS} FXRP this very dispatch mints — to NATIVE XRP, all in one atomic 0xFE userOp you sign in Xaman. The FAssets agent pays the XRP (minus the protocol redemption fee) to the XRPL wallet that OWNS this Smart Account; the burn is immediate at execution, the XRP arrives after (minutes to hours). DERISK order still applies: withdraw USDT0 → repay in full → only then withdraw FXRP. Execution on Flare is completed by an executor after your signature; until it runs, your XRP waits safely at the Core Vault.`
           : wantsKeep
@@ -2702,7 +2702,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
           mode,
           needed: false,
           disclosedToUser: true,
-          defibroSigns: false,
+          astryumSigns: false,
           note: 'No outstanding USDT0 debt on the Personal Account — nothing to repay.',
         },
       });
@@ -2745,7 +2745,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
             mode,
             needed: false,
             disclosedToUser: true,
-            defibroSigns: false,
+            astryumSigns: false,
             note: `${pctOfDebt}% of the live debt rounds to 0 USDT0 — nothing to repay.`,
           },
         });
@@ -2772,7 +2772,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
             targetHF: Number(targetHF),
             fxrpPriceUSD,
             disclosedToUser: true,
-            defibroSigns: false,
+            astryumSigns: false,
             note: `Health factor ${restore.currentHF.toFixed(3)} is already at/above the target ${Number(targetHF)}; no repay needed.`,
           },
         });
@@ -2840,7 +2840,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
             fillRequired: true,
             debtUsdt0: Number(debt) / DROPS,
             disclosedToUser: true,
-            defibroSigns: false,
+            astryumSigns: false,
             note: 'El PA no tiene USDT0 (libre ni suppliado), pero el hueco se puede comprar con el FXRP libre del propio PA — un swap dentro del mismo userOp que firmas en Xaman. Elige el fill y vuelve a preparar.',
           },
         });
@@ -2970,7 +2970,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
         ...mintFeeDisclosure(handoff.net),
         fxrpMintedSideEffect: Number(handoff.net.netToPersonalAccountUBA) / DROPS,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           `Repays ${repayHuman} USDT0 of the Personal Account's debt entirely inside the PA — one atomic 0xFE userOp you sign in Xaman; the executor pays the Flare gas. Funding: the PA's free USDT0 first, then a withdrawal from your ISO carry supply.` +
           (fillApplied
@@ -3179,7 +3179,7 @@ router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
         ...mintFeeDisclosure(net),
         fxrpMintedSideEffect: Number(net.netToPersonalAccountUBA) / DROPS,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           `Burns ${Number(amountUBA) / DROPS} FXRP from your Personal Account via AssetManagerFXRP.redeemAmount, as one 0xFE userOp you sign in Xaman. The FAssets agent then pays the XRP (minus the protocol redemption fee) to ${dest === xrplAddr ? 'the XRPL wallet that OWNS this Smart Account' : `the XRPL address you chose (${dest})`} — the burn is immediate at execution, the XRP arrives after (minutes to hours; large requests can be split or partially fulfilled). If an agent misses its payment window, the redemption default process reimburses the Personal Account from the agent's collateral${redemptionExecutor !== '0x0000000000000000000000000000000000000000' ? ", and Astryum's executor is registered as redemption executor (zero fee) so it can claim that default without another signature from you" : ''}. Mint-coupled like every dispatch: the XRP you pay here mints FXRP into the PA first and counts toward what you redeem. Astryum builds this unsigned and STOPS — you sign in Xaman; Astryum never signs, never custodies, never broadcasts.`,
       },
@@ -3389,7 +3389,7 @@ router.post('/iso-withdraw/prepare', async (req: Request, res: Response) => {
         sharesRedeemed: all ? Number(snapshot.sharesBase) / DROPS : null,
         holder: evmAddr,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           (all
             ? `Withdraws your ENTIRE ${asset.toUpperCase()} supply from the Kinetic ISO market by redeeming all ${Number(snapshot.sharesBase) / DROPS} kToken shares — the exact position, interest included; the amount shown is the live estimate and only grows until execution. `
@@ -3549,7 +3549,7 @@ router.post('/e1-borrow/prepare', async (req: Request, res: Response) => {
         targetHF: Number(targetHF),
         triggerPriceUSD: trigger.triggerPriceUSD,
         disclosedToUser: true,
-        defibroSigns: false,
+        astryumSigns: false,
         note:
           'Completes the carry: borrows USDT0 against the FXRP collateral your wallet ALREADY supplied in the Kinetic ISO market. Astryum builds the unsigned calls; you sign in your own Flare wallet. USDT0 borrow is a gated demo exception (non-EU-facing).',
       },
@@ -3715,7 +3715,7 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
             }
           : null,
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
     };
 
     // EVM-direct rail — the wallet holds the shares; one unsigned call.
@@ -3913,7 +3913,7 @@ router.post('/vault-claim/prepare', async (req: Request, res: Response) => {
       fxrpQueued: Number(entry.queuedFxrpBase) / DROPS,
       estimatedFxrpOut: estFxrp,
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
     };
 
     if (evmAddr) {
@@ -4304,7 +4304,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
       noDebt: true,
       noLiquidationRisk: true,
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
     };
     const monarqWarning =
       to === 'monarq'

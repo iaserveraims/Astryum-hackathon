@@ -15,7 +15,8 @@ That line is enforced in code — see [INVARIANTS.md](INVARIANTS.md) and the boo
 ### 🚀 [**Try it live → astryum.xyz**](https://astryum.xyz)
 
 *The product runs on **Flare Mainnet**. Everything below is best experienced from the page —
-request early access there; this repository is for reading the code, not for running it.*
+the beta is open, enter from the landing; this repository is for reading the code, not for
+running it.*
 
 <br>
 
@@ -24,9 +25,9 @@ request early access there; this repository is for reading the code, not for run
 </div>
 
 > This repository is the **public snapshot** of the Astryum monorepo (`main`): the full product
-> code with its canonical docs. Internal working notes (`docs/context/`, `legal/`) and the
-> pruned demo build live in the private repository and are occasionally referenced by name for
-> traceability. Built for **Flare Summer Signal** and **XRPL Commons · Make Waves**.
+> code with its canonical docs. Internal working notes (strategy, legal, audits) stay in the
+> private repository and are referenced generically where a doc points to one.
+> Built for **Flare Summer Signal** and **XRPL Commons · Make Waves**.
 
 ---
 
@@ -57,7 +58,7 @@ sequenceDiagram
 ```
 
 Every `/prepare` response carries a fee/price disclosure with `disclosedToUser: true` and
-`defibroSigns: false` — and the backend refuses to boot if any environment variable looks
+`astryumSigns: false` — and the backend refuses to boot if any environment variable looks
 like a user signing key (`backend/src/config/bootGuards.ts`).
 
 ## Truth before and after the signature
@@ -133,6 +134,11 @@ Every surface ships in English and Spanish (Spanish-first at home, by design).
   Flare Smart Account `0xFE` userOps, Kinetic ISO builders + math, the flare-demo prepare
   routes, the Strategy screen with the NLP compile), the unified dashboard, the DERISK
   shortfall disclosure, the settlement machine and the preflight layer.
+- **Since the demo snapshot:** **Astryum Legacy** — a governed council (an XRPL multisig
+  quorum) drives an immutable vault on Flare through FDC-attested orders; the vault + bridge +
+  factory are **deployed on Flare mainnet** (2026-08-06, addresses in
+  [contracts/README.md](contracts/README.md)) — plus the Overview dashboard as the app's
+  landing and the open-beta gate.
 - Runs on **Flare Mainnet** (chain 14) with verified contract addresses
   (`backend/.env.example`). Covered by **1,400+ automated tests** (backend Jest + frontend
   Vitest) with TypeScript strict typechecks at zero errors on both sides.
@@ -146,6 +152,8 @@ Every surface ships in English and Spanish (Spanish-first at home, by design).
 - `backend/src/routes` — the API routers; `flareDemo.ts` holds the prepare endpoints above.
 - `backend/src/connectors/protocols/flare` — FAssets direct-mint, Smart Accounts, Kinetic math.
 - `backend/src/control-plane` — PolicyGuard + CalldataBuilder (the invariant tree).
+- `contracts/` — the Legacy vault, FDC bridge and factory (Solidity/Foundry), deployed on
+  Flare mainnet ([contracts/README.md](contracts/README.md)).
 - Canonical docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md) ·
   [INVARIANTS.md](INVARIANTS.md) ·
   [Astryum_Strategy_Carry_FXRP_Spec.md](Astryum_Strategy_Carry_FXRP_Spec.md) ·

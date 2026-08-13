@@ -20,7 +20,7 @@
  *
  * Env vars:
  *   TENDERLY_API_KEY         — access key (X-Access-Key header). Required.
- *   TENDERLY_ACCOUNT_SLUG    — account slug from dashboard (e.g. "defibro").
+ *   TENDERLY_ACCOUNT_SLUG    — account slug from dashboard (e.g. "astryum").
  *   TENDERLY_PROJECT_SLUG    — project slug (e.g. "v1").
  *   TENDERLY_API_URL         — base URL (default: https://api.tenderly.co/api/v1)
  */
@@ -39,7 +39,7 @@ import type { ProviderType, TrustLevel } from '../../../canonical/types/Source';
 const BASE_URL = process.env.TENDERLY_API_URL ?? 'https://api.tenderly.co/api/v1';
 // Resolved lazily so Jest env overrides in beforeEach() take effect at call time.
 const apiKey       = (): string => process.env.TENDERLY_API_KEY        ?? '';
-const accountSlug  = (): string => process.env.TENDERLY_ACCOUNT_SLUG   ?? 'defibro';
+const accountSlug  = (): string => process.env.TENDERLY_ACCOUNT_SLUG   ?? 'astryum';
 const projectSlug  = (): string => process.env.TENDERLY_PROJECT_SLUG   ?? 'v1';
 
 const HEALTH_TIMEOUT_MS = 6000;

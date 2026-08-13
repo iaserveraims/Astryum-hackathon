@@ -42,7 +42,7 @@ class ApiService {
   private handleUnauthorized(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('defibro-auth-storage');
+    localStorage.removeItem('astryum-auth-storage');
     if (!window.location.pathname.startsWith('/login')) {
       window.location.href = '/login';
     }

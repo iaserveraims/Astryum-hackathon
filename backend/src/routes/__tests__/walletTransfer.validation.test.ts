@@ -47,7 +47,7 @@ describe('POST /api/wallet-transfer/prepare — evm (FLR on Flare)', () => {
       { to: GOOD_EVM_2, data: '0x', value: '1500000000000000000', chainId: 14 },
     ]);
     expect(res.body.disclosure.disclosedToUser).toBe(true);
-    expect(res.body.disclosure.defibroSigns).toBe(false);
+    expect(res.body.disclosure.astryumSigns).toBe(false);
     expect(res.body.disclosure.asset).toBe('FLR');
   });
 
@@ -109,7 +109,7 @@ describe('POST /api/wallet-transfer/prepare — evm asset FXRP (ERC-20 on Flare)
       expect(res.body.disclosure.asset).toBe('FXRP');
       expect(res.body.disclosure.amount).toBe(1.5);
       expect(res.body.disclosure.disclosedToUser).toBe(true);
-      expect(res.body.disclosure.defibroSigns).toBe(false);
+      expect(res.body.disclosure.astryumSigns).toBe(false);
     } finally {
       spy.mockRestore();
     }
@@ -161,7 +161,7 @@ describe('POST /api/wallet-transfer/prepare — xrpl (XRP)', () => {
     });
     expect(res.body.xrplPayment.Account).toBeUndefined();
     expect(res.body.disclosure.disclosedToUser).toBe(true);
-    expect(res.body.disclosure.defibroSigns).toBe(false);
+    expect(res.body.disclosure.astryumSigns).toBe(false);
     expect(res.body.disclosure.asset).toBe('XRP');
   });
 

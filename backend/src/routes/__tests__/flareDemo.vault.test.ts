@@ -205,7 +205,7 @@ describe('POST /api/flare-demo/vault/prepare — earnXRP happy path', () => {
     expect(d.withdrawal.epochLagSeconds).toBe(86_400);
     expect(d.noDebt).toBe(true);
     expect(d.disclosedToUser).toBe(true);
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
   });
 
   it('409 VAULT_CAP_EXCEEDED when the net deposit does not fit the live cap', async () => {
@@ -232,6 +232,6 @@ describe('POST /api/flare-demo/vault/prepare — Firelight happy path', () => {
     expect(d.sharePriceSource).toMatch(/convertToAssets/);
     expect(d.apyPct30d).toBeNull();
     expect(d.withdrawal.kind).toBe('erc4626-claim');
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
   });
 });

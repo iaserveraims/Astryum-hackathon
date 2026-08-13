@@ -47,7 +47,7 @@ export class ReferralService {
       referral = await prisma.managerReferral.create({ data: { managerId, code } });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://defibro.app';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://astryum.xyz';
     return { code: referral.code, referralUrl: `${baseUrl}/register?ref=${referral.code}` };
   }
 
@@ -108,7 +108,7 @@ export class ReferralService {
       include: { conversions: true },
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://defibro.app';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://astryum.xyz';
     if (!referral) {
       return null;
     }

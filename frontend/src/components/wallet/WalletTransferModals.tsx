@@ -210,7 +210,7 @@ interface TransferDisclosure {
   astryumFee: number;
   networkFee: string;
   disclosedToUser: boolean;
-  defibroSigns: boolean;
+  astryumSigns: boolean;
   note: string;
   /** bridge-mint-fxrp only — fee/net breakdown of the FAssets direct mint. */
   mintingFeeXrp?: number;
@@ -524,7 +524,7 @@ export function WalletSendModal({
             astryumFee: 0,
             networkFee: `${t('Travels inside the')} ${d.mintCoupledXrp ?? xrpForMint} XRP ${t('dispatch (your signature) — net cost ≈ 0.3 XRP; the rest returns to your account as FXRP.')}`,
             disclosedToUser: true,
-            defibroSigns: false,
+            astryumSigns: false,
             note: String(d.note ?? ''),
             minimumRedeemXrp: (d.redeemMinimumXrp as number | undefined) ?? undefined,
           },

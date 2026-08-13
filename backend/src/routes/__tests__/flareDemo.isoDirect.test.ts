@@ -131,7 +131,7 @@ describe('POST /api/flare-demo/iso-withdraw/prepare', () => {
     // redeemUnderlying(uint256) — 0x852a12e3
     expect(usdt0.body.calls[0].data.startsWith('0x852a12e3')).toBe(true);
     expect(usdt0.body.disclosure.amount).toBeCloseTo(1.5, 6);
-    expect(usdt0.body.disclosure.defibroSigns).toBe(false);
+    expect(usdt0.body.disclosure.astryumSigns).toBe(false);
 
     const fxrp = await request(app)
       .post('/api/flare-demo/iso-withdraw/prepare')
@@ -163,7 +163,7 @@ describe('POST /api/flare-demo/iso-withdraw/prepare', () => {
     expect(d.all).toBe(true);
     expect(d.amount).toBeCloseTo(3, 6); // live underlying estimate
     expect(d.sharesRedeemed).toBeCloseTo(2.95, 6); // ALL the kToken shares
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
   });
 
   it('409 INSUFFICIENT_SUPPLY with the live balance when asking above it', async () => {
@@ -217,7 +217,7 @@ describe('POST /api/flare-demo/e1-borrow/prepare', () => {
     expect(d.entryHF).toBeCloseTo((9.600014 * 2 * 0.75) / d.usdt0Borrowed, 3);
     expect(res.body.a1.triggerPriceUSD).toBeGreaterThan(0);
     expect(d.disclosedToUser).toBe(true);
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
     // Invariant #11 — the prepare carries the dry-run verdict for the review UI.
     expect(res.body.preflight).toMatchObject({ available: true, willSucceed: true });
   });

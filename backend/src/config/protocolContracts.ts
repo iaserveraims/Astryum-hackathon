@@ -54,7 +54,7 @@ export const PROTOCOL_CONTRACTS: Record<string, ProtocolContractConfig> = {
   'aave-v3': {
     defiLlamaSlug: 'aave-v3',
     feeType: 'referral_code',
-    referralCode: Number(process.env.DEFIBRO_REFERRAL_CODE) || 0,
+    referralCode: Number(process.env.ASTRYUM_REFERRAL_CODE) || 0,
     chains: {
       1: {
         poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
@@ -159,7 +159,7 @@ export const PROTOCOL_CONTRACTS: Record<string, ProtocolContractConfig> = {
   'lido': {
     defiLlamaSlug: 'lido',
     feeType: 'referrer_address',
-    referrerWallet: process.env.DEFIBRO_FEE_WALLET,
+    referrerWallet: process.env.ASTRYUM_FEE_WALLET,
     cooldownDays: 7,
     chains: {
       1: {

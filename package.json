@@ -1,8 +1,8 @@
 {
-  "name": "defibro-monorepo",
+  "name": "astryum-monorepo",
   "version": "1.0.0",
-  "description": "DeFibro - Plataforma de gestión DeFi completa",
-  "author": "DeFibro Team",
+  "description": "Astryum - Plataforma de gestión DeFi completa",
+  "author": "Astryum Team",
   "license": "MIT",
   "private": true,
   "workspaces": [
@@ -56,7 +56,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tu-usuario/defibro.git"
+    "url": "https://github.com/tu-usuario/astryum.git"
   },
   "overrides": {
     "lucide-react": "^0.539.0",

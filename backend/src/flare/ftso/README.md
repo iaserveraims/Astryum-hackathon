@@ -2,7 +2,7 @@
 
 ## Overview
 
-The FTSO (Flare Time Series Oracle) module provides real-time, decentralized price feeds from Flare Network's native oracle system. This module enables DeFiBro to access accurate price data for 30+ assets with 90-second update cycles, directly from the blockchain without external dependencies.
+The FTSO (Flare Time Series Oracle) module provides real-time, decentralized price feeds from Flare Network's native oracle system. This module enables Astryum to access accurate price data for 30+ assets with 90-second update cycles, directly from the blockchain without external dependencies.
 
 ## What is FTSO?
 

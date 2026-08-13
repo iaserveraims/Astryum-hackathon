@@ -167,7 +167,7 @@ function capitalMap() {
     ],
     riskScore: 31,
     dataQualityNote: 'Aggregated from on-chain protocol adapters and Zerion.',
-    source: { providerId: 'defibro.capital', trustLevel: 'aggregator', fetchedAt: iso(), confidenceCaveat: 'Estimated values — confirm on-chain before signing.' },
+    source: { providerId: 'astryum.capital', trustLevel: 'aggregator', fetchedAt: iso(), confidenceCaveat: 'Estimated values — confirm on-chain before signing.' },
   };
 }
 

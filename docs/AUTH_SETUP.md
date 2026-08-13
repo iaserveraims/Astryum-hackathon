@@ -47,7 +47,7 @@ en pareja.
 
 ## 2. Gate de acceso pre-lanzamiento (Vercel)
 
-El viejo gate (usuario `admin` / contraseña `defibro2026`) **iba dentro del
+El viejo gate (usuario `admin` / contraseña `astryum2026`) **iba dentro del
 bundle público y está quemado** — cualquiera pudo leerlo. El nuevo gate se
 verifica en servidor y viaja como cookie httpOnly firmada que el middleware
 comprueba en `/app/*`, `/login`, `/register` y `/forgot-password`.
@@ -184,7 +184,7 @@ Railway → APPLE_OAUTH_CLIENT_ID=xyz.astryum.web
 - [ ] `/app` sin cookie → rebota a `/` (gate cerrado).
 - [ ] Logo ×5 → modal → código nuevo + captcha → entra a `/login`.
 - [ ] Código incorrecto ×9 → `429` (throttle del gate).
-- [ ] `admin`/`defibro2026` en el login → "Credenciales inválidas" (ya no es puerta).
+- [ ] `admin`/`astryum2026` en el login → "Credenciales inválidas" (ya no es puerta).
 - [ ] Crear cuenta con captcha → entra; sin captcha resuelto el submit avisa.
 - [ ] `POST /api/auth/login` por curl sin token → `403 captcha_required`.
 - [ ] Waitlist: alta normal OK; el campo oculto `website` relleno → éxito fake sin fila nueva.

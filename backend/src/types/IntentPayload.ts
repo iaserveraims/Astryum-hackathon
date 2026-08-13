@@ -17,7 +17,7 @@ export interface IntentPayload {
     action: string;
     protocol: string;
     description: string;
-    preparedBy: 'defibro';
+    preparedBy: 'astryum';
     preparedAt: string;
     /** Estimated unstake cooldown in days (set for LSTs: Lido ~7, EtherFi ~4, Sceptre ~0) */
     cooldownDays?: number;
@@ -32,7 +32,7 @@ export interface IntentPayload {
 
   referralAttribution: {
     referralCode?: string | null;
-    referralWallet: string | null;    // DEFIBRO_FEE_WALLET, or null when partner refuses referral fee
+    referralWallet: string | null;    // ASTRYUM_FEE_WALLET, or null when partner refuses referral fee
     attributionBps: number;            // 0 when partner does not permit referral fees
     disclosedToUser: true;             // literal true — always disclosed, never hidden
     disclosureText: string;            // visible to user before authorization
@@ -41,7 +41,7 @@ export interface IntentPayload {
   authorization: {
     mode: 'user_authorized_partner_relay'; // literal — user authorizes, partner relays
     userMustAuthorize: true;               // literal true
-    defibroRelays: false;                  // literal false — Astryum NEVER relays
+    astryumRelays: false;                  // literal false — Astryum NEVER relays
     singleUseSession: true;               // literal true — no session reuse
   };
 

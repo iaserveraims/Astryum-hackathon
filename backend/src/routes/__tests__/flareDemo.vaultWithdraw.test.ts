@@ -221,7 +221,7 @@ describe('POST /api/flare-demo/vault-withdraw/prepare — EVM-direct rail', () =
     expect(d.estimatedFxrpOut).toBeCloseTo(100.9202 - 0.1009202, 5);
     expect(d.estimatedValueUSD).toBeCloseTo((100.9202 - 0.1009202) * 2.0, 4);
     expect(d.disclosedToUser).toBe(true);
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
   });
 
   it('Firelight: one unsigned ERC-4626 redeem call, no instant fee, QUEUED-exit disclosure', async () => {
@@ -286,7 +286,7 @@ describe('Firelight queued exits — /vault-claims + /vault-claim/prepare', () =
     expect(res.body.calls[0].data.startsWith('0xb13acedd')).toBe(true);
     expect(res.body.disclosure.fxrpQueued).toBeCloseTo(5, 6);
     expect(res.body.disclosure.estimatedFxrpOut).toBeCloseTo(5, 6);
-    expect(res.body.disclosure.defibroSigns).toBe(false);
+    expect(res.body.disclosure.astryumSigns).toBe(false);
   });
 
   it('XRPL (PA) rail claim → 0xFE Payment with the dispatch fees disclosed (invariant #6)', async () => {

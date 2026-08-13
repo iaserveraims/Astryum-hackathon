@@ -9,7 +9,7 @@
  * capital gets programmed; the strategies themselves (running + saved) live
  * in Estrategias since the 2026-07-12 UI reorg.
  *
- * Per docs/context/Defibro_Demos_Mainnet_Flare_Plan_2026-06-22.md, the packs on
+ * Per docs/context/Astryum_Demos_Mainnet_Flare_Plan_2026-06-22.md, the packs on
  * offer are ONLY the two live "entradas" we run on mainnet (NOT the DefiLlama
  * catalogue, which is preserved untouched at /safe-markets and only hidden here):
  *

@@ -1,38 +1,38 @@
-# INVARIANTS.md — Defibro
+# INVARIANTS.md — Astryum
 
 > The rules the **code** never violates. If a task can only be implemented by breaking one
 > of these, the task is wrong — stop, choose the interpretation that preserves the invariant,
 > and leave a note in the PR. These are the hard floor under [ARCHITECTURE.md](ARCHITECTURE.md)
-> and [DECISIONS.md](DECISIONS.md). Mirrored (in Spanish) in [CLAUDE.md](CLAUDE.md) §Invariantes.
+> and [DECISIONS.md](DECISIONS.md).
 
-Defibro is a **non-custodial Universal Financial Control Plane**: it observes, aggregates and
+Astryum is a **non-custodial Universal Financial Control Plane**: it observes, aggregates and
 coordinates multichain DeFi capital, builds calldata/intents, and hands them to the **user's
-wallet to sign**. **Defibro never signs, never custodies, never executes.** The regulatory
+wallet to sign**. **Astryum never signs, never custodies, never executes.** The regulatory
 posture (MiCA) holds only because the code respects that on every line.
 
 ---
 
 ## Custody & signing
 
-1. **No user private key ever touches the backend or the client.** Defibro builds **unsigned**
+1. **No user private key ever touches the backend or the client.** Astryum builds **unsigned**
    payloads; the signature is always produced by the user's wallet. Embedded wallets (Turnkey)
    generate the key inside the provider's TEE under the **user's own passkey** as the sole root
    authenticator — the backend never sees the key.
 
 2. **The agent has zero unilateral discretion.** "AI compiles, user signs once, trustless logic
    executes within signed bounds." The AI only compiles NLP → intent; the **user reviews and
-   signs**. No delegated keys to Defibro, no AI with discretion in execution.
+   signs**. No delegated keys to Astryum, no AI with discretion in execution.
 
 3. **Automation = deterministic, user-signed intents only.** Conditional/triggered execution is
    permissionless and runs **within bounds the user signed**: CoW/ComposableCoW conditional
    orders (one signature, permissionless WatchTower) and/or ERC-4337 / EIP-7702 session keys
    with **on-chain enforced** bounds (scope via ERC-7715). No standing approvals, no signature
-   reuse, no background execution Defibro controls.
+   reuse, no background execution Astryum controls.
 
-4. **Defibro never broadcasts.** It prepares the intent, the user authorizes, the payload is
-   handed off; after hand-off Defibro stops — it does not select mempools, track the txHash
+4. **Astryum never broadcasts.** It prepares the intent, the user authorizes, the payload is
+   handed off; after hand-off Astryum stops — it does not select mempools, track the txHash
    operationally, or guarantee execution. Every provider that builds calldata sets
-   `authorization.defibroRelays: false` and `canBroadcast: false`.
+   `authorization.astryumRelays: false` and `canBroadcast: false`.
 
 5. **Delegated / off-chain-policy signing is V1.1, MiCA-gated — never V1.** Turnkey's
    delegated-agent-signing pattern, and any TEE-managed custody (Flare PMW/FCC), require a MiCA
@@ -45,7 +45,7 @@ posture (MiCA) holds only because the code respects that on every line.
 
 ## Routing & origins
 
-7. **The base is Defibro's chain-agnostic core, not any single chain.** Origins (XRPL/Xaman,
+7. **The base is Astryum's chain-agnostic core, not any single chain.** Origins (XRPL/Xaman,
    EVM/MetaMask, Solana/Phantom) are **multi by necessity**. XRPL is the flagship *origin*, not
    the universal base.
 
@@ -60,7 +60,7 @@ posture (MiCA) holds only because the code respects that on every line.
    vs bridged stable per chain (on Flare, USDC is bridged).
 
 10. **APYs are always protocol data with a source** ("Current Aave supply rate: X%"), never a
-    Defibro promise or offer. Forbidden copy: "we recommend", "guaranteed", "earn X% with us",
+    Astryum promise or offer. Forbidden copy: "we recommend", "guaranteed", "earn X% with us",
     "the agent decides".
 
 11. **`receiptTokenAddress` ≠ `executionContractAddress`.** DefiLlama returns receipt tokens
@@ -95,9 +95,9 @@ posture (MiCA) holds only because the code respects that on every line.
   the signing invariant extended to the cognitive layer (comparative, never imperative; numbers
   from tested math only; the user's market view is an input, never the agent's). Already partially
   encoded as prompt cages + deterministic calculators. Formalize when the LP-educativo piece is
-  built — see [docs/context/Astryum_Pieza_LP_Educativo_Protegido_2026-07-18.md](docs/context/Astryum_Pieza_LP_Educativo_Protegido_2026-07-18.md) §3.
+  built (spec'd in an internal working note, not published in this repo).
 
 ---
 
-*When in doubt, see [CLAUDE.md](CLAUDE.md) §"Ante la duda". The most conservative reading that
-preserves these invariants is the correct one.*
+*When in doubt: the most conservative reading that preserves these invariants is the
+correct one.*

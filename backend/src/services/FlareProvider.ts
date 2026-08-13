@@ -290,7 +290,7 @@ export class FlareProvider extends EventEmitter {
    * 2026-06-01 regulatory audit (Cat 1.1). The wallet partner (MetaMask /
    * WalletConnect / Bifrost / etc.) transmits the user-signed transaction;
    * Astryum only prepares unsigned calldata. See:
-   *   - docs §"Principios de ejecución — líneas rojas" (Defibro_Context_v2.md)
+   *   - docs §"Principios de ejecución — líneas rojas" (Astryum_Context_v2.md)
    *   - control-plane/RegulatedRelayBoundary.ts
    *
    * Any code that needs to learn a tx outcome reads it via getTransaction()

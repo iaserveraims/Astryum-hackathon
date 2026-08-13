@@ -5,11 +5,11 @@
  *
  * Revenue model:
  *   - LIFI_FEE_BPS (default 15 = 0.15%) passed as `fee` (decimal) in every request.
- *   - Li.Fi routes the fee to DEFIBRO_FEE_WALLET via the `integrator` mechanism.
+ *   - Li.Fi routes the fee to ASTRYUM_FEE_WALLET via the `integrator` mechanism.
  *   - disclosedToUser: true — always disclosed before user signs.
  *
  * Regulatory invariants (never remove):
- *   authorization.defibroRelays: false
+ *   authorization.astryumRelays: false
  *   referralAttribution.disclosedToUser: true
  *   Astryum never calls sendTransaction / broadcastTransaction
  *
@@ -24,7 +24,7 @@ import type { IProvider, ProviderHealth, Capability, ProviderCallContext, Provid
 import type { IntentPayload } from '../../../types/IntentPayload';
 
 const LIFI_API_BASE = 'https://li.quest/v1';
-const INTEGRATOR_ID = 'defibro';
+const INTEGRATOR_ID = 'astryum';
 const DEFAULT_FEE_BPS = 15;   // 0.15%
 const DEFAULT_SLIPPAGE = 0.005; // 0.5%
 
@@ -140,7 +140,7 @@ export class LiFiProvider implements IProvider {
   }
 
   private get feeWallet(): string {
-    return process.env.DEFIBRO_FEE_WALLET ?? '';
+    return process.env.ASTRYUM_FEE_WALLET ?? '';
   }
 
   private get apiKey(): string {
@@ -369,7 +369,7 @@ export class LiFiProvider implements IProvider {
 
   /**
    * Wraps a getQuote result into a full IntentPayload.
-   * authorization.defibroRelays: false — always.
+   * authorization.astryumRelays: false — always.
    */
   async prepareIntent(params: LiFiQuoteParams): Promise<IntentPayload> {
     const quote = await this.getQuote(params);
@@ -395,7 +395,7 @@ export class LiFiProvider implements IProvider {
         description:
           `Li.Fi ${isBridge ? 'bridge' : 'swap'} via ${quote.tool}. ` +
           `Fee: ${(this.feeBps / 100).toFixed(2)}%`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
 
@@ -404,14 +404,14 @@ export class LiFiProvider implements IProvider {
         attributionBps: this.feeBps,
         disclosedToUser: true,
         disclosureText:
-          `Astryum fee: ${(this.feeBps / 100).toFixed(2)}% → ${this.feeWallet.slice(0, 8) || 'DEFIBRO_FEE_WALLET'}… ` +
+          `Astryum fee: ${(this.feeBps / 100).toFixed(2)}% → ${this.feeWallet.slice(0, 8) || 'ASTRYUM_FEE_WALLET'}… ` +
           '(embedded via Li.Fi integrator mechanism)',
       },
 
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 

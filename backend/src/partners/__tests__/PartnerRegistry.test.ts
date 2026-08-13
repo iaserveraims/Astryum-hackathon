@@ -16,7 +16,7 @@ import { partnerRegistry } from '../PartnerRegistry';
 const SAVED_ENV: Record<string, string | undefined> = {
   ENSO_API_KEY: process.env.ENSO_API_KEY,
   ONEINCH_API_KEY: process.env.ONEINCH_API_KEY,
-  DEFIBRO_FEE_WALLET: process.env.DEFIBRO_FEE_WALLET,
+  ASTRYUM_FEE_WALLET: process.env.ASTRYUM_FEE_WALLET,
   SQUID_INTEGRATOR_ID: process.env.SQUID_INTEGRATOR_ID,
   TRANSAK_API_KEY: process.env.TRANSAK_API_KEY,
   MELD_API_KEY: process.env.MELD_API_KEY,

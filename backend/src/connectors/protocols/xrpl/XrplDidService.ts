@@ -79,7 +79,7 @@ export function buildConstitutionAnchor(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned DIDSet; the account\'s signers sign it in their own ' +
         'wallet (for a council account, the quorum). It anchors the SHA-256 fingerprint of ' +

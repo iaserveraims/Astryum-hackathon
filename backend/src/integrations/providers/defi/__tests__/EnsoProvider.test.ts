@@ -9,8 +9,8 @@ beforeEach(() => {
   mockFetch.mockReset();
   delete process.env.ENSO_API_KEY;
   delete process.env.ENSO_FEE_BPS;
-  delete process.env.DEFIBRO_FEE_WALLET;
-  delete process.env.DEFIBRO_ENSO_REFERRAL_CODE;
+  delete process.env.ASTRYUM_FEE_WALLET;
+  delete process.env.ASTRYUM_ENSO_REFERRAL_CODE;
 });
 
 function mockOkJson(body: unknown) {
@@ -139,7 +139,7 @@ describe('EnsoProvider', () => {
 
     it('returns route result with fee disclosure', async () => {
       process.env.ENSO_API_KEY = 'test-key';
-      process.env.DEFIBRO_FEE_WALLET = '0xFeeWallet0000000000000000000000000000000';
+      process.env.ASTRYUM_FEE_WALLET = '0xFeeWallet0000000000000000000000000000000';
       process.env.ENSO_FEE_BPS = '15';
 
       mockOkJson({
@@ -207,7 +207,7 @@ describe('EnsoProvider', () => {
 
     it('returns bundle result with correct bundleSize', async () => {
       process.env.ENSO_API_KEY = 'test-key';
-      process.env.DEFIBRO_FEE_WALLET = '0xFeeWallet0000000000000000000000000000000';
+      process.env.ASTRYUM_FEE_WALLET = '0xFeeWallet0000000000000000000000000000000';
 
       mockOkJson({
         tx: { to: '0xEnsoBundle', data: '0xbundledata', value: '0', gas: '450000' },
@@ -230,9 +230,9 @@ describe('EnsoProvider', () => {
   });
 
   describe('prepareBundle()', () => {
-    it('returns valid IntentPayload with defibroRelays:false', async () => {
+    it('returns valid IntentPayload with astryumRelays:false', async () => {
       process.env.ENSO_API_KEY = 'test-key';
-      process.env.DEFIBRO_FEE_WALLET = '0xFeeWallet0000000000000000000000000000000';
+      process.env.ASTRYUM_FEE_WALLET = '0xFeeWallet0000000000000000000000000000000';
 
       mockOkJson({
         tx: { to: '0xEnsoRouter', data: '0xcalldata', value: '0', gas: '300000' },
@@ -257,11 +257,11 @@ describe('EnsoProvider', () => {
       expect(intent.status).toBe('pending_user_review');
       expect(intent.tx.chainId).toBe(1);
       expect(intent.tx.data).toBe('0xcalldata');
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.authorization.userMustAuthorize).toBe(true);
       expect(intent.referralAttribution.disclosedToUser).toBe(true);
       expect(intent.metadata.protocol).toBe('enso');
-      expect(intent.metadata.preparedBy).toBe('defibro');
+      expect(intent.metadata.preparedBy).toBe('astryum');
       expect(intent.expiry.ttlSeconds).toBe(300);
     });
   });

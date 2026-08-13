@@ -38,7 +38,7 @@
  *   V2+ only — not available in V1.x deployments.
  *
  * ─── Regulatory invariants (never remove) ────────────────────────────────────
- *   authorization.defibroRelays: false  (Astryum never relays channel states)
+ *   authorization.astryumRelays: false  (Astryum never relays channel states)
  *   referralAttribution.disclosedToUser: true
  *   Astryum never custodies channel funds — user's key controls the channel.
  */
@@ -269,12 +269,12 @@ export class YellowStateChannelProvider implements IProvider {
           `and ${params.participantB.slice(0, 8)}…. ` +
           `Deposit: ${params.depositAmount} wei. ` +
           'Subsequent payments use personal_sign — no gas cost per payment.',
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
 
       referralAttribution: {
-        referralWallet: process.env.DEFIBRO_FEE_WALLET ?? '',
+        referralWallet: process.env.ASTRYUM_FEE_WALLET ?? '',
         attributionBps: 0,  // no fee on channel operations
         disclosedToUser: true,
         disclosureText:
@@ -285,7 +285,7 @@ export class YellowStateChannelProvider implements IProvider {
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 
@@ -426,12 +426,12 @@ export class YellowStateChannelProvider implements IProvider {
         description:
           `Cooperative close of Yellow state channel ${channelId.slice(0, 12)}…. ` +
           'Final on-chain settlement — funds returned to participants.',
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
       },
 
       referralAttribution: {
-        referralWallet: process.env.DEFIBRO_FEE_WALLET ?? '',
+        referralWallet: process.env.ASTRYUM_FEE_WALLET ?? '',
         attributionBps: 0,
         disclosedToUser: true,
         disclosureText: 'No Astryum fee on channel close operations.',
@@ -440,7 +440,7 @@ export class YellowStateChannelProvider implements IProvider {
       authorization: {
         mode: 'user_authorized_partner_relay',
         userMustAuthorize: true,
-        defibroRelays: false,
+        astryumRelays: false,
         singleUseSession: true,
       },
 

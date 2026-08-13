@@ -121,7 +121,7 @@ export function buildOfferCreate(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         `Astryum builds this unsigned OfferCreate; you sign it in Xaman. It places a ${kind}: ` +
         `sell ${describeAmount(input.takerGets)} for ${describeAmount(input.takerPays)} on the ` +
@@ -166,7 +166,7 @@ export function buildOfferCancel(
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned OfferCancel; you sign it in Xaman. It removes your resting ' +
         'order from the XRPL DEX book. Cancelling a non-existent offer is a harmless no-op on-ledger.',

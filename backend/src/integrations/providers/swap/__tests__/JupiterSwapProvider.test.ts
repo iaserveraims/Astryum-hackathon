@@ -7,7 +7,7 @@ beforeEach(() => {
   mockFetch.mockReset();
   delete process.env.JUPITER_FEE_BPS;
   delete process.env.JUPITER_FEE_ACCOUNT;
-  delete process.env.DEFIBRO_FEE_WALLET;
+  delete process.env.ASTRYUM_FEE_WALLET;
 });
 
 function mockOkJson(body: unknown) {
@@ -77,7 +77,7 @@ describe('JupiterSwapProvider', () => {
     };
 
     it('returns quote with fee disclosure', async () => {
-      process.env.JUPITER_FEE_ACCOUNT = 'DefiBroFeeAccount11111111111111111111111111111';
+      process.env.JUPITER_FEE_ACCOUNT = 'AstryumFeeAccount11111111111111111111111111111';
       process.env.JUPITER_FEE_BPS = '20';
       mockOkJson(mockQuoteBody);
 
@@ -88,7 +88,7 @@ describe('JupiterSwapProvider', () => {
       expect(result.outputMint).toBe(USDC_MINT);
       expect(result.outAmount).toBe('150000000');
       expect(result.platformFee.feeBps).toBe(20);
-      expect(result.platformFee.recipientAccount).toBe('DefiBroFeeAccount11111111111111111111111111111');
+      expect(result.platformFee.recipientAccount).toBe('AstryumFeeAccount11111111111111111111111111111');
       expect(result.routePlan).toHaveLength(1);
       expect(result.contextSlot).toBe(999999);
       expect(result._rawQuote).toBeDefined();
@@ -152,7 +152,7 @@ describe('JupiterSwapProvider', () => {
     };
 
     it('returns base64 swapTransaction', async () => {
-      process.env.JUPITER_FEE_ACCOUNT = 'DefiBroFeeAccount11111111111111111111111111111';
+      process.env.JUPITER_FEE_ACCOUNT = 'AstryumFeeAccount11111111111111111111111111111';
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
@@ -173,11 +173,11 @@ describe('JupiterSwapProvider', () => {
       expect(result.lastValidBlockHeight).toBe(123456);
       expect(result.fee.bps).toBe(20);
       expect(result.fee.disclosed).toBe(true);
-      expect(result.fee.recipientAccount).toBe('DefiBroFeeAccount11111111111111111111111111111');
+      expect(result.fee.recipientAccount).toBe('AstryumFeeAccount11111111111111111111111111111');
 
       // Verify feeAccount sent in POST body
       const callBody = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
-      expect(callBody.feeAccount).toBe('DefiBroFeeAccount11111111111111111111111111111');
+      expect(callBody.feeAccount).toBe('AstryumFeeAccount11111111111111111111111111111');
       expect(callBody.userPublicKey).toBe('UserWalletPublicKey11111111111111111111111111111');
       expect(callBody.quoteResponse).toEqual(mockRawQuote);
     });
@@ -202,7 +202,7 @@ describe('JupiterSwapProvider', () => {
   });
 
   describe('buildIntentPayload()', () => {
-    it('returns defibroRelays:false and Solana chainKey', () => {
+    it('returns astryumRelays:false and Solana chainKey', () => {
       process.env.JUPITER_FEE_ACCOUNT = 'FeeAcct';
       const provider = new JupiterSwapProvider();
       const swap = {
@@ -232,7 +232,7 @@ describe('JupiterSwapProvider', () => {
       expect(intent.status).toBe('pending_user_review');
       expect(intent.tx.chainKey).toBe('solana:mainnet');
       expect(intent.tx.data).toBe('base64tx==');
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.authorization.userMustAuthorize).toBe(true);
       expect(intent.referralAttribution.disclosedToUser).toBe(true);
       expect(intent.expiry.ttlSeconds).toBe(60); // Solana block validity window

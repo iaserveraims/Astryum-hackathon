@@ -117,7 +117,7 @@ describe('prepare handoffs — unsigned txjson + disclosure (#6)', () => {
     expect(xrplTx.SigningPubKey).toBeUndefined();
     // invariant #6/#1
     expect(disclosure.disclosedToUser).toBe(true);
-    expect(disclosure.defibroSigns).toBe(false);
+    expect(disclosure.astryumSigns).toBe(false);
     expect(typeof disclosure.note).toBe('string');
   });
 

@@ -13,11 +13,11 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'api.defibro.com',
+        hostname: 'api.astryum.com',
       },
       {
         protocol: 'https',
-        hostname: 'assets.defibro.com',
+        hostname: 'assets.astryum.com',
       },
       {
         protocol: 'https',
@@ -49,7 +49,7 @@ const nextConfig = {
   
   // Environment variables
   env: {
-    NEXT_PUBLIC_APP_NAME: 'DeFibro',
+    NEXT_PUBLIC_APP_NAME: 'Astryum',
     NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version || '1.0.0',
   },
   
@@ -249,7 +249,7 @@ const nextConfig = {
           {
             key: 'Access-Control-Allow-Origin',
             value: process.env.NODE_ENV === 'production'
-              ? (process.env.NEXT_PUBLIC_APP_URL || 'https://app.defibro.com')
+              ? (process.env.NEXT_PUBLIC_APP_URL || 'https://app.astryum.com')
               : '*',
           },
           {

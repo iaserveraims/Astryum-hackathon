@@ -4,8 +4,8 @@ on:
   push:
     branches: [main, demo/hackathon-mvp]
     paths-ignore:
-      - 'DEFIBRO DOCS/**'
-      - 'Defibro version antigua/**'
+      - 'ASTRYUM DOCS/**'
+      - 'Astryum version antigua/**'
       - 'docs/**'
   pull_request:
 

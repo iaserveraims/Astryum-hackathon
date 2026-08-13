@@ -1,4 +1,4 @@
-# DeFiBro — MiCA Regulatory Boundaries
+# Astryum — MiCA Regulatory Boundaries
 
 **Document version**: 1.0
 **Date**: 2026-06-02
@@ -9,7 +9,7 @@
 
 ## 1. Purpose of this document
 
-This document maps every code path in DeFiBro that touches user capital, signing, broadcasting, fee attribution, or advisory output **against the requirements of Regulation (EU) 2023/1114 (MiCA)**, with specific attention to:
+This document maps every code path in Astryum that touches user capital, signing, broadcasting, fee attribution, or advisory output **against the requirements of Regulation (EU) 2023/1114 (MiCA)**, with specific attention to:
 
 - Article 3(1)(15) — definition of CASP
 - Article 3(1)(16) — list of crypto-asset services
@@ -19,7 +19,7 @@ This document maps every code path in DeFiBro that touches user capital, signing
 - Article 3(1)(16)(1) — Custody and administration on behalf of clients
 - Article 3(1)(16)(5) — Execution of orders on behalf of clients
 
-The document is the source of truth a regulator or external counsel can read to understand how DeFiBro's technical architecture maps to its non-CASP positioning. If you change anything in the code that affects one of these boundaries, you MUST update the relevant section here in the same PR.
+The document is the source of truth a regulator or external counsel can read to understand how Astryum's technical architecture maps to its non-CASP positioning. If you change anything in the code that affects one of these boundaries, you MUST update the relevant section here in the same PR.
 
 ---
 
@@ -29,13 +29,13 @@ Every claim in §3-§8 below traces back to one of these seven boundaries. Inter
 
 | # | Boundary | Where enforced |
 |---|---|---|
-| 1 | DeFiBro never signs transactions on behalf of users | Compile-time guard in `IntentPreparationEngine.ts`; `_BROADCAST_FORBIDDEN` type. WalletManager + service-side signing deleted 2026-06-01 (audit Cat 6.1). |
-| 2 | DeFiBro never broadcasts transactions | `FlareProvider.sendTransaction()` removed 2026-06-01. `ExecutionEngine.submitSigned()` removed. `/api/execution/submit` returns 410 Gone. Non-EVM chain providers throw `BROADCAST_FORBIDDEN`. Scope: USER transactions — operator-owned zero-discretion txs are the narrow carve-out documented in §9-bis. |
-| 3 | DeFiBro never custodies user funds | No service holds keys; no smart contract address belonging to DeFiBro receives user assets; the BundleStatusWatcher only POLLS partner status, never moves funds. |
-| 4 | DeFiBro never exercises discretion over user capital | Every state transition that affects user assets requires explicit user authorization through their wallet partner. AutomationEngine is prepare-only (V2 design, `setInterval` only creates `IntentAuthorizationSession` records). |
-| 5 | DeFiBro never collects a fee from a flow that does not pass through a registered regulated partner | `buildReferralAttribution(allowsReferralFee)` in CalldataBuilder; partner.allowsReferralFee gates the entire referralCode/referrerWallet emission. |
-| 6 | DeFiBro never executes in background without explicit just-in-time user confirmation | No session-key delegation; no MPC; no relay queue; the only background services that exist (`PoolIngestionService`, `BundleStatusWatcher`, `AutomationEngine.tick`) are explicitly prepare-only or read-only. |
-| 7 | DeFiBro never produces output that constitutes investment advice under Art. 3(1)(16)(8) | Endpoint `/api/ai/v1/recommend-actions` renamed to `/contextual-signals`; `recommendations` field renamed to `signals`; every AI response carries a mandatory `disclaimer` field; copy reframed from "X actions recommended" to "X contextual signals detected". |
+| 1 | Astryum never signs transactions on behalf of users | Compile-time guard in `IntentPreparationEngine.ts`; `_BROADCAST_FORBIDDEN` type. WalletManager + service-side signing deleted 2026-06-01 (audit Cat 6.1). |
+| 2 | Astryum never broadcasts transactions | `FlareProvider.sendTransaction()` removed 2026-06-01. `ExecutionEngine.submitSigned()` removed. `/api/execution/submit` returns 410 Gone. Non-EVM chain providers throw `BROADCAST_FORBIDDEN`. Scope: USER transactions — operator-owned zero-discretion txs are the narrow carve-out documented in §9-bis. |
+| 3 | Astryum never custodies user funds | No service holds keys; no smart contract address belonging to Astryum receives user assets; the BundleStatusWatcher only POLLS partner status, never moves funds. |
+| 4 | Astryum never exercises discretion over user capital | Every state transition that affects user assets requires explicit user authorization through their wallet partner. AutomationEngine is prepare-only (V2 design, `setInterval` only creates `IntentAuthorizationSession` records). |
+| 5 | Astryum never collects a fee from a flow that does not pass through a registered regulated partner | `buildReferralAttribution(allowsReferralFee)` in CalldataBuilder; partner.allowsReferralFee gates the entire referralCode/referrerWallet emission. |
+| 6 | Astryum never executes in background without explicit just-in-time user confirmation | No session-key delegation; no MPC; no relay queue; the only background services that exist (`PoolIngestionService`, `BundleStatusWatcher`, `AutomationEngine.tick`) are explicitly prepare-only or read-only. |
+| 7 | Astryum never produces output that constitutes investment advice under Art. 3(1)(16)(8) | Endpoint `/api/ai/v1/recommend-actions` renamed to `/contextual-signals`; `recommendations` field renamed to `signals`; every AI response carries a mandatory `disclaimer` field; copy reframed from "X actions recommended" to "X contextual signals detected". |
 
 If a code change violates any of these, the audit's job is to either remove the code or relocate the responsibility to a regulated partner.
 
@@ -44,7 +44,7 @@ If a code change violates any of these, the audit's job is to either remove the 
 ## 3. Architecture at a glance
 
 ```
-USER WALLET                  DEFIBRO BACKEND                  ON-CHAIN
+USER WALLET                  ASTRYUM BACKEND                  ON-CHAIN
 (MetaMask, Phantom,         (Express + Prisma)
 Xaman, Petra, ...)
 
@@ -70,13 +70,13 @@ Xaman, Petra, ...)
   wallet broadcasts ──────────────────────────────────────────────────►
 ```
 
-DeFiBro produces unsigned calldata. The user's wallet partner shows it, the user signs, the wallet partner broadcasts. The backend never sees the signature operationally.
+Astryum produces unsigned calldata. The user's wallet partner shows it, the user signs, the wallet partner broadcasts. The backend never sees the signature operationally.
 
 ---
 
 ## 4. Three-tier partner model (Block B, refactored Block G)
 
-DeFiBro classifies every partner into one of three tiers. The classification is enforced at the `PartnerRegistry.resolveForOperation()` level.
+Astryum classifies every partner into one of three tiers. The classification is enforced at the `PartnerRegistry.resolveForOperation()` level.
 
 ### TIER 1 — WALLET_PARTNER
 
@@ -84,19 +84,19 @@ The user's own wallet IS a registered partner. For all self-custody DeFi operati
 - A **value-add aggregator** (Enso, CoW, 1inch, MoonPay Trade, Jupiter, UniswapX, Swaps.xyz) when one is enabled — they construct better calldata (atomic bundles, MEV protection, optimal routing) but still hand the unsigned tx to the user's wallet.
 - The **ecosystem-default wallet partner** (`wallet-evm-defi`, `wallet-solana-defi`, `wallet-xrpl-defi`, `wallet-aptos-defi`) as a guaranteed fallback. Always enabled.
 
-Regulatory framing: self-custody software (MetaMask, Phantom, Xaman) is not a CASP under MiCA — it's user-operated tooling. DeFiBro routing a calldata to the user's own wallet is comparable to a tax software auto-filling a return — the user still signs and submits.
+Regulatory framing: self-custody software (MetaMask, Phantom, Xaman) is not a CASP under MiCA — it's user-operated tooling. Astryum routing a calldata to the user's own wallet is comparable to a tax software auto-filling a return — the user still signs and submits.
 
 ### TIER 2 — BRIDGE_PARTNER
 
 For operations that cross architecturally incompatible ecosystems (EVM ↔ XRPL, EVM ↔ Solana, EVM ↔ Aptos, EVM ↔ Cosmos). Registered: LI.FI, Squid, Across. These are aggregators that compose bridge routes; they themselves operate as non-custodial relayers.
 
-Regulatory framing: similar to TIER 1 — DeFiBro hands unsigned bridge calldata to the user's source-chain wallet. The bridge protocol settles autonomously. DeFiBro NEVER moves funds.
+Regulatory framing: similar to TIER 1 — Astryum hands unsigned bridge calldata to the user's source-chain wallet. The bridge protocol settles autonomously. Astryum NEVER moves funds.
 
 ### TIER 3 — REGULATED_CASP
 
-ONLY for fiat on/off-ramp (`onramp`, `offramp`). Registered: MoonPay, Transak, Meld. These ARE CASPs in their jurisdictions — they hold the user's fiat, run KYC, settle the crypto leg. DeFiBro hands the user to their flow.
+ONLY for fiat on/off-ramp (`onramp`, `offramp`). Registered: MoonPay, Transak, Meld. These ARE CASPs in their jurisdictions — they hold the user's fiat, run KYC, settle the crypto leg. Astryum hands the user to their flow.
 
-Regulatory framing: this is the only tier where a CASP touches user capital. DeFiBro is the front-end that integrates a third-party CASP — clearly out of the CASP definition itself.
+Regulatory framing: this is the only tier where a CASP touches user capital. Astryum is the front-end that integrates a third-party CASP — clearly out of the CASP definition itself.
 
 ### Resolver invariant
 
@@ -106,29 +106,29 @@ For onramp / offramp / bridge → no fallback. If no enabled partner matches, th
 
 ## 5. Article 3(1)(16)(7) RTO analysis — the riskiest classification
 
-The MiCA service most likely to be argued against DeFiBro is "Reception and Transmission of Orders on behalf of clients". The architecture is structured to fall outside this definition.
+The MiCA service most likely to be argued against Astryum is "Reception and Transmission of Orders on behalf of clients". The architecture is structured to fall outside this definition.
 
 ### What RTO requires (ESMA interpretation)
 
 Per ESMA's draft technical standards (CP-MiFID-2024 referenced for analogy under MiCA): RTO involves (a) receiving an order from a client, (b) transmitting it to a third party for execution, (c) on behalf of the client.
 
-### Why DeFiBro's architecture doesn't fit RTO
+### Why Astryum's architecture doesn't fit RTO
 
-| RTO element | Traditional broker | DeFiBro |
+| RTO element | Traditional broker | Astryum |
 |---|---|---|
-| (a) Receives an order from client | Client says "buy 100 AAPL" | User clicks "Supply on Aave V3" — but this is a UI action, not an order. DeFiBro produces unsigned calldata for the user to evaluate. The user can reject. |
-| (b) Transmits to a third party for execution | Broker sends order to exchange | DeFiBro hands unsigned calldata to the USER'S OWN WALLET. The wallet is not a "third party" — it's the user's tool. The user, via their wallet, transmits to the protocol. |
-| (c) On behalf of the client | Broker acts as agent | DeFiBro acts as software author. The user retains every decision. No agency relationship is created. |
+| (a) Receives an order from client | Client says "buy 100 AAPL" | User clicks "Supply on Aave V3" — but this is a UI action, not an order. Astryum produces unsigned calldata for the user to evaluate. The user can reject. |
+| (b) Transmits to a third party for execution | Broker sends order to exchange | Astryum hands unsigned calldata to the USER'S OWN WALLET. The wallet is not a "third party" — it's the user's tool. The user, via their wallet, transmits to the protocol. |
+| (c) On behalf of the client | Broker acts as agent | Astryum acts as software author. The user retains every decision. No agency relationship is created. |
 
 ### Defensive code patterns supporting this position
 
-1. **No persistence of signed transactions** — `RegulatedRelayBoundary` stores only the `payloadHash` and `signedPayloadHash` (the authorization proof), never the signed raw tx. After `exportToPartnerRelay`, DeFiBro forgets the transaction operationally.
-2. **No tx-hash operational tracking** — `submitByHash` was reduced 2026-06-01 to an AuditLog write only. No `TransactionRecord` row; no `trackTransaction()` polling. DeFiBro registers that the user reported a hash, then stops.
-3. **PolicyGuard rejects orders DeFiBro can't audit** — every intent passes `policyGuard.evaluate()` with `requiresKyc: true` and the user's actual KYC state from the DB.
+1. **No persistence of signed transactions** — `RegulatedRelayBoundary` stores only the `payloadHash` and `signedPayloadHash` (the authorization proof), never the signed raw tx. After `exportToPartnerRelay`, Astryum forgets the transaction operationally.
+2. **No tx-hash operational tracking** — `submitByHash` was reduced 2026-06-01 to an AuditLog write only. No `TransactionRecord` row; no `trackTransaction()` polling. Astryum registers that the user reported a hash, then stops.
+3. **PolicyGuard rejects orders Astryum can't audit** — every intent passes `policyGuard.evaluate()` with `requiresKyc: true` and the user's actual KYC state from the DB.
 
 ### Residual risk
 
-The strongest counter-argument an aggressive regulator could mount: by constructing calldata with embedded fees and routing to a chosen partner, DeFiBro effectively makes the routing decision FOR the user. The mitigations are: explicit fee disclosure on every intent (literal `true` field), user override via `preferred: 'wallet-evm-defi'`, and the resolver returning the user's own wallet as a default for self-custody (not an aggregator) so no third party is "chosen".
+The strongest counter-argument an aggressive regulator could mount: by constructing calldata with embedded fees and routing to a chosen partner, Astryum effectively makes the routing decision FOR the user. The mitigations are: explicit fee disclosure on every intent (literal `true` field), user override via `preferred: 'wallet-evm-defi'`, and the resolver returning the user's own wallet as a default for self-custody (not an aggregator) so no third party is "chosen".
 
 The strongest defensive move on top of architecture: a legal opinion from a top-tier MiCA-savvy firm (Allen & Overy, Linklaters, Hogan Lovells, or an Andorra AFA specialist) framing the architecture as software-publisher, not service-provider.
 
@@ -142,7 +142,7 @@ This is the second-riskiest classification (after RTO) because of the AI Copilot
 
 ESMA interpretation: a personal recommendation to a specific person, made by reference to that person's circumstances, concerning a specific crypto-asset.
 
-### What DeFiBro's AI does NOT do
+### What Astryum's AI does NOT do
 
 - It does NOT recommend specific assets. The system prompt in `routes/aiChat.ts:9-19` and `routes/agent.ts:81-83` explicitly forbids "recommend specific protocols as best", "investment advice", "yield optimization suggestions".
 - It does NOT make personal recommendations. The user's portfolio is provided as CONTEXT, but the AI's output is reframed as "contextual signals", not actions to take.
@@ -152,37 +152,37 @@ ESMA interpretation: a personal recommendation to a specific person, made by ref
 
 - Explains the user's existing portfolio risk in plain language (Article 3(1)(16)(8) explicitly excludes general factual information).
 - Surfaces deterministic computational outputs (e.g. health factor projection given a hypothetical borrow) — these are calculations, not opinions.
-- Returns a mandatory `disclaimer` field on every response: *"DeFiBro AI provides informational context only. This is not investment advice under MiCA Article 3(1)(16)(8). Signals reflect deterministic computations over your portfolio data — they do not constitute a recommendation to buy, sell, or hold any crypto-asset."*
+- Returns a mandatory `disclaimer` field on every response: *"Astryum AI provides informational context only. This is not investment advice under MiCA Article 3(1)(16)(8). Signals reflect deterministic computations over your portfolio data — they do not constitute a recommendation to buy, sell, or hold any crypto-asset."*
 
 ### Code references
 
 - `backend/src/services/AICopilot.ts` — `getContextualSignals`, `MICA_DISCLAIMER` constant.
 - `backend/src/routes/aiV1.ts` — `/contextual-signals` endpoint canonical; `/recommend-actions` kept as deprecated alias with HTTP `Deprecation: true` header.
 - `backend/src/engines/strategy/StrategyEngine.ts` — `detectDefensiveSignals` canonical; `recommendDefensive` deprecated alias.
-- `backend/src/mcp/defibro-mcp-server.ts` — MCP tool renamed `detect_defensive_signals`, description carries the same MiCA disclaimer.
+- `backend/src/mcp/astryum-mcp-server.ts` — MCP tool renamed `detect_defensive_signals`, description carries the same MiCA disclaimer.
 
 ---
 
 ## 7. Article 3(1)(16)(1) — Custody
 
-Cleanest carve-out in the architecture. DeFiBro never holds user keys.
+Cleanest carve-out in the architecture. Astryum never holds user keys.
 
 ### Evidence
 
 - No `WalletManager.signTransaction` exists (deleted 2026-06-01 along with the 100ms cron that signed+broadcast in a background queue).
 - No Turnkey / MPC / Web3Auth / Magic / OAuth-key-derivation service is wired.
 - The wallet partner layer (`useWalletPartner`, `useSolanaWalletPartner`, `useXrplWalletPartner`, `useAptosWalletPartner`) only DISPATCHES unsigned tx to the user's installed wallet — never sees private keys.
-- The Prisma `Wallet` table stores `address`, `walletType`, `caip2`, `permissions` (which permissions the user granted DeFiBro to monitor, NOT signing authority), but NEVER private keys or seed phrases.
+- The Prisma `Wallet` table stores `address`, `walletType`, `caip2`, `permissions` (which permissions the user granted Astryum to monitor, NOT signing authority), but NEVER private keys or seed phrases.
 
 ### Block G cross-ecosystem bundles do not change this
 
-The two-step bundle (bridge + protocol action) requires the user to sign BOTH steps in their own wallets. DeFiBro's `BundleStatusWatcher` is a read-only poller against the bridge partner's public status endpoint. No custodial relationship is created.
+The two-step bundle (bridge + protocol action) requires the user to sign BOTH steps in their own wallets. Astryum's `BundleStatusWatcher` is a read-only poller against the bridge partner's public status endpoint. No custodial relationship is created.
 
 ---
 
 ## 8. Article 3(1)(16)(5) — Execution of orders
 
-Comparable analysis to RTO. DeFiBro does not conclude agreements to buy/sell on behalf of clients. The user's wallet partner concludes the agreement when it broadcasts the signed tx.
+Comparable analysis to RTO. Astryum does not conclude agreements to buy/sell on behalf of clients. The user's wallet partner concludes the agreement when it broadcasts the signed tx.
 
 ---
 
@@ -234,18 +234,18 @@ absence of any client order and of any discretion over outcome.
 
 Primary anchor: **Andorra** (MiCA-equivalent regime via Andorran Digital Assets Act). Secondary readiness for **EU MiCA** if/when the architecture is positioned for an EU CASP licence on the on-ramp side only (Transak/MoonPay/Meld are already CASP-licensed in EU under MiCA).
 
-The technology layer (DeFiBro itself) is intended to qualify as **infrastructure software**, not a regulated service. This document is the technical input to that legal positioning.
+The technology layer (Astryum itself) is intended to qualify as **infrastructure software**, not a regulated service. This document is the technical input to that legal positioning.
 
 ---
 
 ## 11. Open items for legal counsel
 
-1. Formal opinion on whether the three-tier partner model + Block G bundle architecture suffices to position DeFiBro outside Article 3(1)(16)(7) RTO.
+1. Formal opinion on whether the three-tier partner model + Block G bundle architecture suffices to position Astryum outside Article 3(1)(16)(7) RTO.
 2. Whether the wallet-as-WALLET_PARTNER framing (the user's own wallet IS a registered partner) is sustainable across EU/Andorra interpretations.
 3. Whether the AI Copilot `MICA_DISCLAIMER` + factual-only output suffices to stay outside Article 3(1)(16)(8) — or if the AI should be silent on specific assets entirely.
 4. Whether the BundleStatusWatcher polling LI.FI/Squid/Across status endpoints constitutes "tracking" that crosses any custodial threshold (we believe it doesn't — polling is observation, not control).
 5. Whether the AuditLog persisted via `RegulatedRelayBoundary` and `ExecutionEngine.submitByHash` could be argued as "operational tracking" — design intent was AUDIT only, but the code stores hashes for compliance traceability.
-6. Whether DeFiBro's planned MoonPay Trade integration (TIER 1 value-add aggregator that happens to also be a CASP for on-ramp) creates regulatory entanglement on the protocol side.
+6. Whether Astryum's planned MoonPay Trade integration (TIER 1 value-add aggregator that happens to also be a CASP for on-ramp) creates regulatory entanglement on the protocol side.
 
 ---
 

@@ -122,7 +122,7 @@ function WalletProviderInner({ children }: WalletProviderProps) {
   // Set up wallet event listeners - simplified to prevent loops
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'defibro-wallet-store') {
+      if (e.key === 'astryum-wallet-store') {
         // Only reload on external storage changes, not internal ones
         console.log('External wallet state change detected');
       }
@@ -140,7 +140,7 @@ function WalletProviderInner({ children }: WalletProviderProps) {
 
       try {
         if (typeof window !== 'undefined' && window.ethereum?.isMetaMask) {
-          const persistedData = localStorage.getItem('defibro-wallet-store');
+          const persistedData = localStorage.getItem('astryum-wallet-store');
           const metaMaskAutoConnected = localStorage.getItem('metamask-auto-connected');
 
           if (persistedData && metaMaskAutoConnected === 'true') {

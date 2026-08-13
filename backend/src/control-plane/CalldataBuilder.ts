@@ -5,7 +5,7 @@
  * Fee attribution is embedded at construction time.
  *
  * REGULATORY INVARIANTS (never remove):
- *   authorization.defibroRelays = false  — always
+ *   authorization.astryumRelays = false  — always
  *   referralAttribution.disclosedToUser = true — always
  *   Astryum never calls sendTransaction or broadcastTransaction
  */
@@ -35,9 +35,9 @@ const FLARE_CHAIN_ID = 14;
 function isFlareDefiEnabled(): boolean {
   return process.env.FLARE_DEFI_ENABLED === 'true';
 }
-const DEFIBRO_FEE_WALLET = process.env.DEFIBRO_FEE_WALLET ?? '';
-const DEFIBRO_REFERRAL_CODE = Number(process.env.DEFIBRO_REFERRAL_CODE ?? '0');
-const DEFIBRO_ATTRIBUTION_BPS = parseInt(process.env.DEFIBRO_ATTRIBUTION_BPS ?? '15', 10);
+const ASTRYUM_FEE_WALLET = process.env.ASTRYUM_FEE_WALLET ?? '';
+const ASTRYUM_REFERRAL_CODE = Number(process.env.ASTRYUM_REFERRAL_CODE ?? '0');
+const ASTRYUM_ATTRIBUTION_BPS = parseInt(process.env.ASTRYUM_ATTRIBUTION_BPS ?? '15', 10);
 const ABIS_DIR = path.join(__dirname, '../config/abis');
 
 // ABI cache — loaded once per process
@@ -75,11 +75,11 @@ function buildReferralAttribution(allowsReferralFee: boolean) {
     };
   }
   return {
-    referralCode: String(DEFIBRO_REFERRAL_CODE),
-    referralWallet: DEFIBRO_FEE_WALLET,
-    attributionBps: DEFIBRO_ATTRIBUTION_BPS,
+    referralCode: String(ASTRYUM_REFERRAL_CODE),
+    referralWallet: ASTRYUM_FEE_WALLET,
+    attributionBps: ASTRYUM_ATTRIBUTION_BPS,
     disclosedToUser: true as const,
-    disclosureText: `Astryum referral: ${DEFIBRO_ATTRIBUTION_BPS / 100}% → ${DEFIBRO_FEE_WALLET.slice(0, 8)}…`,
+    disclosureText: `Astryum referral: ${ASTRYUM_ATTRIBUTION_BPS / 100}% → ${ASTRYUM_FEE_WALLET.slice(0, 8)}…`,
   };
 }
 
@@ -87,7 +87,7 @@ function buildAuthorization() {
   return {
     mode: 'user_authorized_partner_relay' as const,
     userMustAuthorize: true as const,
-    defibroRelays: false as const,
+    astryumRelays: false as const,
     singleUseSession: true as const,
   };
 }
@@ -138,7 +138,7 @@ export interface PrepareParams {
   partnerId: string;
   /**
    * Whether the resolved partner permits Astryum to embed a referral / integrator
-   * fee in the intent. When false, no DEFIBRO_FEE_WALLET / referralCode is
+   * fee in the intent. When false, no ASTRYUM_FEE_WALLET / referralCode is
    * embedded — required to avoid the "fee on direct flows" CASP risk (Cat 5).
    */
   partnerAllowsReferralFee: boolean;
@@ -219,8 +219,8 @@ export class CalldataBuilder {
    * Tries the static registry first, then falls back to DB records.
    */
   async prepare(params: PrepareParams): Promise<IntentPayload> {
-    if (!DEFIBRO_FEE_WALLET) {
-      throw new Error('P33: DEFIBRO_FEE_WALLET not configured — required for fee attribution.');
+    if (!ASTRYUM_FEE_WALLET) {
+      throw new Error('P33: ASTRYUM_FEE_WALLET not configured — required for fee attribution.');
     }
 
     // Canonical bridge safety gate — block pools flagged by AnomalyDetector or PoolHealthScorer
@@ -377,7 +377,7 @@ export class CalldataBuilder {
         action: params.actionType,
         protocol: params.protocolSlug,
         description: `${params.actionType} via ${adapterId} connector (PATH C) on chainId=${params.chainId}.`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
         partnerId: params.partnerId,
       },
@@ -455,7 +455,7 @@ export class CalldataBuilder {
           (pool.cooldownSeconds && pool.cooldownSeconds > 0
             ? ` ⚠️ Cooldown: ~${Math.round(pool.cooldownSeconds / 86400)} day(s).`
             : ''),
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
         partnerId: params.partnerId,
         ...(pool.cooldownSeconds && pool.cooldownSeconds > 0
@@ -504,10 +504,10 @@ export class CalldataBuilder {
         case 'to':
           return params.userWallet;
         case 'referralCode':
-          return params.partnerAllowsReferralFee ? DEFIBRO_REFERRAL_CODE : 0;
+          return params.partnerAllowsReferralFee ? ASTRYUM_REFERRAL_CODE : 0;
         case '_referral':
           return params.partnerAllowsReferralFee
-            ? (DEFIBRO_FEE_WALLET as string)
+            ? (ASTRYUM_FEE_WALLET as string)
             : '0x0000000000000000000000000000000000000000';
         case 'interestRateMode':
           return 2n; // Aave variable rate by default
@@ -566,7 +566,7 @@ export class CalldataBuilder {
    *
    * Reached only when ContractRegistry resolved a pool but its contractKind has
    * no native ACTION_SHAPE encoding. Enso abstracts hundreds of EVM protocols
-   * and returns unsigned calldata; the user's wallet signs (defibroRelays:false).
+   * and returns unsigned calldata; the user's wallet signs (astryumRelays:false).
    *
    * Returns null (caller re-throws the original error) when Enso can't serve the
    * case: no input asset, unsupported action in this first cut (deposit/withdraw),
@@ -677,7 +677,7 @@ export class CalldataBuilder {
         description:
           `${params.actionType} via ${pool.protocolName} on chainId=${params.chainId}. ` +
           `Source: Enso (long-tail router, kind="${pool.contractKind ?? 'unknown'}").`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
         partnerId: params.partnerId,
       },
@@ -754,7 +754,7 @@ export class CalldataBuilder {
         action: params.actionType,
         protocol: params.protocolSlug,
         description: this._buildDescriptionFromConfig(config, params),
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
         partnerId: params.partnerId,
         ...(config.cooldownDays !== undefined ? { cooldownDays: config.cooldownDays } : {}),
@@ -825,7 +825,7 @@ export class CalldataBuilder {
         action: params.actionType,
         protocol: params.protocolSlug,
         description: `${params.actionType} via ${params.protocolSlug} on chainId=${params.chainId} (dynamic registry).`,
-        preparedBy: 'defibro',
+        preparedBy: 'astryum',
         preparedAt: new Date().toISOString(),
         partnerId: params.partnerId,
         ...(cooldownDays !== undefined ? { cooldownDays } : {}),
@@ -929,9 +929,9 @@ export class CalldataBuilder {
         case 'to':
           return params.userWallet;
         case 'referralCode':
-          return config.referralCode ?? DEFIBRO_REFERRAL_CODE;
+          return config.referralCode ?? ASTRYUM_REFERRAL_CODE;
         case '_referral':
-          return config.referrerWallet ?? DEFIBRO_FEE_WALLET;
+          return config.referrerWallet ?? ASTRYUM_FEE_WALLET;
         case '_amounts':
           // Lido requestWithdrawals: wrap amount in array
           return [BigInt(params.amount)];
@@ -973,7 +973,7 @@ export class CalldataBuilder {
         : '';
     const feeNote =
       config.feeType !== 'none'
-        ? ` Fee attribution: ${config.feeType} (${DEFIBRO_ATTRIBUTION_BPS / 100}% referral).`
+        ? ` Fee attribution: ${config.feeType} (${ASTRYUM_ATTRIBUTION_BPS / 100}% referral).`
         : '';
     return `${params.actionType} via ${params.protocolSlug} on chainId=${params.chainId}.${cooldownNote}${feeNote}`;
   }

@@ -515,13 +515,13 @@ export class XamanWalletService implements WalletService {
         multi_sign: false,
         expire: 300, // 5 minutes
         return_url: {
-          app: 'defibro://connected',
+          app: 'astryum://connected',
           // Use a configurable public base URL or fall back to current origin
           web: `${process.env.NEXT_PUBLIC_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')}/wallet-connected`
         }
       },
       custom_meta: {
-        identifier: this.payloadIdentifier('defibro-signin'),
+        identifier: this.payloadIdentifier('astryum-signin'),
         blob: {
           purpose: 'SIGN_IN',
           app_name: 'Astryum',
@@ -979,7 +979,7 @@ export class XamanWalletService implements WalletService {
           expire: 300
         },
         custom_meta: {
-          identifier: this.payloadIdentifier('defibro-sign-message'),
+          identifier: this.payloadIdentifier('astryum-sign-message'),
           blob: {
             purpose: 'SIGN_MESSAGE',
             message: message,
@@ -1053,7 +1053,7 @@ export class XamanWalletService implements WalletService {
           expire: 300
         },
         custom_meta: {
-          identifier: this.payloadIdentifier('defibro-sign-tx'),
+          identifier: this.payloadIdentifier('astryum-sign-tx'),
           blob: {
             purpose: 'SIGN_TRANSACTION',
             transaction_type: transaction.TransactionType,
@@ -1131,10 +1131,10 @@ export class XamanWalletService implements WalletService {
         submit: false,
         multi_sign: false,
         expire: 300,
-        return_url: { app: 'defibro://bound', web: webReturn },
+        return_url: { app: 'astryum://bound', web: webReturn },
       },
       custom_meta: {
-        identifier: this.payloadIdentifier('defibro-binding'),
+        identifier: this.payloadIdentifier('astryum-binding'),
         blob: { purpose: 'WALLET_BINDING', app_name: 'Astryum' },
         instruction: 'Sign to prove ownership and enable transactions. No funds are moved.',
       },
@@ -1214,7 +1214,7 @@ export class XamanWalletService implements WalletService {
           expire: 300
         },
         custom_meta: {
-          identifier: this.payloadIdentifier('defibro-submit-tx'),
+          identifier: this.payloadIdentifier('astryum-submit-tx'),
           blob: {
             purpose: 'SUBMIT_TRANSACTION',
             transaction_type: transaction.TransactionType,
@@ -1299,7 +1299,7 @@ export class XamanWalletService implements WalletService {
       }
       // Last resort: the persisted wallet store — the same source the UI uses
       // to call this wallet "connected" — still knows the address.
-      const persisted = localStorage.getItem('defibro-wallet-store');
+      const persisted = localStorage.getItem('astryum-wallet-store');
       if (!persisted) return;
       const stored = JSON.parse(persisted)?.state?.wallets?.find(
         (w: any) => w.walletType === 'xaman' && w.isConnected && w.address,
@@ -1836,7 +1836,7 @@ export class XamanWalletService implements WalletService {
   private async attemptReconnection(): Promise<void> {
     try {
       // Check if previously connected by looking at localStorage
-      const persistedData = localStorage.getItem('defibro-wallet-store');
+      const persistedData = localStorage.getItem('astryum-wallet-store');
       if (!persistedData) return;
 
       const parsed = JSON.parse(persistedData);
@@ -2450,7 +2450,7 @@ export class XamanWalletService implements WalletService {
           expire: 300
         },
         custom_meta: {
-          identifier: this.payloadIdentifier('defibro-tx-qr'),
+          identifier: this.payloadIdentifier('astryum-tx-qr'),
           blob: {
             purpose: 'SIGN_TRANSACTION',
             transaction_type: transaction.TransactionType,

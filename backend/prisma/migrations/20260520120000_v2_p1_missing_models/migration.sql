@@ -54,7 +54,7 @@ ALTER TABLE "protocol_pools"
 
 -- ============================================================================
 -- intent_authorization_sessions
--- Created by RegulatedRelayBoundary. DeFiBro stores payloadHash but NEVER txHash.
+-- Created by RegulatedRelayBoundary. Astryum stores payloadHash but NEVER txHash.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS "intent_authorization_sessions" (
     "id"                  TEXT NOT NULL,
@@ -79,7 +79,7 @@ CREATE INDEX IF NOT EXISTS "intent_authorization_sessions_status_expiresAt_idx"
 
 -- ============================================================================
 -- partner_intents
--- MoonPay buy/sell flow. defibroExecutes and defibroCustody are ALWAYS false.
+-- MoonPay buy/sell flow. astryumExecutes and astryumCustody are ALWAYS false.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS "partner_intents" (
     "id"                         TEXT NOT NULL,
@@ -92,9 +92,9 @@ CREATE TABLE IF NOT EXISTS "partner_intents" (
     "destinationAddress"         TEXT NOT NULL,
     "destinationChainId"         INTEGER NOT NULL,
     "partnerExecutes"            BOOLEAN NOT NULL DEFAULT true,
-    "defibroExecutes"            BOOLEAN NOT NULL DEFAULT false,
-    "defibroCustody"             BOOLEAN NOT NULL DEFAULT false,
-    "defibroOrderTransmission"   BOOLEAN NOT NULL DEFAULT false,
+    "astryumExecutes"            BOOLEAN NOT NULL DEFAULT false,
+    "astryumCustody"             BOOLEAN NOT NULL DEFAULT false,
+    "astryumOrderTransmission"   BOOLEAN NOT NULL DEFAULT false,
     "userConfirmedInsidePartner" BOOLEAN NOT NULL DEFAULT false,
     "partnerTermsAccepted"       BOOLEAN NOT NULL DEFAULT false,
     "status"                     TEXT NOT NULL,

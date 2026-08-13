@@ -4,8 +4,8 @@
 
 -- ============================================================================
 -- S4: wallet_intents
--- Unsigned transactions prepared by DeFiBro for user-controlled wallets.
--- DeFiBro NEVER signs. walletAddress MUST be user-controlled.
+-- Unsigned transactions prepared by Astryum for user-controlled wallets.
+-- Astryum NEVER signs. walletAddress MUST be user-controlled.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS "wallet_intents" (
     "id"             TEXT NOT NULL,

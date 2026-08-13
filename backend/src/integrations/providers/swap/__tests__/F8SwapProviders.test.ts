@@ -38,8 +38,8 @@ afterEach(() => {
   mockFetch.mockReset();
   delete process.env.SQUID_FEE_BPS;
   delete process.env.SQUID_INTEGRATOR_ID;
-  delete process.env.DEFIBRO_FEE_WALLET;
-  delete process.env.DEFIBRO_COW_APP_CODE;
+  delete process.env.ASTRYUM_FEE_WALLET;
+  delete process.env.ASTRYUM_COW_APP_CODE;
 });
 
 // ─── SquidRouterProvider ───────────────────────────────────────────────────────
@@ -363,19 +363,19 @@ describe('CoWSwapProvider', () => {
       // ERC-20 approval tx targets the sell token contract
       expect(intent.tx.to.toLowerCase()).toBe(baseParams.sellToken.toLowerCase());
       expect(intent.tx.data).toMatch(/^0x095ea7b3/);  // approve() selector
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.authorization.userMustAuthorize).toBe(true);
       expect(intent.referralAttribution.disclosedToUser).toBe(true);
     });
 
-    it('defibroRelays is always false', async () => {
+    it('astryumRelays is always false', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ id: 2, quote: { sellToken: baseParams.sellToken, buyToken: baseParams.buyToken, receiver: baseParams.from, sellAmount: '999000', buyAmount: '998000', validTo: 9999999, appData: '0x', feeAmount: '1000', kind: 'sell', partiallyFillable: false, sellTokenBalance: 'erc20', buyTokenBalance: 'erc20', signingScheme: 'eip712' } }),
       } as unknown as Response);
 
       const intent = await provider.prepareIntent(baseParams);
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
     });
   });
 

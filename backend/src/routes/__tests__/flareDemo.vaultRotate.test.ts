@@ -276,7 +276,7 @@ describe('POST /api/flare-demo/vault-rotate/prepare — EVM-direct rail', () => 
     expect(d.fxrpDeposited).toBeCloseTo(100.718461, 6);
     expect(d.depositedValueUSD).toBeCloseTo(100.718461 * 2.0, 4);
     expect(d.disclosedToUser).toBe(true);
-    expect(d.defibroSigns).toBe(false);
+    expect(d.astryumSigns).toBe(false);
   });
 
   it('Firelight → earnXRP: no exit fee (ERC-4626 redeem), buffer still applies', async () => {

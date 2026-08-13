@@ -107,7 +107,7 @@ export function buildSiweMessage(input: SiweMessageInput, nonce: string, issuedA
     `${domain} wants you to sign in with your Ethereum account:`,
     addr,
     '',
-    'Sign in to Defibro.',
+    'Sign in to Astryum.',
     '',
     `URI: ${uri}`,
     'Version: 1',

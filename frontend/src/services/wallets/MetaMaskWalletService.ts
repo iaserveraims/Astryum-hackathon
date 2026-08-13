@@ -679,7 +679,7 @@ export class MetaMaskWalletService implements WalletService {
       if (!injectedEthereum()?.isMetaMask) return;
 
       // Check if previously connected by looking at localStorage
-      const persistedData = localStorage.getItem('defibro-wallet-store');
+      const persistedData = localStorage.getItem('astryum-wallet-store');
       if (!persistedData) return;
 
       const parsed = JSON.parse(persistedData);

@@ -70,7 +70,7 @@ router.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   const ctx = await agentContextBuilder.build(userId, convId);
 
   // Resolve API key
-  let keyRes: { key: string; source: 'user' | 'defibro'; model: string };
+  let keyRes: { key: string; source: 'user' | 'astryum'; model: string };
   try {
     keyRes = await agentKeyService.resolveKey(userId);
   } catch (err: any) {

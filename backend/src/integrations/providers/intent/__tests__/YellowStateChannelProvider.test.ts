@@ -135,7 +135,7 @@ describe('YellowStateChannelProvider', () => {
       expect(intent.tx.to).toBe('0xAdjudicator');
       expect(intent.tx.data).toBe('0xcafe1234');
       expect(intent.tx.value).toBe('500000000');
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.policy.warnings).toContainEqual(expect.stringMatching(/personal_sign/));
     });
 
@@ -216,7 +216,7 @@ describe('YellowStateChannelProvider', () => {
 
       expect(intent.tx.to).toBe('0xAdjudicator');
       expect(intent.tx.data).toBe('0xclose99');
-      expect(intent.authorization.defibroRelays).toBe(false);
+      expect(intent.authorization.astryumRelays).toBe(false);
       expect(intent.metadata.action).toBe('unstake');
     });
   });

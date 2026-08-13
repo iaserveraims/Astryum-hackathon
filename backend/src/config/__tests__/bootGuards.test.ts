@@ -52,7 +52,7 @@ describe('bootGuards — invariant #1 (no custodial keys in env)', () => {
 
 describe('bootGuards — prod-database guard ("seguridad no ganada")', () => {
   const PROD = 'postgresql://user:pass@aws-0-eu-west-1.pooler.supabase.com:6543/postgres';
-  const LOCAL = 'postgresql://postgres:postgres@localhost:5432/defibro';
+  const LOCAL = 'postgresql://postgres:postgres@localhost:5432/astryum';
 
   it('passes when DATABASE_URL is a local/dev DB', () => {
     expect(productionDatabaseMarker({ DATABASE_URL: LOCAL } as NodeJS.ProcessEnv)).toBeNull();

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Defibro MCP Server (V1) — JSON-RPC 2.0 over stdio.
+ * Astryum MCP Server (V1) — JSON-RPC 2.0 over stdio.
  *
  * Self-contained: no @modelcontextprotocol/sdk dependency. Implements:
  *   initialize, tools/list, tools/call
@@ -9,8 +9,8 @@
  * intents are exposed; tools that SIGN/SUBMIT are NOT (R6 — MCP cannot
  * broadcast).
  *
- * Run: `npm run mcp:dev` (ts-node) or `node dist/mcp/defibro-mcp-server.js`.
- * Register: `claude mcp add defibro -- node ./backend/dist/mcp/defibro-mcp-server.js`
+ * Run: `npm run mcp:dev` (ts-node) or `node dist/mcp/astryum-mcp-server.js`.
+ * Register: `claude mcp add astryum -- node ./backend/dist/mcp/astryum-mcp-server.js`
  */
 
 import { PortfolioEngine } from '../engines/portfolio/PortfolioEngine';
@@ -457,7 +457,7 @@ async function handle(req: JsonRpcRequest): Promise<JsonRpcResponse> {
         id,
         result: {
           protocolVersion: '2024-11-05',
-          serverInfo: { name: 'defibro-mcp', version: '1.0.0' },
+          serverInfo: { name: 'astryum-mcp', version: '1.0.0' },
           capabilities: { tools: {} },
         },
       };
@@ -564,4 +564,4 @@ process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));
 
 // eslint-disable-next-line no-console
-process.stderr.write('[defibro-mcp] ready (stdio)\n');
+process.stderr.write('[astryum-mcp] ready (stdio)\n');

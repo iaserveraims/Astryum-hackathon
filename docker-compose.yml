@@ -4,11 +4,11 @@ services:
   # PostgreSQL Database  
   postgres:
     image: postgres:15-alpine
-    container_name: defibro_postgres
+    container_name: astryum_postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: defibro_db
+      POSTGRES_DB: astryum_db
     ports:
       - "5432:5432"
     volumes:
@@ -24,7 +24,7 @@ services:
   # Redis Cache & Session Store
   redis:
     image: redis:7-alpine
-    container_name: defibro_redis
+    container_name: astryum_redis
     ports:
       - "6379:6379"
     volumes:
@@ -41,11 +41,11 @@ services:
   # MongoDB para datos de blockchain (opcional)
   mongodb:
     image: mongo:7
-    container_name: defibro_mongodb
+    container_name: astryum_mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: defibro_blockchain
+      MONGO_INITDB_DATABASE: astryum_blockchain
     ports:
       - "27017:27017"
     volumes:
@@ -61,12 +61,12 @@ services:
   # InfluxDB para métricas de tiempo real
   influxdb:
     image: influxdb:2.7-alpine
-    container_name: defibro_influxdb
+    container_name: astryum_influxdb
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: admin
       DOCKER_INFLUXDB_INIT_PASSWORD: password123
-      DOCKER_INFLUXDB_INIT_ORG: defibro
+      DOCKER_INFLUXDB_INIT_ORG: astryum
       DOCKER_INFLUXDB_INIT_BUCKET: defi_metrics
     ports:
       - "8086:8086"
@@ -77,11 +77,11 @@ services:
   # Grafana para dashboards
   grafana:
     image: grafana/grafana:latest
-    container_name: defibro_grafana
+    container_name: astryum_grafana
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin123
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-influxdb-datasource
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/defibro-dashboard.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/astryum-dashboard.json
     ports:
       - "3002:3000"
     volumes:
@@ -95,7 +95,7 @@ services:
   # Adminer para gestión de base de datos
   adminer:
     image: adminer:latest
-    container_name: defibro_adminer
+    container_name: astryum_adminer
     ports:
       - "8080:8080"
     depends_on:
@@ -117,5 +117,5 @@ volumes:
 
 networks:
   default:
-    name: defibro_network
+    name: astryum_network
     driver: bridge

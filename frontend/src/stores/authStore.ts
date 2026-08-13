@@ -509,7 +509,7 @@ export const useAuthStore = create<AuthState>()(
           void import('./authorityStore').then((m) => m.useAuthorityStore.getState().resetAuthority());
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token');
-            localStorage.removeItem('defibro-auth-storage');
+            localStorage.removeItem('astryum-auth-storage');
           }
           set({
             user: null,
@@ -725,7 +725,7 @@ export const useAuthStore = create<AuthState>()(
       clearStepUpGrants: () => set({ stepUpGrants: {} }),
     }),
     {
-      name: 'defibro-auth-storage',
+      name: 'astryum-auth-storage',
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated

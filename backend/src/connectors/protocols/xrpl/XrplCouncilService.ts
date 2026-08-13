@@ -121,7 +121,7 @@ export function buildSignerListSet(input: BuildSignerListSetInput): XrplTxHandof
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned SignerListSet; you sign it in your own wallet. ' +
         'It makes this account governed by a council: from then on, transactions need ' +
@@ -188,7 +188,7 @@ export function buildDisableMaster(input: BuildDisableMasterInput): XrplTxHandof
     xrplTx,
     disclosure: {
       disclosedToUser: true,
-      defibroSigns: false,
+      astryumSigns: false,
       note:
         'Astryum builds this unsigned AccountSet; you sign it with this account’s MASTER KEY. ' +
         'XRPL requires the master key itself to disable it — a council multi-signature or a ' +

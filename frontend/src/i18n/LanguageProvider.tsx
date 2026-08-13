@@ -12,7 +12,7 @@ type Ctx = {
 };
 
 const LangContext = createContext<Ctx | null>(null);
-const STORAGE_KEY = 'defibro:lang';
+const STORAGE_KEY = 'astryum:lang';
 
 /**
  * Same language resolution as the provider, usable OUTSIDE the provider tree

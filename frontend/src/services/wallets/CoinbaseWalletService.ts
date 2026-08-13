@@ -678,7 +678,7 @@ export class CoinbaseWalletService implements WalletService {
       if (!coinbaseProvider) return;
 
       // Check if previously connected
-      const persistedData = localStorage.getItem('defibro-wallet-store');
+      const persistedData = localStorage.getItem('astryum-wallet-store');
       if (!persistedData) return;
 
       const parsed = JSON.parse(persistedData);
