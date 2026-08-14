@@ -14,8 +14,9 @@ sequence.
 ## Where we are now
 
 Astryum is live on Flare Mainnet and XRPL Mainnet with real capital. The `0xFE` rail works end to
-end — XRP becomes FXRP, enters a position, is monitored, and comes back out as XRP at the user's own
-address. Our own contracts are deployed with verified sources, and a family council has governed
+end — XRP becomes FXRP, enters a position, is monitored, and comes back out as FXRP at the user's own
+address, the user can at any moment unmint his FXRP to XRP again from the wallets menu. 
+Our own contracts are deployed with verified sources, and a family council has governed
 them from XRPL through the FDC. Our executor has signed hundreds of transactions on Flare.
 
 What is not true yet: the contracts are unaudited, principal cannot leave the Legacy cage except by
