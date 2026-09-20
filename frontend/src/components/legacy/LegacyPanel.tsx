@@ -35,6 +35,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Check,
@@ -66,13 +67,20 @@ import {
   PrimaryButton,
   SectionTitle,
 } from '../ui/primitives';
-import { motion, useReducedMotion } from 'framer-motion';
-import { DUR, EASE_OUT, modalPop, PulseDot, RevealGroup, RevealItem } from '../ui/motion';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
+import { useEngraved } from '../../stores/themeStore';
+import { ColonnadeMark, RegisterMark, SignetMark } from '../ui/skin/marks';
+import { DUR, EASE_OUT, modalPop, RevealGroup, RevealItem } from '../ui/motion';
+import { StationProgress, StationRailLayout } from '../ui/StationProgress';
+import { StationDoneStrip, useResumeToast } from '../ui/StationDoneNotice';
 import {
   CouncilScene,
   LedgerScrollScene,
   MirrorOrbitsScene,
-  MonumentScene,
+  PantheonScene,
+  SignalBeacon,
+  SignatureScene,
   TimeVaultScene,
 } from '../ui/scenes';
 import { isValidClassicAddress } from 'xrpl';
@@ -81,16 +89,18 @@ import LegacyBetaBanner from './LegacyBetaBanner';
 import MyLegaciesList from './MyLegaciesList';
 import ProposalInbox from './ProposalInbox';
 import LegacyActivityFeed from './LegacyActivityFeed';
-import ProposeToCouncil from './ProposeToCouncil';
 import LegacyYieldPanel from './LegacyYieldPanel';
 import LegacyVaultCard from './LegacyVaultCard';
 // GovernedMoneyFlows is no longer mounted here — the council's rules live in
 // Earn → My strategies now, next to where personal rules already were.
-import GovernedMovements from './GovernedMovements';
-import CouncilMultisigFlow from './CouncilMultisigFlow';
+import GovernedMovementsModal from './GovernedMovementsModal';
+import { CouncilSigningDoors } from './CouncilMultisigFlow';
 import CouncilInXaman, { CouncilPlanCheck, SignerListRows } from './CouncilInXaman';
 import CloseDoorSign from './CloseDoorSign';
 import { awaitValidation } from '../../lib/xrpl/councilSigning';
+import { applyXrplSignFailure, confirmOnLedger } from '../../lib/xrpl/ledgerSignOutcome';
+import type { UnconfirmedSignature } from '../../lib/wallet/signOutcome';
+import { UnconfirmedSignatureNotice } from '../settlement/UnconfirmedSignatureNotice';
 import ConstitutionBuilder from './ConstitutionBuilder';
 // LegacyDiscovery (the embedded Guía card) is UNMOUNTED here (2026-08-04): its
 // left column ate a third of the ceremony. The global co-pilot IS the Guía in
@@ -99,13 +109,13 @@ import { type LegacyJourney } from './LegacyDiscovery';
 import { setLegacyJourney } from '../../lib/legacy/guideContext';
 import LegacyIntentCompiler from './LegacyIntentCompiler';
 import CouncilOrderCard from './CouncilOrderCard';
-import WalletManager from '../wallet/WalletManager';
-import { getConstitutionDraft, getLegacyNickname, rememberLegacy, saveConstitutionDraft } from './legacyLocal';
+import { getConstitutionDraft, getLegacyNickname, rememberLegacy, saveConstitutionDraft, setLegacyNickname } from './legacyLocal';
 import { useT } from '../../i18n/LanguageProvider';
 import { xrplTxTypeLabel } from '../../lib/xrpl/txTypeLabels';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { useAuthorities } from '../../hooks/useAuthorities';
 import { governedAuthorityId } from '../../lib/authority';
+import { markPersonalQuorum } from '../../lib/authority/personalQuorum';
 import { getUserRegion } from '../../lib/region';
 import { computeCeremonyReserve } from '../../lib/legacy/ceremonyReserve';
 import { formatPlanProblem, normalizeCouncilPlan, validateCouncilPlan } from '../../lib/legacy/councilPlan';
@@ -165,6 +175,33 @@ const SHOW_VAULT_MIRROR = false;
 // generates the text, the user never hunts [BRACKETS]. The old single hardcoded
 // template lives on as the "Family patrimony" entry. Assembly + hashing stay in
 // the browser; the document text never touches the backend (privacy invariant).
+
+/** Aterrizaje sin destino en /app/legacy: redirige a Wallets (la lista My
+ *  Legacies murió; las cuentas gobernadas viven en su estante de Wallets). */
+function BackToWallets() {
+  const router = useRouter();
+  useEffect(() => {
+    // SOLO un aterrizaje sin destino redirige. El primer render del panel
+    // llega con view='list' (el efecto de params aún no corrió), y los
+    // efectos de los HIJOS corren antes que los del padre — así que redirigir
+    // a ciegas aquí ganaba siempre la carrera y devolvía a Wallets cualquier
+    // entrada legítima (fundador 2026-08-23: «se carga la página y luego se
+    // vuelve»). Si la URL trae una entrada, el panel está a punto de abrir el
+    // taller: este componente no hace nada y desaparece en el re-render.
+    const p = new URLSearchParams(window.location.search);
+    if (
+      p.get('govern') ||
+      p.get('reinforce') ||
+      p.get('constitute') ||
+      p.get('walkthrough') ||
+      p.get('tab')
+    ) {
+      return;
+    }
+    router.replace('/app/wallets');
+  }, [router]);
+  return null;
+}
 
 function toDrops(xrp: string): string | null {
   const n = Number(xrp);
@@ -440,15 +477,15 @@ function HandoffActions({
           {/* Same composed tx, two tempos (§2.4): the live ceremony (everyone
               present, N QRs now) or the async proposal (each member signs from
               their own device over days — the inbox). */}
-          <CouncilMultisigFlow
-            xrplTx={handoff.xrplTx}
-            account={String(handoff.xrplTx.Account ?? '')}
-            onSettled={onSettled}
-          />
-          <ProposeToCouncil
+          {/* consejo-superficies 2: the two tempos are ONE element with one
+              rule — while the live ceremony holds the pinned seat, the async
+              door beside it cannot compose the same transaction again (it says
+              so instead of vanishing). */}
+          <CouncilSigningDoors
             xrplTx={handoff.xrplTx}
             account={String(handoff.xrplTx.Account ?? '')}
             defaultTitle={xrplTxTypeLabel(String(handoff.xrplTx.TransactionType ?? ''), t)}
+            onSettled={onSettled}
           />
           {/* Fallback for those who prefer their own tools (ADR-008 keeps link-out). */}
           <button
@@ -527,8 +564,46 @@ function SurfaceMotion({ dir, children }: { dir: 1 | -1 | 0; children: ReactNode
   );
 }
 
-export default function LegacyPanel() {
+/**
+ * Embedded entry (2026-08-22): the /app/legacy PAGE died — governance now
+ * opens as a large dialog over /app/wallets (GovernanceModal). The dialog
+ * passes the entry that used to travel in the URL; `onExit` replaces both the
+ * «← My Legacies» chrome and the reinforce ceremony's exit navigation. The
+ * URL-reading path stays intact for the (forwarded) standalone mount.
+ */
+/** Las salas de Govern. `proposals` = la BANDEJA donde se firma (conserva el
+ *  id porque es el destino de todos los enlaces «firma en la bandeja»). */
+export type GovTab = 'capital' | 'council' | 'orders' | 'proposals' | 'activity';
+/** El orden en que se pintan y se recorren con las flechas. */
+const GOV_TABS: GovTab[] = ['capital', 'council', 'orders', 'proposals', 'activity'];
+
+export type LegacyPanelEntry =
+  | { kind: 'constitute' }
+  | { kind: 'walkthrough' }
+  | { kind: 'reinforce'; account: string }
+  | { kind: 'govern'; account: string; movements?: boolean; tab?: 'proposals' }
+  | { kind: 'proposals' };
+
+export interface LegacyPanelEmbed {
+  entry: LegacyPanelEntry;
+  onExit: () => void;
+  /**
+   * 'operation' (founder 2026-08-26): hosted inside the house operation
+   * surface (ConstituteOperation — short popup / dockable right panel). The
+   * host paints the header and the close/pin chrome, so the panel renders
+   * ONLY the ceremony: no back row, no surface switcher, no PageHeader —
+   * and the surface stays pinned to Constitute (the op is the ceremony).
+   */
+  variant?: 'operation';
+}
+
+export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}) {
   const { t } = useT();
+  // LOS GRABADOS DEL LEGACY (tema Institucional, 2026-09-14): el templo es el
+  // pórtico, el consejo y el faro son el sello con sus firmas, el libro es el
+  // registro. La rúbrica que se escribe sola se queda: en bronce es una firma.
+  const engraved = useEngraved();
+  const router = useRouter();
   const { address, isConnected, sendIntent } = useXrplWalletPartner();
   const { activeGoverned, legacies, setActive } = useAuthorities();
 
@@ -563,13 +638,28 @@ export default function LegacyPanel() {
   /** WALKTHROUGH mode (?walkthrough=1) — declared here because the surface pin
    *  below needs it; the full story lives on the param effect further down. */
   const [walkthrough, setWalkthrough] = useState(false);
+  /** REINFORCE mode (?reinforce=r…) — the same ceremony entered from a wallet
+   *  card, for an account that stays PERSONAL. Declared here because the
+   *  surface pin below needs it; the full story lives on the param effect. */
+  const [reinforce, setReinforce] = useState(false);
   const constituted = council?.masterKeyDisabled === true && rehearsal?.rehearsalComplete === true;
   // Walkthrough pins the surface to Constitute: a constituted account would
   // otherwise auto-derive to Govern the moment its address is pasted — the
   // exact "it resumes at the end" the mode exists to prevent.
+  /** Hosted as an operation: the popup/dock IS one surface and stays pinned
+   *  to it — Constitute for the ceremony (walkthrough logic: a constituted
+   *  account would otherwise auto-derive to Govern on paste and eject), and
+   *  Govern for the governance operation (fundador 2026-08-30: gobernar se
+   *  abre en burbuja anclable, como constituir). */
+  const opEmbed = embed?.variant === 'operation';
+  const opSurface: 'constitute' | 'govern' | null = opEmbed
+    ? embed!.entry.kind === 'govern' || embed!.entry.kind === 'proposals'
+      ? 'govern'
+      : 'constitute'
+    : null;
   const effectiveSurface: 'constitute' | 'govern' = walkthrough
     ? 'constitute'
-    : surface ?? (constituted ? 'govern' : 'constitute');
+    : opSurface ?? surface ?? (constituted ? 'govern' : 'constitute');
   // The surface is now chosen at the DOOR — a Legacy card's Constitution /
   // Governance buttons (founder refactor 2026-07-19) — and carried here through
   // this ref; on account change we apply it, or fall back to null = auto-follow
@@ -592,37 +682,48 @@ export default function LegacyPanel() {
   //    wallet that signs by quorum; it deserves the same pages, not a second
   //    copy of them. Movements is a MODAL now, reachable in exactly two places
   //    (the Legacy card's third door, and per wallet in the Wallets tab). ──
-  const [govTab, setGovTab] = useState<'info' | 'wallets' | 'proposals'>('info');
-  /** The Movements modal, scoped to this council account (GovernedMovements). */
+  // ── GOBERNAR, EN CINCO SALAS (fundador 2026-08-30, segunda pasada: «sigue
+  //    estando bastante complicado... añade más menús para tener menor
+  //    contenido en cada pantalla»). «Info» cargaba CINCO bloques pesados de
+  //    golpe — identidad, capital, rendimiento, actividad y el consejo entero
+  //    con sus emergencias y enmiendas — y «Propuestas» otros tres. Ahora cada
+  //    pestaña responde UNA pregunta y trae uno o dos bloques:
+  //
+  //      capital    · qué hay dentro y qué produce
+  //      council    · quién manda y con qué quórum
+  //      orders     · COMPONER una orden (transferencia programada / jaula)
+  //      proposals  · FIRMAR lo compuesto (la bandeja del quórum)
+  //      activity   · qué ha pasado
+  //
+  //    Componer y firmar eran la misma pantalla y son dos gestos distintos —
+  //    de dos personas distintas, incluso. `proposals` conserva su id porque
+  //    es el destino de los enlaces «firma en la bandeja» (?tab=proposals y
+  //    los onGoToProposals de rendimiento, actividad y movimientos).
+  //    La pestaña Wallets murió antes en el día: /app/wallets es la única
+  //    casa de las cuentas.
+  const [govTab, setGovTab] = useState<GovTab>('capital');
+  /** The Movements modal, scoped to this council account. La pieza vive en
+   *  GovernedMovementsModal (extraída 2026-08-30) — con su disciplina de foco
+   *  dentro — porque /app/wallets ahora la abre EN SITIO, sin navegar aquí. */
   const [movementsOpen, setMovementsOpen] = useState(false);
-  /** Focus discipline for the Movements dialog (2026-08-04): focus moves in on
-   *  open, Tab wraps inside, and focus returns to the opener on close. The trap
-   *  listens on the dialog itself, so the nested Xaman overlays (portalled to
-   *  <body>, outside this subtree) are never fought over. */
-  const movementsDialogRef = useRef<HTMLDivElement | null>(null);
-  const movementsReturnFocus = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (movementsOpen) {
-      movementsReturnFocus.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      movementsDialogRef.current?.focus();
-    } else {
-      movementsReturnFocus.current?.focus();
-      movementsReturnFocus.current = null;
-    }
-  }, [movementsOpen]);
   /** A card door may open the Legacy STRAIGHT into its Movements; the intent
    *  travels through a ref because the account-change effect below resets the
    *  section (same mechanism the surface choice uses). */
-  const govTabIntent = useRef<'movements' | null>(null);
+  const govTabIntent = useRef<'movements' | 'proposals' | null>(null);
   useEffect(() => {
     if (govTabIntent.current === 'movements') {
       govTabIntent.current = null;
-      setGovTab('wallets');
+      setGovTab('capital');
       setMovementsOpen(true);
       return;
     }
-    setGovTab('info');
+    if (govTabIntent.current === 'proposals') {
+      govTabIntent.current = null;
+      setGovTab('proposals');
+      setMovementsOpen(false);
+      return;
+    }
+    setGovTab('capital');
     setMovementsOpen(false);
   }, [account]);
 
@@ -642,6 +743,47 @@ export default function LegacyPanel() {
    *  next to the surface pin it drives. */
   const constituteIntent = useRef(false);
   useEffect(() => {
+    // EMBEDDED (the governance dialog): the entry arrives as a prop — each
+    // branch mirrors its URL twin below, minus the URL bookkeeping (the modal
+    // host owns the URL). The dialog remounts per open, so running once is
+    // exactly right.
+    if (embed) {
+      const e = embed.entry;
+      if (e.kind === 'walkthrough' || e.kind === 'constitute') {
+        if (e.kind === 'walkthrough') setWalkthrough(true);
+        constituteIntent.current = true;
+        surfaceIntent.current = 'constitute';
+        setAccountInput('');
+        setAccount(null);
+        setSurface('constitute');
+        setView('workspace');
+      } else if (e.kind === 'reinforce') {
+        constituteIntent.current = true;
+        surfaceIntent.current = 'constitute';
+        setReinforce(true);
+        setAccountInput(e.account);
+        setAccount(e.account);
+        setSurface('constitute');
+        setView('workspace');
+      } else if (e.kind === 'govern') {
+        constituteIntent.current = true;
+        surfaceIntent.current = 'govern';
+        setReinforce(true);
+        setAccountInput(e.account);
+        setAccount(e.account);
+        setSurface('govern');
+        if (e.movements) govTabIntent.current = 'movements';
+        else if (e.tab === 'proposals') govTabIntent.current = 'proposals';
+        setGovTab('capital');
+        setView('workspace');
+      } else if (e.kind === 'proposals') {
+        surfaceIntent.current = 'govern';
+        setSurface('govern');
+        setGovTab('proposals');
+        setView('workspace');
+      }
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     if (params.get('walkthrough') === '1') {
       setWalkthrough(true);
@@ -666,8 +808,87 @@ export default function LegacyPanel() {
       setView('workspace');
       // Consume the param so refresh / internal navigation doesn't re-trigger.
       window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+    /** REINFORCE mode (`?reinforce=r…`, founder 2026-08-21) — the door from a
+     *  wallet card: "reinforce this account". It is the SAME constitution
+     *  ceremony, pinned to an account the user already holds, and it never
+     *  ends in a cage: a reinforced account is a PERSONAL wallet whose keys
+     *  are a quorum (2-of-3 of your own devices is the floor, more is yours to
+     *  choose). Everything is signed in Xaman, exactly like the Legacy flow.
+     *
+     *  Station 0 (Account) is skipped by construction: the account arrives with
+     *  the link, so the wizard's own ledger-derived step lands on Council.
+     *  The personal-quorum mark is NOT set here — it is set when the ledger
+     *  CONFIRMS the SignerList (effect below), because before that there is
+     *  nothing to classify and a stale mark would be a claim we cannot back. */
+    const reinforceParam = (params.get('reinforce') ?? '').trim();
+    if (XRPL_ADDRESS_RE.test(reinforceParam)) {
+      constituteIntent.current = true;
+      surfaceIntent.current = 'constitute';
+      setReinforce(true);
+      setAccountInput(reinforceParam);
+      setAccount(reinforceParam);
+      setSurface('constitute');
+      setView('workspace');
+      // Deliberately NOT stripped (the walkthrough's lesson, 2026-08-11): a
+      // reload in the middle of the ceremony must re-enter the mode, not fall
+      // back to the generic wizard — a header that suddenly reads "Legacy" over
+      // a personal account is the exact misdescription this mode exists to
+      // prevent. Leaving the page drops it naturally.
+      return;
+    }
+    /** GOVERN a reinforced personal account (`?govern=r…`, founder 2026-08-21).
+     *  Once the ceremony is done the card's door stops being "reinforce it" and
+     *  becomes "govern it" — and it cannot ride `?tab=proposals`, because that
+     *  one takes its account from `activeGoverned`, and a personal quorum is
+     *  deliberately NOT in the governed list (`staysPersonal` keeps it with the
+     *  wallets). So the address travels in the link, like reinforce does.
+     *
+     *  `reinforce` stays true here: it is not about the ceremony, it is about
+     *  WHAT this account is — a personal wallet held by a quorum — and it is
+     *  what keeps the header from calling it a Legacy. */
+    const governParam = (params.get('govern') ?? '').trim();
+    if (XRPL_ADDRESS_RE.test(governParam)) {
+      constituteIntent.current = true; // don't let activeGoverned clobber the pick
+      surfaceIntent.current = 'govern';
+      setReinforce(true);
+      setAccountInput(governParam);
+      setAccount(governParam);
+      setSurface('govern');
+      // `&movements=1` — la puerta «Movimientos» de la tarjeta de esta cuenta
+      // en /app/wallets (2026-08-22). El intent viaja por el ref porque el
+      // efecto de `account` de abajo resetea la sección; es el mismo mecanismo
+      // que ya usaba la tercera puerta de la tarjeta del Legacy.
+      if (params.get('movements') === '1') govTabIntent.current = 'movements';
+      setGovTab('capital');
+      setView('workspace');
+      // Same reasoning as reinforce above: a reload must not silently turn a
+      // personal account's governance into a Legacy's.
+      return;
+    }
+    // G5 (auditoría 17-ago) — `?tab=proposals`: el push del consejo dice «firma
+    // en la bandeja» y necesita ABRIRLA. Sin este lector el enlace aterrizaba
+    // en la pestaña «info» y la propuesta seguía escondida (y caducaba a los 7
+    // días). La bandeja vive en la superficie Govern, así que el deep-link fija
+    // ambas cosas; la cuenta la pone el efecto de `activeGoverned` de abajo.
+    if (params.get('tab') === 'proposals') {
+      surfaceIntent.current = 'govern';
+      setSurface('govern');
+      setGovTab('proposals');
+      setView('workspace');
+      window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
+  /** REINFORCE: the account keeps living with the WALLETS, not with the
+   *  Legacies — and the ledger cannot tell the two apart, so the owner does.
+   *  The mark lands only once the SignerList is CONFIRMED on-chain, which is
+   *  also the exact moment it starts mattering: before the council exists the
+   *  account never reaches the Legacy list anyway, and marking earlier would
+   *  persist a claim the ledger does not back (there is no un-mark door yet). */
+  useEffect(() => {
+    if (reinforce && account && council) markPersonalQuorum(account);
+  }, [reinforce, account, council]);
   useEffect(() => {
     if (!activeGoverned) return;
     if (constituteIntent.current) {
@@ -715,6 +936,11 @@ export default function LegacyPanel() {
   const [escrows, setEscrows] = useState<XrplEscrowRow[]>([]);
   const [spendable, setSpendable] = useState<XrplSpendable | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  // The escrow read FAILED (13-sep): an empty list would hide «Recover» of an
+  // expired commitment without a word. Rows are kept only for the account they
+  // were read for.
+  const [escrowsUnreadable, setEscrowsUnreadable] = useState(false);
+  const escrowsAccountRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Ledger validation takes a few seconds after a submit — one immediate
   // re-read misses the new object and the page looks unchanged (scary with
@@ -745,6 +971,13 @@ export default function LegacyPanel() {
       if (escrowsRes) {
         setEscrows(escrowsRes.escrows);
         if (escrowsRes.account) setSpendable(escrowsRes.account);
+        escrowsAccountRef.current = account;
+        setEscrowsUnreadable(false);
+      } else {
+        // «Could not read» is not «no commitments»: say it, offer Retry. Rows of a
+        // DIFFERENT account never stand in for this one's.
+        if (escrowsAccountRef.current !== account) setEscrows([]);
+        setEscrowsUnreadable(true);
       }
       setAnchor(constitutionRes?.anchor ?? null);
       setHistory(constitutionRes?.history ?? []);
@@ -849,13 +1082,20 @@ export default function LegacyPanel() {
     }
   }, [account, amountXrp, destination, unlockDate, expiryDate, spendable, t]);
 
+  // A commitment signature we could not follow: the amber notice replaces the
+  // form and the review. Once it validates the commitment is UNBREAKABLE, so a
+  // second signature is a second locked transfer.
+  const [transferUnconfirmed, setTransferUnconfirmed] = useState<UnconfirmedSignature | null>(null);
+
   const signTransfer = useCallback(async () => {
-    if (!handoff) return;
+    if (!handoff || transferUnconfirmed) return;
     setBusy(true);
     setFormError(null);
+    let handedToPartner = false;
     try {
+      handedToPartner = true;
       const { txHash } = await sendIntent({ tx: handoff.xrplTx as never });
-      await assertLedgerApplied(txHash, t);
+      await confirmOnLedger(txHash);
       setDoneHash(txHash);
       setHandoff(null);
       setAmountXrp('');
@@ -864,11 +1104,18 @@ export default function LegacyPanel() {
       setExpiryDate('');
       refreshAfterSettlement();
     } catch (err) {
-      setFormError((err as Error)?.message ?? t('Signing was cancelled.'));
+      // Cancelled → the review stays. Validated with a failure → prepare again.
+      // Not validated / unreadable after the hand-off → amber, no sign button.
+      applyXrplSignFailure(err, handedToPartner, t, {
+        setError: (m) => setFormError(m || null),
+        setUnconfirmed: setTransferUnconfirmed,
+        setPhase: () => {},
+        clearPrepared: () => setHandoff(null),
+      });
     } finally {
       setBusy(false);
     }
-  }, [handoff, sendIntent, refreshAfterSettlement, t]);
+  }, [handoff, transferUnconfirmed, sendIntent, refreshAfterSettlement, t]);
 
   // ── escrow actions (permissionless — sent by the CONNECTED account) ──
   const [actingId, setActingId] = useState<string | null>(null);
@@ -930,6 +1177,7 @@ export default function LegacyPanel() {
   const [anchorBusy, setAnchorBusy] = useState(false);
   const [anchorError, setAnchorError] = useState<string | null>(null);
   const [anchorDone, setAnchorDone] = useState<string | null>(null);
+  const [anchorUnconfirmed, setAnchorUnconfirmed] = useState<UnconfirmedSignature | null>(null);
 
   // The document text is typed work — it must survive a refresh/deploy.
   // LOCAL ONLY (localStorage), same privacy line as the builder: the text
@@ -976,21 +1224,28 @@ export default function LegacyPanel() {
   }, [account, docText, docUri, t]);
 
   const signAnchor = useCallback(async () => {
-    if (!anchorHandoff) return;
+    if (!anchorHandoff || anchorUnconfirmed) return;
     setAnchorBusy(true);
     setAnchorError(null);
+    let handedToPartner = false;
     try {
+      handedToPartner = true;
       const { txHash } = await sendIntent({ tx: anchorHandoff.xrplTx as never });
-      await assertLedgerApplied(txHash, t);
+      await confirmOnLedger(txHash);
       setAnchorDone(txHash);
       setAnchorHandoff(null);
       refreshAfterSettlement();
     } catch (err) {
-      setAnchorError((err as Error)?.message ?? t('Signing was cancelled.'));
+      applyXrplSignFailure(err, handedToPartner, t, {
+        setError: (m) => setAnchorError(m || null),
+        setUnconfirmed: setAnchorUnconfirmed,
+        setPhase: () => {},
+        clearPrepared: () => setAnchorHandoff(null),
+      });
     } finally {
       setAnchorBusy(false);
     }
-  }, [anchorHandoff, sendIntent, refreshAfterSettlement, t]);
+  }, [anchorHandoff, anchorUnconfirmed, sendIntent, refreshAfterSettlement, t]);
 
   // ── §1 — constitute the council (SignerListSet). With no council yet, this is
   //    signed by the account's OWN master key (direct path), not the coordinator. ──
@@ -1004,6 +1259,9 @@ export default function LegacyPanel() {
   const [councilBusy, setCouncilBusy] = useState(false);
   const [councilError, setCouncilError] = useState<string | null>(null);
   const [councilDone, setCouncilDone] = useState<string | null>(null);
+  // A SignerListSet we could not follow: no second composition or signature of
+  // the council until the ledger has been checked.
+  const [councilUnconfirmed, setCouncilUnconfirmed] = useState<UnconfirmedSignature | null>(null);
   // §1.2 (2026-08-01): rotation. The UI used to DEMAND replacing a fallen
   // signer while only rendering the SignerListSet form when no council existed
   // — the emergency had no path. Amending = the SAME form, seeded from the
@@ -1023,7 +1281,7 @@ export default function LegacyPanel() {
   }, [council]);
 
   const prepareCouncil = useCallback(async () => {
-    if (!account) return;
+    if (!account || councilUnconfirmed) return;
     setCouncilError(null);
     setCouncilDone(null);
     // F10 and friends: validate BEFORE composing. A quorum above the total votes
@@ -1048,23 +1306,32 @@ export default function LegacyPanel() {
     } finally {
       setCouncilBusy(false);
     }
-  }, [account, councilSigners, councilQuorum, t]);
+  }, [account, councilSigners, councilQuorum, councilUnconfirmed, t]);
 
   const signCouncil = useCallback(async () => {
-    if (!councilHandoff) return;
+    if (!councilHandoff || councilUnconfirmed) return;
     setCouncilBusy(true);
     setCouncilError(null);
+    let handedToPartner = false;
     try {
+      handedToPartner = true;
       const { txHash } = await sendIntent({ tx: councilHandoff.xrplTx as never });
+      // «Council created» is said only over a validated tesSUCCESS.
+      await confirmOnLedger(txHash);
       setCouncilDone(txHash);
       setCouncilHandoff(null);
       refreshAfterSettlement();
     } catch (err) {
-      setCouncilError((err as Error)?.message ?? t('Signing was cancelled.'));
+      applyXrplSignFailure(err, handedToPartner, t, {
+        setError: (m) => setCouncilError(m || null),
+        setUnconfirmed: setCouncilUnconfirmed,
+        setPhase: () => {},
+        clearPrepared: () => setCouncilHandoff(null),
+      });
     } finally {
       setCouncilBusy(false);
     }
-  }, [councilHandoff, sendIntent, refreshAfterSettlement, t]);
+  }, [councilHandoff, councilUnconfirmed, sendIntent, refreshAfterSettlement, t]);
 
   // ── §2 — the rehearsal: 1 XRP, self, deliver tomorrow, recover in a week ──
   const [rehearsalHandoff, setRehearsalHandoff] = useState<XrplTxHandoff | null>(null);
@@ -1163,6 +1430,8 @@ export default function LegacyPanel() {
    *  honours it once instead of clobbering it with the first incomplete step.
    *  Same parked-intent idiom as surfaceIntent / govTabIntent. */
   const wizJump = useRef<number | null>(null);
+  /** Dónde aterrizó la lectura del ledger (para el aviso de «retomado»). */
+  const [landedAt, setLandedAt] = useState<number | null>(null);
   useEffect(() => {
     if (effectiveSurface !== 'constitute') return;
     if (wizJump.current !== null) {
@@ -1174,18 +1443,23 @@ export default function LegacyPanel() {
     if (walkthrough) return;
     if (!account) return void setWizStep(0);
     if (!councilLoaded) return;
-    setWizStep(
+    const target =
       !council
         ? 1
         : rehearsal?.rehearsalComplete !== true
           ? 2
           : council.masterKeyDisabled !== true
             ? 3
-            : !anchor?.dataHex
+            : !anchor?.dataHex && !reinforce
               ? 4
-              : 5,
-    );
-  }, [effectiveSurface, walkthrough, account, councilLoaded, council, rehearsal?.rehearsalComplete, anchor?.dataHex]);
+              : 5;
+    setWizStep(target);
+    // La primera lectura real decide el aterrizaje; el aviso de «retomado»
+    // (useResumeToast) sale una vez por cuenta con ese dato.
+    setLandedAt(target);
+    // reinforce salta la constitución: puerta cerrada = Hecho (la estación de
+    // reglas sigue en el raíl como opcional, por si quiere anclarlas).
+  }, [effectiveSurface, walkthrough, account, councilLoaded, council, rehearsal?.rehearsalComplete, anchor?.dataHex, reinforce]);
 
   // ── §6 — the wizard: real ledger state, never a local database (L1) ──
   const steps = useMemo(() => {
@@ -1194,6 +1468,20 @@ export default function LegacyPanel() {
     const doorClosed = council?.masterKeyDisabled === true;
     const anchored = !!anchor?.dataHex;
     const funded = escrows.length > 0 || (spendable !== null && spendable.balanceXrp >= 15);
+    // REINFORCE (fundador 2026-08-27, «podemos simplificar el proceso?»):
+    // la cuenta reforzada no necesita constitución — el quórum ya la protege.
+    // La estación queda como OPCIONAL (se puede entrar desde el raíl) y el
+    // final es «Hecho» en cuanto la puerta se cierra, no «Capital»: aquí no
+    // se fondea ninguna vasija, la cuenta ya tenía su dinero.
+    if (reinforce) {
+      return [
+        { label: t('Your keys'), done: hasCouncil },
+        { label: t('Rehearsal'), done: rehearsed },
+        { label: t('Door closed'), done: doorClosed },
+        { label: t('Rules (optional)'), done: anchored || doorClosed },
+        { label: t('Done'), done: doorClosed },
+      ];
+    }
     return [
       { label: t('Council'), done: hasCouncil },
       { label: t('Rehearsal'), done: rehearsed },
@@ -1201,7 +1489,7 @@ export default function LegacyPanel() {
       { label: t('Constitution'), done: anchored },
       { label: t('Capital'), done: funded && anchored },
     ];
-  }, [council, rehearsal, anchor, escrows, spendable, t]);
+  }, [council, rehearsal, anchor, escrows, spendable, reinforce, t]);
 
   // The Account station prepended — ONE array feeds the rail, the Prev/Next
   // labels and the aria positions, so the three can never disagree.
@@ -1211,19 +1499,65 @@ export default function LegacyPanel() {
     // account, whatever the ledger already holds.
     return walkthrough ? base.map((s, i) => (i === 0 ? s : { ...s, done: false })) : base;
   }, [account, steps, t, walkthrough]);
+  // «¿Por qué está hecha?» (12-sep): qué se leyó del ledger para cada estación
+  // — sale al ENTRAR en una hecha (una vez), y el pie la reabre.
+  const stationHow = useMemo(
+    () => [
+      t('the account you pasted or connected'),
+      t('the SignerList of the account, read from the ledger'),
+      t('the rehearsal signatures recorded for this account'),
+      t('the master key flag of the account, read from the ledger'),
+      t('the DID object of the account, read from the ledger'),
+      t('the balance of the account, read from the ledger'),
+    ],
+    [t],
+  );
+  // «¿Por qué está hecha?» vive en la franja de la estación (StationDoneStrip);
+  // el aterrizaje más allá de la primera estación se avisa UNA vez por cuenta,
+  // en una notificación temporal (fundador 15-sep: sin popups). En el
+  // walkthrough no hay aterrizaje del ledger, así que no hay aviso.
+  useResumeToast({ landed: walkthrough ? null : landedAt, stations, key: account });
+  const nextPendingIdx = stations.findIndex((s) => !s.done);
 
   // One line of orientation per station (immersion pass 2026-08-05): what this
   // station is FOR and what it costs, always visible above the slide. Honest
   // effort estimates — time and devices, never money or outcomes.
+  // REINFORCE runs the same six stations with a different cast: every key is
+  // the SAME person's device, so "the members' addresses" and "their phones"
+  // would be a plain lie about who is being asked for what.
   const stationMeta = useMemo(
-    () => [
-      { purpose: t('A fresh Xaman account becomes the vessel of the Legacy.'), effort: t('~10 min · your phone') },
-      { purpose: t('Who signs, and how many must agree — created in Xaman.'), effort: t('~15 min · the members’ addresses') },
-      { purpose: t('Every member proves they can sign — before any real capital.'), effort: t('~5 min per member · their phones') },
-      { purpose: t('The master key retires; only the council remains.'), effort: t('~2 min · your phone') },
-      { purpose: t('The rules, written in plain language and anchored on the ledger.'), effort: t('~10 min · here') },
-      { purpose: t('Fund the vessel — the ceremony is complete.'), effort: t('~1 min') },
-    ],
+    () =>
+      reinforce
+        ? [
+            { purpose: t('The account you are reinforcing — it stays yours throughout.'), effort: t('~1 min') },
+            { purpose: t('Your own keys, and how many must agree — created in Xaman.'), effort: t('~15 min · your devices') },
+            { purpose: t('Each of your keys proves it can sign — before the door closes.'), effort: t('~5 min per device') },
+            { purpose: t('The master key retires; only your quorum remains.'), effort: t('~2 min · your phone') },
+            { purpose: t('Optional — anchor written rules on the ledger, or go straight to done.'), effort: t('~10 min · only if you want it') },
+            { purpose: t('Nothing left to do — the account is reinforced.'), effort: t('~1 min') },
+          ]
+        : [
+            { purpose: t('A fresh Xaman account becomes the vessel of the Legacy.'), effort: t('~10 min · your phone') },
+            { purpose: t('Who signs, and how many must agree — created in Xaman.'), effort: t('~15 min · the members’ addresses') },
+            { purpose: t('Every member proves they can sign — before any real capital.'), effort: t('~5 min per member · their phones') },
+            { purpose: t('The master key retires; only the council remains.'), effort: t('~2 min · your phone') },
+            { purpose: t('The rules, written in plain language and anchored on the ledger.'), effort: t('~10 min · here') },
+            { purpose: t('Fund the vessel — the ceremony is complete.'), effort: t('~1 min') },
+          ],
+    [t, reinforce],
+  );
+
+  // Cada sala de Govern con su nombre y la PREGUNTA que responde. La frase se
+  // pinta bajo las pestañas igual que el encabezado de estación en Constituir:
+  // saber a qué has entrado es la mitad de no perderse.
+  const govMeta: Record<GovTab, { label: string; purpose: string }> = useMemo(
+    () => ({
+      capital: { label: t('Capital'), purpose: t('What is inside and what it produces') },
+      council: { label: t('Council'), purpose: t('Who commands, with which quorum') },
+      orders: { label: t('Orders'), purpose: t('Compose what the quorum will sign') },
+      proposals: { label: t('Inbox'), purpose: t('Sign what is already composed') },
+      activity: { label: t('Activity'), purpose: t('What has happened, with its on-chain proof') },
+    }),
     [t],
   );
 
@@ -1243,7 +1577,7 @@ export default function LegacyPanel() {
   // always plays the creation tutorial (the read card keeps serving Govern
   // and the door slide). Ledger reads underneath stay untouched.
   const councilTriggers =
-    (effectiveSurface === 'govern' && govTab === 'info') || wizStep === 1 || wizStep === 3;
+    (effectiveSurface === 'govern' && govTab === 'council') || wizStep === 1 || wizStep === 3;
   const showCouncilCreation = walkthrough
     ? effectiveSurface === 'constitute' && wizStep === 1 && !!account && councilLoaded
     : councilCreation && councilTriggers;
@@ -1280,7 +1614,7 @@ export default function LegacyPanel() {
   );
 
   const inputCls =
-    'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25';
+    'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25';
   // Raw <button> segments (surface switcher, tabs, stations) get the same
   // visible focus ring the primitives already carry — keyboard users were
   // navigating them blind.
@@ -1288,6 +1622,16 @@ export default function LegacyPanel() {
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0';
 
   // ── Interface B: the list is the entry point; a workspace opens one Legacy ──
+  // LA LISTA MURIÓ COMO PANTALLA (fundador 2026-08-22) … Y RESUCITA COMO LA
+  // CASA DEL LEGACY (fundador 2026-09-12, con el hub del hackathon: «cuando le
+  // des te lleve a una pantalla nueva donde se vea la wallet legacy que ya
+  // está configurada, puedas crear nuevos legacy y, si entras sin nada
+  // configurado, te pida configurar un legacy desde cero»). Aterrizar en
+  // /app/legacy sin destino ya no devuelve a Wallets: pinta MyLegaciesList —
+  // los Legacies constituidos como tarjetas, «Constituir un nuevo Legacy», y
+  // el estado vacío que lleva al asistente. Los deep-links con params siguen
+  // abriendo el taller directamente, como siempre; BackToWallets queda sin
+  // montar por si la decisión vuelve a girar.
   if (view === 'list') {
     return (
       // The door gets the sign, not a blocking dialog (founder 2026-08-06):
@@ -1310,7 +1654,7 @@ export default function LegacyPanel() {
             // Legacy reopened does not fire it at all (going back to the list
             // leaves `account` set), so apply it here or the door does nothing.
             if (a === account) {
-              setGovTab(tab === 'movements' ? 'wallets' : 'info');
+              setGovTab('capital');
               setMovementsOpen(tab === 'movements');
             } else {
               govTabIntent.current = tab ?? null;
@@ -1334,17 +1678,52 @@ export default function LegacyPanel() {
     );
   }
 
+  // EL RAÍL DE ESTACIONES (12-sep, «pon la del Legacy igual a las demás»): la
+  // MISMA pieza que el alta del gestor y la del exchange — raíl lateral si la
+  // caja es ancha (la página), tira encima si es estrecha (la ventana).
+  const constituteRail =
+    effectiveSurface === 'constitute' ? (
+      <StationProgress
+        stations={stations.map((s) => ({ label: s.label, done: s.done }))}
+        current={wizStep}
+        onSelect={setWizStep}
+        ariaLabel={t('Constitution stations')}
+        doneWord={t('done')}
+        onBack={() => setWizStep((s) => Math.max(0, s - 1))}
+        onNext={() => setWizStep((s) => Math.min(stations.length - 1, s + 1))}
+      />
+    ) : null;
+
   return (
     // A ceremonial, single-column surface: constrained to a document-like
     // measure so ultra-wide screens don't stretch the cards into empty space.
-    <div className="max-w-5xl space-y-5">
+    // As an OPERATION (opEmbed) the host owns width, header and chrome — the
+    // panel is only the ceremony, tightened one notch.
+    <div className={opEmbed ? 'space-y-4' : 'max-w-5xl space-y-5'}>
+      {/* Operation mode keeps just the one thing the chrome carried that the
+          host cannot know: the emergency flag. */}
+      {opEmbed && account && health?.mustReplaceSigner && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone="danger">{t('Emergency')}</Pill>
+          <span className="text-sm text-tone-danger">{t('Replace the fallen signer before anything else.')}</span>
+        </div>
+      )}
       {/* Chrome: back to the list on the left; the surface switcher on the
           right (returned 2026-08-04 — the card doors still choose the surface
           on entry, but changing your mind no longer means walking back to the
           list). The emergency flag outranks everything else on the row. */}
+      {!opEmbed && (
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <GhostButton onClick={() => setView('list')}>
-          ← {t('My Legacies')}
+        {/* Volver deja el taller y vuelve a la casa del Legacy (la lista),
+            sin params en la URL para que una recarga no reabra el taller. */}
+        <GhostButton
+          onClick={() => {
+            if (embed) return embed.onExit();
+            router.replace('/app/legacy');
+            setView('list');
+          }}
+        >
+          ← {t('Legacy')}
         </GhostButton>
         <div className="flex flex-wrap items-center gap-3">
           {account && health?.mustReplaceSigner && (
@@ -1386,13 +1765,30 @@ export default function LegacyPanel() {
           </div>
         </div>
       </div>
-      <LegacyBetaBanner account={account ?? undefined} />
+      )}
+      {!opEmbed && <LegacyBetaBanner account={account ?? undefined} />}
+      {/* REINFORCE says its own name: the ceremony is shared, the thing being
+          born is not. A reinforced account stays a PERSONAL wallet — no
+          council of other people, no cage on Flare — so the Legacy headline
+          would be a plain misdescription of what the person is signing. */}
+      {!opEmbed && (
       <PageHeader
-        title={legacyName ?? (account ? t('Legacy') : t('New Legacy'))}
-        subtitle={t(
-          'Capital under rules that outlive their author: the rules and the authority live on XRPL; the capital produces on Flare inside a cage of code. A programmed, conditioned, revocable transfer — not a promise.',
-        )}
+        title={
+          reinforce
+            ? (legacyName ?? t('Reinforce this account'))
+            : (legacyName ?? (account ? t('Legacy') : t('New Legacy')))
+        }
+        subtitle={
+          reinforce
+            ? t(
+                'Your own XRPL account, governed by a quorum of your own keys: no single key — lost, stolen or coerced — moves anything on its own. It stays a personal wallet, nothing is caged, and every signature is yours in Xaman.',
+              )
+            : t(
+                'Capital under rules that outlive their author: the rules and the authority live on XRPL; the capital produces on Flare inside a cage of code. A programmed, conditioned, revocable transfer — not a promise.',
+              )
+        }
       />
+      )}
 
       {/* ── Govern's four sections (founder refactor 2026-07-19). Information
           holds the Guía; the tabs distribute the rest so nothing overwhelms. ── */}
@@ -1405,7 +1801,7 @@ export default function LegacyPanel() {
           aria-label={t('Govern sections')}
           className="inline-flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-ink/10 bg-ink/[0.02] p-1"
           onKeyDown={(e) => {
-            const order = ['info', 'wallets', 'proposals'] as const;
+            const order = GOV_TABS;
             const i = order.indexOf(govTab);
             const next =
               e.key === 'ArrowRight'
@@ -1423,11 +1819,7 @@ export default function LegacyPanel() {
             document.getElementById(`legacy-tab-${next}`)?.focus();
           }}
         >
-          {([
-            ['info', t('Info')],
-            ['wallets', t('Wallets')],
-            ['proposals', t('Proposals')],
-          ] as const).map(([id, label]) => (
+          {GOV_TABS.map((id) => (
             <button
               key={id}
               id={`legacy-tab-${id}`}
@@ -1440,85 +1832,22 @@ export default function LegacyPanel() {
                 govTab === id ? 'bg-ink/10 text-ink' : 'text-ink/50 hover:text-ink/80'
               }`}
             >
-              {label}
+              {govMeta[id].label}
             </button>
           ))}
         </div>
       )}
 
 
-      {/* ── The stations feed (Constitute): where you are, and the navigation —
-          each station is a slide; done stations glow; click to jump. ── */}
-      {effectiveSurface === 'constitute' && (
-        <div className="-mx-1 overflow-x-auto px-1 py-1">
-          <div className="flex items-start" role="group" aria-label={t('Constitution stations')}>
-            {stations.map((s, i) => {
-              const current = i === wizStep;
-              return (
-                <div key={s.label} className="flex shrink-0 items-start">
-                  <button
-                    type="button"
-                    onClick={() => setWizStep(i)}
-                    aria-current={current ? 'step' : undefined}
-                    aria-label={`${i + 1}/${stations.length} · ${s.label}${s.done ? ` · ${t('done')}` : ''}`}
-                    className={`flex w-[84px] flex-col items-center gap-2 rounded-lg text-center ${focusRing}`}
-                  >
-                    <span
-                      className={`grid h-8 w-8 place-items-center rounded-full border transition-all duration-300 ${
-                        current
-                          ? 'border-volt/50 bg-volt/[0.1] shadow-[0_0_0_5px_hsl(var(--volt)/0.08)]'
-                          : s.done
-                            ? 'border-emerald-500/40 bg-emerald-500/[0.12] text-tone-success'
-                            : 'border-ink/15 bg-ink/[0.04] text-ink/45'
-                      }`}
-                    >
-                      {current ? (
-                        <PulseDot className="bg-volt" size={7} />
-                      ) : s.done ? (
-                        /* a completed station SNAPS in — the ceremony's payoff */
-                        <motion.span
-                          className="grid place-items-center"
-                          initial={{ scale: 0.4, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ duration: DUR.base, ease: EASE_OUT }}
-                        >
-                          <Check size={14} />
-                        </motion.span>
-                      ) : (
-                        <span className="font-mono text-[11px]">{i + 1}</span>
-                      )}
-                    </span>
-                    <span
-                      className={`font-mono text-[10px] uppercase leading-tight tracking-[0.12em] ${
-                        current ? 'text-volt/90' : s.done ? 'text-tone-success/80' : 'text-ink/40'
-                      }`}
-                    >
-                      {s.label}
-                    </span>
-                  </button>
-                  {i < steps.length && (
-                    <span
-                      className={`mt-4 h-px w-5 shrink-0 transition-colors duration-700 sm:w-9 ${s.done ? 'bg-emerald-500/35' : 'bg-ink/10'}`}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* The Guía's embedded column is GONE (founder 2026-08-04): the ceremony
           owns the full width, and the co-pilot carries the Guía. Keyed by the
           in-panel navigation so each station/tab change breathes in. */}
+      <StationRailLayout rail={constituteRail}>
       <SurfaceMotion key={contentKey} dir={slideDir}>
       {/* The station header — where you are, what for, what it costs. One
           fixed line the whole ceremony can be navigated by. */}
       {effectiveSurface === 'constitute' && (
         <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-mono text-[11px] text-volt/70">
-            {wizStep + 1} / {stations.length}
-          </span>
           <span className="text-[15px] font-semibold tracking-tight text-ink">{stations[wizStep]?.label}</span>
           <span className="text-[12px] text-ink/45">{stationMeta[wizStep]?.purpose}</span>
           <span className="ml-auto rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink/40">
@@ -1526,11 +1855,35 @@ export default function LegacyPanel() {
           </span>
         </div>
       )}
+      {/* La franja de la estación: hecha (y por qué cuenta) o pendiente (qué
+          se mira). En el walkthrough no hay ledger que leer. */}
+      {effectiveSurface === 'constitute' && !walkthrough && (
+        <div className="mb-4">
+          <StationDoneStrip
+            done={Boolean(stations[wizStep]?.done)}
+            how={stationHow[wizStep] ?? ''}
+            nextPendingLabel={nextPendingIdx >= 0 && nextPendingIdx !== wizStep ? stations[nextPendingIdx].label : undefined}
+            onNextPending={nextPendingIdx >= 0 && nextPendingIdx !== wizStep ? () => setWizStep(nextPendingIdx) : undefined}
+          />
+        </div>
+      )}
+      {/* La cabecera de la sala: dónde estás y qué se responde aquí — el
+          gemelo del encabezado de estación de Constituir. */}
+      {effectiveSurface === 'govern' && account && (
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-[15px] font-semibold tracking-tight text-ink">{govMeta[govTab].label}</span>
+          <span className="text-[12px] text-ink/45">{govMeta[govTab].purpose}</span>
+        </div>
+      )}
+      {/* El truco de CSS `order` MURIÓ con el reparto en cinco salas (fundador
+          2026-08-30, segunda pasada): dentro de cada pestaña quedan uno o dos
+          bloques y el orden del DOM ya es el correcto — la identidad primero,
+          después su contenido. Menos maquinaria y el mismo resultado. */}
       <RevealGroup className="space-y-5">
-        {/* ── Information: Legacy account → AI Agent (Guía) → the Council.
-            The account is settled context here — a slim identity strip
-            (accounts change from "My Legacies", not here). ── */}
-        {effectiveSurface === 'govern' && account && govTab === 'info' && (
+        {/* ── La tira de identidad: qué cuenta estás gobernando. Va en TODAS
+            las salas — es la orientación, no contenido de una pestaña (las
+            cuentas se cambian desde «Mis Legacies», no aquí). ── */}
+        {effectiveSurface === 'govern' && account && (
           <RevealItem>
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ink/[0.07] bg-ink/[0.02] px-4 py-2.5">
               <MicroLabel>{t('Legacy account')}</MicroLabel>
@@ -1606,10 +1959,18 @@ export default function LegacyPanel() {
           <Card spotlight padded={false} className="group isolate relative overflow-hidden p-5 md:p-6 lg:pr-56 space-y-4">
             {/* permanence — the account enthroned under its north star. The
                 content reserves the right zone (lg:pr-56) so the scene owns it. */}
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden lg:block opacity-[0.32] group-hover:opacity-60 transition-opacity duration-700" style={{ zIndex: -1 }} aria-hidden>
-              <MonumentScene size={160} />
+            {/* El panteón del producto, dibujándose (fundador 2026-08-25:
+                el orbe genérico fuera — aquí nace un Legacy y su marca es el
+                templo). */}
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden lg:block opacity-[0.55] group-hover:opacity-90 transition-opacity duration-700" style={{ zIndex: -1 }} aria-hidden>
+              {/* REINFORCE viste otra cara (fundador 2026-08-27): aquí no nace
+                  un Legacy — la cuenta sigue siendo tuya. El faro personal en
+                  lugar del templo, para que no parezca lo mismo. */}
+              {engraved
+                ? reinforce ? <SignetMark size={160} /> : <ColonnadeMark size={170} />
+                : reinforce ? <SignalBeacon width={200} height={160} /> : <PantheonScene size={170} />}
             </div>
-            <SectionTitle>{t('Legacy account')}</SectionTitle>
+            <SectionTitle>{reinforce ? t('Your account') : t('Legacy account')}</SectionTitle>
             {/* The missing first truth: the vessel must EXIST before this
                 input. Create it in Xaman (a NEW account — its master key dies
                 at the end of the ceremony), fund it, paste it. */}
@@ -1680,6 +2041,11 @@ export default function LegacyPanel() {
                   if (!accountValid) return;
                   const a = accountInput.trim();
                   rememberLegacy(a); // it lands in "Mis Legacies" — observing IS opening
+                  // A NEW Legacy is born already named (founder 2026-08-22:
+                  // «se añade un nombre de ejemplo que el usuario puede
+                  // modificar luego a su gusto») — an example, never left as
+                  // an address. A nickname the user already set is untouched.
+                  if (!getLegacyNickname(a)) setLegacyNickname(a, t('My Legacy'));
                   // Pasting an address INSIDE the constitute surface means
                   // staying in it (fix 2026-08-11): without this intent, the
                   // account-change effect reset the surface to auto-follow and
@@ -1779,7 +2145,18 @@ export default function LegacyPanel() {
                 unsignedBusy={councilBusy}
                 unsignedError={councilError}
                 unsignedSlot={
-                  councilHandoff ? (
+                  councilUnconfirmed ? (
+                    <UnconfirmedSignatureNotice
+                      rail="xrpl"
+                      xrplKind="transaction"
+                      unconfirmed={councilUnconfirmed}
+                      onClose={() => {
+                        setCouncilUnconfirmed(null);
+                        setCouncilHandoff(null);
+                        refreshAfterSettlement();
+                      }}
+                    />
+                  ) : councilHandoff ? (
                     <div className="space-y-3">
                       <DisclosureBlock handoff={councilHandoff} />
                       <HandoffActions
@@ -1816,7 +2193,11 @@ export default function LegacyPanel() {
             {/* signer-stars standing guard over the account-sun; hovering draws
                 the quorum arc through the required members */}
             <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden lg:block opacity-[0.32] group-hover:opacity-60 transition-opacity duration-700" style={{ zIndex: -1 }} aria-hidden>
-              <CouncilScene width={200} height={160} />
+              {/* En reinforce no hay consejo de miembros: son TUS firmas —
+                  la escena de la rúbrica en vez de las estrellas del consejo. */}
+              {reinforce
+                ? <SignatureScene width={200} height={140} />
+                : engraved ? <SignetMark size={160} /> : <CouncilScene width={200} height={160} />}
             </div>
             <div className="flex items-center gap-2">
               <Users size={16} className="text-ink/50" />
@@ -2059,7 +2440,18 @@ export default function LegacyPanel() {
                     )}
                   </InlineNotice>
                 </div>
-                {!councilHandoff ? (
+                {councilUnconfirmed ? (
+                  <UnconfirmedSignatureNotice
+                    rail="xrpl"
+                    xrplKind="transaction"
+                    unconfirmed={councilUnconfirmed}
+                    onClose={() => {
+                      setCouncilUnconfirmed(null);
+                      setCouncilHandoff(null);
+                      refreshAfterSettlement();
+                    }}
+                  />
+                ) : !councilHandoff ? (
                   <div className="space-y-2">
                     <SignerListRows
                       signers={councilSigners}
@@ -2222,21 +2614,9 @@ export default function LegacyPanel() {
             en ningún inventario (fundador 2026-07-29). Va junto a las wallets
             porque es patrimonio, pero con su naturaleza dicha: de aquí no se
             saca. */}
-        {effectiveSurface === 'govern' && account && govTab === 'wallets' && (
-          <RevealItem>
-            <LegacyVaultCard account={account} />
-          </RevealItem>
-        )}
-
-        {effectiveSurface === 'govern' && account && govTab === 'wallets' && (
-          <RevealItem>
-            <WalletManager
-              scope={{ legacyCouncil: account }}
-              variant="embedded"
-              onGovernedMovements={() => setMovementsOpen(true)}
-            />
-          </RevealItem>
-        )}
+        {/* La pestaña Wallets MURIÓ (fundador 2026-08-30): las cuentas de este
+            Legacy viven en /app/wallets como todas las demás — el WalletManager
+            embebido que vivía aquí era la segunda copia que confundía. */}
 
         {/* ── Activity: the interactive feed — everything signed on XRPL/Flare
             and everything still running, each entry openable to its on-chain
@@ -2250,28 +2630,65 @@ export default function LegacyPanel() {
             claim() have been live on-chain all along with no surface at all:
             nobody could see what they were owed and an heir had no way to ask
             for it. The principal is not on this panel and cannot be. ── */}
-        {/* El capital, lo primero al entrar: era el dato que no estaba en
-            ninguna pantalla de la app pese a existir en la cadena. */}
-        {effectiveSurface === 'govern' && account && govTab === 'info' && (
+        {/* ── SALA «CAPITAL»: qué hay dentro y qué produce. Dos bloques, y el
+            capital es el primero — era el dato que no estaba en ninguna
+            pantalla de la app pese a existir en la cadena. ── */}
+        {/* EL XRP DE LA PROPIA CUENTA (fundador 13-sep: abrió Capital de un
+            Legacy con 2,79 XRP dentro y la sala no enseñaba NADA). La jaula de
+            Flare es solo la mitad del patrimonio: la otra vive en la cuenta
+            XRPL y hasta hoy no se veía en ninguna pantalla de Govern. Se lee de
+            `spendable`, que el panel ya carga para los escrows; si esa lectura
+            falló se dice, nunca se pinta un cero que no se sabe. */}
+        {effectiveSurface === 'govern' && account && govTab === 'capital' && (
+          <RevealItem>
+            <Card className="p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+                  <Landmark size={15} className="text-[var(--authority-solid)]" />
+                  {t('On the account (XRPL)')}
+                </p>
+                {spendable ? (
+                  <span className="font-mono text-[15px] tabular-nums text-ink">
+                    {spendable.balanceXrp.toLocaleString(undefined, { maximumFractionDigits: 6 })} XRP
+                  </span>
+                ) : null}
+              </div>
+              {spendable ? (
+                <p className="mt-1.5 max-w-[62ch] text-[12.5px] leading-relaxed text-ink/55">
+                  {`${t('Spendable after the ledger reserves:')} ${Math.max(0, spendable.spendableXrp).toLocaleString(undefined, { maximumFractionDigits: 6 })} XRP. ${t('Moving it takes an order and the quorum.')}`}
+                </p>
+              ) : (
+                <p className="mt-1.5 max-w-[62ch] text-[12.5px] leading-relaxed text-tone-warning/80">
+                  {t('The account balance could not be read right now — that is not the same as it being zero.')}
+                </p>
+              )}
+            </Card>
+          </RevealItem>
+        )}
+
+        {effectiveSurface === 'govern' && account && govTab === 'capital' && (
           <RevealItem>
             <LegacyVaultCard account={account} />
           </RevealItem>
         )}
 
-        {effectiveSurface === 'govern' && account && govTab === 'info' && (
+        {effectiveSurface === 'govern' && account && govTab === 'capital' && (
           <RevealItem>
-            <LegacyYieldPanel account={account} />
+            <LegacyYieldPanel account={account} onGoToProposals={() => setGovTab('proposals')} />
           </RevealItem>
         )}
 
-        {effectiveSurface === 'govern' && account && govTab === 'info' && (
+        {/* ── SALA «ACTIVIDAD»: qué ha pasado, cada entrada abrible a su
+            prueba on-chain. Sola en su pestaña — es un registro largo. ── */}
+        {effectiveSurface === 'govern' && account && govTab === 'activity' && (
           <RevealItem>
             <LegacyActivityFeed account={account} onGoToProposals={() => setGovTab('proposals')} />
           </RevealItem>
         )}
 
-        {/* ── Proposals: Programmed transfer → Council order → Proposal inbox ── */}
-        {effectiveSurface === 'govern' && govTab === 'proposals' && (
+        {/* ── SALA «ÓRDENES»: COMPONER — transferencia programada y orden de
+            consejo a la jaula. Firmar es la sala siguiente. ── */}
+        {effectiveSurface === 'govern' && govTab === 'orders' && (
         <RevealItem>
           <Card spotlight padded={false} className="group isolate relative overflow-hidden p-5 md:p-6 lg:pr-56 space-y-4">
             {/* a sealed vault on a timeline: the pulse travels toward the
@@ -2288,7 +2705,18 @@ export default function LegacyPanel() {
                 'Commit XRP to a beneficiary with a delivery date. Until that date the commitment is UNBREAKABLE — not even the council can take it back (that is the point). If you set a recovery date and nobody claims the transfer, after it the XRP returns to this account. The locked XRP earns nothing while locked.',
               )}
             </p>
-            {!handoff ? (
+            {transferUnconfirmed ? (
+              <UnconfirmedSignatureNotice
+                rail="xrpl"
+                xrplKind="transaction"
+                unconfirmed={transferUnconfirmed}
+                onClose={() => {
+                  setTransferUnconfirmed(null);
+                  setHandoff(null);
+                  refreshAfterSettlement();
+                }}
+              />
+            ) : !handoff ? (
               <div className="space-y-3">
                 {/* "Operar" — NL → intent → prefill. The AI compiles; the user
                     reviews every field and signs (invariant #8). Addresses are
@@ -2423,6 +2851,17 @@ export default function LegacyPanel() {
             )}
 
             {/* ── existing commitments of the Legacy account ── */}
+            {escrowsUnreadable && (
+              <div className="flex flex-wrap items-center gap-2">
+                <InlineNotice tone="warning">
+                  {t('Could not read this account’s commitments right now — the list may be missing some, including any you can Recover. That is not the same as having none.')}
+                </InlineNotice>
+                <GhostButton onClick={() => void refresh()} disabled={loading}>
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  {t('Retry')}
+                </GhostButton>
+              </div>
+            )}
             {escrows.length > 0 && (
               <ul className="divide-y divide-ink/5">
                 {escrows.map((row, i) => (
@@ -2501,12 +2940,17 @@ export default function LegacyPanel() {
             {/* the ruled document with its SHA seal; hovering draws the
                 amendment chain through its anchor-stars */}
             <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden lg:block opacity-[0.32] group-hover:opacity-60 transition-opacity duration-700" style={{ zIndex: -1 }} aria-hidden>
-              <LedgerScrollScene width={190} height={150} />
+              {engraved ? <RegisterMark size={150} /> : <LedgerScrollScene width={190} height={150} />}
             </div>
             <div className="flex items-center gap-2">
               <ScrollText size={16} className="text-ink/50" />
-              <SectionTitle>{t('The constitution')}</SectionTitle>
+              <SectionTitle>{reinforce ? t('Rules (optional)') : t('The constitution')}</SectionTitle>
             </div>
+            {reinforce && (
+              <InlineNotice tone="success" icon={null}>
+                {t('Optional for a reinforced account — your quorum already protects it. Anchor rules only if you want them written on the ledger.')}
+              </InlineNotice>
+            )}
             {effectiveSurface === 'constitute' && (
               <StationBrief
                 title={t('What you do here')}
@@ -2612,7 +3056,18 @@ export default function LegacyPanel() {
               )}
             </p>
 
-            {!anchorHandoff ? (
+            {anchorUnconfirmed ? (
+              <UnconfirmedSignatureNotice
+                rail="xrpl"
+                xrplKind="transaction"
+                unconfirmed={anchorUnconfirmed}
+                onClose={() => {
+                  setAnchorUnconfirmed(null);
+                  setAnchorHandoff(null);
+                  refreshAfterSettlement();
+                }}
+              />
+            ) : !anchorHandoff ? (
               <div className="flex flex-wrap items-center gap-2">
                 {anchor?.dataHex && (
                   <GhostButton onClick={() => void verifyDocument()} disabled={!docText}>
@@ -2695,23 +3150,54 @@ export default function LegacyPanel() {
             <Card className="p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <Landmark size={16} className="text-ink/50" />
-                <SectionTitle>{t('The capital')}</SectionTitle>
-                {constituted && <Pill tone="success">{t('constituted')}</Pill>}
+                <SectionTitle>{reinforce ? t('Done') : t('The capital')}</SectionTitle>
+                {constituted && <Pill tone="success">{reinforce ? t('reinforced') : t('constituted')}</Pill>}
               </div>
+              {/* A reinforced account has no second layer and no cage: saying
+                  it does here would promise a machine that does not exist for
+                  this account. It ends where it began — a personal wallet. */}
               <p className="text-[12px] text-ink/55">
-                {t(
-                  'Your Legacy is constituted: the council governs, the rehearsal is proven, the door is closed and the constitution is anchored. From here the capital works in two layers: XRP on this account (the native reserve, protected by the quorum), and productive capital on Flare inside the cage of code — governed from XRPL through council orders.',
-                )}
+                {reinforce
+                  ? t(
+                      'This account is reinforced: your quorum governs it, every key has proved it can sign, and the master key is retired. Nothing was locked away and nothing moved — you go on using it exactly as before, except that no single key can move anything alone.',
+                    )
+                  : t(
+                      'Your Legacy is constituted: the council governs, the rehearsal is proven, the door is closed and the constitution is anchored. From here the capital works in two layers: XRP on this account (the native reserve, protected by the quorum), and productive capital on Flare inside the cage of code — governed from XRPL through council orders.',
+                    )}
               </p>
-              <StationBrief
-                title={t('What you do here')}
-                items={[
-                  t('Fund the account: a normal XRP payment to this address (the quorum is not needed to receive).'),
-                  t('Programmed transfers, council orders to the Flare cage, and the vault mirror live in Govern.'),
-                ]}
-              />
-              <PrimaryButton onClick={() => setSurface('govern')}>
-                {t('Go to Govern')} →
+              {reinforce ? (
+                <StationBrief
+                  title={t('What to keep in mind')}
+                  items={[
+                    t('Every payment now needs your quorum — signed in Xaman, from the devices you registered.'),
+                    t('If you lose a device, replace it before anything else: at exact quorum, one more loss locks the account for ever.'),
+                  ]}
+                />
+              ) : (
+                <StationBrief
+                  title={t('What you do here')}
+                  items={[
+                    t('Fund the account: a normal XRP payment to this address (the quorum is not needed to receive).'),
+                    t('Programmed transfers, council orders to the Flare cage, and the vault mirror live in Govern.'),
+                  ]}
+                />
+              )}
+              <PrimaryButton
+                onClick={() => {
+                  if (reinforce) {
+                    if (embed) embed.onExit();
+                    else router.push('/app/wallets');
+                  } else if (opEmbed && embed) {
+                    // Operación cumplida: el popup se cierra y Govern se abre
+                    // donde vive — la página del taller, no un panel estrecho.
+                    embed.onExit();
+                    router.push(account ? `/app/legacy?govern=${encodeURIComponent(account)}` : '/app/legacy');
+                  } else {
+                    setSurface('govern');
+                  }
+                }}
+              >
+                {reinforce ? t('Back to my wallets') : t('Go to Govern')} →
               </PrimaryButton>
             </Card>
           </RevealItem>
@@ -2720,40 +3206,18 @@ export default function LegacyPanel() {
         {/* ── Slide navigation (Constitute) — the same stations the rail
             shows, named: "← Council · 3/6 · Rehearsal →" reads as one system,
             where a bare Previous/Next read as a second one. ── */}
-        {effectiveSurface === 'constitute' && (
-          <RevealItem>
-            <div className="flex items-center justify-between gap-2">
-              <GhostButton
-                onClick={() => setWizStep((s) => Math.max(0, s - 1))}
-                disabled={wizStep === 0}
-                aria-label={t('Previous station')}
-              >
-                ← {wizStep > 0 ? stations[wizStep - 1].label : t('Previous')}
-              </GhostButton>
-              <span className="font-mono text-[11px] text-ink/40" aria-hidden>
-                {wizStep + 1} / {stations.length}
-              </span>
-              <GhostButton
-                onClick={() => setWizStep((s) => Math.min(stations.length - 1, s + 1))}
-                disabled={wizStep === stations.length - 1}
-                aria-label={t('Next station')}
-              >
-                {wizStep < stations.length - 1 ? stations[wizStep + 1].label : t('Next')} →
-              </GhostButton>
-            </div>
-          </RevealItem>
-        )}
-
         {/* ── Council order — the FDC enforcement rail (roadmap Pieza 1): the
-            quorum signs ONE XRPL tx; the bridge executes it on the vault. ── */}
-        {effectiveSurface === 'govern' && account && govTab === 'proposals' && (
+            quorum signs ONE XRPL tx; the bridge executes it on the vault.
+            Vive en «Órdenes»: también es COMPONER. ── */}
+        {effectiveSurface === 'govern' && account && govTab === 'orders' && (
           <RevealItem>
             <CouncilOrderCard account={account} />
           </RevealItem>
         )}
 
-        {/* ── Proposal inbox — the async quorum (yours / others / ready /
-            emitted). Last in Proposals: create above, sign here. ── */}
+        {/* ── SALA «BANDEJA»: el quórum asíncrono (tuyas / de otros / listas /
+            emitidas). SOLA en su pestaña — componer arriba era el ruido que
+            escondía lo único que hay que hacer aquí: firmar. ── */}
         {effectiveSurface === 'govern' && account && govTab === 'proposals' && (
           <RevealItem>
             <ProposalInbox account={account} onSettled={() => refreshAfterSettlement()} />
@@ -2764,7 +3228,7 @@ export default function LegacyPanel() {
             existed only WHILE FDC enforcement did not. Retired from the frontend
             (founder 2026-07-19: enforcement is the rail now) — kept in the repo,
             gated off, never deleted. ── */}
-        {SHOW_VAULT_MIRROR && effectiveSurface === 'govern' && (
+        {SHOW_VAULT_MIRROR && effectiveSurface === 'govern' && govTab === 'council' && (
         <RevealItem>
           <Card spotlight padded={false} className="group isolate relative overflow-hidden p-5 md:p-6 lg:pr-60 space-y-4">
             {/* two orbits face to face — XRPL gold, Flare rose — a sync pulse
@@ -2846,18 +3310,25 @@ export default function LegacyPanel() {
         <RevealItem>
           <Card padded={false} className="p-4">
             <p className="text-[11px] leading-relaxed text-ink/40">
+              {/* Una frase honesta por SALA — la de cada pestaña dice lo que
+                  de verdad manda ahí, no el eslogan del producto. */}
               {effectiveSurface === 'constitute'
                 ? t('A programmed, conditioned, revocable transfer constituted in life — it creates no legal regime, and nothing transfers at death.')
                 : govTab === 'proposals'
                   ? t('Astryum composes unsigned; the quorum signs each proposal — the same bytes, once, in order.')
-                  : govTab === 'wallets'
-                    ? t('The accounts this Legacy controls — its council on XRPL and the Smart Account it operates on Flare. Read-only here; the quorum moves funds from Movements.')
-                    : t('On XRPL nobody holds a key: this account is protected by its council (quorum), never by Astryum.')}
+                  : govTab === 'orders'
+                    ? t('Composing an order signs nothing: it lands in the inbox and waits there for the quorum.')
+                    : govTab === 'capital'
+                      ? t('Read straight from the chain. Moving any of it takes an order and the quorum — never Astryum.')
+                      : govTab === 'activity'
+                        ? t('Every entry here happened on-chain and can be opened at its proof.')
+                        : t('On XRPL nobody holds a key: this account is protected by its council (quorum), never by Astryum.')}
             </p>
           </Card>
         </RevealItem>
       </RevealGroup>
       </SurfaceMotion>
+      </StationRailLayout>
 
       {/* ── Movements, as a modal (founder refactor 2026-07-28) — the same
           overlay shape a personal wallet card opens, so the gesture is
@@ -2867,67 +3338,14 @@ export default function LegacyPanel() {
           composed UNSIGNED, bound to the council account, and dropped in the
           inbox for the quorum — Astryum never signs (#1). ── */}
       {movementsOpen && account && (
-        <ModalOverlay
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:p-6"
-          onEscape={() => setMovementsOpen(false)}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setMovementsOpen(false);
+        <GovernedMovementsModal
+          account={account}
+          onClose={() => setMovementsOpen(false)}
+          onGoToProposals={() => {
+            setMovementsOpen(false);
+            setGovTab('proposals');
           }}
-        >
-          <motion.div
-            ref={movementsDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="legacy-movements-title"
-            tabIndex={-1}
-            variants={modalPop}
-            initial="hidden"
-            animate="shown"
-            className="my-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-surface-1 shadow-2xl shadow-black/60 outline-none"
-            onMouseDown={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key !== 'Tab') return;
-              const root = movementsDialogRef.current;
-              if (!root) return;
-              const focusables = root.querySelectorAll<HTMLElement>(
-                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-              );
-              if (focusables.length === 0) return;
-              const first = focusables[0];
-              const last = focusables[focusables.length - 1];
-              if (e.shiftKey && document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-              } else if (!e.shiftKey && document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-              }
-            }}
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <Landmark className="h-4 w-4 text-volt/80" strokeWidth={1.6} />
-                <h2 id="legacy-movements-title" className="text-[15px] font-semibold tracking-tight text-ink">{t('Movements')}</h2>
-              </div>
-              <button
-                onClick={() => setMovementsOpen(false)}
-                aria-label={t('Close')}
-                className="grid h-8 w-8 place-items-center rounded-lg text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/80"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="p-5">
-              <GovernedMovements
-                account={account}
-                onGoToProposals={() => {
-                  setMovementsOpen(false);
-                  setGovTab('proposals');
-                }}
-              />
-            </div>
-          </motion.div>
-        </ModalOverlay>
+        />
       )}
     </div>
   );

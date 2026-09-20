@@ -36,10 +36,20 @@ export function describeTrigger(
       return `${t('When idle')} ${String(trigger?.asset ?? '')} ${t('exceeds')} $${trigger?.minUSD ?? 0}`;
     case 'TIME_TRIGGER': {
       const cron = String(trigger?.cron ?? '');
-      return KNOWN_CRONS[cron] ? t(KNOWN_CRONS[cron]) : t('On a schedule');
+      if (KNOWN_CRONS[cron]) return t(KNOWN_CRONS[cron]);
+      // Day-of-month rules (M1 recurring payments: `0 12 <d> * *`) — say the
+      // day instead of the generic "On a schedule" a family cannot verify.
+      const dom = cron.match(/^0 12 (\d{1,2}) \* \*$/);
+      if (dom) return `${t('On day')} ${dom[1]} ${t('of each month at 12:00 UTC')}`;
+      return t('On a schedule');
     }
     case 'APY_BELOW':
       return `${t('If the rate you are paid drops below')} ${trigger?.thresholdPct ?? 0}%`;
+    case 'PRICE_DROP_PCT': {
+      const base = Number(trigger?.baselineUsd ?? 0);
+      const from = base > 0 ? ` ${t('from')} $${base}` : '';
+      return `${t('If the price of')} ${String(trigger?.asset ?? '')} ${t('falls')} ${trigger?.pct ?? 0}%${from}`;
+    }
     default:
       return type || t('trigger');
   }
@@ -63,6 +73,8 @@ export function describeAction(
   const kind = String(action?.kind ?? '');
   if (kind === 'councilPayment') return t('a payment proposal goes to the council to sign');
   if (kind === 'councilOrder') return t('a vault order proposal goes to the council to sign');
+  if (kind === 'scheduledPayment') return t('we prepare the payment for you to sign in Xaman');
+  if (kind === 'emRepay') return t('we prepare the RLUSD repayment fresh for you to sign on Ethereum');
   if (!kind) return t('you get an alert — nothing is prepared');
   const phrase = ACTION_PHRASES[kind];
   return phrase ? t(phrase) : `${t('we prepare it for you to sign')} (${kind})`;

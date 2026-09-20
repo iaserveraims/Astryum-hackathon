@@ -81,13 +81,90 @@ export type XrplTxAttribution = 'user' | 'operational';
  * Stamp an XRPL txjson object with the project SourceTag (no-op when unset,
  * and no-op for `operational` transactions Astryum signs with its own key).
  */
-export function withSourceTag<T extends Record<string, unknown>>(
+// `T extends object` (not Record<string, unknown>): the typed composers return
+// interfaces (CredentialAcceptTx, PermissionedDomainSetTx…), which carry no
+// index signature and would not fit a Record constraint.
+export function withSourceTag<T extends object>(
   txjson: T,
   attribution: XrplTxAttribution = 'user',
 ): T & { SourceTag?: number } {
   if (attribution === 'operational') return txjson;
   const tag = getXrplSourceTag();
   return tag === undefined ? txjson : { ...txjson, SourceTag: tag };
+}
+
+/**
+ * XRPL accounts Astryum itself operates in this deployment. Whatever they sign
+ * is 'operational' and never carries the project tag. Read from config at call
+ * time, never hardcoded:
+ *   - ASTRYUM_ORDER_ANCHOR / LEGACY_ORDER_ANCHOR — the order anchors, whose
+ *     seeds live on the server (anchor feeding).
+ *   - MANAGER_CREDENTIAL_ISSUERS — the accepted credential issuers. Today that
+ *     is Astryum's own notary issuer (MANAGER_ISSUER_SEED). A third-party issuer
+ *     listed here later is a partner, not a product user: leaving its
+ *     CredentialCreate untagged loses nothing and can never enrol a non-user.
+ *   - ASTRYUM_OPERATIONAL_XRPL_ACCOUNTS — any other operational account,
+ *     comma-separated.
+ *   - the demo exchange OMNIBUS, DERIVED from DEMO_EXCHANGE_OMNIBUS_SEED when
+ *     the seed is present. The desk funds the pote from the omnibus through
+ *     institutional.ts with `attributionForSigner(account)`: an env list that
+ *     forgot it stamped the project tag on our own scripted account (T&C §7).
+ *     A seed this backend holds is operational by definition — no list needed.
+ */
+export function astryumOperationalXrplAccounts(): Set<string> {
+  const accounts = new Set<string>();
+  const add = (raw: string | undefined) => {
+    for (const part of (raw ?? '').split(',')) {
+      const account = part.trim();
+      if (account) accounts.add(account);
+    }
+  };
+  add(process.env.ASTRYUM_ORDER_ANCHOR);
+  add(process.env.LEGACY_ORDER_ANCHOR);
+  add(process.env.MANAGER_CREDENTIAL_ISSUERS);
+  add(process.env.ASTRYUM_OPERATIONAL_XRPL_ACCOUNTS);
+  add(demoExchangeOmnibusAddress() ?? undefined);
+  return accounts;
+}
+
+// Cached by a HASH of the seed, never the seed itself: a Railway edit +
+// restart re-derives, steady state costs one sha256.
+let cachedOmnibus: { seedHash: string; address: string | null } | null = null;
+
+/**
+ * The classic address DEMO_EXCHANGE_OMNIBUS_SEED opens, or null (unset, or a
+ * seed that derives nothing — that seed cannot sign either). Never throws and
+ * never logs: the seed must not reach a log line or an error message. xrpl.js
+ * is required lazily so importing this config stays light.
+ */
+function demoExchangeOmnibusAddress(): string | null {
+  const seed = (process.env.DEMO_EXCHANGE_OMNIBUS_SEED ?? '').trim();
+  if (!seed) return null;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { createHash } = require('crypto') as typeof import('crypto');
+  const seedHash = createHash('sha256').update(seed).digest('hex');
+  if (cachedOmnibus?.seedHash !== seedHash) {
+    let address: string | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { diagnoseXrplSecret } = require('../utils/xrplSecret') as typeof import('../utils/xrplSecret');
+      address = diagnoseXrplSecret(seed).address ?? null;
+    } catch {
+      address = null;
+    }
+    cachedOmnibus = { seedHash, address };
+  }
+  return cachedOmnibus.address;
+}
+
+/**
+ * The attribution of a transaction whose signing account is known when it is
+ * composed: 'operational' for an account Astryum operates, 'user' otherwise.
+ * Use it wherever one composer serves both kinds of signer (a credential
+ * issuer can be a user's root or Astryum's notary; an anchor owner can be us).
+ */
+export function attributionForSigner(account: string): XrplTxAttribution {
+  return astryumOperationalXrplAccounts().has(account.trim()) ? 'operational' : 'user';
 }
 
 /** Test hook — clears the memoised env read. */

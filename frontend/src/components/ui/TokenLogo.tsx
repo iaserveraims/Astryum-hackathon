@@ -46,6 +46,12 @@ const LOGO_MAP: Record<string, string> = {
   TUSD:    'https://assets.coingecko.com/coins/images/3449/small/tusd.png',
   BUSD:    'https://assets.coingecko.com/coins/images/9576/small/BUSD.png',
   USDP:    'https://assets.coingecko.com/coins/images/6013/small/Pax_Dollar.png',
+  // RLUSD faltaba (25-ago). Sin entrada aqui caia al fallback de jsdelivr,
+  // que no tiene rlusd.svg, y de ahi a las dos letras «RL» sobre un degradado
+  // — que es lo que se veia en la card de la boveda Sentora. Es un EMT de los
+  // del invariante 4, o sea uno de los activos centrales del producto.
+  // URL comprobada contra la API de CoinGecko (id ripple-usd) y con HTTP 200.
+  RLUSD:   'https://coin-images.coingecko.com/coins/images/39651/small/RLUSD_200x200_%281%29.png?1727376633',
   // ── Liquid Staking Tokens ────────────────────────────────────────────────────
   STETH:   'https://assets.coingecko.com/coins/images/13442/small/steth_logo.png',
   WSTETH:  'https://assets.coingecko.com/coins/images/18834/small/wstETH.png',

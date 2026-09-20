@@ -145,6 +145,11 @@ const BodySchema = z.object({
    * only ever composes a council order.
    */
   governed: z.boolean().optional(),
+  // El idioma del dashboard (2026-08-29): las NOTAS de la tabla de métricas
+  // llevan números interpolados — se componen aquí, así que necesitan saber
+  // en qué idioma hablarle a la persona. El LLM no lo necesita (regla dura:
+  // responde en el idioma del último mensaje).
+  lang: z.enum(['es', 'en']).optional().default('es'),
 });
 
 /** Said in the table itself, so the model explains the absence honestly. */
@@ -194,7 +199,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'INVALID_BODY', details: parse.error.flatten() });
     return;
   }
-  const { message, history = [], amountXrp, targetUsd, mode, wallets, transferThread, governed } = parse.data;
+  const { message, history = [], amountXrp, targetUsd, mode, wallets, transferThread, governed, lang } = parse.data;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -240,18 +245,22 @@ router.post('/chat', async (req: Request, res: Response) => {
     const rates = await readKineticLiveRates();
     if (rates) {
       try {
-        metrics = StrategyMetricsService.computeCarryOptions(amountXrp, rates, { targetUsd });
+        metrics = StrategyMetricsService.computeCarryOptions(amountXrp, rates, { targetUsd, lang });
         // A council cannot borrow (see `governed` above): drop the carry rows
-        // and say why, so neither the model nor the table can offer a route the
-        // cage has no function to execute.
+        // and say why. La explicación va SOLO al contexto del modelo
+        // (revisión 2026-08-29: iba también en metrics.notes y el cliente la
+        // pintaba tal cual — en castellano fijo y con una instrucción al
+        // modelo, «no la propongas», delante del usuario; la UI ya tiene su
+        // propia nota localizada para esto).
         if (governed) {
           metrics = {
             ...metrics,
             options: metrics.options.filter((o) => o.kind === 'lend-only'),
-            notes: [...metrics.notes, GOVERNED_NO_BORROW_NOTE],
           };
+          table = StrategyMetricsService.toContextTable(metrics) + '\n' + GOVERNED_NO_BORROW_NOTE;
+        } else {
+          table = StrategyMetricsService.toContextTable(metrics);
         }
-        table = StrategyMetricsService.toContextTable(metrics);
       } catch {
         metrics = undefined;
         table = undefined;

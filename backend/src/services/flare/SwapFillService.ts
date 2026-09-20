@@ -93,6 +93,38 @@ const ERC20_APPROVE_ABI = ['function approve(address spender, uint256 amount) re
 const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)'];
 const WNAT_DEPOSIT_ABI = ['function deposit() payable'];
 
+/**
+ * EL VENUE, como parámetro (2026-08-29).
+ *
+ * Toda la lógica de este fichero —cotizar `exactOutput` por tiers, el tope de
+ * gasto con slippage, la composición [wrap?, approve, swap]— es de la FAMILIA
+ * Uniswap V3, no de SparkDEX. El mercado FXRP/RLUSD de Ethereum necesita
+ * exactamente esto mismo, y copiar el fichero sería la trampa de siempre: una
+ * copia que diverge de producción verifica un carril que no es el que se firma.
+ *
+ * Así que el venue viaja como argumento OPCIONAL con el default de Flare: los
+ * dos llamadores existentes (flareDemo, a1 EVM y pa-repay 0xFE) no cambian ni
+ * una línea, y el carril de Ethereum pasa el suyo.
+ *
+ * La forma del router NO se adivina, se lee del bytecode — la misma disciplina
+ * del 26-jul con SparkDEX. Verificado 2026-08-29 en Ethereum mainnet:
+ *   · SwapRouter clásico 0xE592…1564 → `exactOutputSingle` CON deadline
+ *     (selector 0xdb3e2198) — EL MISMO que SparkDEX, así que el ABI de abajo
+ *     sirve tal cual.
+ *   · SwapRouter02 0x68b3…5Fc45 → tiene la OTRA forma (0x5023b4df). Apuntar
+ *     ahí con este ABI fallaría en la firma, no en la compilación.
+ */
+export interface SwapVenue {
+  /** Router con `exactOutputSingle` en la forma CON deadline (0xdb3e2198). */
+  router: string;
+  /** Quoter (se prueban las formas V2 y V1 por staticCall). */
+  quoter: string;
+  /** Token nativo envuelto de la cadena: WNat en Flare, WETH en Ethereum. */
+  wrappedNative: string;
+  /** Etiqueta para logs y divulgación. */
+  label: string;
+}
+
 function sparkdex(): { router: string; quoter: string } {
   return {
     router: ALLOWLIST.contracts.sparkdex.router,
@@ -102,6 +134,12 @@ function sparkdex(): { router: string; quoter: string } {
 
 function wNat(): string {
   return ALLOWLIST.contracts.flareSystem.wNat;
+}
+
+/** El venue por defecto: SparkDEX en Flare. Lo que los llamadores de hoy usan. */
+export function flareVenue(): SwapVenue {
+  const s = sparkdex();
+  return { router: s.router, quoter: s.quoter, wrappedNative: wNat(), label: 'SparkDEX (Flare)' };
 }
 
 /** Tope de gasto del swap: cotización + slippage, con techo SIEMPRE > cotización
@@ -118,9 +156,9 @@ export function computeMaxIn(amountInQuoted: bigint, slippagePct: number): bigin
  *  QuoterV2 y V1 por staticCall (inofensivo). null = ningún pool cotiza. */
 export async function quoteFillExactOutput(
   provider: ethers.Provider,
-  params: { tokenIn: string; tokenOut: string; amountOutBase: bigint },
+  params: { tokenIn: string; tokenOut: string; amountOutBase: bigint; venue?: SwapVenue },
 ): Promise<{ feeTier: number; amountInQuoted: bigint } | null> {
-  const { quoter } = sparkdex();
+  const quoter = (params.venue ?? flareVenue()).quoter;
   const v2 = new ethers.Contract(quoter, QUOTER_V2_OUT_ABI, provider);
   const v1 = new ethers.Contract(quoter, QUOTER_V1_OUT_ABI, provider);
   let best: { feeTier: number; amountInQuoted: bigint } | null = null;
@@ -225,16 +263,28 @@ export async function quoteFillOptions(
  */
 export function buildFillSwapCalls(params: {
   quote: FillQuote;
-  usdt0Token: string;
-  /** El USDT0 EXACTO que el swap debe entregar (el hueco — mismo valor cotizado). */
+  /**
+   * El token que el swap ENTREGA. Se llamó `usdt0Token` cuando el único destino
+   * era el repago de Kinetic; hoy también es RLUSD en Ethereum. El nombre viejo
+   * se conserva para no tocar a los llamadores; `tokenOut` es el alias correcto
+   * y manda si viene.
+   */
+  usdt0Token?: string;
+  tokenOut?: string;
+  /** El token de salida EXACTO que el swap debe entregar (el hueco — mismo valor cotizado). */
   amountOutBase: bigint;
-  /** Quien recibe el USDT0 del swap = quien firma/ejecuta el batch (wallet EVM o PA). */
+  /** Quien recibe lo comprado = quien firma/ejecuta el batch (wallet EVM o PA). */
   recipient: string;
   /** Epoch seconds del deadline del router (por defecto ahora + fillDeadlineMinutes). */
   deadline?: number;
+  /** El venue donde se compra. Por defecto SparkDEX (Flare). */
+  venue?: SwapVenue;
 }): FillCall[] {
   if (params.amountOutBase <= 0n) throw new Error('SWAP_FILL_BAD_AMOUNT_OUT: amountOutBase must be > 0');
-  const { router } = sparkdex();
+  const tokenOut = params.tokenOut ?? params.usdt0Token;
+  if (!tokenOut) throw new Error('SWAP_FILL_NO_TOKEN_OUT: tokenOut (o usdt0Token) es obligatorio');
+  const venue = params.venue ?? flareVenue();
+  const router = venue.router;
   const erc20 = new ethers.Interface(ERC20_APPROVE_ABI);
   const routerIface = new ethers.Interface(ROUTER_EXACT_OUT_ABI);
   const wnatIface = new ethers.Interface(WNAT_DEPOSIT_ABI);
@@ -246,7 +296,7 @@ export function buildFillSwapCalls(params: {
     calldata: routerIface.encodeFunctionData('exactOutputSingle', [
       {
         tokenIn: q.tokenIn,
-        tokenOut: params.usdt0Token,
+        tokenOut,
         fee: q.feeTier,
         recipient: ethers.getAddress(params.recipient),
         deadline,
@@ -262,9 +312,11 @@ export function buildFillSwapCalls(params: {
     calldata: erc20.encodeFunctionData('approve', [router, q.amountInMax]),
     value: '0',
   };
-  if (q.asset === 'FLR') {
+  // El camino nativo envuelve primero. `isNative` se deriva del token, no del
+  // nombre del activo: en Ethereum el nativo es WETH, no WNat.
+  if (q.tokenIn.toLowerCase() === venue.wrappedNative.toLowerCase()) {
     const wrap: FillCall = {
-      to: wNat(),
+      to: venue.wrappedNative,
       calldata: wnatIface.encodeFunctionData('deposit', []),
       value: q.amountInMax.toString(),
     };

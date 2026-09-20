@@ -20,48 +20,89 @@ export default function WalletBrandIcon({
   brand,
   size = 18,
   className = '',
+  tint,
 }: {
   brand: WalletBrand;
   size?: number;
   className?: string;
+  /**
+   * EL DISTINTIVO POR WALLET (fundador 2026-09-13: «la X de Xaman, pero con un
+   * distintivo para cada wallet de Xaman que se conecte»). Cuando se pasa —el
+   * color de esa cuenta, `walletColor()`— la marca de Xaman se dibuja DENTRO
+   * de un aro de ese color: la X sigue siendo la misma en todas, que es lo que
+   * dice «esto es Xaman», y el aro dice CUÁL de ellas.
+   *
+   * Es opt-in a propósito. La marca de agua grande de la tarjeta NO lo pasa:
+   * va en escala de grises al 10%, y un aro ahí solo añadiría un círculo gris
+   * alrededor de la X. Y solo lo usa la marca de Xaman: la zorra de MetaMask
+   * es el logo oficial a todo color y no se tiñe ni se enmarca.
+   */
+  tint?: string;
 }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', className, 'aria-hidden': true as const };
 
   switch (brand) {
-    case 'metamask':
-      // The fox, reduced to an angular head: two peaked ears, a tapered
-      // snout, a stroked muzzle line — centred at (12, 12).
+    case 'metamask': {
+      // LA ZORRA ORIGINAL (fundador 2026-08-27: «se parece al original pero se
+      // nota que no lo es — pon el original»). Este es el metamask-fox.svg
+      // canónico, polígono a polígono con su paleta oficial, en su viewBox
+      // nativo de 318.6 — no una redibujada a 24px. Cada polígono lleva su
+      // stroke del mismo color, como el asset original: a tamaños pequeños es
+      // lo que sella las juntas entre facetas.
+      const P = ({ f, pts }: { f: string; pts: string }) => (
+        <polygon fill={f} stroke={f} strokeLinecap="round" strokeLinejoin="round" points={pts} />
+      );
       return (
-        <svg {...common} fill="none">
-          <path
-            d="M12 3.4 20.2 8l-1.3 6.4L15.6 19h-7.2l-3.3-4.6L3.8 8 12 3.4z"
-            fill="#f6851b"
-          />
-          <path
-            d="M12 3.4 8.8 8.6 12 10.6l3.2-2L12 3.4z"
-            fill="#e2761b"
-          />
-          <path
-            d="M8.8 14.6h6.4L14 17.4h-4l-1.2-2.8z"
-            fill="#d7c1b3"
-          />
-          <path
-            d="M9.6 15.4 12 17l2.4-1.6"
-            stroke="#4a2b0f"
-            strokeWidth="1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg width={size} height={size} viewBox="0 0 318.6 318.6" className={className} aria-hidden fill="none">
+          <P f="#E2761B" pts="274.1,35.5 174.6,109.4 193,65.8" />
+          <P f="#E4761B" pts="44.4,35.5 143.1,110.1 125.6,65.8" />
+          <P f="#E4761B" pts="238.3,206.8 211.8,247.4 268.5,263 284.8,207.7" />
+          <P f="#E4761B" pts="33.9,207.7 50.1,263 106.8,247.4 80.3,206.8" />
+          <P f="#E4761B" pts="103.6,138.2 87.8,162.1 144.1,164.6 142.1,104.1" />
+          <P f="#E4761B" pts="214.9,138.2 175.9,103.4 174.6,164.6 230.8,162.1" />
+          <P f="#E4761B" pts="106.8,247.4 140.6,230.9 111.4,208.1" />
+          <P f="#E4761B" pts="177.9,230.9 211.8,247.4 207.1,208.1" />
+          <P f="#D7C1B3" pts="211.8,247.4 177.9,230.9 180.6,253 180.3,262.3" />
+          <P f="#D7C1B3" pts="106.8,247.4 138.3,262.3 138.1,253 140.6,230.9" />
+          <P f="#233447" pts="138.8,193.5 110.6,185.2 130.5,176.1" />
+          <P f="#233447" pts="179.7,193.5 188,176.1 208,185.2" />
+          <P f="#CD6116" pts="106.8,247.4 111.6,206.8 80.3,207.7" />
+          <P f="#CD6116" pts="207,206.8 211.8,247.4 238.3,207.7" />
+          <P f="#CD6116" pts="230.8,162.1 174.6,164.6 179.8,193.5 188.1,176.1 208.1,185.2" />
+          <P f="#CD6116" pts="110.6,185.2 130.6,176.1 138.8,193.5 144.1,164.6 87.8,162.1" />
+          <P f="#E4751F" pts="87.8,162.1 111.4,208.1 110.6,185.2" />
+          <P f="#E4751F" pts="208.1,185.2 207.1,208.1 230.8,162.1" />
+          <P f="#E4751F" pts="144.1,164.6 138.8,193.5 145.4,227.6 146.9,182.7" />
+          <P f="#E4751F" pts="174.6,164.6 171.9,182.6 173.1,227.6 179.8,193.5" />
+          <P f="#F6851B" pts="179.8,193.5 173.1,227.6 177.9,230.9 207.1,208.1 208.1,185.2" />
+          <P f="#F6851B" pts="110.6,185.2 111.4,208.1 140.6,230.9 145.4,227.6 138.8,193.5" />
+          <P f="#C0AD9E" pts="180.3,262.3 180.6,253 178.1,250.8 140.4,250.8 138.1,253 138.3,262.3 106.8,247.4 117.8,256.4 140.1,271.9 178.4,271.9 200.8,256.4 211.8,247.4" />
+          <P f="#161616" pts="177.9,230.9 173.1,227.6 145.4,227.6 140.6,230.9 138.1,253 140.4,250.8 178.1,250.8 180.6,253" />
+          <P f="#763D16" pts="278.3,114.2 286.8,73.4 274.1,35.5 177.9,106.9 214.9,138.2 267.2,153.5 278.8,140 273.8,136.4 281.8,129.1 275.6,124.3 283.6,118.2" />
+          <P f="#763D16" pts="31.8,73.4 40.3,114.2 34.9,118.2 42.9,124.3 36.8,129.1 44.8,136.4 39.8,140 51.3,153.5 103.6,138.2 140.6,106.9 44.4,35.5" />
+          <P f="#F6851B" pts="267.2,153.5 214.9,138.2 230.8,162.1 207.1,208.1 238.3,207.7 284.8,207.7" />
+          <P f="#F6851B" pts="103.6,138.2 51.3,153.5 33.9,207.7 80.3,207.7 111.4,208.1 87.8,162.1" />
+          <P f="#F6851B" pts="174.6,164.6 177.9,106.9 193.1,65.8 125.6,65.8 140.6,106.9 144.1,164.6 145.3,182.8 145.4,227.6 173.1,227.6 173.3,182.8" />
         </svg>
       );
+    }
     case 'xaman':
-      // The sharp double-X shard — two crossing chevrons meeting at centre.
-      return (
+      // The Xaman X — two bold rounded strokes in the brand blue. Redrawn
+      // 2026-08-22 (founder: "los iconos están mal hechos"): the old sharp
+      // double-shard read as a glitch at row size; rounded caps read as the
+      // actual app icon.
+      //
+      // Con `tint`, la MISMA X se encoge un punto y se mete en un aro del
+      // color de esa cuenta (ver la prop): la marca no cambia entre wallets
+      // —cambiarla sería dejar de ser Xaman— y lo que distingue es el aro.
+      return tint ? (
         <svg {...common} fill="none">
-          <path
-            d="M4.6 4.8h3.9l3.5 4.7 3.5-4.7h3.9l-5.5 7.2 5.5 7.2h-3.9l-3.5-4.7-3.5 4.7H4.6l5.5-7.2-5.5-7.2z"
-            fill="#3bc1f5"
-          />
+          <circle cx="12" cy="12" r="10.6" stroke={tint} strokeWidth="1.9" />
+          <path d="M7.6 7.6 16.4 16.4M16.4 7.6 7.6 16.4" stroke="#3052FF" strokeWidth="3.1" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg {...common} fill="none">
+          <path d="M6.2 6.2 17.8 17.8M17.8 6.2 6.2 17.8" stroke="#3052FF" strokeWidth="3.6" strokeLinecap="round" />
         </svg>
       );
     case 'walletconnect':

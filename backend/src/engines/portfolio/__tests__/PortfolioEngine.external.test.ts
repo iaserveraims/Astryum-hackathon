@@ -162,6 +162,10 @@ describe('PortfolioEngine external provider gating', () => {
     expect(external).toBeDefined();
     expect(external?.asset).toBe('ETH');
     expect(external?.amountUSD).toBe(3000);
+    // La cantidad del proveedor SOBREVIVE (14-sep-2026): venía en unidades
+    // humanas y se tiraba (`amount: 0n`), así que cada fila externa —todo XRPL,
+    // los potes— se enseñaba con un 0 al lado de su valor en dólares.
+    expect(external?.qty).toBe('1');
     expect(snapshot.totalUSD).toBe(3000);
   });
 

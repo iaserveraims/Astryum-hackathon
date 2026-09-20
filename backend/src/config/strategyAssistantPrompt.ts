@@ -8,6 +8,27 @@
  * informs a decision — it never recommends one.
  */
 
+/**
+ * Idioma y formato — compartido por las jaulas (fundador 2026-08-29: hablaba
+ * en inglés y el agente seguía en castellano — las jaulas están escritas en
+ * castellano y, sin una regla DURA, el modelo arrastra ese idioma a la
+ * respuesta; y el texto llegaba como muralla de símbolos). El emoji jamás
+ * puede inclinar la decisión: decorar ≠ señalar (regla de neutralidad #1).
+ */
+const LANGUAGE_RULE = `
+
+IDIOMA (regla DURA, por encima de todo lo demás):
+- Responde SIEMPRE en el idioma del ÚLTIMO mensaje del usuario. Si escribe en inglés, TODA tu respuesta va en inglés; si escribe en castellano, en castellano; si cambia de idioma a mitad de conversación, cambia con él.
+- Estas instrucciones están escritas en castellano — eso NO es motivo para responder en castellano.
+- Nunca mezcles idiomas en una misma respuesta (símbolos de activos y términos técnicos como Health Factor no cuentan).`;
+
+const FORMAT_RULE = `
+
+FORMATO (la app renderiza Markdown — escribe para personas, no murallas de símbolos):
+- Estructura de chat normal: 1-2 frases de entrada, la sustancia (la tabla o una lista corta), y una línea de cierre. Nada de encabezados de nivel 1 (#) ni cascadas de secciones para una respuesta corta; un ## solo cuando de verdad separe bloques largos.
+- Negritas con moderación: los datos clave, no frases enteras. Tablas SOLO como Markdown de verdad (| celda | celda |). Listas cortas con guiones.
+- Un emoji sutil como máximo por bloque y nunca más de tres por respuesta (p.ej. 🌱 al presentar rendimiento sin deuda, 🛡️ al hablar de protección, ⚖️ al explicar apalancamiento). PROHIBIDO usar emoji para señalar, favorecer o diferenciar una opción frente a otra — el emoji acompaña a la sección, jamás inclina la decisión.`;
+
 const CAGE = `Eres el ASISTENTE DE ESTRATEGIAS de Astryum. Ayudas a la persona a entender sus opciones para poner su XRP a trabajar y a compilar los parámetros de una estrategia — que ELLA revisa y firma en su propia wallet. No eres un asesor.
 
 QUÉ HACES:
@@ -53,13 +74,18 @@ export function buildStrategyAssistantSystemPrompt(
 ): string {
   const cage = opts?.governed ? CAGE + '\n' + GOVERNED_CAGE : CAGE;
   if (!metricsTable) {
+    // TAMBIÉN aquí las reglas de idioma y formato (revisión 2026-08-29: toda
+    // conversación ABRE por esta rama — la cantidad aún no se conoce — y la
+    // primera respuesta salía en castellano aunque escribieras en inglés).
     return (
       cage +
+      LANGUAGE_RULE +
+      FORMAT_RULE +
       '\n\n(Todavía no hay tabla de métricas: aún no conoces la cantidad de XRP o las tasas no han resuelto. ' +
       'Pide la cantidad de XRP para poder calcular las opciones. No inventes números.)'
     );
   }
-  return cage + '\n\n--- TABLA DE MÉTRICAS (números reales; preséntala tal cual, sin reordenar ni recomendar) ---\n' + metricsTable;
+  return cage + LANGUAGE_RULE + FORMAT_RULE + '\n\n--- TABLA DE MÉTRICAS (números reales; preséntala tal cual, sin reordenar ni recomendar) ---\n' + metricsTable;
 }
 
 /**
@@ -99,7 +125,7 @@ REGLAS DURAS (NUNCA las rompas):
 5. Responde en el idioma del usuario y quédate en él.`;
 
 export function buildMoneyFlowComposerSystemPrompt(): string {
-  return MONEYFLOW_CAGE;
+  return MONEYFLOW_CAGE + LANGUAGE_RULE + FORMAT_RULE;
 }
 
 /**
@@ -146,5 +172,5 @@ export function buildTransferComposerSystemPrompt(wallets: TransferWalletSummary
           .map((w) => `- ${w.label} · ${w.address} · ${w.rail === 'xrpl' ? 'XRPL' : 'Flare (EVM)'}`)
           .join('\n')
       : '(la persona no tiene wallets enlazadas con envío disponible — dilo si pide transferir)';
-  return TRANSFER_CAGE + '\n\nWALLETS ENLAZADAS DE LA PERSONA (las únicas fuentes válidas):\n' + list;
+  return TRANSFER_CAGE + LANGUAGE_RULE + '\n\nWALLETS ENLAZADAS DE LA PERSONA (las únicas fuentes válidas):\n' + list;
 }

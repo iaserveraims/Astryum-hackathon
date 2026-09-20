@@ -26,11 +26,11 @@ import { Landmark, Loader2, Lock, Sparkles } from 'lucide-react';
 import { GhostButton, MicroLabel, PrimaryButton } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import CageDisclosureModal from './CageDisclosureModal';
-import CouncilMultisigFlow from './CouncilMultisigFlow';
-import ProposeToCouncil from './ProposeToCouncil';
+import { CouncilSigningDoors } from './CouncilMultisigFlow';
 import { DisclosureBlock } from './LegacyPanel';
 import { useT } from '../../i18n/LanguageProvider';
 import { getUserRegion } from '../../lib/region';
+import { CAGE_ACK_CANNOT_CONFIRM_FALLBACK, cageAckRefusalOf } from '../../lib/legacy/cageAckRefusal';
 import { xrplLegacy, type LegacyCageCreateHandoff } from '../../services/v1Api';
 
 /** Backend refusals → copy a person can act on (each names its own fix). */
@@ -75,8 +75,20 @@ export default function CageBirthCard({
       // The server is the authority on whether this person has read the one-way
       // disclosure (a modal the client could skip would be a UI gate). Its
       // refusal IS the trigger: open the text, and retry once they confirm.
-      if ((err as { body?: { error?: string } })?.body?.error === 'CAGE_ACK_REQUIRED') {
-        setAckOpen(true);
+      //
+      // it. 31 (4.3) — …ONLY when confirming can clear it. The server says WHY
+      // the ack is missing (`cause`, it. 27) and this screen never read it: a
+      // security record that does not parse, or is dated ahead of the server's
+      // clock, or a database that did not answer, all reopened the modal, and
+      // confirming brought the same 409 back — a loop with the honest sentence
+      // written on the server and never shown. Those show the sentence instead.
+      const ack = cageAckRefusalOf(err);
+      if (ack) {
+        if (ack.confirmHelps) {
+          setAckOpen(true);
+          return;
+        }
+        setError(ack.detail ?? t(CAGE_ACK_CANNOT_CONFIRM_FALLBACK));
         return;
       }
       setError(birthError(err, t));
@@ -113,10 +125,12 @@ export default function CageBirthCard({
             'The principal that enters a cage never comes back out to an address — only the yield it earns can be paid to people. And this signature does NOT choose where the capital works: that is a second, separate order of the quorum.',
           )}
         </p>
-        <CouncilMultisigFlow xrplTx={pending.xrplPayment} account={account} onSettled={onSettled} />
-        <ProposeToCouncil
+        {/* consejo-superficies 2: one element, one rule — the async door
+            stays shut (and says why) while the ceremony holds the seat. */}
+        <CouncilSigningDoors
           xrplTx={pending.xrplPayment}
           account={account}
+          onSettled={onSettled}
           defaultTitle={t('Create this Legacy\'s cage')}
         />
         <GhostButton onClick={() => setPending(null)}>{t('Back')}</GhostButton>
@@ -163,7 +177,7 @@ export default function CageBirthCard({
           onChange={(e) => setAmount(e.target.value)}
           inputMode="decimal"
           placeholder={t('e.g. 5')}
-          className="mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25"
+          className="mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25"
         />
         <p className="mt-1 text-[11px] text-ink/40">
           {t(

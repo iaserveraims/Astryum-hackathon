@@ -5,13 +5,22 @@ jest.mock('../../database/prismaClient', () => {
   const sessions = new Map<string, any>();
   let userSeq = 0;
   const users = new Map<string, any>(); // xrplAddress → user
+  const usersById = new Map<string, any>(); // id → user (verifyToken reads by id)
+  (globalThis as any).__siweUsers = users;
+  (globalThis as any).__siweUsersById = usersById;
+  (globalThis as any).__siweSessions = sessions;
   return {
     prisma: {
       user: {
-        findUnique: jest.fn(async ({ where }: any) => users.get(where.xrplAddress) ?? null),
+        findUnique: jest.fn(async ({ where }: any) =>
+          (where.id !== undefined ? usersById.get(where.id) : users.get(where.xrplAddress)) ?? null,
+        ),
         create: jest.fn(async ({ data }: any) => {
-          const u = { id: `user-${++userSeq}`, ...data };
+          // isActive defaults to true in the schema; the fake must say so, or
+          // verifyToken's account-active check (it. 16, 4.5) refuses every token.
+          const u = { id: `user-${++userSeq}`, isActive: true, preferences: null, ...data };
           users.set(data.xrplAddress, u);
+          usersById.set(u.id, u);
           return u;
         }),
       },
@@ -126,5 +135,58 @@ describe('SiweAuth', () => {
     await expect(
       verifySiweAndIssueToken({ address: b.address, nonce, message, signature })
     ).rejects.toMatchObject({ code: 'nonce_address_mismatch' });
+  });
+
+  /**
+   * productizer it. 16 (4.5) — before this, SUSPENDING AN ACCOUNT DID NOTHING.
+   * `verifyToken` never looked at `User.isActive`, so every token already minted
+   * kept working: the quarantine row a takeover creates is `isActive:false`, and
+   * so would be any account a founder ever disabled. And the JWT's `sub` was
+   * never compared with the session's own `userId`, so a session id lifted from
+   * one account and pasted into a token for another passed the door — every
+   * downstream reader trusts `sub`.
+   */
+  describe('verifyToken — the account behind the session must still be live', () => {
+    async function mintToken() {
+      const { issueNonce, buildSiweMessage, verifySiweAndIssueToken } = await import('../SiweAuth');
+      const wallet = ethers.Wallet.createRandom();
+      const { nonce } = issueNonce(wallet.address);
+      const message = buildSiweMessage({ address: wallet.address }, nonce, new Date());
+      const signature = await wallet.signMessage(message);
+      return verifySiweAndIssueToken({ address: wallet.address, nonce, message, signature });
+    }
+
+    test('a disabled account kills its live sessions on the next request', async () => {
+      const { verifyToken } = await import('../SiweAuth');
+      const result = await mintToken();
+      // It works while the account is active…
+      expect((await verifyToken(result.token)).sessionId).toBe(result.sessionId);
+
+      const sessions = (globalThis as any).__siweSessions as Map<string, any>;
+      const usersById = (globalThis as any).__siweUsersById as Map<string, any>;
+      const userId = sessions.get(result.sessionId).userId;
+      usersById.get(userId).isActive = false;
+
+      await expect(verifyToken(result.token)).rejects.toMatchObject({ code: 'account_disabled' });
+    });
+
+    test('an account that no longer exists is refused, not waved through', async () => {
+      const { verifyToken } = await import('../SiweAuth');
+      const result = await mintToken();
+      const sessions = (globalThis as any).__siweSessions as Map<string, any>;
+      const usersById = (globalThis as any).__siweUsersById as Map<string, any>;
+      usersById.delete(sessions.get(result.sessionId).userId);
+      await expect(verifyToken(result.token)).rejects.toMatchObject({ code: 'account_disabled' });
+    });
+
+    test('a token whose sub is not the session owner is invalid', async () => {
+      const { verifyToken } = await import('../SiweAuth');
+      const mine = await mintToken();
+      const theirs = await mintToken();
+      const sessions = (globalThis as any).__siweSessions as Map<string, any>;
+      // Same session row, a different account's id in `sub`.
+      sessions.get(mine.sessionId).userId = sessions.get(theirs.sessionId).userId;
+      await expect(verifyToken(mine.token)).rejects.toMatchObject({ code: 'token_invalid' });
+    });
   });
 });

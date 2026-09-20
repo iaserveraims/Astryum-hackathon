@@ -41,6 +41,17 @@ const PAIR_ABI = [
 const ERC20_SYMBOL_ABI = ['function symbol() view returns (string)'];
 
 const MULTICALL_CHUNK = 400;
+/**
+ * LO QUE UNA WALLET TIENE (18-sep): barrer los 1917 pares de BlazeSwap por
+ * wallet cada cinco minutos era la lectura más cara del Home — cinco
+ * multicalls de 400 pares, por wallet, por barrido — y con trece wallets a la
+ * vez cruzaba el deadline. Se memoriza QUÉ pares tiene cada wallet y, mientras
+ * la memoria viva, solo se releen esos (ninguno = ninguna llamada). El barrido
+ * entero vuelve al caducar, o al instante tras una firma (invalidateWallet).
+ */
+const HELD_PAIRS_TTL_MS = 20 * 60 * 1000;
+/** `${factory}:${wallet}` → los pares con saldo la última vez que se barrió todo. */
+const heldPairsCache = new Map<string, { pairs: string[]; at: number }>();
 const PAIRS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h — pair creation is rare
 
 /** The `ethers` namespace as produced by `(await import('ethers')).ethers`. */
@@ -57,6 +68,7 @@ const symbolCache = new Map<string, string>();
 
 export function _resetFlareLpV2Caches(): void {
   pairsCache.clear();
+  heldPairsCache.clear();
   pairsInflight.clear();
   symbolCache.clear();
 }
@@ -76,6 +88,11 @@ export class FlareLpV2Adapter extends BaseAdapter {
     return true; // fixed, verified mainnet constants (flareLpVenues.ts)
   }
 
+  /** Olvida qué pares tiene esta wallet: el próximo barrido es entero. */
+  invalidateWallet(wallet: string): void {
+    heldPairsCache.delete(`${this.venue.factory.toLowerCase()}:${wallet.toLowerCase()}`);
+  }
+
   /** Multicall3 aggregate3 over identical-target calls, chunked. */
   private async multicall(
     ethers: EthersNS,
@@ -83,16 +100,15 @@ export class FlareLpV2Adapter extends BaseAdapter {
     calls: Array<{ target: string; callData: string }>,
   ): Promise<Array<{ success: boolean; returnData: string }>> {
     const mc = new ethers.Contract(FLARE_MULTICALL3, MULTICALL3_ABI, provider as never);
-    const out: Array<{ success: boolean; returnData: string }> = [];
+    const chunks: Array<Array<{ target: string; allowFailure: boolean; callData: string }>> = [];
     for (let i = 0; i < calls.length; i += MULTICALL_CHUNK) {
-      const chunk = calls.slice(i, i + MULTICALL_CHUNK).map((c) => ({
-        target: c.target,
-        allowFailure: true,
-        callData: c.callData,
-      }));
-      const res = await mc.aggregate3.staticCall(chunk);
-      for (const r of res) out.push({ success: r.success, returnData: r.returnData });
+      chunks.push(calls.slice(i, i + MULTICALL_CHUNK).map((c) => ({ target: c.target, allowFailure: true, callData: c.callData })));
     }
+    // Los trozos a la vez (18-sep): en serie eran cinco vueltas de ~0,4 s una
+    // detrás de otra; a la vez, una. El orden se conserva.
+    const results = await Promise.all(chunks.map((chunk) => mc.aggregate3.staticCall(chunk)));
+    const out: Array<{ success: boolean; returnData: string }> = [];
+    for (const res of results) for (const r of res) out.push({ success: r.success, returnData: r.returnData });
     return out;
   }
 
@@ -186,17 +202,25 @@ export class FlareLpV2Adapter extends BaseAdapter {
     const { ethers } = await import('ethers');
     const provider = this.provider.getHttpProvider();
 
-    const pairs = await this.allPairs(ethers, provider);
-    if (pairs.length === 0) return [];
+    const allPairs = await this.allPairs(ethers, provider);
+    if (allPairs.length === 0) return [];
 
-    // Sweep EVERY pair's balanceOf(wallet) in a few Multicall3 round-trips.
+    // Sweep balanceOf(wallet) in a few Multicall3 round-trips — over EVERY
+    // pair when the wallet is unknown (or the memo expired), over the pairs
+    // it held last time otherwise (see HELD_PAIRS_TTL_MS).
+    const memoKey = `${this.venue.factory.toLowerCase()}:${wallet.toLowerCase()}`;
+    const memo = heldPairsCache.get(memoKey);
+    const fullSweep = !memo || Date.now() - memo.at >= HELD_PAIRS_TTL_MS;
+    const pairs = fullSweep ? allPairs : memo!.pairs;
     const pairIface = new ethers.Interface(PAIR_ABI);
     const balCall = pairIface.encodeFunctionData('balanceOf', [wallet]);
-    const res = await this.multicall(
-      ethers,
-      provider,
-      pairs.map((p) => ({ target: p, callData: balCall })),
-    );
+    const res = pairs.length === 0
+      ? []
+      : await this.multicall(
+          ethers,
+          provider,
+          pairs.map((p) => ({ target: p, callData: balCall })),
+        );
 
     const held: Array<{ pair: string; balance: bigint }> = [];
     for (let i = 0; i < res.length; i++) {
@@ -205,11 +229,16 @@ export class FlareLpV2Adapter extends BaseAdapter {
       const [bal] = pairIface.decodeFunctionResult('balanceOf', r.returnData);
       if ((bal as bigint) > 0n) held.push({ pair: pairs[i], balance: bal as bigint });
     }
+    // The memo is written ONLY from a full sweep: a partial re-read can not
+    // learn about a pair it did not look at.
+    if (fullSweep) heldPairsCache.set(memoKey, { pairs: held.map((h) => h.pair), at: Date.now() });
     if (held.length === 0) return [];
 
     const now = new Date();
-    const positions: RawPosition[] = [];
-    for (const { pair, balance } of held) {
+    // Cada par en paralelo (14-sep): en serie eran 2 vueltas al RPC por par,
+    // una detrás de otra. Cada par conserva su try/catch: uno raro sigue sin
+    // hundir el barrido. Promise.all conserva el orden de `held`.
+    const perPair = await Promise.all(held.map(async ({ pair, balance }): Promise<RawPosition | null> => {
       try {
         const c = new ethers.Contract(pair, PAIR_ABI, provider);
         const [token0, token1, totalSupply, reserves] = await Promise.all([
@@ -227,7 +256,7 @@ export class FlareLpV2Adapter extends BaseAdapter {
         const amount0 = reserves && ts > 0n ? ((reserves[0] as bigint) * balance) / ts : null;
         const amount1 = reserves && ts > 0n ? ((reserves[1] as bigint) * balance) / ts : null;
 
-        positions.push({
+        return {
           protocolId: this.protocolId,
           chainId: this.chainId,
           wallet,
@@ -249,13 +278,14 @@ export class FlareLpV2Adapter extends BaseAdapter {
             source: `${this.venue.name} factory ${this.venue.factory} (live on-chain)`,
           },
           discoveredAt: now,
-        });
+        };
       } catch {
         // one odd pair must never sink the venue sweep
+        return null;
       }
-    }
+    }));
 
-    return positions;
+    return perPair.filter((p): p is RawPosition => p !== null);
   }
 
   normalizePosition(raw: RawPosition): NormalizedPosition {

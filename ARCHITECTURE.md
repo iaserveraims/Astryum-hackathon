@@ -1,8 +1,9 @@
 # ARCHITECTURE.md — Astryum
 
-> The system shape, reconciled with the validated architecture plan (2026-06-20). The rules
-> this shape must never break are in [INVARIANTS.md](INVARIANTS.md); the locked choices behind
-> it are in [DECISIONS.md](DECISIONS.md); the product overview is in [README.md](README.md).
+> The system shape. Reconciled with [Astryum-Validated_Architecture.md](Astryum-Validated_Architecture.md)
+> (the validated plan, 2026-06-20). The rules this shape must never break are in
+> [INVARIANTS.md](INVARIANTS.md); the locked choices behind it are in [DECISIONS.md](DECISIONS.md);
+> the operating summary is an internal working note (not published in this repo).
 
 ---
 
@@ -141,4 +142,4 @@ across ecosystems, not a better single-chain wallet. See [DECISIONS.md ADR-006](
 ---
 
 *Phasing lives in [DECISIONS.md](DECISIONS.md) §Phasing. When this doc and an older
-internal working note disagree, this doc + DECISIONS.md win.*
+an internal working note disagree, this doc + DECISIONS.md win.*

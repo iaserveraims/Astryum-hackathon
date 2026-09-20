@@ -83,13 +83,19 @@ async function runCheck(): Promise<void> {
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   console.log(`═══ execute-direct-mint --check ═══`);
+  // Misma regla que el watcher (isOwnInstruction, 14-sep): «mío» = la etiqueta del
+  // proyecto O un despacho que está en nuestro store — los 0xFE de cuentas
+  // operativas (omnibus, consejo) van sin etiqueta a propósito. Sin BD alcanzable
+  // la búsqueda no encuentra nada y el barrido se queda en la regla de la etiqueta.
+  const { findHandoffByUserOpHash } = await import('../services/flare/DirectMintHandoffStore');
   const { coreVault, rows } = await sweepInstructionPayments({
     provider,
     wssUrl,
     onlyTag: onlyMine ? sourceTag : null,
+    hasHandoff: async (userOpHash) => Boolean(await findHandoffByUserOpHash(userOpHash)),
     maxPages,
   });
-  console.log(`Core Vault: ${coreVault}${onlyMine ? ` · solo SourceTag ${sourceTag}` : ''}`);
+  console.log(`Core Vault: ${coreVault}${onlyMine ? ` · SourceTag ${sourceTag} o despacho en nuestro store` : ''}`);
 
   let pending = 0;
   console.log(`Payments con instrucción encontrados: ${rows.length}`);

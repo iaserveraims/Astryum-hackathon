@@ -16,7 +16,7 @@
  * Savings/escrow rules are excluded here — they live in the savings surface.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   Loader2,
@@ -31,6 +31,7 @@ import {
   Play,
   Pencil,
   Waves,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card, MicroLabel, Pill, PrimaryButton } from '../ui/primitives';
 import { useT } from '../../i18n/LanguageProvider';
@@ -41,7 +42,16 @@ import { StrategyLLMChat } from '../earn/StrategyLLMChat';
 import type { LaunchStrategy } from '../earn/StrategyAgent';
 import { RuleEditModal } from '../moneyflows/RuleEditModal';
 import { describeRule } from '../../lib/rules/describeRule';
+import {
+  RULE_PILL_TONE,
+  UNREAD,
+  loadRunHealth,
+  retainKnownRuns,
+  rulePillState,
+  type RunHealth,
+} from '../../lib/rules/runHealth';
 import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { AstryumLoader } from '../ui/AstryumLoader';
 
 /** A rule that moves savings (escrow), not a DeFi MoneyFlow — kept out here. */
 function isEscrowRule(r: AutomationRule): boolean {
@@ -54,6 +64,87 @@ function summarize(r: AutomationRule, t: (s: string) => string): string {
   const action = (r.action ?? {}) as { protocolId?: string };
   const proto = action.protocolId ? ` · ${action.protocolId}` : '';
   return `${describeRule(r.trigger as Record<string, unknown>, r.action as Record<string, unknown>, t)}${proto}`;
+}
+
+/**
+ * G4-strategies (auditoria 2026-08-17 [G4]) — la superficie que faltaba.
+ *
+ * WHAT WAS FAILING IN SILENCE HERE: this apartado IS the automations surface of
+ * /app/strategies. The position board is mounted on that page with
+ * `showStrategyPanel={false}`, so the embedded MoneyFlows panel that round 1
+ * made honest never renders there — these cards are what the user reads. And
+ * they decided a rule's state from `r.enabled` alone:
+ * `<Pill tone={r.enabled ? 'success' : 'neutral'}>`.
+ *
+ * A PROTECT / HARVEST / councilOrder rule that errors on EVERY fire keeps
+ * `enabled: true`, sends no push and never increments `totalTimesTriggered`
+ * (the «exito no ganado» guard in AutomationEngine stores the run with
+ * `status: 'error'` and the reason in `notes`, and stops). So it rendered here
+ * as a green «active» card, indistinguishable from one that works: the page
+ * dedicated to automations was the one lying hardest.
+ *
+ * Fixed with the SAME reducer and the SAME sentences as MoneyFlowsPanel,
+ * LegacyActivityFeed and DefiPositionsBoard — lib/rules/runHealth.ts. One read
+ * per rule per mount/refresh, never a poll: run history only changes on an
+ * engine tick and a broken rule stays broken until someone repairs it. If the
+ * read itself fails we SAY so; «I could not read it» is never «it works».
+ */
+
+/** The rules this section RENDERS, in one place: refresh reads the run history
+ *  for exactly this set, so the cards and the reads can never drift apart. */
+function visibleFlows(all: AutomationRule[], mode: 'online' | 'offline'): AutomationRule[] {
+  return all.filter((r) => !isEscrowRule(r)).filter((r) => (mode === 'online' ? r.enabled : !r.enabled));
+}
+
+/**
+ * The failure line inside a MoneyFlow card. Loud on `failed`, honest on
+ * `unreadable`, silent otherwise — a healthy rule already speaks through its
+ * card. Same wording (and the same i18n keys) as every other surface.
+ *
+ * G4-pildoras (round 3) — `enabled` arrived because this note was rendered
+ * without ever looking at it, and the OFFLINE tab of this very section lists
+ * paused rules ONLY: a paused rule with an old failed run claimed «this rule is
+ * armed» right under a pill reading «paused». Two sentences from the same card
+ * contradicting each other is the same disease as the green pill, with the sign
+ * flipped. The failure is still shown — it happened — in the past tense.
+ */
+function RunHealthNote({
+  health,
+  enabled,
+  t,
+}: {
+  health: RunHealth;
+  enabled: boolean;
+  t: (s: string) => string;
+}) {
+  if (health.state === 'failed') {
+    return (
+      <div className="mt-2 rounded-md border border-red-500/25 bg-red-500/[0.06] px-2 py-1.5 text-[10px] leading-relaxed text-red-200/90">
+        <span className="flex items-start gap-1.5">
+          <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+          <span className="min-w-0">
+            <span className="font-medium">
+              {enabled
+                ? t('Its last run FAILED — this rule is armed but it produced nothing to sign.')
+                : t('Its last run FAILED before it was paused — it produced nothing to sign.')}
+            </span>
+            <span className="mt-0.5 block text-red-200/70">
+              {health.note ?? t('the engine recorded no reason')}
+              {health.consecutive > 1 ? ` · ${t('Consecutive failed runs:')} ${health.consecutive}` : ''}
+            </span>
+          </span>
+        </span>
+      </div>
+    );
+  }
+  if (health.state === 'unreadable') {
+    return (
+      <p className="mt-2 text-[10px] leading-relaxed text-amber-300/70" title={health.detail}>
+        {t('Could not read this rule’s run history — we cannot tell you whether its last fire worked.')}
+      </p>
+    );
+  }
+  return null;
 }
 
 /** The mark for a rule: custom MoneyFlow (assistant) vs the two templates. */
@@ -165,6 +256,13 @@ export default function StrategySection({
   const [building, setBuilding] = useState(false);
   // In-place edit (founder 2026-07-25) — same modal as the MoneyFlows panel.
   const [editRule, setEditRule] = useState<AutomationRule | null>(null);
+  // G4-strategies — last run per rule id, READ from GET /rules/:id/runs. Every
+  // rule rendered gets an entry, INCLUDING the ones whose read failed: an
+  // absent entry is indistinguishable from "healthy", which is the bug this
+  // closes. The seq guard drops the answer of a superseded refresh so a slow
+  // read can never repaint a stale verdict over a fresh list.
+  const [runHealth, setRunHealth] = useState<Record<string, RunHealth>>({});
+  const runsSeq = useRef(0);
 
   const key = useMemo(() => addresses.filter(Boolean).join(','), [addresses]);
 
@@ -182,7 +280,21 @@ export default function StrategySection({
         addrs.map((a) => rulesApi.list(a).then((r) => r.rules ?? []).catch(() => [] as AutomationRule[])),
       );
       // De-dup by id across wallets.
-      setAllRules([...new Map(per.flat().map((r) => [r.id, r])).values()]);
+      const next = [...new Map(per.flat().map((r) => [r.id, r])).values()];
+      setAllRules(next);
+      // G4-strategies — the run history is read AFTER the cards are on screen
+      // (fire and forget): a slow /runs must never delay the rules themselves.
+      // Until it lands a rule reads as `unread`, which prints nothing. We do
+      // NOT wipe the map first: that flashed a rule already known to be failing
+      // back to the green "active" pill once per refresh.
+      const ruleIds = visibleFlows(next, mode).map((r) => r.id);
+      const seq = ++runsSeq.current;
+      setRunHealth((prev) => retainKnownRuns(prev, ruleIds));
+      void (async () => {
+        const health = await loadRunHealth(ruleIds, (id) => rulesApi.runs(id));
+        if (seq !== runsSeq.current) return;
+        setRunHealth(health);
+      })();
     } finally {
       setLoading(false);
     }
@@ -192,13 +304,7 @@ export default function StrategySection({
     void refresh();
   }, [refresh]);
 
-  const flows = useMemo(
-    () =>
-      allRules
-        .filter((r) => !isEscrowRule(r))
-        .filter((r) => (mode === 'online' ? r.enabled : !r.enabled)),
-    [allRules, mode],
-  );
+  const flows = useMemo(() => visibleFlows(allRules, mode), [allRules, mode]);
 
   const bumped = () => {
     void refresh();
@@ -250,13 +356,25 @@ export default function StrategySection({
         </button>
 
         {loading && flows.length === 0 && drafts.length === 0 ? (
-          <div className="flex min-h-[150px] items-center justify-center rounded-2xl border border-ink/[0.08] bg-ink/[0.02] text-sm text-ink/40 sm:col-span-1">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin text-volt" /> {t('Loading rules…')}
+          <div className="flex min-h-[150px] items-center justify-center rounded-2xl border border-ink/[0.08] bg-ink/[0.02] sm:col-span-1">
+            {/* La espera de sección lleva el cometa (regla en AstryumLoader). */}
+            <AstryumLoader size={40} label={t('Loading rules…')} />
           </div>
         ) : null}
 
         {/* MoneyFlow cards (rules) */}
-        {flows.map((r) => (
+        {flows.map((r) => {
+          // G4-strategies — an enabled rule whose LAST fire errored is not
+          // "active": it is armed and preparing nothing. The green pill on
+          // `r.enabled` alone was the reassurance that hid it, on the very page
+          // dedicated to automations.
+          // G4-pildoras (round 3) — and neither is a rule we have not READ yet:
+          // `isFailing` is false for `unread`/`unreadable`, so both fell into
+          // the green arm. A /runs timeout returned a FAILING rule to «active».
+          // The verdict now picks its own tone (lib/rules/runHealth).
+          const health = runHealth[r.id] ?? UNREAD;
+          const pill = rulePillState(r.enabled, health);
+          return (
           <Card key={r.id} padded={false} className="flex min-h-[150px] flex-col p-4">
             <div className="flex items-start justify-between gap-2">
               <span
@@ -266,11 +384,22 @@ export default function StrategySection({
               >
                 {ruleIcon(r)}
               </span>
-              <Pill tone={r.enabled ? 'success' : 'neutral'}>{r.enabled ? t('active') : t('paused')}</Pill>
+              <Pill tone={RULE_PILL_TONE[pill]}>
+                {pill === 'paused'
+                  ? t('paused')
+                  : pill === 'failing'
+                    ? t('failing')
+                    : pill === 'unreadable'
+                      ? t('unknown')
+                      : pill === 'unread'
+                        ? t('checking…')
+                        : t('active')}
+              </Pill>
             </div>
             <div className="mt-3 min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-ink">{r.name}</div>
               <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-ink/50">{summarize(r, t)}</p>
+              <RunHealthNote health={health} enabled={r.enabled} t={t} />
             </div>
             <div className="mt-3 flex items-center gap-1.5">
               <button
@@ -300,7 +429,8 @@ export default function StrategySection({
               </button>
             </div>
           </Card>
-        ))}
+          );
+        })}
 
         {/* Saved drafts (offline only) — agent/manual, re-runnable. */}
         {drafts.map((d) => (

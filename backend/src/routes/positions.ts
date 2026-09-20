@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { ProtocolRegistry } from '../connectors/protocols/ProtocolRegistry';
 import { registerFlareAdapters } from '../connectors/protocols/adapters';
-import { ProtocolInactiveError } from '../connectors/protocols/IProtocolAdapter';
+import { ProtocolInactiveError, discoverWithUnreadable } from '../connectors/protocols/IProtocolAdapter';
 import { controlPlane } from '../control-plane/ControlPlane';
 import { randomUUID } from 'crypto';
 import type { CanonicalPosition } from '../canonical/types/Position';
@@ -146,6 +146,15 @@ router.get('/canonical', async (req: Request, res: Response) => {
 /**
  * GET /api/positions/:wallet
  * Aggregated raw positions across all active Flare adapters.
+ *
+ * Every block of `results[]` is one adapter. Three shapes, all HTTP 200:
+ *  · `{ positions }` — every read answered;
+ *  · `{ positions, unreadable: [{ what, reason, market }] }` — SOME reads did
+ *    not answer (ola 0, 15-sep: a market's probe, a queue period). The rows
+ *    are what WAS read — a lower bound — and the board paints the rest as
+ *    «could not be read», never as absent;
+ *  · `{ positions: [], error }` — the adapter fell entirely. The board used to
+ *    ignore this key and drew an empty board over a live carry.
  */
 router.get('/:wallet', asyncHandler(async (req: Request, res: Response) => {
   ensureAdapters();
@@ -158,7 +167,7 @@ router.get('/:wallet', asyncHandler(async (req: Request, res: Response) => {
   const settled = await Promise.allSettled(
     adapters.map(async (a) => ({
       protocolId: a.protocolId,
-      positions: await a.discoverPositions(wallet),
+      ...(await discoverWithUnreadable(a, wallet)),
     }))
   );
 
@@ -171,6 +180,7 @@ router.get('/:wallet', asyncHandler(async (req: Request, res: Response) => {
           ...p,
           amount: p.amount.toString(),
         })),
+        ...(r.value.unreadable.length > 0 ? { unreadable: r.value.unreadable } : {}),
       };
     }
     return {

@@ -12,6 +12,9 @@ interface ConnectWalletRequest {
   walletType: 'xaman' | 'petra' | 'metamask' | 'walletconnect';
   address: string;
   network?: string;
+  /** Sent explicitly: the backend rejects an ecosystem that contradicts the address. */
+  ecosystem?: 'evm' | 'solana' | 'xrpl' | 'aptos' | 'cosmos' | 'stellar' | 'algorand' | 'bitcoin';
+  caip2?: string;
   signature?: string;
   metadata?: {
     walletName?: string;

@@ -14,17 +14,21 @@
  * launcher retries for a bounded window before surfacing the error state.
  */
 
-import { kvDelete, kvList, kvUpsert } from '../persistence/backgroundJobKv';
+import { kvDelete, kvList, kvListStrict, kvUpsert } from '../persistence/backgroundJobKv';
 
 export interface CouncilRelayState {
   state: 'relaying' | 'executed' | 'error';
   detail?: string;
   flareTxHash?: string;
+  /** El puente ya va por delante de esta orden: no se reintenta, hay que componerla de nuevo. */
+  stale?: boolean;
 }
 
 // In-memory per XRPL tx — UI enrichment only; the on-chain consumedTxId read
 // stays the settlement truth (see /council-order/status).
 const relayState = new Map<string, CouncilRelayState>();
+// When THIS process last started a relay for a tx (ms). Feeds the in-flight guard.
+const launchedAtByHash = new Map<string, number>();
 
 /**
  * PERSISTED list of orders whose relay was launched and has not been seen
@@ -35,6 +39,14 @@ const relayState = new Map<string, CouncilRelayState>();
  * botón para que el user lo arregle solo, no debe de ser así").
  */
 const PENDING_JOB = 'legacy-order-pending';
+/**
+ * Las órdenes ABANDONADAS: el puente ya no puede ejecutarlas (nonce superado).
+ * Persistente, porque el vigía re-adopta desde la bandeja (`emittedCouncilOrders`)
+ * cualquier orden emitida en 14 días — sin esta lista volvería a la cola en la
+ * siguiente pasada (fundador 2026-09-16: dos órdenes caducadas reintentadas
+ * 185 veces en un día).
+ */
+const ABANDONED_JOB = 'legacy-order-abandoned';
 
 /** The FDC only attests transactions younger than 14 days. Past that the order
  *  cannot be delivered at all and the council has to sign again — so the
@@ -50,10 +62,61 @@ interface PendingOrder extends Record<string, unknown> {
   lastDetail?: string;
 }
 
+/**
+ * UN PARPADEO DE LA BASE NO PUEDE REJUVENECER UNA ORDEN (productizer it. 27).
+ *
+ * Esta función leía con `kvList`, que es BLANDO: se traga el error y devuelve
+ * `[]`. Con la base caída un instante, `existing` salía `undefined` y la fila se
+ * reescribía como si la orden fuese nueva — `firstSeenAt` volvía a «ahora»,
+ * `attempts` a 1, y `orderData` se caía del payload porque su único respaldo era
+ * justo ese `existing`.
+ *
+ * `firstSeenAt` NO es decoración: es contra lo que se mide la ventana de
+ * atestación del FDC (14 días, con aviso a los 11 en `retryPendingCouncilOrders`).
+ * Al reescribirse, el reloj se desliza en silencio y el consejo no recibe a
+ * tiempo el único aviso que importa: que hay que volver a firmar. Y el vigía
+ * relanza cada pasada, así que un blip durante una pasada rejuvenecía TODAS las
+ * órdenes pendientes a la vez.
+ *
+ * Regla del repo: quien decide un asiento, una autoridad, un tope o UN RELOJ lee
+ * con la variante estricta y se hace cargo del error (backgroundJobKv,
+ * `kvListStrict`). Aquí hacerse cargo es NO ESCRIBIR: sin saber si ya había
+ * reloj, cualquier escritura o lo inventa o lo pisa. Lo que se pierde es la
+ * persistencia de esta pasada, y eso ya tiene red — el relé sigue vivo en este
+ * proceso, y `retryPendingCouncilOrders` re-adopta la orden desde
+ * `emittedCouncilOrders()` con su FECHA REAL, no con «ahora».
+ */
 async function rememberPending(hash: string, orderData?: string): Promise<void> {
-  const existing = (await kvList(PENDING_JOB, 500)).find((r) => r.xrplTxHash === hash) as
-    | PendingOrder
-    | undefined;
+  let existing: PendingOrder | undefined;
+  try {
+    existing = (await kvListStrict(PENDING_JOB, 500)).find((r) => r.xrplTxHash === hash) as
+      | PendingOrder
+      | undefined;
+  } catch (e) {
+    console.error(
+      `[legacy-relay] no se pudo leer la lista de pendientes para ${hash}: ${(e as Error)?.message ?? e} — ` +
+        'no se reescribe la fila (reescribirla reiniciaría firstSeenAt y con él la ventana del FDC)',
+    );
+    try {
+      const { opsAlert } = await import('../OpsAlertService');
+      await opsAlert(
+        'legacy-relay',
+        'warn',
+        `no pude leer la lista de órdenes pendientes al registrar ${hash}: esta pasada no persiste nada`,
+        {
+          key: `relay-remember-unreadable:${hash}`,
+          facts: { xrplTxHash: hash },
+          runbook:
+            'El relé de esta orden sigue vivo en este proceso y el vigía la re-adopta desde la bandeja con su ' +
+            'fecha real. Si esto se repite, mirar la base: el riesgo NO es perder la orden, es que su reloj de ' +
+            '14 días del FDC vuelva a empezar.',
+        },
+      );
+    } catch {
+      /* el canal nunca empeora el fallo que reporta */
+    }
+    return;
+  }
   await kvUpsert(PENDING_JOB, 'xrplTxHash', hash, {
     xrplTxHash: hash,
     ...(orderData ? { orderData } : existing?.orderData ? { orderData: existing.orderData } : {}),
@@ -64,6 +127,28 @@ async function rememberPending(hash: string, orderData?: string): Promise<void> 
 
 async function forgetPending(hash: string): Promise<void> {
   await kvDelete(PENDING_JOB, 'xrplTxHash', hash);
+}
+
+async function rememberAbandoned(hash: string, detail: string): Promise<void> {
+  try {
+    await kvUpsert(ABANDONED_JOB, 'xrplTxHash', hash, { xrplTxHash: hash, detail, abandonedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error(`[legacy-relay] no se pudo anotar la orden abandonada ${hash}: ${(e as Error)?.message ?? e}`);
+  }
+}
+
+async function abandonedHashes(): Promise<Set<string>> {
+  try {
+    const rows = await kvList(ABANDONED_JOB, 500);
+    return new Set(rows.map((r) => String(r.xrplTxHash ?? '').toUpperCase()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Un veredicto del puente (RelayStale) — por forma, porque los tests simulan el módulo del relé. */
+function isStaleVerdict(e: unknown): e is Error & { stale: true } {
+  return !!e && typeof e === 'object' && (e as { stale?: unknown }).stale === true;
 }
 
 /**
@@ -115,6 +200,7 @@ export function launchCouncilOrderRelay(
   const maxAttempts = opts?.maxAttempts ?? 40; // ~10 min of "not yet" before giving up
   if (relayState.get(key)?.state === 'relaying') return { started: false, state: 'relaying' };
   relayState.set(key, { state: 'relaying' });
+  launchedAtByHash.set(key, Date.now());
   void rememberPending(key, orderDataOverride); // sobrevive al proceso
   void (async () => {
     try {
@@ -139,6 +225,33 @@ export function launchCouncilOrderRelay(
       }
     } catch (e) {
       const detail = String((e as Error)?.message ?? e).slice(0, 500);
+      if (isStaleVerdict(e)) {
+        // VEREDICTO, no espera: el puente ya va por delante de esta orden. Se
+        // deja de reintentar para siempre y se dice como tarea humana — hay que
+        // componerla de nuevo y firmarla (fundador 2026-09-16).
+        relayState.set(key, { state: 'error', detail, stale: true });
+        void forgetPending(key);
+        void rememberAbandoned(key, detail);
+        try {
+          const { opsAlert } = await import('../OpsAlertService');
+          await opsAlert(
+            'legacy-relay',
+            'critical',
+            `la orden del consejo ${key} ya no se puede ejecutar: ${detail}`,
+            {
+              key: `relay-stale:${key}`,
+              facts: { xrplTxHash: key },
+              runbook:
+                'El puente ya ejecutó otra orden de esta cuenta antes que ésta (o era un duplicado firmado dos veces). ' +
+                'No se reintenta más. Hay que COMPONER LA ORDEN DE NUEVO desde la mesa y firmarla; el XRP de la orden ' +
+                'caducada ya está gastado y el capital no se ha movido.',
+            },
+          );
+        } catch {
+          /* el canal nunca puede empeorar el fallo que está reportando */
+        }
+        return;
+      }
       relayState.set(key, { state: 'error', detail });
       // La orden SIGUE en la lista de pendientes: el vigía de abajo la volverá
       // a intentar sola. El aviso es información, no una tarea — nadie tiene
@@ -206,7 +319,16 @@ async function emittedCouncilOrders(): Promise<Array<{ hash: string; at: string 
  * Se rinde SOLO cuando el FDC ya no puede atestiguar (14 días), y ahí sí avisa
  * como tarea humana: hay que volver a firmar.
  */
-export async function retryPendingCouncilOrders(): Promise<{ checked: number; relaunched: number }> {
+export async function retryPendingCouncilOrders(): Promise<{ checked: number; relaunched: number; recovered?: number }> {
+  // Primero, las órdenes COMPUESTAS para firma simple cuyo relé nadie lanzó (la
+  // pantalla que firmaba se cerró o se recargó): si el ledger ya las validó, se
+  // lanzan aquí y desde ese momento las vigila la lista de pendientes de abajo.
+  let recovered = 0;
+  try {
+    recovered = (await sweepComposedCouncilOrders()).launched;
+  } catch (e) {
+    console.error(`[legacy-relay] barrido de órdenes compuestas falló: ${(e as Error)?.message ?? e}`);
+  }
   const rows = (await kvList(PENDING_JOB, 200)) as PendingOrder[];
   // Además de lo que este proceso lanzó, las órdenes EMITIDAS desde la bandeja:
   // están en la tabla de propuestas con su hash, así que una orden anterior a
@@ -217,8 +339,11 @@ export async function retryPendingCouncilOrders(): Promise<{ checked: number; re
       rows.push({ xrplTxHash: p.hash, firstSeenAt: p.at, attempts: 0 });
     }
   }
-  if (rows.length === 0) return { checked: 0, relaunched: 0 };
+  if (rows.length === 0) return { checked: 0, relaunched: 0, recovered };
 
+  // Las abandonadas no vuelven a la cola aunque la bandeja las traiga (nonce
+  // superado: el puente jamás las ejecutará).
+  const abandoned = await abandonedHashes();
   let relaunched = 0;
   const { ethers } = await import('ethers');
   const { legacyStackConfig } = await import('../../connectors/protocols/xrpl/XrplCouncilOrderService');
@@ -243,6 +368,10 @@ export async function retryPendingCouncilOrders(): Promise<{ checked: number; re
   for (const row of rows) {
     const hash = String(row.xrplTxHash ?? '');
     if (!/^[0-9A-F]{64}$/i.test(hash)) {
+      await forgetPending(hash);
+      continue;
+    }
+    if (abandoned.has(hash.toUpperCase())) {
       await forgetPending(hash);
       continue;
     }
@@ -308,7 +437,875 @@ export async function retryPendingCouncilOrders(): Promise<{ checked: number; re
     launchCouncilOrderRelay(hash, typeof row.orderData === 'string' ? row.orderData : undefined);
     relaunched++;
   }
-  return { checked: rows.length, relaunched };
+  return { checked: rows.length, relaunched, recovered };
+}
+
+/**
+ * EL VIGÍA DE LAS ÓRDENES COMPUESTAS (2026-09-14) — la entrega que ya no depende
+ * de que la pantalla que firmó siga abierta.
+ *
+ * `/pote-council-order/prepare` y `/cage-order/prepare` recuerdan cada orden que
+ * componen (`ComposedCouncilOrderStore`). Aquí, en el mismo intervalo que los
+ * reintentos, por cada cuenta con órdenes recordadas:
+ *   · se lee su `account_tx` VALIDADO desde el ledger en que se compuso (o desde
+ *     donde llegó la pasada anterior), de forma EXHAUSTIVA — sin marcador
+ *     agotado no se concluye nada;
+ *   · un Payment tesSUCCESS enviado por esa cuenta con el memo de la orden →
+ *     se lanza el MISMO relé idempotente de POST relay, con sus bytes (el relé
+ *     corta en seco si el puente ya la consumió: nunca una fee nueva);
+ *   · el memo validado con otro resultado → aplicó con fallo: nada que entregar;
+ *   · su LastLedgerSequence ya quedó cubierto sin encontrarla → nunca podrá
+ *     validar: se olvida;
+ *   · más de 14 días → el FDC ya no la atestiguaría: se olvida.
+ * Una orden lanzada se sigue hasta que el relé la da por ejecutada; mientras,
+ * también la vigila la lista de pendientes.
+ *
+ * it. 15 — CON EL RELAYER APAGADO EL VIGÍA SIGUE MIRANDO, pero no entrega. Antes
+ * volvía en seco: nada se podaba (la tabla crecía sin límite, hallazgo 2.5) y la
+ * guarda de duplicados se quedaba ciega justo cuando importa. Ahora, apagado:
+ *   · se poda igual lo caducado (14 días) y lo que ya no puede validar (su ventana
+ *     leída entera sin él);
+ *   · una orden que YA validó se marca (`launchedXrplTxHash`) para que la guarda de
+ *     duplicados la vea y para que, al encender el flag, se entregue sola;
+ *   · pero NO se lanza ningún relé: sin `FLARE_EXECUTOR_ENABLED` no se entrega nada.
+ *
+ * it. 13 — lo que el vigía no veía:
+ *   · lee TODOS los registros vivos, del más viejo al más nuevo (antes, los 200
+ *     más recientes: 200 composiciones sacaban de la ventana una orden legítima);
+ *   · un escaneo que topa con su límite de páginas GUARDA lo que leyó entero
+ *     (`scannedThroughLedger`) en vez de no concluir nada para siempre;
+ *   · una entrada sin resultado legible ('unknown') es ILEGIBLE, jamás un tec: no
+ *     se olvida, y el progreso se queda por debajo de ella para releerla;
+ *   · actualizar y olvidar son CAS sobre el registro tal como se leyó: una
+ *     recomposición durante el escaneo se deja para la pasada siguiente;
+ *   · antes de olvidar por veredicto se deja su DESTINO (`rememberComposedOrderFate`)
+ *     para `GET /council-order/fate`.
+ */
+export async function sweepComposedCouncilOrders(opts?: {
+  now?: number;
+  rpc?: import('./ComposedCouncilOrderStore').AccountTxRpc;
+}): Promise<{ checked: number; launched: number; forgotten: number }> {
+  const out = { checked: 0, launched: 0, forgotten: 0 };
+  const executorOn = process.env.FLARE_EXECUTOR_ENABLED === 'true';
+  const store = await import('./ComposedCouncilOrderStore');
+  type Rec = import('./ComposedCouncilOrderStore').ComposedCouncilOrder;
+  const now = opts?.now ?? Date.now();
+  await store.pruneComposedOrderFates(now);
+  const records = await store.listComposedCouncilOrders();
+  out.checked = records.length;
+  if (records.length === 0) return out;
+
+  const forget = async (
+    r: Rec,
+    fate?: { state: 'executed' | 'failed'; xrplTxHash?: string; detail?: string },
+  ): Promise<void> => {
+    // The fate goes FIRST: if the forget then loses its CAS (a re-composition), the
+    // live record still wins every read; a forgotten record without a fate would
+    // answer 'unknown' to someone deciding whether to compose again.
+    if (fate) {
+      await store.rememberComposedOrderFate({
+        memoHex: r.memoHex,
+        council: r.council,
+        state: fate.state,
+        ...(fate.xrplTxHash ? { xrplTxHash: fate.xrplTxHash } : {}),
+        ...(fate.detail ? { detail: fate.detail } : {}),
+        at: new Date(now).toISOString(),
+        // it. 15: lo que la orden ERA viaja con su destino, para que la guarda de
+        // duplicados siga viendo «esta orden ya salió» cuando el registro ya no está.
+        ...(r.action ? { action: r.action } : {}),
+        ...(r.contentKey ? { contentKey: r.contentKey } : {}),
+        ...(r.launchedAt ? { launchedAt: r.launchedAt } : {}),
+      });
+    }
+    if (await store.forgetComposedCouncilOrder(r)) out.forgotten++;
+  };
+
+  const byCouncil = new Map<string, Rec[]>();
+  for (const r of records) {
+    const list = byCouncil.get(r.council) ?? [];
+    list.push(r);
+    byCouncil.set(r.council, list);
+  }
+
+  for (const [council, group] of byCouncil) {
+    const unfound: Rec[] = [];
+    for (const r of group) {
+      const age = now - Date.parse(r.composedAt);
+      if (!Number.isFinite(age) || age > store.COMPOSED_ORDER_TTL_MS) {
+        await forget(r);
+        continue;
+      }
+      if (r.launchedXrplTxHash) {
+        const hash = r.launchedXrplTxHash.toUpperCase();
+        const st = relayState.get(hash)?.state;
+        if (st === 'executed') {
+          await forget(r, { state: 'executed', xrplTxHash: hash });
+        } else if (!executorOn) {
+          // Validada y esperando al relayer: ni se entrega ni se olvida.
+          continue;
+        } else if (st !== 'relaying') {
+          // Reinicio o error agotado: el relé es idempotente y reusa la attestation.
+          launchCouncilOrderRelay(hash, r.orderData);
+          out.launched++;
+        }
+        continue;
+      }
+      unfound.push(r);
+    }
+    if (unfound.length === 0) continue;
+
+    const from = Math.min(
+      ...unfound.map((r) =>
+        r.scannedThroughLedger && r.scannedThroughLedger >= r.composedLedgerIndex
+          ? r.scannedThroughLedger + 1
+          : r.composedLedgerIndex,
+      ),
+    );
+    let scan: Awaited<ReturnType<typeof store.scanCouncilPayments>>;
+    try {
+      scan = await store.scanCouncilPayments(council, { ledgerIndexMin: from }, opts?.rpc);
+    } catch (e) {
+      // «No pude leer» no es «no está»: ni se lanza ni se olvida nada.
+      console.error(`[legacy-relay] account_tx de ${council} ilegible: ${(e as Error)?.message ?? e}`);
+      continue;
+    }
+
+    for (const r of unfound) {
+      const hits = scan.matches.filter((m) => m.memoHex === r.memoHex);
+      const ok = hits.find((m) => m.result === 'tesSUCCESS');
+      if (ok) {
+        const hash = ok.hash.toUpperCase();
+        const st = relayState.get(hash)?.state;
+        if (!executorOn) {
+          console.log(`[legacy-relay] orden compuesta ${r.memoHex.slice(0, 12)}… validada en ${hash} — el relayer está apagado: marcada, sin entregar`);
+        } else if (st !== 'relaying' && st !== 'executed') {
+          launchCouncilOrderRelay(hash, r.orderData);
+          out.launched++;
+          console.log(`[legacy-relay] orden compuesta ${r.memoHex.slice(0, 12)}… validada en ${hash} — relé lanzado sin navegador`);
+        }
+        // CAS: if the record changed meanwhile, the next pass finds the same hit again
+        // (the relay is idempotent, and 'relaying' is never launched twice).
+        await store.updateComposedCouncilOrder(
+          { ...r, launchedXrplTxHash: hash, launchedAt: new Date(now).toISOString() },
+          r,
+        );
+        continue;
+      }
+      const unreadable = hits.filter((m) => !store.isReadableResult(m.result));
+      if (unreadable.length > 0) {
+        // Una entrada del memo SIN resultado legible: no es un tec, es «no pude leerla».
+        // Ni se olvida ni se avanza por encima de ella: la próxima pasada la relee.
+        const known = unreadable.map((m) => m.ledgerIndex).filter((li): li is number => typeof li === 'number');
+        if (known.length > 0) {
+          const through = Math.min(scan.searchedThroughLedger, Math.min(...known) - 1);
+          if (through >= r.composedLedgerIndex && through > (r.scannedThroughLedger ?? 0)) {
+            await store.updateComposedCouncilOrder({ ...r, scannedThroughLedger: through }, r);
+          }
+        }
+        continue;
+      }
+      if (hits.length > 0) {
+        // Validada con fallo (tec*): aplicó, gastó su asiento; el puente no tiene nada que ejecutar.
+        await forget(r, {
+          state: 'failed',
+          xrplTxHash: hits[0].hash.toUpperCase(),
+          detail: `validated with ${hits[0].result}: the order applied without effect, nothing reaches Flare`,
+        });
+        continue;
+      }
+      if (r.lastLedgerSequence !== null && scan.searchedThroughLedger >= r.lastLedgerSequence) {
+        // Su ventana entera está leída y no está: esta orden ya no puede entrar en ningún ledger.
+        await forget(r, {
+          state: 'failed',
+          detail: `its ledger window (LastLedgerSequence ${r.lastLedgerSequence}) closed without it: it can never validate`,
+        });
+        continue;
+      }
+      if ((r.scannedThroughLedger ?? 0) < scan.searchedThroughLedger) {
+        await store.updateComposedCouncilOrder({ ...r, scannedThroughLedger: scan.searchedThroughLedger }, r);
+      }
+    }
+  }
+  return out;
+}
+
+/* ── After a 'stale' verdict: is the order already on its way? ────────────── */
+
+/** A launched order not seen executed within this window counts as in flight. */
+export const COUNCIL_ORDER_IN_FLIGHT_WINDOW_MS = 30 * 60_000;
+
+/** The window in which composing the SAME order again is treated as a double. */
+export const SAME_ORDER_WINDOW_MS = 30 * 60_000;
+
+export interface RecentSameOrder {
+  memoHex: string;
+  xrplTxHash: string;
+  /** ISO time the server saw it validated on the XRP Ledger. */
+  launchedAt: string;
+  /**
+   * Where its delivery to Flare stands: 'executed' is NOT safety, it is the danger.
+   * it. 17 (copy): 'error' is told apart from 'relaying' — a delivery that did not
+   * finish is a RECOVERY, and telling that person «composing it again would move the
+   * capital a second time» describes the opposite of what happened.
+   */
+  state: 'validated' | 'relaying' | 'executed' | 'error';
+  action?: string;
+}
+
+/**
+ * productizer it. 15 (findings 2.2 / 2.3) — THE DUPLICATE GUARD LOOKS AT THE ORDER,
+ * NOT AT ITS RELAY.
+ *
+ * The it. 13 guard asked «is a relay in flight?», which protected the wrong half of
+ * the problem: before A executes, the bridge nonce makes a re-composition harmless
+ * (at most one of them ever applies), and the moment A is `executed` the guard
+ * disappeared — which is exactly when composing the same thing again moves the
+ * capital twice. It also fired on unrelated orders (two different `direct-to`s) and
+ * on a relay sitting in `error`.
+ *
+ * So: the same council + the same ACTION + the same PARAMS (`contentKey`), seen
+ * VALIDATED on XRPL less than 30 minutes ago, in ANY relay state — including
+ * executed, and including a record the sweep has already forgotten (its fate keeps
+ * the content key). Different orders in sequence never collide.
+ *
+ * Best-effort by construction: a store it could not read answers null. It never
+ * refuses anything by itself — the caller decides, and an EXIT is only ever warned.
+ */
+export async function recentSameCouncilOrder(
+  council: string,
+  contentKey: string,
+  opts?: { now?: number },
+): Promise<RecentSameOrder | null> {
+  if (!council || !contentKey) return null;
+  const now = opts?.now ?? Date.now();
+  const store = await import('./ComposedCouncilOrderStore');
+  let best: (RecentSameOrder & { at: number }) | null = null;
+  const consider = (candidate: RecentSameOrder, at: number) => {
+    if (!Number.isFinite(at) || now - at >= SAME_ORDER_WINDOW_MS || now - at < -60_000) return;
+    if (!best || at > best.at) best = { ...candidate, at };
+  };
+
+  try {
+    for (const r of await store.listComposedCouncilOrdersForCouncil(council, { contentKey })) {
+      if (!r.launchedXrplTxHash || !r.launchedAt) continue;
+      const hash = r.launchedXrplTxHash.toUpperCase();
+      const relay = relayState.get(hash)?.state;
+      consider(
+        {
+          memoHex: r.memoHex,
+          xrplTxHash: hash,
+          launchedAt: r.launchedAt,
+          state: relay === 'executed' ? 'executed' : relay === 'error' ? 'error' : relay === 'relaying' ? 'relaying' : 'validated',
+          ...(r.action ? { action: r.action } : {}),
+        },
+        Date.parse(r.launchedAt),
+      );
+    }
+  } catch (e) {
+    console.error(`[legacy-relay] duplicate read for ${council} failed: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+
+  try {
+    // The sweep FORGETS an executed order: without its fate the guard would go blind
+    // precisely on the orders that already moved capital.
+    for (const f of await store.listComposedOrderFatesForCouncil(council, { contentKey })) {
+      if (f.state !== 'executed' || !f.xrplTxHash) continue;
+      const at = Date.parse(String(f.launchedAt ?? f.at));
+      consider(
+        {
+          memoHex: f.memoHex,
+          xrplTxHash: String(f.xrplTxHash).toUpperCase(),
+          launchedAt: new Date(at).toISOString(),
+          state: 'executed',
+          ...(f.action ? { action: String(f.action) } : {}),
+        },
+        at,
+      );
+    }
+  } catch (e) {
+    console.error(`[legacy-relay] duplicate fate read for ${council} failed: ${(e as Error)?.message ?? e}`);
+  }
+  if (!best) return null;
+  const { at: _at, ...rest } = best as RecentSameOrder & { at: number };
+  void _at;
+  return rest;
+}
+
+/**
+ * it. 17 (finding 2.3) — THE COMPOSE DOOR WAS BLIND FOR FIVE MINUTES.
+ *
+ * `recentSameCouncilOrder` only sees what the SWEEP marked: a record grows
+ * `launchedXrplTxHash` / `launchedAt` when the background scan finds its Payment on
+ * XRPL, and that scan runs every five minutes. Inside that window — precisely the
+ * minutes in which a family re-composes after a stalled QR — the guard answered «no
+ * duplicate» about an order that was already on the ledger and on its way to Flare.
+ *
+ * So before concluding «nothing like this went out», the records of THIS council
+ * with THIS content key that the sweep has not marked are looked up ON THE LEDGER,
+ * through the very same bounded, cached and rate-limited read the fate endpoint uses
+ * (`readCouncilOrderFateLimited`: one chain read per memo per 15 s, a budget per
+ * session). At most `LEDGER_DUP_MAX_MEMOS` memos, newest first.
+ *
+ * It never refuses anything by itself: a read it could not finish comes back as
+ * `unreadable`, and the caller turns that into a WARNING — never into a refusal, and
+ * never into a silent pass.
+ */
+export const LEDGER_DUP_MAX_MEMOS = 3;
+
+export async function ledgerDuplicateCheck(
+  council: string,
+  contentKey: string,
+  opts?: {
+    now?: number;
+    /** The fate budget's key — the same one `GET /council-order/fate` uses (a session). */
+    sessionKey?: string;
+    read?: typeof readCouncilOrderFateLimited;
+    list?: (typeof import('./ComposedCouncilOrderStore'))['listComposedCouncilOrdersForCouncil'];
+  },
+): Promise<{ recent: RecentSameOrder | null; unreadable: string | null; retryAfterSeconds?: number }> {
+  if (!council || !contentKey) return { recent: null, unreadable: null };
+  const now = opts?.now ?? Date.now();
+  let records: Awaited<ReturnType<(typeof import('./ComposedCouncilOrderStore'))['listComposedCouncilOrdersForCouncil']>>;
+  try {
+    const list = opts?.list ?? (await import('./ComposedCouncilOrderStore')).listComposedCouncilOrdersForCouncil;
+    records = await list(council, { contentKey });
+  } catch (e) {
+    return {
+      recent: null,
+      unreadable: `the record of this council's recent orders could not be read (${(e as Error)?.message ?? e})`,
+    };
+  }
+  const candidates = records
+    .filter((r) => !r.launchedXrplTxHash && r.contentKey === contentKey)
+    .map((r) => ({ r, at: Date.parse(r.composedAt) }))
+    .filter((c) => Number.isFinite(c.at) && now - c.at < SAME_ORDER_WINDOW_MS && now - c.at > -60_000)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, LEDGER_DUP_MAX_MEMOS);
+  if (candidates.length === 0) return { recent: null, unreadable: null };
+
+  const read = opts?.read ?? readCouncilOrderFateLimited;
+  // ── it. 19 (finding 2.5) — THE COMPOSE READS HAVE THEIR OWN ALLOWANCE ────────
+  //
+  // The budget is per SESSION KEY, and the routes hand this check the very key the
+  // screen's `GET /council-order/fate` polling spends: a page that polls a couple of
+  // orders exhausts it, and then the duplicate check of a COMPOSE cannot run — which
+  // is precisely when the same order is about to go out twice. Prefixing the key
+  // gives composing its own allowance, so the UI's polling can never spend the reads
+  // this guard needs (and vice versa: a compose loop cannot blind the fate screen).
+  const sessionKey = `compose:${opts?.sessionKey ?? council}`;
+  let unreadable: string | null = null;
+  /**
+   * it. 21 (finding 2.7): WHEN the check could run again. The commonest reason this
+   * read fails is our OWN allowance (`CouncilOrderFateRateLimitedError`), and it
+   * knows exactly how many seconds are left — the number that turns «the manager is
+   * blocked for about a minute with no button» into a countdown the screen can show
+   * beside «Compose another order anyway». It was being thrown away in the string.
+   */
+  let retryAfterSeconds: number | undefined;
+  for (const { r, at } of candidates) {
+    let fate: CouncilOrderFate;
+    try {
+      fate = await read(r.memoHex, sessionKey);
+    } catch (e) {
+      const after = (e as { retryAfterSeconds?: unknown })?.retryAfterSeconds;
+      if (typeof after === 'number' && Number.isFinite(after) && after > 0) {
+        retryAfterSeconds = Math.max(retryAfterSeconds ?? 0, Math.ceil(after));
+      }
+      unreadable = `the XRP Ledger could not be checked for an order composed ${Math.max(
+        0,
+        Math.round((now - at) / 60_000),
+      )} min ago (${(e as Error)?.message ?? e})`;
+      continue;
+    }
+    if (fate.state === 'validated' || fate.state === 'relaying' || fate.state === 'executed') {
+      return {
+        recent: {
+          memoHex: r.memoHex,
+          xrplTxHash: (fate.xrplTxHash ?? '').toUpperCase(),
+          // The sweep has not stamped `launchedAt` yet, so the composition time is the
+          // honest anchor for «how long ago»: it is never later than the validation.
+          launchedAt: r.composedAt,
+          state: fate.state,
+          ...(r.action ? { action: r.action } : {}),
+        },
+        unreadable: null,
+      };
+    }
+  }
+  return { recent: null, unreadable, ...(retryAfterSeconds ? { retryAfterSeconds } : {}) };
+}
+
+export type CouncilDuplicateVerdict =
+  | { proceed: true; duplicateWarning: string | null; recent: RecentSameOrder | null }
+  | {
+      proceed: false;
+      status: 409;
+      body:
+        | { error: 'SAME_ORDER_RECENTLY_LAUNCHED'; detail: string; xrplTxHash: string; memoHex: string; launchedAt: string; state: string }
+        /**
+         * it. 19 (finding 2.5) — the check itself could not run (the fate budget is
+         * spent, the node is down, the store threw). A NON-exit does not pass as
+         * «checked»; the caller is told what happened and offered the one escape a
+         * person can take: `confirmAnotherOrder`.
+         */
+        | {
+            error: 'DUPLICATE_CHECK_UNREADABLE';
+            detail: string;
+            retryable: true;
+            confirmAnotherOrder: true;
+            /**
+             * it. 21 (finding 2.7): seconds until the check can run again, when the
+             * reason it could not run is OUR OWN read allowance. Present only then —
+             * a store that threw has no schedule, and inventing one would be a
+             * promise. The screen shows it as a countdown beside the two real exits
+             * («Try again» and «Compose another order anyway»).
+             */
+            retryAfterSeconds?: number;
+          };
+    };
+
+/**
+ * it. 17 (copy, it. 16 §Copy) — WHAT A SECOND ORDER WOULD ACTUALLY DO.
+ *
+ * «Composing it again would move the capital a second time» was served for every
+ * repeat, and for two families of order it is simply false:
+ *   · actions that move NO capital — `set-user-gate` (who may enter), `cede` and
+ *     `end-cession` (who holds a delegated authority). Applying them twice changes
+ *     nothing about anybody's money; the cost is a signature and an FDC round.
+ *   · a delivery sitting in `error`: that order did NOT arrive, and the person
+ *     re-composing is RECOVERING it. Telling them they are about to double-spend
+ *     describes the opposite of what happened, and pushes them away from the one
+ *     thing that works (relaying the order that is already on the ledger).
+ */
+const NON_CAPITAL_COUNCIL_ACTIONS: ReadonlySet<string> = new Set(['set-user-gate', 'cede', 'end-cession']);
+
+export function duplicateOrderSentence(recent: RecentSameOrder, minutes: number, action?: string): string {
+  const where = `This account already signed THIS SAME order ${minutes} min ago and it is on the XRP Ledger (${recent.xrplTxHash}`;
+  if (recent.state === 'error') {
+    return (
+      `${where}). Its delivery to Flare did not finish, and the server retries it on its own — that order is what has ` +
+      'to arrive, so composing a second one is not how it is recovered: relay that one by its hash, or wait. If you ' +
+      'really want another order like it, confirm it.'
+    );
+  }
+  const executed = recent.state === 'executed' ? ', already executed on Flare' : '';
+  if (action && NON_CAPITAL_COUNCIL_ACTIONS.has(action)) {
+    return (
+      `${where}${executed}). This order moves no capital, so a second one would not move it twice — it would apply the ` +
+      'same change again, at the cost of another signature and another FDC round. Check how that one ended first; if ' +
+      'you really want another order like it, confirm it.'
+    );
+  }
+  return (
+    `${where}${executed}). Composing it again would move the capital a second time. Check how that one ended first; ` +
+    'if you really want another order like it, confirm it.'
+  );
+}
+
+/**
+ * The verdict both compose doors share. A NON-exit repeating an order that already
+ * went out is refused 409 `SAME_ORDER_RECENTLY_LAUNCHED` unless the caller sends
+ * `confirmAnotherOrder: true` — a person saying «yes, I want a second one». An EXIT
+ * always proceeds and only carries `duplicateWarning`: «LA SALIDA JAMÁS SE GATEA»,
+ * and bringing capital back twice takes nothing from the holder.
+ */
+export async function councilDuplicateOrderVerdict(input: {
+  council: string;
+  contentKey: string;
+  isExit: boolean;
+  /** The action being composed (it. 17 copy): what the second order would actually do. */
+  action?: string;
+  confirmAnotherOrder?: boolean;
+  now?: number;
+  /** Injectable so a route's tests can stand in for the store read. */
+  find?: typeof recentSameCouncilOrder;
+  /**
+   * it. 17 (2.3): the ledger half of the question, for the minutes the sweep has not
+   * covered. `null` disables it (a caller that has already asked).
+   */
+  ledgerCheck?: typeof ledgerDuplicateCheck | null;
+  /** The fate budget's key for that ledger read (a session). */
+  sessionKey?: string;
+}): Promise<CouncilDuplicateVerdict> {
+  const find = input.find ?? recentSameCouncilOrder;
+  let recent = await find(input.council, input.contentKey, { now: input.now });
+  let unreadable: string | null = null;
+  let retryAfterSeconds: number | undefined;
+  if (!recent && input.ledgerCheck !== null) {
+    const checked = await (input.ledgerCheck ?? ledgerDuplicateCheck)(input.council, input.contentKey, {
+      ...(input.now !== undefined ? { now: input.now } : {}),
+      ...(input.sessionKey ? { sessionKey: input.sessionKey } : {}),
+    });
+    recent = checked.recent;
+    unreadable = checked.unreadable;
+    const after = (checked as { retryAfterSeconds?: unknown }).retryAfterSeconds;
+    if (typeof after === 'number' && Number.isFinite(after) && after > 0) retryAfterSeconds = Math.ceil(after);
+  }
+  if (!recent) {
+    if (unreadable) {
+      // ── it. 19 (finding 2.5) — «NO PUDE COMPROBARLO» NO ES «COMPROBADO» ──────
+      //
+      // WHAT it.17 SHIPPED: a failed check came back as a WARNING and the order was
+      // composed. On the exact scenario this guard exists for — the family
+      // re-composing minutes after a stalled QR, with the fate budget already spent
+      // by the screen's own polling — the second order went out with a sentence
+      // nobody had to acknowledge. A duplicate that moves capital twice is not a
+      // warning-shaped risk.
+      //
+      // So the three answers are separated: an EXIT proceeds with the warning (it is
+      // never gated, and bringing capital back twice takes nothing from the holder);
+      // a person who explicitly confirms proceeds, warned; anything else is refused,
+      // says the check could not run, and offers `confirmAnotherOrder` — a refusal
+      // about OUR failure, which is why it is retryable and names its own escape.
+      const line =
+        `${unreadable}. So this door cannot promise that the same order did not already go out minutes ago — check ` +
+        'the account on an explorer, or check the order you last composed, before signing.';
+      if (input.isExit || input.confirmAnotherOrder === true) {
+        return { proceed: true, duplicateWarning: `DUPLICATE_CHECK_UNREADABLE: ${line}`, recent: null };
+      }
+      return {
+        proceed: false,
+        status: 409,
+        body: {
+          error: 'DUPLICATE_CHECK_UNREADABLE',
+          detail:
+            'The check for an identical order already on its way could not be run: ' +
+            `${line} Nothing was composed. ` +
+            (retryAfterSeconds
+              ? `That check has its own read allowance and it is spent: it can run again in ${retryAfterSeconds}s. `
+              : '') +
+            'Try again in a moment, or compose it anyway if you know this order has not gone out.',
+          retryable: true,
+          confirmAnotherOrder: true,
+          ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+        },
+      };
+    }
+    return { proceed: true, duplicateWarning: null, recent: null };
+  }
+  const minutes = Math.max(0, Math.round(((input.now ?? Date.now()) - Date.parse(recent.launchedAt)) / 60_000));
+  const detail = duplicateOrderSentence(recent, minutes, input.action ?? recent.action);
+  if (input.isExit) return { proceed: true, duplicateWarning: detail, recent };
+  if (input.confirmAnotherOrder === true) return { proceed: true, duplicateWarning: null, recent };
+  return {
+    proceed: false,
+    status: 409,
+    body: {
+      error: 'SAME_ORDER_RECENTLY_LAUNCHED',
+      detail,
+      xrplTxHash: recent.xrplTxHash,
+      memoHex: recent.memoHex,
+      launchedAt: recent.launchedAt,
+      state: recent.state,
+    },
+  };
+}
+
+/**
+ * ⛔ SUPERSEDED by `recentSameCouncilOrder` (it. 15, finding 2.2) and no longer
+ * asked by any compose door — kept, never deleted: it is the only reader of the
+ * in-process `launchedAtByHash` map and the shape the it. 13 tests pin.
+ *
+ * productizer it. 13 (finding 3.1) — THE DOUBLE ORDER AFTER 'stale'. Payload A
+ * validates and is relayed; payload B (same seat) dies tefPAST_SEQ; «prepare it
+ * again» composes C with the NEXT nonce — the capital moves twice. This answers,
+ * for one council, the most recent order whose relay was LAUNCHED less than 30 min
+ * ago and has not been seen executed. Best-effort: an unreadable store answers
+ * null (the composition's own record step refuses a non-exit when the database is
+ * down).
+ */
+export async function councilOrderInFlight(
+  council: string,
+  opts?: { now?: number },
+): Promise<{ memoHex: string; xrplTxHash: string; launchedAt: string; relay: CouncilRelayState | null } | null> {
+  const now = opts?.now ?? Date.now();
+  const store = await import('./ComposedCouncilOrderStore');
+  let records: Awaited<ReturnType<typeof store.listComposedCouncilOrdersForCouncil>>;
+  try {
+    records = await store.listComposedCouncilOrdersForCouncil(council);
+  } catch (e) {
+    console.error(`[legacy-relay] in-flight read for ${council} failed: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+  let best: { memoHex: string; xrplTxHash: string; launchedAt: string; relay: CouncilRelayState | null; at: number } | null = null;
+  for (const r of records) {
+    if (!r.launchedXrplTxHash) continue;
+    const hash = r.launchedXrplTxHash.toUpperCase();
+    const relay = relayState.get(hash) ?? null;
+    if (relay?.state === 'executed') continue;
+    const at = r.launchedAt ? Date.parse(r.launchedAt) : launchedAtByHash.get(hash) ?? NaN;
+    if (!Number.isFinite(at) || now - at >= COUNCIL_ORDER_IN_FLIGHT_WINDOW_MS || now - at < -60_000) continue;
+    if (!best || at > best.at) best = { memoHex: r.memoHex, xrplTxHash: hash, launchedAt: new Date(at).toISOString(), relay, at };
+  }
+  if (!best) return null;
+  const { at: _at, ...rest } = best;
+  void _at;
+  return rest;
+}
+
+export type CouncilOrderFateState = 'unknown' | 'composed' | 'validated' | 'relaying' | 'executed' | 'failed';
+
+export interface CouncilOrderFate {
+  memo: string;
+  state: CouncilOrderFateState;
+  xrplTxHash?: string;
+  detail?: string;
+}
+
+/** «Could not read» — the route answers 503, never 'unknown'. */
+export class CouncilOrderFateUnreadableError extends Error {
+  readonly code = 'COUNCIL_ORDER_FATE_UNREADABLE';
+  constructor(detail: string) {
+    super(detail);
+    this.name = 'CouncilOrderFateUnreadableError';
+  }
+}
+
+/** Pages of `account_tx` one fate read may spend (a GET must stay bounded). */
+export const FATE_SCAN_MAX_PAGES = 5;
+
+/**
+ * The fate of one composed order, by its memo:
+ *  · the live record, launched → the relay state (executed / relaying), or
+ *    'validated' when this process holds no relay state for it;
+ *  · the live record, not launched → a BOUNDED `account_tx` read from the ledger
+ *    it was composed on: tesSUCCESS → validated; tec* → failed; window closed or
+ *    its pinned Sequence already spent without it → failed; otherwise composed;
+ *  · no record → the fate the sweep left when it forgot it; none → 'unknown'.
+ * Any read that fails — the store, the fate, the ledger, an entry without a
+ * readable result, a history longer than the bound — throws
+ * `CouncilOrderFateUnreadableError`. Read-only: it launches nothing.
+ */
+export async function readCouncilOrderFate(
+  memoHex: string,
+  opts?: { rpc?: import('./ComposedCouncilOrderStore').AccountTxRpc },
+): Promise<CouncilOrderFate> {
+  const memo = memoHex.trim().replace(/^0x/i, '').toUpperCase();
+  const store = await import('./ComposedCouncilOrderStore');
+  const rpc =
+    opts?.rpc ??
+    (async (method: string, params: Record<string, unknown>) => {
+      const { xrplJsonRpc } = await import('./DirectMintExecutorService');
+      return (await xrplJsonRpc(method, params, undefined, { requireFresh: true })) as Record<string, unknown>;
+    });
+
+  let record: Awaited<ReturnType<typeof store.getComposedCouncilOrderStrict>>;
+  try {
+    record = await store.getComposedCouncilOrderStrict(memo);
+  } catch (e) {
+    throw new CouncilOrderFateUnreadableError(`the order memory could not be read: ${(e as Error)?.message ?? e}`);
+  }
+
+  const fromRelay = (hash: string): CouncilOrderFate | null => {
+    const st = relayState.get(hash);
+    if (st?.state === 'executed') return { memo, state: 'executed', xrplTxHash: hash };
+    if (st?.state === 'relaying') return { memo, state: 'relaying', xrplTxHash: hash };
+    if (st?.state === 'error') {
+      return {
+        memo,
+        state: 'relaying',
+        xrplTxHash: hash,
+        detail: `the last delivery attempt did not finish (${st.detail ?? 'no detail'}); the server retries it on its own`,
+      };
+    }
+    return null;
+  };
+
+  if (!record) {
+    let fate: Awaited<ReturnType<typeof store.readComposedOrderFateStrict>>;
+    try {
+      fate = await store.readComposedOrderFateStrict(memo);
+    } catch (e) {
+      throw new CouncilOrderFateUnreadableError(`the order fate could not be read: ${(e as Error)?.message ?? e}`);
+    }
+    if (!fate) return { memo, state: 'unknown' };
+    return {
+      memo,
+      state: fate.state,
+      ...(fate.xrplTxHash ? { xrplTxHash: fate.xrplTxHash } : {}),
+      ...(fate.detail ? { detail: fate.detail } : {}),
+    };
+  }
+
+  if (record.launchedXrplTxHash) {
+    const hash = record.launchedXrplTxHash.toUpperCase();
+    return (
+      fromRelay(hash) ?? {
+        memo,
+        state: 'validated',
+        xrplTxHash: hash,
+        // it. 15: with the relayer off the server is NOT delivering it — saying so is
+        // the difference between «wait» and «nothing is coming unless you relay it».
+        detail:
+          process.env.FLARE_EXECUTOR_ENABLED === 'true'
+            ? 'validated on the XRP Ledger; the server delivers it to Flare'
+            : 'validated on the XRP Ledger; the delivery relayer is OFF on this server, so it waits — relay it by hash, or wait until the relayer is on (within the 14-day FDC window)',
+      }
+    );
+  }
+
+  // For a pinned single-sign order, the account's Sequence read BEFORE the scan
+  // tells whether its seat is already spent (by the ledger the scan then covers).
+  let seat: { sequence: number; ledger: number } | null = null;
+  if (record.lastLedgerSequence !== null) {
+    try {
+      const info = await rpc('account_info', { account: record.council, ledger_index: 'validated' });
+      const sequence = Number((info.account_data as { Sequence?: unknown } | undefined)?.Sequence);
+      const ledger = Number(info.ledger_index);
+      if (info.validated !== false && Number.isSafeInteger(sequence) && Number.isSafeInteger(ledger)) seat = { sequence, ledger };
+    } catch {
+      seat = null; // only a refinement: without it the scan still decides
+    }
+  }
+
+  let scan: Awaited<ReturnType<typeof store.scanCouncilPayments>>;
+  try {
+    scan = await store.scanCouncilPayments(
+      record.council,
+      { ledgerIndexMin: record.composedLedgerIndex, maxPages: FATE_SCAN_MAX_PAGES },
+      rpc,
+    );
+  } catch (e) {
+    throw new CouncilOrderFateUnreadableError(`the account history could not be read: ${(e as Error)?.message ?? e}`);
+  }
+  const hits = scan.matches.filter((m) => m.memoHex === memo);
+  const ok = hits.find((m) => m.result === 'tesSUCCESS');
+  if (ok) {
+    const hash = ok.hash.toUpperCase();
+    return (
+      fromRelay(hash) ?? {
+        memo,
+        state: 'validated',
+        xrplTxHash: hash,
+        detail: 'validated on the XRP Ledger; the server delivers it to Flare',
+      }
+    );
+  }
+  if (hits.some((m) => !store.isReadableResult(m.result))) {
+    throw new CouncilOrderFateUnreadableError('the ledger returned this order without a readable result');
+  }
+  if (hits.length > 0) {
+    return {
+      memo,
+      state: 'failed',
+      xrplTxHash: hits[0].hash.toUpperCase(),
+      detail: `validated with ${hits[0].result}: the order applied without effect, nothing reaches Flare`,
+    };
+  }
+  if (record.lastLedgerSequence !== null && scan.searchedThroughLedger >= record.lastLedgerSequence) {
+    return { memo, state: 'failed', detail: 'its ledger window closed without it: it can never validate' };
+  }
+  if (seat && seat.sequence > record.sequence && scan.searchedThroughLedger >= seat.ledger) {
+    return {
+      memo,
+      state: 'failed',
+      detail: 'its Sequence was used by another transaction and it is not on the ledger: it can never validate',
+    };
+  }
+  if (!scan.exhausted) {
+    throw new CouncilOrderFateUnreadableError('the account history since this order was composed is longer than one bounded read');
+  }
+  return { memo, state: 'composed', detail: 'not on the validated ledger yet' };
+}
+
+/* ── The fate read, bounded (it. 15, finding 2.5) ─────────────────────────── */
+
+/** One CHAIN read per memo per this window; everyone else gets the cached answer. */
+export const FATE_CACHE_MS = 15_000;
+/** An unreadable answer is cached briefly too: a dead node must not be hammered. */
+export const FATE_ERROR_CACHE_MS = 5_000;
+/** Chain reads one session may cause per minute, across memos. */
+export const FATE_READS_PER_SESSION_PER_MIN = 12;
+const FATE_SESSION_WINDOW_MS = 60_000;
+
+export class CouncilOrderFateRateLimitedError extends Error {
+  readonly code = 'COUNCIL_ORDER_FATE_RATE_LIMITED';
+  constructor(readonly retryAfterSeconds: number) {
+    super(
+      `Too many fate checks from this session in the last minute (the limit is ${FATE_READS_PER_SESSION_PER_MIN}). ` +
+        `Nothing was read and nothing changed — try again in ${retryAfterSeconds}s. A repeated answer is served from ` +
+        'cache for 15s, so a screen that polls does not need to ask more often than that.',
+    );
+    this.name = 'CouncilOrderFateRateLimitedError';
+  }
+}
+
+type FateCacheEntry = { at: number; value?: CouncilOrderFate; error?: Error; pending?: Promise<CouncilOrderFate> };
+const fateCache = new Map<string, FateCacheEntry>();
+const fateSessionReads = new Map<string, number[]>();
+
+/** Tests (and only tests) start from a clean limiter. */
+export function _resetCouncilOrderFateLimiter(): void {
+  fateCache.clear();
+  fateSessionReads.clear();
+}
+
+function pruneFateMaps(now: number): void {
+  if (fateCache.size > 2_000) {
+    for (const [k, v] of fateCache) if (now - v.at > FATE_CACHE_MS && !v.pending) fateCache.delete(k);
+  }
+  if (fateSessionReads.size > 2_000) {
+    for (const [k, v] of fateSessionReads) if (v.every((t) => now - t > FATE_SESSION_WINDOW_MS)) fateSessionReads.delete(k);
+  }
+}
+
+/**
+ * `GET /council-order/fate` behind a budget. The read costs an `account_info` plus
+ * up to five `account_tx` pages on a FRESH node, and it was open to any session at
+ * any rate: one loop could push the XRPL node into 429 and take the pins down with
+ * it (it. 14, finding 2.5).
+ *
+ * Two bounds, both in memory:
+ *   · per MEMO: one chain read per `FATE_CACHE_MS`; concurrent askers join the same
+ *     in-flight promise, later ones get the cached answer (an unreadable answer is
+ *     cached for 5s and re-thrown, so «could not read» is still never «unknown»);
+ *   · per SESSION: `FATE_READS_PER_SESSION_PER_MIN` chain reads a minute, after
+ *     which the answer is 429 — never a wrong verdict.
+ */
+export async function readCouncilOrderFateLimited(
+  memoHex: string,
+  sessionKey: string,
+  opts?: {
+    now?: number;
+    rpc?: import('./ComposedCouncilOrderStore').AccountTxRpc;
+    /** Injectable so a route's tests can stand in for the read itself. */
+    read?: typeof readCouncilOrderFate;
+  },
+): Promise<CouncilOrderFate> {
+  const now = opts?.now ?? Date.now();
+  const key = memoHex.trim().replace(/^0x/i, '').toUpperCase();
+  pruneFateMaps(now);
+
+  const cached = fateCache.get(key);
+  if (cached?.pending) return cached.pending;
+  if (cached && cached.value && now - cached.at < FATE_CACHE_MS) return cached.value;
+  if (cached && cached.error && now - cached.at < FATE_ERROR_CACHE_MS) throw cached.error;
+
+  const session = sessionKey || 'anonymous';
+  const recent = (fateSessionReads.get(session) ?? []).filter((t) => now - t < FATE_SESSION_WINDOW_MS);
+  if (recent.length >= FATE_READS_PER_SESSION_PER_MIN) {
+    fateSessionReads.set(session, recent);
+    const oldest = Math.min(...recent);
+    throw new CouncilOrderFateRateLimitedError(Math.max(1, Math.ceil((FATE_SESSION_WINDOW_MS - (now - oldest)) / 1_000)));
+  }
+  recent.push(now);
+  fateSessionReads.set(session, recent);
+
+  const read = opts?.read ?? readCouncilOrderFate;
+  const pending = (async () => {
+    try {
+      const value = opts?.rpc ? await read(memoHex, { rpc: opts.rpc }) : await read(memoHex);
+      // Stamped with the clock of the CALL, the same one the freshness check uses.
+      fateCache.set(key, { at: now, value });
+      return value;
+    } catch (e) {
+      fateCache.set(key, { at: now, error: e as Error });
+      throw e;
+    }
+  })();
+  fateCache.set(key, { at: now, pending });
+  return pending;
 }
 
 /**

@@ -20,8 +20,17 @@ jest.mock('../LegacyOrderRelayService', () => ({
 // El almacén persistente del vigía: sin DB los helpers son no-op, así que se
 // simulan para poder fijar QUÉ se recuerda y qué se olvida.
 const kvRows: Record<string, unknown>[] = [];
+/** Cuando es true, la LECTURA ESTRICTA revienta — el parpadeo de base del it. 27. */
+let kvStrictFails = false;
 jest.mock('../../persistence/backgroundJobKv', () => ({
   kvList: async () => kvRows.slice(),
+  // La variante estricta es la que usa `rememberPending`: un fallo LANZA, que es
+  // la diferencia entera con `kvList` (que devolvería [] y se leería como «no
+  // había fila»).
+  kvListStrict: async () => {
+    if (kvStrictFails) throw new Error('la base no contesta');
+    return kvRows.slice();
+  },
   kvUpsert: async (_j: string, _f: string, key: string, payload: Record<string, unknown>) => {
     const i = kvRows.findIndex((r) => r.xrplTxHash === key);
     if (i >= 0) kvRows[i] = payload;
@@ -60,6 +69,7 @@ describe('launchCouncilOrderRelay', () => {
   beforeEach(() => {
     relayCouncilOrder.mockReset();
     kvRows.length = 0;
+    kvStrictFails = false;
   });
 
   it('recuerda la orden mientras no se entregue y la olvida al ejecutarse', async () => {
@@ -77,6 +87,44 @@ describe('launchCouncilOrderRelay', () => {
     await waitForState(HASH_G, 'error');
     await new Promise((r) => setTimeout(r, 20));
     expect(kvRows.find((r) => r.xrplTxHash === HASH_G)).toBeDefined();
+  });
+
+  /**
+   * CADENA (productizer it. 27): un parpadeo de la base NO puede rejuvenecer una
+   * orden ya firmada. `firstSeenAt` es contra lo que se mide la ventana de 14
+   * días del FDC; si se reescribe a «ahora», el reloj se desliza en silencio y
+   * el consejo no recibe a tiempo el aviso de que hay que volver a firmar.
+   */
+  it('una lectura que falla NO reinicia firstSeenAt ni tira orderData', async () => {
+    const HASH_X = '1'.repeat(64);
+    const VIEJA = '2026-09-01T10:00:00.000Z';
+    kvRows.push({ xrplTxHash: HASH_X, firstSeenAt: VIEJA, attempts: 7, orderData: '0xda7a' });
+
+    // El vigía relanza sin los bytes (los lleva la fila) justo cuando la base
+    // parpadea: antes, `kvList` devolvía [] y el upsert escribía una fila NUEVA.
+    kvStrictFails = true;
+    relayCouncilOrder.mockImplementation(() => new Promise(() => {})); // se queda relayando
+    launchCouncilOrderRelay(HASH_X, undefined, { waitMs: 1 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    const row = kvRows.find((r) => r.xrplTxHash === HASH_X)!;
+    expect(row.firstSeenAt).toBe(VIEJA); // el reloj NO se movió
+    expect(row.attempts).toBe(7); // ni se reinició la cuenta de intentos
+    expect(row.orderData).toBe('0xda7a'); // ni se cayeron los bytes de la orden
+  });
+
+  it('con la base legible sí se recuerda: firstSeenAt se conserva y attempts sube', async () => {
+    const HASH_Y = '2'.repeat(64);
+    const VIEJA = '2026-09-01T10:00:00.000Z';
+    kvRows.push({ xrplTxHash: HASH_Y, firstSeenAt: VIEJA, attempts: 7, orderData: '0xda7a' });
+    relayCouncilOrder.mockImplementation(() => new Promise(() => {}));
+    launchCouncilOrderRelay(HASH_Y, undefined, { waitMs: 1 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    const row = kvRows.find((r) => r.xrplTxHash === HASH_Y)!;
+    expect(row.firstSeenAt).toBe(VIEJA);
+    expect(row.attempts).toBe(8);
+    expect(row.orderData).toBe('0xda7a');
   });
 
   it('launches once and lets a duplicate join, not re-run', async () => {

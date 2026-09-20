@@ -2,18 +2,33 @@
 
 /**
  * First-run account setup. Launches once when an authenticated user hasn't completed it
- * (or on demand from Settings → reopen()). Steps: language → experience (sets simple/expert
- * mode) → goal (mirrors the landing paths) → wallet. Everything is skippable; skipping marks
- * setup done and the copy points the user to Settings to resume. Persistence is local for now
- * (onboardingStore) — backend persistence is a tracked follow-up.
+ * (or on demand from Settings → reopen()). Steps: language → THEME → experience (sets
+ * simple/expert mode) → goal (mirrors the landing paths) → wallet. Everything is skippable;
+ * skipping marks setup done and the copy points the user to Settings to resume.
+ *
+ * EL TEMA, EN EL SEGUNDO PASO (fundador 2026-09-13: «si se puede, aplicar el tema
+ * directamente después de crear la cuenta en el pequeño cuestionario… vamos a ir añadiendo
+ * funcionalidades al cuestionario, que ahora solo sirve para el idioma»). Va el segundo y no
+ * el último a propósito: es la única pregunta cuyo efecto se ve EN EL ACTO — el resto del
+ * cuestionario se pinta ya con el tema elegido, así que la respuesta se comprueba sola. Y se
+ * elige mirando dos probetas de verdad (ui/skin/SkinPreview.tsx), no leyendo dos nombres.
  */
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ShieldCheck, SlidersHorizontal, TrendingUp, Layers, Wallet2, ArrowRight, X } from 'lucide-react';
-import { useOnboardingStore, type OnboardingGoal } from '../../stores/onboardingStore';
+import {
+  ONBOARDING_NOT_SAVED_EN,
+  ONBOARDING_NOT_SAVED_ES,
+  useOnboardingStore,
+  type OnboardingGoal,
+} from '../../stores/onboardingStore';
+import { useResolvedTheme, useThemeStore } from '../../stores/themeStore';
+import { SKINS } from '../../lib/theme/appearance';
+import { SkinChoice } from '../ui/skin/SkinPreview';
 import { useAuthStore } from '../../stores/authStore';
+import { useManagerStore } from '../../stores/managerStore';
 import { useT } from '../../i18n/LanguageProvider';
 import { LogoMark } from '../ui/Logo';
 
@@ -33,7 +48,21 @@ export default function OnboardingModal() {
   const finish = useOnboardingStore((s) => s.finish);
   const skip = useOnboardingStore((s) => s.skip);
   const close = useOnboardingStore((s) => s.close);
+  /**
+   * it. 34 (agente D) — LA RAZÓN EXISTÍA Y NADIE LA LEÍA. it. 27 hizo que el
+   * store anotara por qué la última escritura no llegó a la cuenta
+   * (`persistRefusal`) y escribió la frase (`ONBOARDING_NOT_SAVED_*`); ningún
+   * componente las consumía, así que la persona seguía sin saber por qué el
+   * asistente volvía a saltar en otro navegador. Se pinta aquí, como nota de
+   * esquina y NO como modal: el asistente ya se cerró, lo local sostiene esta
+   * sesión, y no se le pide nada a nadie.
+   */
+  const persistRefusal = useOnboardingStore((s) => s.persistRefusal);
+  const [notSavedDismissedFor, setNotSavedDismissedFor] = useState<string | null>(null);
   const setExpertMode = useAuthStore((s) => s.setExpertMode);
+  const skin = useThemeStore((s) => s.skin);
+  const setSkin = useThemeStore((s) => s.setSkin);
+  const resolvedTheme = useResolvedTheme();
 
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState(0);
@@ -42,9 +71,44 @@ export default function OnboardingModal() {
 
   // avoid a hydration flash: only decide visibility on the client
   const open = mounted && (!completed || forceOpen);
-  if (!open) return null;
+  if (!open) {
+    // it. 34 (agente D): con el asistente cerrado, la única cosa que puede
+    // quedar en pantalla es la nota de «no se guardó en tu cuenta» — sin
+    // overlay, sin `inset-0`, con su propio cierre; la app sigue usable.
+    if (!mounted || !persistRefusal || notSavedDismissedFor === persistRefusal) return null;
+    return (
+      <div
+        className="fixed bottom-4 right-4 z-[60] w-[min(92vw,380px)] rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl"
+        role="status"
+        aria-live="polite"
+        data-onboarding-not-saved={persistRefusal}
+      >
+        <div className="flex items-start gap-3 p-4">
+          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-ink/70">
+            {es ? ONBOARDING_NOT_SAVED_ES : ONBOARDING_NOT_SAVED_EN}
+          </p>
+          <button
+            type="button"
+            onClick={() => setNotSavedDismissedFor(persistRefusal)}
+            className="shrink-0 rounded-lg px-2 py-1 text-[12px] text-ink/45 hover:text-ink/80"
+            aria-label={es ? 'Cerrar' : 'Dismiss'}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const TOTAL = 4;
+  // El sub-paso del gestor (fundador 2026-08-29): SOLO si el objetivo elegido
+  // es «Gestionar» aparece una pregunta más — sutil, dos respuestas — que
+  // decide el flag de la mesa del gestor (managerStore). Los otros tres
+  // caminos siguen siendo 4 pasos exactos; y como todo el wizard es saltable,
+  // el mismo interruptor vive también en Settings → Perfil profesional.
+  const managerStep = goal === 'manage';
+  // 0 idioma · 1 TEMA · 2 experiencia · 3 objetivo · [4 gestor] · wallet
+  const TOTAL = managerStep ? 6 : 5;
+  const walletStep = managerStep ? 5 : 4;
   const next = () => setStep((s) => Math.min(s + 1, TOTAL - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
   const done = (connect: boolean) => {
@@ -113,6 +177,37 @@ export default function OnboardingModal() {
               )}
 
               {step === 1 && (
+                <Step
+                  title={es ? 'El aspecto de tu espacio' : 'How your space looks'}
+                  subtitle={
+                    es
+                      ? 'No es solo el color: cambian los dibujos, la tipografía y la disposición. Cambiable en Ajustes.'
+                      : 'Not just the colour: the drawings, the typography and the layout change too. Changeable in Settings.'
+                  }
+                >
+                  <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={es ? 'Tema' : 'Theme'}>
+                    {SKINS.map((id) => (
+                      <SkinChoice
+                        key={id}
+                        skin={id}
+                        theme={resolvedTheme}
+                        selected={skin === id}
+                        label={id === 'astryum' ? 'Astryum' : es ? 'Institucional' : 'Institutional'}
+                        // Se aplica AL INSTANTE y sin esperar a la red: el paso
+                        // siguiente del cuestionario ya se pinta con el tema
+                        // elegido, que es la mitad de la respuesta. Si el POST a
+                        // la cuenta fallara, lo local sigue siendo correcto y
+                        // Ajustes → Apariencia es la vía de recuperación (el
+                        // mismo criterio que el sub-paso del gestor).
+                        onSelect={() => { void setSkin(id); next(); }}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+                </Step>
+              )}
+
+              {step === 2 && (
                 <Step title={es ? '¿Qué tal te manejas con cripto?' : 'How comfortable are you with crypto?'} subtitle={es ? 'Ajustamos cuánto te enseñamos. Cambiable en Ajustes.' : 'We tune how much we show you. Changeable in Settings.'}>
                   <div className="space-y-3">
                     {[
@@ -135,7 +230,7 @@ export default function OnboardingModal() {
                 </Step>
               )}
 
-              {step === 2 && (
+              {step === 3 && (
                 <Step title={es ? '¿Qué quieres conseguir?' : 'What do you want to achieve?'} subtitle={es ? 'Adaptamos tu panel a tu objetivo.' : 'We adapt your dashboard to your goal.'}>
                   <div className="grid grid-cols-2 gap-3">
                     {goals.map((g) => {
@@ -157,7 +252,36 @@ export default function OnboardingModal() {
                 </Step>
               )}
 
-              {step === 3 && (
+              {step === 4 && managerStep && (
+                <Step
+                  title={es ? '¿Gestionarás capital de terceros?' : 'Will you manage third-party capital?'}
+                  subtitle={es ? 'Los gestores financieros certificados pueden abrir bóvedas que otros usan. Cambiable en Ajustes.' : 'Certified financial managers can open vaults others deposit into. Changeable in Settings.'}
+                >
+                  <div className="space-y-3">
+                    {[
+                      { manager: true, t: es ? 'Sí, soy gestor certificado' : 'Yes, I am a certified manager', d: es ? 'Tu mesa de gestor se añade al menú lateral: bóvedas y certificación' : 'Your manager desk joins the sidebar: vaults and certification' },
+                      { manager: false, t: es ? 'No, gestiono lo mío' : 'No, I manage my own', d: es ? 'Todas las herramientas profesionales, sin la mesa de gestor' : 'Every professional tool, without the manager desk' },
+                    ].map((o) => (
+                      <button
+                        key={o.t}
+                        // Fire-and-forget: el wizard no bloquea en red. Si el
+                        // POST a la cuenta fallara, el flag revierte solo y
+                        // Settings → Perfil profesional es la vía de recuperación.
+                        onClick={() => { void useManagerStore.getState().setManager(o.manager); next(); }}
+                        className="group w-full flex items-center justify-between rounded-xl border border-ink/10 hover:border-volt/40 hover:bg-volt/[0.05] px-4 py-4 text-left transition-colors"
+                      >
+                        <div>
+                          <div className="text-[15px] font-semibold text-ink">{o.t}</div>
+                          <div className="text-xs text-ink/45 mt-0.5">{o.d}</div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-ink/30 group-hover:text-volt transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </Step>
+              )}
+
+              {step === walletStep && (
                 <Step title={es ? 'Conecta tu wallet' : 'Connect your wallet'} subtitle={es ? 'Sin custodia. Tú firmas siempre. Puedes hacerlo más tarde.' : 'Non-custodial. You always sign. You can do this later.'}>
                   <div className="flex flex-col items-center text-center py-2">
                     <div className="w-14 h-14 rounded-2xl bg-volt/[0.1] border border-volt/30 flex items-center justify-center mb-4">

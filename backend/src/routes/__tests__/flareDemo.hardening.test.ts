@@ -84,6 +84,10 @@ jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => {
   const actual = jest.requireActual('../../connectors/protocols/flare/FlareDirectMintService');
   return {
     ...actual,
+    // it. 29 — `seatClaimOf` asks the SignerList before every 0xFE composition;
+    // unmocked that is a LIVE account_info against a public XRPL node. A route
+    // suite must not depend on the network. `{}` = ordinary single-sig account.
+    signingCeremonyFor: jest.fn(async () => ({})),
     buildDirectMintHandoff: jest.fn(async () => {
       throw new Error('DIRECT_MINT_INSUFFICIENT: gross 300000 ≤ fees (mint 100000 + exec 200000)');
     }),

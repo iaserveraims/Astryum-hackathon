@@ -42,6 +42,21 @@ export const STEP_UP_FEATURES: StepUpFeature[] = [
 const NONCE_TTL_MS = 5 * 60 * 1000; // 5 min to use a challenge
 const JWT_SECRET = resolveJwtSecret();
 
+/**
+ * A CHALLENGE IS ONE ATTEMPT, NOT A FIVE-MINUTE WINDOW OF THEM (productizer
+ * it. 22, «Menor»). The nonce used to survive a failed signature, so the same
+ * challenge accepted unlimited guesses until its TTL ran out, and `/challenge`
+ * had no limit at all — so a stolen session could mint challenges in a loop and
+ * grind each one. Two cheap bounds, both in memory, both per process:
+ *   · a failed VERDICT about the signature burns the nonce (see below);
+ *   · a user may ask for at most `MAX_CHALLENGES_PER_WINDOW` challenges per
+ *     window. It is per user (the session's own id), so one account can never
+ *     affect another, and the cap sits far above any honest use — a person
+ *     verifies a handful of times an hour, not twenty times in five minutes.
+ */
+const CHALLENGE_RATE_WINDOW_MS = 5 * 60 * 1000;
+const MAX_CHALLENGES_PER_WINDOW = 20;
+
 interface ChallengeEntry {
   userId: string;
   feature: StepUpFeature;
@@ -50,10 +65,49 @@ interface ChallengeEntry {
   expiresAt: number;
 }
 const challenges = new Map<string, ChallengeEntry>();
+/** userId -> the instants of the challenges it asked for inside the window. */
+const challengeIssues = new Map<string, number[]>();
 
 function purgeExpired(): void {
   const now = Date.now();
   for (const [n, e] of challenges) if (e.expiresAt < now) challenges.delete(n);
+}
+
+/** Drop a nonce so it can never be tried again. Single use means single use. */
+function burn(nonce: string): void {
+  challenges.delete(nonce);
+}
+
+/**
+ * Has this user asked for too many challenges? Counts only what is INSIDE the
+ * window, and prunes as it goes so the map cannot grow without bound.
+ */
+function challengeRateExceeded(userId: string): boolean {
+  const now = Date.now();
+  const recent = (challengeIssues.get(userId) ?? []).filter((t) => now - t < CHALLENGE_RATE_WINDOW_MS);
+  challengeIssues.set(userId, recent);
+  if (challengeIssues.size > 10_000) {
+    for (const [k, v] of challengeIssues) {
+      if (v.every((t) => now - t >= CHALLENGE_RATE_WINDOW_MS)) challengeIssues.delete(k);
+    }
+  }
+  return recent.length >= MAX_CHALLENGES_PER_WINDOW;
+}
+
+function recordChallengeIssued(userId: string): void {
+  const now = Date.now();
+  const recent = (challengeIssues.get(userId) ?? []).filter((t) => now - t < CHALLENGE_RATE_WINDOW_MS);
+  recent.push(now);
+  challengeIssues.set(userId, recent);
+}
+
+/** How long a rate-limited caller waits. Honest, not a guess: the window itself. */
+export const CHALLENGE_RATE_RETRY_AFTER_S = Math.ceil(CHALLENGE_RATE_WINDOW_MS / 1000);
+
+/** Test hook - clears the in-memory challenge state between cases. */
+export function _resetStepUpChallengesForTests(): void {
+  challenges.clear();
+  challengeIssues.clear();
 }
 
 export function buildStepUpMessage(
@@ -94,6 +148,16 @@ export function issueChallenge(
     throw Object.assign(new Error('invalid_address'), { code: 'invalid_address' });
   }
   purgeExpired();
+  // The cap is checked BEFORE a nonce is minted, so a rate-limited caller costs
+  // nothing but the check. It never refuses an exit, and never a signature the
+  // person already made: this is only the door that hands out NEW challenges.
+  if (challengeRateExceeded(userId)) {
+    throw Object.assign(new Error('too_many_challenges'), {
+      code: 'too_many_challenges',
+      retryAfterSeconds: CHALLENGE_RATE_RETRY_AFTER_S,
+    });
+  }
+  recordChallengeIssued(userId);
   const nonce = crypto.randomBytes(16).toString('hex');
   const timestamp = new Date().toISOString();
   const expiresAt = Date.now() + NONCE_TTL_MS;
@@ -126,6 +190,10 @@ export interface GrantResult {
  * Verify the signed challenge and mint a grant JWT.
  * Throws Error with code: nonce_unknown | nonce_expired | nonce_mismatch |
  *   signature_invalid | wallet_not_linked
+ *
+ * The challenge is burned by ANY verdict about the signature (mismatch, bad
+ * recovery, a nonce not echoed in the message) as well as by success - never by
+ * a failure of ours.
  */
 export async function verifyChallengeAndIssueGrant(
   input: VerifyChallengeInput
@@ -143,24 +211,40 @@ export async function verifyChallengeAndIssueGrant(
     entry.action !== input.action ||
     entry.address !== input.address.toLowerCase()
   ) {
+    // A nonce presented for a different (user, feature, action, address) is
+    // spent: it was issued for one thing and offered for another.
+    burn(input.nonce);
     throw Object.assign(new Error('nonce_mismatch'), { code: 'nonce_mismatch' });
   }
 
-  // Recover signer
+  // Recover signer.
+  //
+  // EVERY VERDICT ABOUT THE SIGNATURE BURNS THE NONCE (it. 22, «Menor»). Until
+  // now only SUCCESS burned it, so a single challenge accepted attempt after
+  // attempt for its whole five-minute TTL - which is the one thing a nonce
+  // exists to prevent. Note what does NOT burn: the binding read below, and
+  // anything else that can fail because WE could not answer. A failure of ours
+  // must never cost the person the challenge they already signed.
   let recovered: string;
   try {
     recovered = ethers.verifyMessage(input.message, input.signature);
   } catch {
+    burn(input.nonce);
     throw Object.assign(new Error('signature_invalid'), { code: 'signature_invalid' });
   }
   if (recovered.toLowerCase() !== input.address.toLowerCase()) {
+    burn(input.nonce);
     throw Object.assign(new Error('signature_invalid'), { code: 'signature_invalid' });
   }
   if (!input.message.includes(`Nonce: ${input.nonce}`)) {
+    burn(input.nonce);
     throw Object.assign(new Error('signature_invalid'), { code: 'signature_invalid' });
   }
 
   // Only a wallet the user has actually linked may elevate privileges.
+  // Deliberately NOT burning around this read: it can throw or lag, and that is
+  // ours. A person who links the wallet and comes straight back must still be
+  // able to use the challenge they already signed.
   const binding = await prisma.walletBinding.findFirst({
     where: { userId: input.userId, address: input.address.toLowerCase(), isActive: true },
     select: { id: true },
@@ -170,7 +254,7 @@ export async function verifyChallengeAndIssueGrant(
   }
 
   // Burn the challenge — single use.
-  challenges.delete(input.nonce);
+  burn(input.nonce);
 
   const ttl = Math.min(Math.max(input.ttlSeconds || 300, 60), 1800);
   const grantToken = jwt.sign(

@@ -4,13 +4,18 @@ import type {
   PositionKind,
 } from '../../types/domain/Position';
 import { deduplicateLSTPositions } from '../../control-plane/LSTReceiptMap';
+import type { UnreadableRead } from '../../connectors/protocols/IProtocolAdapter';
 
 export interface PortfolioPositionEntry {
   protocolId: string;
   chainId: number;
   kind: PositionKind;
   asset: string;
-  amount: string; // bigint serialized
+  amount: string; // bigint serialized — BASE units, never a display figure
+  /** La cantidad en unidades humanas, exacta. `null` cuando nadie pudo decir
+   *  cuántos decimales tiene el activo: una cifra inventada es peor que
+   *  ninguna. Es el ÚNICO campo de cantidad que una pantalla puede leer. */
+  qty: string | null;
   amountUSD: number;
   priceUSD: number;
   metrics: PositionMetrics;
@@ -34,6 +39,30 @@ export interface PortfolioSnapshot {
   positions: PortfolioPositionEntry[];
   breakdown: PortfolioBreakdown;
   takenAt: Date;
+  /**
+   * it. 31 — the protocols this sweep could NOT read (adapter threw or timed
+   * out), each with the reason. A snapshot missing a protocol is not «nothing
+   * held there»: it is «we could not look», and the person is owed that
+   * sentence, not only the server log. Absent/empty when every adapter
+   * answered. Travels through /api/portfolio as-is (the route serialises the
+   * whole snapshot); a cached degraded snapshot keeps it too.
+   */
+  unreadable?: PortfolioUnreadableProtocol[];
+}
+
+/** One protocol the sweep could not read — named, with the adapter's own reason. */
+export interface PortfolioUnreadableProtocol {
+  protocolId: string;
+  /** The adapter's error message, trimmed — «FIRELIGHT_QUEUE_UNREADABLE: …», «adapter kinetic timed out…». */
+  reason: string;
+  /**
+   * Ola 0 (15-sep) — `true` when the adapter answered for SOME markets and
+   * not others: its rows ARE in `positions` (a lower bound) and `reads` names
+   * what could not be read. Absent/false = the whole adapter fell (no rows).
+   */
+  partial?: boolean;
+  /** The reads that did not answer, one per market/period, with the node's reason. */
+  reads?: UnreadableRead[];
 }
 
 export interface SnapshotInput {
@@ -53,6 +82,7 @@ export class SnapshotBuilder {
       kind: n.kind,
       asset: n.asset,
       amount: n.amount.toString(),
+      qty: n.qty ?? null,
       amountUSD: n.amountUSD,
       priceUSD: n.priceUSD,
       metrics: metrics[i] ?? {},

@@ -11,7 +11,8 @@
  * (one constant each) to avoid a circular import with LandingPage.
  */
 
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 
 const VOLT = '#C9A227';
 const EASE = [0.16, 1, 0.3, 1] as const;

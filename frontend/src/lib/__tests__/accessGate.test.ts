@@ -20,24 +20,33 @@ describe('gateOpenFlag', () => {
   });
 });
 
-describe('gateMode', () => {
+describe('gateMode — DEFAULT OPEN (2026-08-16: the pre-launch curtain retired)', () => {
   const configured = { code: 'hunter2', secret: 'sshh', nodeEnv: 'production' };
 
-  it('opens on the launch switch regardless of the rest of the config', () => {
+  it('opens by default — unset or affirmative, with or without config', () => {
+    expect(gateMode({ ...configured })).toBe('open');
     expect(gateMode({ open: '1', ...configured })).toBe('open');
     expect(gateMode({ open: 'true', ...configured })).toBe('open');
-  });
-
-  it('enforces the cookie when code + secret are present and the switch is off', () => {
-    expect(gateMode({ ...configured })).toBe('enforced');
-    expect(gateMode({ open: 'false', ...configured })).toBe('enforced');
-  });
-
-  it('fails closed in production without config, open in dev', () => {
-    expect(gateMode({ nodeEnv: 'production' })).toBe('closed');
+    expect(gateMode({ nodeEnv: 'production' })).toBe('open');
     expect(gateMode({ nodeEnv: 'development' })).toBe('open');
+  });
+
+  it('an explicit close spelling + code/secret ⇒ enforced (the cookie gate returns)', () => {
+    for (const off of ['0', 'false', 'no', 'off']) {
+      expect(gateMode({ open: off, ...configured })).toBe('enforced');
+    }
+  });
+
+  it('an explicit close WITHOUT config fails closed in production, open in dev', () => {
+    expect(gateMode({ open: 'false', nodeEnv: 'production' })).toBe('closed');
+    expect(gateMode({ open: 'false', nodeEnv: 'development' })).toBe('open');
     // Half-configured is not configured — a secret without a code cannot verify.
-    expect(gateMode({ secret: 'sshh', nodeEnv: 'production' })).toBe('closed');
+    expect(gateMode({ open: 'false', secret: 'sshh', nodeEnv: 'production' })).toBe('closed');
+  });
+
+  it('a typo is NOT a close — only the four explicit spellings raise the wall', () => {
+    expect(gateMode({ open: 'flase', ...configured })).toBe('open');
+    expect(gateMode({ open: 'closed', ...configured })).toBe('open');
   });
 });
 

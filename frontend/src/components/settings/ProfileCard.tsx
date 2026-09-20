@@ -1,14 +1,15 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Camera, Check, Trash2, User } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Camera, Check, ChevronRight, Trash2, User, Users } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useT } from '../../i18n/LanguageProvider';
 import { Card, GhostButton, PrimaryButton, SectionTitle } from '../ui/primitives';
 
 // Downscale an uploaded image to a small square data-URL so the avatar stays tiny
-// in localStorage (the profile is persisted client-side for the MVP). Cover-crop to
-// 160px, re-encode as JPEG. Nothing is uploaded anywhere — it never leaves the device.
+// (~15KB, well under the server's 150KB cap). Cover-crop to 160px, re-encode as
+// JPEG. It is stored on the account (PATCH /auth/profile) plus a device-local copy.
 async function toAvatarDataUrl(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
   const size = 160;
@@ -34,11 +35,26 @@ export default function ProfileCard() {
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'dev';
   const [name, setName] = useState(user?.username ?? '');
   const [avatar, setAvatar] = useState(user?.avatar ?? '');
+  // Which fields THIS session actually touched. Only touched fields travel in
+  // the PATCH — an untouched '' must never clear the account avatar (the old
+  // save() always sent both fields, so opening Settings on a fresh device
+  // before /auth/me hydrated and hitting Save wiped the photo server-side).
+  const [touched, setTouched] = useState({ name: false, avatar: false });
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [localOnly, setLocalOnly] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const dirty = (name.trim() !== (user?.username ?? '')) || (avatar !== (user?.avatar ?? ''));
+  // /auth/me hydration lands AFTER this card mounts on a fresh device — follow
+  // the account value for any field the user is not editing right now.
+  useEffect(() => {
+    if (!touched.name) setName(user?.username ?? '');
+    if (!touched.avatar) setAvatar(user?.avatar ?? '');
+  }, [user?.username, user?.avatar, touched.name, touched.avatar]);
+
+  const dirty =
+    (touched.name && name.trim() !== (user?.username ?? '')) ||
+    (touched.avatar && avatar !== (user?.avatar ?? ''));
   const initials = (name.trim() || short).slice(0, 2).toUpperCase();
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +64,7 @@ export default function ProfileCard() {
     setBusy(true);
     try {
       setAvatar(await toAvatarDataUrl(file));
+      setTouched((prev) => ({ ...prev, avatar: true }));
     } catch {
       /* ignore unreadable image */
     } finally {
@@ -55,15 +72,21 @@ export default function ProfileCard() {
     }
   };
 
-  const save = () => {
-    updateProfile({ username: name, avatar });
+  const save = async () => {
+    if (!touched.name && !touched.avatar) return;
+    const patch: { username?: string; avatar?: string } = {};
+    if (touched.name) patch.username = name;
+    if (touched.avatar) patch.avatar = avatar;
+    const accountSynced = await updateProfile(patch);
+    setTouched({ name: false, avatar: false });
+    setLocalOnly(!accountSynced);
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
   };
 
   return (
     <Card spotlight className="md:col-span-2">
-      <SectionTitle hint={t('How you appear across Astryum. Stored on this device only.')}>
+      <SectionTitle hint={t('How you appear across Astryum. Saved to your account.')}>
         <span className="inline-flex items-center gap-2">
           <User className="w-4 h-4" strokeWidth={1.5} /> {t('Profile')}
         </span>
@@ -103,7 +126,10 @@ export default function ProfileCard() {
           </div>
           {avatar ? (
             <button
-              onClick={() => setAvatar('')}
+              onClick={() => {
+                setAvatar('');
+                setTouched((prev) => ({ ...prev, avatar: true }));
+              }}
               className="inline-flex items-center gap-1.5 text-xs text-ink/45 hover:text-red-300 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" strokeWidth={1.6} /> {t('Remove')}
@@ -116,7 +142,10 @@ export default function ProfileCard() {
           <label className="block text-xs text-ink/45 mb-1.5">{t('Display name')}</label>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setTouched((prev) => ({ ...prev, name: true }));
+            }}
             maxLength={32}
             placeholder={short}
             className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-sm text-ink placeholder-ink/25 focus:outline-none focus:border-volt/40 transition-colors"
@@ -125,9 +154,28 @@ export default function ProfileCard() {
         </div>
       </div>
 
+      {/* La comunidad de gestores (8-sep): desde el perfil se llega a la
+          comunidad, y desde ella a cualquier otro perfil. No vive en el sidebar. */}
+      <div className="mt-4 border-t border-ink/5 pt-3">
+        <Link href="/app/community" className="inline-flex items-center gap-1.5 text-xs font-medium text-volt hover:underline">
+          <Users className="w-3.5 h-3.5" strokeWidth={1.8} /> {t('Community of managers')} <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
       <div className="flex items-center justify-end gap-2 mt-5">
+        {localOnly ? (
+          <span className="mr-auto text-[11px] text-amber-300/80">
+            {t("Saved on this device — the account copy didn't update.")}
+          </span>
+        ) : null}
         {dirty ? (
-          <GhostButton onClick={() => { setName(user?.username ?? ''); setAvatar(user?.avatar ?? ''); }}>
+          <GhostButton
+            onClick={() => {
+              setName(user?.username ?? '');
+              setAvatar(user?.avatar ?? '');
+              setTouched({ name: false, avatar: false });
+            }}
+          >
             {t('Cancel')}
           </GhostButton>
         ) : null}

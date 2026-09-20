@@ -2,7 +2,8 @@ import { ethers } from 'ethers';
 
 // Per-chain explicit RPC overrides. Flare always has a default.
 const EXPLICIT_RPCS: Record<number, string | undefined> = {
-  14:    process.env.FLARE_RPC_HTTP    || 'https://flare-api.flare.network/ext/C/rpc',
+  // FLARE_RPC_URL is the name actually set in Railway — see config/chainConfigs.ts.
+  14:    process.env.FLARE_RPC_HTTP    || process.env.FLARE_RPC_URL || 'https://flare-api.flare.network/ext/C/rpc',
   1:     process.env.ETHEREUM_RPC_URL,
   137:   process.env.POLYGON_RPC_URL,
   42161: process.env.ARBITRUM_RPC_URL,

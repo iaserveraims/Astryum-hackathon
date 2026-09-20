@@ -46,6 +46,7 @@ import {
   shortAddr,
 } from '../../../components/intents/intentPresentation';
 import { useIntentSigning } from '../../../components/intents/useIntentSigning';
+import { UnconfirmedSignatureNotice } from '../../../components/settlement/UnconfirmedSignatureNotice';
 
 export default function IntentsPage() {
   const { t } = useT();
@@ -119,7 +120,19 @@ export default function IntentsPage() {
 
   // Shared sign path — the ONE place a prepared intent reaches the user's
   // wallet (identical to the sidebar card). Re-loads this page's list on change.
-  const { evm, sign, dismiss, signingId, busyId, actionError, lastSigned, settling } = useIntentSigning(load);
+  const {
+    evm,
+    sign,
+    dismiss,
+    signingId,
+    busyId,
+    actionError,
+    lastSigned,
+    settling,
+    unconfirmed,
+    isBlocked,
+    closeUnconfirmedNotice,
+  } = useIntentSigning(load);
 
   if (error === 'no_session') return <AuthRequired />;
 
@@ -208,6 +221,18 @@ export default function IntentsPage() {
 
       {actionError && <FriendlyError message={actionError} />}
 
+      {unconfirmed && (
+        <UnconfirmedSignatureNotice
+          rail="evm"
+          chainId={unconfirmed.chainId}
+          unconfirmed={unconfirmed}
+          onClose={() => {
+            closeUnconfirmedNotice();
+            void load();
+          }}
+        />
+      )}
+
       <section className="space-y-3">
         <SectionTitle hint="Automations leave prepared intents here when they fire — nothing signs until you do.">
           Waiting for your signature
@@ -217,7 +242,7 @@ export default function IntentsPage() {
           <FriendlyError message={error} />
         ) : (loading || walletsLoading) && intents.length === 0 ? (
           <Card>
-            <div className="text-center text-ink/50 py-8">{t('Loading your intents…')}</div>
+            <EmptyState variant="loading" bare title={t('Loading your intents…')} />
           </Card>
         ) : waiting.length === 0 ? (
           <EmptyState
@@ -232,7 +257,7 @@ export default function IntentsPage() {
                 <WaitingCard
                   intent={intent}
                   signing={signingId === intent.id}
-                  busy={signingId === intent.id || busyId === intent.id}
+                  busy={signingId === intent.id || busyId === intent.id || isBlocked(intent.id)}
                   onSign={sign}
                   onDismiss={dismiss}
                 />

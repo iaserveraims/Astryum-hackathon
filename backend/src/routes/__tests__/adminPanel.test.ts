@@ -49,6 +49,15 @@ jest.mock('../../services/OpsAlertStore', () => ({
   listOpsAlerts: (...a: unknown[]) => mockListOpsAlerts(...a),
 }));
 
+// /orphan-suborgs reads the durable Turnkey orphan ledger through a dynamic
+// import — stub it so the route test never needs a DB (it. 23, task 4).
+const mockListOrphanSubOrgsStrict = jest.fn();
+jest.mock('../../services/identity/orphanSubOrgLedger', () => ({
+  listOrphanSubOrgsStrict: (...a: unknown[]) => mockListOrphanSubOrgsStrict(...a),
+  ORPHAN_SUBORG_JOB_TYPE: 'turnkey-orphan-suborg',
+  ORPHAN_SUBORG_RUNBOOK: 'Reconcile it in the Turnkey dashboard; jobType turnkey-orphan-suborg.',
+}));
+
 // The router imports requireSiweAuth for its session-less mount; stub it so
 // the test never touches the real JWT/session stack. Mirrors the real
 // middleware's contract: no valid bearer → 401, request handled.
@@ -91,7 +100,11 @@ function buildApp(withSession = true) {
 // One real signup per source, plus noise that must never pollute counts/bySource:
 // a@example.com (reserved RFC 2606) and spam@mailinator.com (disposable).
 function mockHealthyCounts() {
-  mockUserCount.mockResolvedValue(3);
+  // Two user.count calls now: real accounts, then the quarantine rows a takeover
+  // leaves behind (productizer it. 16, 4.2 — they are evidence, not users).
+  mockUserCount.mockImplementation(async (args: any) =>
+    args?.where?.authProvider === 'quarantine' ? 1 : 3,
+  );
   mockWalletCount.mockResolvedValue(5);
   mockGovernedAccountCount.mockResolvedValue(1);
   mockCouncilProposalCount.mockResolvedValue(2);
@@ -126,6 +139,7 @@ beforeEach(() => {
   mockCouncilProposalCount.mockReset();
   mockWaitlistFindMany.mockReset();
   mockListOpsAlerts.mockReset();
+  mockListOrphanSubOrgsStrict.mockReset();
   mockRequireSiweAuth.mockClear();
   _resetKeyFailuresForTests();
   // Each test opens exactly the doors it needs.
@@ -197,9 +211,31 @@ describe('GET /api/admin-panel/overview — gate', () => {
     expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
+  // productizer-it6 — plain registration stores any email unverified, so an
+  // allowlisted address with no User row could be registered by a squatter.
+  // This was a 200 on the code before this round.
+  test('siwe door: allowlisted email WITHOUT verified provenance → 403, nothing read', async () => {
+    process.env.ADMIN_EMAILS = ADMIN_EMAIL;
+    mockHealthyCounts();
+    for (const row of [{ email: ADMIN_EMAIL, emailVerified: false }, { email: ADMIN_EMAIL }]) {
+      mockUserFindUnique.mockResolvedValue(row);
+      const res = await request(buildApp()).get('/api/admin-panel/overview');
+      expect(res.status).toBe(403);
+      // Same refusal as a stranger: no hint that the address is on the list.
+      expect(res.body).toEqual({ error: 'NOT_AN_ADMIN' });
+    }
+    expect(mockUserFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ select: { email: true, emailVerified: true } }),
+    );
+    expect(mockUserCount).not.toHaveBeenCalled();
+    expect(mockUserFindMany).not.toHaveBeenCalled();
+    expect(mockWaitlistFindMany).not.toHaveBeenCalled();
+  });
+
   test('siwe door: listed admin (case-insensitive, whitespace-tolerant) → 200 with counts, never passwordHash', async () => {
     process.env.ADMIN_EMAILS = ` Other@Founder.xyz , ${ADMIN_EMAIL.toUpperCase()} `;
-    mockUserFindUnique.mockResolvedValue({ email: ADMIN_EMAIL });
+    // Verified by an OAuth provider — the only path that sets the flag.
+    mockUserFindUnique.mockResolvedValue({ email: ADMIN_EMAIL, emailVerified: true });
     mockHealthyCounts();
 
     const res = await request(buildApp()).get('/api/admin-panel/overview');
@@ -209,6 +245,7 @@ describe('GET /api/admin-panel/overview — gate', () => {
     // source, exactly 1 of them with a beta-gate seat.
     expect(res.body.counts).toEqual({
       users: 3,
+      quarantinedUsers: 1,
       wallets: 5,
       governedAccounts: 1,
       councilProposals: 2,
@@ -239,6 +276,33 @@ describe('GET /api/admin-panel/overview — gate', () => {
       oauthSub: true,
     });
     expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|resetToken/i);
+  });
+
+  /**
+   * productizer it. 16 (4.2) — a takeover does not delete the previous holder's
+   * row, it moves the residue to a `quarantine` account nobody can sign into.
+   * Those rows were counted as users, and the freshest one (created at the
+   * instant of the handover) always sat at the top of "recent users". The Make
+   * Waves submission leans on this figure.
+   */
+  test('quarantine rows are excluded from the count, the recent list and the provider split', async () => {
+    process.env.ADMIN_PANEL_KEY = PANEL_KEY;
+    mockHealthyCounts();
+
+    const res = await request(buildApp(false))
+      .get('/api/admin-panel/overview')
+      .set('x-admin-key', PANEL_KEY);
+
+    expect(res.status).toBe(200);
+    const notQuarantine = { authProvider: { not: 'quarantine' } };
+    // The headline count and the two list queries all carry the filter.
+    expect(mockUserCount).toHaveBeenCalledWith({ where: notQuarantine });
+    expect(mockUserFindMany.mock.calls[0][0].where).toEqual(notQuarantine);
+    expect(mockUserGroupBy.mock.calls[0][0].where).toEqual(notQuarantine);
+    // And the quarantine total is reported, never folded into `users`.
+    expect(mockUserCount).toHaveBeenCalledWith({ where: { authProvider: 'quarantine' } });
+    expect(res.body.counts.users).toBe(3);
+    expect(res.body.counts.quarantinedUsers).toBe(1);
   });
 
   test('waitlist noise is hidden by default and never counted in waitlistBySource', async () => {
@@ -311,6 +375,81 @@ describe('GET /api/admin-panel/alerts — the ops-alert inbox', () => {
       .set('x-admin-key', 'not-the-key');
     expect(res.status).toBe(401);
     expect(mockListOpsAlerts).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * productizer it. 23, task 4 — THE DURABLE ORPHAN ROW FINALLY HAS A READER.
+ *
+ * `recordOrphanSubOrg` has written a row for every Turnkey sub-org with no
+ * wallet row behind it since it. 21, and it. 21 shipped a runbook for
+ * reconciling them — but `listOrphanSubOrgs` had no caller, so the ledger was
+ * write-only and the runbook could not actually be followed.
+ */
+describe('GET /api/admin-panel/orphan-suborgs — the Turnkey orphan ledger', () => {
+  const ORPHAN = {
+    subOrgId: 'suborg-abc',
+    userId: 'user-1',
+    address: '0xEabCD745000000000000000000000000000000cd',
+    reason: 'account-busy',
+    errorName: 'PrismaClientKnownRequestError',
+    errorMessage: 'deadlock detected',
+    at: '2026-09-15T10:00:00.000Z',
+    reconciled: false,
+  };
+
+  test('unconfigured panel → 404, the ledger is never read', async () => {
+    const res = await request(buildApp()).get('/api/admin-panel/orphan-suborgs');
+    expect(res.status).toBe(404);
+    expect(mockListOrphanSubOrgsStrict).not.toHaveBeenCalled();
+  });
+
+  test('wrong admin key → 401, the ledger is never touched', async () => {
+    process.env.ADMIN_PANEL_KEY = PANEL_KEY;
+    const res = await request(buildApp(false))
+      .get('/api/admin-panel/orphan-suborgs')
+      .set('x-admin-key', 'not-the-key');
+    expect(res.status).toBe(401);
+    expect(mockListOrphanSubOrgsStrict).not.toHaveBeenCalled();
+  });
+
+  test('static-key door → 200 with the records, the unreconciled count and the runbook', async () => {
+    process.env.ADMIN_PANEL_KEY = PANEL_KEY;
+    mockListOrphanSubOrgsStrict.mockResolvedValue([ORPHAN, { ...ORPHAN, subOrgId: 'suborg-old', reconciled: true }]);
+
+    const res = await request(buildApp(false))
+      .get('/api/admin-panel/orphan-suborgs')
+      .set('x-admin-key', PANEL_KEY);
+
+    expect(res.status).toBe(200);
+    expect(res.body.readable).toBe(true);
+    expect(res.body.orphans).toHaveLength(2);
+    expect(res.body.unreconciled).toBe(1);
+    expect(res.body.jobType).toBe('turnkey-orphan-suborg');
+    expect(res.body.runbook).toMatch(/turnkey-orphan-suborg/);
+    expect(mockListOrphanSubOrgsStrict.mock.calls[0][0]).toBeLessThanOrEqual(500);
+  });
+
+  /**
+   * «There are no orphan sub-orgs» and «I could not read the ledger» are
+   * opposite answers. An empty table that means the second is a failed read
+   * presented as a fact — the thing this whole iteration is about.
+   */
+  test('a ledger that cannot be read is 503 «unknown», never an empty list', async () => {
+    process.env.ADMIN_PANEL_KEY = PANEL_KEY;
+    mockListOrphanSubOrgsStrict.mockRejectedValue(new Error('pool exhausted'));
+
+    const res = await request(buildApp(false))
+      .get('/api/admin-panel/orphan-suborgs')
+      .set('x-admin-key', PANEL_KEY);
+
+    expect(res.status).toBe(503);
+    expect(res.body.readable).toBe(false);
+    expect(res.body.error).toBe('ORPHAN_LEDGER_UNREADABLE');
+    expect(res.body.retryable).toBe(true);
+    expect(res.body.orphans).toBeUndefined();
+    expect(res.body.detail).toMatch(/does NOT mean "none"/);
+    expect(res.headers['retry-after']).toBe('5');
   });
 });
 

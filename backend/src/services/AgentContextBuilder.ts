@@ -32,7 +32,7 @@ export class AgentContextBuilder {
 
   async build(userId: string, conversationId: string): Promise<AgentContext> {
     const [history, documents, mcpConnections, rules, keyRes] = await Promise.all([
-      this.getHistory(conversationId, 20),
+      this.getHistory(userId, conversationId, 20),
       this.getDocuments(userId),
       this.getMCPServers(userId),
       this.getRules(userId),
@@ -52,9 +52,14 @@ export class AgentContextBuilder {
     };
   }
 
-  private async getHistory(conversationId: string, limit: number): Promise<ConversationMessage[]> {
+  /**
+   * The conversation must be THIS user's: the id arrives from the request body,
+   * and an unscoped read would paste a stranger's chat history into the caller's
+   * prompt (and from there into Anthropic). Same rule as the alerts below.
+   */
+  private async getHistory(userId: string, conversationId: string, limit: number): Promise<ConversationMessage[]> {
     const msgs = await prisma.agentMessage.findMany({
-      where: { conversationId },
+      where: { conversationId, conversation: { userId } },
       orderBy: { createdAt: 'asc' },
       take: limit,
       select: { role: true, content: true },
@@ -110,7 +115,10 @@ export class AgentContextBuilder {
 
       // Get latest positions from Capital Map
       const positions = await prisma.position.findMany({
-        where: { wallet: { address: { in: bindings.map((b) => b.address) } } },
+        // Scoped by owner too: a `wallets` row for the same address can belong
+        // to another account (or to a takeover quarantine account), and its
+        // positions are not this user's to summarise.
+        where: { wallet: { userId, address: { in: bindings.map((b) => b.address) } } },
         orderBy: { updatedAt: 'desc' },
         take: 30,
         select: {
@@ -121,9 +129,11 @@ export class AgentContextBuilder {
         },
       });
 
-      // Get active alerts
+      // Get active alerts — THIS user's only. Unscoped (productizer it. 14,
+      // 4.5) this read put other people's alert messages into the caller's
+      // prompt and sent them to Anthropic. `Alert` has `userId`; use it.
       const alerts = await prisma.alert.findMany({
-        where: { acknowledged: false },
+        where: { userId, acknowledged: false },
         orderBy: { timestamp: 'desc' },
         take: 5,
         select: { message: true, priority: true, timestamp: true },

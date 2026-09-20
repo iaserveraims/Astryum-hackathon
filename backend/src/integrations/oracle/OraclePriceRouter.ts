@@ -22,7 +22,11 @@ function getFtso(): FTSOClient {
   if (!ftsoShared) {
     ftsoShared = new FTSOClient({
       network: 'flare',
-      rpcUrl: process.env.FLARE_RPC_HTTP || 'https://flare-api.flare.network/ext/C/rpc',
+      // FLARE_RPC_URL is the name actually set in Railway — see config/chainConfigs.ts.
+      rpcUrl:
+        process.env.FLARE_RPC_HTTP ||
+        process.env.FLARE_RPC_URL ||
+        'https://flare-api.flare.network/ext/C/rpc',
       cacheTTL: 30,
       maxPriceAge: 180,
     });

@@ -10,6 +10,8 @@ import {
 } from '../../lib/portfolioMerge';
 import { useMyWallets } from '../../hooks/useMyWallets';
 import { useAggregatedPortfolio } from '../../hooks/useAggregatedPortfolio';
+import { unreadableOf } from '../../lib/portfolioUnreadable';
+import { PortfolioUnreadableNotice } from '../dashboard/PortfolioUnreadableNotice';
 import {
   Card,
   EmptyState,
@@ -25,6 +27,7 @@ import { RevealGroup, RevealItem, CountUp } from '../ui/motion';
 import { useBalanceVisibility } from '../../stores/balanceVisibilityStore';
 import { useT } from '../../i18n/LanguageProvider';
 import { formatMoney, formatMoneyCompact } from '../../lib/formatMoney';
+import { walletNameResolver } from '../../lib/walletIdentity';
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum',
@@ -124,13 +127,9 @@ export default function CapitalMapPanel({
   // Nickname per wallet address — a position row must read "Apodo", never the
   // raw address, matching every other dashboard surface. EVM addresses compare
   // case-insensitively; XRPL/Solana are case-sensitive and compared verbatim.
-  const walletLabel = useMemo(() => {
-    // (`Map` here is the lucide icon — plain object instead of the global)
-    const key = (a: string) => (/^0x[a-fA-F0-9]{40}$/.test(a) ? a.toLowerCase() : a);
-    const labels: Record<string, string> = {};
-    for (const w of wallets) if (w.label) labels[key(w.address)] = w.label;
-    return (a: string) => labels[key(a)] ?? `${a.slice(0, 8)}…`;
-  }, [wallets]);
+  // LA regla canónica (2026-08-22): el resolver numerado — nunca la dirección
+  // como nombre de una fila propia; una ajena queda en corto.
+  const walletLabel = useMemo(() => walletNameResolver(wallets), [wallets]);
 
   // ── Guards ──────────────────────────────────────────────────────────────────
   if (!embedded) {
@@ -184,7 +183,7 @@ export default function CapitalMapPanel({
       )}
 
       {(loading || (selfLoading && walletsLoading)) && !view && (
-        <div className="text-center py-16 text-white/40 text-sm">{t('Loading capital map…')}</div>
+        <EmptyState variant="loading" bare title={t('Loading capital map…')} />
       )}
 
       {view && (
@@ -365,7 +364,13 @@ export default function CapitalMapPanel({
             </div>
           )}
 
-          {view.totalPositions === 0 && (
+          {/* Ola 0 (15-sep) — «No positions detected» only when every adapter
+              answered; an unread sweep says so (the embedding page paints the
+              notice itself; self-loading paints it here). */}
+          {selfLoading && unreadableOf(snap).length > 0 && (
+            <PortfolioUnreadableNotice snap={snap} onRetry={reload} className="mb-4" />
+          )}
+          {view.totalPositions === 0 && unreadableOf(snap).length === 0 && (
             <EmptyState
               icon={<Map className="w-8 h-8" strokeWidth={1.5} />}
               title="No positions detected"

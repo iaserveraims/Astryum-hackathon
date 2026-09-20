@@ -38,6 +38,36 @@ import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
 import { xrplLegacy, type CageDisclosureState, type LegacyVaultFundQuote } from '../../services/v1Api';
 
+/**
+ * WHAT A REFUSED ACKNOWLEDGEMENT SAYS (productizer it. 17, R5 5.6).
+ *
+ * `/cage-disclosure/ack` can answer with a machine code, and the modal printed
+ * whatever arrived — `session_revoked` in raw, a Spanish `detail`, or a bare
+ * `http_500`. The one that matters is `session_revoked`: the account was taken
+ * over (or this session predates that), so this acknowledgement was NOT
+ * recorded. Saying that is the whole job — the person must not be told it
+ * worked, and must not be thrown out of the page either (`v1Api` no longer
+ * logs anyone out for it).
+ *
+ * The body is plain JS on purpose: the decision is executed by its test
+ * (`extractFromSource`), not read off the source.
+ */
+/** What a refused `v1Api` call carries: its status, the server's body, its message. */
+type RefusedCall = { status?: unknown; body?: { error?: unknown }; message?: unknown } | null | undefined;
+function ackRefusalSentence(e: RefusedCall, t: (s: string) => string): string {
+  const status = e?.status;
+  const code = String(e?.body?.error ?? e?.message ?? '').trim();
+  if (code === 'session_revoked') {
+    return t(
+      'This acknowledgement was not recorded: the session that sent it is no longer the one in control of this account. Sign in again and confirm it once more — nothing was signed and nothing moved.',
+    );
+  }
+  if (status === 401 || code === 'unauthorized' || code === 'session_expired') {
+    return t('Your session expired before this could be recorded — sign in again and confirm it once more.');
+  }
+  return t('This acknowledgement could not be recorded right now. Nothing was signed and nothing moved — try again in a moment.');
+}
+
 /** Icons per section id — the document's order is the server's, not ours. */
 const SECTION_ICON: Record<string, typeof Lock> = {
   why: Lock,
@@ -80,11 +110,21 @@ export default function CageDisclosureModal({
         if (alive) setState(s);
       })
       .catch((e) => {
-        if (alive) setError((e as Error).message);
+        // Nunca el código crudo: el documento no se pudo leer, y eso se dice.
+        if (alive) {
+          setError(
+            String((e as { body?: { error?: unknown } })?.body?.error ?? '') === 'session_revoked'
+              ? ackRefusalSentence(e as RefusedCall, t)
+              : t('This document could not be loaded right now. Nothing was signed — try again in a moment.'),
+          );
+        }
       });
     return () => {
       alive = false;
     };
+    // Once per mount: `t` is deliberately NOT a dependency — a language
+    // provider that re-creates it would turn this read into a fetch loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Live numbers, best-effort: a cage that does not exist yet has no quote, and
@@ -136,12 +176,11 @@ export default function CageDisclosureModal({
       onAccepted?.();
       onClose();
     } catch (e) {
-      const body = (e as { body?: { detail?: string } })?.body;
-      setError(body?.detail || (e as Error).message);
+      setError(ackRefusalSentence(e as RefusedCall, t));
     } finally {
       setSaving(false);
     }
-  }, [account, doc, onAccepted, onClose]);
+  }, [account, doc, onAccepted, onClose, t]);
 
   const capXrp = state?.betaCapXrp ?? null;
 

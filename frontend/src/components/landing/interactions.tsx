@@ -15,18 +15,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import {
-  animate,
-  motion,
-  motionValue,
-  useInView,
-  useMotionValue,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  useTransform,
-  type MotionValue,
-} from 'framer-motion';
+import { animate, motion, motionValue, useInView, useMotionValue, useScroll, useSpring, useTransform, type MotionValue } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 
 // The accent now RIDES --volt (the dashboard's token family): flipping
 // data-authority='governed' on the landing root re-tints every consumer —

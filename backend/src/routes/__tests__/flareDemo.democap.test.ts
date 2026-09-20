@@ -83,20 +83,32 @@ describe('flare-demo router — demo cap is WIRED (middleware)', () => {
     process.env.DEMO_MAX_XRP_PER_TX = '1';
     process.env.DEMO_CAP_EXEMPT_EMAILS = 'founder@astryum.xyz';
     process.env.DATABASE_URL = 'postgres://mocked';
-    mockUserFindUnique.mockResolvedValue({ email: 'Founder@Astryum.xyz' });
+    mockUserFindUnique.mockResolvedValue({ email: 'Founder@Astryum.xyz', emailVerified: true });
     const res = await request(authedApp)
       .post('/api/flare-demo/e1/prepare')
       .send({ xrplAddress: XRPL, amountXrp: 5 }); // address NOT on any list — the account exempts
     expect(res.body.error).not.toBe('DEMO_TX_CAP_EXCEEDED');
-    expect(mockUserFindUnique).toHaveBeenCalledWith({ where: { id: 'user-1' }, select: { email: true } });
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      select: { email: true, emailVerified: true },
+    });
 
     // The same over-cap body from an account NOT on the list is still rejected.
-    mockUserFindUnique.mockResolvedValue({ email: 'judge@example.com' });
+    mockUserFindUnique.mockResolvedValue({ email: 'judge@example.com', emailVerified: true });
     const capped = await request(authedApp)
       .post('/api/flare-demo/e1/prepare')
       .send({ xrplAddress: XRPL, amountXrp: 5 });
     expect(capped.status).toBe(400);
     expect(capped.body.error).toBe('DEMO_TX_CAP_EXCEEDED');
+
+    // …and so is the listed address registered with a password, never verified
+    // (productizer it. 8): typing a founder's email is not being the founder.
+    mockUserFindUnique.mockResolvedValue({ email: 'founder@astryum.xyz', emailVerified: false });
+    const squatter = await request(authedApp)
+      .post('/api/flare-demo/e1/prepare')
+      .send({ xrplAddress: XRPL, amountXrp: 5 });
+    expect(squatter.status).toBe(400);
+    expect(squatter.body.error).toBe('DEMO_TX_CAP_EXCEEDED');
   });
 
   it('is moot when the demo is off — the flag/geofence 503 keeps precedence', async () => {
@@ -131,7 +143,7 @@ describe('flare-demo router — demo cap is WIRED (middleware)', () => {
   it('GET /cap-status marks an exempt ACCOUNT (req.siwe wired)', async () => {
     process.env.DEMO_CAP_EXEMPT_EMAILS = 'founder@astryum.xyz';
     process.env.DATABASE_URL = 'postgres://mocked';
-    mockUserFindUnique.mockResolvedValue({ email: 'founder@astryum.xyz' });
+    mockUserFindUnique.mockResolvedValue({ email: 'founder@astryum.xyz', emailVerified: true });
     const res = await request(authedApp).get(`/api/flare-demo/cap-status?address=${XRPL}`);
     expect(res.status).toBe(200);
     expect(res.body.exempt).toBe(true);

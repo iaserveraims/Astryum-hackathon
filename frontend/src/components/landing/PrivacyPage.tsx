@@ -16,11 +16,30 @@
  * address exists). The page is served with robots noindex (see app/privacy/
  * page.tsx): visible to anyone who visits — the legal requirement — without
  * feeding the holder's name to search engines.
+ *
+ * ── UN SOLO TEXTO, DOS SITIOS (2026-09-13) ──────────────────────────────────
+ * El cuerpo se exporta (`PrivacyNoticeBody`) y la ceremonia de firma del alta
+ * (components/legal) monta ESTE componente en `plain`. El aviso no se copia:
+ * dos copias divergen, y la lectura quedaría registrada contra un texto que el
+ * usuario no vio. `plain` quita los márgenes de página y apaga los revelados
+ * por scroll (Reveal mira el viewport; dentro de una caja con scroll propio
+ * las secciones se quedarían invisibles).
  */
 
+import { createContext, useContext, type ReactNode } from 'react';
 import SubpageShell from './SubpageShell';
 import { BORDER, Reveal } from './interactions';
 import { T, type Lang } from './useLang';
+
+/** El aviso se pinta dentro de una caja, no en su página. */
+const PlainDoc = createContext(false);
+
+/** Reveal en la página; un div quieto dentro de la caja. */
+function Block({ children, className }: { children: ReactNode; className?: string }) {
+  const plain = useContext(PlainDoc);
+  if (plain) return <div className={className}>{children}</div>;
+  return <Reveal className={className}>{children}</Reveal>;
+}
 
 const CARD: React.CSSProperties = { border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.02)' };
 const GOLD_SOFT = '#E8C25A';
@@ -35,7 +54,7 @@ const CONTACT = 'astryum@astryum.xyz';
 /** Section shell: numbered title + prose children. */
 function Sec({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
-    <Reveal>
+    <Block>
       <section className="mt-10">
         <h2 className="text-[17px] font-bold text-white" style={{ letterSpacing: '-0.01em' }}>
           <span className="font-mono text-[13px] mr-2" style={{ color: GOLD_SOFT }}>
@@ -45,7 +64,7 @@ function Sec({ n, title, children }: { n: string; title: string; children: React
         </h2>
         <div className="mt-3 space-y-3 text-[13.5px] leading-relaxed text-white/60">{children}</div>
       </section>
-    </Reveal>
+    </Block>
   );
 }
 
@@ -66,14 +85,16 @@ function Table({ rows }: { rows: Array<[string, React.ReactNode]> }) {
   );
 }
 
-export default function PrivacyPage() {
+/**
+ * El aviso entero. `plain` = dentro de la ceremonia de firma del alta.
+ */
+export function PrivacyNoticeBody({ lang, plain = false }: { lang: Lang; plain?: boolean }) {
   return (
-    <SubpageShell>
-      {(lang: Lang) => (
-        <div className="px-6 pt-36 pb-24">
-          <div className="mx-auto max-w-3xl">
+    <PlainDoc.Provider value={plain}>
+      <div className={plain ? '' : 'px-6 pt-36 pb-24'}>
+        <div className="mx-auto max-w-3xl">
             {/* hero */}
-            <Reveal>
+            <Block>
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/40">
                 {T('Documentación pública · Demo', 'Public documentation · Demo', lang)}
               </p>
@@ -92,12 +113,12 @@ export default function PrivacyPage() {
               </p>
               <p className="mt-2 font-mono text-[11px] text-white/35">
                 {T(
-                  'Última actualización: 11 de agosto de 2026 · Versión 2026-08-11',
-                  'Last updated: 11 August 2026 · Version 2026-08-11',
+                  'Última actualización: 13 de septiembre de 2026 · Versión 2026-09-13',
+                  'Last updated: 13 September 2026 · Version 2026-09-13',
                   lang,
                 )}
               </p>
-            </Reveal>
+            </Block>
 
             {/* 0 */}
             <Sec n="0" title={T('Dónde estás: una demo pública acotada', 'Where you are: a bounded public demo', lang)}>
@@ -273,7 +294,14 @@ export default function PrivacyPage() {
                   ['Cloudflare', T('Solo al validar el captcha de los formularios: tu IP y el token del reto (EE. UU.).', 'Only when validating the form captcha: your IP and the challenge token (USA).', lang)],
                   [T('Correo (Resend o Zoho)', 'Email (Resend or Zoho)', lang), T('Tu email y el contenido del correo de la lista de espera, según el transporte activo.', 'Your email and the waitlist message content, depending on the active transport.', lang)],
                   ['Google / Apple', T('Solo si eliges entrar con OAuth: nos devuelven tu email verificado.', 'Only if you choose OAuth sign-in: they return your verified email.', lang)],
-                  ['Xaman (XRPL Labs)', T('Al firmar con Xaman: el payload de firma, a través de nuestro servidor; la app en tu móvil te lo muestra a ti.', 'When signing with Xaman: the signing payload, via our server; the app on your phone shows it to you.', lang)],
+                  [
+                    'Xaman (XRPL Labs)',
+                    T(
+                      'Al firmar con Xaman: el payload de firma, a través de nuestro servidor; la app en tu móvil te lo muestra a ti. Y al pintar tus wallets de Xaman: la imagen pública de cada cuenta (su avatar), pedida por nuestro servidor — Xaman ve la dirección y nuestra IP, no la tuya; tu navegador solo habla con nuestro dominio.',
+                      'When signing with Xaman: the signing payload, via our server; the app on your phone shows it to you. And when painting your Xaman wallets: each account’s public image (its avatar), fetched by our server — Xaman sees the address and our IP, not yours; your browser only talks to our domain.',
+                      lang,
+                    ),
+                  ],
                 ]}
               />
               <p className="font-semibold text-white/70">
@@ -401,7 +429,7 @@ export default function PrivacyPage() {
                 <li>{T('Cero documentos de identidad: no almacenamos DNI, pasaportes ni selfies.', 'Zero identity documents: we store no IDs, passports or selfies.', lang)}</li>
                 <li>{T('La lista de espera no es legible desde fuera, y reenviar un email no revela si ya estaba apuntado.', 'The waitlist is not readable from outside, and resubmitting an email does not reveal whether it was already on it.', lang)}</li>
                 <li>{T('El contexto de IA está minimizado por diseño: nunca incluye claves, tokens ni credenciales.', 'The AI context is minimised by design: it never includes keys, tokens or credentials.', lang)}</li>
-                <li>{T('Tu avatar no genera peticiones a terceros: es una imagen local, nunca una URL remota.', 'Your avatar triggers no third-party requests: a local image, never a remote URL.', lang)}</li>
+                <li>{T('Tu avatar de perfil no genera peticiones a terceros: es una imagen local, nunca una URL remota. La imagen de tus wallets de Xaman la pide nuestro servidor, no tu navegador (sección 4).', 'Your profile avatar triggers no third-party requests: a local image, never a remote URL. The image of your Xaman wallets is fetched by our server, not your browser (section 4).', lang)}</li>
                 <li>{T('Dos cookies, las dos técnicas: la de la puerta de acceso (httpOnly, firmada, sin identificador de usuario, 7 días) y la que recuerda el estado de conexión de tu wallet EVM, que sí es legible por tu navegador y contiene la dirección conectada, para que al recargar sigas conectado. Sin cookies de rastreo ni de publicidad — por eso no verás un banner: las dos son necesarias para lo que pides, y para eso no se pide consentimiento.', 'Two cookies, both technical: the access-gate one (httpOnly, signed, no user identifier, 7 days) and the one remembering your EVM wallet connection state, which your browser can read and which holds the connected address, so a reload keeps you connected. No tracking or advertising cookies — that is why you see no banner: both are necessary for what you asked for, and that needs no consent.', lang)}</li>
               </ul>
             </Sec>
@@ -423,9 +451,12 @@ export default function PrivacyPage() {
                 )}
               </p>
             </Sec>
-          </div>
         </div>
-      )}
-    </SubpageShell>
+      </div>
+    </PlainDoc.Provider>
   );
+}
+
+export default function PrivacyPage() {
+  return <SubpageShell>{(lang: Lang) => <PrivacyNoticeBody lang={lang} />}</SubpageShell>;
 }

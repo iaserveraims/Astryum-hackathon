@@ -1,0 +1,11 @@
+# Astryum — XRPL account bindings (xrpl.org domain-verification spec).
+#
+# The two-way link: an account declares this domain in its Domain field, and
+# this file declares the account back. Only when BOTH directions match does the
+# binding count — it is one of the notary's reproducible checks (AIFM demo).
+#
+# Served from astryum.xyz once this branch reaches main (Vercel /public).
+
+[[ACCOUNTS]]
+address = "rDcohNUmBApE8bSPP695GkUsSMfBeM5Czj"
+desc = "Astryum demo manager account (AIFM domain-binding demo)"

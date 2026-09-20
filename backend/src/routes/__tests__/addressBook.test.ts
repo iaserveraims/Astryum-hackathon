@@ -21,7 +21,19 @@ interface Row {
 const rows: Row[] = [];
 let seq = 0;
 
-const prismaFake = {
+// The session the write re-checks inside its transaction (identity/liveSession).
+const session = { id: 's1', userId: 'u1', isActive: true, createdAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000) };
+const account = { id: 'u1', isActive: true, preferences: null as unknown };
+
+const prismaFake: any = {
+  $transaction: async (fn: any) => fn(prismaFake),
+  user: {
+    updateMany: async ({ where }: any) => ({ count: where.id === account.id ? 1 : 0 }),
+    findUnique: async ({ where }: any) => (where.id === account.id ? { ...account } : null),
+  },
+  session: {
+    findUnique: async ({ where }: any) => (where.id === session.id ? { ...session } : null),
+  },
   addressBookEntry: {
     findMany: async ({ where }: any) =>
       rows
@@ -78,6 +90,36 @@ const XRPL_ADDR = 'rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh';
 beforeEach(() => {
   rows.length = 0;
   seq = 0;
+  session.isActive = true;
+  session.createdAt = new Date();
+  account.isActive = true;
+  account.preferences = null;
+});
+
+describe('POST /api/address-book — the session is re-checked inside the write', () => {
+  it('a session revoked mid-request (account takeover) → 401, no contact saved', async () => {
+    session.isActive = false;
+    const res = await request(app).post('/api/address-book').send({ label: 'x', address: XRPL_ADDR });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('session_revoked');
+    expect(rows).toHaveLength(0);
+  });
+
+  it('a session born BEFORE the credential epoch (it escaped the sweep) → 401', async () => {
+    const epoch = new Date();
+    account.preferences = { security: { credentialsEpoch: epoch.toISOString(), takeoverAt: epoch.toISOString() } };
+    session.createdAt = new Date(epoch.getTime() - 60_000);
+    const res = await request(app).post('/api/address-book').send({ label: 'x', address: XRPL_ADDR });
+    expect(res.status).toBe(401);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('a disabled account (the takeover quarantine row) → 401', async () => {
+    account.isActive = false;
+    const res = await request(app).post('/api/address-book').send({ label: 'x', address: XRPL_ADDR });
+    expect(res.status).toBe(401);
+    expect(rows).toHaveLength(0);
+  });
 });
 
 describe('POST /api/address-book', () => {

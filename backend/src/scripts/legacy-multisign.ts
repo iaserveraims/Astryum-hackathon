@@ -39,6 +39,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 import fs from 'fs';
 import { multisign } from 'xrpl';
 import { verifySignerBlob, BlobVerificationError } from '../connectors/protocols/xrpl/XrplBlobVerifier';
+import { withSourceTag } from '../config/xrplSourceTag';
 
 const XRPL_RPC = process.env.XRPL_RPC_URL || 'https://xrplcluster.com';
 const XAMAN_API = 'https://xumm.app/api/v1/platform/payload';
@@ -161,7 +162,11 @@ async function main(): Promise<void> {
   const input = JSON.parse(raw) as Record<string, unknown>;
   // The Legacy panel copies { xrplTx, disclosure } for some flows and the bare
   // txjson for others — accept either shape rather than making the user dig.
-  const tx = ((input.xrplTx ?? input.txjson ?? input) as Record<string, unknown>);
+  // The council's quorum signs it — people, not an Astryum key — so it carries
+  // the project SourceTag. Stamped here, BEFORE the bytes are fixed: a txjson
+  // pasted from a flow that forgot the tag used to leave untagged (23-ago,
+  // SignerListSet of the council) with only a warning printed below.
+  const tx = withSourceTag((input.xrplTx ?? input.txjson ?? input) as Record<string, unknown>);
   const account = tx.Account as string;
   if (!account) throw new Error('The txjson has no Account field');
 

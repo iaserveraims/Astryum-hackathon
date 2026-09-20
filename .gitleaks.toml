@@ -23,6 +23,15 @@ regexes = [
   '''^totalPnLPercentage(24h|7d|30d)$''',
   # Deterministic test fixture (PartnerAndTax.test.ts) — clearly labelled mock.
   '''^test_secret_key_32chars_padding00$''',
+  # safeError.test.ts — the fake Alchemy key the masking test embeds in an
+  # ethers-style message, to prove it never reaches a 500 body.
+  '''^aBcD1234efGh5678ijKl$''',
+  # usePasskeyActions.ts — a localStorage key name, not a credential.
+  '''^astryum\.passkey\.v1$''',
+  # XRPL classic addresses are public identifiers (issuers, councils, demo
+  # accounts in docs and env examples), never secrets. Anchored like the EVM
+  # rule above: a seed (s…, base58) never matches this.
+  '''^r[1-9A-HJ-NP-Za-km-z]{24,34}$''',
 ]
 paths = [
   # Archived pre-V1 research notes — no runtime code, values are public

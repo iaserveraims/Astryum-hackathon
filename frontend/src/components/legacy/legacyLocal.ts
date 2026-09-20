@@ -11,6 +11,8 @@
  * with lists saved before the wizard existed.
  */
 
+import { unmarkAddressRemoved } from '@/lib/wallet/removedAddresses';
+
 const OBSERVED_KEY = 'astryum-observed-legacies';
 const NICKNAME_KEY = 'astryum-legacy-nicknames';
 const OWNER_KEY = 'astryum-legacy-owner';
@@ -75,6 +77,10 @@ export function writeObservedLegacies(list: string[]): void {
 /** Remember an address in "Mis Legacies" (idempotent). Called by the wizard on
  *  inspect, so every Legacy you open lands in your list — observing IS opening. */
 export function rememberLegacy(address: string): void {
+  // Volver a observarlo es intención fresca: levanta la marca de «quitado»,
+  // igual que hace añadir una wallet a mano. Sin esto, un Legacy quitado no
+  // podría volver nunca — el filtro de candidatos lo seguiría escondiendo.
+  unmarkAddressRemoved(address);
   const list = readObservedLegacies();
   if (!list.includes(address)) writeObservedLegacies([...list, address]);
 }

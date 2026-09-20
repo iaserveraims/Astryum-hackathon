@@ -20,6 +20,15 @@
  * #1/#8). The Claim itself goes through VaultClaimModal → prepare → the USER
  * signs. Fires a browser Notification once per claim when it turns claimable
  * (same dedupe-ledger pattern as useIntentWatcher).
+ *
+ * it. 31 — A FAILED READ KEEPS THE LAST GOOD LIST. it. 29 made `/vault-claims`
+ * answer 502 instead of an empty 200; this hook turned every `!res.ok` into
+ * `null`, that owner contributed no rows, and `setEntries(next)` REPLACED the
+ * list — the queued exit disappeared from the tray one floor up, and the tray,
+ * with no rows and no notice, went quiet («nothing waiting»). The tick now
+ * lives in lib/earn/vaultClaimsTick (runnable without React): an unread owner
+ * keeps its rows (marked stale) and is named in `unreadable`, which the tray
+ * reads before it may say «nothing».
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +36,15 @@ import { useAuthorityWallets } from './useAuthorityWallets';
 import { resolvePersonalAccountOf } from '../lib/wallet/paOwnership';
 import { hasAuthToken } from '../lib/authError';
 import { getApiBase } from '../lib/env';
+import {
+  mergeClaimsTick,
+  readOwnerQueue,
+  type FetchLike,
+  type VaultClaimEntry,
+  type VaultClaimsUnreadable,
+} from '../lib/earn/vaultClaimsTick';
+
+export type { VaultClaimEntry, VaultClaimsUnreadable } from '../lib/earn/vaultClaimsTick';
 
 const API_BASE = getApiBase();
 const POLL_MS = 120_000; // periods are ~24h — a 2-min tick is plenty
@@ -35,24 +53,6 @@ const NOTIFIED_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 const EVM_RE = /^0x[a-fA-F0-9]{40}$/;
 const XRPL_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
-
-export interface VaultClaimEntry {
-  /** 'firelight' — the only queued-exit vault today. */
-  vault: 'firelight';
-  vaultLabel: string;
-  /** The 0x account that queued the exit (EVM wallet or Smart Account). */
-  owner: string;
-  period: number;
-  /** FXRP queued for release (base units, 6 dec). The stXRP shares burned at
-   *  redeem — `withdrawalsOf` reports the assets waiting, not shares. */
-  queuedFxrpBase: string;
-  /** Estimated FXRP the claim releases (base units); null if unreadable. */
-  estFxrpBase: string | null;
-  /** true once the period ended — claimWithdraw succeeds now. */
-  claimable: boolean;
-  /** ISO end of the still-running period (null once claimable). */
-  claimableAt: string | null;
-}
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -89,6 +89,10 @@ export interface VaultClaimsState {
   claimableCount: number;
   /** Force an immediate re-poll (after a claim signature). */
   refresh: () => void;
+  /** it. 31 — owners whose queue the last tick could not (fully) read. Empty
+   *  when every owner answered. The tray must not say «nothing waiting» while
+   *  this is non-empty: the rows above may be the last good read. */
+  unreadable: VaultClaimsUnreadable[];
 }
 
 export function useVaultClaimsWatcher(): VaultClaimsState {
@@ -99,6 +103,10 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
   );
 
   const [entries, setEntries] = useState<VaultClaimEntry[]>([]);
+  const [unreadable, setUnreadable] = useState<VaultClaimsUnreadable[]>([]);
+  // The last list shown — what a failed read falls back to (never []).
+  const entriesRef = useRef<VaultClaimEntry[]>([]);
+  entriesRef.current = entries;
   const inFlight = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -112,7 +120,11 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
 
   const tick = useCallback(async () => {
     if (!hasAuthToken()) {
-      if (mounted.current) setEntries([]);
+      // No session is a FACT (nothing to watch), not a failed read.
+      if (mounted.current) {
+        setEntries([]);
+        setUnreadable([]);
+      }
       return;
     }
     if (inFlight.current || document.visibilityState !== 'visible') return;
@@ -127,51 +139,21 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
       ).filter((pa): pa is string => !!pa);
       const owners = [...new Set([...evm, ...pas].map((a) => a.toLowerCase()))];
       if (owners.length === 0) {
-        if (mounted.current) setEntries([]);
+        // No owner to watch is a fact about the authority, not a failed read.
+        if (mounted.current) {
+          setEntries([]);
+          setUnreadable([]);
+        }
         return;
       }
 
-      const results = await Promise.all(
-        owners.map(async (owner) => {
-          try {
-            const res = await fetch(`${API_BASE}/flare-demo/vault-claims/${owner}`, {
-              headers: authHeaders(),
-              credentials: 'include',
-            });
-            if (!res.ok) return null;
-            return (await res.json()) as {
-              owner: string;
-              pending?: Array<{
-                period: number;
-                queuedFxrpBase: string;
-                estFxrpBase: string | null;
-                claimable: boolean;
-                claimableAt: string | null;
-              }>;
-            };
-          } catch {
-            return null;
-          }
-        }),
+      // it. 31 — one read per owner, each an ANSWER or an admission; then the
+      // fold over the LAST list (a refused owner keeps its rows, marked stale).
+      const headers = authHeaders();
+      const reads = await Promise.all(
+        owners.map((owner) => readOwnerQueue(owner, fetch as unknown as FetchLike, API_BASE, headers)),
       );
-
-      const next: VaultClaimEntry[] = [];
-      for (const r of results) {
-        if (!r) continue;
-        for (const p of r.pending ?? []) {
-          next.push({
-            vault: 'firelight',
-            vaultLabel: 'stXRP',
-            owner: r.owner,
-            period: p.period,
-            queuedFxrpBase: p.queuedFxrpBase,
-            estFxrpBase: p.estFxrpBase,
-            claimable: p.claimable,
-            claimableAt: p.claimableAt,
-          });
-        }
-      }
-      next.sort((a, b) => Number(b.claimable) - Number(a.claimable) || b.period - a.period);
+      const { entries: next, unreadable: unread } = mergeClaimsTick(entriesRef.current, reads);
 
       // One browser Notification per claim, the first time it shows claimable.
       const ready = next.filter((e) => e.claimable);
@@ -200,7 +182,10 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
         writeNotified(merged);
       }
 
-      if (mounted.current) setEntries(next);
+      if (mounted.current) {
+        setEntries(next);
+        setUnreadable(unread);
+      }
     } finally {
       inFlight.current = false;
     }
@@ -209,6 +194,7 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
   useEffect(() => {
     if (!hasAuthToken() || addressesKey.length === 0) {
       setEntries([]);
+      setUnreadable([]);
       return;
     }
     void tick();
@@ -229,5 +215,6 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
     entries,
     claimableCount: entries.filter((e) => e.claimable).length,
     refresh: () => void tick(),
+    unreadable,
   };
 }

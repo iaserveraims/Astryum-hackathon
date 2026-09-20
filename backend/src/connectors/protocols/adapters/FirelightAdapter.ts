@@ -7,7 +7,7 @@ import type {
 } from '../../../types/domain/Position';
 import type { ProtocolAction } from '../../../types/domain/Protocol';
 import type { SimulationResult } from '../../../types/domain/Intent';
-import type { EncodedAction } from '../IProtocolAdapter';
+import type { EncodedAction, PositionDiscovery, UnreadableRead } from '../IProtocolAdapter';
 
 // stXRP IS the ERC-4626 vault (verified on-chain 2026-07-10: asset()==FXRP,
 // deposit(uint256,address), 6 decimals). convertToAssets gives the live
@@ -43,6 +43,51 @@ const STXRP_CLAIM_ABI = [
   'function claimWithdraw(uint256 period) returns (uint256)',
 ];
 
+/**
+ * «No pude leer la cola de salida» — it. 29. Lo lanza `readPendingWithdrawals`
+ * cuando UNA lectura `withdrawalsOf(period, wallet)` del barrido no contesta.
+ * Antes ese periodo se leia como `0n` y la salida en cola — participaciones YA
+ * QUEMADAS, FXRP esperando — desaparecia del panel con su boton Claim (el
+ * incidente del fundador del 9-sep, que UpshiftVaultAdapter.discoverPositions
+ * ya arreglo dejando subir el error). Las rutas lo traducen a un 502
+ * retryable que dice «no pude mirar», nunca a una lista vacia.
+ */
+export class VaultQueueUnreadableError extends Error {
+  /** The period whose `withdrawalsOf` did not answer — `null` when the anchor
+   *  read (`currentPeriod()`) itself failed and no period could be framed. */
+  readonly period: number | null;
+  /** The read that did not answer, named — `withdrawalsOf(17)` / `currentPeriod()`. */
+  readonly what: string;
+  constructor(period: number | null, cause?: unknown) {
+    const why = cause instanceof Error ? ` (${cause.message})` : '';
+    const what = period == null ? 'currentPeriod()' : `withdrawalsOf(${period})`;
+    super(`VAULT_QUEUE_UNREADABLE: ${what} did not answer${why}`);
+    this.name = 'VaultQueueUnreadableError';
+    this.period = period;
+    this.what = what;
+  }
+}
+
+/**
+ * it. 31 — what `readPendingWithdrawals` answers. `unreadablePeriods` are the
+ * periods of the sweep whose `withdrawalsOf` did NOT answer: they are neither
+ * empty nor pending, they are unread. `scannedPeriods` is the whole frame, so a
+ * caller can tell «one of 62 failed» from «every one failed».
+ */
+export interface FirelightPendingWithdrawals {
+  currentPeriod: number;
+  currentPeriodEnd: string | null;
+  pending: FirelightPendingWithdrawal[];
+  unreadablePeriods: number[];
+  scannedPeriods: number[];
+}
+
+/**
+ * How far `readPendingWithdrawals` looks: a lookback (periods below the current
+ * one) for the sweep, or ONE period — the claim's own read (it. 31).
+ */
+export type FirelightQueueScope = number | { period: number };
+
 export interface FirelightPendingWithdrawal {
   period: number;
   /**
@@ -76,12 +121,40 @@ export class FirelightAdapter extends BaseAdapter {
     return !!this.addresses.staking && !!this.addresses.stXRP;
   }
 
+  /**
+   * All-or-nothing entry (legacy callers). An unread queue period still takes
+   * this answer down as a throw — it. 31's semantics, unchanged: a list with a
+   * silent hole is never returned. The board and the portfolio engine read
+   * `discoverPositionsPartial` and get the rows that WERE read plus the name of
+   * the period that was not.
+   */
   async discoverPositions(wallet: string): Promise<RawPosition[]> {
-    if (!this.isActive) return [];
+    const { positions, unreadable } = await this.discoverPositionsPartial(wallet);
+    if (unreadable.length > 0) {
+      // Same sentence as it. 29/31 so the engine log and the routes keep reading it.
+      throw new Error(
+        `FIRELIGHT_QUEUE_UNREADABLE: withdrawal queue did not answer (${unreadable.map((u) => `${u.what} did not answer`).join('; ')})`,
+      );
+    }
+    return positions;
+  }
+
+  /**
+   * Ola 0 (15-sep) — the STAKE row and every CLAIM period that answered are
+   * served; a period whose `withdrawalsOf` did not answer is NAMED in
+   * `unreadable` instead of taking the adapter (and the carry's other rows)
+   * off the board. it. 31 had made the SIDEBAR survive one unread period; the
+   * board still lost the whole protocol on it.
+   */
+  async discoverPositionsPartial(wallet: string): Promise<PositionDiscovery> {
+    const unreadable: UnreadableRead[] = [];
+    if (!this.isActive) return { positions: [], unreadable };
     const { ethers } = await import('ethers');
     const provider = this.provider.getHttpProvider();
     const stXRP = new ethers.Contract(this.addresses.stXRP!, STXRP_ABI, provider);
     const staking = new ethers.Contract(this.addresses.staking!, STAKING_ABI, provider);
+    // `balanceOf` is the anchor of the STAKE row: without it nothing here can
+    // be framed, so it still rises as a whole-adapter failure.
     const [stakedBalance, pending] = await Promise.all([
       stXRP.balanceOf(wallet),
       staking.pendingRewards(wallet).catch(() => 0n),
@@ -91,9 +164,16 @@ export class FirelightAdapter extends BaseAdapter {
 
     if (stakedBalance > 0n) {
       // Underlying FXRP via the vault's own conversion (ERC-4626) — live data.
-      const underlyingFxrpUBA: bigint = await stXRP
-        .convertToAssets(stakedBalance)
-        .catch(() => 0n);
+      //
+      // it. 31 — this read only PRICES the row (the shares are the money and
+      // were read above), so a failure keeps the position and marks the
+      // amount unread (`underlyingUnreadable`) instead of a silent `0n` that
+      // rendered as «underlying: —» indistinguishable from a vault at zero.
+      const underlyingRead = await (stXRP.convertToAssets(stakedBalance) as Promise<bigint>).then(
+        (v) => ({ ok: true as const, value: BigInt(v) }),
+        () => ({ ok: false as const }),
+      );
+      const underlyingFxrpUBA: bigint = underlyingRead.ok ? underlyingRead.value : 0n;
       positions.push({
         protocolId: this.protocolId,
         chainId: this.chainId,
@@ -110,6 +190,7 @@ export class FirelightAdapter extends BaseAdapter {
           ...(underlyingFxrpUBA > 0n
             ? { underlying: { symbol: 'XRP', amount: underlyingFxrpUBA.toString(), decimals: 6 } }
             : {}),
+          underlyingUnreadable: !underlyingRead.ok,
           sharePriceSource: 'stXRP.convertToAssets() (live on-chain)',
         },
         discoveredAt: now,
@@ -133,7 +214,15 @@ export class FirelightAdapter extends BaseAdapter {
     // "stxrp me sigue apareciendo / no llega" of 2026-07-14). Each unclaimed
     // period shows as a CLAIM position until claimWithdraw releases the FXRP.
     try {
-      const { pending: queued } = await this.readPendingWithdrawals(wallet, provider, 8);
+      const { pending: queued, unreadablePeriods } = await this.readPendingWithdrawals(wallet, provider, 8);
+      // it. 31 — the sweep no longer throws on one unread period (it marks
+      // it); a POSITION cannot be emitted for a period nobody read. Ola 0 —
+      // that period is NAMED here and the rest of this adapter is served;
+      // `discoverPositions` (all-or-nothing) still turns it into the throw.
+      for (const period of unreadablePeriods) {
+        const e = new VaultQueueUnreadableError(period);
+        unreadable.push({ what: e.what, reason: 'did not answer', market: this.addresses.stXRP! });
+      }
       for (const q of queued) {
         positions.push({
           protocolId: this.protocolId,
@@ -174,24 +263,36 @@ export class FirelightAdapter extends BaseAdapter {
           discoveredAt: now,
         });
       }
-    } catch {
-      /* claim queue unreadable — never break the whole scan for it */
+    } catch (e) {
+      // it. 29 — this catch used to swallow the queue: with balanceOf at 0
+      // after the redeem and the queue unread, the snapshot simply had no
+      // Firelight position at all, and the engine cached that absence. Same
+      // rule as UpshiftVaultAdapter: the error rises, the engine drops this
+      // adapter from THIS sweep (PortfolioEngine `dropped`, never fossilised).
+      // Money in flight never disappears in silence. (Only the ANCHOR —
+      // `currentPeriod()` — lands here now: no period can be framed without it.)
+      throw new Error(`FIRELIGHT_QUEUE_UNREADABLE: withdrawal queue did not answer (${(e as Error).message})`);
     }
 
-    return positions;
+    return { positions, unreadable };
   }
 
   /**
    * Unclaimed withdrawal-queue entries of `wallet`, newest period first.
-   * `lookback` bounds the probe (periods are ~1 day; queued exits are claimed
-   * in days, not months). `provider` lets route callers reuse their own
-   * JsonRpcProvider (the FlareProvider singleton needs initialize()).
+   * `scope` is a lookback that bounds the probe (periods are ~1 day; queued
+   * exits are claimed in days, not months) or `{ period }` for ONE period — a
+   * claim reads only its own slot. `provider` lets route callers reuse their
+   * own JsonRpcProvider (the FlareProvider singleton needs initialize()).
+   *
+   * Throws `VaultQueueUnreadableError` ONLY when `currentPeriod()` (the anchor)
+   * does not answer. A period whose `withdrawalsOf` fails is reported in
+   * `unreadablePeriods`, never as `0n` and never as the whole sweep failing.
    */
   async readPendingWithdrawals(
     wallet: string,
     provider?: import('ethers').Provider,
-    lookback = 30,
-  ): Promise<{ currentPeriod: number; currentPeriodEnd: string | null; pending: FirelightPendingWithdrawal[] }> {
+    scope: FirelightQueueScope = 30,
+  ): Promise<FirelightPendingWithdrawals> {
     const stXrp = this.addresses.stXRP;
     if (!stXrp) throw new Error('FIRELIGHT_NOT_CONFIGURED: missing FIRELIGHT_STXRP');
     const { ethers } = await import('ethers');
@@ -207,8 +308,13 @@ export class FirelightAdapter extends BaseAdapter {
         return null;
       }
     };
+    // The anchor: without `currentPeriod()` no period can be framed and no
+    // claimability decided — the ONE read that still takes the queue down,
+    // typed, so the routes say «we could not look» and never «nothing here».
     const [curRaw, endRaw, nextEndRaw] = await Promise.all([
-      v.currentPeriod() as Promise<bigint>,
+      (v.currentPeriod() as Promise<bigint>).catch((e: unknown) => {
+        throw new VaultQueueUnreadableError(null, e);
+      }),
       readOpt('currentPeriodEnd'),
       readOpt('nextPeriodEnd'),
     ]);
@@ -222,19 +328,53 @@ export class FirelightAdapter extends BaseAdapter {
     // from currentPeriod downwards MISSED every exit signed inside the running
     // period: the founder's money vanished from the dashboard between signing
     // the withdrawal and the period rolling over (up to a full period).
-    const from = Math.max(0, currentPeriod - lookback);
+    // it. 31 — ONE period when the caller is a claim: `claimWithdraw(N)` needs
+    // `withdrawalsOf(N)` and nothing else; the 62-period sweep is disclosure,
+    // never a requirement for releasing money already burned out of shares.
     const range: number[] = [];
-    for (let p = currentPeriod + 1; p >= from; p--) range.push(p);
+    if (typeof scope === 'number') {
+      const from = Math.max(0, currentPeriod - scope);
+      for (let p = currentPeriod + 1; p >= from; p--) range.push(p);
+    } else {
+      range.push(scope.period);
+    }
     // Cheap first pass (1 read per period), details only for the hits.
-    const queuedAssets = await Promise.all(
-      range.map((p) => v.withdrawalsOf(p, wallet).catch(() => 0n) as Promise<bigint>),
+    //
+    // it. 29 — A PERIOD WE COULD NOT READ IS NOT AN EMPTY PERIOD. One 429 in
+    // the right slot of these 62 reads used to turn a queued exit — shares
+    // already burned, FXRP waiting — into `0n`, and the row and its Claim
+    // button vanished from the panel.
+    //
+    // it. 31 — AND ONE UNREAD PERIOD IS NOT 62 UNREAD PERIODS. The it. 29 fix
+    // threw on the first failure inside this Promise.all, so a single 429 —
+    // the routine answer of the public gateway to 62 parallel eth_calls from
+    // one egress IP — took the whole sweep down, and with it every period that
+    // HAD answered. The unread slot is now MARKED (`unreadablePeriods`) and the
+    // rest is served; the callers decide what an unread slot means for them.
+    const reads = await Promise.all(
+      range.map((p) =>
+        (v.withdrawalsOf(p, wallet) as Promise<bigint>).then(
+          (a) => ({ ok: true as const, assets: BigInt(a) }),
+          () => ({ ok: false as const }),
+        ),
+      ),
     );
+    const unreadablePeriods: number[] = [];
     const pending: FirelightPendingWithdrawal[] = [];
     for (let i = 0; i < range.length; i++) {
       const period = range[i];
+      const read = reads[i];
+      if (!read.ok) {
+        unreadablePeriods.push(period);
+        continue;
+      }
       // withdrawalsOf returns ASSETS (FXRP) already — see the interface note.
-      const assets = BigInt(queuedAssets[i]);
+      const assets = read.assets;
       if (assets <= 0n) continue;
+      // `isWithdrawClaimed` keeps its fallback ON PURPOSE (it. 29): a read
+      // that fails here errs toward SHOWING the money (a Claim that may
+      // revert), never toward hiding it — the opposite direction from the
+      // `withdrawalsOf` fallback above, which is why that one had to go.
       const claimed = (await v
         .isWithdrawClaimed(period, wallet)
         .catch(() => false)) as boolean;
@@ -257,7 +397,7 @@ export class FirelightAdapter extends BaseAdapter {
               : null,
       });
     }
-    return { currentPeriod, currentPeriodEnd, pending };
+    return { currentPeriod, currentPeriodEnd, pending, unreadablePeriods, scannedPeriods: range };
   }
 
   /**

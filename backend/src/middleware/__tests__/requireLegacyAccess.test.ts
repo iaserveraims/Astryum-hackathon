@@ -60,13 +60,27 @@ describe('requireLegacyAccess', () => {
     expect(findUnique).not.toHaveBeenCalled();
   });
 
-  it('a listed email passes; an unlisted one gets 403', async () => {
+  it('a listed VERIFIED email passes; an unlisted one gets 403', async () => {
     process.env.LEGACY_ACCESS_EMAILS = 'Familia@Example.com';
-    findUnique.mockResolvedValueOnce({ email: 'familia@example.com' });
+    findUnique.mockResolvedValueOnce({ email: 'familia@example.com', emailVerified: true });
     expect((await run('u1')).nexted).toBe(true);
+    expect(findUnique).toHaveBeenCalledWith({ where: { id: 'u1' }, select: { email: true, emailVerified: true } });
     __resetLegacyAccessGateForTests();
-    findUnique.mockResolvedValueOnce({ email: 'otro@example.com' });
+    findUnique.mockResolvedValueOnce({ email: 'otro@example.com', emailVerified: true });
     expect((await run('u2')).statusCode).toBe(403);
+  });
+
+  it('a listed email that was never verified (password sign-up) ⇒ 403 — productizer it. 8', async () => {
+    process.env.LEGACY_ACCESS_EMAILS = 'familia@example.com';
+    findUnique.mockResolvedValueOnce({ email: 'familia@example.com', emailVerified: false });
+    const r = await run('u-squatter');
+    expect(r.nexted).toBe(false);
+    expect(r.statusCode).toBe(403);
+    expect((r.body as { error: string }).error).toBe('LEGACY_ACCESS_REQUIRED');
+    __resetLegacyAccessGateForTests();
+    // A missing flag is not a verified one.
+    findUnique.mockResolvedValueOnce({ email: 'familia@example.com' });
+    expect((await run('u-squatter')).statusCode).toBe(403);
   });
 
   it('no session ⇒ 401; unknown user ⇒ 403; DB error ⇒ 403 (never open)', async () => {
@@ -81,7 +95,7 @@ describe('requireLegacyAccess', () => {
 
   it('caches the email lookup inside the TTL', async () => {
     process.env.LEGACY_ACCESS_EMAILS = 'familia@example.com';
-    findUnique.mockResolvedValue({ email: 'familia@example.com' });
+    findUnique.mockResolvedValue({ email: 'familia@example.com', emailVerified: true });
     await run('u5');
     await run('u5');
     expect(findUnique).toHaveBeenCalledTimes(1);

@@ -23,6 +23,7 @@ import { TokenLogo } from '../ui/TokenLogo';
 import CageBirthCard from './CageBirthCard';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
+import { isPersonalQuorum } from '../../lib/authority/personalQuorum';
 import { displayBaseUnits, formatBaseUnits } from '../../lib/legacy/baseUnits';
 import { xrplLegacy, type LegacyVaultState } from '../../services/v1Api';
 
@@ -90,14 +91,55 @@ export default function LegacyVaultCard({ account }: { account: string }) {
   // aún no tiene una — y desde aquí el quórum crea LA SUYA con una firma
   // (factory vía 0xFE; nadie más puede crearla). El consejo ya gobierna sin
   // ella; lo que no puede es heredar la de otro.
+  //
+  // Salvo en una cuenta PERSONAL reforzada (21-ago-2026): ahí la jaula no es
+  // «lo siguiente», es lo contrario de lo que el titular pidió. Reforzar es
+  // ponerle quórum a tu propia wallet sin encerrar nada, y el principal que
+  // entra en una jaula NO vuelve a salir a una dirección. Ofrecerla aquí sería
+  // empujar a una puerta de un solo sentido a quien vino a no tener ninguna.
   if (noCage) {
+    // La cuenta personal reforzada no lleva jaula Y ESO ES LO PEDIDO — pero
+    // callarlo dejaba la sala Capital EN BLANCO (fundador 13-sep: «¿por qué me
+    // aparece vacío entonces?»). Se dice, sin ofrecer la puerta de un solo
+    // sentido.
+    if (isPersonalQuorum(account)) {
+      return (
+        <Card className="p-4">
+          <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+            <Lock size={15} className="text-ink/50" />
+            {t('No cage — and that is the point')}
+          </p>
+          <p className="mt-1.5 max-w-[62ch] text-[12.5px] leading-relaxed text-ink/55">
+            {t('This is your own wallet held by a quorum: its capital stays on the account, reachable by your signatures. A cage is a one-way door and reinforcing deliberately does not open it.')}
+          </p>
+        </Card>
+      );
+    }
     return (
       <Card className="p-4">
         <CageBirthCard account={account} onBorn={() => void load()} />
       </Card>
     );
   }
-  if (!state) return null;
+  // NUNCA MUDO (fundador 13-sep). Llegar aquí es no tener ni datos ni un error
+  // que lo explique: el estado honesto es «no lo sé», jamás un hueco que se lea
+  // como «no hay nada» — la regla de la casa sobre lecturas fallidas.
+  if (!state) {
+    return (
+      <Card className="p-4 space-y-2">
+        <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+          <AlertTriangle size={15} className="text-tone-warning" />
+          {t('The cage could not be read')}
+        </p>
+        <p className="max-w-[62ch] text-[12.5px] leading-relaxed text-ink/55">
+          {t('That is not the same as it being empty: whatever this Legacy holds is on Flare and untouched. Try again in a moment.')}
+        </p>
+        <GhostButton onClick={() => void load()}>
+          <RefreshCw size={14} /> {t('Try again')}
+        </GhostButton>
+      </Card>
+    );
+  }
 
   const dec = state.asset.decimals;
   const sym = state.asset.symbol;

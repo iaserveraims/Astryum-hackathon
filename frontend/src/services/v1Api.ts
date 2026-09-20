@@ -11,6 +11,8 @@
  */
 
 import { getApiBase } from '../lib/env';
+import { noteCouncilOrderDelivery, noteFlareInstructionDelivery } from '../lib/xaman/liveRequests';
+import { notePayloadExpiryMin } from '../lib/wallet/handoffRelease';
 import { isPreviewActive, previewGet, previewPost } from './previewData';
 
 const API_BASE = getApiBase();
@@ -22,14 +24,37 @@ function authHeader(): Record<string, string> {
 }
 
 /**
+ * A 401 THAT IS NOT «YOUR SESSION ENDED» (productizer it. 17, R5 5.6).
+ *
+ * `withLiveSession` refuses an authority write whose session predates an account
+ * takeover, and it answers 401 `session_revoked`. That is a verdict about THIS
+ * WRITE, not about the session the person is using: the address book, the rules
+ * form and the cage acknowledgement all answer it, and the global handler read
+ * the status alone — token wiped, straight to /login, the half-filled form gone.
+ * A security fix that throws the user out is a security fix nobody survives.
+ *
+ * So this code is SURFACED, never global: the caller gets the refusal (the throw
+ * carries `body`) and shows it in place, in its own words.
+ */
+export function isSurfacedUnauthorized(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const e = (body as { error?: unknown }).error;
+  return e === 'session_revoked';
+}
+
+/**
  * Clear local auth state and redirect to /login when a 401 is received.
  * Idempotent across concurrent 401s in the same tab: only the first call
  * performs the redirect; subsequent calls are no-ops so we don't trigger
  * navigation while React is still rendering with stale state.
+ *
+ * `body` is the server's answer when the caller already read it: a
+ * `session_revoked` never clears anything and never navigates.
  */
 let unauthorizedHandled = false;
-function handleUnauthorized(): void {
+function handleUnauthorized(body?: unknown): void {
   if (typeof window === 'undefined') return;
+  if (isSurfacedUnauthorized(body)) return;
   if (unauthorizedHandled) return;
   unauthorizedHandled = true;
   try {
@@ -39,6 +64,86 @@ function handleUnauthorized(): void {
   if (!window.location.pathname.startsWith('/login')) {
     window.location.replace('/login');
   }
+}
+
+/**
+ * A PREPARED 0xFE REACHES THE LIVE-REQUESTS REGISTRY (productizer it. 17, R2 2.6).
+ *
+ * The banner over every in-flight Xaman request can only promise «Flare will act
+ * on this» when somebody actually said the executor runs. `lib/institutional/api`
+ * already tells the registry on every prepare; the three Legacy hand-offs that
+ * ride the same 0xFE rail — funding a cage, the birth of a cage, the heir's
+ * yield claim — did not, so their instructions sat in the registry as «nobody
+ * said», and the banner stayed neutral over a payment that DOES get delivered.
+ *
+ * Read defensively, in this order: `serverDelivery.executorEnabled`, then a
+ * top-level `executorEnabled`. A route that sends neither leaves the state
+ * UNKNOWN on purpose — the registry remembers «nobody told us» separately from
+ * «the executor is stopped», because only the second is an accusation.
+ *
+ * Pass-through: it returns the same response, so a caller sees no difference.
+ */
+function noteInstructionDelivery<T>(r: T): T {
+  const body = r as { xrplPayment?: unknown; xrplTx?: unknown; serverDelivery?: unknown; executorEnabled?: unknown } | null;
+  if (!body || typeof body !== 'object') return r;
+  const declared = body.serverDelivery;
+  const delivery =
+    declared && typeof declared === 'object'
+      ? (declared as { executorEnabled?: unknown; recorded?: unknown })
+      : typeof body.executorEnabled === 'boolean'
+        ? { executorEnabled: body.executorEnabled }
+        : undefined;
+  const tx = body.xrplPayment ?? body.xrplTx;
+  // A body that is not a 0xFE instruction is ignored inside the registry.
+  noteFlareInstructionDelivery(tx, delivery);
+  // it. 19 (R3 N4 / R5 R7) — AND THE OTHER HALF OF THE SAME TRUTH. A COUNCIL
+  // ORDER is a 1-drop Payment with a 32-byte memo, not a `FE…` one, so the call
+  // above ignores it: `/council-order/prepare` answers `serverDelivery` and
+  // nothing in this module was ingesting it, leaving the banner to promise a
+  // delivery from the transaction's SYNTAX alone (R5 1.3). Each note ignores the
+  // other's transaction shape, so one pass-through can safely tell both.
+  noteCouncilOrderDelivery(tx, delivery);
+  return r;
+}
+
+/**
+ * it. 21 (it. 20 §3.9) — THE EXPIRY THE SERVER ANSWERS, AND THE FRONTEND IGNORED.
+ *
+ * Every route that composes a 0xFE answers `payloadExpiryMin` (the minutes its
+ * seat is measured with). Nothing here read it, so the Xaman `expire` came from
+ * a constant hand-copied on this side: two numbers for one fact, drifting the
+ * day either is changed — and the direction that hurts is silent (a seat
+ * outliving its payload, or freed while the payload is still signable).
+ * Pass-through: the caller sees the same body.
+ */
+function learnPayloadExpiry<T>(body: T): T {
+  const b = body as { payloadExpiryMin?: unknown; memoHex?: unknown; signerListRead?: unknown } | null;
+  const v = b?.payloadExpiryMin;
+  // it. 27 (§3): the memo travels with it. A ceremony's window (24 h) is above
+  // the ordinary clamp, so learning it WITHOUT a memo discarded it entirely —
+  // the server's one read never reached a single payload, and the sitting ran on
+  // a number hand-written in `lib/xrpl/councilSigning.ts`.
+  // it. 31 (§5): and whether that window was READ (`signerListRead`) or merely
+  // defaulted — without it a short window was taken for a «signs alone» verdict
+  // and the browser stopped checking the SignerList on its own.
+  if (v !== undefined) notePayloadExpiryMin(v, b?.memoHex, b?.signerListRead);
+  return body;
+}
+
+/**
+ * it. 21 (it. 20 §3.5) — `Retry-After` IS PART OF THE REFUSAL.
+ *
+ * `ACCOUNT_BUSY` answers 503 with the header and nothing on this side read it,
+ * so the one refusal that KNOWS when to come back said only «try again» — or,
+ * more often, nothing at all, because no screen had a reader. The header is
+ * folded into the thrown body, where `describeRetryableRefusal` finds it.
+ */
+function withRetryAfter(res: Response, body: unknown): unknown {
+  const secs = Number(res.headers?.get?.('Retry-After'));
+  if (!Number.isFinite(secs) || secs <= 0) return body;
+  if (!body || typeof body !== 'object') return { retryAfterSeconds: Math.round(secs) };
+  const b = body as Record<string, unknown>;
+  return b.retryAfterSeconds === undefined ? { ...b, retryAfterSeconds: Math.round(secs) } : b;
 }
 
 async function jget<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
@@ -55,14 +160,16 @@ async function jget<T>(path: string, params?: Record<string, string | number | u
     : '';
   const r = await fetch(`${API_BASE}${path}${qs}`, { headers: authHeader() });
   if (!r.ok) {
-    if (r.status === 401) handleUnauthorized();
+    // The body is read BEFORE deciding, so a `session_revoked` can be shown in
+    // place instead of logging the person out (it. 17, R5 5.6).
     const body = await r.json().catch(() => ({}));
+    if (r.status === 401) handleUnauthorized(body);
     throw Object.assign(new Error(body?.error ?? `http_${r.status}`), {
       status: r.status,
-      body,
+      body: withRetryAfter(r, body),
     });
   }
-  return r.json();
+  return learnPayloadExpiry(await r.json());
 }
 
 async function jpost<T>(path: string, body: unknown): Promise<T> {
@@ -76,11 +183,14 @@ async function jpost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!r.ok) {
-    if (r.status === 401) handleUnauthorized();
     const j = await r.json().catch(() => ({}));
-    throw Object.assign(new Error(j?.error ?? `http_${r.status}`), { status: r.status, body: j });
+    if (r.status === 401) handleUnauthorized(j);
+    throw Object.assign(new Error(j?.error ?? `http_${r.status}`), {
+      status: r.status,
+      body: withRetryAfter(r, j),
+    });
   }
-  return r.json();
+  return learnPayloadExpiry(await r.json());
 }
 
 async function jpatch<T>(path: string, body: unknown): Promise<T> {
@@ -90,8 +200,12 @@ async function jpatch<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!r.ok) {
-    if (r.status === 401) handleUnauthorized();
-    throw new Error(`http_${r.status}`);
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) handleUnauthorized(j);
+    throw Object.assign(new Error((j as { error?: string })?.error ?? `http_${r.status}`), {
+      status: r.status,
+      body: j,
+    });
   }
   return r.json();
 }
@@ -102,8 +216,12 @@ async function jdel(path: string): Promise<void> {
     headers: authHeader(),
   });
   if (!r.ok && r.status !== 204) {
-    if (r.status === 401) handleUnauthorized();
-    throw new Error(`http_${r.status}`);
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) handleUnauthorized(j);
+    throw Object.assign(new Error((j as { error?: string })?.error ?? `http_${r.status}`), {
+      status: r.status,
+      body: j,
+    });
   }
 }
 
@@ -138,7 +256,12 @@ export interface PortfolioPosition {
   chainId?: number;
   kind: string;
   asset: string;
+  /** BASE units (el entero del ledger) — NUNCA se enseña tal cual. */
   amount?: string;
+  /** La cantidad en unidades humanas, exacta. `null` cuando el activo no
+   *  declaró decimales. Es el campo que lee una pantalla: usa `snapshotQty`
+   *  (lib/positionQty), que además cae a valor/precio cuando falta. */
+  qty?: string | null;
   amountUSD?: number;
   priceUSD?: number;
   metrics?: PositionMetrics;
@@ -147,6 +270,21 @@ export interface PortfolioPosition {
   /** Stamped by the frontend merge when aggregating several wallets. */
   wallet?: string;
   [extra: string]: unknown;
+}
+
+/**
+ * One protocol the backend sweep could NOT read for a wallet (backend
+ * `PortfolioUnreadableProtocol`). A snapshot carrying these is a LOWER BOUND:
+ * «could not look», never «nothing there». `partial` = the adapter answered
+ * for some markets and `reads` names the ones it could not.
+ */
+export interface PortfolioUnreadable {
+  protocolId: string;
+  reason: string;
+  partial?: boolean;
+  reads?: Array<{ what: string; reason: string; market?: string }>;
+  /** Stamped by the frontend merge when aggregating several wallets. */
+  wallet?: string;
 }
 
 export interface PortfolioSnapshot {
@@ -159,6 +297,8 @@ export interface PortfolioSnapshot {
   positions: PortfolioPosition[];
   breakdown: PortfolioBreakdown;
   takenAt: string;
+  /** Absent/empty when every adapter answered. See PortfolioUnreadable. */
+  unreadable?: PortfolioUnreadable[];
 }
 
 export const portfolioV1 = {
@@ -322,6 +462,15 @@ export const rules = {
   disable: (id: string) => jpost<AutomationRule>(`/rules/${id}/disable`, {}),
   delete: (id: string) => jdel(`/rules/${id}`),
   runs: (id: string) => jget<{ count: number; runs: any[] }>(`/rules/${id}/runs`),
+  /** M1 — the signing door of a personal scheduledPayment rule: the backend
+   *  composes the Payment FRESH from the rule (unsigned, Account pinned to the
+   *  owning wallet) and the owner signs it in Xaman. */
+  scheduledPaymentPrepare: (id: string) =>
+    jpost<{
+      xrplTx: Record<string, unknown>;
+      summary: string;
+      disclosure: { disclosedToUser: true; astryumSigns: false; note: string; facts: Record<string, string> };
+    }>(`/rules/${id}/scheduled-payment/prepare`, {}),
 };
 
 // ============================================================================
@@ -401,10 +550,81 @@ export interface CmfTranslation {
   notes: string[];
 }
 
+/** Flare/EVM — the default translator rail (CanonicalEvmTranslator). */
+export const FLARE_EVM_CHAIN_ID = 14;
+
+/**
+ * The backend's pseudo chain-id for XRPL rules (routes/rules.ts +
+ * CanonicalXrplTranslator convention). POST /moneyflows/translate switches
+ * translator on EXACTLY this number — anything else takes the EVM path.
+ */
+export const XRPL_PSEUDO_CHAIN_ID = 1440002;
+
+/** XRPL classic address (rail detection, not address validation). */
+const XRPL_CLASSIC_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
+
+function isXrplCaip2(chain: string | undefined): boolean {
+  return typeof chain === 'string' && chain.toLowerCase().startsWith('xrpl:');
+}
+
+/**
+ * Which translator rail a CMF must compile through — G7 (auditoría de los
+ * SILENCIOSOS, 2026-08-17).
+ *
+ * WHAT FAILED IN SILENCE: `translate()` used to hardcode chainId 14, and its
+ * only caller took that default, so POST /api/moneyflows/translate NEVER
+ * reached its `chainId === 1440002` branch. The CanonicalXrplTranslator — the
+ * ONLY producer of PRICE_DROP_PCT (M3), scheduledPayment (M1) and escrow (B.1)
+ * rules — therefore had no caller at all: evaluator, zod, FTSO prefetch and
+ * tests all existed and shipped, and no person could ever create one of those
+ * rules. Nothing errored; an XRPL-shaped flow simply came back with the EVM
+ * translator's `verb_not_supported`, which reads like the PRODUCT refusing the
+ * flow instead of the CLIENT asking the wrong rail.
+ *
+ * Detection is deliberately CONSERVATIVE: only shapes Flare/EVM can NEVER
+ * compile route to XRPL, so an ordinary Flare flow keeps its rail and the
+ * error it already had.
+ *   - an explicit CAIP-2 `xrpl:*` chain on any asset (the strongest signal);
+ *   - verb 'transfer' — not an AutomationRule action on EVM at all
+ *     (FLARE_EVM_CAPABILITY.verbs excludes it);
+ *   - venue.params.destination that is an XRPL classic r-address;
+ *   - venue.params.lockDays — the XRPL savings-escrow (B.1) shape.
+ * Anything else stays on 14. Guessing a rail for money is worse than an honest
+ * "this does not translate here": a mixed flow lands on the first rail matched
+ * and its foreign steps fail readably (both translators are all-or-nothing).
+ */
+export function cmfRailChainId(cmf: CanonicalMoneyFlow): number {
+  for (const step of cmf.steps) {
+    if ('asset' in step.trigger && isXrplCaip2(step.trigger.asset?.chain)) return XRPL_PSEUDO_CHAIN_ID;
+    for (const action of step.actions) {
+      if (isXrplCaip2(action.asset?.chain)) return XRPL_PSEUDO_CHAIN_ID;
+      if (action.verb === 'transfer') return XRPL_PSEUDO_CHAIN_ID;
+      const params = action.venue?.params ?? {};
+      if (params.lockDays !== undefined) return XRPL_PSEUDO_CHAIN_ID;
+      if (typeof params.destination === 'string' && XRPL_CLASSIC_RE.test(params.destination)) {
+        return XRPL_PSEUDO_CHAIN_ID;
+      }
+    }
+  }
+  return FLARE_EVM_CHAIN_ID;
+}
+
 export const moneyflows = {
-  /** Deterministic dry-run: CMF → AutomationRule payloads. 422 = readable errors. */
-  translate: (cmf: CanonicalMoneyFlow, chainId = 14) =>
-    jpost<CmfTranslation>('/moneyflows/translate', { cmf, chainId }),
+  /**
+   * Deterministic dry-run: CMF → AutomationRule payloads. 422 = readable errors.
+   *
+   * G7: the rail is a PARAMETER, not a constant. `chainId` picks the translator
+   * (14 = Flare/EVM · 1440002 = XRPL); `governed` is XRPL-only and compiles a
+   * 'transfer' to the COUNCIL rail (the trigger composes a proposal, the quorum
+   * signs) instead of the personal one. Both mirror translateBodySchema in
+   * backend/src/routes/moneyflows.ts.
+   */
+  translate: (cmf: CanonicalMoneyFlow, opts: { chainId?: number; governed?: boolean } = {}) =>
+    jpost<CmfTranslation>('/moneyflows/translate', {
+      cmf,
+      chainId: opts.chainId ?? FLARE_EVM_CHAIN_ID,
+      ...(opts.governed !== undefined ? { governed: opts.governed } : {}),
+    }),
   /** A wallet's rules grouped by canonicalRef (one entry per flow). */
   list: (address: string) =>
     jget<{ count: number; flows: Array<{ canonicalRef: string; name: string; enabled: boolean; rules: AutomationRule[] }> }>(
@@ -1400,8 +1620,12 @@ async function jdelete<T>(path: string, body?: object): Promise<T> {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!r.ok) {
-    if (r.status === 401) handleUnauthorized();
-    throw new Error(`http_${r.status}`);
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) handleUnauthorized(j);
+    throw Object.assign(new Error((j as { error?: string })?.error ?? `http_${r.status}`), {
+      status: r.status,
+      body: j,
+    });
   }
   return r.json() as Promise<T>;
 }
@@ -1608,14 +1832,16 @@ export async function fetchActivityExport(params: {
   if (params.to) qs.set('to', params.to);
   const r = await fetch(`${API_BASE}/activity/export?${qs.toString()}`, { headers: { ...authHeader() } });
   if (!r.ok) {
-    if (r.status === 401) handleUnauthorized();
     // El backend se niega a entregar un fichero fiscal incompleto y explica por
     // qué (explorer_unavailable). Un `http_502` a secas escondería ese motivo.
-    const detail = await r
+    // El cuerpo se lee ANTES de decidir: un `session_revoked` se enseña, no
+    // expulsa (it. 17, R5 5.6).
+    const parsed = await r
       .json()
-      .then((b: { message?: string; error?: string }) => b?.message ?? b?.error)
+      .then((b: { message?: string; error?: string }) => b)
       .catch(() => undefined);
-    throw new Error(detail ?? `http_${r.status}`);
+    if (r.status === 401) handleUnauthorized(parsed);
+    throw new Error(parsed?.message ?? parsed?.error ?? `http_${r.status}`);
   }
   return r.blob();
 }
@@ -1840,6 +2066,16 @@ export const adminPanelApi = {
     return (await r.json()) as AdminSentinel;
   },
 
+  /** Keeper de escrows XRPL (G11): lo que el operador PIDIO frente a lo que
+   *  de verdad corre. `divergent` es la respuesta; el resto es el porque. */
+  keeper: async (sessionToken: string): Promise<AdminKeeper> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/keeper`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminKeeper;
+  },
+
   /** Fuerza una pasada de vigilancia ahora (el botón «Comprobar ahora»). */
   sentinelRun: async (sessionToken: string): Promise<AdminSentinel> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
@@ -1882,6 +2118,51 @@ export const adminPanelApi = {
     return (await r.json()) as AdminCageFleet;
   },
 
+  /** Métricas del SourceTag de Make Waves (entregable §8 T&C): Active Users /
+   *  txs / volumen atribuidos al tag, leídos del ledger. Solo agregados. */
+  sourceTag: async (sessionToken: string): Promise<AdminSourceTagMetrics> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/sourcetag`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminSourceTagMetrics;
+  },
+
+  /** Fuerza una pasada del agregador del tag ahora (el botón «Contar ahora»). */
+  sourceTagRun: async (sessionToken: string): Promise<AdminSourceTagMetrics> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/sourcetag/run`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+    });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminSourceTagMetrics;
+  },
+
+  /** ¿Nos da XRP Identity la wallet que el usuario conectó con Xaman en su
+   *  perfil? Lee lo que /userinfo devolvió en los últimos logins reales —
+   *  nombres y formas de las claims, jamás valores. */
+  identityProbe: async (sessionToken: string): Promise<AdminIdentityProbe> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/identity-probe`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminIdentityProbe;
+  },
+
+  /** ¿Puede crear cuenta alguien que llegue ahora mismo? Con la puerta única de
+   *  XRP Identity, el alta ocurre en el primer login: si está cerrada, el
+   *  visitante rebota con 403 en vez de entrar. */
+  signupGate: async (sessionToken: string): Promise<AdminSignupGate> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-ops/signup-gate`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminSignupGate;
+  },
+
   /** ¿De quién es esta dirección? Wallet enlazada, cuenta que la enlazó y las
    *  puertas que le dieron permiso (lista de espera, exención de tope, Legacy). */
   whois: async (sessionToken: string, address: string): Promise<AdminWhois> => {
@@ -1895,6 +2176,62 @@ export const adminPanelApi = {
     return (await r.json()) as AdminWhois;
   },
 };
+
+/** Respuesta de /admin-ops/sourcetag — las métricas del tag de Make Waves. */
+export interface AdminSourceTagMetrics {
+  tag: number | null;
+  activeUsers: number;
+  txCount: number;
+  volumeXrp: number;
+  accountsScanned: number;
+  /** true = tope de páginas alcanzado en alguna cuenta — los totales son un
+   *  SUELO del histórico alcanzado, no un techo. */
+  truncated: boolean;
+  oldestSeenISO: string | null;
+  passes: number;
+  lastPassAt: string | null;
+  lastPassMs: number | null;
+  error: string | null;
+}
+
+/** Una claim de XRP Identity descrita SIN repetir lo que decía. */
+export interface AdminIdentityClaimShape {
+  name: string;
+  kind: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null';
+  xrplAddress?: boolean;
+  empty?: boolean;
+}
+
+/** Respuesta de /admin-ops/identity-probe — ¿nos da XRP Identity la wallet? */
+export interface AdminIdentityProbe {
+  /** XRPL_IDENTITY_PROFILE_SCOPE está encendido en Railway. */
+  enabled: boolean;
+  scopesRequested: string;
+  probes: Array<{
+    at: string;
+    scopesRequested: string;
+    idTokenClaims: string[];
+    userinfo: { ok: true; claims: AdminIdentityClaimShape[] } | { ok: false; error: string };
+    accountApi?:
+      | { ok: true; walletPresent: boolean; looksLikeXrplAddress: boolean }
+      | { ok: false; error: string };
+  }>;
+  /** null = aún no ha entrado nadie desde que se encendió (vive en memoria). */
+  walletClaimSeen: boolean | null;
+  /** Lo mismo, pero por la Account API — la vía que el operador sí ofrece. */
+  walletViaAccountApi: boolean | null;
+  checkedAt: string;
+}
+
+/** Respuesta de /admin-ops/signup-gate — ¿puede darse de alta alguien nuevo? */
+export interface AdminSignupGate {
+  open: boolean;
+  variableSet: boolean;
+  rawValue: string | null;
+  approvedOnWaitlist: number | null;
+  note: string;
+  checkedAt: string;
+}
 
 /** Respuesta de /admin-ops/whois — a quién pertenece una dirección. */
 export interface AdminWhois {
@@ -1939,6 +2276,20 @@ export interface AdminAlertChannel {
 }
 
 /** Un chequeo del Sentinel y cómo salió la última vez. */
+export interface AdminKeeper {
+  /** Lo que el operador PIDIO (el flag XRPL_KEEPER_ENABLED). */
+  enabled: boolean;
+  /** Lo que de verdad corre. */
+  running: boolean;
+  /** enabled && !running — la divergencia que G11 dejaba invisible. */
+  divergent: boolean;
+  /** El motivo cuando el flag esta encendido y no corre; null si no aplica. */
+  notStartedReason: string | null;
+  lastRunAt: string | null;
+  resolvedCount: number;
+  submitted: Array<{ action: string; owner: string; txHash: string; at: string }>;
+}
+
 export interface AdminSentinelProbe {
   id: string;
   title: string;
@@ -2166,7 +2517,7 @@ export const adminExecutorApi = {
 
   unstick: async (
     sessionToken: string,
-    input: { hash: string; op: 'retry' | 'park'; reason?: string },
+    input: { hash: string; op: 'retry' | 'park' | 'dismiss'; reason?: string },
   ): Promise<AdminUnstickResult> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
     if (sessionToken) headers['x-admin-session'] = sessionToken;
@@ -2178,6 +2529,86 @@ export const adminExecutorApi = {
     });
     if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
     return (await r.json()) as AdminUnstickResult;
+  },
+};
+
+/* ── Puerta del ancla v2 (DepositAuth + preauth por credencial) ──────────── */
+
+export interface AdminGateCredential {
+  issuer: string;
+  credentialTypeHex: string;
+}
+/** Un objeto DepositPreauth{AuthorizeCredentials}: el firmante lo sostiene ENTERO o no cruza. */
+export type AdminGateSet = AdminGateCredential[];
+
+export interface AdminAnchorGateState {
+  anchor: string;
+  /** `lsfDepositAuth` (0x01000000) en el AccountRoot — lo que un juez comprueba con account_info. */
+  depositAuth: boolean;
+  credentialSets: AdminGateSet[];
+  accounts: string[];
+  balanceXrp: number;
+  ledgerReserveXrp: number;
+  ownerCount: number;
+  baseReserveXrp: number;
+  ownerReserveXrp: number;
+  readAtISO: string;
+}
+
+export interface AdminAnchorGatePlan {
+  toAuthorize: AdminGateSet[];
+  setFlag: boolean;
+  reserveAfterXrp: number;
+  shortfallXrp: number;
+  alreadyArmed: boolean;
+}
+
+export interface AdminAnchorGateStatus {
+  state: AdminAnchorGateState;
+  configSets: AdminGateSet[];
+  drift: { missing: AdminGateSet[]; extra: AdminGateSet[] };
+  plan: AdminAnchorGatePlan;
+  seed: { configured: boolean; format?: string; address?: string; matchesExpected?: boolean; error?: string };
+  configError: string | null;
+  verify: { accountInfo: string; accountObjects: string };
+  checkedAt: string;
+}
+
+export interface AdminAnchorGateReport {
+  anchor: string;
+  dryRun: boolean;
+  before: AdminAnchorGateState;
+  plan: AdminAnchorGatePlan;
+  submitted: Array<{ kind: 'DepositPreauth' | 'AccountSet'; label: string; hash: string | null; result: string }>;
+  after: AdminAnchorGateState | null;
+  stoppedBecause: string | null;
+}
+
+/** La puerta del ancla v2 desde el panel: leerla, armarla (seca por defecto), apagarla. Firma la
+ *  clave OPERATIVA del ancla en el servidor — infra propia, jamás usuario. */
+export const adminAnchorGateApi = {
+  status: async (sessionToken: string): Promise<AdminAnchorGateStatus> => {
+    const headers: Record<string, string> = { ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-anchor-gate`, { headers, credentials: 'include' });
+    if (!r.ok) throw Object.assign(new Error(`http_${r.status}`), { status: r.status });
+    return (await r.json()) as AdminAnchorGateStatus;
+  },
+  arm: async (sessionToken: string, input: { dryRun: boolean; objectsOnly?: boolean }): Promise<AdminAnchorGateReport> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-anchor-gate/arm`, { method: 'POST', headers, credentials: 'include', body: JSON.stringify(input) });
+    const body = (await r.json().catch(() => ({}))) as AdminAnchorGateReport & { error?: string; detail?: string };
+    if (!r.ok) throw Object.assign(new Error(body.detail ?? body.error ?? `http_${r.status}`), { status: r.status });
+    return body;
+  },
+  disarm: async (sessionToken: string, input: { dryRun: boolean }): Promise<AdminAnchorGateReport> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...authHeader() };
+    if (sessionToken) headers['x-admin-session'] = sessionToken;
+    const r = await fetch(`${API_BASE}/admin-anchor-gate/disarm`, { method: 'POST', headers, credentials: 'include', body: JSON.stringify(input) });
+    const body = (await r.json().catch(() => ({}))) as AdminAnchorGateReport & { error?: string; detail?: string };
+    if (!r.ok) throw Object.assign(new Error(body.detail ?? body.error ?? `http_${r.status}`), { status: r.status });
+    return body;
   },
 };
 
@@ -2236,6 +2667,50 @@ export interface CouncilPositionRow {
   createdAt?: string;
 }
 
+/**
+ * G1-cadena — the LEDGER's verdict on a past-deadline proposal's pinned
+ * Sequence (backend `withEffectiveStatus`). XRPL consumes a Sequence exactly
+ * once, so one `account_info` read separates three honest cases:
+ *   · `consumed`   — the seat was USED. That signed tx can never be broadcast
+ *                    again, but we do not know whether OURS was the tx that
+ *                    used it: it MAY already have executed.
+ *   · `unused`     — it never entered a ledger. Genuinely expired (and the row
+ *                    is archived as `expired`, so this state rarely travels).
+ *   · `unverified` — WE could not read XRPL. A failure of ours, never a state
+ *                    of the world: nothing is archived and nothing is claimed.
+ *
+ * It travels as a FIELD, never as a status: the inbox buckets by status
+ * equality, so a sixth status value would make the row vanish from every tray
+ * — trading a lie for a disappearance.
+ *
+ * Only present when the deadline has passed AND the row kept a live status.
+ */
+export type CouncilLedgerCheck =
+  | {
+      state: 'consumed';
+      deadlinePassed: true;
+      pinnedSequence: number;
+      accountSequence: number;
+      checkedAt: string;
+      detail: string;
+    }
+  | {
+      state: 'unused';
+      deadlinePassed: true;
+      pinnedSequence: number;
+      accountSequence: number;
+      checkedAt: string;
+      detail: string;
+    }
+  | {
+      state: 'unverified';
+      deadlinePassed: true;
+      pinnedSequence: number | null;
+      reason: string;
+      checkedAt: string;
+      detail: string;
+    };
+
 /** A persisted council proposal: the PINNED unsigned tx plus the verified
  *  member signatures collected so far. Combine + broadcast happen in the
  *  browser; the server never signs. */
@@ -2255,6 +2730,50 @@ export interface CouncilProposalRecord {
   expiresAt: string;
   signatures: CouncilSignatureRow[];
   positions?: CouncilPositionRow[];
+  /** G1-cadena — the ledger's verdict on the pinned seat, once the deadline
+   *  passed. Absent while the proposal is still inside its 7 days. */
+  ledgerCheck?: CouncilLedgerCheck;
+  /**
+   * it. 23 (it. 22 §2.3) — HOW MUCH OF THIS ROW YOU ARE BEING SERVED.
+   *
+   * it. 21 §3.7 gave a REGISTERED-only cosignatory the signing material in full
+   * (txjson, signerList, quorum, blobs) and none of the family's deliberation:
+   * `title` arrives null and `positions` empty, with `access: 'registered'` and
+   * `redacted: ['title','positions']` saying so. The frontend read neither
+   * field (grep: zero), so the redaction was rendered as FACT — «nobody has
+   * fixed a position» — and «Fix my position» was offered over a door the
+   * server refuses. A withheld thing must be named as withheld.
+   *
+   * `proven` (or the proposer's own row) is the full read. The route never
+   * serves 'none' or 'unreadable' as a row: those are a 403 / 503.
+   */
+  access?: 'proven' | 'registered' | 'none' | 'unreadable';
+  /** The fields that were withheld from THIS reader, named by the server. */
+  redacted?: string[];
+}
+
+/**
+ * productizer it. 25 (1) — LA FILA QUE EL SERVIDOR NO PUDO DECIDIR, DECLARADA.
+ *
+ * it. 23 dejó de tirarla: `GET /council/proposals` responde 200 con las filas
+ * legibles en `proposals` y las indecidibles NOMBRADAS en `unreadable`, con el mismo
+ * cuerpo (`error`/`retryable`/`detail`) que llevaría la respuesta entera si no
+ * hubiese nada legible — para que la pantalla use UN solo lector en los dos sitios.
+ * Este tipo no existía, así que los consumidores desestructuraban `proposals` y la
+ * fila volvía a desaparecer: el mismo fallo, un piso más arriba.
+ *
+ * `PROPOSAL_STATUS_UNREADABLE` (it. 25) se suma a los códigos del piso de lectura:
+ * la fila ES tuya, pero su estado no se pudo poner al día contra el ledger.
+ */
+export interface CouncilUnreadableRow {
+  id: string;
+  account: string;
+  /** El código del servidor. Jamás se pinta crudo — va entre paréntesis. */
+  error: string;
+  /** ¿Se arregla solo reintentando? Un 409 determinista dice que no. */
+  retryable?: boolean;
+  /** La prosa del servidor, cuando la mandó. */
+  detail?: string;
 }
 
 export const councilProposalsApi = {
@@ -2264,7 +2783,7 @@ export const councilProposalsApi = {
       body,
     ),
   list: (accounts: string[], onlyLive = false) =>
-    jget<{ proposals: CouncilProposalRecord[] }>('/council/proposals', {
+    jget<{ proposals: CouncilProposalRecord[]; unreadable?: CouncilUnreadableRow[] }>('/council/proposals', {
       accounts: accounts.join(','),
       ...(onlyLive ? { status: 'live' } : {}),
     }),
@@ -2283,8 +2802,15 @@ export const councilProposalsApi = {
       proposal: CouncilProposalRecord;
       councilOrder?: { isOrder: true; relay: 'started' | 'already-relaying' | 'relayer-disabled' | 'not-launched' };
     }>(`/council/proposals/${id}/submitted`, { txHash }),
-  withdraw: (id: string) =>
-    jpost<{ ok: boolean; proposal: CouncilProposalRecord }>(`/council/proposals/${id}/withdraw`, {}),
+  /** G1-cadena — past the deadline the server refuses to file a proposal whose
+   *  pinned seat the ledger says was USED (or could not read): "withdrawn"
+   *  means "this never happened". `acknowledgeLedgerCheck` is the proposer
+   *  stating they checked the explorer — a human statement, never our
+   *  inference. */
+  withdraw: (id: string, opts?: { acknowledgeLedgerCheck?: boolean }) =>
+    jpost<{ ok: boolean; proposal: CouncilProposalRecord }>(`/council/proposals/${id}/withdraw`, {
+      ...(opts?.acknowledgeLedgerCheck ? { acknowledgeLedgerCheck: true } : {}),
+    }),
   /** Fix a formal position (the acta): the EXACT contentJson the wallet signed
    *  over, plus the proof blob. Immutable once set. */
   setPosition: (
@@ -2520,6 +3046,57 @@ export interface MultisigPrepare {
     engineResultMessage?: string;
     balanceChanges: Array<{ account: string; value: string; currency: string; issuer?: string }>;
   };
+  /**
+   * productizer it. 17/19 (R3 N3, it.18 §2.1) — THE CONTESTED SEAT.
+   *
+   * An EXIT is never refused for somebody else's payload, so `/multisign/prepare`
+   * composes it and says that ANOTHER proposal of this account is holding the same
+   * Sequence. XRPL burns a Sequence exactly once: signing and broadcasting this
+   * exit means the other payload can never apply.
+   *
+   * The warning existed and had NO READER on any screen (`grep seatContestWarning
+   * frontend/src` → 0), so a council collected a quorum over two payloads of the
+   * same seat without being told. It is read by `CouncilMultisigFlow` now.
+   *
+   * `seatContestWarning` is the server's prose and MAY name another council's
+   * ceremony — so the screen renders its own sentence from the IDS in
+   * `seatContest` instead (it. 19, cross-agent contract with the ceremony guard).
+   */
+  seatContestWarning?: string;
+  seatContest?: {
+    /** The rival proposal's id — the one to settle in the inbox. */
+    proposalId?: string;
+    /** Its transaction type (`Payment`, `AccountSet`…). Never its title. */
+    txType?: string;
+    /** The Sequence both payloads are pinned to. */
+    pinnedSequence?: number;
+  };
+  /**
+   * productizer it. 21 (it. 20 §2.5) — THREE DIFFERENT WARNINGS, ONE SENTENCE.
+   *
+   * `seatContestWarning` was a single free-text field into which the route
+   * concatenated up to three UNRELATED things: a real rival payload holding the
+   * Sequence, a transaction we could not CLASSIFY as an exit, and an inbox we
+   * could not READ. The screen printed «another payload of this account is
+   * holding the same Sequence» for all three — so a council whose only problem
+   * was a database blip was sent to the inbox to settle a proposal that does
+   * not exist, and the two warnings that are true had no reader at all.
+   *
+   * The server now sends them TYPED and the screen renders each with its own
+   * sentence (`seatContestNotices`, CouncilMultisigFlow). The old field stays
+   * for older clients; a client that understands this one ignores it.
+   */
+  seatNotices?: Array<{
+    kind: 'rival-seat' | 'unclassified-exit' | 'inbox-unreadable';
+    /** The rival proposal's id (`rival-seat` only). */
+    proposalId?: string;
+    /** Its transaction type — never its title (`rival-seat` only). */
+    txType?: string;
+    /** The Sequence both payloads are pinned to (`rival-seat` only). */
+    pinnedSequence?: number;
+    /** The server's own prose. MAY name another council: never rendered as-is. */
+    detail?: string;
+  }>;
 }
 
 export const xrplLegacy = {
@@ -2531,8 +3108,13 @@ export const xrplLegacy = {
     jget<{ account: string; status: RehearsalStatus; health: LegacyHealth }>('/xrpl-defi/rehearsal-status', { account }),
   /** Pin an unsigned txjson for council multisig (Sequence/Fee/SigningPubKey) +
    *  the simulate preflight. The frontend then fans it out to the members. */
-  multisignPrepare: (account: string, xrplTx: Record<string, unknown>) =>
-    jpost<MultisigPrepare>('/xrpl-defi/multisign/prepare', { account, xrplTx }),
+  multisignPrepare: (account: string, xrplTx: Record<string, unknown>, opts?: { exitToken?: string | null }) =>
+    jpost<MultisigPrepare>(
+      '/xrpl-defi/multisign/prepare',
+      // `exitToken` (from council-order/prepare on recall/evacuate) lets the
+      // server skip the geofence for that exact tx — only sent when there is one.
+      opts?.exitToken ? { account, xrplTx, exitToken: opts.exitToken } : { account, xrplTx },
+    ),
   /** Dry-run a txjson (read-only): would it succeed + exact balance deltas. */
   simulate: (txjson: Record<string, unknown>) =>
     jpost<MultisigPrepare['preflight']>('/xrpl-defi/simulate', { txjson }),
@@ -2567,13 +3149,13 @@ export const xrplLegacy = {
    *  into this Legacy's own account on Flare and deposits it as principal.
    *  Directing that principal into a venue is a SECOND, separate order. */
   vaultFundPrepare: (body: { account: string; amountXrp: string; region?: string }) =>
-    jpost<LegacyVaultFundHandoff>('/xrpl-defi/vault-fund/prepare', body),
+    jpost<LegacyVaultFundHandoff>('/xrpl-defi/vault-fund/prepare', body).then(noteInstructionDelivery),
   /** BIRTH of this Legacy's own cage: ONE quorum signature creates the vault
    *  (factory.create runs from the council's own Flare account — nobody else
    *  can) and deposits the first principal into it (CREATE2 names the address
    *  before it exists). Directing capital is still a second order. */
   cageCreatePrepare: (body: { account: string; amountXrp: string; linajeFeeBps?: number; region?: string }) =>
-    jpost<LegacyCageCreateHandoff>('/xrpl-defi/cage-create/prepare', body),
+    jpost<LegacyCageCreateHandoff>('/xrpl-defi/cage-create/prepare', body).then(noteInstructionDelivery),
   /** The one-way disclosure + whether this user has accepted its CURRENT
    *  version. Read-only, so it also serves the "How a cage works" link that
    *  must keep working after acceptance. */
@@ -2587,7 +3169,7 @@ export const xrplLegacy = {
   /** `harvest(venueId)` as a bare unsigned call — permissionless, pays the
    *  sender nothing; it only turns gain-above-basis into "the payees are owed". */
   vaultHarvestPrepare: (body: { account: string; venueId: number }) =>
-    jpost<LegacyHarvestHandoff>('/xrpl-defi/vault-yield/harvest/prepare', body),
+    jpost<LegacyHarvestHandoff>('/xrpl-defi/vault-yield/harvest/prepare', body).then(noteInstructionDelivery),
   /** The heir's one signature: claim the yield owed and redeem it to native XRP
    *  through the existing unmint rail. YIELD only — principal never moves.
    *  `council` is the Legacy that owes; `xrplAddress` is the heir who signs. */
@@ -2597,7 +3179,8 @@ export const xrplLegacy = {
     amountXrpForMint: string;
     xrplDest?: string;
     region?: string;
-  }) => jpost<LegacyYieldClaimHandoff>('/xrpl-defi/vault-yield/claim/prepare', body),
+  }) =>
+    jpost<LegacyYieldClaimHandoff>('/xrpl-defi/vault-yield/claim/prepare', body).then(noteInstructionDelivery),
   /** Current constitution anchor (DID) + quorum-signed amendment history. */
   constitution: (account: string) =>
     jget<{ account: string; anchor: ConstitutionAnchor | null; history: ConstitutionAmendment[] }>(
@@ -2618,7 +3201,14 @@ export const xrplLegacy = {
     action: string;
     params: Record<string, unknown>;
     region?: string;
-  }) => jpost<CouncilOrderHandoff>('/xrpl-defi/council-order/prepare', body),
+    /** Only after an explicit confirm on 409 COUNCIL_ORDER_IN_FLIGHT (it.13). */
+    confirmAnotherOrder?: boolean;
+  }) =>
+    // it. 19 (R3 N4): this route ALWAYS answers `serverDelivery`, and until now
+    // nothing on this rail read it — the banner promised «Flare will act on
+    // this» from the memo's shape. `lib/institutional/api` had the same wiring
+    // for its own council orders; this is the Legacy one.
+    jpost<CouncilOrderHandoff>('/xrpl-defi/council-order/prepare', body).then(noteInstructionDelivery),
   /** Ask the courtesy relayer to carry the validated XRPL tx across the FDC.
    *  Permissionless by design — anyone could deliver the same proof. */
   councilOrderRelay: (body: { xrplTxHash: string; orderData?: string }) =>
@@ -2637,6 +3227,19 @@ export const xrplLegacy = {
 /** The council-order prepare result: a normal XRPL handoff plus the committed
  *  order (bytes + hash + nonce) the UI shows and the relayer needs as backup. */
 export interface CouncilOrderHandoff extends XrplTxHandoff {
+  /** Exits only (recall / evacuate): forwarded to /multisign/prepare so the
+   *  server skips the geofence for exactly this tx. Absent otherwise. */
+  exitToken?: string | null;
+  /** When that token stops verifying (15 min). */
+  exitTokenExpiresAt?: string;
+  /** it.13: what the server took on (recorded + executor running = delivered without this screen). */
+  serverDelivery?: { recorded: boolean; executorEnabled: boolean };
+  /** it.13, exits only: the server could not remember the order — keep the screen open or relay by hash. */
+  recoveryWarning?: string;
+  /** it.13, exits only: another order of this account is already in flight. */
+  inFlightWarning?: string;
+  /** it.14, exits only: the SAME order (action + parameters) was launched for this council a moment ago. */
+  duplicateWarning?: string;
   order: {
     action: string;
     summary: string;

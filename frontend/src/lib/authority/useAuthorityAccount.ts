@@ -10,7 +10,10 @@
  * keeps its ORIGINAL public API as an adapter so its consumers
  * (ProductModeCard, LegacySummaryPanel, AuthorityContextBar) work unchanged:
  *
- *   productMode  — 'legacy' ⇔ the active authority is governed.
+ *   productMode  — ⚠️ ya NO es una elección (2026-08-22): lo pone la pantalla
+ *                  abierta (AppShell). Este adaptador sigue leyéndolo para sus
+ *                  consumidores preservados, pero llamar a setProductMode ya
+ *                  no viste la aplicación: el sincronizador de ruta manda.
  *   setProductMode('legacy') — re-enter the last governed account operated
  *                  (else the first of Mis Legacies); 'astryum' — the overview.
  *   accounts     — every authority mapped to the AuthorityAccount shape.
@@ -26,8 +29,8 @@ import { useAuthorities, invalidateAuthorityCache } from '../../hooks/useAuthori
 import { useAuthorityStore } from '../../stores/authorityStore';
 import { useAuthStore } from '../../stores/authStore';
 import { isDemoMode, openLegacyComingSoon } from '../demoMode';
-import { OVERVIEW_AUTHORITY_ID, type Authority, type GovernedAuthority } from '../authority';
-import { getLegacyNickname } from '../../components/legacy/legacyLocal';
+import { OVERVIEW_AUTHORITY_ID } from '../authority';
+import { toAuthorityAccount } from './toAuthorityAccount';
 import type { AuthorityAccount } from './authorityAccounts';
 
 export interface UseAuthorityAccountResult {
@@ -50,34 +53,9 @@ export interface UseAuthorityAccountResult {
   refreshGoverned: () => Promise<void>;
 }
 
-function toAuthorityAccount(a: Authority): AuthorityAccount | null {
-  if (a.kind === 'single') {
-    return {
-      id: a.id,
-      kind: 'simple',
-      address: a.wallet.address,
-      chain: a.wallet.ecosystem === 'xrpl' ? 'xrp' : (a.wallet.ecosystem ?? 'evm'),
-      nickname: a.wallet.label,
-      authority: { type: 'single' },
-      isConnected: a.wallet.isActive,
-      executors: [] as never[],
-    };
-  }
-  if (a.kind === 'governed') {
-    const g = a as GovernedAuthority;
-    return {
-      id: g.id,
-      kind: 'governed',
-      address: g.address,
-      chain: 'xrp',
-      nickname: g.label || getLegacyNickname(g.address) || undefined,
-      authority: { type: 'quorum', quorum: g.quorum, total: g.memberCount },
-      health: g.health,
-      executors: [] as never[],
-    };
-  }
-  return null; // the overview has no single-account representation in this API
-}
+// The mapping moved to lib/authority/toAuthorityAccount.ts (E2, 2026-08-16):
+// pure and testable, and the single place the third state (simple+quorum)
+// is spoken. This module stays the ADAPTER (product mode + active account).
 
 export function useAuthorityAccount(): UseAuthorityAccountResult {
   const { authorities, active: myActive, activeGoverned, setActive: setActiveId, reload, loading } = useAuthorities();

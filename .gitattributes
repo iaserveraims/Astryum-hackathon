@@ -28,3 +28,5 @@
 *.ttf binary
 *.eot binary
 *.pdf binary
+
+# Screen recordings (too big for plain git: GitHub caps files at 100 MB)

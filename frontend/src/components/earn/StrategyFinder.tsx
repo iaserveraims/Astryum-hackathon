@@ -54,7 +54,9 @@ const XRP_STYLES: Array<{
     icon: Scale,
     title: 'Lend and borrow against it (carry)',
     desc: 'Supply FXRP and borrow a stablecoin against it. More moving parts — it carries liquidation risk.',
-    kinds: ['e1'],
+    // em-carry (Morpho/RLUSD, Ethereum) is runtime-gated: it reaches this list
+    // only when the catalogue prop contains it (FlareDemoEarn filters by /status).
+    kinds: ['e1', 'em-carry'],
   },
   {
     icon: Layers,
@@ -102,8 +104,10 @@ export function StrategyFinder({
 
   const back = () => {
     if (step === 'result') {
-      // The FLR answer skips the style question — back mirrors the way in.
-      setStep(picked?.kinds.length === 1 && picked.kinds[0] === 'e2' ? 'asset' : 'style');
+      // The FLR and RLUSD answers skip the style question — back mirrors the way in.
+      const skippedStyle =
+        picked?.kinds.length === 1 && (picked.kinds[0] === 'e2' || picked.kinds[0] === 'em-lend');
+      setStep(skippedStyle ? 'asset' : 'style');
       setPicked(null);
     } else {
       setStep('asset');
@@ -151,7 +155,7 @@ export function StrategyFinder({
             <div className="space-y-4">
               <Pill tone="info">{t('A filter, not advice — every route shows its own live data')}</Pill>
               <p className="text-sm text-ink/60 leading-relaxed">
-                {t('Two questions narrow the six routes to the ones that can work with what you hold. You can always browse the full list.')}
+                {t('Two questions narrow the routes to the ones that can work with what you hold. You can always browse the full list.')}
               </p>
               <p className="text-[13px] font-semibold text-ink">{t('What do you want to put to work?')}</p>
 
@@ -185,6 +189,26 @@ export function StrategyFinder({
                 </span>
               </button>
 
+              {/* RLUSD → the lend-only Sentora route. Gate-aware without extra
+                  plumbing: the button exists only while the catalogue prop
+                  carries em-lend (FlareDemoEarn filters it by /status). */}
+              {vaults.some((v) => v.kind === 'em-lend') && (
+                <button
+                  onClick={() => showResult(['em-lend'], ['RLUSD'])}
+                  className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl border border-emerald-400/30 bg-emerald-400/10 text-left hover:bg-emerald-400/20 transition-colors"
+                >
+                  <span className="grid place-items-center w-9 h-9 rounded-xl bg-surface-0/60 border border-ink/10 shrink-0">
+                    <TokenLogo symbol="RLUSD" size="sm" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-ink">RLUSD</span>
+                    <span className="block text-xs text-ink/50 mt-0.5">
+                      {t('The regulated e-money token, in an EVM wallet — lend-only')}
+                    </span>
+                  </span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   onResult(null);
@@ -197,7 +221,7 @@ export function StrategyFinder({
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-ink">{t('Just browsing')}</span>
-                  <span className="block text-xs text-ink/50 mt-0.5">{t('Show me all six routes')}</span>
+                  <span className="block text-xs text-ink/50 mt-0.5">{t('Show me every route')}</span>
                 </span>
               </button>
             </div>

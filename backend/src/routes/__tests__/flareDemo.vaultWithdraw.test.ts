@@ -93,7 +93,16 @@ const buildDirectMintHandoffMock = jest.fn(async () => ({
 }));
 jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => {
   const actual = jest.requireActual('../../connectors/protocols/flare/FlareDirectMintService');
-  return { ...actual, buildDirectMintHandoff: (...args: unknown[]) => buildDirectMintHandoffMock(...(args as [])) };
+  return {
+    ...actual,
+    buildDirectMintHandoff: (...args: unknown[]) => buildDirectMintHandoffMock(...(args as [])),
+    // it. 29 — `seatClaimOf` (it. 27) asks the account's SignerList before every
+    // 0xFE composition. Unmocked, that is a LIVE `account_info` against a public
+    // XRPL node: 4-5 s on a good day, and past jest's 5 s under load — the one
+    // red test of the full run. A route suite must not depend on the network;
+    // `{}` is the answer for an ordinary (single-signature) account.
+    signingCeremonyFor: jest.fn(async () => ({})),
+  };
 });
 
 jest.mock('../../connectors/protocols/flare/FlareSmartAccountService', () => {

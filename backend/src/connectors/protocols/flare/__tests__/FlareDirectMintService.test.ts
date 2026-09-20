@@ -28,6 +28,15 @@ jest.mock('ethers', () => {
   return { ...actual, ethers: { ...actual.ethers, Contract: MockContract } };
 });
 
+// it15 §K1: el builder estampa LastLedgerSequence leyendo el ledger validado.
+// Aquí se finge (estas pruebas son de forma, no de red): sin esto, un test
+// unitario saldría a s1.ripple.com y dependería de la red para pasar.
+const TEST_VALIDATED_LEDGER = 90_000_000;
+jest.mock('../../../../services/flare/DirectMintHandoffStore', () => ({
+  ...jest.requireActual('../../../../services/flare/DirectMintHandoffStore'),
+  readValidatedLedgerIndex: jest.fn(async () => 90_000_000),
+}));
+
 import { ethers } from 'ethers';
 import {
   computeNetMint,
@@ -41,6 +50,7 @@ import {
   resolveRedemptionExecutor,
   findNonceSeatConflicts,
   classifySeatConflicts,
+  defaultLastLedgerWindow,
   _resetAssetManagerCache,
 } from '../FlareDirectMintService';
 import { _resetMacCache } from '../FlareSmartAccountService';
@@ -166,12 +176,39 @@ describe('FlareDirectMintService — buildDirectMintHandoff (unsigned, end-to-en
     expect(handoff.xrplPayment.Memos[0].Memo.MemoData).toBe(handoff.memoHex);
     expect(handoff.memoHex.slice(0, 2)).toBe('FE');
 
+    // it15 §K1 — el Payment sale con su ventana de firma: pasado ese ledger no
+    // puede entrar, y por eso su asiento de nonce se puede liberar sin adivinar.
+    // it17 §L1 — y esa ventana se mide contra la caducidad del payload de Xaman
+    // (5 min → 90 ledgers), no contra un número redondo de 150.
+    expect(handoff.xrplPayment.LastLedgerSequence).toBe(TEST_VALIDATED_LEDGER + defaultLastLedgerWindow());
+    expect(handoff.lastLedgerSequence).toBe(TEST_VALIDATED_LEDGER + defaultLastLedgerWindow());
+    expect(handoff.composedLedgerIndex).toBe(TEST_VALIDATED_LEDGER);
+
     // memo commits keccak256 of the off-chain userOp bytes (by construction).
     expect(handoff.memoHex.endsWith(handoff.userOpHash.slice(2).toUpperCase())).toBe(true);
     expect(ethers.keccak256(handoff.userOpData)).toBe(handoff.userOpHash);
 
     // No XRPL_SOURCE_TAG configured → the Payment goes out untagged (no key at all).
     expect('SourceTag' in handoff.xrplPayment).toBe(false);
+  });
+
+  test("attribution 'operational' (an Astryum seed signs the Payment) → NO SourceTag even with XRPL_SOURCE_TAG set", async () => {
+    process.env.XRPL_SOURCE_TAG = '2606160020';
+    _resetXrplSourceTagCache();
+
+    const handoff = await buildDirectMintHandoff(fakeProvider, {
+      xrplAddress: 'rUserXrplAddr',
+      grossXrpDrops: 20_000_000n,
+      innerCalls: [{ to: KFXRP, calldata: '0x095ea7b3', value: '0' }],
+      walletId: 0,
+      attribution: 'operational',
+    });
+
+    // Anchor feeding and the demo exchange omnibus sign with OUR seed: the
+    // project tag on those would count our scripted account (T&C §7).
+    expect('SourceTag' in handoff.xrplPayment).toBe(false);
+    expect(handoff.xrplPayment.Destination).toBe(CORE_VAULT);
+    expect(handoff.xrplPayment.Memos[0].Memo.MemoData).toBe(handoff.memoHex);
   });
 
   test('stamps the Make Waves SourceTag when XRPL_SOURCE_TAG is set — DestinationTag stays out', async () => {
@@ -397,6 +434,32 @@ describe('classifySeatConflicts — el asiento abandonado caduca solo (TTL, 2026
     const { stale, fresh } = classifySeatConflicts([{ userOpHash: '0xcc' }], ttl, now);
     expect(fresh).toHaveLength(1);
     expect(stale).toHaveLength(0);
+  });
+
+  // Incidente 2026-08-21 (el gemelo con nonce 19): el executor estuvo parado,
+  // el usuario reintentó, y el TTL enterró como «abandonada» una orden YA
+  // FIRMADA — el prepare siguiente firmó un duplicado condenado a InvalidNonce
+  // que perdió su carrier. «Vieja» no significa «abandonada» cuando hay firma.
+  test('FIRMADA y más vieja que el TTL = fresh IGUAL — lo firmado jamás caduca', () => {
+    const { stale, fresh } = classifySeatConflicts(
+      [{ userOpHash: '0xdd', createdAt: new Date(now - ttl * 10), signedAt: new Date(now - ttl * 9).toISOString() }],
+      ttl,
+      now,
+    );
+    expect(fresh).toHaveLength(1);
+    expect(stale).toHaveLength(0);
+  });
+
+  test('signedAt vacío o null NO cuenta como firmada — el TTL sigue aplicando', () => {
+    const { stale } = classifySeatConflicts(
+      [
+        { userOpHash: '0xee', createdAt: new Date(now - ttl - 1), signedAt: null },
+        { userOpHash: '0xff', createdAt: new Date(now - ttl - 1), signedAt: '' },
+      ],
+      ttl,
+      now,
+    );
+    expect(stale).toHaveLength(2);
   });
 
   test('parte una mezcla en sus dos cubos', () => {

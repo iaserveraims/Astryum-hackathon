@@ -107,15 +107,52 @@ function keyMatches(presented: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+/**
+ * productizer-it6 — AN EMAIL ON THE ALLOWLIST IS NOT AN ADMIN UNTIL SOMEONE
+ * VERIFIED IT.
+ *
+ * WHAT FAILED IN SILENCE: this gate trusted `user.email` as typed. Plain
+ * registration (`AuthService.register`) stores whatever address the caller
+ * sends, with no verification loop, so a founder address on ADMIN_EMAILS that
+ * had no User row yet could be registered by anyone — and `requireAdmin`
+ * (hence `callerIsAdmin` on the demo exchange desk) opened for them.
+ *
+ * What the schema offers: `User.emailVerified` (Boolean, default false). The
+ * ONLY writer that sets it true is `AuthService.oauthLogin` — on create, and on
+ * linking an OAuth identity onto an existing account by email — and only when
+ * the provider's id_token says `email_verified` (Google/Apple). Plain email
+ * registration leaves it false; SIWE/Xaman users carry no real email. There is
+ * no magic-link or verification-mail path in the backend today.
+ *
+ * So the door requires `emailVerified === true`, fail-closed: an allowlisted
+ * founder whose account was created with a password uses the static-key door.
+ * Same 403 either way — the refusal does not tell a squatter that the address
+ * they registered is on the list.
+ *
+ * ⚠ (2026-09-18) Do NOT tell that founder to «sign in once with Google/Apple on
+ * that same address», as this comment used to. Since it. 8 that login is a
+ * TAKEOVER of an unverified password row (`AuthService._takeOverSquattedAccount`):
+ * the founder's own wallets, rules and MoneyFlows move to a quarantine account
+ * and their signed bindings are deactivated. There is no mailer behind
+ * /auth/forgot-password either, so a reset cannot verify the address. Until a
+ * verification mail exists, the safe ways are the panel key or flipping
+ * `users."emailVerified"` for that row by hand, in that environment's database.
+ */
 async function emailGate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const allowlist = adminAllowlist();
   const userId = req.siwe?.userId;
   const user =
     allowlist && userId
-      ? await prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { email: true, emailVerified: true } })
       : null;
   const email = user?.email?.toLowerCase();
   if (!allowlist || !email || !allowlist.has(email)) {
+    res.status(403).json({ error: 'NOT_AN_ADMIN' });
+    return;
+  }
+  if (user.emailVerified !== true) {
+    // No email in the log line: the user id is enough to diagnose it.
+    console.warn(`[admin-panel] allowlisted email without verified provenance refused (user ${userId})`);
     res.status(403).json({ error: 'NOT_AN_ADMIN' });
     return;
   }
@@ -233,6 +270,59 @@ router.get('/executor', async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /orphan-suborgs — THE READER THE DURABLE ROW NEVER HAD (it. 23, task 4).
+ *
+ * `recordOrphanSubOrg` writes a row for every Turnkey sub-org that exists at the
+ * provider with no `wallet` row pointing at it, and it. 21 shipped a runbook for
+ * reconciling them — but `listOrphanSubOrgs` had no caller, so the ledger was
+ * write-only and the runbook could not actually be followed without opening the
+ * database. Here it is, behind the founders' door like every other panel read.
+ *
+ * READ STRICTLY ON PURPOSE. `listOrphanSubOrgsStrict` throws when the database
+ * cannot answer, and this answers 503 — because «there are no orphan sub-orgs»
+ * and «I could not read the ledger» are opposite answers, and an empty table
+ * that means the second is a failed read presented as a fact. `readable` is in
+ * the body so the panel never has to infer it from an empty array.
+ *
+ * Read-only, and it carries no secret: a sub-org id, a user id, an address and
+ * an error message. The KEY inside the sub-org is the user's, reachable only
+ * with their passkey, and nothing here goes anywhere near it.
+ */
+router.get('/orphan-suborgs', async (req: Request, res: Response) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+  try {
+    const { listOrphanSubOrgsStrict, ORPHAN_SUBORG_RUNBOOK, ORPHAN_SUBORG_JOB_TYPE } = await import(
+      '../services/identity/orphanSubOrgLedger'
+    );
+    const orphans = await listOrphanSubOrgsStrict(limit);
+    res.json({
+      readable: true,
+      orphans,
+      // The writer's type pins `reconciled: false`, but a row READ BACK may have
+      // been flipped by an operator: count off the value, not off the type.
+      unreconciled: orphans.filter((o) => (o as { reconciled?: unknown }).reconciled !== true).length,
+      jobType: ORPHAN_SUBORG_JOB_TYPE,
+      runbook: ORPHAN_SUBORG_RUNBOOK,
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('[admin-panel] orphan sub-org ledger unreadable:', e);
+    res.setHeader('Retry-After', '5');
+    res.status(503).json({
+      readable: false,
+      error: 'ORPHAN_LEDGER_UNREADABLE',
+      detail:
+        'We could not read the orphan sub-org ledger just now, so this list does NOT mean "none" — it means ' +
+        '"unknown". ' +
+        'Nothing was changed. Try again in a moment; if it keeps failing, the records are in background_jobs ' +
+        'under jobType turnkey-orphan-suborg.',
+      retryable: true,
+      checkedAt: new Date().toISOString(),
+    });
+  }
+});
+
 // GET /alerts — la bandeja de alertas/notificaciones de operación (executor
 // 0xFE, vigía XRPL, provider-health, relay Legacy). Persistidas SIEMPRE por
 // OpsAlertStore (no dependen del webhook), servidas bajo la sesión del panel.
@@ -269,8 +359,17 @@ router.get('/alerts', async (req: Request, res: Response) => {
 router.get('/overview', async (req: Request, res: Response) => {
   const includeNoise = req.query.includeNoise === '1';
 
-  const [users, wallets, governedAccounts, councilProposals, allSignups, recentUsersRaw, providerGroups] = await Promise.all([
-    prisma.user.count(),
+  // A takeover does not delete the previous holder's row — it moves the residue
+  // to a `quarantine` account that can never be signed into (AuthService
+  // ._takeOverSquattedAccount, invariant #11: nothing is destroyed). Those rows
+  // are evidence, NOT users: counting them inflates the account figure, and the
+  // freshest one always sits at the top of "recent users" (productizer it. 16,
+  // 4.2). They are reported on their own line instead.
+  const REAL_USER = { authProvider: { not: 'quarantine' } } as const;
+
+  const [users, quarantinedUsers, wallets, governedAccounts, councilProposals, allSignups, recentUsersRaw, providerGroups] = await Promise.all([
+    prisma.user.count({ where: REAL_USER }),
+    prisma.user.count({ where: { authProvider: 'quarantine' } }),
     prisma.wallet.count(),
     prisma.governedAccount.count(),
     prisma.councilProposal.count(),
@@ -283,12 +382,13 @@ router.get('/overview', async (req: Request, res: Response) => {
       select: { email: true, source: true, lang: true, createdAt: true, approvedAt: true, invitedAt: true },
     }),
     prisma.user.findMany({
+      where: REAL_USER,
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: { email: true, username: true, createdAt: true, lastLogin: true, authProvider: true, oauthSub: true },
     }),
     // OAuth users separated from plain-email users (founder 2026-07-23).
-    prisma.user.groupBy({ by: ['authProvider'], _count: { _all: true } }),
+    prisma.user.groupBy({ by: ['authProvider'], where: REAL_USER, _count: { _all: true } }),
   ]);
 
   // authProviders per user: creation origin + any OAuth identity linked later
@@ -327,6 +427,9 @@ router.get('/overview', async (req: Request, res: Response) => {
   return res.json({
     counts: {
       users,
+      // Separate line, never folded into `users`: how many accounts a verified
+      // owner has taken back. Zero on a healthy install.
+      quarantinedUsers,
       wallets,
       governedAccounts,
       councilProposals,

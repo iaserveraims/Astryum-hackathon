@@ -132,3 +132,92 @@ describe('§2/§3 — pending persistence: per-ref + expiry', () => {
     expect(loadAllPending()).toEqual([]);
   });
 });
+
+// ── it. 34 — MINED WITHOUT EFFECT: the Compound `Failure` decoder ─────────────
+import {
+  COMPOUND_FAILURE_TOPIC,
+  compoundFailureIn,
+  isPartialBatchFailure,
+  noEffectReason,
+  parseNoEffect,
+  receiptHasEffect,
+} from '../settlement';
+
+/** What kFXRP_ISO emits on a refused redeem (mainnet probe, it. 31): Failure(9, 45, 0). */
+const FAILURE_9 = {
+  address: '0xD1b7A5eFa9bd88F291F7A4563a8f6185c0249CB3',
+  topics: [COMPOUND_FAILURE_TOPIC],
+  data:
+    '0x' +
+    '0000000000000000000000000000000000000000000000000000000000000009' +
+    '000000000000000000000000000000000000000000000000000000000000002d' +
+    '0000000000000000000000000000000000000000000000000000000000000000',
+};
+const TRANSFER = {
+  address: '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE',
+  topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x0', '0x0'],
+  data: '0x' + '0'.repeat(63) + '1',
+};
+
+describe('it. 34 — a status-1 receipt with a Compound Failure is not a success', () => {
+  it('decodes Failure(error, info, detail) from the log, by topic and 32-byte words', () => {
+    expect(compoundFailureIn([TRANSFER, FAILURE_9])).toEqual({ error: 9, info: 45, detail: 0 });
+    // Topic compared case-insensitively (wallets differ).
+    expect(compoundFailureIn([{ ...FAILURE_9, topics: [COMPOUND_FAILURE_TOPIC.toUpperCase().replace('0X', '0x')] }])).toEqual({
+      error: 9,
+      info: 45,
+      detail: 0,
+    });
+  });
+
+  it('ordinary logs, empty logs, missing logs and a Failure with code 0 are NOT a failure', () => {
+    expect(compoundFailureIn([TRANSFER])).toBeNull();
+    expect(compoundFailureIn([])).toBeNull();
+    expect(compoundFailureIn(undefined)).toBeNull();
+    expect(compoundFailureIn(null)).toBeNull();
+    expect(compoundFailureIn([{ ...FAILURE_9, data: '0x' + '0'.repeat(192) }])).toBeNull();
+    // A log with the topic but unreadable data cannot invent a code either.
+    expect(compoundFailureIn([{ ...FAILURE_9, data: '0xzz' }])).toBeNull();
+    expect(compoundFailureIn([{ topics: [] }, { topics: undefined }])).toBeNull();
+  });
+
+  it('receiptHasEffect = status 1 AND no Failure', () => {
+    expect(receiptHasEffect({ status: 1, logs: [TRANSFER] })).toBe(true);
+    expect(receiptHasEffect({ status: 'success', logs: [] })).toBe(true);
+    expect(receiptHasEffect({ status: 1 })).toBe(true);
+    expect(receiptHasEffect({ status: 1, logs: [FAILURE_9] })).toBe(false);
+    expect(receiptHasEffect({ status: 'reverted', logs: [] })).toBe(false);
+  });
+
+  it('the reason travels as a CODE and parses back, with the batch step when there is one', () => {
+    expect(noEffectReason({ error: 9, info: 45, detail: 0 })).toBe('MINED_NO_EFFECT:COMPOUND:9:45:0');
+    expect(noEffectReason({ error: 3, info: 7, detail: 4 }, 2)).toBe('MINED_NO_EFFECT:COMPOUND:3:7:4:STEP:2');
+    expect(parseNoEffect('MINED_NO_EFFECT:COMPOUND:9:45:0')).toEqual({ failure: { error: 9, info: 45, detail: 0 }, step: null });
+    expect(parseNoEffect('MINED_NO_EFFECT:COMPOUND:3:7:4:STEP:2')).toEqual({ failure: { error: 3, info: 7, detail: 4 }, step: 2 });
+    expect(parseNoEffect('REVERTED')).toBeNull();
+    expect(parseNoEffect(undefined)).toBeNull();
+  });
+
+  it('a no-effect call at step >1 is a PARTIAL batch (the approve before it went through)', () => {
+    expect(isPartialBatchFailure('MINED_NO_EFFECT:COMPOUND:9:45:0:STEP:2')).toBe(true);
+    expect(isPartialBatchFailure('MINED_NO_EFFECT:COMPOUND:9:45:0:STEP:1')).toBe(false);
+    expect(isPartialBatchFailure('MINED_NO_EFFECT:COMPOUND:9:45:0')).toBe(false);
+  });
+
+  it('evaluate5792: CONFIRMED + all status 1 + a Failure in call 2 ⇒ failed, step named', () => {
+    const v = evaluate5792({
+      status: 'CONFIRMED',
+      receipts: [
+        { status: 'success', logs: [TRANSFER] },
+        { status: 'success', logs: [FAILURE_9] },
+      ],
+    });
+    expect(v).toEqual({ done: true, failed: true, reason: 'MINED_NO_EFFECT:COMPOUND:9:45:0:STEP:2' });
+    // A reverted receipt still wins first (it is the older, louder failure).
+    expect(
+      evaluate5792({ status: 'CONFIRMED', receipts: [{ status: 'reverted' }, { status: 'success', logs: [FAILURE_9] }] }).reason,
+    ).toBe('BATCH_CALL_REVERTED:1');
+    // Clean receipts still settle.
+    expect(evaluate5792({ status: 'CONFIRMED', receipts: [{ status: 'success', logs: [TRANSFER] }] })).toEqual({ done: true, failed: false });
+  });
+});

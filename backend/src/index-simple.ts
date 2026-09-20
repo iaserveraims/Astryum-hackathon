@@ -303,6 +303,10 @@ mountRouter('/api/admin-panel', () => require('./routes/adminPanel').default);
 // (retry/park). Mismas puertas que el panel (requireAdmin DENTRO del router);
 // router propio para que adminPanel siga siendo read-only por construcción.
 mountRouter('/api/admin-executor', () => require('./routes/adminExecutor').default);
+// La puerta del ancla v2 (DepositAuth + preauth por credencial): estado, deriva
+// config↔ledger, armar/desarmar con la clave OPERATIVA del ancla. Mismas
+// puertas; router propio porque este SÍ firma (infra propia, jamás usuario).
+mountRouter('/api/admin-anchor-gate', () => require('./routes/adminAnchorGate').default);
 // Beta gate (founders only): approve/revoke de emails de la waitlist — la
 // puerta de la beta cerrada. Mismas puertas (requireAdmin DENTRO del router);
 // router propio por la misma regla que admin-executor.
@@ -311,6 +315,15 @@ mountRouter('/api/admin-beta', () => require('./routes/adminBetaGate').default);
 // abiertas, canales de alerta armados — y la prueba de entrega del canal.
 // Mismas puertas; router propio por la misma regla que admin-executor.
 mountRouter('/api/admin-ops', () => require('./routes/adminOps').default);
+// Demo Exchange (founders only): the SIMULATED exchange system — runs, clients
+// with tags, demo ledger, omnibus watcher, receipt book + on-chain verification.
+// Mirrors and checks; never signs. Same doors (requireAdmin INSIDE the router).
+mountRouter('/api/demo-exchange', () => require('./routes/demoExchange').default);
+// El ensayo en seco (fork local + impersonación) SOLO existe con el flag: sin
+// él, la ruta ni se monta — y dentro, cada handler re-comprueba flag y RPC local.
+if (process.env.DRY_RUN_MODE === 'true') {
+  mountRouter('/api/dry-run', () => require('./routes/dryRun').default);
+}
 // Council proposals (governed-mode inbox): pinned unsigned txs + verified
 // member blobs. Combine + broadcast stay in the browser (prepare-only).
 mountRouter('/api/council/proposals', () => require('./routes/councilProposals').default, requireSiweAuth);
@@ -327,6 +340,9 @@ mountRouter('/api/network', () => require('./routes/networkStatus').default);
 // Platform status light (Astryum Orbit System): GET is public; the PUT that
 // flips online/offline sits behind adminPanel's requireAdmin inside the router.
 mountRouter('/api/platform', () => require('./routes/platformStatus').default);
+// El espejo de cuentas producción → preview (2026-09-14), solo fundadores. El
+// servicio se niega solo en producción: aquí la ruta existe pero contesta 409.
+mountRouter('/api/account-mirror', () => require('./routes/accountMirror').default);
 // PUBLIC (no auth): early-access waitlist capture from the landing. Write-only
 // (no read endpoint), idempotent, rate-limited in-process.
 mountRouter('/api/waitlist', () => require('./routes/waitlist').default);
@@ -353,10 +369,24 @@ mountRouter('/api/flare-demo', () => require('./routes/flareDemo').default, requ
 // txjson for Xaman + disclosure. Gated inside the route by XRPL_DEFI_ENABLED
 // (#10) + geofence (#5); the read-only vigía/amm-info endpoints stay open.
 mountRouter('/api/xrpl-defi', () => require('./routes/xrplDefi').default, requireSiweAuth);
+// Institutional potes (AstryumVault) — prepare-only: unsigned EVM calls +
+// unsigned XLS-70 txjson (credential ceremony) + disclosure. Gated inside the
+// route by INSTITUTIONAL_POTES_ENABLED (#10, ships OFF); the read-only
+// pote-state/credential-gate endpoints stay open (public chain state).
+mountRouter('/api/institutional', () => require('./routes/institutional').default, requireSiweAuth);
+// La bandeja de credenciales XLS-70 (27-ago): leer lo que el ledger dice de una
+// cuenta y componer, sin firmar, el CredentialAccept que firma el SUJETO. Sin
+// endpoint de emisión a propósito: Astryum no emite ni acepta por nadie.
+mountRouter('/api/xrpl-credentials', () => require('./routes/xrplCredentials').default, requireSiweAuth);
 // Wallets page — native FLR/XRP transfer prepare (prepare-only, unsigned payload
 // + disclosure). A wallet-to-wallet payment is NOT DeFi execution, so it is not
 // behind FLARE_DEFI_ENABLED/geofence — same availability tier as fiat/monitoring.
 mountRouter('/api/wallet-transfer', () => require('./routes/walletTransfer').default, requireSiweAuth);
+// W3 — FXRP/RLUSD lend-borrow on Ethereum (rail A1, prepare-only: unsigned legs
+// + pre-flights + simulation + disclosure). Gated inside the route by
+// ETH_RLUSD_FXRP_ENABLED (#10, ships OFF) + geofence (#5), same frontier as
+// flare-demo. The user's own wallet signs on chain 1; Astryum never signs.
+mountRouter('/api/eth-morpho', () => require('./routes/ethMorpho').default, requireSiweAuth);
 // Saved destination addresses for the Send flow (pruned in e8f6f58, restored).
 // UX data only — labels + public addresses; the route self-gates with SIWE.
 mountRouter('/api/address-book', () => require('./routes/addressBook').default);
@@ -837,6 +867,18 @@ async function startServer() {
     console.log('[BOOT] about to listen on', HOST + ':' + PORT);
     server.listen(PORT, HOST, () => {
       console.log('[BOOT] server.listen callback fired — accepting requests');
+      // El catálogo de potes se calienta solo (12-sep): una lectura en segundo
+      // plano al arrancar y otra cada 20 min, para que nadie pague el frío al
+      // abrir Earn → Managed vaults. Un fallo se anota y no tumba nada.
+      import('./services/flare/PoteCatalogRead')
+        .then((m) => m.startPoteCatalogWarmup())
+        .catch((e) => logger.error('[BOOT] catalog warmup not started:', (e as Error).message));
+      // El espejo de cuentas producción → preview (2026-09-14): sin
+      // ACCOUNT_MIRROR_SOURCE_URL no hace nada; con la base propia en
+      // producción se niega y lo dice. Ver services/accountMirror/plan.ts.
+      import('./services/accountMirror/AccountMirrorService')
+        .then((m) => m.startAccountMirror())
+        .catch((e) => logger.error('[BOOT] account mirror not started:', (e as Error).message));
       logger.info(`🚀 Servidor Astryum iniciado en http://${HOST}:${PORT}`);
       logger.info(`📊 Health check disponible en http://${HOST}:${PORT}/health`);
       logger.info(`🔌 WebSocket disponible en ws://${HOST}:${PORT}`);
@@ -942,6 +984,35 @@ async function startServer() {
       process.on('SIGINT', stopKeeper);
     } catch (err) {
       logger.warn('XrplEscrowKeeper not started:', err);
+    }
+
+    // Demo Exchange autopilot (founders' demo): the SIMULATED exchange backend —
+    // watches the omnibus, credits by tag, and fulfils client requests signing
+    // with the exchange's own demo key (never a user's, never the product's).
+    // Off unless DEMO_EXCHANGE_AUTOSIGN_ENABLED=true + DEMO_EXCHANGE_OMNIBUS_SEED.
+    try {
+      const { demoExchangeAutopilot } = require('./services/demoExchange/DemoExchangeAutopilot');
+      demoExchangeAutopilot.start();
+      const stopAutopilot = () => demoExchangeAutopilot.stop();
+      process.on('SIGTERM', stopAutopilot);
+      process.on('SIGINT', stopAutopilot);
+    } catch (err) {
+      logger.warn('DemoExchangeAutopilot not started:', err);
+    }
+
+    // Métricas del SourceTag de Make Waves (entregable §8 T&C): cada N min
+    // pagina account_tx de las cuentas conocidas y agrega Active Users / txs /
+    // volumen del tag — solo lecturas, snapshot en memoria, latido en el
+    // Sentinel. SOURCETAG_METRICS_DISABLED=true apaga.
+    try {
+      const { getSourceTagMetrics } = require('./services/XrplSourceTagMetricsService');
+      const sourceTagMetrics = getSourceTagMetrics();
+      sourceTagMetrics.start();
+      const stopSourceTagMetrics = () => sourceTagMetrics.stop();
+      process.on('SIGTERM', stopSourceTagMetrics);
+      process.on('SIGINT', stopSourceTagMetrics);
+    } catch (err) {
+      logger.warn('XrplSourceTagMetricsService not started:', err);
     }
 
     // V1.1 Activity sync: refresh recent activity for registered wallets (5 min)

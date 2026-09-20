@@ -93,15 +93,32 @@ export function gateOpenFlag(value?: string): boolean {
   return TRUTHY.has((value ?? '').trim().toLowerCase());
 }
 
+/** The explicit CLOSE spellings — the only way to raise the curtain again. */
+const FALSY = new Set(['0', 'false', 'no', 'off']);
+export function gateClosedFlag(value?: string): boolean {
+  return FALSY.has((value ?? '').trim().toLowerCase());
+}
+
 /**
- * How the gate behaves given the server env:
- *   'open'     — launch switch on, or dev without config → no gate.
- *   'enforced' — code + secret present → cookie required.
- *   'closed'   — production WITHOUT config → fail closed (nobody enters
- *                until the envs are seeded; safer than silently public).
+ * How the gate behaves given the server env — DEFAULT OPEN since 2026-08-16
+ * (founder: the pre-launch curtain retires; acquisition needs the login card
+ * visible to the world. The account-creation door is still the backend's
+ * betaGate — this only decides whether /login and /register are reachable).
+ *
+ *   'open'     — the default: ACCESS_GATE_OPEN unset, truthy, or anything
+ *                that is not an explicit close spelling.
+ *   'enforced' — ACCESS_GATE_OPEN explicitly closed ('0'/'false'/'no'/'off')
+ *                AND code + secret present → cookie required.
+ *   'closed'   — explicitly closed WITHOUT code/secret in production →
+ *                nobody enters (a deliberate lock stays a lock even if the
+ *                code envs were dropped).
+ *
+ * History: until 2026-08-16 this was fail-closed (unset in production =
+ * closed) — right for the pre-launch phase, a wall for acquisition after it.
+ * Closing again is one env: ACCESS_GATE_OPEN=0.
  */
 export function gateMode(env: { open?: string; code?: string; secret?: string; nodeEnv?: string }): GateMode {
-  if (gateOpenFlag(env.open)) return 'open';
+  if (!gateClosedFlag(env.open)) return 'open';
   const configured = Boolean(env.code?.trim()) && Boolean(env.secret?.trim());
   if (configured) return 'enforced';
   return env.nodeEnv === 'production' ? 'closed' : 'open';

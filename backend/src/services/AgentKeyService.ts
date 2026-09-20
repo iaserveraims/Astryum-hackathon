@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from '../database/prismaClient';
 import Anthropic from '@anthropic-ai/sdk';
+import { sessionRevoked, withLiveSession, type LiveSessionRef } from './identity/liveSession';
 
 const ALGO = 'aes-256-gcm';
 const IV_BYTES = 12;
@@ -64,13 +65,36 @@ export class AgentKeyService {
     return this.instance;
   }
 
-  async saveUserAPIKey(userId: string, apiKey: string, model?: string): Promise<void> {
+  /**
+   * `session` is MANDATORY (productizer it. 18, 3.2). This row decides WHOSE
+   * Anthropic account receives the copilot's prompts — the user's portfolio,
+   * their addresses, the text they type at it. A request already in flight when
+   * the account is taken over would re-plant the previous holder's key on the
+   * owner and quietly forward the owner's context to it (it. 16, 4.1), and the
+   * validation round-trip before this call (`validateKey`) is a network hop, so
+   * that window is wide.
+   *
+   * It used to be optional, with an unguarded `prisma.userAnthropicKey.upsert`
+   * fallback that a test asserted was correct. Optional is not a guard: the next
+   * caller omits it and writes authority with no check at all, in silence and
+   * without a compile error. The parameter is now positional-required (so every
+   * call site is a type error until it passes one) AND falsy at runtime is a
+   * refusal, so the unguarded path is unreachable from JavaScript too.
+   */
+  async saveUserAPIKey(
+    userId: string,
+    apiKey: string,
+    model: string | undefined,
+    session: LiveSessionRef | null | undefined,
+  ): Promise<void> {
+    if (!session?.userId || !session?.sessionId) throw sessionRevoked();
     const keyEnc = encrypt(apiKey);
-    await prisma.userAnthropicKey.upsert({
+    const upsert = {
       where: { userId },
       create: { userId, keyEnc, model: model ?? 'claude-sonnet-4-6', addedAt: new Date() },
       update: { keyEnc, model: model ?? 'claude-sonnet-4-6', lastUsedAt: new Date() },
-    });
+    };
+    await withLiveSession(session, (tx) => tx.userAnthropicKey.upsert(upsert));
   }
 
   async getDecryptedKey(userId: string): Promise<string | null> {

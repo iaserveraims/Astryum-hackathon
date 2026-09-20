@@ -21,7 +21,7 @@
  * copy never implies otherwise.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Coins, ExternalLink, Loader2, RefreshCw, Sprout } from 'lucide-react';
 import { Card, GhostButton, MicroLabel, Pill, PrimaryButton, SectionTitle } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
@@ -33,7 +33,23 @@ import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { startPending } from '../../lib/settlement/settlement';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
-import { xrplLegacy, type LegacyVaultYieldState } from '../../services/v1Api';
+import { xrplLegacy, type LegacyVaultYieldState, type LegacyYieldClaimHandoff } from '../../services/v1Api';
+import { releaseHandoffSeat, releaseHandoffSeatResult, notifyHandoffSigned } from '../../lib/wallet/handoffRelease';
+import { signOutcome } from '../../lib/wallet/signOutcome';
+import {
+  describeSeatRefusal,
+  refusalHeadline,
+  serverDetailIfEnglish,
+  type SeatRefusalLike,
+} from '../../lib/xaman/seatRefusal';
+import {
+  AbandonedSeatNotice,
+  SeatRefusalNotice,
+  describeStaleSignature,
+  normalizeSeatRefusal,
+} from '../wallet/SeatRefusalNotice';
+import { RedemptionFeeNotice } from '../../lib/fassets/RedemptionFeeNotice';
+import { redemptionOf } from '../../lib/fassets/redemptionFeeRow';
 
 const FLARE_CHAIN_ID = 14;
 const XRPSCAN_TX = 'https://xrpscan.com/tx/';
@@ -43,13 +59,112 @@ function short(a: string): string {
   return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
 }
 
+/**
+ * A 0xFE nonce-seat refusal, in words (productizer it. 14, R5 1.7).
+ *
+ * The sentences are NOT written here: `lib/xaman/seatRefusal` is the one reader of
+ * what the server meant by «the seat is taken», so a signed seat is never answered
+ * with the words of an unsigned draft. This wrapper only normalises the ONE shape
+ * that reader cannot see: the Legacy claim route still wraps the verdict in its own
+ * `VAULT_YIELD_CLAIM_PREPARE_FAILED`, with the real code at the head of `detail`.
+ */
+function seatRefusalText(body: SeatRefusalLike | undefined, t: (s: string) => string): string | null {
+  if (!body) return null;
+  const refusal = normalizeSeatRefusal(body);
+  const view = refusal ? describeSeatRefusal(refusal, t) : null;
+  // LA FRASE, SIN EL PÁRRAFO DEL SERVIDOR (it. 17, R5 5.4). Este panel pegaba el
+  // `detail` del backend detrás de la frase: castellano, hashes y «~604 s» sobre
+  // una pantalla en inglés. Lo que el asiento significa ya está dicho; lo que el
+  // servidor escribió para sí mismo no se enseña.
+  return view ? view.text : null;
+}
+
 function errText(err: unknown, t: (s: string) => string): string {
-  const body = (err as { body?: { error?: string; detail?: string } })?.body;
-  if (body?.detail) return body.detail;
+  const body = (err as { body?: SeatRefusalLike })?.body;
+  const seat = seatRefusalText(body, t);
+  if (seat) return seat;
+  // it. 22 (Q3 3.7): el `detail` del servidor solo si está en el idioma de la
+  // pantalla — varios de estos se componen en castellano. Sin él, el titular
+  // del lector compartido, que dice el código en una frase y nunca en crudo.
+  const detail = serverDetailIfEnglish(body?.detail);
+  if (detail) return detail;
+  const head = body ? refusalHeadline(body, t) : null;
+  if (head) return head;
   return (err as Error)?.message ?? t('Something went wrong.');
 }
 
-export default function LegacyYieldPanel({ account }: { account: string }) {
+/** Does a failed claim signature leave a draft that may still be released? */
+type ClaimSeatFate = 'still-unsigned' | 'stale' | 'maybe-signed';
+
+/**
+ * THE SEAT IS DECIDED BY THE WALLET'S ANSWER, NOT BY THE CLICK (it. 14, R5 1.7).
+ *
+ * `handedToPartner` is true here because `sendXrpl` was called; only an error that
+ * PROVES nothing left (a rejection in Xaman, an expired payload, a partner that
+ * was never connected) leaves the draft releasable. Anything we could not read
+ * stays 'maybe-signed', and a seat that may carry a signature is never freed.
+ */
+function claimSeatAfterSignFailure(err: unknown): ClaimSeatFate {
+  // A VERDICT WE READ BEATS EVERY INFERENCE (it. 17, R5 5.2). `tefMAX_LEDGER` /
+  // `tefPAST_SEQ` say this exact payload can never validate: nothing was
+  // dispatched, nothing ever will be, and its nonce seat is free to release.
+  // Without this it landed in 'maybe-signed' — the seat kept for a payment that
+  // does not exist, and «we could not confirm it» over a claim that provably
+  // never happened.
+  if (describeStaleSignature(err, (s) => s)) return 'stale';
+  return signOutcome(err, true).kind === 'not-sent' ? 'still-unsigned' : 'maybe-signed';
+}
+
+type ClaimSignResult =
+  | { kind: 'signed'; txHash: string }
+  | { kind: 'still-unsigned'; error: unknown }
+  | { kind: 'stale'; error: unknown }
+  | { kind: 'maybe-signed'; error: unknown };
+
+/** The three refs the seat rule reads: handed, in flight, and still on screen. */
+interface ClaimSignRefs {
+  handed: { current: boolean };
+  inFlight: { current: boolean };
+  mounted: { current: boolean };
+}
+
+/**
+ * The signature and what it does to the seat, in one place so a test can run it.
+ *
+ * «Handed» is marked only once the send RESOLVED (Xaman accepted and submitted) or
+ * once a failure we could not read made a signature possible. While the payload is
+ * with Xaman nothing is released, and a rejection that lands after the panel is
+ * gone frees the seat then — the same draft an unmount would have freed.
+ */
+async function runClaimSignature(handoff: { xrplPayment: unknown; memoHex: string }, send: (tx: unknown) => Promise<{ txHash: string }>, refs: ClaimSignRefs, release: (memoHex: string) => void): Promise<ClaimSignResult> {
+  refs.inFlight.current = true;
+  try {
+    const { txHash } = await send(handoff.xrplPayment);
+    refs.handed.current = true;
+    return { kind: 'signed', txHash };
+  } catch (error) {
+    const fate = claimSeatAfterSignFailure(error);
+    // Releasable ⇔ no signature of THIS payload can ever land: it was refused
+    // before leaving, or the ledger already said it is too late (it. 17).
+    const releasable = fate !== 'maybe-signed';
+    refs.handed.current = !releasable;
+    if (releasable && !refs.mounted.current) release(handoff.memoHex);
+    return { kind: fate, error };
+  } finally {
+    refs.inFlight.current = false;
+  }
+}
+
+export default function LegacyYieldPanel({
+  account,
+  onGoToProposals,
+}: {
+  account: string;
+  /** The banner's click-through: "no payees" used to POINT at the Proposals
+   *  tab in prose without a way to get there (E6) — same prop pattern as
+   *  LegacyActivityFeed. */
+  onGoToProposals?: () => void;
+}) {
   const { t } = useT();
   const { sendIntent: sendEvm } = useWalletPartner();
   const { sendIntent: sendXrpl, address: xrplAddress } = useXrplWalletPartner();
@@ -111,11 +226,56 @@ export default function LegacyYieldPanel({ account }: { account: string }) {
     [account, sendEvm, load, t, harvestSettle],
   );
 
-  /** The heir's one signature: yield out, as native XRP, to their own account. */
-  const claim = useCallback(async () => {
+  /**
+   * The heir's claim: PREPARE → review → ONE signature. It used to prepare and
+   * open Xaman in the same click, so the FAssets redemption fee of this unmint
+   * was never on screen before signing (invariant #6, productizer it. 12, 4.2).
+   * Now the review shows it — figure, or «could not be read — it is not zero» —
+   * with the net XRP and when it arrives, and only then the signature.
+   */
+  const [claimHandoff, setClaimHandoff] = useState<LegacyYieldClaimHandoff | null>(null);
+  /** Una firma que llegó tarde: no validó ni validará, y se prepara otra vez. */
+  const [staleSign, setStaleSign] = useState<unknown>(null);
+  /** El cuerpo de un rechazo de asiento: lo dice y lo resuelve el aviso compartido. */
+  const [seatRefusal, setSeatRefusal] = useState<unknown>(null);
+  // True only once something MAY have been signed (see runClaimSignature). It used
+  // to be set before `sendXrpl`, so a rejection in Xaman kept the nonce seat of this
+  // 0xFE taken until its TTL: the heir could not prepare another claim, and nothing
+  // on screen said why (it. 14, R5 1.7).
+  const claimHanded = useRef(false);
+  // The payload is with Xaman right now: nobody releases anything until it answers.
+  const claimInFlight = useRef(false);
+  // Is this panel still on screen? A rejection that lands after the heir left frees
+  // the seat there, exactly as leaving the review does.
+  const claimMounted = useRef(true);
+  /**
+   * EL MEMO SOBREVIVE AL PAYLOAD (it. 17, R5 5.2). Esto era
+   * `claimSeat.current = claimHandoff?.memoHex ?? null`, así que en cuanto una
+   * firma tardía vaciaba `claimHandoff` el memo se perdía y ni «Back» ni el
+   * desmontaje podían liberar ya el asiento: tapiado hasta su TTL por un pago
+   * que nunca existió. Ahora solo se pisa con un memo NUEVO, y se borra
+   * explícitamente cuando algo se firmó (el asiento es del despacho) o cuando
+   * este panel ya lo ha liberado.
+   */
+  const claimSeat = useRef<string | null>(null);
+  if (claimHandoff?.memoHex) claimSeat.current = claimHandoff.memoHex;
+  useEffect(() => {
+    claimMounted.current = true;
+    return () => {
+      claimMounted.current = false;
+      // Abandoned unsigned review (unmount) → free the nonce seat; never while Xaman
+      // holds the payload, and never once a signature is possible.
+      if (claimSeat.current && !claimHanded.current && !claimInFlight.current) {
+        releaseHandoffSeat(claimSeat.current);
+      }
+    };
+  }, []);
+
+  const prepareClaim = useCallback(async () => {
     if (!xrplAddress) return;
     setBusy('claim');
     setError(null);
+    setStaleSign(null);
     setXrplTx(null);
     try {
       const h = await xrplLegacy.vaultYieldClaimPrepare({
@@ -126,15 +286,90 @@ export default function LegacyYieldPanel({ account }: { account: string }) {
         amountXrpForMint: claimAmount.trim() || '1',
         region: getUserRegion() ?? undefined,
       });
-      const { txHash } = await sendXrpl({ tx: h.xrplPayment as never });
-      setXrplTx(txHash);
-      claimSettle.track(startPending('xrpl-mint', txHash), { onSettled: () => void load() });
+      claimHanded.current = false;
+      setSeatRefusal(null);
+      setClaimHandoff(h);
     } catch (err) {
+      // Un asiento tomado no es «no se pudo»: es un 0xFE anterior de esta misma
+      // cuenta en el nonce, y suele ser el borrador que este panel dejó. El
+      // aviso compartido lo dice en inglés y ofrece liberarlo (it. 17, R5 5.4).
+      const body = (err as { body?: unknown })?.body;
+      setSeatRefusal(normalizeSeatRefusal(body) ? body : null);
       setError(errText(err, t));
     } finally {
       setBusy(null);
     }
-  }, [account, xrplAddress, claimAmount, sendXrpl, load, t, claimSettle]);
+  }, [account, xrplAddress, claimAmount, t]);
+
+  const signClaim = useCallback(async () => {
+    if (!claimHandoff) return;
+    const handoff = claimHandoff;
+    setBusy('claim-sign');
+    setError(null);
+    const outcome = await runClaimSignature(
+      handoff,
+      (tx) => sendXrpl({ tx: tx as never }),
+      { handed: claimHanded, inFlight: claimInFlight, mounted: claimMounted },
+      releaseHandoffSeat,
+    );
+    try {
+      if (outcome.kind === 'signed') {
+        notifyHandoffSigned(handoff.memoHex, outcome.txHash);
+        setXrplTx(outcome.txHash);
+        claimSettle.track(startPending('xrpl-mint', outcome.txHash), { onSettled: () => void load() });
+        // Signed: this payload is spent from the screen and its seat stays taken —
+        // the dispatch is on its way. The memo is dropped so nothing frees it.
+        claimSeat.current = null;
+        setClaimHandoff(null);
+      } else if (outcome.kind === 'still-unsigned') {
+        // Declined in Xaman, expired, or it never got there: nothing was signed, the
+        // prepared payment is still good, and «Back» frees its seat as it always did.
+        setError(errText(outcome.error, t));
+      } else if (outcome.kind === 'stale') {
+        // TOO LATE, AND WE KNOW IT (it. 17, R5 5.2). The payload cannot enter any
+        // ledger: nothing was claimed, nothing is «on its way», and the honest
+        // offer is a fresh prepare. The payload goes, the MEMO STAYS — «Back» and
+        // the unmount can still free that seat, and so can «Prepare it again».
+        setStaleSign(outcome.error);
+        setClaimHandoff(null);
+      } else {
+        // We could not read what happened: the claim may already be out, so the seat
+        // stays taken and the review closes instead of offering a second signature.
+        setClaimHandoff(null);
+        setError(
+          t(
+            'We could not confirm whether this claim was signed — it may already be on its way. Check your XRPL account before preparing another one.',
+          ),
+        );
+      }
+    } finally {
+      setBusy(null);
+    }
+  }, [claimHandoff, sendXrpl, load, t, claimSettle]);
+
+  const discardClaim = useCallback(() => {
+    if (claimHandoff && !claimHanded.current && !claimInFlight.current) {
+      releaseHandoffSeat(claimHandoff.memoHex);
+      claimSeat.current = null;
+    }
+    setClaimHandoff(null);
+  }, [claimHandoff]);
+
+  /**
+   * «Prepare it again» tras una firma tardía: primero se LIBERA el asiento del
+   * payload muerto y SOLO entonces se compone el siguiente — al revés, el
+   * prepare chocaría contra su propio borrador y la persona se quedaría delante
+   * de un `NONCE_SEAT_TAKEN` que ella misma acaba de causar (it. 17, R1 1.5).
+   */
+  const prepareClaimAgain = useCallback(async () => {
+    const memo = claimSeat.current;
+    if (memo && !claimHanded.current && !claimInFlight.current) {
+      claimSeat.current = null;
+      await releaseHandoffSeatResult(memo).catch(() => {});
+    }
+    setStaleSign(null);
+    await prepareClaim();
+  }, [prepareClaim]);
 
   const ripe = state?.harvestable.filter((h) => BigInt(h.amount) > BigInt(0)) ?? [];
 
@@ -166,9 +401,18 @@ export default function LegacyYieldPanel({ account }: { account: string }) {
               nothing here would make an empty table look like a failure. */}
           {state.capitalizesToPrincipal && (
             <InlineNotice tone="warning">
-              {t(
-                'This Legacy has no payees set, so ALL yield capitalizes back into the principal. To share it out, the council sends the governed order "Set the payees (who receives the yield)" from the Proposals tab.',
-              )}
+              <div className="space-y-2">
+                <div>
+                  {t(
+                    'This Legacy has no payees set, so ALL yield capitalizes back into the principal. To share it out, the council sends the governed order "Set the payees (who receives the yield)" from the Proposals tab.',
+                  )}
+                </div>
+                {onGoToProposals && (
+                  <GhostButton onClick={onGoToProposals}>
+                    {t('Set the payees (who receives the yield)')} →
+                  </GhostButton>
+                )}
+              </div>
             </InlineNotice>
           )}
 
@@ -230,21 +474,53 @@ export default function LegacyYieldPanel({ account }: { account: string }) {
                 'If this Legacy owes you yield, one signature brings it home as native XRP to your own XRPL account — you never have to hold FXRP. The rail rides a small payment, so enter what you are willing to send with it; it is minted and redeemed back to you along with the yield.',
               )}
             </p>
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="grow">
-                <MicroLabel>{t('Payment that carries it (XRP)')}</MicroLabel>
-                <input
-                  value={claimAmount}
-                  onChange={(e) => setClaimAmount(e.target.value)}
-                  inputMode="decimal"
-                  className="mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25"
+            {!claimHandoff ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="grow">
+                  <MicroLabel>{t('Payment that carries it (XRP)')}</MicroLabel>
+                  <input
+                    value={claimAmount}
+                    onChange={(e) => setClaimAmount(e.target.value)}
+                    inputMode="decimal"
+                    className="mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25"
+                  />
+                </label>
+                <PrimaryButton onClick={() => void prepareClaim()} disabled={busy !== null || !xrplAddress}>
+                  {busy === 'claim' ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  {t('Review before signing')}
+                </PrimaryButton>
+              </div>
+            ) : (
+              // The review: what is claimed, the redemption fee and the net, THEN Xaman.
+              <div className="space-y-2 rounded-lg border border-ink/10 bg-ink/[0.03] p-3">
+                <p className="text-[12px] text-ink/75">
+                  {t('Claim')}{' '}
+                  <span className="font-mono">
+                    {claimHandoff.claimableHuman} {symbol}
+                  </span>{' '}
+                  → <span className="font-mono">{short(claimHandoff.destination)}</span>
+                </p>
+                {claimHandoff.disclosure?.note ? (
+                  <p className="text-[11px] leading-relaxed text-ink/50">{claimHandoff.disclosure.note}</p>
+                ) : null}
+                <RedemptionFeeNotice
+                  response={claimHandoff}
+                  grossFxrp={redemptionOf(claimHandoff).grossFxrp}
+                  t={t}
+                  showAmount
+                  amountLabel="Your XRPL account receives"
                 />
-              </label>
-              <PrimaryButton onClick={() => void claim()} disabled={busy !== null || !xrplAddress}>
-                {busy === 'claim' ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                {t('Claim to my XRPL account')}
-              </PrimaryButton>
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  <PrimaryButton onClick={() => void signClaim()} disabled={busy !== null}>
+                    {busy === 'claim-sign' ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    {t('Sign in Xaman')}
+                  </PrimaryButton>
+                  <GhostButton onClick={discardClaim} disabled={busy !== null}>
+                    {t('Back')}
+                  </GhostButton>
+                </div>
+              </div>
+            )}
             {!xrplAddress && (
               <p className="flex items-start gap-2 text-[12px] text-tone-warning">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
@@ -256,7 +532,39 @@ export default function LegacyYieldPanel({ account }: { account: string }) {
             </p>
           </div>
 
-          {error && <InlineNotice tone="warning">{error}</InlineNotice>}
+          {/* El asiento tomado y la firma tardía tienen su propia salida: una
+              libera el borrador, la otra vuelve a preparar. Ninguna deja a la
+              persona delante de un código ni de un párrafo en castellano. */}
+          {seatRefusal ? (
+            <SeatRefusalNotice
+              refusal={seatRefusal}
+              t={t}
+              fallbackMemoHex={claimSeat.current}
+              onPrepareAgain={() => void prepareClaimAgain()}
+            />
+          ) : null}
+          {staleSign ? (
+            <InlineNotice tone="warning">
+              <div className="space-y-2">
+                <div>{describeStaleSignature(staleSign, t)?.text}</div>
+                <GhostButton onClick={() => void prepareClaimAgain()} disabled={busy !== null}>
+                  {t('Prepare it again')}
+                </GhostButton>
+              </div>
+            </InlineNotice>
+          ) : null}
+          {/* it. 21 (it. 20 §3.3): rechazar en Xaman deja el 0xFE sentado en el
+              nonce y nadie lo decía. Se dice, y con CUÁNDO se suelta; soltarlo
+              desde aquí no se ofrece mientras el payload siga siendo firmable. */}
+          {claimHandoff && error && !seatRefusal && !staleSign ? (
+            <AbandonedSeatNotice
+              memoHex={claimHandoff.memoHex}
+              t={t}
+              stillSignable
+              onPrepareAgain={() => void prepareClaimAgain()}
+            />
+          ) : null}
+          {error && !seatRefusal && <InlineNotice tone="warning">{error}</InlineNotice>}
           {/* Green comes from the settlement machine, never from the submit
               hash — the tx can still revert (harvest) or sit unexecuted
               (claim's 0xFE dispatch). Explorer link stays either way. */}

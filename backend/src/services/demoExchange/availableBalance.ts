@@ -1,0 +1,298 @@
+/**
+ * availableBalance — what a client of the demo exchange can still ask the
+ * omnibus to pay, given what is already IN FLIGHT. Pure: no RPC, no DB.
+ *
+ * The failure it closes (productizer cycle, it. 6): the ledger mirror is debited
+ * only when a payment's outcome is known (`finishSubmission`, the watcher). A
+ * request in 'submitting' (signed, submit threw, outcome not read) and a desk
+ * payment handed to Xaman reserved nothing, so «withdraw X» + «put X to work»
+ * with X deposited were both signed and the omnibus paid 2X.
+ *
+ * What reserves drops of a client:
+ *  · a request 'submitting' whose hash the mirror has NOT applied yet (once the
+ *    watcher debited it, the balance already reflects it — never twice);
+ *  · a desk payment that `deskPaymentOpen` says is open;
+ *  · a request 'pending' — salvo la exención asimétrica de `Against`.
+ * What does not: 'signed' put-to-work and 'done' withdraw (`finishSubmission`
+ * applied their debit before setting that status), 'refused'.
+ *
+ * it. 29 — LA EXENCIÓN LA CONCEDE UNA PRUEBA, NO UN `status`. La it. 27 eximió
+ * de retener una SALIDA a toda entrada `pending`, razonando que «una pending no
+ * tiene hash, ni asiento, ni blob». El propio `submissionJournal` de este repo
+ * existe porque eso es falso: un guardado concurrente devuelve a 'pending' una
+ * petición YA FIRMADA, y por eso `fulfil` consulta el journal antes de firmar
+ * nada. Así que la exención ya no se deduce del estado: viaja como prueba
+ * (`Against.provenUnsigned`, del journal; y en la mesa, una reserva sin memo ni
+ * hash). Sin prueba no hay exención — quien no pudo leer el journal no puede
+ * afirmar que nada está firmado.
+ */
+
+import { deskPaymentsOf, movementKey, requestsOf, type ClientRequest, type DemoRun, type DeskPayment } from './DemoExchangeStore';
+
+const ZERO = BigInt(0);
+
+export interface LedgerView {
+  /**
+   * The validated ledger index read BEFORE the omnibus scan whose results are in
+   * `run`. Only with it may a prepared withdraw close by its LastLedgerSequence:
+   * a payment that could still enter a ledger the scan did not cover must keep
+   * reserving. Absent = no ledger closes anything.
+   */
+  validatedLedgerIndex?: number;
+  /**
+   * Prepared withdraws whose EXHAUSTIVE omnibus read over their ledger window
+   * proved the payment absent (deskPaymentProof.proveDeskPayouts). Past its
+   * LastLedgerSequence alone a payout is NOT closed: a page-capped scan can miss
+   * a validated payout and the client would be paid again (productizer it. 8).
+   */
+  payoutsProvenAbsent?: ReadonlySet<string>;
+}
+
+function applied(run: DemoRun, kind: 'withdraw' | 'put-to-work', txHash?: string): boolean {
+  if (!txHash) return false;
+  return (run.appliedTxHashes ?? []).includes(movementKey(kind, txHash));
+}
+
+/**
+ * Las dos direcciones en las que puede pedirse el dinero de un cliente: una
+ * ENTRADA (`put-to-work`, que lo manda a trabajar) y una SALIDA (`withdraw`,
+ * que lo devuelve a su propia wallet). No retienen igual — ver `requestReserves`.
+ */
+export type AgainstKind = 'withdraw' | 'put-to-work';
+
+/**
+ * Qué se va a componer, y QUÉ SE PUDO PROBAR sobre lo que ya hay en la cola.
+ *
+ * it. 29 — la asimetría de la it. 27 (una entrada pendiente no retiene la salida
+ * de su dueño) es correcta, pero se apoyaba en `status === 'pending'`, que no es
+ * una prueba de que nada esté firmado: un guardado concurrente del run devuelve
+ * a 'pending' una petición cuyo pago YA se firmó y sigue vivo en su ventana
+ * (`submissionJournal`). Componer entonces la salida de esos mismos drops hacía
+ * pagar dos veces al ómnibus. Ahora la exención la concede una prueba:
+ *
+ *  · `provenUnsigned`: ids de peticiones ENTRANTES que el journal durable dice
+ *    que nadie firmó (`journalPlan(entry) === 'fulfil'`) — o cuyo pago el
+ *    ledger VALIDÓ como fallido (it. 31, `'finish-failed'`: los drops nunca
+ *    salieron y el blob consumió su Sequence). Ausente o incompleto = no se
+ *    exime a nadie: «no pude leer» no es «no está firmado».
+ *  · en la mesa, la prueba es la propia fila: una reserva `prepared` de
+ *    `put-to-work` sin `memoHex` y sin `txHash` es una reserva de la que jamás
+ *    se compuso un 0xFE — el servidor los escribe dentro del lock del run al
+ *    componerlo (`prepare-put-to-work`), y la puerta de la mesa rechaza memos
+ *    traídos de fuera.
+ *
+ * Construir esto contra el journal: `submissionJournal.againstFor`.
+ */
+export interface Against {
+  kind: AgainstKind;
+  provenUnsigned?: ReadonlySet<string>;
+  /**
+   * Ids que el journal declaró FIRMADOS Y CAPACES DE MOVER DINERO ('submitting'
+   * o 'settled'). No cambia ninguna reserva —esas ya retienen por no estar en
+   * `provenUnsigned`—; solo evita que el 409 nombre como palanca una puerta que
+   * no va a ceder. it. 31: un entry `failed` (validado ≠ tes, drops nunca
+   * salidos) NO está aquí — va en `provenUnsigned`, y su puerta reconcilia.
+   */
+  provenSigned?: ReadonlySet<string>;
+}
+
+/**
+ * Una reserva de MESA de la que no se compuso nada: `prepared`, `put-to-work`,
+ * sin memo y sin hash. No hay bytes firmados en ninguna parte, así que no hay
+ * doble pago que evitar — y es también lo único que su dueño puede soltar sin
+ * leer el ledger (`DELETE /runs/:id/clients/:cid/desk-payments/:pid`).
+ */
+export function deskReservationNothingSigned(p: DeskPayment): boolean {
+  return p.kind === 'put-to-work' && p.status === 'prepared' && !p.memoHex && !p.txHash;
+}
+
+/** Is this desk payment still able to move (or still unmirrored) money? */
+export function deskPaymentOpen(run: DemoRun, p: DeskPayment, view: LedgerView = {}, against?: Against): boolean {
+  if (p.status === 'settled' || p.status === 'released') return false;
+  if (applied(run, p.kind, p.txHash)) return false;
+  // it. 29 — LA MISMA ASIMETRÍA EN LA MESA. Una reserva de `put-to-work` que la
+  // mesa abrió y abandonó (`POST /runs/:id/desk-payments` crea `prepared` SIN un
+  // solo byte firmado) retenía el saldo de su dueño para siempre: no caduca por
+  // ledger —solo un `withdraw` cierra ahí abajo—, su única puerta era un DELETE
+  // de admin que además contesta 503 mientras el XRPL no se lea, y el 409 ni
+  // nombraba una palanca. Frente a la SALIDA de su dueño no retiene nada,
+  // exactamente por el mismo motivo que una entrada pendiente sin firma.
+  if (against?.kind === 'withdraw' && deskReservationNothingSigned(p)) return false;
+  // Only a WITHDRAW closes by the ledger, and only with proof: past its
+  // LastLedgerSequence (view read before the read) AND proven absent by an
+  // exhaustive read of its window. A put-to-work (0xFE, no LLS) never closes
+  // here — its release needs deskPaymentProof.provePutToWorkRelease.
+  if (
+    p.kind === 'withdraw' &&
+    p.status === 'prepared' &&
+    typeof p.lastLedgerSequence === 'number' &&
+    typeof view.validatedLedgerIndex === 'number' &&
+    view.validatedLedgerIndex > p.lastLedgerSequence &&
+    view.payoutsProvenAbsent?.has(p.id) === true
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Close what the ledger closed: 'signed'/'prepared' entries whose hash the
+ * mirror applied → 'settled'; prepared withdraws past their LastLedgerSequence
+ * AND proven absent over their window → 'released'. Mutates; returns how many.
+ */
+export function sweepDeskPayments(run: DemoRun, view: LedgerView = {}, nowIso = new Date().toISOString()): number {
+  let changed = 0;
+  for (const p of run.deskPayments ?? []) {
+    if (p.status === 'settled' || p.status === 'released') continue;
+    if (applied(run, p.kind, p.txHash)) {
+      p.status = 'settled';
+      p.updatedAt = nowIso;
+      changed++;
+    } else if (!deskPaymentOpen(run, p, view)) {
+      p.status = 'released';
+      p.updatedAt = nowIso;
+      changed++;
+    }
+  }
+  return changed;
+}
+
+/**
+ * Does this request still hold drops the mirror has not debited?
+ *
+ * it. 27 — UNA ENTRADA QUE NADIE LLEGÓ A FIRMAR NO RETIENE LA SALIDA DE SU DUEÑO.
+ *
+ * Una petición 'pending' reservaba SIEMPRE, y eso convirtió la cola en una
+ * cárcel con la llave dentro. El autopiloto deja `pending` a propósito toda
+ * entrada que quizá pueda firmarse en un tick posterior —`NO_CLIENT_ACCOUNT`,
+ * `NO_POTE`, `ABOVE_DAILY_CAP`, `NONCE_SEAT_TAKEN`, `HANDOFF_FAILED`,
+ * `SPEND_LEDGER_UNREADABLE`…— y hay estados que no se arreglan solos: alguien
+ * deposita 60 XRP, el autopiloto le fabrica una put-to-work que muere en
+ * `NO_CLIENT_ACCOUNT` porque aún no ha creado su cuenta Flare, y esa petición se
+ * queda pendiente indefinidamente. La retirada que llegaba detrás recibía 409
+ * `INSUFFICIENT_AVAILABLE_BALANCE`: el servidor le decía que su dinero estaba
+ * «reservado por pagos en vuelo» cuando NUNCA se firmó nada.
+ *
+ * it. 29 — Y LA PRUEBA DE QUE NO SE FIRMÓ NO ES EL `status`. `pending` es lo que
+ * el RUN dice, y el run se guarda entero por rutas públicas que cargan, trabajan
+ * segundos y guardan: un guardado concurrente devuelve a 'pending' una petición
+ * ya firmada cuyo pago sigue vivo en su ventana. Ese es, literalmente, el motivo
+ * por el que existe `submissionJournal` y por el que `fulfil` lo consulta antes
+ * de firmar. Así que la exención la concede el JOURNAL (`Against.provenUnsigned`)
+ * y nada más: sin esa prueba, una entrada pendiente retiene como siempre.
+ *
+ * Frente a otra ENTRADA sigue reservando pase lo que pase, porque dos entradas
+ * sí se pisarían el saldo.
+ */
+export function requestReserves(run: DemoRun, r: ClientRequest, against?: Against): boolean {
+  if (r.status === 'submitting') return !applied(run, r.kind, r.txHash);
+  if (r.status !== 'pending') return false;
+  if (against?.kind !== 'withdraw' || r.kind !== 'put-to-work') return true;
+  // Un 'pending' con hash no debería existir, pero si lo hay, hay bytes firmados.
+  if (r.txHash) return true;
+  return !(against.provenUnsigned?.has(r.id) === true);
+}
+
+export interface InFlight {
+  source: 'request' | 'desk';
+  id: string;
+  kind: 'withdraw' | 'put-to-work';
+  status: string;
+  drops: string;
+  txHash?: string;
+  /**
+   * Tiene una puerta que puede soltarla sin leer el ledger: una petición
+   * 'pending' sin hash que el journal —si se leyó— no declara firmada
+   * (DELETE .../requests/:rid, que vuelve a comprobar el journal antes de
+   * ceder) o una reserva de mesa sin memo ni hash
+   * (DELETE .../clients/:cid/desk-payments/:pid). El 409 lo usa para NOMBRAR la
+   * palanca en vez de dejar un callejón (it. 27 para las peticiones, it. 29 para
+   * las reservas de mesa).
+   */
+  releasable?: boolean;
+}
+
+/**
+ * Everything of this client that may still move omnibus money.
+ *
+ * `against` = qué se va a componer. Con `'withdraw'` una entrada meramente
+ * pendiente no aparece aquí: no hay ningún pago suyo que pueda pagarse dos
+ * veces (`requestReserves`), así que no puede ser motivo de un
+ * `PAYMENT_IN_FLIGHT` contra la salida de su dueño. Sin `against` —re-apuntar
+ * una wallet de cobro, re-abrir una ficha— se sigue viendo TODO, que es lo
+ * estricto y lo que esas puertas necesitan.
+ */
+export function paymentsInFlight(run: DemoRun, clientId: string, view: LedgerView = {}, exceptRequestId?: string, against?: Against): InFlight[] {
+  const out: InFlight[] = [];
+  for (const r of requestsOf(run)) {
+    if (r.clientId !== clientId || r.id === exceptRequestId) continue;
+    if (!requestReserves(run, r, against)) continue;
+    // `releasable` jamás contradice al journal: si se leyó y dice que esta
+    // petición lleva firma, no se nombra una puerta que no va a ceder.
+    const journalSaysSigned = against?.provenSigned?.has(r.id) === true;
+    out.push({ source: 'request', id: r.id, kind: r.kind, status: r.status, drops: r.drops, txHash: r.txHash, releasable: r.status === 'pending' && !r.txHash && !journalSaysSigned });
+  }
+  for (const p of deskPaymentsOf(run)) {
+    if (p.clientId !== clientId) continue;
+    if (deskPaymentOpen(run, p, view, against)) out.push({ source: 'desk', id: p.id, kind: p.kind, status: p.status, drops: p.drops, txHash: p.txHash, releasable: deskReservationNothingSigned(p) });
+  }
+  return out;
+}
+
+/**
+ * Drops reserved for this client by payments in flight.
+ *
+ * With `exceptRequestId` (the autopilot deciding whether to sign THAT request)
+ * the queue is FIFO: every 'submitting' request and every open desk payment
+ * counts, but a 'pending' request only counts if it is AHEAD of the one being
+ * served. Counting pending requests behind it too would let two pending requests
+ * reserve each other and neither would ever be signed.
+ *
+ * it. 27 — CON UNA EXCEPCIÓN EN CADA SENTIDO, Y LAS DOS DICEN LO MISMO: la
+ * SALIDA de un cliente pesa sobre la entrada esté donde esté en la cola, y una
+ * ENTRADA cuya falta de firma se pudo PROBAR no pesa sobre la salida (`against`).
+ *
+ * it. 29 — QUÉ IMPIDE EL BLOQUEO MUTUO, DICHO BIEN. El comentario anterior se lo
+ * atribuía a esta asimetría («no hay bloqueo mutuo porque es total»), y es falso:
+ * dos SALIDAS pendientes del mismo cliente se reservarían la una a la otra
+ * (`requestReserves` no exime nunca una salida) y ninguna avanzaría. Lo que hoy
+ * impide ese caso es que no puede haber dos: `POST .../requests` responde 409
+ * `REQUEST_PENDING` a una segunda petición viva del mismo tipo. La asimetría
+ * resuelve entrada↔salida; el 409 resuelve salida↔salida.
+ */
+export function reservedDrops(run: DemoRun, clientId: string, exceptRequestId?: string, view: LedgerView = {}, against?: Against): bigint {
+  let reserved = ZERO;
+  const requests = requestsOf(run);
+  const selfIndex = exceptRequestId ? requests.findIndex((r) => r.id === exceptRequestId) : -1;
+  requests.forEach((r, i) => {
+    if (r.clientId !== clientId || r.id === exceptRequestId) return;
+    if (!requestReserves(run, r, against)) return;
+    // FIFO entre pendientes… salvo una SALIDA (it. 27). Si una retirada
+    // pendiente se saltara por ir detrás en la cola, la entrada de delante se
+    // firmaría con el dinero que su dueño ya ha pedido de vuelta, y la retirada
+    // quedaría luego `INSUFFICIENT_LEDGER_BALANCE` para siempre. La salida pesa
+    // esté donde esté en la cola; la entrada no pesa nunca contra ella. Con la
+    // asimetría completa no hay bloqueo mutuo: alguna de las dos avanza siempre.
+    if (r.status === 'pending' && r.kind !== 'withdraw' && selfIndex >= 0 && i > selfIndex) return;
+    reserved += BigInt(r.drops);
+  });
+  for (const p of deskPaymentsOf(run)) {
+    if (p.clientId === clientId && deskPaymentOpen(run, p, view, against)) reserved += BigInt(p.drops);
+  }
+  return reserved;
+}
+
+/** The client's mirror balance minus what is reserved in flight, never negative. */
+export function availableDrops(run: DemoRun, clientId: string, exceptRequestId?: string, view: LedgerView = {}, against?: Against): bigint {
+  const client = run.clients.find((c) => c.id === clientId);
+  if (!client) return ZERO;
+  const left = BigInt(client.xrpOnExchangeDrops || '0') - reservedDrops(run, clientId, exceptRequestId, view, against);
+  return left < ZERO ? ZERO : left;
+}
+
+export function dropsToXrpText(drops: bigint | string): string {
+  const n = typeof drops === 'bigint' ? drops : BigInt(drops || '0');
+  const whole = n / BigInt(1_000_000);
+  const frac = (n % BigInt(1_000_000)).toString().padStart(6, '0');
+  return `${whole.toString()}.${frac}`;
+}

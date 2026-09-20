@@ -38,6 +38,10 @@ import {
   type AdminOpsAlerts,
   type AdminOverview,
   type AdminSentinel,
+  type AdminKeeper,
+  type AdminIdentityProbe,
+  type AdminSignupGate,
+  type AdminSourceTagMetrics,
   type AdminStuckList,
   type AdminStuckTx,
   type AdminUnstickResult,
@@ -62,6 +66,12 @@ import {
 import { TokenLogo } from '../../../components/ui/TokenLogo';
 import { MiniArea } from '../../../components/ui/charts';
 import { ModalOverlay } from '@/components/ui/ModalPortal';
+// La MISMA ceremonia de emisión de credencial que usa OperatorConsole — aquí,
+// en el overview de admin, para poder emitir KYC/AIFM a un sujeto sin depender
+// de tener una policy cargada en la pestaña Exchange (fundador 9-sep).
+import { CredentialCeremonyModal } from '../../../components/institutional/CredentialCeremonyModal';
+import { AstryumLoader } from '../../../components/ui/AstryumLoader';
+import { AnchorGateCard } from '../../../components/admin/AnchorGateCard';
 
 const SESSION_STORE = 'astryum:adminSession';
 // Pre-hardening storage of the RAW key — purge it wherever we find it.
@@ -84,7 +94,18 @@ const PROVIDER_LABEL: Record<string, string> = {
   google: 'Google',
   apple: 'Apple',
   wallet: 'Wallet',
+  // NOT a sign-in provider and NOT a person (productizer it. 17, R4 4.2).
+  // `authProvider: 'quarantine'` is the row AuthService leaves behind when an
+  // account is taken over: the previous holder's residue, parked so it still
+  // proves what it proved, with an @invalid address nobody can use. Rendered as
+  // «quarantine · N» it read as a login method and inflated the account count
+  // this panel exists to report. If the payload stops sending it, nothing
+  // renders — the pill is read defensively, never assumed.
+  quarantine: 'Set aside by an account takeover',
 };
+
+/** The provider rows that are not people, so a count can say so out loud. */
+const NOT_A_USER_PROVIDER = new Set(['quarantine']);
 
 function readStoredSession(): string | null {
   try {
@@ -165,6 +186,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  // La ceremonia de emisión de credencial (KYC/AIFM) — abierta desde Herramientas.
+  // false = cerrada · 'real' = firma el emisor en su Xaman · 'demo' = firma el
+  // notario de rodaje en el servidor (solo aquí: la emisión de demo se retiró de
+  // todas las mesas del producto el 20-sep).
+  const [credOpen, setCredOpen] = useState<false | 'real' | 'demo'>(false);
   // Session-door state: null = no live session (show the login card). The
   // empty string '' is the SIWE door (2026-07-25): the logged-in account is on
   // ADMIN_EMAILS, so calls travel with the app's own bearer token and no
@@ -241,11 +267,68 @@ export default function AdminPage() {
       .catch(() => setCagesError(true))
       .finally(() => setCagesLoading(false));
   }, []);
+  // Métricas del SourceTag de Make Waves (entregable §8 del T&C): Active
+  // Users / txs / volumen atribuidos al tag 2607090002, leídos del ledger por
+  // el agregador. La regla de la casa: todo gauge operativo vive AQUÍ, jamás
+  // en snippets de consola.
+  const [sourceTag, setSourceTag] = useState<AdminSourceTagMetrics | null>(null);
+  const [sourceTagError, setSourceTagError] = useState(false);
+  const [sourceTagBusy, setSourceTagBusy] = useState(false);
+  const loadSourceTag = useCallback((sessionToken: string, force = false) => {
+    setSourceTagBusy(true);
+    setSourceTagError(false);
+    (force ? adminPanelApi.sourceTagRun(sessionToken) : adminPanelApi.sourceTag(sessionToken))
+      .then(setSourceTag)
+      .catch(() => setSourceTagError(true))
+      .finally(() => setSourceTagBusy(false));
+  }, []);
+  // ¿Nos da XRP Identity la wallet? Diagnóstico de la pregunta abierta del
+  // 17-ago: su perfil enlaza una wallet XRPL firmando con Xaman, pero su
+  // id_token no la trae. Con XRPL_IDENTITY_PROFILE_SCOPE encendido, cada login
+  // real deja aquí QUÉ claims llegaron — nombres y formas, jamás valores.
+  const [identityProbe, setIdentityProbe] = useState<AdminIdentityProbe | null>(null);
+  const [identityProbeError, setIdentityProbeError] = useState(false);
+  const [identityProbeBusy, setIdentityProbeBusy] = useState(false);
+  const loadIdentityProbe = useCallback((sessionToken: string) => {
+    setIdentityProbeBusy(true);
+    setIdentityProbeError(false);
+    adminPanelApi
+      .identityProbe(sessionToken)
+      .then(setIdentityProbe)
+      .catch(() => setIdentityProbeError(true))
+      .finally(() => setIdentityProbeBusy(false));
+  }, []);
+
+  // ¿Puede darse de alta alguien que llegue AHORA? Con la puerta única, el alta
+  // pasa en el primer login por XRP Identity: si está cerrada, el visitante
+  // rebota con 403 en vez de entrar. Antes esto solo se veía abriendo Railway.
+  const [signupGate, setSignupGate] = useState<AdminSignupGate | null>(null);
+  const [signupGateError, setSignupGateError] = useState(false);
+  const loadSignupGate = useCallback((sessionToken: string) => {
+    setSignupGateError(false);
+    adminPanelApi.signupGate(sessionToken).then(setSignupGate).catch(() => setSignupGateError(true));
+  }, []);
+
+  // G11 — el keeper de escrows podía no arrancar y nadie lo echaba de menos:
+  // con el flag encendido y la seed inservible, `start()` volvía sin correr.
+  // Dentro ya estaba arreglado (seed validada al arrancar, latido que sigue
+  // latiendo en fallo), pero `status()` no lo leía NADIE. Aquí es donde se mira.
+  const [keeper, setKeeper] = useState<AdminKeeper | null>(null);
+  const [keeperError, setKeeperError] = useState(false);
+  const loadKeeper = useCallback((sessionToken: string) => {
+    setKeeperError(false);
+    adminPanelApi.keeper(sessionToken).then(setKeeper).catch(() => setKeeperError(true));
+  }, []);
+
   useEffect(() => {
     if (tab === 'system' && session != null) {
       loadExecutor(session);
       loadAnchor(session);
+      loadKeeper(session);
       loadCages(session);
+      loadSourceTag(session);
+      loadIdentityProbe(session);
+      loadSignupGate(session);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, session]);
@@ -594,6 +677,17 @@ export default function AdminPage() {
         subtitle="Counts, the waitlist and ops. The only writes here: beta-seat approvals, the platform light and unstick."
       />
 
+      {credOpen ? (
+        <CredentialCeremonyModal
+          key={credOpen}
+          allowDemoServerIssue
+          startInDemo={credOpen === 'demo'}
+          initial={credOpen === 'demo' ? { credentialType: 'CASP' } : undefined}
+          adminSession={session}
+          onClose={() => setCredOpen(false)}
+        />
+      ) : null}
+
       {loading ? (
         <EmptyState
           variant="loading"
@@ -623,6 +717,49 @@ export default function AdminPage() {
 
           {tab === 'overview' && (
             <div className="space-y-6">
+              {/* Herramientas de admin (fundador 6-sep): accesos a las páginas de
+                  gobierno que viven fuera de este panel — el registro de venues
+                  de la jaula v2 y las mesas institucionales (exchange/cliente). */}
+              <section className="space-y-3">
+                <SectionTitle>Herramientas</SectionTitle>
+                <div className="flex flex-wrap gap-2">
+                  <a href="/app/admin/registry" className="inline-flex items-center gap-2 rounded-xl border border-volt/30 bg-volt/[0.06] px-4 py-2.5 text-sm font-medium text-volt transition-transform hover:-translate-y-0.5">
+                    Registro de venues (jaula v2) ↗
+                  </a>
+                  <a href="/app/admin/institutional" className="inline-flex items-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5">
+                    Institucional (exchange / cliente) ↗
+                  </a>
+                  {/* La mesa del exchange entera, con fila propia en el menú
+                      (11-sep): alta por estaciones + rodaje v2 + la v1. */}
+                  <a href="/app/exchange/operator" className="inline-flex items-center gap-2 rounded-xl border border-volt/30 bg-volt/[0.06] px-4 py-2.5 text-sm font-medium text-volt transition-transform hover:-translate-y-0.5">
+                    Mesa del operador del exchange ↗
+                  </a>
+                  {/* Emisión de credencial (KYC/AIFM) — misma ceremonia que
+                      OperatorConsole, aquí para no depender de la pestaña
+                      Exchange. Astryum solo COMPONE: firma el emisor, acepta el
+                      sujeto. */}
+                  <button
+                    onClick={() => setCredOpen('real')}
+                    className="inline-flex items-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5"
+                  >
+                    Emitir credencial (KYC / AIFM) →
+                  </button>
+                  {/* LA EMISIÓN DE DEMO VIVE AQUÍ (fundador 2026-09-20: «hay que
+                      reubicar los issuing de credentials demo en la consola
+                      admin»). Antes colgaba de la mesa del exchange y de la
+                      del gestor, a la vista de cualquier cuenta con sesión.
+                      El notario de rodaje firma una AIFM / CASP / KYB real en
+                      mainnet SIN comprobar dominio ni registro; el sujeto
+                      acepta en su Xaman. El backend lo exige también
+                      (`requireAdmin` en issue-aifm-demo). */}
+                  <button
+                    onClick={() => setCredOpen('demo')}
+                    className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/[0.06] px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5"
+                  >
+                    Credencial de DEMO para rodaje (AIFM / CASP / KYB) →
+                  </button>
+                </div>
+              </section>
               <section className="space-y-3">
                 <SectionTitle>Counts</SectionTitle>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -681,9 +818,22 @@ export default function AdminPage() {
                     <div className="text-sm text-ink/40">{t('No users yet.')}</div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {Object.entries(data.counts.usersByProvider).map(([provider, n]) => (
-                        <Pill key={provider} tone={provider === 'google' || provider === 'apple' ? 'info' : 'neutral'}>
-                          {PROVIDER_LABEL[provider] ?? provider} · {n}
+                      {Object.entries(data.counts.usersByProvider ?? {}).map(([provider, n]) => (
+                        <Pill
+                          key={provider}
+                          tone={
+                            NOT_A_USER_PROVIDER.has(provider)
+                              ? 'warning'
+                              : provider === 'google' || provider === 'apple'
+                                ? 'info'
+                                : 'neutral'
+                          }
+                        >
+                          {/* Una cuenta apartada por una toma de posesión no es
+                              un usuario: se dice con todas las letras, nunca
+                              como si fuera un método de acceso más. */}
+                          {t(PROVIDER_LABEL[provider] ?? provider)} · {n}
+                          {NOT_A_USER_PROVIDER.has(provider) ? ` — ${t('not live accounts')}` : ''}
                         </Pill>
                       ))}
                     </div>
@@ -971,6 +1121,14 @@ export default function AdminPage() {
               </Card>
             </section>
 
+            {/* La puerta del ancla v2: DepositAuth + DepositPreauth por credencial.
+                Lo que convierte la fila «DepositAuth + credential preauth» de BUILT
+                en LIVE — y lo que un juez refuta con account_info si no está. */}
+            <section className="space-y-3 mb-4">
+              <SectionTitle>Puerta del ancla v2 · DepositAuth + preauth por credencial</SectionTitle>
+              {session != null && <AnchorGateCard session={session} />}
+            </section>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <section className="space-y-3">
                 <SectionTitle>Build & environment</SectionTitle>
@@ -1144,6 +1302,314 @@ export default function AdminPage() {
                       )}
                     </Card>
                   </div>
+                </>
+              )}
+            </section>
+
+            {/* ── Make Waves · SourceTag (entregable §8 del T&C, 2026-08-16):
+                lo que el tag 2607090002 atribuye al proyecto, LEÍDO del
+                ledger. Active User = dirección que FIRMÓ ≥1 tx con el tag
+                (T&C §6); en multisig, los miembros. Las cuentas operativas
+                de Astryum quedan fuera (carve-out §7). Solo agregados. ── */}
+            <section className="mt-4 space-y-3">
+              <SectionTitle
+                actions={
+                  <GhostButton
+                    onClick={() => session != null && loadSourceTag(session, true)}
+                    disabled={sourceTagBusy}
+                    className="px-3 py-1.5 text-xs gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${sourceTagBusy ? 'animate-spin' : ''}`} />
+                    Contar ahora
+                  </GhostButton>
+                }
+              >
+                Make Waves · SourceTag
+              </SectionTitle>
+              {sourceTagError ? (
+                <Card>
+                  <p className="text-sm text-ink/50">{t('Not available right now.')}</p>
+                </Card>
+              ) : !sourceTag ? (
+                <Card>
+                  <Loader2 className="w-4 h-4 animate-spin text-ink/40" />
+                </Card>
+              ) : sourceTag.tag === null ? (
+                <Card>
+                  <p className="text-sm text-tone-warning">
+                    XRPL_SOURCE_TAG sin configurar — las txs salen SIN tag y no cuentan para el
+                    leaderboard. Ponerla en Railway y forzar una pasada.
+                  </p>
+                </Card>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <StatTile
+                      label="Active Users (T&C §6)"
+                      value={sourceTag.activeUsers}
+                      hint="direcciones que firmaron ≥1 tx con el tag"
+                    />
+                    <StatTile label="Transacciones con el tag" value={sourceTag.txCount} />
+                    <StatTile
+                      label="Volumen (XRP)"
+                      value={sourceTag.volumeXrp.toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                      hint="delivered_amount de los Payments — lo entregado, no lo pedido"
+                    />
+                    <StatTile
+                      label="Cuentas barridas"
+                      value={sourceTag.accountsScanned}
+                      hint={`tag ${sourceTag.tag} · pasada ${sourceTag.lastPassAt ? new Date(sourceTag.lastPassAt).toLocaleTimeString('es-ES') : '—'}`}
+                    />
+                  </div>
+                  {(sourceTag.truncated || sourceTag.error) && (
+                    <Card>
+                      <p className="text-[12px] text-ink/55">
+                        {sourceTag.truncated &&
+                          'Tope de páginas alcanzado en alguna cuenta: los totales son un SUELO del histórico alcanzado, no un techo. '}
+                        {sourceTag.error && `Última pasada con error: ${sourceTag.error}`}
+                      </p>
+                    </Card>
+                  )}
+                </>
+              )}
+            </section>
+
+            {/* ── Puerta de alta (2026-08-19) — con la puerta única, crear
+                cuenta pasa DENTRO del primer login por XRP Identity. Si está
+                cerrada, quien llegue de una campaña rebota con 403 en lugar de
+                entrar, y hasta hoy eso solo se veía abriendo Railway. ── */}
+            <section className="mt-4 space-y-3">
+              <SectionTitle
+                actions={
+                  <GhostButton
+                    onClick={() => session != null && loadSignupGate(session)}
+                    className="px-3 py-1.5 text-xs gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    {t('Refetch')}
+                  </GhostButton>
+                }
+              >
+                Alta de cuentas
+              </SectionTitle>
+              {signupGateError ? (
+                <Card>
+                  <p className="text-sm text-ink/50">{t('Not available right now.')}</p>
+                </Card>
+              ) : !signupGate ? (
+                <Card>
+                  <Loader2 className="w-4 h-4 animate-spin text-ink/40" />
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <StatTile
+                    label="¿Puede entrar alguien nuevo?"
+                    value={signupGate.open ? 'SÍ' : 'NO'}
+                    hint={signupGate.note}
+                  />
+                  <StatTile
+                    label="BETA_REGISTRATION_OPEN"
+                    value={signupGate.variableSet ? String(signupGate.rawValue) : 'sin definir'}
+                    hint="por defecto ABIERTA desde el 16-ago: solo el literal 'false' cierra"
+                  />
+                  <StatTile
+                    label="Aprobados en lista de espera"
+                    value={signupGate.approvedOnWaitlist ?? '—'}
+                    hint={signupGate.open ? 'irrelevante mientras esté abierta' : 'los únicos que pueden crear cuenta ahora'}
+                  />
+                </div>
+              )}
+            </section>
+
+            {/* ── Keeper de escrows XRPL · G11 (2026-08-20) — la mitad que
+                faltaba de este hallazgo no era el arranque, era poder MIRARLO. */}
+            <section className="space-y-3">
+              <SectionTitle
+                actions={
+                  <GhostButton
+                    onClick={() => session != null && loadKeeper(session)}
+                    className="px-3 py-1.5 text-xs gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    {t('Refetch')}
+                  </GhostButton>
+                }
+              >
+                Keeper de escrows
+              </SectionTitle>
+              {keeperError ? (
+                <Card>
+                  <p className="text-sm text-ink/50">{t('Not available right now.')}</p>
+                </Card>
+              ) : !keeper ? (
+                <Card>
+                  <Loader2 className="w-4 h-4 animate-spin text-ink/40" />
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatTile
+                    label="¿Hace lo que pediste?"
+                    value={keeper.divergent ? 'NO' : keeper.running ? 'SÍ' : 'apagado'}
+                    hint={
+                      keeper.divergent
+                        ? keeper.notStartedReason ?? 'encendido pero no corre — motivo no registrado'
+                        : keeper.running
+                          ? 'el flag está encendido y el ciclo corre'
+                          : 'XRPL_KEEPER_ENABLED no está en true: nadie espera que corra'
+                    }
+                  />
+                  <StatTile
+                    label="XRPL_KEEPER_ENABLED"
+                    value={keeper.enabled ? 'true' : 'no'}
+                    hint="lo que PEDISTE, no lo que pasa"
+                  />
+                  <StatTile
+                    label="Último ciclo"
+                    value={keeper.lastRunAt ? fmtDateTime(new Date(keeper.lastRunAt)) : '—'}
+                    hint={keeper.lastRunAt ? 'late aunque falle: un latido viejo es la señal' : 'todavía no ha latido'}
+                  />
+                  <StatTile
+                    label="Escrows resueltos"
+                    value={keeper.resolvedCount}
+                    hint={
+                      keeper.submitted.length > 0
+                        ? `último: ${keeper.submitted[keeper.submitted.length - 1].action}`
+                        : 'ninguno en esta vida del proceso'
+                    }
+                  />
+                </div>
+              )}
+            </section>
+
+            {/* ── XRP Identity · ¿viaja la wallet? (2026-08-17) — su perfil
+                enlaza una wallet XRPL firmando con Xaman, pero su id_token no
+                la trae. Antes de pedirle una claim nueva al operador, la
+                pregunta barata: ¿la devuelve ya /userinfo con `profile:read`?
+                Se responde con logins REALES, y se guardan nombres y formas,
+                jamás valores. ── */}
+            <section className="mt-4 space-y-3">
+              <SectionTitle
+                actions={
+                  <GhostButton
+                    onClick={() => session != null && loadIdentityProbe(session)}
+                    disabled={identityProbeBusy}
+                    className="px-3 py-1.5 text-xs gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${identityProbeBusy ? 'animate-spin' : ''}`} />
+                    {t('Refetch')}
+                  </GhostButton>
+                }
+              >
+                XRP Identity · ¿viaja la wallet?
+              </SectionTitle>
+              {identityProbeError ? (
+                <Card>
+                  <p className="text-sm text-ink/50">{t('Not available right now.')}</p>
+                </Card>
+              ) : !identityProbe ? (
+                <Card>
+                  <Loader2 className="w-4 h-4 animate-spin text-ink/40" />
+                </Card>
+              ) : !identityProbe.enabled ? (
+                <Card>
+                  <p className="text-sm text-ink/55">
+                    Apagado. Pon <code className="text-ink/80">XRPL_IDENTITY_PROFILE_SCOPE=true</code> en
+                    Railway, entra una vez de verdad y vuelve aquí. Scopes ahora mismo:{' '}
+                    <code className="text-ink/80">{identityProbe.scopesRequested}</code>
+                  </p>
+                </Card>
+              ) : identityProbe.walletClaimSeen === null ? (
+                <Card>
+                  <p className="text-sm text-tone-warning">
+                    Encendido, pero nadie ha entrado todavía desde el último arranque — el registro vive
+                    en memoria y un redeploy lo borra. Entra una vez y refresca.
+                  </p>
+                </Card>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <StatTile
+                      label="¿Llega la dirección?"
+                      value={identityProbe.walletViaAccountApi || identityProbe.walletClaimSeen ? 'SÍ' : 'NO'}
+                      hint={
+                        identityProbe.walletViaAccountApi
+                          ? 'por la Account API de profile.xrpl.in — la vía que el operador ofrece'
+                          : identityProbe.walletClaimSeen
+                            ? 'como claim en /userinfo'
+                            : 'ni en /userinfo ni en la Account API: el usuario no la tiene conectada, o el scope no abre'
+                      }
+                    />
+                    <StatTile
+                      label="Account API"
+                      value={
+                        identityProbe.probes[0]?.accountApi == null
+                          ? '—'
+                          : identityProbe.probes[0].accountApi.ok
+                            ? identityProbe.probes[0].accountApi.walletPresent
+                              ? 'wallet conectada'
+                              : 'sin wallet'
+                            : identityProbe.probes[0].accountApi.error
+                      }
+                      hint="POST profile.xrpl.in/account/user-info con el token de profile:read"
+                    />
+                    <StatTile label="Logins observados" value={identityProbe.probes.length} />
+                    <StatTile
+                      label="Scopes pedidos"
+                      value={identityProbe.scopesRequested.split(' ').length}
+                      hint={identityProbe.scopesRequested}
+                    />
+                    <StatTile
+                      label="Último login"
+                      value={
+                        identityProbe.probes[0]
+                          ? new Date(identityProbe.probes[0].at).toLocaleTimeString('es-ES')
+                          : '—'
+                      }
+                    />
+                  </div>
+                  {identityProbe.probes[0] && (
+                    <Card>
+                      {identityProbe.probes[0].userinfo.ok ? (
+                        <>
+                          <p className="text-[12px] text-ink/55 mb-2">
+                            Claims que devolvió /userinfo en el último login (solo nombre y forma — ningún
+                            valor sale del servidor):
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {identityProbe.probes[0].userinfo.claims.map((c) => (
+                              <span
+                                key={c.name}
+                                className={`px-2 py-0.5 rounded-md font-mono text-[11px] ${
+                                  c.xrplAddress ? 'text-tone-success' : 'text-ink/60'
+                                }`}
+                                style={{ border: '1px solid rgba(255,255,255,0.10)' }}
+                                title={c.xrplAddress ? 'forma de r-address de XRPL' : c.kind}
+                              >
+                                {c.name}
+                                <span className="text-ink/35">
+                                  :{c.empty ? 'vacío' : c.xrplAddress ? 'r-address' : c.kind}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-[11px] text-ink/40 mt-3">
+                            En el id_token llegaron: {identityProbe.probes[0].idTokenClaims.join(', ')}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-tone-warning">
+                          /userinfo respondió <code>{identityProbe.probes[0].userinfo.error}</code>. Un 403
+                          aquí significa que el scope no está concedido de verdad a nuestro client_id — y
+                          entonces lo que hay que pedirle al operador es el registro, no la claim.
+                        </p>
+                      )}
+                    </Card>
+                  )}
+                  <p className="text-[11px] text-ink/40">
+                    Aunque llegue: una dirección servida por el proveedor es de SEGUNDA MANO (su nonce, su
+                    verificación). Vale como puntero watch-only a datos públicos; para ACTUAR, la firma
+                    nuestra.
+                  </p>
                 </>
               )}
             </section>
@@ -1821,7 +2287,7 @@ function UnstickModal({
     load();
   }, [load]);
 
-  const act = async (hash: string, op: 'retry' | 'park') => {
+  const act = async (hash: string, op: 'retry' | 'park' | 'dismiss') => {
     setBusyHash(hash);
     setLastResult(null);
     try {
@@ -1851,7 +2317,7 @@ function UnstickModal({
         >
           {tx.hash.slice(0, 10)}…{tx.hash.slice(-6)}
         </a>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-1.5">
           <GhostButton
             onClick={() => act(tx.hash, kind === 'parked' ? 'retry' : 'park')}
             disabled={busyHash != null}
@@ -1865,6 +2331,22 @@ function UnstickModal({
               t('Park')
             )}
           </GhostButton>
+          {/* Descartar: SOLO lápidas (bytes permanentemente inejecutables) —
+              archiva en la auditoría y desaparece del panel y del barrido.
+              Fundador 2026-08-22: una lápida no puede vivir aquí para siempre. */}
+          {kind === 'parked' && tx.source === 'permanent' && (
+            <GhostButton
+              onClick={() => {
+                if (window.confirm(t('Discard forever? Its signed bytes can never execute; the record stays in the audit archive.'))) {
+                  void act(tx.hash, 'dismiss');
+                }
+              }}
+              disabled={busyHash != null}
+              className="px-2.5 py-1 text-[11px] text-ink/45"
+            >
+              {t('Discard')}
+            </GhostButton>
+          )}
         </span>
       </div>
       <div className="text-[11px] text-ink/45 flex items-center gap-2 flex-wrap">
@@ -1934,8 +2416,8 @@ function UnstickModal({
           {error ? (
             <p className="text-sm text-ink/50">{t('Not available right now.')}</p>
           ) : !data ? (
-            <div className="flex items-center gap-2 text-sm text-ink/40 py-6 justify-center">
-              <Loader2 className="w-4 h-4 animate-spin" /> {t('Loading…')}
+            <div className="flex justify-center py-6">
+              <AstryumLoader size={40} label={t('Loading…')} />
             </div>
           ) : (
             <>

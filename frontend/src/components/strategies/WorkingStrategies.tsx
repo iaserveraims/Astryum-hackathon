@@ -12,13 +12,15 @@
 
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowRight, Loader2, Wallet } from 'lucide-react';
+import { Activity, ArrowRight, Wallet } from 'lucide-react';
 import { Pill, PrimaryButton } from '../ui/primitives';
 import { useT } from '../../i18n/LanguageProvider';
 import { useMyWallets } from '../../hooks/useMyWallets';
 import { useAggregatedPortfolio } from '../../hooks/useAggregatedPortfolio';
 import { AssetIcon, VaultIcon } from '../ui/StrategyIcons';
 import { formatMoney } from '../../lib/formatMoney';
+import { walletNameResolver } from '../../lib/walletIdentity';
+import { AstryumLoader } from '../ui/AstryumLoader';
 
 const KIND_WORD: Record<string, string> = {
   supply: 'Supplied',
@@ -197,17 +199,17 @@ export default function WorkingStrategiesPanel({
   const { t } = useT();
   const groups = useStrategyGroups(reloadKey);
   const { wallets: myWallets } = useMyWallets();
-  const aliasFor = (addr?: string) => {
-    if (!addr) return null;
-    const hit = myWallets.find((w) => w.address.toLowerCase() === addr.toLowerCase());
-    return hit?.label ?? `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-  };
+  // LA regla canónica (2026-08-22): la copia local label??dirección llamaba a
+  // una wallet sin apodo por su código. El resolver numera y solo deja la
+  // dirección corta para direcciones que NO son filas nuestras.
+  const walletNameOf = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);
+  const aliasFor = (addr?: string) => (addr ? walletNameOf(addr) : null);
 
   if (groups === null) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3 text-ink/40">
-        <Loader2 className="w-6 h-6 animate-spin text-volt" />
-        <span className="text-sm">{t('Reading your positions…')}</span>
+      <div className="flex flex-col items-center justify-center py-16">
+        {/* La espera de sección lleva el cometa (regla en AstryumLoader). */}
+        <AstryumLoader size={48} label={t('Reading your positions…')} />
       </div>
     );
   }

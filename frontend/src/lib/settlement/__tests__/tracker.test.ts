@@ -1,12 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import {
   startPending,
+  toFailed,
   toSettled,
+  COMPOUND_FAILURE_TOPIC,
   EVM_SETTLE_CEILING_MS,
   XRPL_MINT_SETTLE_CEILING_MS,
   type SettlementState,
 } from '../settlement';
+
+/** The log kFXRP_ISO emits on a refused redeem: Failure(error=9 MATH_ERROR, info=45, detail=0). */
+const KINETIC_FAILURE_LOG = {
+  address: '0xD1b7A5eFa9bd88F291F7A4563a8f6185c0249CB3',
+  topics: [COMPOUND_FAILURE_TOPIC],
+  data:
+    '0x' +
+    '0000000000000000000000000000000000000000000000000000000000000009' +
+    '000000000000000000000000000000000000000000000000000000000000002d' +
+    '0000000000000000000000000000000000000000000000000000000000000000',
+};
 import { trackSettlement, UNSUPPORTED_5792_PROBES, POLL_MS, type TrackerDeps } from '../tracker';
+import type { XrplTxVerdict } from '../../xrpl/txResult';
 
 /**
  * Deterministic harness: timers and the clock are injected, so each test drives
@@ -21,7 +35,7 @@ function makeHarness(over: Partial<TrackerDeps> = {}) {
     getCallsStatus: async () => ({ status: 'PENDING' }),
     getTxReceipt: async () => null,
     getMintStatus: async () => false,
-    getXrplTxValidated: async () => false,
+    getXrplTxVerdict: async () => ({ kind: 'pending' }) as const,
     getCouncilOrderExecuted: async () => false,
     now: () => clock.now,
     setTimer: (fn) => {
@@ -50,11 +64,41 @@ function makeHarness(over: Partial<TrackerDeps> = {}) {
 const last = (h: { updates: SettlementState[] }) => h.updates[h.updates.length - 1];
 
 describe('tracker — handles that arrive already final', () => {
-  it('an already-settled handle emits once and never schedules a poll', async () => {
+  it('an already-failed handle emits once and never schedules a poll', async () => {
     const h = makeHarness();
-    h.track(toSettled(startPending('evm', '0xabc')));
+    h.track(toFailed(startPending('evm', '0xabc'), 'REVERTED'));
+    await h.drain();
+    expect(h.updates.map((u) => u.status)).toEqual(['failed']);
+    expect(h.timers.length).toBe(0);
+  });
+
+  it('an already-settled handle on a NON-evm rail still passes through untouched', async () => {
+    const h = makeHarness();
+    h.track(toSettled(startPending('xrpl-tx', 'ABCD')));
     await h.drain();
     expect(h.updates.map((u) => u.status)).toEqual(['settled']);
+    expect(h.timers.length).toBe(0);
+  });
+
+  // it. 34 — the single/sequential rails of sendIntentCalls settle the handle on
+  // `receipt.status === 'success'` alone, and a Kinetic code produces exactly
+  // that receipt (mined, no effect). A settled evm handle is therefore
+  // re-verified: it re-enters as pending and the receipt poll, logs included,
+  // gives the verdict.
+  it('an already-settled EVM handle is re-verified for EFFECT: pending, then settled on a clean receipt', async () => {
+    const h = makeHarness({ getTxReceipt: async () => ({ status: 'success', logs: [] }) });
+    h.track(toSettled(startPending('evm', '0xabc')));
+    await h.drain();
+    expect(h.updates.map((u) => u.status)).toEqual(['pending', 'settled']);
+    expect(h.timers.length).toBe(0); // one read on a mined tx — final, no poll left behind
+  });
+
+  it('an already-settled EVM handle whose receipt carries a Compound Failure ends FAILED, mined without effect — never settled', async () => {
+    const h = makeHarness({ getTxReceipt: async () => ({ status: 'success', logs: [KINETIC_FAILURE_LOG] }) });
+    h.track(toSettled(startPending('evm', '0xabc', undefined, 14)));
+    await h.drain();
+    expect(h.updates.map((u) => u.status)).toEqual(['pending', 'failed']);
+    expect(last(h).reason).toBe('MINED_NO_EFFECT:COMPOUND:9:45:0');
     expect(h.timers.length).toBe(0);
   });
 });
@@ -83,6 +127,30 @@ describe('tracker — evm rail (receipt is the truth)', () => {
     expect(last(h).status).toBe('failed');
     expect(last(h).reason).toBeTruthy();
   });
+
+  // it. 34 — status 1 is not the whole test. Mainnet probe (it. 31): kFXRP_ISO
+  // `redeemUnderlying(1e12)` from an empty account mines with status 1 and a
+  // `Failure(9 MATH_ERROR, 45, 0)` log; gas paid, nothing moved.
+  it('a status-1 receipt WITH a Compound Failure log is FAILED with the code — mined without effect', async () => {
+    const h = makeHarness({ getTxReceipt: async () => ({ status: 1, logs: [KINETIC_FAILURE_LOG] }) });
+    h.track(startPending('evm', '0xccc', undefined, 14));
+    await h.drain();
+    expect(last(h).status).toBe('failed');
+    expect(last(h).reason).toBe('MINED_NO_EFFECT:COMPOUND:9:45:0');
+    expect(h.timers.length).toBe(0);
+  });
+
+  it('a status-1 receipt whose logs are ordinary (Transfer…) still settles', async () => {
+    const h = makeHarness({
+      getTxReceipt: async () => ({
+        status: 1,
+        logs: [{ address: '0xd1b7', topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'], data: '0x' + '0'.repeat(64) }],
+      }),
+    });
+    h.track(startPending('evm', '0xddd', undefined, 14));
+    await h.drain();
+    expect(last(h).status).toBe('settled');
+  });
 });
 
 describe('tracker — evm-5792 rail (§1.1/§1.2)', () => {
@@ -100,6 +168,25 @@ describe('tracker — evm-5792 rail (§1.1/§1.2)', () => {
     expect(last(h).status).toBe('settled');
     expect(last(h).ref).toBe('0xdeadbeef'); // bundle id upgraded to the linkable hash
     expect(last(h).explorerUrl).toContain('0xdeadbeef');
+  });
+
+  // it. 34 — the 5792 receipts carry `logs`: a call mined without effect
+  // inside a CONFIRMED bundle is a failure that names its step, so the
+  // «earlier steps already went through» sentence applies (the approve did).
+  it('CONFIRMED with every receipt status 1 but a Compound Failure in call 2 is FAILED, step named', async () => {
+    const h = makeHarness({
+      getCallsStatus: async () => ({
+        status: 'CONFIRMED',
+        receipts: [
+          { status: 'success', transactionHash: '0x1111', logs: [] },
+          { status: 'success', transactionHash: '0x2222', logs: [KINETIC_FAILURE_LOG] },
+        ],
+      }),
+    });
+    h.track(startPending('evm-5792', 'bundle-9'));
+    await h.drain();
+    expect(last(h).status).toBe('failed');
+    expect(last(h).reason).toBe('MINED_NO_EFFECT:COMPOUND:9:45:0:STEP:2');
   });
 
   it('CONFIRMED with a reverted call inside the batch is FAILED (a bundle green is not enough)', async () => {
@@ -170,21 +257,58 @@ describe('tracker — xrpl-mint rail (mint-status is the truth)', () => {
 });
 
 describe('tracker — xrpl-tx rail (ledger validation is the truth)', () => {
-  it('not-yet-validated (txnNotFound → false) stays pending; validated ⇒ settled', async () => {
-    let validated: boolean | null = false;
-    const h = makeHarness({ getXrplTxValidated: async () => validated });
+  it('not-yet-validated stays pending; validated+tesSUCCESS ⇒ settled', async () => {
+    let verdict: XrplTxVerdict = { kind: 'pending' };
+    const h = makeHarness({ getXrplTxVerdict: async () => verdict });
     h.track(startPending('xrpl-tx', 'E'.repeat(64)));
     await h.drain();
     expect(last(h).status).toBe('pending');
 
-    validated = null; // read failed — red caída ≠ pendiente
+    verdict = { kind: 'unreadable' }; // read failed — red caída ≠ pendiente
     await h.tick(POLL_MS['xrpl-tx']);
     expect(last(h).status).toBe('pending');
 
-    validated = true;
+    verdict = { kind: 'settled' };
     await h.tick(POLL_MS['xrpl-tx']);
     expect(last(h).status).toBe('settled');
     expect(h.timers.length).toBe(0);
+  });
+
+  // El incidente del 22-ago: un recibo colgado en «In progress» sobre una tx
+  // que el ledger ya había rechazado. Un fallo TERMINAL tiene que parar el
+  // reloj, no seguir vigilando un hash que nunca va a aparecer.
+  it('un fallo terminal asienta como failed y DETIENE el poll', async () => {
+    const h = makeHarness({
+      getXrplTxVerdict: async () => ({ kind: 'failed', code: 'tefPAST_SEQ', onChain: false }),
+    });
+    h.track(startPending('xrpl-tx', 'F'.repeat(64)));
+    await h.drain();
+    expect(last(h).status).toBe('failed');
+    expect(last(h).reason).toBe('tefPAST_SEQ');
+    expect(h.timers.length).toBe(0);
+  });
+
+  // El verde no ganado: `validated === true` NO basta. Un tec* ocupa ledger,
+  // cobra fee y no hace el pago — pintarlo verde es mentir sobre el dinero.
+  it('un tec* validado es FALLO, jamás asentado', async () => {
+    const h = makeHarness({
+      getXrplTxVerdict: async () => ({ kind: 'failed', code: 'tecUNFUNDED_PAYMENT', onChain: true }),
+    });
+    h.track(startPending('xrpl-tx', 'A'.repeat(64)));
+    await h.drain();
+    expect(last(h).status).toBe('failed');
+    expect(last(h).reason).toBe('tecUNFUNDED_PAYMENT');
+  });
+
+  // El contrapeso, que también es un bug cerrado: «no he podido leer» no puede
+  // convertirse en fallo — ese error empujaba al DOBLE depósito el 17-ago.
+  it('«ilegible» nunca se convierte en fallo, por mucho que se repita', async () => {
+    const h = makeHarness({ getXrplTxVerdict: async () => ({ kind: 'unreadable' }) });
+    h.track(startPending('xrpl-tx', 'B'.repeat(64)));
+    await h.drain();
+    for (let i = 0; i < 5; i++) await h.tick(POLL_MS['xrpl-tx']);
+    expect(last(h).status).not.toBe('failed');
+    expect(h.timers.length).toBeGreaterThan(0); // sigue vigilando
   });
 });
 

@@ -282,6 +282,27 @@ const nextConfig = {
   // Redirects
   async redirects() {
     return [
+      // www → apex, 308, before anything else.
+      //
+      // `www.astryum.xyz` served 200 on its own, so it was a second origin with
+      // its own sessionStorage and its own redirect URI — and XRP Identity only
+      // returns to URIs its operator registered. Twice in two days that list
+      // ended up holding one host or the other instead of both, and each time
+      // the effect was the same: on the host that was left out, the single door
+      // hides itself and the old email/Google/Apple buttons come back. For a
+      // visitor arriving from an XRPL audience that is the exact opposite of
+      // what we are showing them.
+      //
+      // Collapsing the hosts here makes the allowlist a one-host problem that
+      // cannot drift again. Query and path are preserved, so a callback that
+      // lands on www still completes — though after this nobody reaches www at
+      // all: the redirect happens on the first request, before any login starts.
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.astryum.xyz' }],
+        destination: 'https://astryum.xyz/:path*',
+        permanent: true,
+      },
       {
         source: '/dashboard',
         destination: '/app',
@@ -315,6 +336,21 @@ const nextConfig = {
         {
           source: '/health',
           destination: '/api/health',
+        },
+        // /docs es ahora una página de la app (src/app/docs) con la carcasa de
+        // /about y /proof; la estática de public/docs/index.html se retiró el
+        // 19-sep. Las diapositivas y los PDF siguen sirviéndose desde public/docs/.
+        //
+        // Los DOCUMENTOS WEB de la biblioteca sí son ficheros estáticos de
+        // public/docs/ (los genera docs/context/astryum-docs/make_pages.py), así
+        // que conservan su URL limpia:
+        {
+          source: '/docs/explained',
+          destination: '/docs/explained.html',
+        },
+        {
+          source: '/docs/mainnet-evidence',
+          destination: '/docs/mainnet-evidence.html',
         },
       ],
       // fallback eliminado: el catch-all '/:path*' → '/' rompía el routing en Vercel

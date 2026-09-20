@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PENDING_CHANGED_EVENT, loadAllPending, type SettlementState } from './settlement';
 import { resumePending } from './resume';
 import { useTrackerDeps } from './useSettlement';
+import { refreshPortfolioAfterSettlement } from './afterSettled';
 
 export interface ResumedSettlement {
   ref: string;
@@ -41,6 +42,11 @@ export function useResumePendingSettlements(): {
           p.ref,
           resumePending(p, deps, (ref, state) => {
             setStates((prev) => ({ ...prev, [ref]: state }));
+            // ASENTADA → el Portfolio se entera solo (2026-09-09). Este hook
+            // vive en el shell y sigue TODA operación firmada (el tracker del
+            // modal la persiste y avisa por PENDING_CHANGED_EVENT), así que
+            // es el único sitio que hace falta. Una vez por referencia.
+            if (state.status === 'settled') void refreshPortfolioAfterSettlement(ref);
           }),
         );
       }

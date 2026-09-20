@@ -8,9 +8,15 @@
  * quorum spread over days was doing until now.
  *
  * These helpers run server-side only (Next.js route handlers). The token never
- * reaches a browser: it is read here and put straight into the Xaman payload.
- * It is not a credential — only this app, holding its own API key and secret,
- * can use it, and it can neither sign nor move anything.
+ * reaches a browser from here: it is read and put straight into the Xaman
+ * payload. It can neither sign nor move anything — but it can ring a phone, so
+ * the backend decides who may use it (productizer 13-sep, H2b):
+ *
+ *  - storing sends only the payload UUID; the backend reads that payload from
+ *    Xaman itself and files the token for the account that really signed it;
+ *  - looking up sends the payload's `txjson.Account` too, and the backend only
+ *    answers for the session's own proven address or, on a multisign request,
+ *    for a co-signer of that account's SignerList.
  *
  * Every failure is silent by design: no token, a dead backend or an expired row
  * just means the sign request falls back to its QR, which is always rendered.
@@ -24,18 +30,17 @@ function apiBase(): string {
   ).replace(/\/$/, '');
 }
 
-/** Store (or refresh) the token Xaman issued for `xrplAddress`. */
+/** Ask the backend to file the token Xaman issued for the signer of `payloadUuid`. */
 export async function rememberPushToken(
-  xrplAddress: string | undefined,
-  userToken: string | undefined,
+  payloadUuid: string | undefined,
   authorization: string | null,
 ): Promise<void> {
-  if (!xrplAddress || !userToken || !authorization) return;
+  if (!payloadUuid || !authorization) return;
   try {
     await fetch(`${apiBase()}/xaman/push-tokens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: authorization },
-      body: JSON.stringify({ xrplAddress, userToken }),
+      body: JSON.stringify({ payloadUuid }),
       signal: AbortSignal.timeout(5_000),
     });
   } catch {
@@ -43,17 +48,28 @@ export async function rememberPushToken(
   }
 }
 
-/** The token for `xrplAddress`, or null when there is none (or it is stale). */
+export interface PushTokenLookup {
+  /** Whose phone the request should ring. */
+  address: string | undefined;
+  /** The payload's `txjson.Account` — the account the request is about. */
+  account: string | undefined;
+  /** A multisign request (the council ceremony asking a co-signer). */
+  multisign: boolean;
+}
+
+/** The token the backend allows for this request, or null (QR only). */
 export async function lookupPushToken(
-  xrplAddress: string | undefined,
+  lookup: PushTokenLookup,
   authorization: string | null,
 ): Promise<string | null> {
-  if (!xrplAddress || !authorization) return null;
+  const { address, account, multisign } = lookup;
+  if (!address || !account || !authorization) return null;
   try {
-    const res = await fetch(
-      `${apiBase()}/xaman/push-tokens?address=${encodeURIComponent(xrplAddress)}`,
-      { headers: { Authorization: authorization }, signal: AbortSignal.timeout(5_000) },
-    );
+    const qs = new URLSearchParams({ address, account, ...(multisign ? { multisign: '1' } : {}) });
+    const res = await fetch(`${apiBase()}/xaman/push-tokens?${qs.toString()}`, {
+      headers: { Authorization: authorization },
+      signal: AbortSignal.timeout(5_000),
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as { userToken?: string | null };
     return typeof data.userToken === 'string' && data.userToken ? data.userToken : null;

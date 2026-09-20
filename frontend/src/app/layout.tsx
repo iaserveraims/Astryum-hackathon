@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, Newsreader } from 'next/font/google';
 import './globals.css';
 import ClientRoot from './ClientRoot';
+import { motionPrepaintScript } from '../lib/motion/prepaint';
+import { appearancePrepaintScript } from '../lib/theme/prepaint';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -12,6 +14,18 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
   variable: '--font-jetbrains-mono',
+});
+// LA VOZ DEL TEMA INSTITUCIONAL (fundador 2026-09-13). Una serif de texto, no
+// una display: los titulares del panel institucional se leen como un
+// documento registrado, no como una portada. Solo la usa
+// [data-skin='institutional'] (globals.css) — en el tema Astryum la variable
+// existe y nadie la consume, así que el tema de siempre no cambia ni un
+// pixel. El subconjunto latino cubre castellano y catalan.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
 });
 
 export const metadata: Metadata = {
@@ -90,8 +104,20 @@ const SPEED_INSIGHTS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SPEED_INSIGHTS ===
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <head />
-      <body className={`${inter.variable} ${jetbrainsMono.variable} ${inter.className} antialiased`}>
+      <head>
+        {/* El nivel de movimiento elegido por el usuario (stores/motionStore.ts)
+            se estampa en <html> ANTES del primer pintado: sin esto, quien
+            eligió «sereno» vería las escenas arrancar y frenar en cada carga. */}
+        <script dangerouslySetInnerHTML={{ __html: motionPrepaintScript() }} />
+        {/* La APARIENCIA de la cuenta (tema + luz, lib/theme/appearance.ts),
+            estampada antes del primer frame y SOLO dentro de /app: sin esto,
+            quien eligio el tema Institucional veria el panel arrancar dorado
+            y redondo y cuadrarse un frame despues, en cada carga. */}
+        <script dangerouslySetInnerHTML={{ __html: appearancePrepaintScript() }} />
+      </head>
+      <body
+        className={`${inter.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${inter.className} antialiased`}
+      >
         <ClientRoot>{children}</ClientRoot>
         {ANALYTICS_ENABLED && <Analytics />}
         {SPEED_INSIGHTS_ENABLED && <SpeedInsights />}

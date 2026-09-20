@@ -14,7 +14,39 @@ import { Inbox, Loader2 } from 'lucide-react';
 import { GhostButton, Pill, PrimaryButton } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
+import { describeServerRefusal, type ReadableRefusal } from '../../lib/errors/serverRefusal';
+import { ServerRefusalBody } from '../ui/ServerRefusalBody';
 import { councilProposalsApi, type MultisigPrepare } from '../../services/v1Api';
+
+/**
+ * prosa-y-lectores — THIS DOOR OVERRODE THE SERVER AND SENT PEOPLE THE WRONG WAY.
+ *
+ * The catch below used to match `err.message === 'LIVE_PROPOSAL_EXISTS'` (the
+ * slug `jpost` puts in `Error.message`) and print a hardcoded "emit it,
+ * withdraw it or let it expire first", THROWING AWAY `err.body.detail`. The
+ * backend rewrote that exact 409 this round precisely because "let it expire"
+ * is the wrong door — inside its deadline `withdraw` reads no ledger and
+ * issues no verdict, and expiry lands on the unresolved-seat guard — so the
+ * newest, longest and most specific sentence was the one being discarded, and
+ * the family kept reading the retired one.
+ *
+ * One reader now (`serverRefusal`, the superset of the six twins). Named, and
+ * module-level, so the rule can be EXECUTED by a test instead of read off the
+ * source; the twin in GovernedMovements (`proposeError`) has the same shape.
+ */
+/**
+ * productizer it. 27 (3) — Y EL LECTOR COMPARTIDO TIRABA LAS SALIDAS.
+ *
+ * Delegar arregló la FRASE en la it. «prosa-y-lectores», pero `serverRefusalText`
+ * devolvía una cadena: el `headline`, las `ways[]` y el `retryAfterSeconds` que el
+ * servidor manda (`services/identity/provenAddresses.ts`, verbatim desde las rutas)
+ * se quedaban en el camino. El rechazo entero viaja ahora, y la pantalla pinta lo
+ * que el servidor nombró — incluida la puerta, para el perfil de email/Google que
+ * leía «sign in with the wallet that controls this address» sin nada que pulsar.
+ */
+function proposalError(e: unknown, t: (s: string) => string): ReadableRefusal {
+  return describeServerRefusal(e, t);
+}
 
 export default function ProposeToCouncil({
   xrplTx,
@@ -32,7 +64,8 @@ export default function ProposeToCouncil({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(defaultTitle ?? '');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // it. 27 (3): una frase nuestra, o un rechazo LEÍDO con sus salidas y su puerta.
+  const [error, setError] = useState<string | ReadableRefusal | null>(null);
   const [done, setDone] = useState<{ id: string; preflight: MultisigPrepare['preflight'] } | null>(null);
 
   const propose = useCallback(async () => {
@@ -47,12 +80,7 @@ export default function ProposeToCouncil({
       setDone({ id: res.proposal.id, preflight: res.preflight });
       onProposed?.(res.proposal.id);
     } catch (e) {
-      const err = e as Error & { status?: number; body?: { detail?: string } };
-      setError(
-        err.message === 'LIVE_PROPOSAL_EXISTS'
-          ? t('This account already has a live proposal — emit it, withdraw it or let it expire first (XRPL pins one Sequence at a time).')
-          : (err.body?.detail ?? err.message),
-      );
+      setError(proposalError(e, t));
     } finally {
       setBusy(false);
     }
@@ -103,7 +131,7 @@ export default function ProposeToCouncil({
         onChange={(e) => setTitle(e.target.value)}
         maxLength={120}
         placeholder={t('Short summary for the inbox (optional)')}
-        className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25"
+        className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25"
       />
       <div className="flex flex-wrap items-center gap-2">
         <PrimaryButton onClick={() => void propose()} disabled={busy}>
@@ -114,7 +142,11 @@ export default function ProposeToCouncil({
           {t('Back')}
         </GhostButton>
       </div>
-      {error && <InlineNotice tone="warning">{error}</InlineNotice>}
+      {error && (
+        <InlineNotice tone="warning">
+          {typeof error === 'string' ? error : <ServerRefusalBody refusal={error} t={t} />}
+        </InlineNotice>
+      )}
     </div>
   );
 }

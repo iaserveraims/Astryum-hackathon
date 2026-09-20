@@ -11,9 +11,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
-import type { CallsStatusLike, SettlementState } from './settlement';
+import { startPending, type CallsStatusLike, type PendingRef, type SettlementState } from './settlement';
 import { trackSettlement, type TrackerDeps } from './tracker';
 import { fetchCouncilOrderExecuted, fetchMintExecuted } from './statusReads';
+import { verdictFromTxRead, type XrplTxReadLike } from '../xrpl/txResult';
 
 /**
  * The READ-ONLY chain deps every settlement poll needs, shared by
@@ -25,10 +26,19 @@ import { fetchCouncilOrderExecuted, fetchMintExecuted } from './statusReads';
 export function useTrackerDeps(): TrackerDeps {
   const { connector } = useAccount();
   const publicClient = usePublicClient();
+  // Chain-anchored clients (B5-UI paso 1.4): an eth-morpho op settles on
+  // Ethereum even if the user switches the wallet back to Flare mid-poll — the
+  // receipt read must follow the HANDLE's chain, never the active one.
+  const flareClient = usePublicClient({ chainId: 14 });
+  const ethClient = usePublicClient({ chainId: 1 });
   const connectorRef = useRef(connector);
   connectorRef.current = connector;
   const clientRef = useRef(publicClient);
   clientRef.current = publicClient;
+  const flareClientRef = useRef(flareClient);
+  flareClientRef.current = flareClient;
+  const ethClientRef = useRef(ethClient);
+  ethClientRef.current = ethClient;
 
   return useMemo<TrackerDeps>(
     () => ({
@@ -42,8 +52,12 @@ export function useTrackerDeps(): TrackerDeps {
           params: [id],
         })) as CallsStatusLike;
       },
-      async getTxReceipt(hash) {
-        const client = clientRef.current;
+      async getTxReceipt(hash, chainId) {
+        // Legacy handles (no chainId) keep the old behaviour: the active client.
+        const client =
+          chainId === 1 ? ethClientRef.current
+          : chainId === 14 ? flareClientRef.current
+          : clientRef.current;
         if (!client) return null;
         try {
           return await client.getTransactionReceipt({ hash: hash as `0x${string}` });
@@ -52,21 +66,26 @@ export function useTrackerDeps(): TrackerDeps {
         }
       },
       getMintStatus: fetchMintExecuted,
-      async getXrplTxValidated(xrplHash) {
-        // Plain XRPL Payment (transfers): the settle-read is the tx VALIDATED in
-        // the ledger — public cluster, CORS-enabled, read-only.
+      async getXrplTxVerdict(xrplHash) {
+        // Plain XRPL Payment (transfers) — public cluster, CORS-enabled,
+        // read-only. La traducción a veredicto vive en `verdictFromTxRead`,
+        // que es pura y está testeada: aquí sólo se pide el dato.
+        //
+        // Lo que esto arregla (22-ago-2026): antes bastaba `validated === true`
+        // para pintar verde, sin mirar `TransactionResult`. Un `tec*` está
+        // validado, ocupa ledger y cobra fee — y NO hizo el pago. Se anunciaba
+        // como asentado.
         try {
           const res = await fetch('https://xrplcluster.com', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ method: 'tx', params: [{ transaction: xrplHash.toUpperCase() }] }),
           });
-          if (!res.ok) return null;
-          const body = (await res.json()) as { result?: { validated?: boolean } };
-          if (body.result?.validated === true) return true;
-          return body.result ? false : null; // txnNotFound = not yet validated — keep polling
+          if (!res.ok) return { kind: 'unreadable' };
+          const body = (await res.json()) as { result?: XrplTxReadLike };
+          return verdictFromTxRead(body.result);
         } catch {
-          return null;
+          return { kind: 'unreadable' };
         }
       },
       // Council order: LegacyBridge.consumedTxId, read (autenticado) por el
@@ -90,7 +109,10 @@ export interface UseSettlement {
   /** Live state of the tracked operation, or null before track()/after reset(). */
   state: SettlementState | null;
   /** Follow a handle returned by sendIntentCalls (or startPending for XRPL mints). */
-  track: (handle: SettlementState, cbs?: TrackCallbacks) => void;
+  track: (handle: SettlementState, cbs?: TrackCallbacks, opts?: { opKey?: string }) => void;
+  /** Adoptar un pendiente persistido (tras recargar): la ventana rehidratada
+   *  vuelve a seguir SU asiento donde lo dejó (fundador 2026-09-09). */
+  adopt: (pending: PendingRef, cbs?: TrackCallbacks) => void;
   reset: () => void;
 }
 
@@ -103,13 +125,14 @@ export function useSettlement(): UseSettlement {
   useEffect(() => () => cancelRef.current?.(), []);
 
   const track = useCallback(
-    (handle: SettlementState, cbs?: TrackCallbacks) => {
+    (handle: SettlementState, cbs?: TrackCallbacks, opts?: { opKey?: string }) => {
       // track() runs the moment the wallet hands back a signature — THE
       // chokepoint every signing surface passes (consumers-wired.test.ts).
       // (The shell-level ceremony that used to fire from here is gone: the
-      // SignedMark now plays inside each operation's own progress view.)
+      // SignedMark plays ONCE, in the settlement block — the QR only ticks off its spent code.)
       cancelRef.current?.();
       cancelRef.current = trackSettlement(handle, deps, {
+        opKey: opts?.opKey,
         onUpdate: (s) => {
           setState(s);
           if (s.status === 'settled') cbs?.onSettled?.(s);
@@ -120,11 +143,31 @@ export function useSettlement(): UseSettlement {
     [deps],
   );
 
+  const adopt = useCallback(
+    (pending: PendingRef, cbs?: TrackCallbacks) => {
+      cancelRef.current?.();
+      cancelRef.current = trackSettlement(
+        startPending(pending.rail, pending.ref, pending.explorerUrl, pending.chainId),
+        deps,
+        {
+          startedAt: pending.startedAt,
+          opKey: pending.opKey,
+          onUpdate: (s) => {
+            setState(s);
+            if (s.status === 'settled') cbs?.onSettled?.(s);
+            if (s.status === 'failed') cbs?.onFailed?.(s.reason, s);
+          },
+        },
+      );
+    },
+    [deps],
+  );
+
   const reset = useCallback(() => {
     cancelRef.current?.();
     cancelRef.current = null;
     setState(null);
   }, []);
 
-  return { state, track, reset };
+  return { state, track, adopt, reset };
 }

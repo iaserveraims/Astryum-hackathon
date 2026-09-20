@@ -1,6 +1,14 @@
 'use client';
 
 /**
+ * ⚠️ RETIRADO Y SIN SENTIDO YA (fundador 2026-08-22, cuarta pasada: «no que sea
+ * seleccionable como producto distinto, porque no lo es»). Llevaba desmontado
+ * desde el 2026-08-16, pero ahora además su premisa es falsa: el producto no
+ * se elige, lo pone la PANTALLA (AppShell sincroniza 'legacy' mientras la ruta
+ * es /app/legacy). Si se remontara, su interruptor lo revertiría el
+ * sincronizador en el mismo render. No revivir: para llegar a la gobernanza
+ * está el destino Legacy del menú, que ahora sale siempre.
+ *
  * ProductToggle — the product switch, and NOTHING else (founder 2026-07-18):
  * two segments, Astryum ↔ Legacy, living in the sidebar slot the old
  * "Overview" switcher occupied. No status line, no card chrome — the
@@ -49,7 +57,7 @@ export default function ProductToggle() {
   useEffect(() => {
     if (!legacyAccessKnown || legacyAccess || !legacy) return;
     setProductMode('astryum');
-    if (pathname === '/app/legacy') router.push('/app/wallets');
+    if (pathname === '/app/legacy') router.push('/app/home');
   }, [legacyAccessKnown, legacyAccess, legacy, pathname, setProductMode, router]);
 
   // Entering Legacy (founder 2026-08-04, "vía libre a todos"): the flip is
@@ -71,9 +79,8 @@ export default function ProductToggle() {
     // Popup branches (demo / no access) were handled inside setProductMode —
     // never navigate on an intercepted flip. getState(): click-time read.
     if (isDemoMode() || !useAuthStore.getState().legacyAccess) return;
-    if (pathname === '/app/wallets') {
-      router.push('/app/legacy');
-    }
+    // (The old /app/wallets carry-over died with the page: the Home hub
+    // exists in BOTH products, so entering Legacy from it needs no move.)
     const hasGoverned = accounts.some((a) => a.kind === 'governed');
     if (hasGoverned) return;
     if (accountsLoading) {
@@ -93,8 +100,8 @@ export default function ProductToggle() {
     if (mode === 'astryum') {
       setPendingLegacy(false);
       setProductMode('astryum');
-      // Leaving Legacy always lands on Wallets (Personal always has it).
-      if (pathname === '/app/legacy') router.push('/app/wallets');
+      // Leaving Legacy always lands on the Home hub (exists in both products).
+      if (pathname === '/app/legacy') router.push('/app/home');
       return;
     }
     enterLegacy();

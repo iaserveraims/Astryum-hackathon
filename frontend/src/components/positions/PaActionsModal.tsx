@@ -24,10 +24,9 @@
  * also mints a small FXRP into the PA — always disclosed before signing.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useContext } from 'react';
 import Link from 'next/link';
 import {
-  X,
   Loader2,
   AlertTriangle,
   CheckCircle2,
@@ -36,28 +35,47 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   ListOrdered,
+  ChevronDown,
+  PanelRight,
+  PanelRightClose,
+  Minus,
 } from 'lucide-react';
-import { ModalOverlay } from '../ui/ModalPortal';
+import { CloseOperationButton, OperationSurface, OpWindowContext } from '../ui/OperationSurface';
+import { useOperationStore } from '../../stores/operationStore';
+import { useDockStore } from '../../stores/dockStore';
 import { useT } from '../../i18n/LanguageProvider';
-import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
+import { pinnedXrplSigner, useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { useWalletPartner } from '../../lib/wallet/useWalletPartner';
 import { useMyWallets } from '../../hooks/useMyWallets';
 import { useOwningXrpl } from '../../lib/wallet/paOwnership';
 import { getApiBase } from '../../lib/env';
 import { getUserRegion } from '../../lib/region';
-import { startPending } from '../../lib/settlement/settlement';
+import { startPending, loadAllPending } from '../../lib/settlement/settlement';
 import { useSettlement } from '../../lib/settlement/useSettlement';
 import { releaseHandoffSeat } from '../../lib/wallet/handoffRelease';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
+import { UnconfirmedSignatureNotice } from '../settlement/UnconfirmedSignatureNotice';
+import { applySignFailure, type UnconfirmedSignature } from '../../lib/wallet/signOutcome';
+import { SeatRefusalNotice, seatRefusalSentence } from '../wallet/SeatRefusalNotice';
+import { refusalHeadline, serverDetailIfEnglish } from '../../lib/xaman/seatRefusal';
+import { noteFlareInstructionDelivery } from '../../lib/xaman/liveRequests';
 import { preflightSaysFail, type PreflightInfo } from '../../lib/preflight';
 import { PreflightNotice } from '../preflight/PreflightNotice';
+import { deriskMayAutoAdvance, deriskStepIsEmpty, parseIsoLegs, type DeriskStep } from '../../lib/earn/deriskReadState';
 import { DispatchXrpField } from './DispatchXrpField';
+import { useCarrierXrp } from '@/lib/flare/carrier';
 import { translateError } from '../../lib/errors/translateError';
 import { fmtQtyActive } from '../../lib/format';
+import { parsePaFxrpRead } from '../../lib/wallet/paDispatchDisclosure';
+import { RedemptionFeeNotice } from '../../lib/fassets/RedemptionFeeNotice';
+import { readRedemptionFeeFigures, redemptionOf } from '../../lib/fassets/redemptionFeeRow';
 import { DestinationField } from './DestinationField';
 import { AmountSliderUsd } from './AmountSliderUsd';
 import { useXrpUsdPrice } from '../../hooks/useXrpUsdPrice';
 import type { WalletRecord } from '../../lib/portfolioMerge';
+import { walletNameResolver } from '../../lib/walletIdentity';
+import { WalletSelect } from '../wallet/WalletSelect';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const API_BASE = getApiBase();
 const USDT0_DECIMALS = 6;
@@ -145,6 +163,92 @@ interface XrplPrepared {
   disclosure: Record<string, unknown> & { note?: string };
 }
 
+/**
+ * it. 19 (R5 R7) — LA PALABRA DE LA ENTREGA, EN LAS CUATRO PREPARACIONES 0xFE.
+ *
+ * Every prepare in this modal talks to the backend with raw `fetch`, so nothing
+ * ever registered what the server said about the executor that carries the 0xFE
+ * to Flare. With no word at all the live banner falls back to the prudent
+ * sentence — «nothing here confirmed that the executor is running» — over a
+ * perfectly legitimate withdrawal, every single time. Read defensively: a route
+ * that does not send `serverDelivery` leaves the banner NEUTRAL (it does not
+ * accuse anyone), and only `executorEnabled === true` lets it promise delivery.
+ */
+function noteHandoffDelivery(body: { xrplPayment?: unknown; serverDelivery?: { executorEnabled?: unknown } } | null | undefined): void {
+  noteFlareInstructionDelivery(body?.xrplPayment, body?.serverDelivery);
+}
+
+/**
+ * it. 31 — DID THE PREPARE ADMIT IT COULD NOT READ THE LIVE SUPPLY?
+ *
+ * `/iso-withdraw/prepare` (it. 29) marks `disclosure.supplyRead: 'unreadable'`
+ * when the exact-amount exit composed WITHOUT a ceiling check. Nobody on this
+ * screen consumed it: the review printed the amount as if checked, and Kinetic
+ * does not revert an oversized redeem — it returns a code, the tx mines, gas
+ * is paid, nothing moves. Only that exact word counts: an absent key is an
+ * older route, not an admission.
+ */
+function isoSupplyUnread(disclosure: Record<string, unknown> | null | undefined): boolean {
+  return disclosure?.supplyRead === 'unreadable';
+}
+
+/**
+ * it. 31 — WHAT THE WITHDRAW FORM MAY PRINT AS «IN THE VAULT».
+ *
+ * The figure comes from the live legs read; when that read FAILED the fallback
+ * was the props — a portfolio snapshot that can be stale — printed as a fact,
+ * with no amber and no retry (the amber existed only under `action ===
+ * 'derisk'`). A number nobody read this time is 'unread', not a figure.
+ */
+function vaultFigureState(input: { legsLoading: boolean; legsReadFailed: boolean }): 'loading' | 'unread' | 'figure' {
+  if (input.legsLoading) return 'loading';
+  if (input.legsReadFailed) return 'unread';
+  return 'figure';
+}
+
+/**
+ * it. 34 — THE VERDICT OF «CONVERT TO XRP» FROM AN EVM WALLET, IN ONE PIECE.
+ *
+ * That branch joins two prepares into one signature: `/iso-withdraw/prepare`
+ * (Kinetic — the leg that mines without effect on an oversized amount) and
+ * `/wallet-transfer/bridge/flare-to-xrpl/prepare` (the FAssets redeem). It used
+ * to `setPrepared` WITHOUT either `preflight`: the review showed no verdict and
+ * the button stayed green over an amount nobody had checked. Same merge rule as
+ * the backend's `mergePreflights`: available if ANY leg could run, a proven
+ * failure in ANY available leg fails the whole, a blind leg makes the green
+ * PARTIAL (the redeem is told `dependsOnPrior` and comes back blind by design).
+ */
+function mergePreflightInfos(parts: Array<PreflightInfo | undefined>, blindReason?: string): PreflightInfo | undefined {
+  const present = parts.filter((p): p is PreflightInfo => p != null);
+  if (present.length === 0) return undefined;
+  const steps = present.flatMap((p) => p.steps ?? []);
+  const available = present.some((p) => p.available);
+  if (!available) {
+    return { available: false, willSucceed: false, reason: present.find((p) => p.reason)?.reason, steps };
+  }
+  const failing = present.find((p) => p.available && !p.willSucceed);
+  if (failing) return { available: true, willSucceed: false, reason: failing.reason, code: failing.code, steps };
+  const blind = present.some((p) => !p.available) || present.some((p) => p.partial);
+  return blind
+    ? { available: true, willSucceed: true, partial: true, reason: blindReason ?? present.find((p) => !p.available)?.reason, steps }
+    : { available: true, willSucceed: true, steps };
+}
+
+/**
+ * it. 34 — WHAT THE SIGN BUTTON MAY LOOK LIKE. 'fail' = the dry-run RAN and
+ * proved a failure (red, as before). 'unchecked' = the prepare carried a
+ * dry-run that could NOT run (`available: false`): the person is about to sign
+ * with NO check at all — the it. 31 amber even said «the dry-run verdict below
+ * is the check» while PreflightNotice said there was none, and the button was
+ * the usual green. A prepare with no `preflight` key at all (older route) keeps
+ * the plain posture: absence is not an admission.
+ */
+function signPosture(p: PreflightInfo | undefined | null): 'fail' | 'unchecked' | 'ok' {
+  if (preflightSaysFail(p)) return 'fail';
+  if (p && !p.available) return 'unchecked';
+  return 'ok';
+}
+
 interface A1Prepared {
   rail: 'evm';
   chainId: number;
@@ -164,7 +268,14 @@ interface A1Prepared {
   };
 }
 
-type Phase = 'form' | 'preparing' | 'review' | 'signing' | 'done';
+// familia-no-pude-leer (2026-08-20): 'unconfirmed' is the ending this modal
+// never had. This is the 0xFE rail — the most expensive one in the repo — and
+// its catch sent EVERY failure back to 'review', the sign button, including a
+// dispatch whose hash Xaman could not hand back. Signing again there costs a
+// second carrier fee in XRP, a second nonce seat and a second movement of the
+// position. 'unconfirmed' is where a signature we could not read ends, and it
+// has no way back to the button.
+type Phase = 'form' | 'preparing' | 'review' | 'signing' | 'done' | 'unconfirmed';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -183,6 +294,7 @@ interface BaPair {
 }
 function BeforeAfterPanel({ ba }: { ba: Record<string, unknown> }) {
   const { t } = useT();
+
   const row = (label: string, pair: unknown, digits = 6, infinityWhenNull = false) => {
     const p = pair as BaPair | undefined;
     if (p == null || (p.before == null && p.after == null)) return null;
@@ -239,9 +351,31 @@ export function PaActionsModal({
   onChanged: () => void;
 }) {
   const { t } = useT();
+  // ANCLAJE (fundador 2026-08-25): la operación puede fijarse al borde
+  // derecho — el dashboard queda vivo y consultable mientras preparas la
+  // firma. El hueco se suelta SIEMPRE al desmontar: cerrar la operación
+  // devuelve el shell a su sitio, pase lo que pase.
+  const docked = useDockStore((st) => st.docked);
+  const setDocked = useDockStore((st) => st.setDocked);
+  // Minimizar = dejar de ser la activa (multi-op): la superficie se pliega a
+  // su píldora. El cleanup de setDocked ya NO va aquí — cerrar una píldora
+  // le robaría el panel a la operación que sigue desplegada; lo centraliza
+  // OperationSurface al cerrarse la última.
+  const minimizeActive = useOperationStore((st) => st.minimizeActive);
   const xrpl = useXrplWalletPartner();
   const evm = useWalletPartner();
   const settlement = useSettlement();
+  // La ventana sobrevive a la recarga (2026-09-09): readopta su asiento y
+  // reabre en «en proceso» si firmó algo que sigue liquidándose.
+  const win = useContext(OpWindowContext);
+  useEffect(() => {
+    if (!win?.id) return;
+    const pending = loadAllPending().find((p) => p.opKey === win.id);
+    if (!pending) return;
+    settlement.adopt(pending, { onSettled: onChanged });
+    setPhase('done');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { wallets: myWallets } = useMyWallets();
 
   // The account being acted on — selectable when the same market is open
@@ -264,30 +398,59 @@ export function PaActionsModal({
   // real supply read as empty legs → "In the vault: 0 FXRP" over withdrawable
   // assets, 2026-07-14). The number the user came to see is never a cache.
   const [liveLegs, setLiveLegs] = useState<PaLegs | null>(null);
-  const [legsLoading, setLegsLoading] = useState(false);
+  // Arranca en «cargando» si hay lectura que hacer: el primer render ya no
+  // evalúa el unwind sobre las piernas del snapshot antes de que salga el fetch.
+  const [legsLoading, setLegsLoading] = useState(() => /^0x[a-fA-F0-9]{40}$/.test(ownerProp));
+  /**
+   * La lectura viva FALLÓ (HTTP, red, cuerpo ilegible). No es «aún no leído»:
+   * las piernas de reserva son un snapshot quizá rancio, así que el DERISK no
+   * puede llamar vacío a un paso — ni completo al unwind — sobre ellas
+   * (deriskReadState, revisión 14-sep). Retry sube el nonce.
+   */
+  const [legsReadFailed, setLegsReadFailed] = useState(false);
+  const [legsReadNonce, setLegsReadNonce] = useState(0);
   useEffect(() => {
     setLiveLegs(null);
-    if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) return;
+    setLegsReadFailed(false);
+    if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) {
+      setLegsLoading(false);
+      return;
+    }
     let alive = true;
     setLegsLoading(true);
     fetch(`${API_BASE}/flare-demo/iso-legs/${owner}`, { headers: authHeaders(), credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b: { supplyFxrpBase?: string | null; suppliedUsdt0Base?: string | null; debtUsdt0Base?: string | null } | null) => {
-        if (!alive || !b) return;
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((b: unknown) => {
+        if (!alive) return;
+        // it. 29 — LA SEGUNDA PUERTA. Esto solo se enteraba de un fallo por
+        // HTTP, asi que un 200 sin las piernas dentro (lo que servia esta ruta
+        // mientras `balanceOf` se tragaba como `0n`) pasaba de largo: tres
+        // `undefined` se volvian ceros y el paso 3 cantaba «el desmontaje esta
+        // completo». Las claves tienen que ESTAR para que esto sea una lectura.
+        const read = parseIsoLegs(b);
+        if (!read.ok) {
+          setLegsReadFailed(true);
+          return;
+        }
         setLiveLegs({
-          supplyFxrpBase: b.supplyFxrpBase ?? undefined,
-          suppliedUsdt0Base: b.suppliedUsdt0Base ?? undefined,
-          debtUsdt0Base: b.debtUsdt0Base ?? undefined,
+          supplyFxrpBase: read.legs.supplyFxrpBase ?? undefined,
+          suppliedUsdt0Base: read.legs.suppliedUsdt0Base ?? undefined,
+          debtUsdt0Base: read.legs.debtUsdt0Base ?? undefined,
         });
       })
-      .catch(() => {})
+      .catch(() => {
+        if (alive) setLegsReadFailed(true);
+      })
       .finally(() => {
         if (alive) setLegsLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [owner]);
+  }, [owner, legsReadNonce]);
   const legs = liveLegs ?? sel.legs;
 
   // WHO holds this position decides every rail: an EVM-direct entry lives on
@@ -318,10 +481,16 @@ export function PaActionsModal({
   const railIsEvm = !ownerIsPa && (ownerIsEvmWallet || ownerIsMyEvmWallet);
   /** EVM rail but the owning wallet isn't the connected signer → block prepare. */
   const needsWalletConnect = railIsEvm && !ownerIsEvmWallet;
-  const aliasOf = (addr: string) =>
-    myWallets.find((w) => w.address.toLowerCase() === addr.toLowerCase())?.label ??
-    `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-  const ownerAlias = myWallets.find((w) => w.address.toLowerCase() === owner.toLowerCase())?.label;
+  // LA regla canónica de nombres (2026-08-22): la copia local label??dirección
+  // saltaba el fallback de marca — una wallet sin apodo se llamaba por su
+  // código. walletNameResolver numera («MetaMask 2») y jamás usa la dirección
+  // como nombre para una fila conocida; una dirección ajena sigue en corto.
+  const aliasOf = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);
+  // El nombre canónico de la dueña — mismo resolver que aliasOf, así el header
+  // y la fila de firma cuentan la misma historia (antes: label crudo o nada).
+  const ownerAlias = myWallets.some((w) => w.address.toLowerCase() === owner.toLowerCase())
+    ? aliasOf(owner)
+    : undefined;
 
   // XRPL destinations for the EVM-wallet redeem: my linked XRPL wallets, plus
   // the connected Xaman when it isn't linked — a picker, never a bare input.
@@ -346,17 +515,21 @@ export function PaActionsModal({
   }
 
   /** Option line: alias · addr · what the account holds in the ISO market. */
-  function holderLabel(h: PaHolder): string {
+  /** La segunda línea de la fila: dirección corta y qué hay dentro. El
+   *  nombre ya lo pone la cara, así que aquí no se repite (antes todo iba
+   *  en una ristra con puntos porque un <option> no da para más). */
+  function holderDetail(h: PaHolder): string {
     const supply = fromBase(h.legs.supplyFxrpBase, FXRP_DECIMALS);
     const debt = fromBase(h.legs.debtUsdt0Base, USDT0_DECIMALS);
-    const bits = [
-      aliasOf(h.owner),
+    return [
       `${h.owner.slice(0, 8)}…${h.owner.slice(-6)}`,
       supply > 0 ? `${fmt(supply)} FXRP` : null,
       debt > 0 ? `${t('Debt')} ${fmt(debt)} USDT0` : null,
-    ].filter(Boolean);
-    return bits.join(' · ');
+    ]
+      .filter(Boolean)
+      .join(' · ');
   }
+
 
   // DERISK is a guided sequence over the other three actions.
   const [deriskStep, setDeriskStep] = useState<1 | 2 | 3>(1);
@@ -372,6 +545,10 @@ export function PaActionsModal({
   const [phase, setPhase] = useState<Phase>('form');
   const [error, setError] = useState('');
   const [prepared, setPrepared] = useState<XrplPrepared | A1Prepared | null>(null);
+  // What a signature we could not follow left behind: the hash to check (EVM
+  // rail) and the wallet's verbatim words — shown as a WARNING, never as a red
+  // failure with a way back to the sign button.
+  const [unconfirmed, setUnconfirmed] = useState<UnconfirmedSignature | null>(null);
 
   // Abandonar una orden 0xFE preparada y NO firmada libera su asiento de nonce
   // al instante (el usuario no queda tapiado por NONCE_SEAT_TAKEN). Un ref
@@ -383,6 +560,16 @@ export function PaActionsModal({
     memoHex: prepared?.rail === 'xrpl' ? prepared.memoHex : undefined,
     abandonable: prepared?.rail === 'xrpl' && phase === 'review',
   };
+  /**
+   * El memo del último 0xFE preparado aquí, que SOBREVIVE al payload (it. 17,
+   * R1 1.5). Cuando el siguiente intento choca contra el asiento, casi siempre
+   * es este mismo borrador: con el memo se puede ofrecer liberarlo en vez de
+   * dejar a la persona diez minutos delante de un código.
+   */
+  const abandonedMemo = useRef<string | null>(null);
+  if (prepared?.rail === 'xrpl' && prepared.memoHex) abandonedMemo.current = prepared.memoHex;
+  /** El cuerpo del rechazo de asiento en curso: lo pinta el aviso compartido. */
+  const [seatRefusal, setSeatRefusal] = useState<unknown>(null);
   useEffect(() => {
     return () => {
       if (seatRef.current.abandonable) releaseHandoffSeat(seatRef.current.memoHex);
@@ -397,7 +584,9 @@ export function PaActionsModal({
   // MAX on the EVM rail = exact full exit (redeem by kToken shares, interest
   // included). Typing any amount by hand switches back to the normal path.
   const [useMax, setUseMax] = useState(false);
-  const [xrpForMint, setXrpForMint] = useState('1');
+  // Carrier auto (founder 2026-08-17): live fees + margin from the backend
+  // — no user knob; can never block the operation (lib/flare/carrier).
+  const xrpForMint = useCarrierXrp();
   // USDT0 only exists in the CARRY (the one strategy that lends AND borrows).
   // A lend-only position withdraws FXRP, full stop — no USDT0 tab, no 0-USDT0
   // default staring at the user (founder 2026-07-30).
@@ -431,21 +620,33 @@ export function PaActionsModal({
   // de destino del withdraw FXRP (transfer a EVM vs unmint a XRPL).
   const [paFreeFxrp, setPaFreeFxrp] = useState<number | null>(null);
   const [redeemMinXrp, setRedeemMinXrp] = useState<number | null>(null);
+  // «Could not read» is said, never shown as «no free FXRP» (14-sep): a failed
+  // read used to hide «Free in this wallet», the «Position + wallet» MAX and the
+  // protocol minimum without a word.
+  const [paFxrpReadFailed, setPaFxrpReadFailed] = useState(false);
+  const [paFxrpNonce, setPaFxrpNonce] = useState(0);
   useEffect(() => {
     if ((action !== 'unmint' && action !== 'withdraw') || !/^0x[a-fA-F0-9]{40}$/.test(owner)) return;
     let alive = true;
+    setPaFxrpReadFailed(false);
     fetch(`${API_BASE}/flare-demo/pa-fxrp/${owner}`, { headers: authHeaders(), credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b: { freeFxrp?: number; redeemMinimumXrp?: number | null } | null) => {
-        if (!alive || !b) return;
-        setPaFreeFxrp(typeof b.freeFxrp === 'number' ? b.freeFxrp : null);
-        setRedeemMinXrp(b.redeemMinimumXrp ?? null);
+      .then(async (r) => parsePaFxrpRead(r.ok, await r.json().catch(() => null)))
+      .then((read) => {
+        if (!alive) return;
+        if (!read) {
+          setPaFxrpReadFailed(true);
+          return;
+        }
+        setPaFreeFxrp(read.freeFxrp);
+        setRedeemMinXrp(read.redeemMinimumXrp);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setPaFxrpReadFailed(true);
+      });
     return () => {
       alive = false;
     };
-  }, [action, owner]);
+  }, [action, owner, paFxrpNonce]);
   // Redeem desde una wallet EVM (no PA): la wallet firma el redeem directo y el
   // usuario ELIGE a qué XRPL enviar el XRP (no hay "XRPL dueña"). Por defecto,
   // su Xaman conectada.
@@ -475,12 +676,35 @@ export function PaActionsModal({
   // DERISK con pierna vacía (founder 2026-07-26): sin USDT0 suppliado el paso 1
   // no tiene nada que retirar (ni botón MAX, porque no hay saldo) y dejaba el
   // unwind ATASCADO en un formulario sin salida. Un paso vacío se salta.
+  /** El respaldo que el protocolo RETIENE mientras quede deuda (fundador
+   *  2026-08-25: tras el repay quedó una migaja de USDT0 y el MAX del paso 3
+   *  pedía el 100% del colateral — el nodo lo rechaza SIEMPRE, y el error
+   *  llegaba crudo y genérico). El factor de colateral real de los mercados
+   *  ISO es ≥0.5: asumir 0.5 con +5% de margen solo puede dejar unas migajas
+   *  DE MÁS dentro (retirables al saldar la deuda), nunca pedir de más y
+   *  revertir. Sin precio vivo se reserva un 1% — la deuda residual del
+   *  derisk es polvo por construcción (el paso 2 acaba de pagar). */
+  const reservedFxrpForDebt =
+    action === 'derisk' && debtHuman > 0
+      ? xrpUsd != null && xrpUsd > 0
+        ? (debtHuman / xrpUsd) * 2 * 1.05
+        : supplyFxrpHuman * 0.01
+      : 0;
+  const safeMaxFxrp = Math.max(0, supplyFxrpHuman - reservedFxrpForDebt);
+
+  // Un paso es «vacío» solo si la CADENA lo dijo: con la lectura viva caída las
+  // piernas son las del snapshot, y el paso 3 llegaba a declarar «the unwind is
+  // complete» sobre 0 FXRP que nadie leyó (revisión 14-sep).
   const deriskStepEmpty =
     action === 'derisk' &&
-    !legsLoading &&
-    ((deriskStep === 1 && suppliedUsdt0Human <= 0) ||
-      (deriskStep === 2 && debtHuman <= 0) ||
-      (deriskStep === 3 && supplyFxrpHuman <= 0));
+    deriskStepIsEmpty({
+      step: deriskStep as DeriskStep,
+      legsLoading,
+      legsReadFailed,
+      suppliedUsdt0Human,
+      debtHuman,
+      supplyFxrpHuman,
+    });
 
   // DERISK on the PA rail (founder 2026-07-31): step 1 never signs apart — the
   // PA-native repay redeems the re-supplied USDT0 INSIDE its own 0xFE userOp
@@ -488,7 +712,36 @@ export function PaActionsModal({
   // the user one extra mint-coupled dispatch for nothing. With no debt there is
   // nothing to fold into, and step 1 stays a normal (walletless) PA withdraw.
   const deriskStep1InsideRepay =
-    action === 'derisk' && deriskStep === 1 && ownerIsPa && !legsLoading && debtHuman > 0 && !deriskStepEmpty;
+    action === 'derisk' && deriskStep === 1 && ownerIsPa && !legsLoading && !legsReadFailed && debtHuman > 0 && !deriskStepEmpty;
+
+  // AUTO-AVANCE (fundador 2026-08-24: «si el step 1 no es necesario tiene que
+  // pasar al segundo»): un paso sin pierna — o plegado dentro del repay — ya
+  // no espera un clic. Se marca hecho, se enseña el porqué medio segundo (que
+  // el salto se ENTIENDA, no que parpadee) y se avanza. Una sola vez por paso
+  // y por apertura: si el usuario vuelve atrás algún día, no le peleamos.
+  const autoSkipped = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (action !== 'derisk' || !deriskMayAutoAdvance({ legsLoading, legsReadFailed }) || phase !== 'form') return;
+    if (deriskStep >= 3) return; // el paso final vacío es el cierre, no un salto
+    if (!(deriskStepEmpty || deriskStep1InsideRepay)) return;
+    if (autoSkipped.current.has(deriskStep)) return;
+    const skipping = deriskStep;
+    const id = setTimeout(() => {
+      // La marca se pone AL EJECUTAR, no al programar (bug 2026-08-24, el
+      // fundador lo pilló clavado en «Moving on…»): si una dependencia
+      // parpadea dentro de la ventana — la recarga de las piernas — la
+      // limpieza mata el temporizador, y una marca puesta al programar hacía
+      // que la re-entrada dijera «ya saltado» sin haber saltado jamás. Así,
+      // el peor caso de un parpadeo es re-esperar medio segundo; el salto
+      // llega siempre. La marca sigue evitando re-saltar un paso al que el
+      // usuario vuelva a mano.
+      autoSkipped.current.add(skipping);
+      setDeriskDone((prev) => new Set(prev).add(skipping));
+      nextDeriskStep();
+    }, 550);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, legsLoading, legsReadFailed, phase, deriskStep, deriskStepEmpty, deriskStep1InsideRepay]);
 
   // R0.1: the modal opens for ONE intention — the heading says it in the
   // user's words, not in opcodes (DERISK / carry / redeem are internal names).
@@ -504,6 +757,15 @@ export function PaActionsModal({
     status: number,
     body: { error?: string; detail?: string; available?: number; requested?: number; minimumXrp?: number; availableFxrp?: number },
   ): string {
+    // EL ASIENTO DE NONCE, EN INGLÉS Y EL PRIMERO (it. 17, R5 5.4). El backend
+    // contesta con el código crudo y un párrafo en castellano con hashes; el
+    // único lector de ese veredicto es `lib/xaman/seatRefusal`, y ninguna de
+    // las dos cosas del servidor llega a la pantalla.
+    const seat = seatRefusalSentence(body, t);
+    if (seat) {
+      setSeatRefusal(body);
+      return seat;
+    }
     const codeEarly = String(body.error ?? '');
     if (codeEarly === 'AMOUNT_BELOW_MINIMUM_REDEEM') {
       return `${t('Below the protocol minimum per redemption')} (${body.minimumXrp ?? 5} XRP).`;
@@ -521,7 +783,17 @@ export function PaActionsModal({
     if (code === 'NO_SUPPLY_TO_WITHDRAW') {
       return t('This wallet has no supply of that asset in the Kinetic ISO market — check the selected wallet and asset.');
     }
-    return body.detail || body.error || `HTTP ${status}`;
+    // it. 22 (Q3 3.7) — EL ÚLTIMO RECURSO TAMPOCO PINTA EL SERVIDOR EN CRUDO.
+    // Aquí acababa `body.detail || body.error`: el párrafo en castellano del
+    // backend, o su slug. `refusalHeadline` convierte el código en una frase
+    // (y conoce los «no pude leer»), y el `detail` solo acompaña si está en el
+    // idioma de la pantalla.
+    const head = refusalHeadline(body, t);
+    const detail = serverDetailIfEnglish(body.detail);
+    return (
+      [head, detail].filter((p): p is string => Boolean(p)).join(' — ') ||
+      `${t('The server refused this operation. Nothing was prepared and nothing was signed.')} (HTTP ${status})`
+    );
   }
 
   async function prepare(fillOverride?: 'FXRP' | 'FLR' | null) {
@@ -533,6 +805,7 @@ export function PaActionsModal({
     // conservan — vienen con fillOverride explícito.
     if (!(fillOverride === null || fillOverride === 'FXRP' || fillOverride === 'FLR')) setNoFillChosen(false);
     setError('');
+    setSeatRefusal(null);
     setPhase('preparing');
     try {
       if (needsWalletConnect) {
@@ -548,9 +821,6 @@ export function PaActionsModal({
           // PA-native rail: everything happens inside the Smart Account, one
           // Xaman signature, executor-paid gas. The route reads the live state
           // and funds from free USDT0 → carry supply (pieza 1).
-          if (!(parseFloat(xrpForMint) > 0)) {
-            throw new Error(t('The XRP for the mint-coupled dispatch must be greater than 0'));
-          }
           // Pin the XRPL account that OWNS this Smart Account — never the
           // merely-connected Xaman (2026-07-19 mismatch incident).
           const signerXrpl = owningXrpl ?? xrpl.address;
@@ -563,7 +833,7 @@ export function PaActionsModal({
               xrplAddress: signerXrpl,
               mode: repayMode,
               targetHF: parseFloat(targetHF) || 1.1,
-              amountXrpForMint: parseFloat(xrpForMint) || 0,
+              amountXrpForMint: xrpForMint,
               // SWAP-FILL: si el PA no llega, compra el hueco con su propio
               // FXRP libre — la Call de swap va dentro del mismo userOp.
               ...(fillSel ? { fill: { asset: fillSel } } : {}),
@@ -578,6 +848,7 @@ export function PaActionsModal({
           if (String(body.personalAccount ?? '').toLowerCase() !== owner.toLowerCase()) {
             throw new Error(t('The connected Xaman wallet does not control this Smart Account.'));
           }
+          noteHandoffDelivery(body);
           setPrepared(body as XrplPrepared);
         } else {
           const res = await fetch(`${API_BASE}/flare-demo/a1/prepare`, {
@@ -623,9 +894,6 @@ export function PaActionsModal({
           if (!res.ok) throw new Error(friendlyHttpError(res.status, body));
           setPrepared(body as A1Prepared);
         } else {
-          if (!(parseFloat(xrpForMint) > 0)) {
-            throw new Error(t('The XRP for the mint-coupled dispatch must be greater than 0'));
-          }
           // Pin the XRPL account that OWNS this Smart Account — never the
           // merely-connected Xaman (2026-07-19 mismatch incident).
           const signerXrpl = owningXrpl ?? xrpl.address;
@@ -637,7 +905,7 @@ export function PaActionsModal({
             body: JSON.stringify({
               xrplAddress: signerXrpl,
               amountUsdt0Base: base,
-              amountXrpForMint: parseFloat(xrpForMint) || 0,
+              amountXrpForMint: xrpForMint,
               region: getUserRegion(),
             }),
           });
@@ -646,6 +914,7 @@ export function PaActionsModal({
           if (String(body.personalAccount ?? '').toLowerCase() !== owner.toLowerCase()) {
             throw new Error(t('The connected Xaman wallet does not control this Smart Account.'));
           }
+          noteHandoffDelivery(body);
           setPrepared(body as XrplPrepared);
         }
       } else if (effective === 'unmint') {
@@ -657,16 +926,24 @@ export function PaActionsModal({
         const maxRedeemable = supplyFxrpHuman + freeExtra;
         const wantHuman = parseFloat(amount);
         if (!(wantHuman > 0)) throw new Error(t('Amount must be greater than 0'));
-        if (wantHuman > maxRedeemable + 1e-9) {
+        // it. 34 — with the live legs UNREAD, `supplyFxrpHuman` is the props'
+        // snapshot: no ceiling can be checked against it (the it. 31 rule of
+        // the withdraw form, now here). The dry-run on the review step is the
+        // check, and the redeem sizes over the amount typed, never over a
+        // figure nobody read this time.
+        const legsUnread = vaultFigureState({ legsLoading, legsReadFailed }) === 'unread';
+        // An unread free balance is not «nothing free»: above the position the
+        // ceiling is unknown, so say that instead of «more than you can redeem».
+        if (!legsUnread && !ownerIsPa && paFxrpReadFailed && paFreeFxrp == null && wantHuman > supplyFxrpHuman + 1e-9) {
+          throw new Error(t('Could not read the free FXRP in this wallet, so an amount above the position cannot be checked. Retry the read first.'));
+        }
+        if (!legsUnread && wantHuman > maxRedeemable + 1e-9) {
           throw new Error(`${t('More than you can redeem:')} ${fmt(maxRedeemable)} FXRP`);
         }
         const base = toBase(String(wantHuman), FXRP_DECIMALS);
         if (ownerIsPa) {
           // PA: retira de Kinetic Y redime a la XRPL DUEÑA en UN dispatch 0xFE
           // atómico (pa-withdraw-transfer + unmintToXrpl). Firmante pinneado.
-          if (!(parseFloat(xrpForMint) > 0)) {
-            throw new Error(t('The XRP for the mint-coupled dispatch must be greater than 0'));
-          }
           const signerXrpl = owningXrpl ?? xrpl.address;
           if (!signerXrpl) throw new Error(t('Connect your XRPL wallet (Xaman) to continue'));
           const res = await fetch(`${API_BASE}/flare-demo/pa-withdraw-transfer/prepare`, {
@@ -677,7 +954,7 @@ export function PaActionsModal({
               xrplAddress: signerXrpl,
               asset: 'fxrp',
               amountBase: base,
-              amountXrpForMint: parseFloat(xrpForMint) || 0,
+              amountXrpForMint: xrpForMint,
               unmintToXrpl: true,
               region: getUserRegion(),
             }),
@@ -687,6 +964,7 @@ export function PaActionsModal({
           if (String(body.personalAccount ?? '').toLowerCase() !== owner.toLowerCase()) {
             throw new Error(t('The connected Xaman wallet does not control this Smart Account.'));
           }
+          noteHandoffDelivery(body);
           setPrepared(body as XrplPrepared);
         } else {
           // Wallet EVM: retira de Kinetic + redime en UNA firma de la propia
@@ -702,8 +980,12 @@ export function PaActionsModal({
           }
           // 1) retirar de la posición SOLO lo que haga falta (drena posición
           //    primero; si want > posición, el resto ya está en el saldo libre).
-          const withdrawHuman = Math.min(wantHuman, supplyFxrpHuman);
-          const wBody = withdrawHuman > 1e-9
+          // it. 34 — legs unread: the whole amount comes out of the position
+          // (no top-up from a free balance we did not size against); an
+          // oversized figure is what the Kinetic dry-run below refuses.
+          const withdrawHuman = legsUnread ? wantHuman : Math.min(wantHuman, supplyFxrpHuman);
+          const hasWithdrawLeg = withdrawHuman > 1e-9;
+          const wBody = hasWithdrawLeg
             ? await (async () => {
                 const wRes = await fetch(`${API_BASE}/flare-demo/iso-withdraw/prepare`, {
                   method: 'POST',
@@ -713,32 +995,52 @@ export function PaActionsModal({
                 });
                 const b = await wRes.json().catch(() => ({}));
                 if (!wRes.ok) throw new Error(friendlyHttpError(wRes.status, b));
-                return b;
+                return b as Partial<A1Prepared>;
               })()
-            : { calls: [] };
-          // 2) redimir ese FXRP a XRP nativo
+            : ({ calls: [] } as Partial<A1Prepared>);
+          // 2) redimir ese FXRP a XRP nativo. With a withdraw leg ahead of it
+          //    the redeem cannot be dry-run on its own (the FXRP is not in the
+          //    wallet yet): `dependsOnPrior` makes the route report it blind
+          //    instead of a false «would FAIL».
           const rRes = await fetch(`${API_BASE}/wallet-transfer/bridge/flare-to-xrpl/prepare`, {
             method: 'POST',
             headers: authHeaders(),
             credentials: 'include',
-            body: JSON.stringify({ evmWallet: owner, xrplDestination: dest, amountXrp: String(wantHuman), region: getUserRegion() }),
+            body: JSON.stringify({
+              evmWallet: owner,
+              xrplDestination: dest,
+              amountXrp: String(wantHuman),
+              region: getUserRegion(),
+              ...(hasWithdrawLeg ? { dependsOnPrior: true } : {}),
+            }),
           });
-          const rBody = await rRes.json().catch(() => ({}));
+          const rBody = (await rRes.json().catch(() => ({}))) as Partial<A1Prepared> & { error?: string; detail?: string };
           if (!rRes.ok) throw new Error(friendlyHttpError(rRes.status, rBody));
           // Firmar retirada + redención juntas (una sola confirmación en la wallet).
-          const calls = [
-            ...((wBody as { calls?: A1Prepared['calls'] }).calls ?? []),
-            ...((rBody as { calls?: A1Prepared['calls'] }).calls ?? []),
-          ];
+          const calls = [...(wBody.calls ?? []), ...(rBody.calls ?? [])];
+          // The redeem's own FAssets redemption-fee figures travel into the
+          // combined disclosure (null when the route did not state them).
+          const redemptionFee = readRedemptionFeeFigures(rBody);
+          // it. 34 — the verdicts and the it. 29 admission (`supplyRead`) ride
+          // into the review, where PreflightNotice and the amber read them.
+          const preflight = mergePreflightInfos(
+            [wBody.preflight, rBody.preflight],
+            hasWithdrawLeg ? 'The redeem to XRP runs after the withdrawal and cannot be dry-run on its own.' : undefined,
+          );
           setPrepared({
             rail: 'evm',
             chainId: 14,
             calls,
+            ...(preflight ? { preflight } : {}),
             disclosure: {
               action: 'unmint-position',
               asset: 'FXRP → XRP',
               amount: wantHuman,
               to: dest,
+              ...(hasWithdrawLeg && wBody.disclosure?.supplyRead != null ? { supplyRead: wBody.disclosure.supplyRead } : {}),
+              ...(hasWithdrawLeg && wBody.disclosure?.availableBase !== undefined ? { availableBase: wBody.disclosure.availableBase } : {}),
+              redemptionFeeBips: redemptionFee.bips,
+              redemptionFeeFxrp: redemptionFee.fxrp,
               note: t('Withdraws this position from Kinetic and redeems it to native XRP — one signature in your wallet. The FAssets agent pays the XRP to your XRPL address (minutes to hours), minus the protocol redemption fee.'),
             },
           } as A1Prepared);
@@ -772,9 +1074,6 @@ export function PaActionsModal({
           if (!res.ok) throw new Error(friendlyHttpError(res.status, body));
           setPrepared(body as A1Prepared);
         } else {
-          if (!(parseFloat(xrpForMint) > 0)) {
-            throw new Error(t('The XRP for the mint-coupled dispatch must be greater than 0'));
-          }
           // Pin the XRPL account that OWNS this Smart Account — never the
           // merely-connected Xaman (2026-07-19 mismatch incident).
           const signerXrpl = owningXrpl ?? xrpl.address;
@@ -803,7 +1102,7 @@ export function PaActionsModal({
               ...(toXrpl ? { unmintToXrpl: true } : keep ? { keepInPa: true } : { evmWallet: dest }),
               asset,
               amountBase: base,
-              amountXrpForMint: parseFloat(xrpForMint) || 0,
+              amountXrpForMint: xrpForMint,
               region: getUserRegion(),
             }),
           });
@@ -812,12 +1111,22 @@ export function PaActionsModal({
           if (String(body.personalAccount ?? '').toLowerCase() !== owner.toLowerCase()) {
             throw new Error(t('The connected Xaman wallet does not control this Smart Account.'));
           }
+          noteHandoffDelivery(body);
           setPrepared(body as XrplPrepared);
         }
       }
       setPhase('review');
     } catch (e) {
-      setError(translateError(e, t).message);
+      // La física antes que el genérico (fundador 2026-08-25: «Something went
+      // wrong» sobre un MAX imposible no enseña nada): con deuda residual en
+      // el paso 3, el rechazo casi seguro es el respaldo retenido.
+      if (action === 'derisk' && deriskStep === 3 && debtHuman > 0) {
+        setError(
+          `${t('The protocol keeps part of the collateral while any debt remains — you still owe')} ${fmt(debtHuman)} USDT0. ${t('Try a slightly smaller amount, or settle that crumb first (step 2).')}`,
+        );
+      } else {
+        setError(translateError(e, t).message);
+      }
       setPhase('form');
     }
   }
@@ -825,20 +1134,29 @@ export function PaActionsModal({
   async function sign() {
     if (!prepared) return;
     setError('');
+    setUnconfirmed(null);
     setPhase('signing');
+    // Knowledge no error message carries: whether the order was handed to the
+    // wallet partner at all. Everything thrown before this flips is provably
+    // unsigned. It says PARTNER, not wallet: sendIntentCalls still guards its
+    // input, switches chain and estimates gas before any wallet opens, and what
+    // that stage refuses is subtracted by name inside signOutcome.
+    let handedToPartner = false;
     try {
       if (prepared.rail === 'xrpl') {
-        if (!xrpl.isConnected) throw new Error(t('Connect your XRPL wallet (Xaman) to continue'));
+        if (!xrpl.isConnected && !pinnedXrplSigner(prepared.xrplPayment)) throw new Error(t('Connect your XRPL wallet (Xaman) to continue'));
+        handedToPartner = true;
         const { txHash: hash } = await xrpl.sendIntent({ tx: prepared.xrplPayment as never });
         // 0xFE userOp: signed ≠ settled — follow the mint on Flare (executor).
-        settlement.track(startPending('xrpl-mint', hash), { onSettled: onChanged });
+        settlement.track(startPending('xrpl-mint', hash), { onSettled: onChanged }, { opKey: win?.id });
       } else {
         if (!evm.isConnected) throw new Error(t('Connect your EVM wallet (Flare) to continue'));
         if (prepared.calls.length === 0) throw new Error(t('Nothing to sign — the position is already at/above the target.'));
+        handedToPartner = true;
         const { handle } = await evm.sendIntentCalls(
           prepared.calls.map((c) => ({ to: c.to, data: c.data, value: c.value, chainId: c.chainId })),
         );
-        settlement.track(handle, { onSettled: onChanged });
+        settlement.track(handle, { onSettled: onChanged }, { opKey: win?.id });
       }
       // DERISK bookkeeping: remember what each step did, advance the guide.
       if (action === 'derisk') {
@@ -849,9 +1167,30 @@ export function PaActionsModal({
       // onChanged() dropped the "in flight" row while the op was still live).
       setPhase('done');
     } catch (e) {
-      setError(translateError(e, t).message);
-      // Keep the review — the prepared payload is still valid, retry the signature.
-      setPhase('review');
+      // familia-no-pude-leer — «no pude leer» NO es «falló». The line that stood
+      // here ("keep the review — the prepared payload is still valid, retry the
+      // signature") is true only when the signature provably never left. On
+      // this rail a retry after a dispatch we could not read is a SECOND
+      // dispatch: a second carrier fee in XRP, a second nonce seat, a second
+      // withdrawal/repay over a position that may already have moved. The
+      // classification and the words it puts on screen come from one pure
+      // function (lib/wallet/signOutcome), so both can be tested by running
+      // them. The nonce seat is deliberately NOT released here: `abandonable`
+      // is gated on the review phase, so the seat this dispatch may already
+      // have consumed stays taken.
+      //
+      // EXCEPTO cuando el ledger YA dio veredicto (it. 17, R5 5.2): un
+      // tefMAX_LEDGER / tefPAST_SEQ dice que ese payload no puede validar
+      // nunca — no hubo despacho, no hay segundo despacho posible — y eso lo
+      // decide `signOutcome` ('stale' → vista 'form'): el payload se tira, la
+      // frase dice «prepáralo otra vez» y el formulario vuelve. Aquí no se
+      // clasifica nada a mano: el único lector es el compartido.
+      applySignFailure(e, handedToPartner, t, {
+        setError,
+        setUnconfirmed,
+        setPhase,
+        clearPrepared: () => setPrepared(null),
+      });
     }
   }
 
@@ -872,6 +1211,11 @@ export function PaActionsModal({
   }
 
   const disclosure = prepared?.disclosure as Record<string, unknown> | undefined;
+  // Invariant #6 (productizer it. 12, 4.2): Redeem, withdraw-to-XRPL and the
+  // DERISK step 3 to XRPL all redeem FXRP to native XRP — the FAssets
+  // redemption fee (figure, or «could not be read — it is not zero») and the net
+  // are said before the signature, read from what the backend composed.
+  const paRedemption = prepared ? redemptionOf(prepared) : null;
 
   // Founder 2026-07-31: con hueco de USDT0 la firma queda BLOQUEADA hasta que
   // el usuario marca una de las dos opciones (swap-fill o "sin swap"). Elegir
@@ -883,8 +1227,7 @@ export function PaActionsModal({
     !noFillChosen;
 
   return (
-    <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-2xl my-auto max-h-[min(90dvh,44rem)] flex flex-col shadow-2xl overflow-hidden">
+    <OperationSurface docked={docked} title={heading} onClose={onClose}>
         <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl grid place-items-center border text-sky-300 border-sky-400/30 bg-sky-400/10">
@@ -899,9 +1242,26 @@ export function PaActionsModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* Minimizar — la operación se pliega a la píldora del borde
+                inferior, viva, y el dashboard recupera todo su sitio. */}
+            <button
+              onClick={minimizeActive}
+              className="p-0.5 text-ink/40 hover:text-ink transition-colors"
+              title={t('Minimize — it waits at the bottom, exactly as you left it')}
+            >
+              <Minus className="w-5 h-5" />
+            </button>
+            {/* Anclar/soltar — solo en pantallas con lado al que deslizar. */}
+            <button
+              onClick={() => setDocked(!docked)}
+              className="hidden lg:block p-0.5 text-ink/40 hover:text-ink transition-colors"
+              title={docked ? t('Back to a window') : t('Pin to the side — the dashboard stays live')}
+            >
+              {docked ? <PanelRightClose className="w-5 h-5" /> : <PanelRight className="w-5 h-5" />}
+            </button>
+            <CloseOperationButton onClose={onClose} />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
@@ -932,33 +1292,61 @@ export function PaActionsModal({
             </ol>
           )}
 
-          {error && (
+          {/* Un asiento tomado no es un fallo rojo: es un 0xFE anterior de esta
+              misma cuenta sentado en el nonce. Se dice en inglés y, si el
+              borrador es el que esta persona acaba de abandonar, con la salida
+              (it. 17, R5 5.4 · R1 1.5). */}
+          {seatRefusal ? (
+            <SeatRefusalNotice
+              refusal={seatRefusal}
+              t={t}
+              fallbackMemoHex={abandonedMemo.current}
+              onPrepareAgain={() => void prepare()}
+            />
+          ) : error ? (
             <div className="bg-red-500/5 border border-red-500/25 rounded-xl p-3 text-xs text-red-300 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
-          )}
+          ) : null}
 
           {/* FORM */}
           {phase === 'form' && (
-            <>
+            /* Cada paso entra deslizando suave (fundador 2026-08-24: «añádele
+               animaciones para suavizar la experiencia») — la curva de la
+               casa; el raíl de pasos queda quieto arriba como ancla. */
+            <motion.div
+              key={`form-${deriskStep}`}
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-4"
+            >
               {/* Same market open from more than one wallet → pick the account.
                   Switching also switches legs, balances, rail and fields.
                   Locked during DERISK: the guided unwind is one account's story. */}
               {allHolders.length > 1 && action !== 'derisk' && (
                 <div>
                   <label className="text-xs text-ink/40 block mb-2">{t('Wallet of the position')}</label>
-                  <select
+                  {/* Con la cara de cada wallet (fundador 2026-08-30): el
+                      «holder» ES una wallet — reconocerla por su color y su
+                      marca importa más aquí que en ningún sitio, porque de
+                      ella sale el dinero. La wallet se busca por dirección en
+                      la lista propia; si no está (una Personal Account que no
+                      aparece como fila), la fila se queda con la cara
+                      genérica del ecosistema, nunca sin cara. */}
+                  <WalletSelect
                     value={owner}
-                    onChange={(e) => selectHolder(e.target.value)}
-                    className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50 [&>option]:bg-surface-1"
-                  >
-                    {allHolders.map((h) => (
-                      <option key={h.owner} value={h.owner}>
-                        {holderLabel(h)}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={selectHolder}
+                    options={allHolders.map((h) => ({
+                      key: h.owner,
+                      record:
+                        myWallets.find((w) => w.address.toLowerCase() === h.owner.toLowerCase()) ??
+                        ({ address: h.owner } as (typeof myWallets)[number]),
+                      name: aliasOf(h.owner),
+                      detail: holderDetail(h),
+                    }))}
+                  />
                 </div>
               )}
 
@@ -975,57 +1363,97 @@ export function PaActionsModal({
               {/* DERISK: un paso sin pierna no es un muro — se salta con un
                   botón. Sin esto, con 0 USDT0 suppliado el paso 1 no mostraba
                   ni MAX ni forma de avanzar (founder 2026-07-26). */}
-              {deriskStepEmpty && (
-                <div className="bg-sky-500/5 border border-sky-500/25 rounded-xl p-3 space-y-2">
-                  <p className="text-xs text-sky-200 leading-relaxed">
-                    {deriskStep === 1
-                      ? t('No USDT0 supplied — nothing to withdraw in this step.')
-                      : deriskStep === 2
-                        ? t('No outstanding debt — nothing to repay in this step.')
-                        : t('No FXRP collateral left — the unwind is complete.')}
-                  </p>
-                  {deriskStep < 3 ? (
-                    <button
-                      onClick={nextDeriskStep}
-                      className="w-full bg-volt text-volt-ink text-xs font-medium py-2 rounded-xl hover:brightness-95 transition-all"
-                    >
-                      {t('Skip to step')} {deriskStep + 1}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={onClose}
-                      className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-xs py-2 rounded-xl hover:bg-ink/10 transition-colors"
-                    >
-                      {t('Done')}
-                    </button>
-                  )}
-                </div>
-              )}
-              {/* PA rail: step 1 travels inside step 2's repay userOp — one
-                  dispatch less to pay; the banner says so and hands over. */}
-              {deriskStep1InsideRepay && (
-                <div className="bg-sky-500/5 border border-sky-500/25 rounded-xl p-3 space-y-2">
-                  <p className="text-xs text-sky-200 leading-relaxed">
-                    {t('In your Astryum account this step signs together with step 2: the repay takes back the re-deposited dollars by itself, inside the same Xaman signature.')}
-                  </p>
+              {/* Paso sin nada que hacer: UNA línea que explica el salto que
+                  ya está en marcha (auto-avance de arriba). El paso 3 vacío es
+                  el final feliz — ahí sí hay botón, el de cerrar. */}
+              {/* La lectura viva de las piernas FALLÓ: «no pude leer» no es «no
+                  queda nada». Sin esto el paso 3 declaraba el cierre completo
+                  sobre un cero que nadie leyó. */}
+              {action === 'derisk' && legsReadFailed && !legsLoading && (
+                <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-tone-warning" />
+                    <p className="text-xs text-ink/75 leading-relaxed">
+                      {t("Couldn't read this position's live balances just now, so this step can't tell what is left. Nothing is skipped or marked complete until the chain answers.")}
+                    </p>
+                  </div>
                   <button
-                    onClick={nextDeriskStep}
-                    className="w-full bg-volt text-volt-ink text-xs font-medium py-2 rounded-xl hover:brightness-95 transition-all"
+                    onClick={() => setLegsReadNonce((n) => n + 1)}
+                    className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-xs py-2 rounded-xl hover:bg-ink/10 transition-colors"
                   >
-                    {t('Skip to step')} 2
+                    {t('Try again')}
                   </button>
                 </div>
               )}
-              {effective === 'repay' ? (
+              {deriskStepEmpty && deriskStep < 3 && (
+                <div className="bg-sky-500/5 border border-sky-500/25 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin text-sky-300" />
+                  <p className="text-xs text-sky-200 leading-relaxed">
+                    {(deriskStep === 1
+                      ? t('No USDT0 supplied — nothing to withdraw in this step.')
+                      : t('No outstanding debt — nothing to repay in this step.'))}{' '}
+                    {t('Moving on…')}
+                  </p>
+                </div>
+              )}
+              {deriskStepEmpty && deriskStep === 3 && (
+                <div className="bg-sky-500/5 border border-sky-500/25 rounded-xl p-3 space-y-2">
+                  <p className="text-xs text-sky-200 leading-relaxed">
+                    {t('No FXRP collateral left — the unwind is complete.')}
+                  </p>
+                  <button
+                    onClick={onClose}
+                    className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-xs py-2 rounded-xl hover:bg-ink/10 transition-colors"
+                  >
+                    {t('Done')}
+                  </button>
+                </div>
+              )}
+              {/* PA rail: el paso 1 viaja DENTRO del userOp del repay — el
+                  auto-avance ya está en marcha; la línea dice por qué. */}
+              {deriskStep1InsideRepay && (
+                <div className="bg-sky-500/5 border border-sky-500/25 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin text-sky-300" />
+                  <p className="text-xs text-sky-200 leading-relaxed">
+                    {t('In your Astryum account this step signs together with step 2: the repay takes back the re-deposited dollars by itself, inside the same Xaman signature.')}{' '}
+                    {t('Moving on…')}
+                  </p>
+                </div>
+              )}
+              {deriskStepEmpty ? null : effective === 'repay' ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  {/* it. 34 — «could not be read» is said here too: these two
+                      tiles printed the props' snapshot as a fact whenever the
+                      live legs read failed (the it. 31 hole, closed only in
+                      withdraw). A figure nobody read this time is not a figure. */}
+                  {vaultFigureState({ legsLoading, legsReadFailed }) === 'unread' && action !== 'derisk' && (
+                    <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-tone-warning" />
+                        <p className="text-xs text-ink/75 leading-relaxed">
+                          {t('could not be read')} — {t("this position's live collateral and debt did not answer, so no figures are shown. Retry the read before repaying.")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setLegsReadNonce((n) => n + 1)}
+                        className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-xs py-2 rounded-xl hover:bg-ink/10 transition-colors"
+                      >
+                        {t('Try again')}
+                      </button>
+                    </div>
+                  )}
+                  <div className="op-grid-2 gap-3 text-xs">
                     <div className="bg-ink/5 border border-ink/10 rounded-xl p-3">
                       <div className="text-ink/40">{t('FXRP collateral')}</div>
-                      <div className="font-mono text-ink/80 mt-1">{fmt(supplyFxrpHuman)}</div>
+                      <div className="font-mono text-ink/80 mt-1">
+                        {vaultFigureState({ legsLoading, legsReadFailed }) === 'figure' ? fmt(supplyFxrpHuman) : vaultFigureState({ legsLoading, legsReadFailed }) === 'loading' ? '…' : '—'}
+                      </div>
                     </div>
                     <div className="bg-ink/5 border border-ink/10 rounded-xl p-3">
                       <div className="text-ink/40">{t('USDT0 debt')}</div>
-                      <div className="font-mono text-ink/80 mt-1">{fmt(debtHuman)}</div>
+                      <div className="font-mono text-ink/80 mt-1">
+                        {vaultFigureState({ legsLoading, legsReadFailed }) === 'figure' ? fmt(debtHuman) : vaultFigureState({ legsLoading, legsReadFailed }) === 'loading' ? '…' : '—'}
+                      </div>
                     </div>
                   </div>
                   {/* Who executes the repay: inside the PA (Xaman, executor gas —
@@ -1078,7 +1506,7 @@ export function PaActionsModal({
                       <p className="text-[11px] text-ink/40 leading-relaxed">
                         {t("Runs entirely inside your Smart Account — one Xaman signature, the executor pays the Flare gas. Funded from the PA's free USDT0 first, then your carry supply. No EVM wallet needed.")}
                       </p>
-                      <DispatchXrpField value={xrpForMint} onChange={setXrpForMint} t={t} />
+                      <DispatchXrpField xrp={xrpForMint} t={t} />
                     </>
                   ) : (
                     <p className="text-[11px] text-ink/40 leading-relaxed">
@@ -1088,14 +1516,34 @@ export function PaActionsModal({
                 </>
               ) : effective === 'unmint' ? (
                 <>
-                  <div className="bg-ink/5 border border-ink/10 rounded-xl p-3 text-xs">
+                  <div className={`border rounded-xl p-3 text-xs ${vaultFigureState({ legsLoading, legsReadFailed }) === 'unread' ? 'bg-amber-500/5 border-amber-500/25' : 'bg-ink/5 border-ink/10'}`}>
                     <div className="text-ink/40">{t('FXRP in this position')}</div>
-                    <div className="font-mono text-ink/85 mt-1 text-sm">
-                      {legsLoading ? '…' : `${fmt(supplyFxrpHuman)} FXRP`}
-                      {!legsLoading && xrpUsd != null && supplyFxrpHuman > 0 && (
-                        <span className="text-ink/40 text-xs"> ≈ ${fmt(supplyFxrpHuman * xrpUsd, 2)}</span>
-                      )}
-                    </div>
+                    {/* it. 34 — the withdraw form learnt «could not be read» in
+                        it. 31; this one kept printing the snapshot, with a
+                        «Position (X)» MAX over it and a slider capped by it. */}
+                    {vaultFigureState({ legsLoading, legsReadFailed }) === 'unread' ? (
+                      <div className="mt-1 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-tone-warning" />
+                          <p className="text-ink/75 leading-relaxed">
+                            {t('could not be read')} — {t('the live balance did not answer, so no ceiling is shown. Kinetic does not reject a withdrawal larger than your position: it returns a code, the transaction mines, you pay gas and nothing moves. The dry-run on the next step is the check.')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setLegsReadNonce((n) => n + 1)}
+                          className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-xs py-2 rounded-xl hover:bg-ink/10 transition-colors"
+                        >
+                          {t('Try again')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="font-mono text-ink/85 mt-1 text-sm">
+                        {legsLoading ? '…' : `${fmt(supplyFxrpHuman)} FXRP`}
+                        {!legsLoading && xrpUsd != null && supplyFxrpHuman > 0 && (
+                          <span className="text-ink/40 text-xs"> ≈ ${fmt(supplyFxrpHuman * xrpUsd, 2)}</span>
+                        )}
+                      </div>
+                    )}
                     {!ownerIsPa && (paFreeFxrp ?? 0) > 0 && (
                       <div className="text-[10px] text-ink/40 mt-1">
                         {t('Free in this wallet')}: <span className="font-mono">{fmt(paFreeFxrp ?? 0)} FXRP</span>
@@ -1106,11 +1554,26 @@ export function PaActionsModal({
                         {t('Protocol minimum per redemption')}: {redeemMinXrp} XRP
                       </div>
                     )}
+                    {paFxrpReadFailed && (
+                      <div className="text-[10px] text-amber-300/90 mt-1.5">
+                        {ownerIsPa
+                          ? t('Could not read the protocol minimum per redemption right now.')
+                          : paFreeFxrp == null
+                            ? t('Could not read the free FXRP in this wallet (nor the protocol minimum) — «Position + wallet» is not offered until it reads.')
+                            : t('Could not refresh the free FXRP in this wallet — showing the last read.')}{' '}
+                        <button onClick={() => setPaFxrpNonce((n) => n + 1)} className="underline hover:text-ink">
+                          {t('Retry')}
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs text-ink/40 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>{t('Amount')} · FXRP</span>
-                      {supplyFxrpHuman > 0 && (
+                      {/* it. 34 — no MAX over a figure nobody read (the it. 31
+                          rule of the withdraw form): «Position (X)» was the
+                          stale snapshot, signed as an exact amount. */}
+                      {vaultFigureState({ legsLoading, legsReadFailed }) === 'figure' && supplyFxrpHuman > 0 && (
                         <button
                           onClick={() => {
                             setAmount(String(supplyFxrpHuman));
@@ -1121,7 +1584,7 @@ export function PaActionsModal({
                           {t('Position')} ({fmt(supplyFxrpHuman)})
                         </button>
                       )}
-                      {!ownerIsPa && (paFreeFxrp ?? 0) > 0 && supplyFxrpHuman > 0 && (
+                      {vaultFigureState({ legsLoading, legsReadFailed }) === 'figure' && !ownerIsPa && (paFreeFxrp ?? 0) > 0 && supplyFxrpHuman > 0 && (
                         <button
                           onClick={() => {
                             setAmount(String(supplyFxrpHuman + (paFreeFxrp ?? 0)));
@@ -1146,7 +1609,8 @@ export function PaActionsModal({
                       className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm placeholder-ink/30 focus:outline-none focus:border-volt/50"
                     />
                     <AmountSliderUsd
-                      max={supplyFxrpHuman + (ownerIsPa ? 0 : paFreeFxrp ?? 0)}
+                      // it. 34 — no slider ceiling over an unread figure either.
+                      max={vaultFigureState({ legsLoading, legsReadFailed }) === 'figure' ? supplyFxrpHuman + (ownerIsPa ? 0 : paFreeFxrp ?? 0) : 0}
                       amount={amount}
                       usdPrice={xrpUsd}
                       onAmount={(v, atMax) => {
@@ -1175,7 +1639,7 @@ export function PaActionsModal({
                         {' — '}
                         {t('the burn happens at execution; the FAssets agent pays the XRP after (minutes to hours), minus the protocol redemption fee.')}
                       </div>
-                      <DispatchXrpField value={xrpForMint} onChange={setXrpForMint} t={t} />
+                      <DispatchXrpField xrp={xrpForMint} t={t} />
                     </>
                   ) : (
                     <>
@@ -1220,24 +1684,62 @@ export function PaActionsModal({
                   {/* What the vault holds for the selected asset — the number
                       the user came to see; MAX fills it into the amount. */}
                   {effective === 'withdraw' && action !== 'derisk' && (
-                    <div className="bg-ink/5 border border-ink/10 rounded-xl p-3 text-xs">
+                    <div className={`border rounded-xl p-3 text-xs ${vaultFigureState({ legsLoading, legsReadFailed }) === 'unread' ? 'bg-amber-500/5 border-amber-500/25' : 'bg-ink/5 border-ink/10'}`}>
                       <div className="text-ink/40">
                         {t('In the vault')}
                         {liveLegs && <span className="text-ink/25"> · {t('live on-chain')}</span>}
                       </div>
-                      <div className="font-mono text-ink/85 mt-1 text-sm">
-                        {legsLoading
-                          ? '…'
-                          : withdrawAsset === 'usdt0'
-                            ? `${fmt(suppliedUsdt0Human)} USDT0`
-                            : `${fmt(supplyFxrpHuman)} FXRP`}
-                        {!legsLoading && withdrawAsset === 'fxrp' && xrpUsd != null && supplyFxrpHuman > 0 && (
-                          <span className="text-ink/40 text-xs"> ≈ ${fmt(supplyFxrpHuman * xrpUsd, 2)}</span>
-                        )}
-                      </div>
+                      {/* it. 31 — «no pude leer» is not a figure. The stale
+                          snapshot used to print here as a fact whenever the
+                          live read failed (the amber existed only in DERISK). */}
+                      {vaultFigureState({ legsLoading, legsReadFailed }) === 'unread' ? (
+                        <div className="mt-1 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-tone-warning" />
+                            <p className="text-ink/75 leading-relaxed">
+                              {t('could not be read')} — {t('the live balance did not answer, so no ceiling is shown. Kinetic does not reject a withdrawal larger than your position: it returns a code, the transaction mines, you pay gas and nothing moves. The dry-run on the next step is the check.')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setLegsReadNonce((n) => n + 1)}
+                            className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-xs py-2 rounded-xl hover:bg-ink/10 transition-colors"
+                          >
+                            {t('Try again')}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="font-mono text-ink/85 mt-1 text-sm">
+                          {legsLoading
+                            ? '…'
+                            : withdrawAsset === 'usdt0'
+                              ? `${fmt(suppliedUsdt0Human)} USDT0`
+                              : `${fmt(supplyFxrpHuman)} FXRP`}
+                          {!legsLoading && withdrawAsset === 'fxrp' && xrpUsd != null && supplyFxrpHuman > 0 && (
+                            <span className="text-ink/40 text-xs"> ≈ ${fmt(supplyFxrpHuman * xrpUsd, 2)}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   <div>
+                    {/* QUÉ ES este paso, dicho antes de tocar nada (fundador
+                        2026-08-25: leyó «Recover the XRP» como RELLENAR la
+                        posición — si él lo lee así, cualquier novato también).
+                        Y la física de la deuda residual ANTES del error, no
+                        como error. */}
+                    {action === 'derisk' && deriskStep === 3 && (
+                      <div className="bg-sky-500/5 border border-sky-500/25 rounded-xl p-3 text-xs text-sky-200 leading-relaxed space-y-1.5">
+                        <p>
+                          {t('This step WITHDRAWS your collateral — the FXRP comes back to you. You are not depositing anything.')}
+                        </p>
+                        {debtHuman > 0 && (
+                          <p className="text-sky-200/80">
+                            {t('A crumb of debt remains')} ({fmt(debtHuman)} USDT0):{' '}
+                            {t('the protocol keeps just enough collateral backing it, so MAX already discounts that part. Settle the crumb and the rest becomes withdrawable.')}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <label className="text-xs text-ink/40 block mb-2">
                       {t('Amount')} · {effective === 'resupply' ? 'USDT0' : (action === 'derisk' ? deriskAsset : withdrawAsset).toUpperCase()}
                       {effective === 'resupply' && debtHuman > 0 && (
@@ -1245,8 +1747,12 @@ export function PaActionsModal({
                           {t('use borrowed')} ({fmt(debtHuman)})
                         </button>
                       )}
+                      {/* it. 31 — no MAX over a figure nobody read: the number
+                          would be the stale snapshot, and MAX needs the share
+                          balance the server just said it could not read. */}
                       {effective === 'withdraw' &&
                         action !== 'derisk' &&
+                        vaultFigureState({ legsLoading, legsReadFailed }) === 'figure' &&
                         (withdrawAsset === 'usdt0' ? suppliedUsdt0Human : supplyFxrpHuman) > 0 && (
                           <button
                             onClick={() => {
@@ -1268,10 +1774,17 @@ export function PaActionsModal({
                       )}
                       {action === 'derisk' && deriskStep === 3 && supplyFxrpHuman > 0 && (
                         <button
-                          onClick={() => { setAmount(String(supplyFxrpHuman)); setUseMax(true); }}
+                          onClick={() => {
+                            // Con deuda residual el 100% revienta en el nodo:
+                            // MAX ya descuenta el respaldo retenido. useMax
+                            // (= redimir la posición ENTERA en el raíl EVM)
+                            // solo cuando de verdad es el total.
+                            setAmount(String(reservedFxrpForDebt > 0 ? safeMaxFxrp : supplyFxrpHuman));
+                            setUseMax(reservedFxrpForDebt <= 0);
+                          }}
                           className="ml-2 text-volt hover:underline font-medium"
                         >
-                          MAX ({fmt(supplyFxrpHuman)})
+                          MAX ({fmt(reservedFxrpForDebt > 0 ? safeMaxFxrp : supplyFxrpHuman)})
                         </button>
                       )}
                     </label>
@@ -1356,7 +1869,7 @@ export function PaActionsModal({
                         : t('This position lives in your own Flare wallet — you sign the approve + supply calls directly. No Xaman, no mint.')}
                     </p>
                   ) : (
-                    <DispatchXrpField value={xrpForMint} onChange={setXrpForMint} t={t} />
+                    <DispatchXrpField xrp={xrpForMint} t={t} />
                   )}
                 </>
               )}
@@ -1371,14 +1884,20 @@ export function PaActionsModal({
                   </span>
                 </div>
               )}
-              <button
-                onClick={() => void prepare()}
-                disabled={needsWalletConnect || deriskStepEmpty || deriskStep1InsideRepay}
-                className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {t('Review before signing')}
-              </button>
-            </>
+              {/* Bajo un paso saltado el botón de firma NO se pinta (fundador
+                  2026-08-24: brillaba en dorado sobre un paso sin nada que
+                  firmar) — el auto-avance está en marcha; enseñar la puerta
+                  de firma ahí solo confunde. */}
+              {!(deriskStepEmpty || deriskStep1InsideRepay) && (
+                <button
+                  onClick={() => void prepare()}
+                  disabled={needsWalletConnect}
+                  className="w-full flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {t('Review before signing')}
+                </button>
+              )}
+            </motion.div>
           )}
 
           {phase === 'preparing' && (
@@ -1390,7 +1909,12 @@ export function PaActionsModal({
 
           {/* REVIEW — full disclosure before the signature (invariant #6) */}
           {phase === 'review' && prepared && (
-            <>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-4"
+            >
               {/* R2 tier 1 — the headline: what happens to the money, one
                   sentence, before any table. */}
               <p className="text-sm text-ink/85 leading-relaxed">
@@ -1410,7 +1934,7 @@ export function PaActionsModal({
               </p>
               {/* Wide format: disclosure on the left, outcome/verdict on the
                   right; below `sm` it stacks back to the original order. */}
-              <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+              <div className="op-grid-2 gap-4 items-start">
               <div className="space-y-4">
               <div className="bg-ink/5 border border-ink/10 rounded-xl px-4 py-2 divide-y divide-ink/5">
                 {prepared.rail === 'evm' ? (
@@ -1460,6 +1984,15 @@ export function PaActionsModal({
                   </>
                 )}
               </div>
+              {paRedemption?.redeems && (
+                <RedemptionFeeNotice
+                  response={prepared}
+                  grossFxrp={paRedemption.grossFxrp}
+                  t={t}
+                  showAmount
+                  amountLabel="Your XRPL wallet receives"
+                />
+              )}
               {/* SWAP-FILL (§4b): el usuario ELIGE el activo que compra el hueco;
                   con fill activo, se muestra y se puede quitar. Todo re-prepara
                   con números frescos — jamás un fill silencioso. */}
@@ -1549,8 +2082,36 @@ export function PaActionsModal({
               </div>
               <div className="space-y-4">
               {disclosure?.beforeAfter != null && <BeforeAfterPanel ba={disclosure.beforeAfter as Record<string, unknown>} />}
+              {/* La explicación técnica completa se PLIEGA (fundador
+                  2026-08-24: los menús abruman). Los números divulgados —
+                  fees, before→after, preflight — siguen a la vista SIEMPRE:
+                  lo que se recoge es la prosa, no la divulgación. */}
               {typeof disclosure?.note === 'string' && (
-                <p className="text-[11px] text-ink/45 leading-relaxed">{disclosure.note}</p>
+                <details className="group rounded-xl border border-ink/5 bg-ink/[0.02] px-3 py-2">
+                  <summary className="cursor-pointer list-none text-[11px] text-ink/50 flex items-center gap-1.5 select-none">
+                    <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                    {t('How it runs, exactly')}
+                  </summary>
+                  <p className="text-[11px] text-ink/45 leading-relaxed mt-2">{disclosure.note}</p>
+                </details>
+              )}
+              {/* it. 31 — the prepare ADMITTED it did not read the supply
+                  (`supplyRead: 'unreadable'`): the amount above was not
+                  checked against any balance, and Kinetic will not revert an
+                  oversized redeem — the verdict right below is the only check. */}
+              {isoSupplyUnread(disclosure) && (
+                <div className="bg-amber-500/5 border border-amber-500/25 rounded-xl p-3 text-xs text-ink/75 leading-relaxed flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-tone-warning" />
+                  <span>
+                    {/* it. 34 — «the dry-run verdict below is the check» is only
+                        true when the dry-run RAN. With `available: false` there
+                        is NO check on this screen, and the sentence must say so
+                        instead of pointing at one. */}
+                    {signPosture(prepared.preflight) === 'unchecked'
+                      ? t('Your live supply could not be read, so this amount was not checked against your balance — and the dry-run could not run either: NOTHING has checked this operation. Kinetic does not reject a withdrawal larger than your position: it returns a code, the transaction mines, you pay gas and nothing moves — and your wallet will not warn you. Go back and retry the read before signing.')
+                      : t('Your live supply could not be read, so this amount was not checked against your balance. Kinetic does not reject a withdrawal larger than your position: it returns a code, the transaction mines, you pay gas and nothing moves — and your wallet will not warn you. The dry-run verdict below is the check.')}
+                  </span>
+                </div>
               )}
               {/* Invariant #11 — the dry-run verdict BEFORE the wallet opens. */}
               <PreflightNotice preflight={prepared.preflight} />
@@ -1566,7 +2127,7 @@ export function PaActionsModal({
               )}
               </div>
               </div>
-            </>
+            </motion.div>
           )}
 
           {phase === 'signing' && (
@@ -1576,6 +2137,20 @@ export function PaActionsModal({
                 {prepared?.rail === 'xrpl' ? t('Approve the Payment in Xaman…') : t('Confirm in your wallet…')}
               </p>
             </div>
+          )}
+
+          {/* familia-no-pude-leer — amber, not red: nothing here says the
+              operation failed, and no button leads back to the signature. */}
+          {phase === 'unconfirmed' && unconfirmed && (
+            <UnconfirmedSignatureNotice
+              rail={prepared?.rail === 'xrpl' ? 'xrpl' : 'evm'}
+              chainId={prepared?.rail === 'evm' ? prepared.chainId : undefined}
+              unconfirmed={unconfirmed}
+              onClose={() => {
+                onChanged();
+                onClose();
+              }}
+            />
           )}
 
           {phase === 'done' && settlement.state && (
@@ -1614,7 +2189,14 @@ export function PaActionsModal({
                 onClick={onClose}
                 className="mt-1 w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"
               >
-                {settlement.state.status === 'settled' ? t('Done') : t('Keep waiting in the background')}
+                {/* it. 34 — a FAILED receipt (reverted, or mined without effect)
+                    is final: there is nothing to keep waiting for, and «Done»
+                    is the word this screen must not say over it. */}
+                {settlement.state.status === 'settled'
+                  ? t('Done')
+                  : settlement.state.status === 'failed'
+                    ? t('Close')
+                    : t('Keep waiting in the background')}
               </button>
             </div>
           )}
@@ -1638,17 +2220,25 @@ export function PaActionsModal({
               ) : (
                 <button
                   onClick={sign}
+                  data-posture={signPosture(prepared.preflight)}
                   className={`w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-xl transition-all ${
-                    preflightSaysFail(prepared.preflight)
+                    signPosture(prepared.preflight) === 'fail'
                       ? 'bg-ink/10 text-tone-danger border border-tone-danger/30 hover:bg-ink/15'
-                      : 'bg-volt text-volt-ink hover:brightness-95 shadow-lg shadow-volt/20'
+                      : signPosture(prepared.preflight) === 'unchecked'
+                        ? // it. 34 — the dry-run could NOT run: the person signs
+                          // with no check at all, and the button says so instead
+                          // of wearing the green of a verified operation.
+                          'bg-ink/10 text-tone-warning border border-tone-warning/30 hover:bg-ink/15'
+                        : 'bg-volt text-volt-ink hover:brightness-95 shadow-lg shadow-volt/20'
                   }`}
                 >
-                  {preflightSaysFail(prepared.preflight)
+                  {signPosture(prepared.preflight) === 'fail'
                     ? t('Sign anyway — the dry-run says it will fail')
-                    : prepared.rail === 'xrpl'
-                      ? t('Sign in Xaman')
-                      : t('Sign in wallet')}
+                    : signPosture(prepared.preflight) === 'unchecked'
+                      ? t('Sign without a dry-run — nothing could check this in advance')
+                      : prepared.rail === 'xrpl'
+                        ? t('Sign in Xaman')
+                        : t('Sign in wallet')}
                 </button>
               )}
               <button
@@ -1663,7 +2253,6 @@ export function PaActionsModal({
             {t('Astryum prepares unsigned payloads and discloses every number; you sign in your own wallet. It never signs or executes on its own.')}
           </div>
         </div>
-      </div>
-    </ModalOverlay>
+    </OperationSurface>
   );
 }

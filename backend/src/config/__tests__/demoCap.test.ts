@@ -2,11 +2,13 @@
 // demoCap.ts). Mock the client so the lookup never touches a real DB; backgroundJob
 // no-ops keep the (DATABASE_URL-guarded) daily layer quiet in the account tests.
 const mockUserFindUnique = jest.fn();
+/** it. 29 — the daily-spend row read; a test can make it FAIL like a dead Postgres. */
+const mockBackgroundJobFindFirst = jest.fn().mockResolvedValue(null);
 jest.mock('../../database/prismaClient', () => ({
   prisma: {
     user: { findUnique: (...a: unknown[]) => mockUserFindUnique(...a) },
     backgroundJob: {
-      findFirst: jest.fn().mockResolvedValue(null),
+      findFirst: (...a: unknown[]) => mockBackgroundJobFindFirst(...a),
       update: jest.fn(),
       create: jest.fn(),
     },
@@ -29,6 +31,7 @@ const ENV = process.env;
 beforeEach(() => {
   _resetDemoCapState();
   mockUserFindUnique.mockReset();
+  mockBackgroundJobFindFirst.mockReset().mockResolvedValue(null);
   process.env = { ...ENV };
   delete process.env.DEMO_MAX_XRP_PER_TX;
   delete process.env.DEMO_MAX_XRP_PER_ADDRESS_PER_DAY;
@@ -90,7 +93,7 @@ describe('demoCap — ACCOUNT-based exemption (DEMO_CAP_EXEMPT_EMAILS, 2026-07-2
   it('exempts the authenticated account whichever wallet it pays from (case-insensitive)', async () => {
     process.env.DEMO_CAP_EXEMPT_EMAILS = ` Other@Team.xyz , ${FOUNDER.toUpperCase()} `;
     process.env.DATABASE_URL = 'postgres://mocked';
-    mockUserFindUnique.mockResolvedValue({ email: FOUNDER });
+    mockUserFindUnique.mockResolvedValue({ email: FOUNDER, emailVerified: true });
     expect(await isDemoCapExemptUser('user-1')).toBe(true);
     // Over-cap mint from ANY address goes through — no address enumeration needed.
     expect(await demoCapFromBody({ amountXrp: 5, xrplAddress: 'rAnyWalletAtAll' }, 'user-1')).toBeNull();
@@ -115,6 +118,23 @@ describe('demoCap — ACCOUNT-based exemption (DEMO_CAP_EXEMPT_EMAILS, 2026-07-2
     process.env.DATABASE_URL = 'postgres://mocked';
     mockUserFindUnique.mockRejectedValue(new Error('db down'));
     expect(await isDemoCapExemptUser('user-1')).toBe(false);
+  });
+
+  it('a listed email that was never VERIFIED (plain password sign-up) does not exempt — productizer it. 8', async () => {
+    process.env.DEMO_CAP_EXEMPT_EMAILS = FOUNDER;
+    process.env.DATABASE_URL = 'postgres://mocked';
+    mockUserFindUnique.mockResolvedValue({ email: FOUNDER, emailVerified: false });
+    expect(await isDemoCapExemptUser('user-squatter')).toBe(false);
+    expect(mockUserFindUnique).toHaveBeenCalledWith({
+      where: { id: 'user-squatter' },
+      select: { email: true, emailVerified: true },
+    });
+    expect((await demoCapFromBody({ amountXrp: 5, xrplAddress: 'rX' }, 'user-squatter'))?.body.error).toBe(
+      'DEMO_TX_CAP_EXCEEDED',
+    );
+    // A missing flag is not a verified one.
+    mockUserFindUnique.mockResolvedValue({ email: FOUNDER });
+    expect(await isDemoCapExemptUser('user-squatter')).toBe(false);
   });
 
   it('with no list configured the DB is never consulted', async () => {
@@ -147,12 +167,75 @@ describe('demoCap — per-address daily volume (persisted; in-memory in tests)',
     expect(await checkDemoCap(1, 'rDave')).toBeNull();
     expect(await checkDemoCap(1, 'rDave')).toBeNull(); // full budget was intact
   });
+
+  /**
+   * it. 29 — «NO PUDE LEER EL GASTO DE HOY» NO ES «NO HA GASTADO NADA».
+   * `readDailyEntries` leía con `kvGet`, que devuelve `null` también cuando
+   * Postgres falla; ese `null` caía al espejo en memoria — vacío tras cada
+   * redeploy — y el cupo diario volvía ÍNTEGRO a cada dirección justo cuando
+   * la BD parpadeaba. Ahora un fallo de BD es un 503 retryable que no reserva
+   * nada y no afirma nada sobre lo gastado.
+   */
+  it('it. 29 · with the database DOWN the cap is neither granted nor invented: 503, no reservation', async () => {
+    process.env.DEMO_MAX_XRP_PER_ADDRESS_PER_DAY = '2';
+    process.env.DATABASE_URL = 'postgres://unreachable/test';
+    mockBackgroundJobFindFirst.mockRejectedValue(new Error("Can't reach database server"));
+
+    const r = await checkDemoCap(1, 'rErin');
+    expect(r?.status).toBe(503);
+    expect(r?.body.error).toBe('DEMO_CAP_UNREADABLE');
+    expect(r?.body.detail).toMatch(/no hemos podido leer/i);
+    expect(r?.body.detail).toMatch(/no se ha preparado ni firmado nada/i);
+    // Before: `null` → the address was treated as having spent nothing today.
+    expect(r?.body.error).not.toBe('DEMO_DAILY_CAP_EXCEEDED');
+
+    // The DB comes back: the row is real (1.5 already spent) — and the refusal
+    // above reserved NOTHING, so 0.5 fits and 0.6 does not.
+    mockBackgroundJobFindFirst.mockResolvedValue({
+      payload: { capKey: `rerin:${new Date().toISOString().slice(0, 10)}`, entries: [{ xrp: 1.5, at: Date.now(), confirmed: true }] },
+    });
+    expect(await checkDemoCap(0.5, 'rErin')).toBeNull();
+    expect((await checkDemoCap(0.6, 'rErin'))?.body.error).toBe('DEMO_DAILY_CAP_EXCEEDED');
+  });
+
+  it('it. 29 · the executor never OVERWRITES a row it could not read (confirm is skipped, not clobbered)', async () => {
+    process.env.DATABASE_URL = 'postgres://unreachable/test';
+    mockBackgroundJobFindFirst.mockRejectedValue(new Error("Can't reach database server"));
+    const { confirmDailySpendXrp: confirmSpend } = require('../demoCap') as {
+      confirmDailySpendXrp: (a: string, x: number, now: number) => Promise<void>;
+    };
+    const { prisma } = jest.requireMock('../../database/prismaClient') as {
+      prisma: { backgroundJob: { create: jest.Mock; update: jest.Mock } };
+    };
+    prisma.backgroundJob.create.mockClear(); // shared mocks — only THIS call matters
+    prisma.backgroundJob.update.mockClear();
+    // Best-effort by contract: must not throw — and must not write a fresh
+    // 1-entry row over the day's real one (the old fallback did exactly that).
+    await expect(confirmSpend('rFrank', 1, Date.now())).resolves.toBeUndefined();
+    expect(prisma.backgroundJob.create).not.toHaveBeenCalled();
+    expect(prisma.backgroundJob.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('demoCap — startup sanity vs the direct-mint fee floor', () => {
   it('warns when the cap is at/below the ~0.3 XRP viable floor (would reject all mints)', () => {
     process.env.DEMO_MAX_XRP_PER_TX = '0.2';
     expect(assertDemoCapSane({ warn: () => undefined, log: () => undefined })).toMatch(/every mint would fail/);
+  });
+  it('warns between the mint floor and the 0.35 XRP 0xFE carrier floor: every 0xFE exit would be refused', () => {
+    for (const cap of ['0.31', '0.32', '0.349']) {
+      process.env.DEMO_MAX_XRP_PER_TX = cap;
+      const warns: string[] = [];
+      const msg = assertDemoCapSane({ warn: (m) => warns.push(m), log: () => undefined });
+      expect(msg).toMatch(/0xFE EXIT/);
+      expect(msg).toMatch(/carrier/);
+      expect(msg).toContain('0.35');
+      expect(warns).toHaveLength(1);
+    }
+  });
+  it('a cap exactly at the 0.35 XRP carrier floor is sane (the carrier fits: amount ≤ cap)', () => {
+    process.env.DEMO_MAX_XRP_PER_TX = '0.35';
+    expect(assertDemoCapSane({ warn: () => undefined, log: () => undefined })).toBeNull();
   });
   it('is silent (no warn) for a sane cap and logs the effective caps + exempt count', () => {
     process.env.DEMO_MAX_XRP_PER_TX = '1';

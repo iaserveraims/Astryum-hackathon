@@ -27,6 +27,43 @@ import { assertDailyFeeBudget, recordFeeSpend, executorAlert } from './ExecutorF
 
 export class RelayAbort extends Error {}
 
+/**
+ * Una orden que el puente YA NO PUEDE ejecutar nunca (fundador 2026-09-16: «el
+ * backend se quedó esperando el dinero»): su nonce va por detrás del siguiente
+ * del puente, así que otra orden la adelantó (o era un duplicado firmado dos
+ * veces). Reintentarla cada 5 min durante 14 días —lo que hacía el vigía, con
+ * su fetch de prueba FDC y su simulación cada vez— no la va a entregar jamás.
+ * `stale` es lo que el vigía mira (duck typing: los tests simulan este módulo).
+ */
+export class RelayStale extends RelayAbort {
+  readonly stale = true as const;
+  constructor(message: string, readonly expected: number, readonly actual: number) {
+    super(message);
+  }
+}
+
+/** Selector de `NonceMismatch(uint64 expected, uint64 actual)` en XrplCouncilBridge. */
+export const NONCE_MISMATCH_SELECTOR = '0x6ced0d1c';
+
+export type BridgeRevertVerdict =
+  | { kind: 'nonce-behind'; expected: number; actual: number }
+  | { kind: 'nonce-ahead'; expected: number; actual: number }
+  | { kind: 'other' };
+
+/**
+ * Qué dice el puente cuando `execute` revierte en la simulación. Solo el
+ * NonceMismatch tiene veredicto: nonce por detrás = caducada para siempre; por
+ * delante = hay una orden anterior que aún no ha llegado (esperar).
+ */
+export function classifyBridgeRevert(data: unknown): BridgeRevertVerdict {
+  const hex = typeof data === 'string' ? data.toLowerCase() : '';
+  if (!hex.startsWith(NONCE_MISMATCH_SELECTOR) || hex.length < 10 + 128) return { kind: 'other' };
+  const expected = Number(BigInt('0x' + hex.slice(10, 74)));
+  const actual = Number(BigInt('0x' + hex.slice(74, 138)));
+  if (!Number.isFinite(expected) || !Number.isFinite(actual)) return { kind: 'other' };
+  return actual < expected ? { kind: 'nonce-behind', expected, actual } : { kind: 'nonce-ahead', expected, actual };
+}
+
 type Log = (msg: string) => void;
 
 // Same struct the executor decodes (IXRPPayment.Response) — kept verbatim.
@@ -426,7 +463,23 @@ export async function relayCouncilOrder(input: {
   try {
     await bridgeWrite.execute.staticCall(proofStruct, orderData);
   } catch (e) {
-    throw new RelayAbort(`bridge.execute would revert: ${(e as Error & { data?: string }).message}`);
+    const err = e as Error & { data?: string };
+    const verdict = classifyBridgeRevert(err.data);
+    if (verdict.kind === 'nonce-behind') {
+      throw new RelayStale(
+        `order nonce ${verdict.actual} is behind the bridge (next is ${verdict.expected}): another order of this account went first, so this one can never execute — it must be composed and signed again`,
+        verdict.expected,
+        verdict.actual,
+      );
+    }
+    if (verdict.kind === 'nonce-ahead') {
+      // An earlier order of the account has not landed yet — a wait, not a verdict
+      // (the launcher's retryable patterns read «not validated yet»).
+      throw new RelayAbort(
+        `order nonce ${verdict.actual} is ahead of the bridge (next is ${verdict.expected}): an earlier order is not validated yet`,
+      );
+    }
+    throw new RelayAbort(`bridge.execute would revert: ${err.message}`);
   }
   log('[5] simulation ✓ — executing (SIGNATURE 2)…');
   const execTx = await bridgeWrite.execute(proofStruct, orderData);

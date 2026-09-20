@@ -123,7 +123,9 @@ export function FirstWalletGuide({
 }: {
   onClose: () => void;
   /** Present on the Wallets page: the wizard's last step connects directly. */
-  onConnectXrpl?: () => Promise<void>;
+  /** El alta de Xaman acepta una confirmación previa (ver useUniversalConnect);
+   *  la guía no la pasa — aquí el usuario está estrenando su primera wallet. */
+  onConnectXrpl?: (confirm?: (address: string) => Promise<boolean>) => Promise<unknown>;
   onConnectEvm?: () => Promise<void>;
 }) {
   const { t } = useT();

@@ -18,27 +18,48 @@
  * Flare EVM wallet — never the login address. The engine evaluates HF/LTV/
  * rewards against the rule wallet's OWN portfolio; a rule bound to a wallet
  * without the position reads no metrics and silently never fires.
+ *
+ * RAIL (G7, auditoría de los SILENCIOSOS 2026-08-17): this is the surface that
+ * ACTIVATES a CMF, so it is where the rail is chosen. It used to translate
+ * every flow as Flare/EVM (the hardcoded default of `moneyflows.translate`),
+ * which meant the XRPL branch of POST /api/moneyflows/translate had no caller
+ * in the whole product and PRICE_DROP_PCT — the price protection built in M3,
+ * with its evaluator, zod schema, FTSO prefetch and tests — had NO creation
+ * door at all. Now the rail comes from the flow itself (`cmfRailChainId`), the
+ * wallet picker only offers wallets of THAT rail (an XRPL rule bound to a 0x
+ * Smart Account composes a Payment nobody can sign), and the rail is named on
+ * screen before the person activates anything.
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, X, Loader2, AlertTriangle, Zap } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { describeAction } from '../../lib/rules/describeRule';
+import { describeServerRefusal, type ReadableRefusal } from '../../lib/errors/serverRefusal';
+import { ServerRefusalBody } from '../ui/ServerRefusalBody';
 import {
   moneyflows as moneyflowsApi,
   rules as rulesApi,
+  cmfRailChainId,
+  XRPL_PSEUDO_CHAIN_ID,
   type CanonicalMoneyFlow,
   type CmfStep,
 } from '../../services/v1Api';
 import { ModalOverlay } from '@/components/ui/ModalPortal';
 
 /** A wallet the flow's rules can bind to: the one that holds the position and
- *  transacts on Flare (Smart Account of a linked Xaman, or a linked EVM wallet). */
+ *  transacts — Smart Account of a linked Xaman / linked EVM wallet on the Flare
+ *  rail, or the XRPL account itself ('xrpl') when the flow compiles to XRPL. */
 export interface CmfRuleTarget {
   address: string;
   label: string;
-  kind: 'smart-account' | 'evm';
+  kind: 'smart-account' | 'evm' | 'xrpl';
 }
+
+/** XRPL classic address — the XRPL rail may only bind to one of these
+ *  (rules.ts creates the rule against this wallet, and the M1 signing door
+ *  composes the Payment with Account pinned to it). */
+const XRPL_CLASSIC_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 
 /** Editable projection of one step (string-typed for inputs, like the templates). */
 interface StepEdit {
@@ -62,9 +83,18 @@ function triggerLabel(step: CmfStep, t: (s: string) => string): string {
       return `${t('When claimable rewards exceed')} (USD)`;
     case 'idle-balance':
       return `${t('When idle balance exceeds')} (${tr.asset.symbol} · USD)`;
-    default:
-      return tr.kind;
+    // G7 — the two XRPL trigger kinds used to fall through to `default` and
+    // render the bare kind ("price") over an empty number box: the price FLOOR,
+    // the whole point of the protection, was uneditable.
+    case 'price':
+      return `${t('Protect me if the price falls below')} (${tr.asset.symbol} · USD)`;
+    case 'time':
+      return t('On this schedule (UTC)');
   }
+  // Exhaustive over today's CMF trigger vocabulary (that is WHY tsc narrows the
+  // switch to `never` here). A kind added later shows its raw name instead of a
+  // silent blank label — the same reason G7 was invisible for a whole build.
+  return (step.trigger as { kind: string }).kind;
 }
 
 /** The scale, one line under the input — a bare number box was the trap. */
@@ -72,6 +102,12 @@ function triggerHint(step: CmfStep, t: (s: string) => string): string | null {
   const kind = step.trigger.kind;
   if (kind === 'health-factor') return t('1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.');
   if (kind === 'ltv') return t('How much of your borrowing limit you are using. Above 80% liquidation risk is high.');
+  // The floor becomes a drop-from-baseline rule using the LIVE price read at
+  // activation — say so, and say what happens when that read fails (it blocks
+  // activation with its reason; a baseline is never guessed).
+  if (kind === 'price') {
+    return t('The floor is anchored to the live price when you activate — it must be below today’s price, and if the price cannot be read the flow is not created and we say why.');
+  }
   return null;
 }
 
@@ -82,8 +118,9 @@ function triggerValueOf(step: CmfStep): string {
     const ratio = Number(tr.threshold);
     return String(ratio > 1 ? Math.round(ratio) : Math.round(ratio * 100));
   }
-  if (tr.kind === 'health-factor') return String(tr.threshold);
+  if (tr.kind === 'health-factor' || tr.kind === 'price') return String(tr.threshold);
   if (tr.kind === 'reward' || tr.kind === 'idle-balance') return String(tr.minUsd);
+  // 'time' has no numeric value — the cron is shown as text, never as a number box.
   return '';
 }
 
@@ -97,6 +134,7 @@ function actionSummary(step: CmfStep, t: (s: string) => string): string {
 export function CmfReviewModal({
   cmf,
   targets,
+  governed = false,
   onClose,
   onCreated,
 }: {
@@ -104,17 +142,40 @@ export function CmfReviewModal({
   /** Candidate rule wallets (position holders), Smart Accounts first. May grow
    *  while PAs resolve — the selector follows. */
   targets: CmfRuleTarget[];
+  /** XRPL rail only: the active authority is a council, so a 'transfer' must
+   *  compile to councilPayment (the trigger composes a proposal, the QUORUM
+   *  signs) instead of the personal scheduledPayment. Default false = personal;
+   *  either way the rail is NAMED on screen before activation. */
+  governed?: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const { t } = useT();
   const [name, setName] = useState(cmf.name);
   const [cooldown, setCooldown] = useState(String(cmf.policy.cooldownMinutes));
-  const [targetAddress, setTargetAddress] = useState(targets[0]?.address ?? '');
-  // PA resolution is async: adopt the first candidate once it lands.
+
+  // G7 — the rail the flow itself demands, not a hardcoded 14. It decides which
+  // server-side translator compiles the CMF AND which wallets may hold the
+  // resulting rules.
+  const railChainId = useMemo(() => cmfRailChainId(cmf), [cmf]);
+  const isXrplRail = railChainId === XRPL_PSEUDO_CHAIN_ID;
+  // An XRPL rule must sit on the XRPL account that pays (r-address); an EVM
+  // rule on the 0x wallet that holds the position. Binding across rails does
+  // not error — it produces a rule whose prepared transaction nobody can sign.
+  const eligibleTargets = useMemo(
+    () => targets.filter((x) => XRPL_CLASSIC_RE.test(x.address) === isXrplRail),
+    [targets, isXrplRail],
+  );
+
+  const [targetAddress, setTargetAddress] = useState(eligibleTargets[0]?.address ?? '');
+  // PA resolution is async: adopt the first candidate once it lands. Also drops
+  // a selection that stops being eligible (the rail is fixed by the flow).
   useEffect(() => {
-    if (!targetAddress && targets.length > 0) setTargetAddress(targets[0].address);
-  }, [targets, targetAddress]);
+    if (eligibleTargets.length === 0) return;
+    if (!eligibleTargets.some((x) => x.address === targetAddress)) {
+      setTargetAddress(eligibleTargets[0].address);
+    }
+  }, [eligibleTargets, targetAddress]);
   const [steps, setSteps] = useState<Record<number, StepEdit>>(() =>
     Object.fromEntries(
       cmf.steps.map((s) => [
@@ -128,6 +189,15 @@ export function CmfReviewModal({
   );
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  /**
+   * it. 34 (agente D): el rechazo del servidor, ENTERO. `serverRefusalText`
+   * conservaba la frase y tiraba `headline`, `ways[]` y la puerta (it. 27 §3):
+   * un 403 «no eres miembro probado de este consejo» llegaba sin nada que
+   * pulsar. Las validaciones (`errors`) siguen siendo su lista; esto es el otro
+   * caso — «el servidor dijo que no» — y se pinta con el mismo cuerpo que la
+   * bandeja del consejo.
+   */
+  const [refusal, setRefusal] = useState<ReadableRefusal | null>(null);
 
   const setStep = (level: number, patch: Partial<StepEdit>) =>
     setSteps((s) => ({ ...s, [level]: { ...s[level], ...patch } }));
@@ -147,6 +217,9 @@ export function CmfReviewModal({
           // The field shows %, the wire keeps the 0–1 ratio (seed case R1.1).
           if (trigger.kind === 'ltv') trigger.threshold = Math.min(99, Math.max(1, n)) / 100;
           if (trigger.kind === 'reward' || trigger.kind === 'idle-balance') trigger.minUsd = n;
+          // G7 — the price FLOOR in USD, edited like any other threshold. The
+          // server turns it into the drop-from-baseline rule with a LIVE read.
+          if (trigger.kind === 'price') trigger.threshold = n;
         }
         const actions = s.actions.map((a, i) =>
           i === 0 && a.amount?.type === 'absolute' && edit?.amountValue !== undefined
@@ -160,17 +233,29 @@ export function CmfReviewModal({
 
   async function activate() {
     setErrors([]);
+    setRefusal(null);
     // The rule wallet is the position holder — never a fallback to the login
-    // address (a rule on a positionless wallet never fires).
-    const target = targets.find((x) => x.address === targetAddress);
+    // address (a rule on a positionless wallet never fires) and never a wallet
+    // of the other rail (G7: an XRPL rule on a 0x wallet prepares a Payment
+    // whose Account nobody controls).
+    const target = eligibleTargets.find((x) => x.address === targetAddress);
     if (!target) {
-      setErrors([t('Link the wallet that holds the position (or connect your Xaman so its Smart Account resolves) before activating.')]);
+      setErrors([
+        isXrplRail
+          ? t('This flow runs on the XRP Ledger: it must bind to the XRPL account that pays (an r-address). Connect that wallet before activating.')
+          : t('Link the wallet that holds the position (or connect your Xaman so its Smart Account resolves) before activating.'),
+      ]);
       return;
     }
     setBusy(true);
     try {
-      // 1. Deterministic dry-run: the server validates + compiles the exact rules.
-      const translation = await moneyflowsApi.translate(editedCmf);
+      // 1. Deterministic dry-run: the server validates + compiles the exact
+      //    rules — on the rail THIS flow needs (G7). `governed` only means
+      //    anything on the XRPL rail; the EVM translator ignores it.
+      const translation = await moneyflowsApi.translate(editedCmf, {
+        chainId: railChainId,
+        ...(isXrplRail ? { governed } : {}),
+      });
       // 2. Create each rule through the EXISTING gated path — one POST per step.
       for (const rule of translation.rules) {
         await rulesApi.create({ walletAddress: target.address, ...rule });
@@ -182,7 +267,11 @@ export function CmfReviewModal({
       if (body?.errors?.length) {
         setErrors(body.errors.map((x) => x.message ?? '').filter(Boolean));
       } else {
-        setErrors([(e as Error).message ?? String(e)]);
+        // The server's `detail` (e.g. why you are not on this council), not the
+        // bare code jpost puts in `message`; the code travels in parentheses
+        // when there is no prose (lib/errors/serverRefusal). it. 34: and its
+        // `ways` and door with it, not the sentence alone.
+        setRefusal(describeServerRefusal(e, t));
       }
     } finally {
       setBusy(false);
@@ -220,13 +309,27 @@ export function CmfReviewModal({
             />
           </div>
 
+          {/* G7 — the rail is NAMED before activation: which ledger runs this
+              flow, and who signs when it fires. It is derived from the flow,
+              never guessed by the person. */}
+          <div className="bg-surface-2/80 rounded-xl px-3 py-2 text-[11px] text-ink/50 border border-ink/5">
+            {isXrplRail
+              ? governed
+                ? t('Rail: XRP Ledger, governed — every trigger composes a council proposal and only the quorum’s signatures move anything.')
+                : t('Rail: XRP Ledger — every trigger nudges you and the transaction is composed fresh at the signing door; you sign it in Xaman.')
+              : t('Rail: Flare (EVM) — every trigger prepares an unsigned action for you to sign in your wallet.')}
+          </div>
+
           {/* The wallet every rule binds to — the position holder that transacts,
-              never the login address (a rule elsewhere would never fire). */}
+              never the login address (a rule elsewhere would never fire) and
+              never a wallet of the other rail (G7). */}
           <div>
             <label className="text-xs text-ink/40 block mb-2">{t('Rule wallet')}</label>
-            {targets.length === 0 ? (
+            {eligibleTargets.length === 0 ? (
               <div className="bg-amber-400/5 border border-amber-400/20 rounded-xl px-4 py-3 text-[11px] text-amber-200/80">
-                {t('No position wallet available — link the wallet that holds the position (or connect your Xaman so its Smart Account resolves).')}
+                {isXrplRail
+                  ? t('No XRPL account available — this flow pays from the XRP Ledger, so it must bind to your XRPL account (an r-address). Connect your Xaman.')
+                  : t('No position wallet available — link the wallet that holds the position (or connect your Xaman so its Smart Account resolves).')}
               </div>
             ) : (
               <>
@@ -235,7 +338,7 @@ export function CmfReviewModal({
                   onChange={(e) => setTargetAddress(e.target.value)}
                   className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
                 >
-                  {targets.map((x) => (
+                  {eligibleTargets.map((x) => (
                     <option key={x.address} value={x.address}>
                       {x.label} · {shortAddr(x.address)}
                     </option>
@@ -258,13 +361,23 @@ export function CmfReviewModal({
               </div>
               <div>
                 <label className="text-xs text-ink/40 block mb-2">{triggerLabel(s, t)}</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={steps[s.level]?.triggerValue ?? ''}
-                  onChange={(e) => setStep(s.level, { triggerValue: e.target.value })}
-                  className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
-                />
+                {s.trigger.kind === 'time' ? (
+                  // A cron is not a number: showing it in a number box gave an
+                  // empty field that silently discarded the schedule on edit.
+                  // Read-only here — the schedule is the assistant's draft and
+                  // the server re-validates it (G7).
+                  <div className="px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink/70 text-sm font-mono">
+                    {s.trigger.cron}
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    step="any"
+                    value={steps[s.level]?.triggerValue ?? ''}
+                    onChange={(e) => setStep(s.level, { triggerValue: e.target.value })}
+                    className="w-full px-4 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm focus:outline-none focus:border-volt/50"
+                  />
+                )}
                 {triggerHint(s, t) && (
                   <p className="text-[11px] text-ink/40 mt-1.5">{triggerHint(s, t)}</p>
                 )}
@@ -317,6 +430,12 @@ export function CmfReviewModal({
               </div>
             </div>
           )}
+          {refusal && (
+            <div className="bg-red-500/5 border border-red-500/25 rounded-xl p-3 text-xs text-red-300 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <ServerRefusalBody refusal={refusal} t={t} />
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button
@@ -327,7 +446,7 @@ export function CmfReviewModal({
             </button>
             <button
               onClick={activate}
-              disabled={busy || targets.length === 0}
+              disabled={busy || eligibleTargets.length === 0}
               className="flex-1 flex items-center justify-center gap-2 bg-volt text-volt-ink text-sm font-medium py-2.5 rounded-xl hover:brightness-95 transition-all shadow-lg shadow-volt/20 disabled:opacity-50"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}

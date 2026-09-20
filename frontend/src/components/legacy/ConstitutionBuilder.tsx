@@ -28,7 +28,7 @@ import {
 import { getConstitutionDraft, saveConstitutionDraft } from './legacyLocal';
 
 const inputCls =
-  'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25';
+  'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25';
 
 export default function ConstitutionBuilder({
   account,
@@ -122,7 +122,7 @@ export default function ConstitutionBuilder({
   }
 
   // ── locked template: read-only preview, never a form (founder decision:
-  //    only PERSONAL is usable at launch; the rest open one by one) ──
+  //    templates open one by one — FAMILIAR and PERSONAL today) ──
   if (!picked.available) {
     return (
       <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-3">

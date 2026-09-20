@@ -89,15 +89,28 @@ posture (MiCA) holds only because the code respects that on every line.
 17. **The repo is a due-diligence document** (grant reviewers have access). Quality, tests and
     zero secrets are not optional.
 
+## Institutional potes (AstryumVault)
+
+18. **No product flow may ever ask a client to approve the operator (director or council) on
+    their pote SHARES.** AstryumVault inherits standard ERC-20 `approve`/`transferFrom` on its
+    shares: an `approve(operator, MAX)` would let the operator take — and in a synchronous pote,
+    redeem — the client's entire position, dissolving the cage without touching the contract.
+    The property "the director is never approved" is enforced structurally in `requestRedeem`
+    (owner-only, no allowance path) and must be preserved by every surface: the only `approve`
+    any prepare route composes is the **asset** toward the **pote itself**. Enforced by tripwire
+    (`institutional.approvals.test.ts`); declared here rather than closed in-contract because
+    restricting `approve` on shares would change audited surface — revisit at the earn build
+    together with the receiver/transfer registry (Z14).
+
 ## Candidates (NOT yet invariants — do not enforce as rules)
 
 - **Informative neutrality** — *"the agent composes information; the human composes decision"*:
   the signing invariant extended to the cognitive layer (comparative, never imperative; numbers
   from tested math only; the user's market view is an input, never the agent's). Already partially
   encoded as prompt cages + deterministic calculators. Formalize when the LP-educativo piece is
-  built (spec'd in an internal working note, not published in this repo).
+  built — described in an internal working note (not published in this repo).
 
 ---
 
-*When in doubt: the most conservative reading that preserves these invariants is the
-correct one.*
+*When in doubt, the most conservative reading that
+preserves these invariants is the correct one.*

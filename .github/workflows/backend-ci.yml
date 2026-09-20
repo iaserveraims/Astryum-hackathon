@@ -23,10 +23,16 @@ jobs:
         working-directory: backend
     env:
       HUSKY: 0
-      # Dummy values so `prisma generate/validate` resolve env() in the datasource
-      # block. No real DB connection is made by these commands.
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
-      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      # DATABASE_URL / DIRECT_URL NO viven aquí, a nivel de job (2026-09-19).
+      # Estaban aquí y por tanto también los veía el paso `Tests`. Con una URL
+      # puesta, las lecturas ESTRICTAS del backend (una lectura ilegible ya no vale
+      # por «vacío») intentan conectar a un Postgres que en CI no existe y contestan
+      # lo que deben: 503. Medido sobre el candidato del release: 18 suites / 56
+      # tests rojos con la URL ficticia, 347 suites / 4.501 tests verdes sin ella —
+      # entre los rojos, `institutional.approvals.test.ts`, el tripwire de
+      # INVARIANTS #18, que habría salido rojo por el entorno y no por una
+      # violación. Un tripwire que grita en falso es un tripwire que se aprende a
+      # ignorar. Las dos variables bajan a los únicos pasos que las necesitan.
     steps:
       - uses: actions/checkout@v4
 
@@ -39,16 +45,37 @@ jobs:
 
       - name: Prisma generate
         run: npx prisma generate
+        # Valores ficticios para que el bloque datasource resuelva env(). Estos
+        # comandos no abren ninguna conexión real.
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
 
       - name: Prisma schema validate
         run: npx prisma validate
+        # Valores ficticios para que el bloque datasource resuelva env(). Estos
+        # comandos no abren ninguna conexión real.
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
 
       # Blocking: backend must type-check cleanly (it has historically been 0 errors).
       - name: Type-check
         run: npx tsc --noEmit
 
-      # Non-blocking until P1-2 (backend suite green). Remove continue-on-error
-      # once the 12 failing suites in AUDITORIA_COMPLETA_2026-06-09 are fixed.
+      # BLOQUEANTE desde el 18-ago-2026. Estuvo en `continue-on-error` con una
+      # condición explícita de retirada — «once the 12 failing suites in
+      # AUDITORIA_COMPLETA_2026-06-09 are fixed» — y esa condición ya no existe:
+      # la suite corre en 2.028 tests con CERO fallos.
+      #
+      # Dejarlo abierto ahora es peor que cuando estaba justificado: una suite
+      # verde que NO puede tumbar el build es una suite que se pudre en silencio,
+      # y en los dos últimos días entraron ~60 tests que fijan comportamiento con
+      # dinero delante (los topes de Vault V2, la frontera del carril en el tick,
+      # que un recibo ilegible no es un fallo). Si esto se rompe, hay que
+      # enterarse en el PR y no en mainnet.
+      #
+      # Si CI se pone rojo tras este cambio, no lo ha roto este cambio: lo está
+      # ENSEÑANDO. El equivalente del frontend (vitest) ya bloqueaba.
       - name: Tests
         run: npm test
-        continue-on-error: true

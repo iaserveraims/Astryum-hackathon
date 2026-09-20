@@ -1,6 +1,14 @@
 import { WalletService, WalletAccount, WalletBalance, TokenBalance, ChainType } from '../../lib/types/wallet';
 import { Client, Wallet as XRPLWallet } from 'xrpl';
-import { emitXamanPayload, emitXamanStatus } from '../../lib/xaman/payloadBus';
+import { classifyXrplResult, isTerminalFailure } from '../../lib/xrpl/txResult';
+import {
+  emitXamanPayload,
+  emitXamanStatus,
+  onXamanCancelled,
+  cancelXamanPayload,
+  type XamanPayloadPrompt,
+} from '../../lib/xaman/payloadBus';
+import { payloadExpiryMin } from '../../lib/wallet/handoffRelease';
 
 /**
  * One-line human summary of an unsigned XRPL transaction, for the signing
@@ -107,6 +115,11 @@ export interface XamanPayloadStatus {
     txid: string;
     resolved_at: string;
     dispatched_to: string;
+    /** El veredicto del NODO al enviarla (`options.submit: true`): `tesSUCCESS`,
+     *  `tefPAST_SEQ`, `tecUNFUNDED_PAYMENT`… Sin esto, `txid` por sí solo no
+     *  dice nada: es el hash del blob firmado y existe aunque la red la
+     *  rechazara (incidente 22-ago-2026). */
+    dispatched_result?: string;
     multisign_account?: string;
     account: string;
   };
@@ -182,6 +195,10 @@ export class XamanWalletService implements WalletService {
   private readonly BALANCE_CACHE_TTL = 30000; // 30 seconds
   private readonly PAYLOAD_TIMEOUT = 300000; // 5 minutes
   private readonly POLL_INTERVAL = 2000; // 2 seconds
+  // it. 23 (it. 22 §1.2): ceiling on what we will believe about a window. Xaman
+  // allows up to 24 h; a 0xFE seat measured against a day-long window would be
+  // held for a day. Anything beyond this is treated as absent, never sealed.
+  private readonly MAX_BELIEVABLE_WINDOW_MS = 15 * 60_000;
   private readonly API_TIMEOUT = 15000; // 15 seconds
   private readonly MAX_RETRY_ATTEMPTS = 3;
   private readonly BASE_RETRY_DELAY = 1000; // 1 second
@@ -265,6 +282,13 @@ export class XamanWalletService implements WalletService {
   }
 
   private async performConnection(): Promise<WalletAccount> {
+    // xaman-cancelar 1: the clear NAMES the payload this ceremony raised.
+    // A bare emitXamanPayload(null) means "close whatever is open", so a
+    // ceremony ending (very often BECAUSE the user cancelled it) used to wipe a
+    // different, live payload's prompt off the screen — no DELETE asked for,
+    // nothing said, and it stayed signable on the phone. A ceremony that never
+    // raised a prompt (mock fallback) has nothing to clear and stays quiet.
+    let promptedUuid: string | null = null;
     try {
       // Create Xaman payload for sign-in with fallback
       const payload = await this.createSignInPayloadWithFallback();
@@ -288,6 +312,7 @@ export class XamanWalletService implements WalletService {
       // mock fallback payload (no real QR). The globally-mounted XamanQRModal
       // listens on the payload bus and renders payload.refs.qr_png.
       if (payload.uuid && !payload.uuid.startsWith('mock-')) {
+        promptedUuid = payload.uuid;
         emitXamanPayload({
           uuid: payload.uuid,
           qrPng: payload.refs?.qr_png,
@@ -295,7 +320,7 @@ export class XamanWalletService implements WalletService {
           purpose: 'signin',
           // options.expire is 300s on every payload we create — feed the
           // modal's countdown so the QR never dies in silence (F6).
-          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          expiresAt: Date.now() + this.payloadWindowMs(),
           pushed: payload.pushed === true,
         });
       }
@@ -304,7 +329,7 @@ export class XamanWalletService implements WalletService {
       const account = await this.waitForPayloadCompletion(payload);
 
       // Payload resolved (signed/cancelled/expired) — the QR is no longer useful.
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
 
       if (!account) {
         const error: XamanError = {
@@ -346,8 +371,8 @@ export class XamanWalletService implements WalletService {
     } catch (error: any) {
       this.connectionPromise = null;
 
-      // Connection aborted/failed — close any open QR modal.
-      emitXamanPayload(null);
+      // Connection aborted/failed — close OUR QR, not whatever is on screen.
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
 
       // Re-throw XamanErrors as-is
       if (error.type && Object.values(XamanErrorType).includes(error.type)) {
@@ -406,7 +431,11 @@ export class XamanWalletService implements WalletService {
         ...options,
         signal: controller.signal,
         mode: 'cors' as RequestMode,
-        credentials: 'omit' as RequestCredentials,
+        // These calls target our own /api/xaman/* routes. 'same-origin' keeps
+        // first-party cookies (e.g. Vercel's SSO cookie on protected preview
+        // deployments, which otherwise 401s before reaching the route) without
+        // ever sending credentials cross-origin.
+        credentials: 'same-origin' as RequestCredentials,
         cache: 'no-cache' as RequestCache,
         headers: {
           'Content-Type': 'application/json',
@@ -505,6 +534,76 @@ export class XamanWalletService implements WalletService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  /* ── it. 23 (it. 22 §1.2) — ONE WINDOW, AND THE SERVER OWNS IT ──────────── */
+
+  /**
+   * The `expire` every payload this service mints must carry, IN MINUTES.
+   *
+   * It was the literal `5`, written seven times. The seat of a 0xFE is measured
+   * against the BACKEND's `HANDOFF_PAYLOAD_EXPIRY_MIN` (`payloadExpiryMin`,
+   * learned from any prepare or `payload-opened` answer that carried it), so a
+   * deployment that lowered its number freed the nonce seat WHILE THE PAYLOAD
+   * WAS STILL SIGNABLE — the twin, from one environment variable. And one that
+   * raised it held the seat long after the payload was dead. The number is the
+   * server's; the constant in `handoffRelease` is only the fallback.
+   */
+  private payloadExpireMinutes(): number {
+    return payloadExpiryMin();
+  }
+
+  /** The same window in ms, for the countdown we show before Xaman answers. */
+  private payloadWindowMs(): number {
+    return this.payloadExpireMinutes() * 60_000;
+  }
+
+  /**
+   * THE REAL DEADLINE, AS XAMAN COUNTS IT.
+   *
+   * `expires_at` is typed on the status response and was read NOWHERE: every
+   * surface stamped `Date.now() + 5 minutes`, a guess made on this browser's
+   * clock, at an instant that is not the one Xaman started counting from. The
+   * omnibus door then sealed that guess onto a nonce seat (`notePayloadOpened`).
+   * One read gives the truth.
+   *
+   * Best effort and never blocking: `null` when the read failed, when the field
+   * is missing or unparseable, when it is already past, or when it is further
+   * away than we are willing to believe. «I could not read» leaves the estimate
+   * exactly as it was — never worse, and never a longer promise.
+   */
+  private async realPayloadExpiry(payloadId: string): Promise<number | null> {
+    try {
+      const status = await this.getPayloadStatus(payloadId);
+      const said = status?.payload?.expires_at;
+      if (typeof said !== 'string' || !said.trim()) return null;
+      const at = Date.parse(said);
+      if (!Number.isFinite(at)) return null;
+      const left = at - Date.now();
+      if (left <= 0 || left > this.MAX_BELIEVABLE_WINDOW_MS) return null;
+      return at;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Re-emit the prompt with the REAL deadline once Xaman has told us what it is.
+   *
+   * The QR must appear the instant the payload exists, so the prompt goes out
+   * with the estimate and this corrects it a round trip later — before anybody
+   * can have signed anything. If the read fails, or the prompt has already been
+   * superseded, nothing is emitted and the estimate stands.
+   */
+  private correctPayloadExpiry(prompt: XamanPayloadPrompt): void {
+    void this.realPayloadExpiry(prompt.uuid)
+      .then((at) => {
+        if (at === null || Math.abs(at - (prompt.expiresAt ?? 0)) < 1000) return;
+        emitXamanPayload({ ...prompt, expiresAt: at });
+      })
+      .catch(() => {
+        /* the estimate stands; nothing here may throw into a signing flow */
+      });
+  }
+
   private async createSignInPayload(): Promise<XamanPayloadResponse | null> {
     const payload = {
       txjson: {
@@ -513,7 +612,9 @@ export class XamanWalletService implements WalletService {
       options: {
         submit: false,
         multi_sign: false,
-        expire: 300, // 5 minutes
+        // it. 23 (it. 22 §1.2): the SERVER's window, in MINUTES (Xaman counts
+        // minutes — 300 was five hours). Never a literal here again.
+        expire: this.payloadExpireMinutes(),
         return_url: {
           app: 'astryum://connected',
           // Use a configurable public base URL or fall back to current origin
@@ -622,9 +723,18 @@ export class XamanWalletService implements WalletService {
 
   private async waitForPayloadCompletion(payload: XamanPayloadResponse): Promise<WalletAccount | null> {
     return new Promise((resolve, reject) => {
+      // uuid-status: EVERY emitXamanStatus below carries `payloadId`. The bus is
+      // shared by all five ceremonies, and a status that did not say which
+      // payload it was about got applied to whatever the modal was showing — so
+      // this loop resolving painted a terminal state over a DIFFERENT, live
+      // payload, which then read as finished and was allowed to leave the screen
+      // with no DELETE asked for. It stayed signable on the phone, in silence.
+      // The uuid is a required parameter, so tsc keeps this door shut.
       const payloadId = payload.uuid;
       let websocket: WebSocket | null = null;
       let pollInterval: NodeJS.Timeout | null = null;
+      // QR-cierre: unsubscribe handle for the UI's "Cancel" channel (below).
+      let offCancelled: (() => void) | null = null;
 
       // Store payload in pool for management
       this.payloadPool.set(payloadId, {
@@ -646,6 +756,10 @@ export class XamanWalletService implements WalletService {
           clearInterval(pollInterval);
           pollInterval = null;
         }
+        if (offCancelled) {
+          offCancelled();
+          offCancelled = null;
+        }
         this.payloadPool.delete(payloadId);
       };
 
@@ -664,8 +778,8 @@ export class XamanWalletService implements WalletService {
 
               // Same live signal as the WS path, for when the socket is
               // unavailable and we fall back to polling.
-              if (status.meta.signed) emitXamanStatus('signed');
-              else if (status.meta.app_opened) emitXamanStatus('opened');
+              if (status.meta.signed) emitXamanStatus('signed', payloadId);
+              else if (status.meta.app_opened) emitXamanStatus('opened', payloadId);
 
               if (status.meta.signed || status.meta.cancelled || status.meta.expired) {
                 clearTimeout(timeoutId);
@@ -683,7 +797,7 @@ export class XamanWalletService implements WalletService {
                   resolve(account);
                 } else {
                   // Same terminal distinction as the WS path (see above).
-                  emitXamanStatus(status.meta.expired ? 'expired' : 'rejected');
+                  emitXamanStatus(status.meta.expired ? 'expired' : 'rejected', payloadId);
                   cleanup();
                   resolve(null);
                 }
@@ -704,6 +818,24 @@ export class XamanWalletService implements WalletService {
         cleanup();
         reject(new Error('Payload timeout - user did not complete action in time'));
       }, this.PAYLOAD_TIMEOUT);
+
+      // QR-cierre: the UI's Cancel killed the payload in Xaman and told THIS
+      // loop nothing — the bus was one-way. Resolving depended on Xaman pushing
+      // a resolution down a websocket for a payload that no longer existed, so
+      // in practice the origin await hung for the rest of PAYLOAD_TIMEOUT (5
+      // min) and then REJECTED: the user got a red error, minutes later, for
+      // something they had deliberately cancelled. Now a confirmed kill ends
+      // the wait the same way Xaman's own 'cancelled' push would.
+      //
+      // The bus only fires this when the DELETE came back confirmed — never on
+      // a failed cancel, and never on ALREADY_RESOLVED (which can mean SIGNED:
+      // resolving null there would throw away a real signature).
+      offCancelled = onXamanCancelled((cancelledUuid) => {
+        if (cancelledUuid !== payloadId) return;
+        clearTimeout(timeoutId);
+        cleanup();
+        resolve(null);
+      });
 
       // Try WebSocket first for real-time updates
       try {
@@ -726,7 +858,7 @@ export class XamanWalletService implements WalletService {
               // when the request is on screen in the user's app. Surface only
               // that exact signal — anything looser would claim the user is
               // looking at the request when they may not be.
-              if (statusUpdate.opened === true) emitXamanStatus('opened');
+              if (statusUpdate.opened === true) emitXamanStatus('opened', payloadId);
               return;
             }
 
@@ -736,7 +868,7 @@ export class XamanWalletService implements WalletService {
             // terminal state this is: a "no" is a choice and a timeout is a
             // timeout — neither should vanish into a generic red error.
             if (statusUpdate.signed === false || statusUpdate.cancelled || statusUpdate.expired) {
-              emitXamanStatus(statusUpdate.expired ? 'expired' : 'rejected');
+              emitXamanStatus(statusUpdate.expired ? 'expired' : 'rejected', payloadId);
               cleanup();
               resolve(null);
               return;
@@ -744,7 +876,7 @@ export class XamanWalletService implements WalletService {
 
             // signed === true → the user approved; the modal can confirm while
             // we fetch the full status (and, for submits, the network settles).
-            emitXamanStatus('signed');
+            emitXamanStatus('signed', payloadId);
 
             // statusUpdate.signed === true → pull the full status for the account.
             const fullStatus = await this.getPayloadStatus(payloadId);
@@ -960,6 +1092,13 @@ export class XamanWalletService implements WalletService {
   }
 
   async signMessage(message: string): Promise<string> {
+    // xaman-cancelar 1: the clear NAMES the payload this ceremony raised.
+    // A bare emitXamanPayload(null) means "close whatever is open", so a
+    // ceremony ending (very often BECAUSE the user cancelled it) used to wipe a
+    // different, live payload's prompt off the screen — no DELETE asked for,
+    // nothing said, and it stayed signable on the phone. A ceremony that never
+    // raised a prompt (mock fallback) has nothing to clear and stays quiet.
+    let promptedUuid: string | null = null;
     try {
       if (!this.currentAccount) {
         await this.ensureCurrentAccount();
@@ -976,7 +1115,7 @@ export class XamanWalletService implements WalletService {
         options: {
           submit: false,
           multi_sign: false,
-          expire: 300
+          expire: this.payloadExpireMinutes()
         },
         custom_meta: {
           identifier: this.payloadIdentifier('astryum-sign-message'),
@@ -995,18 +1134,19 @@ export class XamanWalletService implements WalletService {
       }
 
       if (payloadResponse.uuid && !payloadResponse.uuid.startsWith('mock-')) {
+        promptedUuid = payloadResponse.uuid;
         emitXamanPayload({
           uuid: payloadResponse.uuid,
           qrPng: payloadResponse.refs?.qr_png,
           deeplink: payloadResponse.next?.always,
           purpose: 'message',
-          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          expiresAt: Date.now() + this.payloadWindowMs(),
           pushed: payloadResponse.pushed === true,
         });
       }
 
       const result = await this.waitForPayloadCompletion(payloadResponse);
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       if (!result) {
         throw new Error('User cancelled message signing or payload expired');
       }
@@ -1019,18 +1159,28 @@ export class XamanWalletService implements WalletService {
 
       throw new Error('Failed to retrieve signature from payload');
     } catch (error) {
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       console.error('Failed to sign message:', error);
       throw new Error(`Message signing failed: ${error.message}`);
     }
   }
 
   async signTransaction(transaction: XRPLTransaction): Promise<string> {
+    // xaman-cancelar 1: the clear NAMES the payload this ceremony raised.
+    // A bare emitXamanPayload(null) means "close whatever is open", so a
+    // ceremony ending (very often BECAUSE the user cancelled it) used to wipe a
+    // different, live payload's prompt off the screen — no DELETE asked for,
+    // nothing said, and it stayed signable on the phone. A ceremony that never
+    // raised a prompt (mock fallback) has nothing to clear and stays quiet.
+    let promptedUuid: string | null = null;
     try {
-      if (!this.currentAccount) {
+      // A transaction that PINS its Account needs no connected session: the
+      // payload names the account and Xaman asks for it (2026-09-17). Only an
+      // unpinned one borrows the connected account as its signer.
+      if (!this.currentAccount && !transaction.Account) {
         await this.ensureCurrentAccount();
       }
-      if (!this.currentAccount) {
+      if (!this.currentAccount && !transaction.Account) {
         throw new Error('No account connected');
       }
 
@@ -1038,7 +1188,7 @@ export class XamanWalletService implements WalletService {
       // stomping it with the singleton's first-connected account was the
       // active-account bug (switcher review 2026-07-17, Fase 0). Only inject
       // when the caller left it empty.
-      const signerAddress = transaction.Account || this.currentAccount.address;
+      const signerAddress = transaction.Account || this.currentAccount!.address;
       const txWithAccount = {
         ...transaction,
         Account: signerAddress
@@ -1050,7 +1200,7 @@ export class XamanWalletService implements WalletService {
         options: {
           submit: false,
           multi_sign: false,
-          expire: 300
+          expire: this.payloadExpireMinutes()
         },
         custom_meta: {
           identifier: this.payloadIdentifier('astryum-sign-tx'),
@@ -1069,19 +1219,26 @@ export class XamanWalletService implements WalletService {
       }
 
       if (payloadResponse.uuid && !payloadResponse.uuid.startsWith('mock-')) {
-        emitXamanPayload({
+        promptedUuid = payloadResponse.uuid;
+        // it. 23 (it. 22 §1.2): the QR goes up NOW, with the window we asked
+        // for; the REAL `expires_at` Xaman is counting to replaces it a round
+        // trip later, before anybody can have signed. The omnibus door seals a
+        // 0xFE's nonce seat from this very field, and it was sealing a guess.
+        const prompt = {
           uuid: payloadResponse.uuid,
           qrPng: payloadResponse.refs?.qr_png,
           deeplink: payloadResponse.next?.always,
-          purpose: 'transaction',
+          purpose: 'transaction' as const,
           summary: describeXrplTx(transaction),
-          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          expiresAt: Date.now() + this.payloadWindowMs(),
           pushed: payloadResponse.pushed === true,
-        });
+        };
+        emitXamanPayload(prompt);
+        this.correctPayloadExpiry(prompt);
       }
 
       const result = await this.waitForPayloadCompletion(payloadResponse);
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       if (!result) {
         throw new Error('User cancelled transaction signing or payload expired');
       }
@@ -1094,7 +1251,7 @@ export class XamanWalletService implements WalletService {
 
       throw new Error('Failed to retrieve signed transaction from payload');
     } catch (error) {
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       console.error('Failed to sign transaction:', error);
       throw new Error(`Transaction signing failed: ${error.message}`);
     }
@@ -1130,7 +1287,7 @@ export class XamanWalletService implements WalletService {
       options: {
         submit: false,
         multi_sign: false,
-        expire: 300,
+        expire: this.payloadExpireMinutes(),
         return_url: { app: 'astryum://bound', web: webReturn },
       },
       custom_meta: {
@@ -1146,20 +1303,33 @@ export class XamanWalletService implements WalletService {
     }
 
     // Surface the QR / deeplink (skip the mock fallback — it has no real QR).
+    // xaman-cancelar 1: the clear NAMES the payload this ceremony raised.
+    // A bare emitXamanPayload(null) means "close whatever is open", so a
+    // ceremony ending (very often BECAUSE the user cancelled it) used to wipe a
+    // different, live payload's prompt off the screen — no DELETE asked for,
+    // nothing said, and it stayed signable on the phone. A ceremony that never
+    // raised a prompt (mock fallback) has nothing to clear and stays quiet.
+    let promptedUuid: string | null = null;
     if (payloadResponse.uuid && !payloadResponse.uuid.startsWith('mock-')) {
+      promptedUuid = payloadResponse.uuid;
       emitXamanPayload({
         uuid: payloadResponse.uuid,
         qrPng: payloadResponse.refs?.qr_png,
         deeplink: payloadResponse.next?.always,
         purpose: 'message',
-        expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+        // QR-cierre: the summary box was empty here while Xaman showed the
+        // person an `AccountSet` they never asked for. Derived from the REAL
+        // txjson, so the modal says "Account settings — moves no funds" before
+        // they see the opcode on their phone.
+        summary: describeXrplTx(proofTx),
+        expiresAt: Date.now() + this.payloadWindowMs(),
         pushed: payloadResponse.pushed === true,
       });
     }
 
     try {
       const result = await this.waitForPayloadCompletion(payloadResponse);
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       if (!result) {
         throw new Error('Ownership proof was cancelled or expired in Xaman');
       }
@@ -1171,7 +1341,7 @@ export class XamanWalletService implements WalletService {
       }
       return { signedTxHex, account };
     } catch (error) {
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       throw error;
     }
   }
@@ -1185,11 +1355,21 @@ export class XamanWalletService implements WalletService {
   }
 
   async submitTransaction(transaction: XRPLTransaction): Promise<string> {
+    // xaman-cancelar 1: the clear NAMES the payload this ceremony raised.
+    // A bare emitXamanPayload(null) means "close whatever is open", so a
+    // ceremony ending (very often BECAUSE the user cancelled it) used to wipe a
+    // different, live payload's prompt off the screen — no DELETE asked for,
+    // nothing said, and it stayed signable on the phone. A ceremony that never
+    // raised a prompt (mock fallback) has nothing to clear and stays quiet.
+    let promptedUuid: string | null = null;
     try {
-      if (!this.currentAccount) {
+      // A transaction that PINS its Account needs no connected session: the
+      // payload names the account and Xaman asks for it (2026-09-17). Only an
+      // unpinned one borrows the connected account as its signer.
+      if (!this.currentAccount && !transaction.Account) {
         await this.ensureCurrentAccount();
       }
-      if (!this.currentAccount) {
+      if (!this.currentAccount && !transaction.Account) {
         throw new Error('No account connected');
       }
 
@@ -1197,7 +1377,7 @@ export class XamanWalletService implements WalletService {
       // stomping it with the singleton's first-connected account was the
       // active-account bug (switcher review 2026-07-17, Fase 0). Only inject
       // when the caller left it empty.
-      const signerAddress = transaction.Account || this.currentAccount.address;
+      const signerAddress = transaction.Account || this.currentAccount!.address;
       const txWithAccount = {
         ...transaction,
         Account: signerAddress
@@ -1211,7 +1391,7 @@ export class XamanWalletService implements WalletService {
         options: {
           submit: true, // Submit to network after signing
           multi_sign: false,
-          expire: 300
+          expire: this.payloadExpireMinutes()
         },
         custom_meta: {
           identifier: this.payloadIdentifier('astryum-submit-tx'),
@@ -1232,32 +1412,64 @@ export class XamanWalletService implements WalletService {
       // Surface the QR / deeplink — without this the request exists on
       // Xaman's side but the user never sees anything to sign.
       if (payloadResponse.uuid && !payloadResponse.uuid.startsWith('mock-')) {
-        emitXamanPayload({
+        promptedUuid = payloadResponse.uuid;
+        // it. 23 (it. 22 §1.2): the QR goes up NOW, with the window we asked
+        // for; the REAL `expires_at` Xaman is counting to replaces it a round
+        // trip later, before anybody can have signed. The omnibus door seals a
+        // 0xFE's nonce seat from this very field, and it was sealing a guess.
+        const prompt = {
           uuid: payloadResponse.uuid,
           qrPng: payloadResponse.refs?.qr_png,
           deeplink: payloadResponse.next?.always,
-          purpose: 'transaction',
+          purpose: 'transaction' as const,
           summary: describeXrplTx(transaction),
-          expiresAt: Date.now() + this.PAYLOAD_TIMEOUT,
+          expiresAt: Date.now() + this.payloadWindowMs(),
           pushed: payloadResponse.pushed === true,
-        });
+        };
+        emitXamanPayload(prompt);
+        this.correctPayloadExpiry(prompt);
       }
 
       const result = await this.waitForPayloadCompletion(payloadResponse);
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       if (!result) {
         throw new Error('User cancelled transaction submission or payload expired');
       }
 
       // Get the payload status to retrieve the transaction hash
       const status = await this.getPayloadStatus(payloadResponse.uuid);
+
+      // EL VEREDICTO DEL NODO, ANTES QUE EL HASH (incidente 22-ago-2026).
+      // Este payload lleva `options.submit: true`, así que Xaman YA la envió y
+      // guardó lo que contestó la red. Devolver `txid` sin mirarlo era entregar
+      // al vigilante el hash de un blob que el nodo había rechazado: no existe
+      // en ningún ledger, no va a existir, y el recibo se quedaba en «In
+      // progress» para siempre.
+      //
+      // `ter*` NO se corta: significa «retenida, puede entrar en un ledger
+      // posterior», y ahí vigilar es exactamente lo correcto. Sin código
+      // tampoco se corta — «no lo he leído» no es «ha fallado» (ese error, al
+      // revés, es el que empujaba al doble depósito el 17-ago).
+      const dispatched = status?.response?.dispatched_result;
+      const resultClass = classifyXrplResult(dispatched);
+      if (isTerminalFailure(resultClass)) {
+        throw Object.assign(
+          new Error(
+            resultClass === 'failed-onchain'
+              ? `The ledger rejected this transaction (${dispatched}). It is on-chain and it charged the fee, but it did NOT go through.`
+              : `The network refused this transaction (${dispatched}). It never entered the ledger and it cost nothing.`,
+          ),
+          { xrplResult: dispatched, onChain: resultClass === 'failed-onchain' },
+        );
+      }
+
       if (status && status.response && status.response.txid) {
         return status.response.txid;
       }
 
       throw new Error('Failed to retrieve transaction hash from payload');
     } catch (error) {
-      emitXamanPayload(null);
+      if (promptedUuid) emitXamanPayload(null, promptedUuid);
       console.error('Failed to submit transaction:', error);
       throw new Error(`Transaction submission failed: ${error.message}`);
     }
@@ -1659,7 +1871,7 @@ export class XamanWalletService implements WalletService {
       },
       options: {
         submit: false,
-        expire: 300
+        expire: this.payloadExpireMinutes()
       }
     };
 
@@ -2172,7 +2384,9 @@ export class XamanWalletService implements WalletService {
     return Math.floor(parseFloat(xrp) * 1000000).toString(); // Convert from XRP to drops
   }
 
-  // Enhanced payload monitoring with retry logic
+  // Enhanced payload monitoring with retry logic.
+  // INERT (QR-cierre): zero callers — waitForPayloadCompletion owns the live
+  // WS/poll loop. Left in place per "never delete built code"; reported.
   public async monitorPayload(payloadId: string, onUpdate?: (status: XamanPayloadStatus) => void): Promise<XamanPayloadStatus | null> {
     const payloadEntry = this.payloadPool.get(payloadId);
     if (!payloadEntry) {
@@ -2299,36 +2513,46 @@ export class XamanWalletService implements WalletService {
     });
   }
 
-  // Cancel a payload
+  /**
+   * Cancel a payload. ONE implementation of the DELETE, in the bus
+   * (cancelXamanPayload) — this used to hand-roll a second one (QR-cierre).
+   *
+   * They were not equivalent, which is why the duplication mattered: this copy
+   * read only `response.ok`, so Xaman answering `{ cancelled: false }` over a
+   * 200 counted as a kill, and it never told the waiting ceremony anything.
+   * The bus version reads the body, distinguishes "refused" from "already
+   * gone" from "no answer", bounds the round trip, and notifies the wait loop.
+   *
+   * INERT (QR-cierre final): nothing in the repo calls this today — the signing
+   * panel cancels through the bus directly. Kept, not deleted, because it is
+   * the public per-payload door of the service and the pool teardown below is
+   * real work; it is documented here so nobody mistakes it for a live path.
+   */
   public async cancelPayload(payloadId: string): Promise<boolean> {
-    try {
-      // Credentials live server-side only; the route cancels the payload upstream.
-      const response = await fetch(`/api/xaman/status/${payloadId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
+    const result = await cancelXamanPayload(payloadId);
+    if (result.outcome === 'cancelled') {
+      // Confirmed dead by us: tear the local machinery down. (The bus already
+      // resolved waitForPayloadCompletion through onXamanCancelled.)
+      const payloadEntry = this.payloadPool.get(payloadId);
+      if (payloadEntry) {
+        if (payloadEntry.websocket) {
+          payloadEntry.websocket.close();
         }
-      });
-
-      if (response.ok) {
-        // Clean up payload from pool
-        const payloadEntry = this.payloadPool.get(payloadId);
-        if (payloadEntry) {
-          if (payloadEntry.websocket) {
-            payloadEntry.websocket.close();
-          }
-          if (payloadEntry.pollInterval) {
-            clearInterval(payloadEntry.pollInterval);
-          }
-          this.payloadPool.delete(payloadId);
+        if (payloadEntry.pollInterval) {
+          clearInterval(payloadEntry.pollInterval);
         }
-        return true;
+        this.payloadPool.delete(payloadId);
       }
-      return false;
-    } catch (error) {
-      console.error('Failed to cancel payload:', error);
-      return false;
+      return true;
     }
+    // Everything else is NOT a kill by us, and this boolean is read as "I
+    // cancelled it" (QR-cierre final). 'already-gone' used to return true here:
+    // ALREADY_RESOLVED means Xaman had an ANSWER for the payload — very
+    // possibly a SIGNATURE, and for submit:true a broadcast transaction — so
+    // reporting "cancelled" would bake a false negative-outcome into any future
+    // caller. Its real resolution is still on its way down the socket; the pool
+    // is left alone so the ceremony can read it.
+    return false;
   }
 
   // Deep linking functionality
@@ -2447,7 +2671,7 @@ export class XamanWalletService implements WalletService {
         options: {
           submit: false,
           multi_sign: false,
-          expire: 300
+          expire: this.payloadExpireMinutes()
         },
         custom_meta: {
           identifier: this.payloadIdentifier('astryum-tx-qr'),

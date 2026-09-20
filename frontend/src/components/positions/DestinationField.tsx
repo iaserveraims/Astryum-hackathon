@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { addressBookService, type AddressBookEntry } from '../../services/v1Api';
 import type { WalletRecord } from '../../lib/portfolioMerge';
 import { ecosystemOf, ECOSYSTEM_ACCENT } from '../../lib/ui/ecosystem';
+import { useWalletLabeler } from '../../lib/wallet/useWalletLabeler';
 
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const XRPL_CLASSIC_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
@@ -65,17 +66,31 @@ export function DestinationField({
 }) {
   const re = kind === 'evm' ? EVM_ADDRESS_RE : XRPL_CLASSIC_RE;
 
+  // Cada cuenta con su DUEÑA en el nombre (fundador 2026-08-22): tres «Flare
+  // Smart Account» seguidas eran tres desconocidas, y aquí se elige a dónde va
+  // el capital. `nameOf` cubre también la fila de origen y las opciones extra
+  // que el padre sintetiza (una PA sin fila propia se nombra por su dueña).
+  const { nameOf } = useWalletLabeler(myWallets, t);
+
   const mine = useMemo<RowOption[]>(() => {
     const seen = new Set<string>();
     const rows: RowOption[] = [];
     if (source && re.test(source.address)) {
-      rows.push({ address: source.address, label: source.label, isSource: true });
+      // La etiqueta del padre solo pierde ante un nombre MEJOR: si el hook cayó
+      // a la dirección corta (ni fila ni dueña conocidas), lo del padre manda.
+      const named = nameOf(source.address);
+      const bareFallback = `${source.address.slice(0, 6)}…${source.address.slice(-4)}`;
+      rows.push({
+        address: source.address,
+        label: named === bareFallback ? source.label : named,
+        isSource: true,
+      });
       seen.add(source.address.toLowerCase());
     }
     for (const w of myWallets) {
       if (!re.test(w.address) || seen.has(w.address.toLowerCase())) continue;
       seen.add(w.address.toLowerCase());
-      rows.push({ address: w.address, label: w.label ?? shortAddr(w.address) });
+      rows.push({ address: w.address, label: nameOf(w.address) });
     }
     for (const o of extraOptions ?? []) {
       if (seen.has(o.address.toLowerCase())) continue;
@@ -83,7 +98,7 @@ export function DestinationField({
       rows.push(o);
     }
     return rows;
-  }, [myWallets, source, re, extraOptions]);
+  }, [myWallets, source, re, extraOptions, nameOf]);
 
   // Agenda — fetched once; only entries on this rail.
   const [saved, setSaved] = useState<RowOption[]>([]);

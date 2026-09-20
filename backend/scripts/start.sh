@@ -6,6 +6,44 @@
 # command of `&&`/`;` chains, leaving the server unstarted.
 set -e
 
+# ── Guard: a preview must never migrate — or run against — the production
+# database (2026-08-20).
+#
+# The danger is not the migration. `migrate deploy` is additive and Prisma
+# selects explicit columns, so a column production does not know about is
+# invisible to it. The danger is everything that boots AFTER it:
+# index-simple.ts starts the sentinel, the XRPL watcher, the escrow keeper,
+# the direct-mint executor watcher and the automation tick. Pointed at the
+# production database, an unreleased branch would compose real council
+# proposals, write into real users' alert trays, and — with real credentials —
+# spend real FLR. That is a shared-database problem, not a schema one, and no
+# amount of care in the migration prevents it.
+#
+# So the rule is about IDENTITY, not about SQL: a deployment that declares
+# itself production may touch the production database; anything else must
+# carry its own. `DEPLOY_ENV` is the declaration (production | preview | …),
+# and `PRODUCTION_DB_HOST_MARKER` is the substring that identifies the
+# production instance in `DATABASE_URL` (set it on the PREVIEW service so the
+# guard has something to compare against; leave it unset and the guard simply
+# does not fire).
+#
+# Fail-closed on purpose: the cost of a preview refusing to boot is a red log
+# line. The cost of the opposite is a branch engine writing into real trays.
+if [ -n "$PRODUCTION_DB_HOST_MARKER" ] \
+  && [ "${DEPLOY_ENV:-production}" != "production" ] \
+  && [ -n "$DATABASE_URL" ]; then
+  case "$DATABASE_URL" in
+    *"$PRODUCTION_DB_HOST_MARKER"*)
+      echo "[start.sh] FATAL: DEPLOY_ENV='${DEPLOY_ENV}' but DATABASE_URL points at the production database."
+      echo "[start.sh]        A preview needs its OWN database: it does not just migrate, it RUNS —"
+      echo "[start.sh]        keeper, executor and automation tick would act on real data."
+      echo "[start.sh]        Give this service its own Postgres, or unset PRODUCTION_DB_HOST_MARKER"
+      echo "[start.sh]        if you have decided to share it deliberately."
+      exit 1
+      ;;
+  esac
+fi
+
 echo "[start.sh] running prisma migrate deploy..."
 # Prefer the Prisma CLI baked into the image (copied from the builder stage in
 # the Dockerfile). Bare `npx prisma` downloaded the CLI from the npm registry

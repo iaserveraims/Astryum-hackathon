@@ -16,10 +16,26 @@
  */
 
 import { isUserRejection } from '../wallet/flareChain';
+import { describeRetryableRefusal } from '../xaman/seatRefusal';
 
 export interface TranslatedError {
   message: string;
   kind: 'user-rejection' | 'error';
+  /**
+   * it. 23 (it. 22 §3.5) — THE FIELDS THIS TYPE USED TO THROW AWAY.
+   *
+   * The step-up's two 503s (`STEP_UP_UNAVAILABLE`, `ACCOUNT_BUSY`) are a failure
+   * of OURS with a `Retry-After`, and they were flattened into «we couldn't
+   * reach the server» by the `HTTP \d{3}` branch below: the sentence the route
+   * wrote («that is us, not your signature»), the `retryable` and the seconds
+   * all disappeared, so the screen showed a dead end over a wait of two seconds.
+   * They travel now — the code for bookkeeping, never for rendering.
+   */
+  code?: string;
+  /** Is asking again expected to work? Only ever true for a failure of ours. */
+  retryable?: boolean;
+  /** Seconds the server asked us to wait (`Retry-After`), when it said. */
+  retryAfterSeconds?: number;
 }
 
 /** The XRPL engine codes a user can actually hit, in plain language. */
@@ -37,6 +53,39 @@ const XRPL_CODES: Record<string, string> = {
   temREDUNDANT: 'This operation would change nothing, so the network refuses it.',
   tecNEED_MASTER_KEY: 'Only the account’s own master key can sign this operation.',
 };
+
+/**
+ * The refusal envelope, from whichever shape the caller's client produced:
+ * `ApiError` (services/api) names the code `code` and keeps no detail;
+ * `jpost`/`jget` (services/v1Api) put the code in `message` and the prose in
+ * `body.detail`. Both are read, so the same 503 says the same thing wherever it
+ * was thrown. Nothing here renders a code — it only looks one up.
+ */
+function readRefusalShape(err: unknown): {
+  status?: number;
+  error?: string;
+  code?: string;
+  detail?: string;
+  retryable?: boolean;
+  retryAfterSeconds?: number;
+  body?: Record<string, unknown>;
+} {
+  const e = (err ?? {}) as Record<string, unknown>;
+  const body = (e.body ?? null) as Record<string, unknown> | null;
+  const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : undefined;
+  return {
+    ...(num(e.status) !== undefined ? { status: num(e.status) } : {}),
+    ...(str(e.code) ?? str(body?.code) ? { code: (str(e.code) ?? str(body?.code)) as string } : {}),
+    // `message` counts as the code only when it IS one (jpost puts it there).
+    ...(str(e.error) ?? str(body?.error) ? { error: (str(e.error) ?? str(body?.error)) as string } : {}),
+    ...(str(e.detail) ?? str(body?.detail) ? { detail: (str(e.detail) ?? str(body?.detail)) as string } : {}),
+    ...(typeof e.retryable === 'boolean' ? { retryable: e.retryable } : {}),
+    ...(num(e.retryAfterSeconds) !== undefined ? { retryAfterSeconds: num(e.retryAfterSeconds) } : {}),
+    ...(body ? { body } : {}),
+  };
+}
 
 function rawText(err: unknown): string {
   if (err == null) return '';
@@ -56,6 +105,28 @@ export function translateError(err: unknown, t: (s: string) => string): Translat
     /not allowed by the user agent/i.test(raw)
   ) {
     return { kind: 'user-rejection', message: t('You cancelled the signature. Nothing moved — try again whenever you like.') };
+  }
+
+  /**
+   * it. 23 (it. 22 §3.5) — OURS, NOT THE NETWORK'S, AND NOT YOUR SIGNATURE.
+   *
+   * BEFORE the connectivity branch, because `ApiError.message` is literally
+   * «HTTP 503: Service Unavailable» and that regex swallowed every one of these:
+   * a step-up our own database could not complete read on screen as «we couldn't
+   * reach the server», which blames the network, drops the retry the route
+   * promised in `Retry-After`, and — worst of the three — leaves the person
+   * wondering whether their signature was the problem. One reader for the whole
+   * family (`describeRetryableRefusal`), the same one every seat surface uses.
+   */
+  const refusal = describeRetryableRefusal(readRefusalShape(err), t);
+  if (refusal) {
+    return {
+      kind: 'error',
+      message: refusal.text,
+      code: refusal.code,
+      retryable: true,
+      ...(refusal.retryAfterSeconds !== undefined ? { retryAfterSeconds: refusal.retryAfterSeconds } : {}),
+    };
   }
 
   // XRPL engine codes — say what happened, keep the code for support.

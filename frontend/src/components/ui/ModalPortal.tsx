@@ -35,7 +35,7 @@
  * open modal with it (see useModalsOpen).
  */
 
-import React, { ReactNode, useEffect, useSyncExternalStore } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +127,22 @@ export function useModalRegistration(opts?: {
   }, [active, lockScroll]);
 }
 
+/**
+ * PortalSuspense — «este subárbol está PLEGADO: sus portales también».
+ *
+ * El bug (revisión 2026-08-29): la ventana de operación persistente esconde a
+ * sus hijos con display:none — pero un sub-modal de esos hijos (EmExitModal,
+ * CmfReviewModal, la hoja de envío del agente…) se portala a <body>, FUERA
+ * del subárbol escondido: al minimizar la operación, su diálogo seguía a
+ * pantalla completa, con backdrop y scroll-lock, tapando a la operación
+ * recién restaurada. OperationSurface provee `true` mientras está plegada y
+ * todo ModalPortal descendiente: (1) esconde su contenido portalado, (2)
+ * suelta el scroll-lock y sale de la cuenta de modales (los pollers pueden
+ * respirar — la operación está plegada), (3) ignora Escape. El estado React
+ * del diálogo sigue vivo: restaurar la operación lo devuelve tal cual.
+ */
+export const PortalSuspenseContext = createContext(false);
+
 export default function ModalPortal({
   children,
   onEscape,
@@ -139,21 +155,27 @@ export default function ModalPortal({
   /** Set false for non-blocking overlays (toasts, popovers) that must not lock the page. */
   lockScroll?: boolean;
 }) {
-  useModalRegistration({ lockScroll });
+  const suspended = useContext(PortalSuspenseContext);
+  useModalRegistration({ active: !suspended, lockScroll });
 
   useEffect(() => {
-    if (!onEscape) return;
+    if (!onEscape || suspended) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onEscape();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onEscape]);
+  }, [onEscape, suspended]);
 
   // SSR / pre-hydration: nothing to portal into yet.
   if (typeof document === 'undefined') return null;
 
-  return createPortal(children, document.body);
+  // display:contents = el envoltorio no existe para el layout; el flip a
+  // display:none pliega el portal entero con su dueño, sin desmontar nada.
+  return createPortal(
+    <div style={{ display: suspended ? 'none' : 'contents' }}>{children}</div>,
+    document.body,
+  );
 }
 
 /**

@@ -30,7 +30,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { useOnboardingStore, type TourId } from '../../stores/onboardingStore';

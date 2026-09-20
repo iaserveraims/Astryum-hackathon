@@ -24,6 +24,10 @@ const PAGES: Array<{ href: string; es: string; en: string }> = [
   { href: '/what-we-offer', es: 'Qué ofrecemos', en: 'What we offer' },
   { href: '/proof', es: 'La prueba', en: 'Proof' },
   { href: '/about', es: 'Quiénes somos', en: 'About us' },
+  // /docs entra en la misma carcasa (19-sep) y por tanto en la misma fila: una
+  // página que lleva la cabecera de sus hermanas pero no aparece entre ellas
+  // se lee como si no perteneciera.
+  { href: '/docs', es: 'Documentación', en: 'Docs' },
 ];
 
 export default function SubpageShell({

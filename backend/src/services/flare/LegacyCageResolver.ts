@@ -54,11 +54,29 @@ let councilHashCache: { bridge: string; hash: string } | null = null;
 const factoryCageCache = new Map<string, { bridge: string; vault: string }>();
 
 let warnedBadFactory = false;
+let warnedNoFactory = false;
+
+/**
+ * The cage registry on Flare MAINNET — LegacyStackFactory, deployed and
+ * verified on 2026-08-05 at block 66707923 (contracts/README.md). It is public,
+ * immutable chain state, not a secret and not a choice: every cage born from
+ * XRPL writes itself into THIS contract.
+ *
+ * It is a default rather than a required env var because of what its absence
+ * did (staging, 2026-08-22): a council whose cage was born from the factory
+ * resolved to "this Legacy has no cage", so the portfolio scan attributed
+ * NOTHING to it and 3.69 FXRP of real principal simply stopped appearing on the
+ * Home — no error, no zero, just capital missing from the totals. A read path
+ * must never depend on remembering a variable to see money that is on-chain.
+ * LEGACY_FACTORY_ADDRESS still overrides it (another deployment, another net).
+ */
+const MAINNET_CAGE_FACTORY = '0xF93A8A0bd93e95514fF02285349b0b1c1a5a3e0a';
 
 export function __resetCageResolverCacheForTests(): void {
   councilHashCache = null;
   factoryCageCache.clear();
   warnedBadFactory = false;
+  warnedNoFactory = false;
 }
 
 function warnBadFactoryOnce(value: string): void {
@@ -70,6 +88,17 @@ function warnBadFactoryOnce(value: string): void {
       'is NOT being consulted, so every Legacy will report having no cage. Note ethers checks the EIP-55 ' +
       'checksum: a mixed-case address with the wrong capitalisation is rejected. Use the address exactly as ' +
       'the explorer prints it, or all lowercase.',
+  );
+}
+
+function warnNoFactoryOnce(chain: string): void {
+  if (warnedNoFactory) return;
+  warnedNoFactory = true;
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[LegacyCageResolver] no cage registry to consult on "${chain}" (LEGACY_FACTORY_ADDRESS unset and no ` +
+      'built-in default for this network) — every Legacy born from the factory will report having no cage, ' +
+      'and its principal will be missing from the portfolio.',
   );
 }
 
@@ -88,23 +117,84 @@ export function councilAddressHash(account: string): string {
  */
 export async function cageForCouncil(account: string): Promise<LegacyStackConfig | null> {
   if (!R_ADDRESS.test(account)) return null;
-  return (await cageFromFactory(account)) ?? (await cageFromEnv(account));
+  // Two registries with the SAME interface (vaultOf/bridgeOf) and the SAME council
+  // hash (keccak of the r-address): the Legacy factory AND the Astryum factory
+  // (institutional potes). A council belongs to exactly one, so try both.
+  const legacy = legacyFactoryAddress();
+  const astryum = astryumFactoryAddress();
+  // Tercer registro (26-ago): la factory de JAULAS v2 (`AstryumCageFactory`).
+  // Misma interfaz `vaultOf`/`bridgeOf` a propósito: para su bridge, la jaula ES
+  // su «vault». Así el relay sirve las órdenes de una jaula sin tocar una línea —
+  // resuelve por el remitente, encuentra su bridge, y el bridge ejecuta contra lo
+  // que tenga atado. Un consejo pertenece a exactamente un registro.
+  const cageV2 = astryumCageFactoryAddress();
+  return (
+    (legacy ? await cageFromFactory(account, legacy) : null) ??
+    (astryum ? await cageFromFactory(account, astryum) : null) ??
+    (cageV2 ? await cageFromFactory(account, cageV2) : null) ??
+    (await cageFromEnv(account))
+  );
 }
 
 /**
- * The registry the factory keeps: every cage born from XRPL is written there
- * by the transaction that created it, so the product asks the chain rather
- * than a table it would have to keep in sync.
+ * ¿Este consejo gobierna una JAULA de la generación v2?
+ *
+ * Importa porque `cageForCouncil` devuelve la jaula EN EL SITIO del vault (su
+ * `vaultOf` es un alias de `cageOf`, a propósito, para que el relay sirva a las
+ * dos generaciones sin tocar una línea). Un llamante que no distinga compondría
+ * `directTo(uint256,uint256,bytes32)` contra la jaula — un selector que la jaula
+ * NO tiene — y el consejo firmaría una orden condenada: quórum gastado, prueba
+ * FDC pagada (~20 FLR), revert. Esa familia de fallos («éxito no ganado») ya
+ * costó una sesión entera el 23-ago; la pregunta se contesta ANTES de componer.
+ *
+ * La contesta el registro de la factory, no una sonda: si la factory de jaulas
+ * conoce a este consejo, sus órdenes van por la ruta de la jaula y solo por ahí.
+ * Nunca lanza: sin factory configurada la respuesta es «no», que es la que deja
+ * el comportamiento v1 intacto.
  */
-async function cageFromFactory(account: string): Promise<LegacyStackConfig | null> {
-  const factoryAddress = process.env.LEGACY_FACTORY_ADDRESS;
-  if (!factoryAddress) return null;
+export async function isCageV2Council(account: string): Promise<boolean> {
+  if (!R_ADDRESS.test(account)) return false;
+  const factory = astryumCageFactoryAddress();
+  if (!factory) return false;
+  return (await cageFromFactory(account, factory)) !== null;
+}
+
+/** La factory de jaulas v2 (`ASTRYUM_CAGE_FACTORY_ADDRESS`). Null si no está o es inválida. */
+export function astryumCageFactoryAddress(): string | null {
+  const addr = process.env.ASTRYUM_CAGE_FACTORY_ADDRESS?.trim();
+  if (!addr || !ethers.isAddress(addr)) return null;
+  return addr;
+}
+
+/** The Legacy cage factory (env override, else the mainnet default). Null if unusable. */
+function legacyFactoryAddress(): string | null {
+  const chain = process.env.LEGACY_CHAIN || 'flare';
+  const configured = process.env.LEGACY_FACTORY_ADDRESS?.trim();
+  const factoryAddress = configured || (chain === 'flare' ? MAINNET_CAGE_FACTORY : '');
+  if (!factoryAddress) {
+    warnNoFactoryOnce(chain);
+    return null;
+  }
   if (!ethers.isAddress(factoryAddress)) {
-    // Silence here would mean every Legacy reporting "no cage" with a perfectly
-    // healthy factory deployed — a config typo that looks like a product state.
     warnBadFactoryOnce(factoryAddress);
     return null;
   }
+  return factoryAddress;
+}
+
+/** The Astryum institutional factory (potes). Null when unset/invalid. */
+function astryumFactoryAddress(): string | null {
+  const addr = process.env.ASTRYUM_FACTORY_ADDRESS?.trim();
+  if (!addr || !ethers.isAddress(addr)) return null;
+  return addr;
+}
+
+/**
+ * The registry a factory keeps: every cage/pote born from XRPL is written there
+ * by the transaction that created it, so the product asks the chain rather than
+ * a table it would have to keep in sync. Same shape for Legacy and Astryum.
+ */
+async function cageFromFactory(account: string, factoryAddress: string): Promise<LegacyStackConfig | null> {
   try {
     const net = legacyNetworkConfig();
     const key = `${factoryAddress.toLowerCase()}:${account}`;

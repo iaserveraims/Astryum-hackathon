@@ -23,7 +23,12 @@
  */
 
 import { ethers } from 'ethers';
-import { legacyStackConfig, type LegacyStackConfig } from '../../connectors/protocols/xrpl/XrplCouncilOrderService';
+import {
+  LEGACY_NETWORKS,
+  legacyStackConfig,
+  type LegacyNetwork,
+  type LegacyStackConfig,
+} from '../../connectors/protocols/xrpl/XrplCouncilOrderService';
 
 /** The venue kinds LegacyVault.VenueKind can hold (enum order is the contract's). */
 export type LegacyVenueKind = 'erc4626' | 'compoundv2';
@@ -210,7 +215,12 @@ export interface DirectToVerdict {
     | 'INSUFFICIENT_IDLE_PRINCIPAL'
     | 'ENTRY_CAP_EXCEEDED'
     | 'VAULT_MIGRATED'
-    | 'INSUFFICIENT_VENUE_BASIS';
+    | 'INSUFFICIENT_VENUE_BASIS'
+    | 'PAYEE_INVALID'
+    | 'PAYEE_ZERO_ADDRESS'
+    | 'PAYEE_ZERO_BPS'
+    | 'PAYEE_BPS_SUM_INVALID'
+    | 'PAYEE_TRAPS_FUNDS';
   /** One honest sentence for the person about to sign. */
   reason?: string;
 }
@@ -251,6 +261,86 @@ export function checkRecall(
 }
 
 /**
+ * WHICH DOOR is asking to put capital into a venue. The CONDITION that refuses
+ * is identical (LegacyVault checks the same three things whatever the caller);
+ * the SENTENCE is not, and flattening it would be the wrong kind of reuse:
+ * a `move` is a rescue out of a venue that is going wrong, so its refusal has
+ * to say that a rescue is still an entry — otherwise the council reads
+ * «closed to new entries», thinks «this is not new, it is a rescue», and
+ * composes the order anyway.
+ */
+export type VenueEntryDoor =
+  /** `directTo` — fresh principal from the vault's idle balance. */
+  | 'direct'
+  /** `moveToVenue`'s destination half — principal recalled out of another venue. */
+  | 'rescue';
+
+/** {@link DirectToVerdict} pinned to its refusal arm, so a caller can narrow on
+ *  `ok` and reach the venue on the pass arm. */
+export type VerdictRefusal = DirectToVerdict & { ok: false };
+
+/** The gate's answer: the venue itself when entry is open (so the caller goes
+ *  straight to the size checks without a second lookup), the refusal otherwise. */
+export type VenueEntryGate = { ok: true; venue: LegacyVenueRow } | VerdictRefusal;
+
+/**
+ * The refusals EVERY entry into a venue shares — unknown venue, retired venue,
+ * venue still inside its D1a waiting window.
+ *
+ * REUSE (auditoría 2026-08-18): `checkMoveDestination` was born in
+ * CouncilProposalService.ts carrying a LITERAL second copy of the VENUE_RETIRED
+ * and VENUE_NOT_READY branches below — same codes, same conditions
+ * (`venue.retired`, `nowSec < venue.readyAt`), only the prose differed. Its own
+ * comment said it lived there because that round did not own this file. Two
+ * copies of «can capital enter this venue?» is how the two doors drift apart:
+ * the day LegacyVault adds a fourth entry guard, one door learns it and the
+ * other keeps composing orders that revert after the quorum has signed and the
+ * FDC round is paid for. One condition, two voices.
+ *
+ * Mirrors LegacyVault: `venueId >= venues.length` → VenueUnknown, the `retired`
+ * flag → VenueRetired, `block.timestamp < readyAt` → VenueNotReady. Pure (no
+ * RPC): a pass is «nothing known blocks it», never a guarantee — the contract
+ * decides.
+ */
+export function checkVenueAcceptsEntry(
+  state: LegacyVaultState,
+  venueId: number,
+  nowSec: number,
+  door: VenueEntryDoor,
+): VenueEntryGate {
+  const venue = state.venues.find((v) => v.id === venueId);
+  if (!venue) {
+    return {
+      ok: false,
+      code: 'VENUE_UNKNOWN',
+      reason: `Venue #${venueId} does not exist in this vault (it holds ${state.venues.length}). The order would revert after the whole ceremony.`,
+    };
+  }
+  if (venue.retired) {
+    return {
+      ok: false,
+      code: 'VENUE_RETIRED',
+      reason:
+        door === 'rescue'
+          ? `Venue #${venueId} is retired — closed to new entries, and a rescue is still an entry. Move the principal to a live venue, or recall it into the vault.`
+          : `Venue #${venueId} is retired — closed to new entries. Exits from it still work.`,
+    };
+  }
+  if (nowSec < venue.readyAt) {
+    const opensAt = new Date(venue.readyAt * 1000).toISOString();
+    return {
+      ok: false,
+      code: 'VENUE_NOT_READY',
+      reason:
+        door === 'rescue'
+          ? `Venue #${venueId} opens at ${opensAt} (the vault's 30-day waiting period). Capital cannot enter before then — not even a rescue.`
+          : `Venue #${venueId} opens at ${opensAt} (the vault's waiting period). Capital cannot enter before then.`,
+    };
+  }
+  return { ok: true, venue };
+}
+
+/**
  * Would `directTo(venueId, amount)` land? Mirrors LegacyVault._allocate's six
  * reverts (plus notMigrated) against freshly-read state.
  *
@@ -269,24 +359,12 @@ export function checkDirectTo(
   if (state.migrated) {
     return { ok: false, code: 'VAULT_MIGRATED', reason: 'This vault has been migrated to a successor — it accepts no new direction.' };
   }
-  const venue = state.venues.find((v) => v.id === venueId);
-  if (!venue) {
-    return {
-      ok: false,
-      code: 'VENUE_UNKNOWN',
-      reason: `Venue #${venueId} does not exist in this vault (it holds ${state.venues.length}). The order would revert after the whole ceremony.`,
-    };
-  }
-  if (venue.retired) {
-    return { ok: false, code: 'VENUE_RETIRED', reason: `Venue #${venueId} is retired — closed to new entries. Exits from it still work.` };
-  }
-  if (nowSec < venue.readyAt) {
-    return {
-      ok: false,
-      code: 'VENUE_NOT_READY',
-      reason: `Venue #${venueId} opens at ${new Date(venue.readyAt * 1000).toISOString()} (the vault's waiting period). Capital cannot enter before then.`,
-    };
-  }
+  // The three refusals every entry shares now come from ONE place (see
+  // checkVenueAcceptsEntry above); what stays here is what only a `directTo`
+  // can hit: the amount, the idle principal and the D2 cap.
+  const gate = checkVenueAcceptsEntry(state, venueId, nowSec, 'direct');
+  if (!gate.ok) return gate;
+  const { venue } = gate;
   if (amount <= 0n) return { ok: false, code: 'ZERO_AMOUNT', reason: 'The amount must be greater than zero.' };
   const idle = BigInt(state.idlePrincipal);
   if (amount > idle) {
@@ -304,6 +382,121 @@ export function checkDirectTo(
       ok: false,
       code: 'ENTRY_CAP_EXCEEDED',
       reason: `The vault caps any single venue at ${(state.maxVenueBps / 100).toFixed(2)}% of its value. This order would put venue #${venueId} over that line.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * The DESTINATION half of `moveToVenue` — i.e. `_allocate(toId, received,
+ * false)` (LegacyVault L330, L583-587).
+ *
+ * Deliberately NOT `checkDirectTo`, and the two differences are the whole
+ * point:
+ *  - the D2 entry cap is NOT enforced on a rescue (`enforceCap = false`), so
+ *    refusing a move over the cap would block a legitimate emergency;
+ *  - `InsufficientIdlePrincipal` cannot fire either: the origin's principal is
+ *    withdrawn and `allocatedPrincipal` decremented in the SAME call, so
+ *    `received <= idlePrincipal()` holds by construction.
+ * `notMigrated` is absent from `moveToVenue` too — and a migrated vault has had
+ * every venue evacuated (L500-506 zeroes each basis), so the origin check the
+ * caller runs first (checkRecall) already reports the revert the contract would
+ * actually raise.
+ *
+ * REUSE (auditoría 2026-08-18): this function used to live in
+ * CouncilProposalService.ts with its own literal copy of the retired /
+ * not-ready branches, under a comment saying it only lived there because that
+ * round did not own this file. It now sits beside checkDirectTo/checkRecall,
+ * where it belongs, and the CONDITION comes from the one gate both doors share
+ * — while the rescue prose, which is the sentence the council needs, is kept
+ * intact by the `'rescue'` door.
+ */
+export function checkMoveDestination(
+  state: LegacyVaultState,
+  toId: number,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): DirectToVerdict {
+  const gate = checkVenueAcceptsEntry(state, toId, nowSec, 'rescue');
+  return gate.ok ? { ok: true } : gate;
+}
+
+const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/**
+ * Would `setPayees(accounts, bps, ref)` land — and land SAFELY? (E6, 2026-08-15)
+ *
+ * Two kinds of refusal live here, and they are named apart on purpose:
+ *
+ *  - CONTRACT MIRRORS — the order would REVERT after the quorum has signed and
+ *    the FDC round has been paid for: Σbps ≠ 10000 on a non-empty list
+ *    (PayeeBpsSumInvalid), the zero address (ZeroAddress), a zero share
+ *    (BpsOutOfBounds).
+ *  - TRAP PREVENTION — the order would LAND and strand the money: the bridge
+ *    or the vault itself as a payee. `_splitYield` transfers the asset to that
+ *    address and neither contract can ever move tokens out (revision 1-ago §5
+ *    danger #1: "jamás el bridge como payee"). This is the ONE place this
+ *    pre-flight is deliberately stricter than the contract, because the
+ *    failure is permanent — not a wasted ceremony, a buried inheritance.
+ *
+ * An EMPTY list is legal and composes: that is the endowment decision —
+ * everything keeps capitalizing into the principal. Duplicated addresses are
+ * NOT refused here (the contract accepts them and simply splits twice); the
+ * form warns about them client-side, where intent can still be corrected.
+ */
+export function checkSetPayees(
+  stack: { vault: string; bridge: string },
+  payeesRaw: unknown,
+): DirectToVerdict {
+  if (!Array.isArray(payeesRaw)) {
+    return { ok: false, code: 'PAYEE_INVALID', reason: 'payees must be an array of { account, bps }.' };
+  }
+  if (payeesRaw.length === 0) return { ok: true }; // endowment: everything capitalizes
+  const vault = stack.vault.toLowerCase();
+  const bridge = stack.bridge.toLowerCase();
+  let sum = 0;
+  for (const [i, raw] of payeesRaw.entries()) {
+    const row = raw as { account?: unknown; bps?: unknown };
+    const account = String(row.account ?? '');
+    const bps = Number(row.bps);
+    if (!EVM_ADDRESS_RE.test(account)) {
+      return {
+        ok: false,
+        code: 'PAYEE_INVALID',
+        reason: `Payee #${i + 1} is not a Flare address (0x…40 hex) — a malformed address never reaches the vault.`,
+      };
+    }
+    if (account.toLowerCase() === ZERO_ADDRESS) {
+      return { ok: false, code: 'PAYEE_ZERO_ADDRESS', reason: `Payee #${i + 1} is the zero address — the vault refuses it.` };
+    }
+    if (!Number.isInteger(bps) || bps <= 0 || bps > 10_000) {
+      return {
+        ok: false,
+        code: 'PAYEE_ZERO_BPS',
+        reason: `Payee #${i + 1} has a share of ${String(row.bps)} bps — each share must be a whole number between 1 and 10000.`,
+      };
+    }
+    if (account.toLowerCase() === bridge) {
+      return {
+        ok: false,
+        code: 'PAYEE_TRAPS_FUNDS',
+        reason: `Payee #${i + 1} is this Legacy's own bridge. The bridge cannot move tokens: every share sent there would be trapped for ever. Name a person's wallet instead.`,
+      };
+    }
+    if (account.toLowerCase() === vault) {
+      return {
+        ok: false,
+        code: 'PAYEE_TRAPS_FUNDS',
+        reason: `Payee #${i + 1} is the vault itself. Yield paid to the vault's own address becomes stray assets nobody can claim. Name a person's wallet instead.`,
+      };
+    }
+    sum += bps;
+  }
+  if (sum !== 10_000) {
+    return {
+      ok: false,
+      code: 'PAYEE_BPS_SUM_INVALID',
+      reason: `The shares add up to ${(sum / 100).toFixed(2)}% and the vault only accepts exactly 100.00% — the order would revert after the whole ceremony.`,
     };
   }
   return { ok: true };
@@ -403,6 +596,14 @@ export function buildVaultDepositCalls(
   };
 }
 
+/** The network alone — no deployed stack, no order anchor: a read needs neither. */
+function readNetworkConfig(): LegacyNetwork {
+  const chain = (process.env.LEGACY_CHAIN || 'flare') as 'coston2' | 'flare';
+  const net = LEGACY_NETWORKS[chain];
+  if (!net) throw new Error(`LEGACY_CHAIN must be coston2|flare, got "${chain}"`);
+  return net;
+}
+
 /**
  * Read the whole cage in one shot. Venue rows are read in parallel; a venue
  * whose `venueValue()` reverts (a protocol that broke underneath us) reports
@@ -410,8 +611,23 @@ export function buildVaultDepositCalls(
  * still needs to see the venue exists in order to evacuate it.
  */
 export async function readVaultState(overrideVault?: string): Promise<LegacyVaultState> {
-  const cfg: LegacyStackConfig = legacyStackConfig();
-  const vaultAddress = overrideVault ?? cfg.vault;
+  // Reading a cage needs TWO things: which network, and which address. It used
+  // to demand the whole configured stack even when handed the vault — so a
+  // missing LEGACY_VAULT_ADDRESS made a factory-born cage (whose address the
+  // resolver had just proven) unreadable, and the portfolio scan swallowed that
+  // as "this Legacy has no cage" (2026-08-22). Without an override the env
+  // stack is still the only place the address can come from, so it is still
+  // required there — and its error message is still the readable one.
+  let cfg: LegacyNetwork;
+  let vaultAddress: string;
+  if (overrideVault) {
+    cfg = readNetworkConfig();
+    vaultAddress = overrideVault;
+  } else {
+    const stack: LegacyStackConfig = legacyStackConfig();
+    cfg = stack;
+    vaultAddress = stack.vault;
+  }
   if (!ethers.isAddress(vaultAddress)) throw new Error('vault address is not a valid EVM address');
 
   const provider = new ethers.JsonRpcProvider(cfg.rpcUrl);

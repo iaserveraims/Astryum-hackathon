@@ -15,18 +15,29 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react
 import { useT } from '../../i18n/LanguageProvider';
 import type { SettlementState } from '../../lib/settlement/settlement';
 import { settlementReasonText } from '../../lib/settlement/reasonText';
+import type { ProtocolId } from '../../lib/earn/protocols';
+import { VenueContact } from '../venue/VenueContact';
 import { SignedMark } from './SignedMark';
 
 export function SettlementIndicator({
   state,
   settledText,
   pendingText,
+  protocol,
 }: {
   state: SettlementState;
   /** Headline once REALLY settled (defaults to a generic confirmed line). */
   settledText?: string;
   /** Headline while pending (defaults to "Signed — settling on Flare…"). */
   pendingText?: string;
+  /**
+   * The venue this operation lands on, when it has one. The receipt is where a
+   * person is standing the moment something looks wrong, so it is where the
+   * venue's OWN channels belong — otherwise the only address on screen is ours,
+   * and we did not build the place the money went. Omitted for the operations
+   * that have no venue (a plain transfer between the user's own wallets).
+   */
+  protocol?: ProtocolId;
 }) {
   const { t } = useT();
 
@@ -98,6 +109,7 @@ export function SettlementIndicator({
           </span>
         )}
       </div>
+      {protocol && <VenueContact protocol={protocol} variant="dense" className="pt-1" />}
     </div>
   );
 }

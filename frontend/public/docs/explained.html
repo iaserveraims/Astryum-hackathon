@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Astryum, explained whole</title>
+<meta name="description" content="What exists today on the XRP Ledger and Flare, how the infrastructure works from the inside, each product, what comes next and what comes after — every claim labelled, every number dated.">
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/apple-icon.png">
+<link rel="canonical" href="https://astryum.xyz/docs/explained">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Astryum">
+<meta property="og:title" content="Astryum, explained whole">
+<meta property="og:description" content="What exists today on the XRP Ledger and Flare, how the infrastructure works from the inside, each product, what comes next and what comes after — every claim labelled, every number dated.">
+<meta property="og:url" content="https://astryum.xyz/docs/explained">
+<meta property="og:image" content="https://astryum.xyz/docs/pages/pitch-deck/p01.jpg?v=2">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Astryum, explained whole">
+<meta name="twitter:description" content="What exists today on the XRP Ledger and Flare, how the infrastructure works from the inside, each product, what comes next and what comes after — every claim labelled, every number dated.">
+<meta name="twitter:image" content="https://astryum.xyz/docs/pages/pitch-deck/p01.jpg?v=2">
+<style>
+  /* Self-hosted: the production CSP only admits font-src 'self'. SIL Open Font License. */
+  @font-face { font-family: 'Newsreader'; font-style: normal; font-weight: 400 600; font-display: swap; src: url('/docs/fonts/newsreader-latin.woff2') format('woff2'); }
+  @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 600; font-display: swap; src: url('/docs/fonts/inter-latin.woff2') format('woff2'); }
+  @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 500; font-display: swap; src: url('/docs/fonts/jetbrains-mono-latin.woff2') format('woff2'); }
+  :root { color-scheme: light dark; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+</style>
+<style>
+  :root {
+    --paper: hsl(40 25% 97%);
+    --paper-2: hsl(40 22% 93%);
+    --ink: hsl(228 32% 11%);
+    --ink-2: hsl(40 8% 40%);
+    --rule: hsl(40 18% 86%);
+    --rule-soft: hsl(40 18% 91%);
+    --gold: hsl(45 68% 42%);
+    --gold-soft: hsl(45 75% 90%);
+    --code-bg: hsl(40 20% 92%);
+    --live: hsl(150 45% 30%);   --live-bg: hsl(150 40% 92%);
+    --built: hsl(38 70% 34%);   --built-bg: hsl(42 70% 91%);
+    --next: hsl(232 45% 42%);   --next-bg: hsl(232 45% 93%);
+    --later: hsl(40 8% 42%);    --later-bg: hsl(40 12% 90%);
+    --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: hsl(0 0% 5%);
+      --paper-2: hsl(0 0% 9%);
+      --ink: hsl(40 14% 93%);
+      --ink-2: hsl(40 8% 62%);
+      --rule: hsl(0 0% 18%);
+      --rule-soft: hsl(0 0% 13%);
+      --gold: hsl(45 72% 58%);
+      --gold-soft: hsl(45 40% 16%);
+      --code-bg: hsl(0 0% 11%);
+      --live: hsl(150 50% 68%);   --live-bg: hsl(150 30% 13%);
+      --built: hsl(42 75% 68%);   --built-bg: hsl(42 35% 14%);
+      --next: hsl(232 60% 76%);   --next-bg: hsl(232 30% 16%);
+      --later: hsl(40 8% 66%);    --later-bg: hsl(0 0% 14%);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: hsl(0 0% 5%);
+    --paper-2: hsl(0 0% 9%);
+    --ink: hsl(40 14% 93%);
+    --ink-2: hsl(40 8% 62%);
+    --rule: hsl(0 0% 18%);
+    --rule-soft: hsl(0 0% 13%);
+    --gold: hsl(45 72% 58%);
+    --gold-soft: hsl(45 40% 16%);
+    --code-bg: hsl(0 0% 11%);
+    --live: hsl(150 50% 68%);   --live-bg: hsl(150 30% 13%);
+    --built: hsl(42 75% 68%);   --built-bg: hsl(42 35% 14%);
+    --next: hsl(232 60% 76%);   --next-bg: hsl(232 30% 16%);
+    --later: hsl(40 8% 66%);    --later-bg: hsl(0 0% 14%);
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    padding-inline: 20px;
+    padding-block: 0 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--gold); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  .masthead {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-block: 40px 28px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .masthead .eyebrow {
+    font-family: var(--sans);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .masthead h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(34px, 5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 10px 0 14px;
+    text-wrap: balance;
+    max-width: 22ch;
+  }
+  .masthead .dek {
+    font-family: var(--serif);
+    font-size: clamp(18px, 2.2vw, 22px);
+    line-height: 1.4;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0 0 22px;
+    text-wrap: pretty;
+  }
+  .masthead .meta {
+    display: flex; flex-wrap: wrap; gap: 10px 28px;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .masthead .meta b { color: var(--ink); font-weight: 600; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 14px;
+    margin-top: 18px;
+    font-size: 13px; color: var(--ink-2);
+    align-items: center;
+  }
+  .legend span.hint { flex-basis: 100%; }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    line-height: 1.5;
+    vertical-align: 0.1em;
+    white-space: nowrap;
+  }
+  .pill.live  { color: var(--live);  background: var(--live-bg); }
+  .pill.built { color: var(--built); background: var(--built-bg); }
+  .pill.next  { color: var(--next);  background: var(--next-bg); }
+  .pill.later { color: var(--later); background: var(--later-bg); }
+
+  .frame {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+  @media (min-width: 1100px) {
+    .frame { grid-template-columns: 250px minmax(0, 1fr); }
+  }
+  nav.toc {
+    display: none;
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 24px);
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding-top: 36px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  @media (min-width: 1100px) { nav.toc { display: block; } }
+  nav.toc .toc-title {
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-2); font-weight: 600; margin-bottom: 12px;
+  }
+  nav.toc a {
+    display: block; color: var(--ink-2); text-decoration: none;
+    padding: 4px 0 4px 12px; border-left: 2px solid var(--rule-soft);
+  }
+  nav.toc a:hover { color: var(--ink); }
+  nav.toc a.active { color: var(--ink); border-left-color: var(--gold); }
+
+  article { max-width: 74ch; padding-top: 36px; min-width: 0; }
+  article > :first-child { margin-top: 0; }
+  article h1 { display: none; }
+  article h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 30px;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+    margin: 64px 0 16px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+  article h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 21px;
+    line-height: 1.25;
+    margin: 36px 0 10px;
+    text-wrap: balance;
+  }
+  article p { margin: 0 0 16px; text-wrap: pretty; }
+  article p:has(> .pill:only-child) { margin: 0 0 12px; }
+  article strong { font-weight: 600; }
+  article em { font-style: italic; }
+  article ul, article ol { padding-left: 1.3em; margin: 0 0 16px; }
+  article li { margin-bottom: 6px; }
+  article li > p { margin-bottom: 8px; }
+  article blockquote {
+    margin: 0 0 24px;
+    padding: 4px 0 4px 18px;
+    border-left: 2px solid var(--gold);
+    color: var(--ink-2);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  article blockquote p { margin-bottom: 10px; }
+  article code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    word-break: break-all;
+  }
+  article hr { border: 0; height: 0; margin: 0; }
+  article .tbl { overflow-x: auto; margin: 0 0 24px; border: 1px solid var(--rule); border-radius: 6px; }
+  article table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.45; min-width: 520px; }
+  article th, article td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--rule-soft); }
+  article th { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; background: var(--paper-2); }
+  article tr:last-child td { border-bottom: 0; }
+  article td:first-child { font-weight: 500; }
+  article table code { font-size: 0.82em; }
+  article .closing {
+    margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
+    font-family: var(--serif); font-size: 18px; color: var(--ink-2); font-style: italic;
+  }
+  article figure.diagram { margin: 8px 0 28px; padding: 14px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper-2); overflow-x: auto; }
+  article figure.diagram pre.mermaid { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--ink-2); white-space: pre; }
+  article figure.diagram svg { max-width: 100%; height: auto; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<style>
+  /* the strip back to the library */
+  .libbar { max-width: 1180px; margin: 0 auto; padding-block: 16px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 20px; border-bottom: 1px solid var(--rule); font-size: 13.5px; }
+  .libbar .lib-home { display: flex; align-items: baseline; gap: 10px; color: var(--ink); text-decoration: none; }
+  .libbar .lib-home b { font-family: var(--serif); font-weight: 500; font-size: 22px; letter-spacing: -.01em; }
+  .libbar .lib-home span { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+  .libbar .lib-actions { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+  .frame { max-width: 1180px; }
+
+  @media print {
+    @page { size: A4; margin: 14mm 12mm; }
+    html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { padding: 0; font-size: 10.5pt; background: #fff; }
+    .libbar, nav.toc, .prodnav { display: none !important; }
+    .masthead { padding-top: 0; }
+    .masthead, .frame, article { max-width: none; }
+    .frame { display: block; }
+    article .tbl, article figure.diagram { overflow: visible; }
+    article table, article table.circ, article table.plain { min-width: 0; font-size: 8.5pt; }
+    article h2, article h3 { break-after: avoid; }
+    article tr, article figure.diagram, article blockquote, .rail { break-inside: avoid; }
+    article a { text-decoration: none; }
+  }
+</style>
+<style>
+  /* figures and tables take the whole column; text keeps its measure (74ch of the 16px body = 721px) */
+  article { max-width: none; }
+  article > :not(figure):not(.tbl) { max-width: 721px; }
+  article figure.diagram.scrolls::after { content: "Scroll sideways to follow the diagram \2192"; display: block; position: sticky; left: 0; width: max-content; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+  article figure.diagram:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  @media print {
+    article > :not(figure):not(.tbl) { max-width: none; }
+    article figure.diagram svg { width: 100% !important; max-width: 100% !important; }
+    article figure.diagram.scrolls::after { display: none; }
+    article figure.diagram.dark { background: #131315; border-color: #131315; } /* printed from dark mode: the diagram keeps its dark ground */
+  }
+</style>
+</head>
+<body style="margin:0">
+<nav class="libbar" aria-label="Astryum documentation">
+  <a class="lib-home" href="/docs"><b>Astryum</b><span>Documentation</span></a>
+  <span class="lib-actions"><a href="/docs">All documents</a><a href="/docs/files/Astryum_Explained_Whole.pdf" download>Download PDF</a></span>
+</nav>
+<header class="masthead">
+  <div class="eyebrow">Technical paper · XRP Ledger + Flare</div>
+  <h1>Astryum, explained whole</h1>
+  <p class="dek">What exists today on the XRP Ledger and Flare, how the infrastructure works from the inside, each product, what comes next, and what comes after — with every claim labelled and every number dated.</p>
+  <div class="meta">
+    <span><b>Written</b> 15 September 2026</span>
+    <span><b>Source Tag</b> <code style="font-family:var(--mono)">2607090002</code></span>
+  </div>
+  <div class="legend">
+    <span class="pill live">LIVE</span><span>on mainnet today</span>
+    <span class="pill built">BUILT</span><span>code with tests; behind a wrapper or not yet exercised on mainnet</span>
+    <span class="pill next">NEXT</span><span>the V2 plan, decided, not coded</span>
+    <span class="pill later">LATER</span><span>needs primitives not yet on mainnet, or legal work</span>
+  </div>
+</header>
+
+<div class="frame">
+  <nav class="toc" id="toc" aria-label="Sections"><div class="toc-title">Sections</div><a href="#s1">How to read this</a><a href="#s2">Astryum in one page</a><a href="#s3">The base every product shares: the XRPL → Flare tunnel</a><a href="#s4">Why XRPL is load-bearing: the counterfactual, primitive by primitive</a><a href="#s5">The products today</a><a href="#s6">One system: one web, one kernel, N account types</a><a href="#s7">Legal vehicles ↔ credentials ↔ accounts: the link lives on the root</a><a href="#s8">What comes next: the V2 plan (decided 15 September; not coded yet)</a><a href="#s9">What comes after: the future, with precision</a><a href="#s10">How Astryum earns — and what it never charges</a><a href="#s11">The trust model: what happens if we fail, are attacked, or disappear</a><a href="#s12">The abstraction: what the user never sees, and what we refuse to hide</a><a href="#s13">Evidence: how to verify without asking us</a><a href="#s14">What we do not claim — and the open blockers</a><a href="#s15">Appendix A — status table (15 September 2026)</a><a href="#s16">Appendix B — terms used here</a></nav>
+  <article id="doc">
+<blockquote>
+<p><strong>15 September 2026.</strong> This is the master document: what Astryum is, how the infrastructure works on the XRP Ledger and on Flare, each product from the inside, what comes next, and what comes after. Everything here was checked against the repository, the deployment artifacts and live reads of both networks on 15 September; where something is not verified, it says so.</p>
+<p>Internal sources (Spanish): the end-to-end thesis (2 September), the system map and the V2 plan (15 September), and the repository canon <code>INVARIANTS.md</code> · <code>ARCHITECTURE.md</code> · <code>DECISIONS.md</code>. If this paper and that canon ever disagree, the canon wins.</p>
+</blockquote>
+<hr>
+<h2 id="s1">How to read this</h2>
+<p>Three planes, never mixed. Every claim in this document carries one of these labels:</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><span class="pill live">LIVE</span></td>
+<td>Running on mainnet today (XRPL Mainnet + Flare, chain 14). Checkable on an explorer without asking us.</td>
+</tr>
+<tr>
+<td><span class="pill built">BUILT</span></td>
+<td>Code with tests in the repository, behind a founders-only wrapper or a switch, or not yet exercised on mainnet.</td>
+</tr>
+<tr>
+<td><span class="pill next">NEXT</span></td>
+<td>The V2 plan: decided and sequenced, not coded yet — on purpose.</td>
+</tr>
+<tr>
+<td><span class="pill later">LATER</span></td>
+<td>Depends on primitives that are not on mainnet yet (Flare protocol-managed wallets and confidential compute; XRPL permission delegation), or on legal work that is not code.</td>
+</tr>
+</tbody></table></div>
+<p>Every number carries the time it was read. What we do not claim is in §13.</p>
+<hr>
+<h2 id="s2">1. Astryum in one page</h2>
+<p><strong>What it is.</strong> Astryum is non-custodial mission control for XRP. A person connects the wallet they already have and sees all their capital in one place. From there they can put it to work, hold it together with other people under rules, or delegate its management — and in every case <em>they</em> sign, and the rules are enforced by the ledger and by a contract, never by us. We never hold a key.</p>
+<p><strong>The problem, in the words of the people it is for.</strong> <em>&quot;My money is sitting still.&quot;</em> Today XRP has two options: stay idle, or be handed to someone who custodies it. <em>&quot;We are several and one person has the keys.&quot;</em> Capital held by a family or a group has a design flaw that has nothing to do with crypto: one person can always move it alone. <em>&quot;I want someone to manage it without being able to rob me.&quot;</em> Delegating the decision should not mean delegating possession. All three answers need primitives that only exist on a blockchain — a quorum the network enforces, credentials with expiry that anyone can check, contracts that refuse what does not fit the rules. The product consists of giving those capabilities without demanding the vocabulary.</p>
+<p><strong>The mechanism in one line.</strong> <em><strong>XRPL governs. Flare executes. The user signs.</strong></em> The XRP Ledger holds <em>who</em> has authority (a council with a quorum, a credential with an expiry, a designation from a root to a subordinate account), the constitution the group wrote, and the settlement of XRP itself. Flare holds the contracts that obey those orders or refuse them, and the venues where capital actually works. Between the two sits Flare&#39;s Data Connector acting as a notary: it attests that <em>this</em> XRPL account signed <em>this</em> commitment, and the contract on Flare checks the proof. There is no custodian in the path. What travels through the tunnel is the <strong>order</strong>, never the capital (except XRP itself, as FXRP, which is its legitimate representation on Flare).</p>
+<p><strong>The sentence that governs everything.</strong> <em>A person decides. The code decides what they can&#39;t.</em></p>
+<p><strong>What is live on mainnet today</strong> (detail in §4):</p>
+<ul>
+<li><strong>Personal account</strong> — one XRPL signature turns XRP into FXRP and executes DeFi on Flare, with no second wallet, no FLR for gas, no manual bridge; and the way back to XRP.</li>
+<li><strong>Legacy</strong> — a real council of four with a quorum of three, master key switched off, constitution anchored on the ledger; four council orders executed end to end, the last one in 1 min 40 s.</li>
+<li><strong>Managed vaults</strong> — a manager whose credential is verified on the ledger directs client capital inside a contract that cannot pay out principal to anyone; the full cycle (create, deposit, direct, recall, redeem) proven on mainnet.</li>
+<li><strong>Reinforced accounts</strong> — the same ceremony as Legacy, applied to a personal wallet: no single key moves anything.</li>
+<li><strong>Credentials</strong> as the access layer, <strong>MoneyFlows</strong> (rules that prepare and never sign), and the <strong>/proof</strong> page that verifies our claims in the visitor&#39;s own browser.</li>
+</ul>
+<p><strong>What comes next</strong> (§5–§7). One system: one web, one kernel, N account types, where the credential on the root account decides the type. The V2 plan builds the verification machine for venues, the enterprise account and its integration kit, composition with the worst case sealed into the signature, and a third generation of the contract with an external audit.</p>
+<p><strong>What comes after</strong> (§8). Flare&#39;s protocol-managed wallets and confidential compute as the cage&#39;s remote arm; one XRPL root governing many personalized accounts across chains; the agent as a sixth account type that lives inside its own compartment; private-but-verifiable exchange operations; fiat in and out; a card that cannot freeze your balance.</p>
+<p><strong>What we do not claim.</strong> The contracts have no external audit, so our own policy is small and written down: our own capital, small amounts, caps in configuration. The product is not open to the public yet. As of 13 September Astryum has <strong>5 active accounts and 289.51 XRP</strong> attributed to its Source Tag: few signatures, each one a council ceremony or a movement of real capital. We are not chasing account counts; we are building the evidence that the mechanism works with real money.</p>
+<hr>
+<h2 id="s3">2. The base every product shares: the XRPL → Flare tunnel</h2>
+<p>Every product in Astryum is a combination of two rails over one kernel. Understanding the two rails is understanding the whole system.</p>
+<h3>2.1 The axiom</h3>
+<p>The user&#39;s signature is always an XRPL transaction in their own wallet (Xaman). Everything else is composition and transport. Astryum prepares an <strong>unsigned</strong> transaction, shows all of it — including every fee — simulates it, hands it to the wallet, and stops. <strong>Astryum never signs, never custodies, never executes with discretion.</strong> This is not a policy; it is an absence of capability (§10.2).</p>
+<h3>2.2 Rail A — the personal path (the memo instruction) — <span class="pill live">LIVE</span></h3>
+<p>This is how one XRPL signature becomes a sequence of actions on Flare without the user owning a Flare wallet or a single FLR.</p>
+<ol>
+<li><p><strong>The Flare account is derived, not created.</strong> Every XRPL address has a deterministic Personal Account on Flare, derived by Flare&#39;s <code>MasterAccountController</code> (CREATE2). There is no sign-up: the account exists the moment it is used, and it is deployed by its first instruction. In the product it is shown as &quot;your Astryum account&quot;, folded inside the row of the XRPL wallet that governs it.</p>
+</li>
+<li><p><strong>Astryum composes the operation</strong> the user asked for (for example: mint FXRP and supply it to Kinetic; or the carry FXRP → RLUSD with collateral in a Sentora vault, five transactions in one signature). The operation is a batch of calls the Personal Account will execute, packed as a standard account-abstraction user operation (EIP-4337 v0.7 shape), and hashed.</p>
+</li>
+<li><p><strong>The unsigned XRPL Payment.</strong> Astryum returns a <code>Payment</code> from the user&#39;s own XRPL account to the <strong>FAssets Core Vault</strong> (<code>rfkXSaCZKTg1EZzec2rLDyrWHxRVJdtVXj</code>), carrying a <strong>Memo</strong> built with Flare&#39;s official Smart Accounts encoder: the instruction type, the wallet identifier, the executor fee, and the <strong>hash of the user operation</strong>. The <code>Account</code> field is pinned to the signer (a July incident taught us that without it the wallet signs from whichever account is active). A <code>LastLedgerSequence</code> bounds the signing window. Our Source Tag goes on the transaction. <strong>No DestinationTag is ever set on this Payment: a tag would misroute a FAssets direct mint</strong> — this is enforced in code and in the exchange&#39;s signing policy.</p>
+</li>
+<li><p><strong>Before the QR, the user sees everything.</strong> The operation is simulated (&quot;we tested this operation without signing it&quot;), and the fees appear in human units: the FAssets minting fee (10 basis points, minimum 0.1 XRP) and the executor fee (0.2 XRP) — both <strong>parameters of the protocol read live from the AssetManager</strong>, never hardcoded, never ours. Fee disclosure is an invariant of the system: the object that is signed carries <code>disclosedToUser: true</code> and the policy engine rejects anything that does not.</p>
+</li>
+<li><p><strong>The user signs in Xaman.</strong> Xaman broadcasts. The backend never sees the signed transaction.</p>
+</li>
+<li><p><strong>Flare&#39;s Data Connector attests the payment.</strong> Astryum&#39;s executor — an operational key of our own, not the user&#39;s — requests an <code>XRPPayment</code> attestation from the FDC hub (paying the round&#39;s fee, ~20 FLR, in FLR we hold), waits for the round to finalize (typically 2–5 minutes), collects the Merkle proof, checks it against the transaction, memo, amount and success status, simulates, and delivers it to <code>AssetManagerFXRP.executeDirectMintingWithData(proof, data)</code>.</p>
+</li>
+<li><p><strong>FAssets mints FXRP into the Personal Account, and in the same transaction the Personal Account executes exactly the batch whose hash was in the memo.</strong> The contract checks <code>keccak256(data) == userOpHash</code>, the sender and the nonce. The executor carries bytes the user already committed to; it cannot change a byte, an amount or a destination. <strong>One signature, N actions.</strong></p>
+</li>
+<li><p><strong>The way back</strong> inverts the path: redeeming FXRP to XRP (<code>redeemAmount</code>, or <code>redeemWithTag</code> when the destination is an exchange box) is itself a call inside a memo-authorized batch, so the XRPL signature authorizes it too. The redemption fee (18 basis points, read live) and the minimum (5 FXRP today) are shown before signing. Venue exit queues (Firelight, ~24 h) are counted with their real time.</p>
+</li>
+<li><p><strong>The receipt.</strong> The FDC proof on chain plus the hand-off record form the <code>ExecutionReceipt</code> in the audit trail. The state is <em>read</em> from the chain, never assumed: no screen turns green before real settlement.</p>
+</li>
+</ol>
+<p><strong>The same path, drawn.</strong></p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  autonumber
+  participant U as User (Xaman, XRPL)
+  participant A as Astryum backend (prepare-only)
+  participant X as XRP Ledger
+  participant F as FDC (Flare Data Connector)
+  participant E as Astryum executor (own key, zero discretion)
+  participant AM as AssetManagerFXRP (Flare)
+  participant PA as Personal Account (Flare, derived from the XRPL address)
+  U-&gt;&gt;A: "put 100 XRP to work in Kinetic"
+  A-&gt;&gt;A: compose the batch, hash it, read protocol fees live, simulate
+  A--&gt;&gt;U: UNSIGNED Payment to the FAssets Core Vault + memo(walletId, executor fee, hash)
+  U-&gt;&gt;X: signs in Xaman#59; Xaman broadcasts (backend never sees the signed tx)
+  E-&gt;&gt;F: requestAttestation(XRPPayment) — Astryum pays ~20 FLR
+  F--&gt;&gt;E: Merkle proof after the round (~2–5 min)
+  E-&gt;&gt;AM: executeDirectMintingWithData(proof, batch)
+  AM-&gt;&gt;PA: mints FXRP into the Personal Account
+  PA-&gt;&gt;PA: executeUserOp(batch) — checks keccak(batch) == memo hash, sender, nonce
+  PA--&gt;&gt;U: state readable on chain#59; receipt in the audit trail</pre></figure>
+<p><strong>Who pays what.</strong> The user pays the protocol&#39;s minting fee and executor fee in XRP, deducted from the gross amount and shown first. Astryum pays the FDC round and the gas of its two transport transactions in FLR. The economics close: the executor fee, converted at cost with Flare&#39;s native price oracle (FTSO), refuels the executor — proven on chain on 25 July.</p>
+<p><strong>Two reserved variants</strong> exist in code and are deliberately not used in production: the <em>registered custom instruction</em> memo (needs a registration transaction with FLR gas that no clean non-custodial signer can pay) and the <em>inline user operation</em> memo (measured, never composed). The catalogue of memo routes is therefore finite and explicit; we document that as a regulatory virtue, not a limitation.</p>
+<h3>2.3 Rail B — the council order — <span class="pill live">LIVE</span></h3>
+<p>This is how a group of people, or an accredited root account, governs a contract on Flare without anyone holding a key to it.</p>
+<ol>
+<li><p><strong>The root is an XRPL account.</strong> For a family it is a council: a weighted <code>SignerList</code> with a quorum, master key disabled. For a manager or an exchange it is a fresh, virgin account whose credentials live on it (§4.6).</p>
+</li>
+<li><p><strong>The order is a 1-drop Payment</strong> from the root to the <strong>anchor account</strong> (for the v2 stack: <code>rLcoFM9XF8CL5GoFyMACguhdnDtwkNYDn7</code>), with a Memo equal to the hash of <code>(nonce, calldata)</code>. What travels is the <strong>commitment</strong>, not the instruction: whoever transports the proof cannot alter it, because the destination contract compares the hash.</p>
+</li>
+<li><p><strong>FDC attests it</strong>, as in Rail A. Astryum&#39;s relayer (same operational key as the executor) requests the attestation and delivers the proof. The relayer is a messenger: impotent by construction.</p>
+</li>
+<li><p><strong>The bridge on Flare (<code>XrplCouncilBridge</code>, v2 <code>XrplCouncilBridgeV2</code>) checks nine guards</strong> before executing: the FDC proof verifies; the attestation type and source chain are right and the proof was requested for this bridge; the source address hash equals the council&#39;s (immutable at deployment); the XRPL transaction succeeded; the 32-byte memo equals the hash of the order; the transaction id has not been consumed; the nonce is the next one; and — new in v2 — the receiving address equals the anchor&#39;s hash (<code>WrongAnchor</code> otherwise), so that the anchor can later become a <em>gate</em> the ledger itself closes (§4.6). Then it calls the vault with exactly those bytes.</p>
+</li>
+<li><p><strong>If the order does not fit the rules, the contract reverts.</strong> <em>The &quot;no&quot; is given by the ledger, not by Astryum.</em> The bridge is literally the <code>council</code> of the vault: no other address can order it.</p>
+</li>
+</ol>
+<p>Four such orders have been executed end to end on mainnet against the Legacy stack (bridge <code>nextNonce = 4</code>, read live on 15 September), and the v2 cage bridges show nonces of 3, 1 and 3 across the three cages born so far.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  R["Root account on XRPL&lt;br/&gt;(a council SignerList, or an accredited root)"] -- "1-drop Payment&lt;br/&gt;memo = hash(nonce, calldata)" --&gt; AN["Anchor account&lt;br/&gt;rLcoFM…YDn7"]
+  AN -. "attested by FDC (XRPPayment)" .-&gt; F["Merkle proof"]
+  F --&gt; B["XrplCouncilBridgeV2&lt;br/&gt;nine guards + anti-replay"]
+  B -- "vault.call(calldata)" --&gt; C["Cage / vault on Flare"]
+  C -- "fits the rules" --&gt; V["Venue from the governed registry"]
+  C -- "does not fit" --&gt; X(("revert —&lt;br/&gt;the ledger says no"))</pre></figure>
+<h3>2.4 Kernel + rule modules</h3>
+<p>The two rails share a <strong>kernel</strong>: FDC <code>XRPPayment</code> verification, the binding to one XRPL account, anti-replay (consumed transaction ids, sequential nonce) and a canonical receipt. What changes per product is only the <strong>rule module</strong> the tunnel enforces:</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Tunnel</th>
+<th>Rule module</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Personal</td>
+<td>the finite catalogue of memo routes; personal limits</td>
+</tr>
+<tr>
+<td>Legacy</td>
+<td>the family cage: principal can only go to work and come back; quorum of heirs; constitution referenced by every governing call</td>
+</tr>
+<tr>
+<td>Managed (mandate)</td>
+<td>the manager directs and recalls, never extracts; venues only from a governed registry; payee cap; client exit that no one can gate</td>
+</tr>
+<tr>
+<td>Exchange / operator</td>
+<td>per-transaction and daily caps, a dozen typed refusals, clients attributed by tag; shares born in the client&#39;s name</td>
+</tr>
+<tr>
+<td>Agent (later)</td>
+<td>a designation the root can revoke; the agent&#39;s compartment is its limit</td>
+</tr>
+</tbody></table></div>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  subgraph K["Kernel — audited once, shared by every product"]
+    direction LR
+    K1["FDC XRPPayment verification"] --- K2["binding to ONE XRPL account"] --- K3["anti-replay: txId consumed, sequential nonce"] --- K4["canonical receipt"]
+  end
+  K --&gt; M1["Personal&lt;br/&gt;finite memo routes"]
+  K --&gt; M2["Legacy&lt;br/&gt;no principal out · quorum · constitution referenced"]
+  K --&gt; M3["Managed&lt;br/&gt;direct/recall only · registry venues · payee cap · exit never gated"]
+  K --&gt; M4["Exchange&lt;br/&gt;caps · typed refusals · shares born in the client's name"]
+  K --&gt; M5["Agent (later)&lt;br/&gt;revocable designation · its pote is its limit"]</pre></figure>
+<p>The kernel is audited once; each new product is a small module. This is what &quot;one kernel, N occupants&quot; means in the code.</p>
+<h3>2.5 What the user signs — and what our own keys do</h3>
+<p><strong>The user signs</strong> an XRPL transaction in Xaman: a Payment with a memo (Rail A or B), a <code>SignerListSet</code>, an <code>AccountSet</code> disabling the master key, a <code>DIDSet</code>, an <code>EscrowCreate</code>, a <code>CredentialAccept</code>. In a council, each member signs their part from their own phone, asynchronously (Tickets keep the account&#39;s sequence free); <strong>the browser combines the signatures and broadcasts to public nodes</strong>; the backend never touches a signature. The Xaman payload is created server-side with our API key and the transaction JSON goes to Xaman untouched.</p>
+<p><strong>Astryum&#39;s own keys sign only Astryum&#39;s own transactions</strong>, and it is an inventory, not a vague carve-out: the executor of Rail A; the relayer of council orders (same key); the keeper that pushes time-based escrows to their fixed destination (permissionless <code>EscrowFinish</code>/<code>EscrowCancel</code>); the notary that issues a credential after re-checking public facts; the service that refuels the executor from the anchor; and, only with its switch on, the omnibus key of the <strong>simulated</strong> exchange (§4.5). All of them carry bytes the user already committed to, pay gas, or push an outcome the ledger already fixed. None can change a destination or an amount. None holds user capital. A boot guard (<code>assertNoCustodialKeys</code>) enforces at start-up that no key capable of custodying user funds is configured.</p>
+<p><strong>Prepare-only is in the type system.</strong> The intent preparation engine cannot broadcast (a compile-time guard); the calldata builder marks every authorization <code>astryumRelays: false</code>; the regulated relay boundary records an <code>authorizationProof</code> — explicitly <em>not</em> a transaction hash — and stops.</p>
+<h3>2.6 Why it takes both networks — and the capital rule</h3>
+<p>The uncomfortable question from anyone in the XRPL ecosystem is legitimate: <em>why isn&#39;t everything on XRPL?</em> Because the XRP Ledger is an excellent settlement and governance ledger and is not a general-purpose state machine. The rules this product needs — <em>&quot;this capital can only go to this list of destinations, never to an arbitrary address; the manager may direct but never extract; the client leaves whenever they want&quot;</em> — must live as a <strong>contract</strong>, not as a setting in an application. So: <strong>XRPL governs</strong> (who commands, with what title, with what quorum, and the settlement of XRP itself) and <strong>Flare enforces and executes</strong> (the contract that obeys or reverts, and the venues where capital works). The product exists only in the overlap. Remove XRPL and you lose the root of authority; remove Flare and you lose automatic enforcement.</p>
+<p><strong>The rule that separates us from most bridges:</strong> through the tunnel travels the <em>order</em>, never the capital. We never route capital that is not XRP through the XRP Ledger, and we never bridge something <em>to</em> XRPL first in order to move it later. Every asset works where it lives. (EVM capital, when it comes, executes directly on its chain via a partner; it is never detoured through XRPL.)</p>
+<h3>2.7 The infrastructure inventory — what we build products out of</h3>
+<p>Every product above and below is <em>defined</em> by which of these pieces it switches on. Nothing in the list is ours except the contracts and the backend; the primitives belong to the two networks, and that is the point: if Astryum disappears, the primitives and the contracts keep working.</p>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  subgraph XRPL["XRP Ledger — governs (authority, credentials, settlement of XRP)"]
+    direction LR
+    x1["Payment + Memo"] --- x2["SignerList · DisableMaster · Tickets"] --- x3["Credentials XLS-70"] --- x4["DIDSet"] --- x5["Escrow"] --- x6["DepositAuth · DepositPreauth"] --- x7["Source Tag · Destination Tag"]
+  end
+  subgraph FL["Flare — enforces and executes"]
+    direction LR
+    f1["FDC: XRPPayment attestation"] --- f2["Smart Accounts: MasterAccountController → Personal Account"] --- f3["FAssets: FXRP mint / redeem"] --- f4["FTSO: cost at price"] --- f5["RIP-7212: P-256 passkey accounts"]
+  end
+  subgraph AS["Astryum contracts — the rule modules (no proxy, no pause, no owner = Astryum)"]
+    direction LR
+    c1["XrplCouncilBridge v1 / v2"] --- c2["LegacyVault · LegacyStackFactory"] --- c3["AstryumCage · CageFactory · Registry"] --- c4["AstryumVaultV2 (potes)"] --- c5["PasskeyAccount"]
+  end
+  subgraph BE["Astryum backend — prepare-only, never signs for a user"]
+    direction LR
+    b1["intent preparation · policy guard · simulation"] --- b2["memo composer · executor · relayer"] --- b3["credential ceremony · notary · gate"] --- b4["exchange desk · omnibus watcher"] --- b5["Source Tag metrics · /proof"]
+  end
+  XRPL -- "orders, attested by FDC" --&gt; FL
+  FL -- "executes inside" --&gt; AS
+  BE -. "composes unsigned transactions for" .-&gt; XRPL
+  BE -. "transports proofs to" .-&gt; AS</pre></figure>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Network</th>
+<th>Personal</th>
+<th>Reinforced</th>
+<th>Legacy</th>
+<th>Managed</th>
+<th>Exchange</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Payment + Memo (committed intent)</td>
+<td>XRPL</td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+</tr>
+<tr>
+<td>SignerList · DisableMaster · Tickets</td>
+<td>XRPL</td>
+<td></td>
+<td>●</td>
+<td>●</td>
+<td>optional</td>
+<td>optional</td>
+</tr>
+<tr>
+<td>Credentials XLS-70 (compliance / designation)</td>
+<td>XRPL</td>
+<td></td>
+<td></td>
+<td></td>
+<td>●</td>
+<td>●</td>
+</tr>
+<tr>
+<td>DIDSet (constitution)</td>
+<td>XRPL</td>
+<td></td>
+<td></td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+</tr>
+<tr>
+<td>Escrow (scheduled payments)</td>
+<td>XRPL</td>
+<td>● (MoneyFlows)</td>
+<td></td>
+<td>●</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>DepositAuth · DepositPreauth (built, not switched on)</td>
+<td>XRPL</td>
+<td></td>
+<td></td>
+<td></td>
+<td>○</td>
+<td>○</td>
+</tr>
+<tr>
+<td>Source Tag / Destination Tag</td>
+<td>XRPL</td>
+<td>● / –</td>
+<td>● / –</td>
+<td>● / –</td>
+<td>● / –</td>
+<td>● / ● (client box)</td>
+</tr>
+<tr>
+<td>FDC XRPPayment</td>
+<td>Flare</td>
+<td>●</td>
+<td></td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+</tr>
+<tr>
+<td>Smart Accounts (Personal Account)</td>
+<td>Flare</td>
+<td>●</td>
+<td>●</td>
+<td>● (council&#39;s PA)</td>
+<td>● (root&#39;s PA)</td>
+<td>● (K1 / K2 PAs)</td>
+</tr>
+<tr>
+<td>FAssets FXRP</td>
+<td>Flare</td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+<td>●</td>
+</tr>
+<tr>
+<td>FTSO</td>
+<td>Flare</td>
+<td>● (executor at cost)</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>RIP-7212 passkeys</td>
+<td>Flare</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>● (clients)</td>
+</tr>
+<tr>
+<td>XrplCouncilBridge v1 · LegacyVault</td>
+<td>Astryum</td>
+<td></td>
+<td></td>
+<td>●</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Bridge v2 · Cage · Registry · Potes</td>
+<td>Astryum</td>
+<td></td>
+<td></td>
+<td></td>
+<td>●</td>
+<td>●</td>
+</tr>
+<tr>
+<td>PasskeyAccount</td>
+<td>Astryum</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>●</td>
+</tr>
+</tbody></table></div>
+<p>● used today · ○ built, waiting to be switched on · – not used by design.</p>
+<hr>
+<h2 id="s4">3. Why XRPL is load-bearing: the counterfactual, primitive by primitive</h2>
+<p>The test worth applying: <em>remove the XRP Ledger — which user capability disappears?</em> Our answer, primitive by primitive. None is decorative; those without a consumer yet are marked as such.</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Primitive</th>
+<th>Capability that disappears without it</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Weighted SignerList + master key disabled</strong></td>
+<td>The council, the heirs, the reinforced account. &quot;Three of four agreed&quot; is a fact of the network, not a row in our database we could edit. The master key can be re-enabled only by the same quorum: cure is possible, the shortcut is not.</td>
+<td><span class="pill live">LIVE</span> (real council 3-of-4 on mainnet since July)</td>
+</tr>
+<tr>
+<td><strong>Payment with Memo</strong> (the committed intent)</td>
+<td>One signature in the wallet the user already has orders N actions on another chain, with no second wallet, no gas token, no manual bridge. What travels is the commitment; the transporter cannot change a byte.</td>
+<td><span class="pill live">LIVE</span> (both rails)</td>
+</tr>
+<tr>
+<td><strong>Credentials (XLS-70)</strong></td>
+<td>Licence and identity as ledger objects with expiry, accepted by the subject, checkable by anyone without asking us. The credential <em>is</em> the account type. Without it, accreditation is a list of ours: trust inverts back to Astryum.</td>
+<td><span class="pill live">LIVE</span> as the manager gate; the on-ledger door is BUILT (below)</td>
+</tr>
+<tr>
+<td><strong>Designation by credential</strong> (root → subordinate)</td>
+<td>Hierarchy between accounts as a ledger object (a council names its omnibus). Revoking or letting it expire beheads the subordinate <strong>without touching any client&#39;s exit</strong>.</td>
+<td><span class="pill live">LIVE</span> on mainnet for the exchange rehearsal</td>
+</tr>
+<tr>
+<td><strong>DepositAuth + DepositPreauth by credential</strong></td>
+<td>An account that only accepts what comes from a holder of a valid title — the door closed <strong>by consensus itself</strong>, with no code of ours in the middle. Without it, the door is a check on our server, i.e. a door that opens by switching our server off.</td>
+<td><span class="pill built">BUILT</span>: builders, routes and API client exist; no screen calls them yet; not exercised on mainnet. The v2 bridge already verifies the anchor for the day it becomes this door.</td>
+</tr>
+<tr>
+<td><strong>DIDSet</strong> (the anchored constitution)</td>
+<td>The rules the group wrote are anchored in the account&#39;s own record (hash + pointer). They cannot be rewritten quietly, and the contract references the DID data, not a loose transaction hash.</td>
+<td><span class="pill live">LIVE</span></td>
+</tr>
+<tr>
+<td><strong>Escrow</strong></td>
+<td>Scheduled payments to beneficiaries that settle themselves: finish and cancel are permissionless for time-based escrows, so no process of ours needs to be awake and holding keys.</td>
+<td><span class="pill live">LIVE</span> (keeper pushes them; it is our own key, no Source Tag)</td>
+</tr>
+<tr>
+<td><strong>DestinationTag</strong></td>
+<td>The exchange client who participates <strong>without an XRPL account, reserves or gas</strong>: a tag to enter. (This is the <em>only</em> place a DestinationTag appears — as a client&#39;s box on an omnibus, the standard exchange practice — never on a memo instruction.)</td>
+<td><span class="pill built">BUILT</span>, rehearsed</td>
+</tr>
+<tr>
+<td><strong>SourceTag</strong></td>
+<td>Verifiable attribution without asking anyone for data. It goes in the transaction body and survives multisig: each signer counts. House rule that lowers our own numbers on purpose: no operational account of Astryum ever stamps the project tag (that would be self-attribution; it is codified with two explicit modes and fixed by tests).</td>
+<td><span class="pill live">LIVE</span></td>
+</tr>
+<tr>
+<td><strong>RLUSD</strong></td>
+<td>Settlement and collateral in the same currency as the institutional infrastructure that already exists — what makes us complementary rather than parallel to it.</td>
+<td>configured as an admissible asset; the Ethereum lending lane exists and is not in the production allow-list</td>
+</tr>
+<tr>
+<td><strong>Permissioned Domains (XLS-80)</strong></td>
+<td>(nothing yet: composed and tested, no route consumes the domain id)</td>
+<td><span class="pill built">BUILT</span>, decorative — and we say so</td>
+</tr>
+<tr>
+<td><strong>Permission delegation (XLS-75)</strong></td>
+<td>(nothing yet: the amendment is not active)</td>
+<td>house rule: <strong>not one line of code</strong> until it activates on mainnet; and then it is <em>transport</em> of a delegation, never the security boundary — the limit is always the cage</td>
+</tr>
+<tr>
+<td><strong>Batch</strong></td>
+<td>(not on mainnet)</td>
+<td>not used, not announced</td>
+</tr>
+</tbody></table></div>
+<p><strong>The proof is not the assertion.</strong> All of the above can be checked without asking us: the <code>/proof</code> page verifies in the visitor&#39;s browser against the ledger and the contracts (§12).</p>
+<hr>
+<h2 id="s5">4. The products today</h2>
+<p>Each product follows the same template: what the user lives, what happens underneath, which XRPL primitives and which Flare pieces carry it, who signs what, what Astryum never does, and its real state.</p>
+<h3>4.1 Personal account — your XRPL wallet commands your account on Flare — <span class="pill live">LIVE</span></h3>
+<p><strong>What the user lives.</strong> Logs in with Xaman (the wallet is the identity). Sees their capital in one map — XRPL, Flare and EVM positions in read-only. Puts XRP to work on Flare with one signature: no FLR, no EVM wallet, no visible bridge. Leaves from the same screen: &quot;Convert to XRP&quot;. Configurable things are <em>named options</em>, never technical fields (&quot;Prudent · Balanced · At the limit&quot;); the user is asked only what only they know: how much, and where.</p>
+<p><strong>Underneath.</strong> Rail A exactly as in §2.2. Venues live in production today, each behind its own scanner and its own switch, listed in code (not in an environment variable — a lesson from an incident on 14 September, §10.3): Kinetic (lend, and the carry that borrows dollars against FXRP), Firelight (stXRP staking), earnXRP (Clearstar), Monarq, and FLR delegation to the FTSO. Adapters for SparkDEX, Ēnosys and Sceptre exist behind their flags. The carry FXRP → RLUSD with collateral in a Sentora vault composes five transactions in one signature.</p>
+<p><strong>XRPL primitives:</strong> Payment with Memo and Source Tag; multisig valid on the same rail (proven). It does not use Escrow, DEX, AMM, NFT, MPT or Batch.
+<strong>Flare pieces:</strong> Smart Accounts (<code>MasterAccountController</code> + Personal Account), FAssets (FXRP, direct minting and redemption), FDC (<code>XRPPayment</code>), FTSO (executor cost at price), the venues above.
+<strong>Who signs:</strong> the user, one XRPL Payment. (In the carry, optionally the repayment from MetaMask.)
+<strong>What Astryum never does:</strong> sign with a user key, broadcast a user transaction, decide the operation. The executor is transport with zero discretion; its cost is charged at cost.
+<strong>State:</strong> proven on mainnet — mint, deposit, withdraw, repay; FXRP → XRP redemption end to end on 31 July; the full memo rail end to end on 22 August. The bridge of FXRP from Flare to Ethereum (LayerZero OFT) exists as verified calldata that the user signs from a Flare EOA; reaching it <em>from the XRPL signature</em> is a later step.</p>
+<h3>4.2 Reinforced account — a personal wallet where no single key moves anything — <span class="pill live">LIVE</span> (same ceremony as Legacy)</h3>
+<p><strong>What the user lives.</strong> Their personal account, with the dials turned up: two of three of <em>their own</em> keys (for example two phones and a backup) must sign, and the original single key is switched off. It stays a personal wallet — no constitution, no cage, no inheritance. It is the middle step of a spectrum: simple (1-of-1) → reinforced (2-of-3, master off) → council (3-of-4 plus constitution and cage).</p>
+<p><strong>Underneath.</strong> Exactly the ceremony Legacy proved on mainnet in July: <code>SignerListSet</code> with weights and quorum → a rehearsal in which every signer actually signs a multisig transaction (an <code>EscrowCreate</code>) so nobody closes a door they cannot open → <code>AccountSet{asfDisableMaster}</code>, with the irreversibility disclosed. The ledger does not distinguish &quot;reinforced&quot; from &quot;council&quot;; the owner marks it, and the health rules refuse to close the door without a rehearsed quorum with a margin of at least one signer.</p>
+<p><strong>Landmines we refuse, and say so:</strong> a RegularKey is an OR, never a second factor; a pure 2-of-2 is a permanent freezer if you lose one factor (default is 2-of-3); closing the master key requires the master&#39;s own single signature, reopening it is governed by the quorum — verified on xrpl.org.</p>
+<p><strong>State:</strong> the multisig coordinator and the ceremony have been live on mainnet since 14–15 July; the reinforced surface (a shorter ceremony that skips the constitution) shipped in September. Founder-facing today, waves later.</p>
+<h3>4.3 Legacy — a family governs by quorum — <span class="pill live">LIVE</span> on mainnet</h3>
+<p><strong>What the user lives.</strong> A council of real people (for example 3 of 4) holds the family&#39;s capital. They write the constitution in plain language — who signs, for what, within which limits. Astryum checks the plan while it is still reversible, anchors it on the ledger, and from then on every decision needs the quorum. Then the council closes the door: the original single key is switched off. Nobody moves the capital alone: not a member, not us. <strong>The heirs do not wait for an event: they already are the quorum.</strong> Scheduled payments to beneficiaries settle themselves.</p>
+<p><strong>Underneath.</strong></p>
+<ol>
+<li><code>SignerListSet</code> (weights, quorum), <code>asfDisableMaster</code>, <code>DIDSet</code> with the constitution (SHA-256 of the text plus a URI; the vault references the DID data). The multisig coordinator fixes sequence and fee and never signs, combines or broadcasts.</li>
+<li>An <strong>asynchronous signing tray</strong>: each member signs their part in Xaman when they can; the browser combines and broadcasts. Tickets prevent sequence blocking.</li>
+<li><strong>The cage is born with one memo instruction</strong> (Rail A) whose batch is <code>[LegacyStackFactory.create, FXRP.approve(predicted vault), LegacyVault.deposit]</code>; CREATE2 makes the vault&#39;s address predictable. The factory accepts as creator <strong>only the Personal Account of the council itself</strong>: on a multisig-only account, producing that payment <em>is</em> the quorum. Nothing is born without an anchored constitution.</li>
+<li><strong>Orders travel by Rail B</strong> to <code>LegacyVault</code> through <code>XrplCouncilBridge</code>: a catalogue of twelve actions (direct capital to a venue, recall it, move, evacuate, propose or retire a venue with a 30-day delay, set the lineage fee, set payees, cede the director&#39;s seat temporarily, end the cession, update the constitution reference).</li>
+<li><strong>What does not exist in the vault, by design:</strong> no <code>withdrawPrincipal</code>, no transfer to an arbitrary address, no proxy, no upgrade, no pause. The only relocation is <code>migrate</code> to a successor, and it is the opposite of a back door: the council proposes it, it waits <strong>30 days</strong>, and it requires verified continuity of council, constitution and asset. Changing the rules means moving to a successor, not editing a setting. Only the <em>yield</em> leaves to people: <code>harvest</code> splits it between the lineage (capitalized, floor 10 % ceiling 40 %), a protocol fee capped hard at 10 % (default 0) and payees.</li>
+</ol>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  M1["Member 1"] &amp; M2["Member 2"] &amp; M3["Member 3"] &amp; M4["Member 4"] -- "each signs their part in Xaman;&lt;br/&gt;the browser combines and broadcasts" --&gt; CS["Council account on XRPL&lt;br/&gt;SignerList 3-of-4 · master key OFF&lt;br/&gt;DIDSet = hash of the constitution"]
+  CS -- "council order (Rail B)" --&gt; BR["XrplCouncilBridge&lt;br/&gt;= the vault's only council"]
+  BR --&gt; LV["LegacyVault on Flare&lt;br/&gt;no withdrawPrincipal · no transfer to an address&lt;br/&gt;no proxy · migrate = 30 days + continuity"]
+  LV -- "directTo / recall" --&gt; VN["Allow-listed venues (30-day delay to add)"]
+  LV -- "harvest: yield only" --&gt; BEN["Lineage (capitalized) · payees"]
+  CS -- "Escrow: finish is permissionless" --&gt; BEN2["Beneficiaries: scheduled payments"]</pre></figure>
+<p><strong>XRPL primitives:</strong> SignerList, DisableMaster, DIDSet, Tickets, Escrow, 1-drop Payment with memo, Source Tag surviving multisig. Batch: no.
+<strong>Flare pieces:</strong> <code>XrplCouncilBridge</code>, <code>LegacyVault</code>, <code>LegacyStackFactory</code> (one cage per Legacy), FDC, the relayer.
+<strong>Who signs:</strong> the quorum signs everything, in Xaman. Astryum composes and relays the FDC proof with its own account: the messenger is impotent.
+<strong>State:</strong> proven on mainnet on 29 July (real council, three signers, <code>directTo</code> Kinetic, <code>nextNonce</code> 0 → 1) and four orders end to end by 4 August (the last in 1 min 40 s). Live reads on 15 September: bridge <code>nextNonce = 4</code>; vault holding ≈ 4.70 FXRP in one venue, lineage fee 30 %. No external audit, so our own cap is small: 5 XRP per cage, in configuration. Designed and not built: the &quot;release vessel&quot;, and signature ≙ person enforcement. When protocol-managed wallets exist, the family moves to the cage v2 (§8.1).</p>
+<h3>4.4 Managed vaults — a manager with a credential directs inside a cage — <span class="pill live">LIVE</span> on mainnet</h3>
+<p><strong>What the two users live.</strong> The <strong>manager</strong> opens their vault from their Xaman, picks venues from a list and directs the capital; they see a desk with orders. The <strong>client</strong> deposits and leaves whenever they want, without asking anyone; they see their position and an exit button. Neither sees a contract. The surface is called &quot;Managed vaults&quot;, eyebrow &quot;Run by a third party&quot;: a name names the thing, it does not push an act.</p>
+<p><strong>Underneath.</strong></p>
+<ol>
+<li><strong>The manager&#39;s root is a fresh, virgin XRPL account</strong> (one council = one cage, forever). On it live its credentials: a sector credential plus an identity credential, each with an <code>Expiration</code> and accepted by the subject. The gate is configured as OR-groups (<code>AIFM|CASP</code> and <code>KYC|KYB</code>: <em>the licence of your sector, and your identity</em>), is <strong>fail-closed</strong>, and bites at birth and at every order: <strong>without valid credentials on the root, the cage is not born.</strong> In public we say only &quot;a credential verified on the ledger&quot;: the credential <em>type</em> names the licence the manager states they hold; the issuer attests it; Astryum verifies the object on the ledger and never certifies anything.</li>
+<li>The constitution of the vehicle is anchored with <code>DIDSet</code> on the root.</li>
+<li><strong>Birth is a memo instruction (Rail A)</strong> that deploys, through <code>AstryumCageFactory</code>, the cage (<code>AstryumCage</code>, with an immutable <code>AUTHORITY</code> = the council&#39;s own v2 bridge) and its first &quot;pote&quot; (<code>AstryumVaultV2</code>, an ERC-4626 vault). The factory accepts as deployer only the Personal Account of that root.</li>
+<li><strong>Every manager order</strong> (<code>create-pote</code>, <code>direct-to</code>, <code>recall</code>, <code>set-payees</code>, <code>cede</code>…) is a council order (Rail B). The cage only accepts venues from <code>AstryumRegistry</code> (a governed list with a timelock — 1 hour, immutable — and a public event; two venues live: Kinetic isoFXRP and Firelight stXRP), and the manager <strong>can never extract</strong>: the cage has no <code>receive</code>, no <code>fallback</code>, no <code>sweep</code>, no generic <code>call</code>, no function over shares. Capital only goes to work and comes back.</li>
+<li><strong>The manager&#39;s cut is a payee on chain, and its ceiling is set by the cage</strong>, not by the pote: the deployed cage carries <code>MAX_PAYEE_BPS_ALLOWED = 2000</code>, so no pote of it distributes more than <strong>20 % of the yield</strong> — never the principal — and succession cannot raise it. A pote asking for more than 20 % is born private with a permanent gate: whoever charges more cannot be open to the public.</li>
+<li><strong>The client deposits with their signature and redeems with their signature</strong>; <code>redeem</code> unwinds venues by itself if needed. <code>requestRedeem</code> is owner-only with no allowance path: <em>&quot;the director is never approved&quot; is not a rule, it is unrepresentable.</em> And an explicit invariant with a tripwire test: <strong>no flow ever asks the client to approve the operator over their shares</strong> — a single <code>approve</code> to the director would dissolve the cage without touching the contract.</li>
+<li>The pote has <strong>no protocol fee hook</strong>: Astryum&#39;s fee to the client is zero, enforced by absence.</li>
+</ol>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  I["Issuer: an accredited third party&lt;br/&gt;(never Astryum)"] -- "CredentialCreate" --&gt; RT["Manager root on XRPL (virgin)&lt;br/&gt;accepts: sector + identity credential&lt;br/&gt;DIDSet = constitution"]
+  RT -- "memo instruction (Rail A)" --&gt; FA["AstryumCageFactory&lt;br/&gt;accepts only the root's Personal Account"]
+  FA --&gt; CG["AstryumCage&lt;br/&gt;AUTHORITY = the root's bridge&lt;br/&gt;cannot custody, extract or be upgraded"]
+  CG --&gt; PT["Pote = ERC-4626 vault&lt;br/&gt;payee cap 20% of yield&lt;br/&gt;requestRedeem owner-only"]
+  RT -- "council order (Rail B)" --&gt; BR["Bridge v2&lt;br/&gt;anchor verified"] --&gt; CG
+  REG["AstryumRegistry&lt;br/&gt;1 h timelock · public event&lt;br/&gt;2 venues live"] -. "isApprovedVenue" .-&gt; PT
+  PT --&gt; V1["Kinetic isoFXRP"] &amp; V2["Firelight stXRP"]
+  CL["Client"] -- "deposit / redeem: own signature" --&gt; PT
+  G{{"Gate: valid credentials on the root?&lt;br/&gt;fail-closed at birth and at every order&lt;br/&gt;— except exits"}} -.-&gt; RT</pre></figure>
+<p><strong>XRPL primitives:</strong> virgin root, Credentials XLS-70 (<code>CredentialCreate</code> / <code>CredentialAccept</code>, <code>Expiration</code>, <code>URI</code> to the public register or the attestation), <code>DIDSet</code>, memo Payment, 1-drop Payment with memo, optional SignerList.
+<strong>Flare pieces:</strong> <code>AstryumCageFactory</code>, <code>AstryumCage</code>, <code>AstryumVaultV2</code>, <code>AstryumRegistry</code>, <code>XrplCouncilBridgeV2</code> (anchor verified, <code>WrongAnchor</code>), <code>PoteDeployer</code> (exists because of the contract-size limit), FDC.
+<strong>Who signs:</strong> the manager signs in Xaman the birth, each order and the credential ceremonies. The client signs deposit and exit.
+<strong>What Astryum never does:</strong> sign, occupy the director&#39;s seat, issue the real licence (it only chooses which issuers it accepts, with a uniform check), ask the client to approve the operator.
+<strong>State:</strong> Foundry suite green, <strong>168 of 168</strong> test functions, of which <strong>62 cover the cage v2</strong> against real venues on a mainnet fork — including a theft reproduced in v1 and blocked in v2. Stack v2 deployed on mainnet (registry, factory, live anchor; 3–8 September). <strong>Full cycle proven on mainnet</strong>: create pote, deposit, direct and recall by council order, redeem. Live reads on 15 September: registry with 2 venues; factory with <strong>3 cages and 4 potes</strong> (all with zero supply today, consistent with everything having been redeemed); 3 free potes per cage, then a creation fee of 1 FXRP paid directly to the treasury in the birth transaction. The manager&#39;s desk and the directory are published; cage creation for non-founders is still behind the founders-only wrapper. <strong>The catalogue of the pote is exhausted today:</strong> a new venue must be a typed shape (ERC-4626, Compound-v2, or queued ERC-4626), on the same chain, with the same underlying asset — anything else needs a new audited branch of the contract, and we do not promise venues we cannot add.</p>
+<h3>4.5 Exchange — the structure of one, adopted by an operator — <span class="pill built">BUILT</span> (infrastructure on mainnet; rehearsed; not open)</h3>
+<p><strong>The framing, verbatim from the product page (15 September):</strong> <em>Astryum is not an exchange. It is the structure of one, built on the network, so that a company holding the credential to serve clients can create its own exchange here and operate it with them.</em> What the company creates: a root of authority on XRPL, an omnibus it names and controls with its own keys, a register of the clients it approves, and the potes on Flare where their capital works. What Astryum never does: sign, hold anyone&#39;s funds, approve a client.</p>
+<p><strong>What the operator lives.</strong> An exchange is born by stations from its Xaman: accredited root → anchored constitution → cage → pote → KYC door → designation of its omnibus with two signatures. Then it runs a multi-client desk with per-transaction and daily caps, twelve typed refusal codes, a double evaluation before signing (on the intended payment and on the real bytes), and receipts verified on chain. <strong>The DENIED is the proof:</strong> the order that exceeds the limit reverts before moving, and the refusal is archived as evidence.</p>
+<p><strong>What the exchange&#39;s client lives.</strong> No XRPL account, no XRP for reserves, no gas: a DestinationTag to enter, Face ID to leave, and vault shares in their own name from the first block.</p>
+<p><strong>Underneath.</strong></p>
+<ol>
+<li><strong>Two XRPL accounts, always:</strong> K1 (the council: a new accredited root, with the constitution in its DID) and K2 (the omnibus, the till). Reasons: one memo instruction in flight per account; the credential never on a hot key; one Personal Account per account; an auditable separation of duties.</li>
+<li><strong>K1 names K2 with a designation credential</strong> of type <code>OMNIBUS</code> (XLS-70: the root issues, the till accepts; a short <code>Expiration</code> means re-appointment). Verification is <strong>relational</strong> (issuer == the root of <em>this</em> structure), never a global allow-list. Revoking it beheads the till without touching any client&#39;s exit.</li>
+<li><strong>The client deposits XRP into K2 with their tag.</strong> The omnibus watcher detects it. <strong>K2 signs, with its own key and in its own infrastructure</strong>, the memo instruction <code>[approve, deposit → the client&#39;s passkey account]</code>: the minted FXRP enters the pote and the shares are born in the name of the client&#39;s <code>PasskeyAccount</code> (a P-256 account on Flare via the RIP-7212 precompile, counterfactual, live on Flare since August).</li>
+<li><strong>KYC per box.</strong> The root issues a credential <code>KYC-&lt;tag&gt;</code> whose subject is the omnibus: a public, dated, expiring <strong>notarized record of the exchange&#39;s own process</strong>. Precision matters here: <strong>the ledger does not enforce it</strong> — XRPL conditions nothing on a DestinationTag — the backend does, re-reading its validity on every entry. It gates what comes in, never what goes out. It is not the client&#39;s consent and not a portable credential; calling it either would be lying.</li>
+<li><strong>Exits.</strong> Two kinds, and they differ in who custodies. The client&#39;s XRP in the omnibus is <strong>custodied by the exchange</strong> with the exchange&#39;s key — that is the nature of the product, exactly as in any exchange; the XRP payout to the client&#39;s registered wallet is a Payment signed by the omnibus, within the caps and refusals. The client&#39;s <strong>shares in the pote</strong> are theirs: the exit is signed by their passkey, a relayer pays the gas and cannot decide, and <strong>no credential — revoked, expired or missing — can ever block it.</strong> &quot;Close the entry, never the exit&quot; is the rule for both products.</li>
+<li><strong>The signing key is bounded by code, not by policy.</strong> The exchange&#39;s signer refuses by construction: signing from any other account or run, paying anywhere but the FAssets Core Vault or a registered client wallet, minting shares to anyone who is not a client of the run, a mint with a DestinationTag, and anything above the caps. In the demo Astryum plays the role of the exchange with that key (<code>Astryum prepares, the exchange signs</code>); any other tenant signs from its own Xaman or its own backend — the autopilot key only opens its own omnibus.</li>
+</ol>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  K1["K1 — the exchange's root on XRPL&lt;br/&gt;custody-sector + company credentials&lt;br/&gt;DIDSet = constitution"] -- "OMNIBUS designation credential&lt;br/&gt;(root issues, till accepts)" --&gt; K2["K2 — the omnibus (the till)&lt;br/&gt;the exchange's own key, bounded by code"]
+  C["Client — no XRPL account, no gas"] -- "XRP + DestinationTag" --&gt; K2
+  K1 -- "KYC-tag record over K2&lt;br/&gt;(enforced by the backend, not the ledger)" --&gt; K2
+  K2 -- "memo instruction: mint FXRP + deposit → client" --&gt; PT["Pote on Flare (ERC-4626)"]
+  PT -- "shares in the client's name" --&gt; PK["Client's PasskeyAccount&lt;br/&gt;P-256 · Face ID"]
+  PK -- "redeem — never gated; relayer pays gas, cannot decide" --&gt; PT
+  K2 -- "XRP payout: the exchange signs,&lt;br/&gt;inside caps and typed refusals" --&gt; C</pre></figure>
+<p><strong>Two commercial lanes.</strong> <em>ADOPT</em> (a new, dedicated till) and <em>CONNECT</em> (the exchange&#39;s already-live omnibus, bound by designation: zero re-onboarding of its clients). CONNECT is not a product lane today: verified money blockers remain (tag collisions, tenant boundary, cursor-less scanning, nonce shared with the exchange&#39;s own traffic), and we never demo it against a real third-party account until they are closed.</p>
+<p><strong>State:</strong> built and green in tests; the exchange&#39;s root (credentials and DID), designated omnibus, cage and two potes <strong>exist on mainnet</strong> (one of the three cages on the v2 factory carries &quot;Exchange pote B&quot;, 72 h cooldown); the client circuit has been <strong>rehearsed with the founders&#39; own accounts</strong> in XRPL-only mode. What is not yet true: an on-chain per-client registry (<code>ExchangeKycRegistry</code> was written and never deployed; all live potes have <code>userGate = 0x0</code>), a tenant model, an orderly wind-down of a run with clients inside (decided for the next wave: declared return addresses plus prepared payments plus evidence). The interface lives behind the founders-only wrapper and its own switch; reads and the <code>verify</code> of a run are public. No third-party exchange has run on it.</p>
+<h3>4.6 Credentials — the transversal access layer — <span class="pill live">LIVE</span> as the gate; the on-ledger door BUILT, not switched on</h3>
+<p><strong>Doctrine.</strong> The credential lives on the <strong>root of authority</strong>; subordinates (potes, Personal Accounts, passkey accounts) never carry credentials — their obedience is proven by a chain of immutable bindings (credential → root → bridge → cage → subordinates) that an auditor or a judge can walk. Two classes that never mix: <strong>COMPLIANCE</strong> (an accredited third party → the root) and <strong>DESIGNATION</strong> (the root → its non-captive subordinate). The check is at the entry: revoking freezes governance and <strong>never the client&#39;s exit</strong>. <em>The ledger carries the YES; the NO is never published</em> — a refusal written on a public chain would be a leak of personal data and a serious legal problem. And <strong>the credential is the account type</strong>: direct user (identity, if any), manager (sector + identity), exchange (custody sector + company identity), the exchange&#39;s client (a KYC record issued by <em>its</em> exchange).</p>
+<p><strong>How it works.</strong> The issuer signs <code>CredentialCreate</code> (type ≤ 32 characters with no personal data, <code>Expiration</code> <strong>mandatory</strong> — 1 to 366 days, default 180 — and a <code>URI</code> to the public register or the attestation); the subject signs <code>CredentialAccept</code>, and that accept is the consent. The verifier is issuer-agnostic, never turns green without the accepted flag, and treats an expired credential as absent; which issuers are accepted is configuration. The <strong>notary robot</strong> (<code>ManagerNotaryIssuer</code>) re-checks facts anyone can re-check — today the Coinbase EAS attestation on Base for the identity credential; the domain-set, domain↔toml binding and register entry for the sector credential — and issues with typed refusals; it never exercises judgment, and &quot;could not read&quot; is never &quot;no&quot;. In the rehearsal, sector credentials are <strong>demo issuance</strong> with the register&#39;s link as <code>URI</code>: Astryum brings on chain what the register says, it never certifies. The corporate jewel, not yet composed: when the root is the <code>SignerList</code> of a company&#39;s board, a multisigned <code>CredentialAccept</code> <strong>would be</strong> the board&#39;s resolution, natively on the ledger.</p>
+<p><strong>The on-ledger door.</strong> <code>AccountSet{asfDepositAuth}</code> plus <code>DepositPreauth{AuthorizeCredentials}</code> on the anchor account: without a valid credential from an accredited issuer, the order dies in consensus, with no code of ours in the middle. Builders, two routes and the API client exist; no screen calls them yet, and the circuit has not been exercised on mainnet. This is the one technical change that would move Credentials from &quot;meaningful&quot; to &quot;essential&quot; in a strict reading, and it is first in line. Permissioned Domains (XLS-80) are composed and wait for their first consumer.</p>
+<p><strong>Where the gate bites today:</strong> cage creation, and every cage order except accepting a pote and the <strong>exits</strong> (<code>recall</code>, <code>evacuate</code>), which are never gated. The manager&#39;s desk reads only the identity and sector credentials whose subject is the account itself. The exchange&#39;s KYC-per-box gate bites on deposit instructions, put-to-work and desk payments — never on a withdrawal.</p>
+<h3>4.7 MoneyFlows — rules that prepare and never sign — <span class="pill live">LIVE</span></h3>
+<p>Standing orders and automations inside signed limits: XRPL Escrow fixes destination and dates (TTL ≤ 90 days; finish and cancel permissionless), instant revocation, pauses. <strong>A rule never signs:</strong> when it triggers, the automation engine creates a pending authorization session and brings the transaction to the wallet that owns the position for that person to approve. The price trigger has been real since 16 August (live oracle price against the rule&#39;s own reference; legacy rules without a reference refuse with an explicit reason rather than guess). The escrow keeper signs with an account of our own, never user capital, and never with the Source Tag.</p>
+<h3>4.8 Proof — the ledger&#39;s word, not ours — <span class="pill live">LIVE</span> (read)</h3>
+<p>Every claim is checked <strong>in the visitor&#39;s browser</strong> against the chain: transactions, memos, credential objects, the state of registry, factory, cage and pote. The <code>verify</code> of an exchange run and its <code>proof.md</code> are built. Transactions of Astryum&#39;s operational keys are excluded from the Source Tag on purpose — a rule that lowers our own numbers and is shown.</p>
+<h3>4.9 Copilot and MCP — the agent compiles; a person signs — <span class="pill live">LIVE</span> as copilot</h3>
+<p>The agent turns natural language into an intent; the person reviews and signs. <strong>There is no tool to sign, execute or custody in its surface, and that absence is the product.</strong> The assistant routes have no tools at all; a flow of AI origin cannot carry a token address (<code>ai_wrote_address</code> is a typed violation); the MCP server exposes 19 tools — reads, simulation, drafts and two <code>prepare_*</code> — and none that signs or submits. The only agent that already runs is the notary robot, and it only issues credentials after re-checking public facts. The MCP server is local (stdio) and not exposed over HTTP; per-user isolation is fixed before it is (§7, wave 0).</p>
+<hr>
+<h2 id="s6">5. One system: one web, one kernel, N account types</h2>
+<p>This is the map that orders everything above and everything that follows (fixed 15 September).</p>
+<blockquote>
+<p><strong>One web. One kernel. N account types.</strong> The account type is decided by the credential its root carries, and the account type decides which functions of the same kernel are active.</p>
+</blockquote>
+<p><strong>The kernel — identical for everyone.</strong> Identity (the XRPL root; the Personal Account on Flare as its arm; credentials, notary, ceremony, signing tray). Reading (the capital map, portfolio, positions — observe wide, all chains). Catalogue (a taxonomy of venue classes; the venue card; the on-chain registry). Verification (a test battery on a fork, a certificate, drift monitoring). Language (canonical money flows and translators; a route planner; swap and batches). Automation (rules, sign-at-trigger; pre-signed sealed envelopes). Surfaces (explainer, filter, composition, one modal per verb, disclosure). Goals (compartments by objective). Economy (treasury, executor, sponsorship and cost recovery on exit; the distribution fee). Operation (watchdog, alerts, admin panel, audit trail). <strong>Exit</strong> (rescue without a gate, redemption, every product&#39;s way out — the guarantee that makes everything else sellable). <em>The rule of the kernel: if a piece has to ask &quot;which account type are you?&quot;, it is misplaced.</em></p>
+<p><strong>The account types — what changes.</strong></p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Account type</th>
+<th>Legal vehicle</th>
+<th>Credential on the root</th>
+<th>What it activates</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Personal</strong></td>
+<td>natural person</td>
+<td>none; identity for fiat later</td>
+<td>personal account, goal compartments, composition, MoneyFlows, own potes</td>
+<td><span class="pill live">LIVE</span>; compartments and composition NEXT</td>
+</tr>
+<tr>
+<td><strong>Legacy</strong></td>
+<td>family, foundation, estate</td>
+<td>the council&#39;s</td>
+<td>multisig council, Legacy cage, constitution, succession, governed payments</td>
+<td><span class="pill live">LIVE</span> on mainnet</td>
+</tr>
+<tr>
+<td><strong>Manager</strong></td>
+<td>a company managing third-party capital</td>
+<td>sector + identity</td>
+<td>cage v2, grouped potes, directing capital, the directory</td>
+<td><span class="pill live">LIVE</span> on mainnet</td>
+</tr>
+<tr>
+<td><strong>Exchange</strong></td>
+<td>a company custodying for clients</td>
+<td>custody sector + company identity</td>
+<td>its instance: omnibus with its key, boxes per client, KYC per box, potes for clients</td>
+<td><span class="pill built">BUILT</span>; rehearsed; tenant model NEXT</td>
+</tr>
+<tr>
+<td><strong>Protocol / venue</strong></td>
+<td>the company operating the protocol</td>
+<td>company identity + certification</td>
+<td>profile, proposed addresses, catalogue presence, <strong>pays the distribution fee</strong></td>
+<td><span class="pill next">NEXT</span> (does not exist)</td>
+</tr>
+<tr>
+<td><strong>Agent</strong></td>
+<td>designated by any of the above</td>
+<td>a revocable designation</td>
+<td>operating <strong>one</strong> pote inside its limits</td>
+<td><span class="pill later">LATER</span></td>
+</tr>
+</tbody></table></div>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph L["Legal vehicle — off-chain"]
+    P["Natural person"]
+    Fa["Family · foundation · estate"]
+    Co["Company managing third-party capital"]
+    Ex["Company custodying for clients"]
+    Pr["Company operating a protocol"]
+  end
+  subgraph R["ONE root on XRPL per vehicle — the credential lives here"]
+    r1["single-sig root&lt;br/&gt;identity credential optional"]
+    r2["SignerList = heirs / board&lt;br/&gt;DIDSet = constitution"]
+    r3["virgin root&lt;br/&gt;sector + identity credentials"]
+    r4["virgin root&lt;br/&gt;custody-sector + company credentials&lt;br/&gt;designates its omnibus"]
+    r5["root + company credential&lt;br/&gt;+ certification"]
+  end
+  subgraph Fl["Arms on Flare&lt;br/&gt;obey by binding, carry no credential"]
+    a1["Personal Account"]
+    a2["bridge → Legacy cage"]
+    a3["bridge v2 → cage → potes"]
+    a4["bridge v2 → cage → potes&lt;br/&gt;clients' passkey accounts"]
+    a5["registry entry after certification"]
+  end
+  P --&gt; r1 --&gt; a1
+  Fa --&gt; r2 --&gt; a2
+  Co --&gt; r3 --&gt; a3
+  Ex --&gt; r4 --&gt; a4
+  Pr --&gt; r5 --&gt; a5</pre></figure>
+<p><strong>The enterprise account is the mould of the four company types</strong> (manager, exchange, protocol and, structurally, Legacy): a root, a board as <code>SignerList</code>, credentials, a domain with its <code>toml</code>, designations, an anchor with authorization by credential, and a ledger of acts (hash + pointer, never personal data). The integration kit — verify third parties, sign as a board, designate and revoke, receive through a gate, renew and watch — is offered by API with keys and by a remote MCP. Honesty test: <em>if Astryum disappears, the root, its board, its credentials, its domain and its ledger of acts keep their value exactly. The only thing the company loses is the convenience of the kit. That is what is charged.</em> Public wording rule: never &quot;legal account&quot; or &quot;legal identity&quot; — <em>&quot;an account whose board signs and whose credential anyone can check&quot;</em>. What the technology does not give is legal imputability: Astryum provides the evidence; the lawyer provides the imputation.</p>
+<p><strong>The flywheel has two wheels, and they touch in the pote.</strong> The supply wheel: a protocol certifies itself → appears in the catalogue with its card → users and managers send it capital → it pays a distribution fee on what arrives. The demand wheel: a company constitutes its enterprise account → brings its capital and its clients → its clients enter its potes with a credential → more clients look for accredited companies. They touch where a manager, an exchange or a person <strong>directs capital from their pote to a certified venue</strong>: there demand pays supply, the venue pays Astryum for the capital received, and Astryum charges for the act of connecting in the directory. That point of contact is the business; everything else exists so that act is safe, verifiable and easy. The axis that starts both wheels is the company, not the catalogue: the manager arrives with capital and clients; the venue does not.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph S["Supply wheel — venues"]
+    V["protocol certifies itself"] --&gt; Cat["catalogue + verified card"] --&gt; Cap["receives capital"] --&gt; Fee["pays a distribution fee&lt;br/&gt;on what arrives"] --&gt; V
+  end
+  subgraph D["Demand wheel — companies"]
+    E["company constitutes&lt;br/&gt;its enterprise account"] --&gt; Br["brings capital + clients"] --&gt; Cl["clients enter its potes&lt;br/&gt;with a credential"] --&gt; E
+  end
+  Cap === POTE(("THE POTE&lt;br/&gt;where the two wheels touch")) === Cl</pre></figure>
+<p><strong>Rules that do not change with the account type:</strong> the user signs at the end of every action; the limits are imposed by the contract; the exit is never gated; Astryum never issues identity, never custodies, never proposes &quot;for you&quot;; the fee never comes out of the user&#39;s or the manager&#39;s capital; the order of the catalogue and the directory cannot be bought; nothing is plugged in without its scanner, its switch and its certificate — and the scanner must be able to actually cut.</p>
+<p><strong>Composition and autonomy are two different axes</strong> (decision of 13 September). Composition is who designs the allocation (manual → composed → assisted). Autonomy is who triggers and with what authority. One can climb in composition without climbing one step in autonomy: however elaborate the composition, it ends the same way — the user signs, and the contract imposes the limits (a cap per venue, a liquid floor, an allow-list with a delay, an exit no one can gate). Astryum compiles and explains; it never proposes &quot;for you&quot;, because a personalized proposal is advice, and advice belongs to an occupant with a credential, never to the tool. The system does not set weights the user did not state.</p>
+<hr>
+<h2 id="s7">6. Legal vehicles ↔ credentials ↔ accounts: the link lives on the root</h2>
+<p>This section is the hinge between the technology and the world it is for. Everything Astryum enforces on chain is <em>about</em> a legal vehicle that exists off chain — a person, a family, a company, a foundation — and the link between the two is not a database row of ours: it is a credential on an XRPL account.</p>
+<h3>6.1 The idea in one sentence</h3>
+<p><strong>Every real-world legal vehicle has ONE root account on the XRP Ledger, and the XLS-70 credentials on that root ARE the link between the legal vehicle and its on-chain existence.</strong> Everything the vehicle does on chain — its cage, its potes, its subordinate accounts, tomorrow its protocol-managed wallets and its agents — hangs from that root and inherits its status, because subordinates only obey: gating the root&#39;s order gates the whole tree. We do not credential wallets; we credential <strong>the vehicle, once, on its root</strong>. The forest has one tree per vehicle, and never an &quot;account for everything&quot;: that would destroy the 1:1 mapping between account and entity that gives the structure its legal force.</p>
+<h3>6.2 The mapping: which credentials each vehicle carries</h3>
+<p>The credential is not &quot;one&quot;: it is <em>the set of credentials the law already requires from that vehicle</em>, translated to XLS-70. The gate reads groups — <em>the licence of your sector, and your identity</em> — implemented today as OR-groups (<code>AIFM|CASP</code> and <code>KYC|KYB</code>).</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Vehicle</th>
+<th>The root (who signs)</th>
+<th>Credentials on the root</th>
+<th>What it anchors (DID)</th>
+<th>Natural issuer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Natural person</strong></td>
+<td>single-sig (their Xaman)</td>
+<td>identity (<code>KYC</code>) — only when fiat or a credentialed lane needs it</td>
+<td>—</td>
+<td>a qualified trust-service provider (eIDAS); today the notary robot from Coinbase&#39;s on-chain attestation</td>
+</tr>
+<tr>
+<td><strong>Self-employed / professional</strong></td>
+<td>single-sig</td>
+<td>identity + professional licence if applicable</td>
+<td>—</td>
+<td>professional body, trust-service provider</td>
+</tr>
+<tr>
+<td><strong>Operating company</strong> (SL, SA, LLC, GmbH…)</td>
+<td><strong>SignerList = the board of directors</strong> (a real quorum)</td>
+<td>company existence (<code>KYB</code>) + power of representation + sector licence (<code>CASP</code> for custody, <code>AIFM</code> for management…)</td>
+<td>the by-laws (SHA-256 in <code>DID.Data</code>)</td>
+<td>commercial register, notary, sector regulator</td>
+</tr>
+<tr>
+<td><strong>Holding / patrimonial company</strong></td>
+<td>SignerList of the board</td>
+<td><code>KYB</code> + beneficial ownership</td>
+<td>shareholders&#39; agreement, by-laws</td>
+<td>notary + register</td>
+</tr>
+<tr>
+<td><strong>Foundation / Legacy</strong></td>
+<td>SignerList = trustees / heirs (the quorum <em>is</em> the structure)</td>
+<td><code>KYB</code> + trustee / protector credential</td>
+<td>the whole constitution (built: <code>constitutionRef = DID.Data</code>)</td>
+<td>notary, supervisory authority</td>
+</tr>
+<tr>
+<td><strong>AI agent</strong> (later)</td>
+<td>the root of the vehicle that employs it</td>
+<td>an agent credential ISSUED BY its vehicle + the vehicle&#39;s own, inherited</td>
+<td>the agent&#39;s mandate (hash)</td>
+<td>the vehicle itself + its notary</td>
+</tr>
+</tbody></table></div>
+<p>What already exists in code fits without changes: the XLS-70 ceremony (create + accept), the OR-group gate by sector, the notary robot (identity from a real attestation; sector credentials as demo issuance), the anchored constitution of Legacy, and the anchor door (<code>DepositAuth</code> + <code>DepositPreauth{AuthorizeCredentials}</code>) as consensus enforcement.</p>
+<h3>6.3 The exact XRPL mechanics — why XLS-70 and not something else</h3>
+<ol>
+<li><strong><code>CredentialCreate</code> by the issuer.</strong> The regulated third party (notary, register, trust-service provider) verifies <strong>off-ledger</strong> and signs. On the ledger goes only the minimal attestation: type + <code>Expiration</code> + <code>URI</code>.</li>
+<li><strong><code>CredentialAccept</code> by the subject</strong> — and here is the corporate jewel: when the root is the SignerList of the board, <strong>the multisigned accept IS the board&#39;s resolution.</strong> Corporate consent becomes native to the ledger, with a real quorum. (Today our acceptance route signs with a single subject; composing it through the multisig coordinator is design, not yet code — and we say so.)</li>
+<li><strong>Mandatory <code>Expiration</code> is the revocation.</strong> A licence is withdrawn in the real world and the ledger does not find out; the only honest exit is that it expires and is not re-issued. Revocation freezes <strong>new orders</strong> (the check lives at the entry); the capital&#39;s exit is never gated.</li>
+<li><strong><code>URI</code> is a pointer, never the document</strong> — to the issuer&#39;s verifiable credential or attestation. <strong>Never personal data on the ledger.</strong></li>
+<li><strong>The ledger carries the YES, never the NO.</strong> It records who <em>can</em>; a compliance refusal written on a public chain would be a leak and, in some regimes, an offence. The &quot;no&quot; lives off chain, with the issuer.</li>
+<li><strong>The enforcement is not Astryum, it is consensus.</strong> The order anchor demands the credential through <code>DepositPreauth{AuthorizeCredentials}</code>: an order from a root without a valid credential dies in consensus, before any backend has an opinion. Astryum only does the pre-flight — &quot;do not sign a doomed order&quot;. (Built; not switched on yet.)</li>
+</ol>
+<h3>6.4 The vehicle&#39;s &quot;account for everything&quot; is its ledger of acts</h3>
+<p>The root is not just money: it is <strong>the vehicle&#39;s book of acts</strong>. Every relevant act — a board resolution, a power granted, the purchase of a property, a document — is recorded as <strong>hash + pointer</strong> (memo or DID), never the content. Over time the vehicle holds, on one account: its <strong>constitution / by-laws</strong> anchored; its <strong>credentials</strong> in force (who it is, what it may do, until when); its <strong>cage</strong> (what it is allowed to do with capital — one cage per vehicle); its <strong>acts</strong> (the auditable history); its <strong>subordinates</strong> (the hands: Personal Accounts, passkey accounts, potes — captive, without credentials of their own, obeying by binding; and the one non-captive subordinate, the exchange&#39;s omnibus with a free key, which carries only the root&#39;s <strong>designation</strong>, never compliance); and tomorrow its protocol-managed wallets and its agents. The consequence for the law: when a vehicle&#39;s <strong>statutes adopt the chain as their layer of action</strong>, the gap between the two worlds disappears by definition. That requires a lawyer per jurisdiction — <em>legal before architecture</em>.</p>
+<h3>6.5 Who issues — never Astryum</h3>
+<p>Astryum <strong>never</strong> issues the real title and never verifies identity: it chooses which issuers it accepts (a technical allow-list with no ranking) and checks the object on the ledger with a uniform rule. The issuers are third parties — notary, lawyer, register, trust-service provider; today humans with a robot (the notary robot already issues the identity credential from a real third-party attestation), tomorrow agents that verify and sign with their own agent credential. The chain of trust is recursive and always ends in a regulated third party in the real world. Sector credentials in the rehearsal are <strong>demo issuance</strong>, with the public register&#39;s link as <code>URI</code>: Astryum brings on chain what the register says; it certifies nothing.</p>
+<h3>6.6 The concrete legal shapes of Legacy (typologies)</h3>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Typology</th>
+<th>Who</th>
+<th>Legal vehicle</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>T1 Personal with rules (reinforced)</td>
+<td>one person, three keys</td>
+<td>none (+ a will)</td>
+<td><span class="pill live">LIVE</span> (the ceremony)</td>
+</tr>
+<tr>
+<td>T2 Family without an entity</td>
+<td>a family, a council</td>
+<td>private agreement</td>
+<td><strong>LIVE on mainnet</strong> (the <code>familiar</code> template)</td>
+</tr>
+<tr>
+<td>T3 Minors / education</td>
+<td>parents → child</td>
+<td>parental authority / gift</td>
+<td>constitution template exists; a coming-of-age credential is the missing piece</td>
+</tr>
+<tr>
+<td>T4 Marital</td>
+<td>a couple</td>
+<td>marriage contract + regime</td>
+<td>not templated; legal opinion pending</td>
+</tr>
+<tr>
+<td>T5 Operating company</td>
+<td>a commercial company</td>
+<td>company + by-laws mirrored on chain</td>
+<td>designed; Astryum&#39;s own company is the dogfood</td>
+</tr>
+<tr>
+<td>T6 Patrimonial holding</td>
+<td>partners WITH ownership</td>
+<td>closed holding company</td>
+<td>designed</td>
+</tr>
+<tr>
+<td>T7 Foundation</td>
+<td>beneficiaries WITHOUT ownership</td>
+<td>private foundation</td>
+<td>template exists; the target model</td>
+</tr>
+</tbody></table></div>
+<p>Ten axes that every typology has to settle, and the mechanism for each: ownership (the vehicle, or its declared absence) · organs and quorum (<code>SignerList</code> with weights) · membership (credentials + a rotation ceremony) · beneficiaries (beneficiary credentials + governed MoneyFlows) · continuity (a succession ceremony on a legal-fact credential) · supremacy when law and ledger diverge (a clause in the text + the anchored hash + a curing ceremony with a delay) · exit of all capital when the law demands it (the &quot;release vessel&quot; via <code>migrate</code> — not built) · privacy (hashes only) · tax (an opinion; we never advise) · <strong>Astryum&#39;s perimeter</strong> (software, templates, ceremonies, a verifier — <strong>never</strong> custodian, signer, administrator, trustee, issuer or registrar).</p>
+<h3>6.7 State today → what is missing</h3>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Today</th>
+<th>Missing</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>XLS-70 create / accept with <code>Expiration</code></td>
+<td><span class="pill live">LIVE</span> (ceremony, notary robot)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Gate by sector with OR-groups</td>
+<td><span class="pill live">LIVE</span> (<code>AIFM|CASP,KYC|KYB</code>)</td>
+<td>more types (power of representation, beneficial owner) = configuration + issuers</td>
+</tr>
+<tr>
+<td>Constitution anchored (DID)</td>
+<td><span class="pill live">LIVE</span> (Legacy, manager, exchange root)</td>
+<td>templates per vehicle type</td>
+</tr>
+<tr>
+<td>Anchor door (consensus enforcement)</td>
+<td><span class="pill built">BUILT</span></td>
+<td>mainnet rehearsal, a screen that calls it</td>
+</tr>
+<tr>
+<td>SignerList as the board</td>
+<td><span class="pill live">LIVE</span> (Legacy multisig)</td>
+<td>a &quot;constitute a company&quot; ceremony in the UI; the multisigned <code>CredentialAccept</code></td>
+</tr>
+<tr>
+<td>Real issuers (trust-service providers, notaries, registers)</td>
+<td>demo robot + one real identity attestation</td>
+<td>partnerships pending; the KYB provider under contract (wave 2)</td>
+</tr>
+<tr>
+<td>Ledger of acts (hash + pointer)</td>
+<td>pattern exists (memos, DID)</td>
+<td>a product surface</td>
+</tr>
+</tbody></table></div>
+<p><strong>Guardrails, non-negotiable:</strong> Astryum is never the issuer, administrator or organ of any vehicle (the legal wrapper belongs to the client and their notary; Astryum provides the rail). Never personal data on the ledger; never the document — only hash and pointer. In public, never &quot;licensed&quot;, &quot;regulated&quot; or the name of any regulation: the demo issuance is not a regulatory attestation; only <em>&quot;a credential verified on the ledger&quot;</em>.</p>
+<hr>
+<h2 id="s8">7. What comes next: the V2 plan (decided 15 September; not coded yet)</h2>
+<p>The plan is fifty-three items in order, grouped in waves. The method: one round by hand before automating; build in place behind the founders-only wrapper; short branches; <strong>vertical delivery</strong> — one venue class complete end to end before the next. Delivered by the same hands that built what is live.</p>
+<p><strong>Wave 0 — the fourteen urgent items that exist today in production code</strong> (~2–3 weeks). Found by our own audit of 15 September and said here before anyone finds them: the risk scanner&#39;s chain guard (the third-party scanner does not cover Flare and &quot;unknown&quot; passes the gates today — the invariant &quot;nothing is plugged in without its scanner&quot; holds on paper and not in fact, on the chain where the product lives); moving the venue registry&#39;s key to a multisig (today it is the treasury key; the registry timelock is one hour); per-user isolation in the MCP server; proof of subject in the notary; credential renewal without a gap; succession of a cage with an expired credential; credential groups in the anchor door; and seven smaller ones. Four of them are candidates for an early hotfix.</p>
+<p><strong>Wave 1 — the first vertical pass + the credential schema</strong> (5–7 weeks). Declare the class &quot;deposit with shares&quot; once, and hang from it the venue card, the verbs, the modal, the test battery and the contract branch (<em>the class is the hinge</em>). The venue card served from the server with provenance per field (measured / declared / attested). A minimal battery on a mainnet fork for Kinetic and Firelight, producing a certificate with method version, date and block. The explainer reads only the verified card (if a fact is not there, it says it does not know). A filter by exit time. Normalized disclosure. A versioned credential schema, and the notary fed by it.</p>
+<p><strong>Wave 2 — the enterprise account, the distribution fee, the compartments</strong> (8–12 weeks). A KYB provider under contract. The on-ledger anchor door switched on in mainnet. A single register of accepted issuers. Expiry sweeps (&quot;do not admit new entries, do not cut off those inside&quot;). The kit: remote MCP and API with keys. Volume attribution and disclosure of the venue&#39;s fee. <strong>Goal compartments:</strong> the exchange&#39;s own infrastructure (boxes by tag on XRPL, potes on Flare) turned into a feature for every personal user — <em>with the user&#39;s key only; at no point in any compartment is there a key that is not the user&#39;s</em>. One onboarding for all account types (three assistants become one). Who pays the transport per account type.</p>
+<p><strong>Wave 3 — composition</strong> (6–9 weeks). Several actions per step in the canonical language; swap in both directions as calldata the user signs; one form of call and one preflight per chain; one disclosure; one modal per verb; a composition draft. Done when &quot;convert and repay&quot; is one signature with the worst case sealed inside it.</p>
+<p><strong>In parallel, permanently:</strong> the third generation of the contract (a branch per venue class, starting with the queued venues; the registry key in a multisig) with an <strong>external audit</strong> — the number-one blocker, budgeted as the main line of the grant applications; and the legal work that is not code (§13).</p>
+<p><strong>Wave 4 — the planner, the opening, the fiat last mile.</strong> A route planner (today the multi-step patterns are written by hand — and the planner is where discretion would creep in, so the user sees the route and the worst outcome before signing, and the floor travels sealed in the signature). The protocol&#39;s profile and domain file. The directory with a fixed fee per act. A published specification. Fiat in and out with regulated partners.</p>
+<p><strong>Wave 5 — Ethereum and the agent.</strong> The verification attestation anchored on Ethereum (EAS) with a published schema — the measurement layer as a product there, for curators; <em>not</em> the cage (gas breaks its economics, and the XRPL → Flare authority tunnel does not reach Ethereum). Pre-signed sealed orders from XRPL. The agent&#39;s pote. Protocol-managed wallets as a remote arm.</p>
+<p><strong>The calendar, honestly:</strong> the core (waves 0–3) is 104–154 person-days — five to seven months with one pair of hands, three to four with two. The first revenue appears in wave 2.</p>
+<hr>
+<h2 id="s9">8. What comes after: the future, with precision</h2>
+<p>Everything in this section depends on primitives that are not on mainnet yet, or on legal work. It is told on the map; it is never shown as if it worked.</p>
+<h3>8.1 Flare protocol-managed wallets and confidential compute — the cage&#39;s remote arm — <span class="pill later">LATER</span></h3>
+<p><strong>What they are, verbatim from Flare&#39;s documentation:</strong> protocol-managed wallets are keys split across several TEE machines that act as k-of-n signers on <em>native</em> multisig accounts of <strong>XRPL and BTC</strong>; instructions reach the TEE only after more than half of the signing weight of Flare&#39;s data providers has approved them; executions are proven back by FDC. Confidential compute (FCC) runs verifiable extensions inside a TEE and is, in Flare&#39;s own words, not yet a public production system.</p>
+<p><strong>What they change for Astryum.</strong> Today the cage holds capital <em>inside</em> the contract. With protocol-managed wallets the enforcement moves from &quot;custody in the contract&quot; to &quot;the contract&#39;s instruction set&quot;: the TEE signs only what the registered instruction sender — the cage — tells it, and the cage has no instruction of the kind &quot;pay an arbitrary address&quot; (the same principle as <em>no <code>withdrawPrincipal</code></em>, carried to the arm). Capital can then sit in wallets on other chains that the cage governs — a <strong>locked arm</strong>: it cannot be taken out, it can be put to work. The cage already has the frame for this (register a remote wallet, mint into a pote from it) and <strong>the arm that would dispatch it reverts on purpose</strong> — forward compatibility decided on 22 August, so that the day the primitive exists the migration is cheap, without depending on it or showing it as if it worked.</p>
+<p><strong>The honest conditions.</strong> Keys must be generated <em>inside</em> the TEE, never imported (a delivered key existed outside, and its deletion is unverifiable). The trust model is Flare&#39;s data providers plus hardware attestation plus the cage&#39;s code — <em>trust-minimized, never &quot;trustless&quot;</em>. Because TEE-managed custody is a form of delegated signing, it lives as an <strong>isolated module, gated by jurisdiction</strong>, never coupled to the kernel. It does not reach the user&#39;s own MetaMask or Phantom — only arms created under the authority. Zero confidential-compute code in the repository today, by decision.</p>
+<p><strong>And one thing it makes native:</strong> a TEE key can be <em>one signer among people</em> in an XRPL <code>SignerList</code>. The ledger already supports N weighted signers collecting independent signatures in any order; what Flare governs is <em>when</em> the TEE signs. That is the cleanest version of a protocol-managed arm for a family or a company.</p>
+<h3>8.2 The single root: one XRPL account governing many — <span class="pill later">LATER</span></h3>
+<p>The product we are most excited to build. Today a person has one Xaman account and, from it, one Personal Account on Flare — already presented as <strong>one account</strong> with three verbs from the same signature (mint, use what is already inside, convert back). The next step generalizes it: <strong>one master XRPL root</strong> governing several personalized XRPL accounts — the family&#39;s, the company&#39;s, a reinforced one — each of which, through protocol-managed wallets, governs wallets on other chains and their assets. One human key, N seats in N <code>SignerList</code>s; the same governance system for every account (a personal quorum can be 1-of-1 as the minimum dial). Everything binds to the <strong>address</strong>, not to the keys, so rotating signers never re-points a vault, a Personal Account or an arm.</p>
+<p>Two rules already fixed: <strong>one root per legal vehicle</strong>, never an &quot;account for everything&quot; (it would destroy the 1:1 mapping between account and entity that gives the structure its legal force); and Astryum never generates or hands over a seed — the wallet does, on the device.</p>
+<h3>8.3 Agents — the sixth account type, inside its own compartment — <span class="pill later">LATER</span></h3>
+<p>The agent is not a product; it is an account type designated by any of the others. The chain, stated whole: a credentialed human root → a designation (XLS-70 today; XLS-75 as transport when it activates) → an agent with its own credentials → executing <strong>inside the cage</strong>, in <strong>its own pote</strong> — <em>the agent&#39;s limit is its pote</em>; revoking the designation switches it off; the user&#39;s exit never depends on it → and confidential compute certifying the <strong>pipeline</strong> (exact prompt template, pinned model version, hashes of input and output), never &quot;the intelligence&quot;. Payment to an agent or its company can sit in a native XRPL escrow whose release is gated by the credential: if the credential is revoked between the order and the delivery, the payout fails on the ledger, with no code of ours.</p>
+<p>Three lines that do not move: <strong>the root is always human</strong>; the agent is never on a root&#39;s <code>SignerList</code>; and <em>we credential the authority and the act — never the thought</em>: a register of &quot;bad prompts&quot; would be a register of NO, forbidden by our own doctrine. Permission and settlement on the same rail: a permission system without control of payment is a recommendation; a payment system without permissions is a bank; together they are the only layer that can say no and have the no carry consequences. Astryum does not issue credentials, does not evaluate work, does not choose judges — it transports and executes third-party attestations. Legal work (escrow, payment-services and operational-resilience questions) comes <strong>before</strong> architecture on the leg that touches money. Today&#39;s copilot is the first caller of that rail.</p>
+<h3>8.4 The exchange, privately but verifiably — <span class="pill later">LATER</span></h3>
+<p>With confidential compute, the exchange&#39;s operations that must be private — trading, purchases, client-level operations — can run inside the TEE with verifiable outputs, while the structure (root, designation, potes, shares in the client&#39;s name, exits no one can gate) stays public. The merge with protocol-managed wallets is the roadmap step: the live omnibus key enters the TEE and the subordinate passes from <em>designated</em> to <em>captive</em> — the same root governs more wallets, multichain, without issuing a new credential.</p>
+<h3>8.5 Fiat in and out, and the card — <span class="pill later">LATER</span></h3>
+<p>On-ramp and off-ramp through regulated partners (decided, not built): the partner holds the licence and does the regulated part; Astryum gives the access. The <strong>card</strong>: spend from your own wallet with a balance no one can freeze — a <em>pull-at-authorization</em> mandate with no float, a contract with no owner and no pause, two signatures forever (create, revoke), only e-money tokens (USDC, EURC, RLUSD), fees disclosed. Zero code today; no partner under contract; an external audit is blocking. What we will not build: consumer credit dressed as a card.</p>
+<h3>8.6 More networks — through Flare&#39;s primitives, honestly — <span class="pill later">LATER</span></h3>
+<p>Observation is already wide (XRPL, Flare, EVM via indexers). Execution widens by phases and only where a primitive reaches: FDC&#39;s <code>EVMTransaction</code> supports exactly three sources today (Ethereum, Flare, Songbird), so <em>the common layer is not a chain, it is the signature</em>: a fact goes on a chain only when a contract has to obey it; authority stays on XRPL; enforcement stays on Flare where there is a cage; measurements are signed and anchored where curators live. XRP → EVM yield through the XRPL EVM sidechain and Axelar is a later phase; Solana later still.</p>
+<hr>
+<h2 id="s10">9. How Astryum earns — and what it never charges</h2>
+<p><strong>Today nothing is charged.</strong> The machinery is wired and dormant on purpose. Four rules govern any future charge: the fee never biases what is shown (the engine that ranks strategies does not receive the fee as an input); the fee is visible before signing, with amount and payer (a literal type in the code, and a policy that rejects any undisclosed extraction); sponsor first and charge after — <strong>never a prepaid user balance</strong> (that would be e-money and would make us what we are not); at cost, not by eye (infrastructure costs converted with the native oracle).</p>
+<p><strong>Where the money comes from, by solidity.</strong></p>
+<ol>
+<li><strong>The distribution fee, paid by the venue</strong> on the capital that reaches it from Astryum — the principal source, decided 15 September, not built: the user deposits 100 and the venue receives 100; the venue pays Astryum; the same percentage for the whole class, no effect on order or visibility, always disclosed (&quot;this venue pays Astryum X %&quot;). The non-custodial introducing-broker model.</li>
+<li><strong>Fixed fees per act between companies:</strong> the cage charges a creation fee in FXRP from the fourth pote onwards, directly to the treasury in the birth transaction (LIVE: 1 FXRP on the deployed factory); designating a manager, listing a venue in a cage, joining the directory — a fixed fee per act, disclosed before signing, collected by the code or the partner, never intercepted by Astryum in the path of other people&#39;s money. Not a &quot;marketplace&quot;; no paid positions; no percentage on flows between companies.</li>
+<li><strong>Transport at cost:</strong> each order from XRPL to Flare costs a real, measured FDC round (~20 FLR); a fixed fee like the protocol executor&#39;s (0.2 XRP) inside the Payment the user signs — built, switched off, and it fails loudly if misconfigured rather than charging zero silently.</li>
+<li><strong>Referral basis points via partners on EVM</strong> (15 bps on the main aggregators, embedded in the partner&#39;s transaction, paid directly to a fee wallet; zero on XRPL native by design) — wired, dormant until a public fee schedule, a UI disclosure row, a test that the ranking cannot see the fee, and a legal opinion exist.</li>
+<li><strong>Enterprise membership and the kit</strong>, and a review fee for venue certification that covers cost and buys no position.</li>
+</ol>
+<p><strong>What is never charged.</strong> Nothing on shares or on the client&#39;s yield in the managed lane (the pote has no fee hook — zero enforced by absence); the manager&#39;s cut is capped at 20 % of yield by the cage; nothing deducted from a defensive operation; no token of our own; no charge in a flow that does not pass through a registered regulated partner. Treasury doctrine: revenue is not consumed, it becomes productive patrimony — the treasury is Astryum&#39;s first Legacy, verifiable on chain.</p>
+<hr>
+<h2 id="s11">10. The trust model: what happens if we fail, are attacked, or disappear</h2>
+<h3>10.1 If Astryum disappears tomorrow</h3>
+<p>The user loses nothing and needs no permission from us. Their keys were never on our servers (we never generate or hand over a seed). Their capital was never at an address of ours (no Astryum contract receives user assets; no omnibus is ours). Their rules live on the ledger and in contracts <strong>without proxy and without pause</strong> (checkable: zero <code>upgradeTo</code>, <code>delegatecall</code>, <code>whenNotPaused</code> or <code>Initializable</code> in <code>contracts/src</code>); the owner is the user&#39;s own council. Their exit does not depend on us: the quorum signs from any XRPL client, and the vault unwinds positions by itself on redeem. Their credentials were issued by third parties and live on their own account. <strong>This is the design test, applied to every new piece before it is merged.</strong></p>
+<h3>10.2 Who can harm whom</h3>
+<ul>
+<li><strong>Can Astryum rob the user?</strong> No — by absence of capability, not by policy. No function to sign, broadcast or custody exists; the seven operational keys (§2.5) sign only Astryum&#39;s own transactions.</li>
+<li><strong>Can the manager rob the client?</strong> They cannot extract: the cage accepts two verbs — send capital to a listed destination, recall it. The payee cap lives in the cage. The trap closed before it existed: no flow ever asks the client to approve the operator over shares (tripwire test). What the manager <em>can</em> do, and we say it: choose badly within the list. <strong>There is a person deciding</strong>; it is never sold as autonomous.</li>
+<li><strong>Can a council member move the capital alone?</strong> No: the network enforces the quorum and the master key is off.</li>
+<li><strong>Can an exchange operator trap their client?</strong> The XRP in the omnibus is the operator&#39;s custody — that is the product. The operator&#39;s key is bounded by code (caps, refusals, double evaluation); the client&#39;s shares in the pote are incongelable and exit by the client&#39;s passkey; revoking credentials freezes the operator&#39;s governance, not the clients&#39; exits.</li>
+<li><strong>Can the AI decide anything?</strong> It has nothing to decide with: no tool to sign, execute or custody.</li>
+</ul>
+<h3>10.3 Failures we already had, and what they built</h3>
+<p>A signed order took forty minutes to execute while the screen said &quot;done&quot; → <em>signing is not executing</em>: no modal turns green before real settlement. A repeated signature could cause a double dispatch → fail-safe classification: only an error that <em>proves</em> nothing left allows a retry; the unknown stays &quot;unconfirmed&quot; and a second signature is never offered. Rules that failed silently and looked green → &quot;could not read&quot; is a first-class verdict, distinct from &quot;fine&quot;. The escrow keeper signed with our own account <em>and</em> stamped the project tag → two explicit attribution modes, fixed by tests. On 14 September two untested vaults appeared on the public site because an environment variable cloned from staging became effective on the first successful backend deploy in days → <strong>what decides whether something is visible in production now lives in code (an allow-list of tested vaults), never in an environment variable; defaults open outside production and close inside</strong>. The legal pages claimed things the product did not do → an accuracy audit, published with the detail against us.</p>
+<h3>10.4 The limits we set on purpose</h3>
+<p>No token of our own. No paid or covert promotion. No asking for transactions &quot;to support the project&quot; (it would falsify the metrics, and the refusal is codified). No regulatory claims in public — only &quot;a credential verified on the ledger&quot;; we say <em>we are structured to stay outside</em> the perimeter of regulated activity, and the boundary map lives in the repository. No coupling of enclave custody to the kernel.</p>
+<hr>
+<h2 id="s12">11. The abstraction: what the user never sees, and what we refuse to hide</h2>
+<p><strong>The thesis.</strong> One co-founder holds XRP and does not live inside DeFi; the other operates positions daily. That asymmetry is the product thesis, written on the <code>/about</code> page since July. The bar, written in the glossary: <em>if a screen needs explaining before it makes sense, it isn&#39;t finished.</em></p>
+<p><strong>What is absorbed.</strong> &quot;I don&#39;t have the other chain&quot;: the Flare account is derived, gas is paid by the executor or relayer (&quot;pays the gas · cannot decide&quot;), XRP becomes FXRP inside the same flow, and &quot;Convert to XRP&quot; inverts the whole path. &quot;Everything costs and I don&#39;t know how much&quot;: the expensive part is not XRPL (12 drops per signature) but the transport; the answers are cost recovery on exit (built, inert), amortization of one signature across N actions (live), the tag channel where the exchange&#39;s client has no account, no reserves, no gas, no fees (built), less XRPL surface (working accounts live on Flare where there is no reserve), pricing at cost via the oracle (live), and later sponsored fees when the amendment activates. &quot;I don&#39;t understand what the screen says&quot;: one error translator, transaction types named by what they do, waits shown in real time, stuck transactions watched and retried with the <em>same</em> proof.</p>
+<p><strong>What we refuse to abstract, because it is the product.</strong> The user&#39;s signature. The fees, before signing — with the cost, when recovered inside the operation, <em>inside the hash the user signs</em>. The cage, before it receives capital: disclosure at the irreversible step, with server-hashed text so an audit can prove what was read. The reserve of the root account (1 XRP + 0.2 per object): the notarial cost of constituting a vehicle, disclosed and paid. And physics: between two incompatible wallets there is no &quot;same transaction&quot; — it is N signatures, and we say so; the catalogue of routes is finite and documented as such.</p>
+<p><strong>What the user reads, and what it hides:</strong> <em>your Astryum account</em> (the Personal Account on Flare) · <em>Convert to XRP</em> (FAssets redemption) · <em>the cushion</em> (health factor) · <em>transport</em> (the memo instruction&#39;s carrier) · <em>Put to work / Working</em> (supply to a venue) · <em>We tested this operation without signing it</em> (simulation) · <em>a rule of the network, not a fee</em> (XRPL base reserve) · <em>Saving moves no money and signs nothing</em> (the automation engine in prepare-only mode) · <em>You never touch a wallet, gas or FLR</em> (passkey + relayer + tag channel). Forbidden on the product&#39;s surface: <code>payload</code>, <code>userOp</code>, <code>calldata</code>, <code>intent</code>, <code>mint/unmint</code>, <code>bps</code>, <code>drops</code>, <code>shares</code> as the main unit, <code>TVL</code> unexplained, and any internal enum.</p>
+<hr>
+<h2 id="s13">12. Evidence: how to verify without asking us</h2>
+<p><strong>XRPL Mainnet</strong> (xrpscan.com/account/…): FAssets Core Vault <code>rfkXSaCZKTg1EZzec2rLDyrWHxRVJdtVXj</code> · Legacy anchor <code>rK4tsuGhmbhaNQuvucL8n1RKLtARBCp3qm</code> · v2 anchor <code>rLcoFM9XF8CL5GoFyMACguhdnDtwkNYDn7</code> · notary issuer <code>rHKxjrGRrCegQhLrdnXEPAeGyeJ1JR4Hae</code> (operational: its transactions carry no Source Tag, on purpose). Project Source Tag: <strong>2607090002</strong>.</p>
+<p><strong>Flare (chain 14)</strong> (flarescan.com/address/…): <code>MasterAccountController</code> <code>0x434936d47503353f06750Db1A444DBDC5F0AD37c</code> · <code>AssetManagerFXRP</code> <code>0x2a3Fe068cD92178554cabcf7c95ADf49B4B0B6A8</code> · FXRP <code>0xAd552A648C74D49E10027AB8a618A3ad4901c5bE</code> · Legacy: <code>XrplCouncilBridge</code> <code>0x02aE9fcB76768e42b8D3Ed9FE842238A6616b26F</code> (nextNonce 4), <code>LegacyVault</code> <code>0xc8379c79779cCE3B738424892709fe0D4339E3b1</code>, <code>LegacyStackFactory</code> <code>0xF93A8A0bd93e95514fF02285349b0b1c1a5a3e0a</code> · Managed v2: <code>AstryumRegistry</code> <code>0x18c807d107EF9d337aFA5BdD39b190C42Dc50Aec</code> (2 venues, 1 h timelock), <code>AstryumCageFactory</code> <code>0xE897fFef10F950Abc2d9c759107410F713e941D9</code> (3 cages, 4 potes), <code>PoteDeployer</code> <code>0x5f84c5F4805c29298AF71Fc6657D3E780eF27E9E</code> · v1: <code>AstryumStackFactory</code> <code>0xc221E9F447E65EdAe16A4Af64D3a7a67E2EE3783</code>, pote A <code>0x21d4ccf29EEB61E573c2037F2B29B727168c3da9</code> · <code>PasskeyAccountFactory</code> <code>0xfa559cE04135835Cb8f7d3CFad2b8d14525ad932</code> · FXRP OFT adapter <code>0xd70659a6396285BF7214d7Ea9673184e7C72E07E</code>. All reads above dated 15 September 2026.</p>
+<p><strong>The product:</strong> <code>https://astryum.xyz</code> — <code>/proof</code> verifies claims in your browser. The public repository has a README and a licence (audit yes, exploit no: public does not mean permissive).</p>
+<p><strong>Tests:</strong> Foundry 168/168 (62 on the cage v2 against real venues on a fork); backend 4,275 tests in 329 suites and frontend 2,169 in 160 files, green on 15 September — with the caveat we apply to ourselves: green tests prove the pieces, not that the chain exists in the real domain, which is why every fix in the last cycle had to carry a test of the <em>phase</em> or the <em>consumer</em> that failed.</p>
+<p><strong>Attribution:</strong> Source Tag metrics are computed with a fixed definition (active user = signer of ≥ 1 validated <code>tesSUCCESS</code> transaction carrying the tag, multisig <code>Signers[]</code> included, de-duplicated by hash, operational accounts excluded, truncation declared). <strong>5 active accounts · 289.51 XRP</strong> (13 September, afternoon). The transaction-by-transaction read of 19 September is in <a href="https://astryum.xyz/docs/mainnet-evidence">Astryum on mainnet</a>.</p>
+<hr>
+<h2 id="s14">13. What we do not claim — and the open blockers</h2>
+<p><strong>We do not claim:</strong> an external audit (none yet; hence own capital, small amounts, caps in configuration); users beyond the founders&#39; circle; that the tag is on <em>every</em> transaction of ours (it is on every <em>user-signed</em> one; our operational keys carry none, on purpose); that the exchange has run with a third party; that the on-ledger credential door is switched on; that any swap, planner, fiat ramp, card, agent, protocol-managed wallet or confidential-compute path exists in code; that yields are anything but live protocol data with a source.</p>
+<p><strong>Open blockers, in order.</strong></p>
+<ol>
+<li><strong>External audit of the contracts</strong> — the number-one blocker; budgeted as the main line of the grant applications.</li>
+<li><strong>The company</strong> — the legal wrapper is in progress; without it there is no KYB provider contract, no distribution agreement, no listing agreement.</li>
+<li><strong>What production shows.</strong> Legacy, the manager&#39;s desk and the Exchange are closed in production by code until they are opened by hand. Until then a visitor sees the product without those doors.</li>
+<li><strong>Key concentration.</strong> The registry governor and the factory treasury are the same key — and, per our own audit of 15 September, the executor&#39;s; moving the registry to a multisig is wave 0.</li>
+<li><strong>Regulatory boundary document</strong> to be extended for portfolio management (the answer of substance: the manager holds the licence; Astryum is the tool). <strong>Data-protection representative</strong> designation pending signature.</li>
+<li><strong>Written technical debt:</strong> row-level isolation in the database before opening watch-only to third parties; self-service recovery of stuck operations; external incident alerting; the executor&#39;s daily budget as the physical ceiling of adoption.</li>
+</ol>
+<hr>
+<h2 id="s15">Appendix A — status table (15 September 2026)</h2>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Product / piece</th>
+<th>State</th>
+<th>Proof</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Personal account (memo rail, carry, redemption)</td>
+<td><span class="pill live">LIVE</span></td>
+<td>mainnet: mint, deposit, withdraw, repay; redemption 31 Jul; E2E 22 Aug</td>
+</tr>
+<tr>
+<td>Reinforced account</td>
+<td><span class="pill live">LIVE</span> (ceremony)</td>
+<td>same multisig pipeline live since 14–15 Jul; surface shipped Sep</td>
+</tr>
+<tr>
+<td>Legacy</td>
+<td><span class="pill live">LIVE</span></td>
+<td>council 3-of-4; 4 orders E2E; bridge nonce 4; vault ≈ 4.70 FXRP</td>
+</tr>
+<tr>
+<td>Managed vaults (manager)</td>
+<td><span class="pill live">LIVE</span></td>
+<td>cage v2 on mainnet; 3 cages, 4 potes; full cycle proven; 168 Foundry tests</td>
+</tr>
+<tr>
+<td>Exchange (operator + client)</td>
+<td><span class="pill built">BUILT</span></td>
+<td>root, designation, cage and potes on mainnet; rehearsed; founders-only</td>
+</tr>
+<tr>
+<td>Credentials — the gate</td>
+<td><span class="pill live">LIVE</span></td>
+<td>fail-closed at cage birth and orders; notary from Coinbase EAS (9 Sep)</td>
+</tr>
+<tr>
+<td>Credentials — on-ledger door (DepositAuth + Preauth)</td>
+<td><span class="pill built">BUILT</span></td>
+<td>routes and client exist; no screen calls them; not exercised on mainnet</td>
+</tr>
+<tr>
+<td>Permissioned Domains</td>
+<td><span class="pill built">BUILT</span></td>
+<td>no consumer</td>
+</tr>
+<tr>
+<td>MoneyFlows</td>
+<td><span class="pill live">LIVE</span></td>
+<td>escrows + keeper; price trigger since 16 Aug</td>
+</tr>
+<tr>
+<td>/proof</td>
+<td><span class="pill live">LIVE</span></td>
+<td>run <code>verify</code> not exercised on mainnet</td>
+</tr>
+<tr>
+<td>Copilot / MCP</td>
+<td><span class="pill live">LIVE</span> as copilot</td>
+<td>no sign/submit tools; MCP local only</td>
+</tr>
+<tr>
+<td>Watch-only</td>
+<td><span class="pill built">BUILT</span></td>
+<td>row-level isolation pending</td>
+</tr>
+<tr>
+<td>Enterprise account, venue certification, distribution fee, compartments, planner</td>
+<td><span class="pill next">NEXT</span></td>
+<td>V2 waves 1–4</td>
+</tr>
+<tr>
+<td>Fiat ramp, card</td>
+<td><span class="pill later">LATER</span></td>
+<td>partners decided; zero code</td>
+</tr>
+<tr>
+<td>Protocol-managed wallets / confidential compute</td>
+<td><span class="pill later">LATER</span></td>
+<td>frame in the cage; arm reverts on purpose; zero TEE code</td>
+</tr>
+<tr>
+<td>Single root, agent account</td>
+<td><span class="pill later">LATER</span></td>
+<td>designed; depends on the above and on XLS-75</td>
+</tr>
+</tbody></table></div>
+<h2 id="s16">Appendix B — terms used here</h2>
+<p><strong>Root</strong> — the XRPL account that governs (a person&#39;s Xaman account, a family council, a company&#39;s board as a <code>SignerList</code>). <strong>Personal Account</strong> — the account on Flare derived from an XRPL address, the root&#39;s arm. <strong>Memo instruction / Rail A</strong> — a Payment to the FAssets Core Vault whose memo commits to the batch the Personal Account executes. <strong>Council order / Rail B</strong> — a 1-drop Payment to an anchor whose memo commits to calldata a bridge executes against a vault. <strong>Anchor</strong> — the XRPL account that receives council orders; with DepositAuth it becomes a gate. <strong>Bridge</strong> — the contract on Flare that verifies the FDC proof and is the vault&#39;s only council. <strong>Cage</strong> — the contract that governs potes for one root and cannot custody, extract or be upgraded. <strong>Pote</strong> — an ERC-4626 vault inside a cage: shares to depositors, venues from the registry, exit no one can gate. <strong>Venue</strong> — a protocol where capital works (a line in the registry, never the product). <strong>Credential</strong> — an XLS-70 object on a root, with expiry, accepted by the subject. <strong>Designation</strong> — a credential from a root to its subordinate (a council naming its omnibus). <strong>FDC</strong> — Flare Data Connector, the notary between the two ledgers.</p>
+<hr>
+<p class="closing"><em>One kernel. N tunnels. The order travels; the capital does not. And in every product the same sentence: Astryum prepares, the user signs, the ledger enforces.</em></p>
+
+</article>
+</div>
+
+
+<script>
+(function () {
+  var toc = document.getElementById('toc');
+  var links = toc.querySelectorAll('a');
+  var heads = document.querySelectorAll('article h2');
+  if (!('IntersectionObserver' in window)) return;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      links.forEach(function (l) { l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id); });
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  heads.forEach(function (h) { io.observe(h); });
+})();
+</script>
+
+<script src="/docs/vendor/mermaid-10.9.1.min.js"></script>
+<script>
+(function () {
+  if (!window.mermaid) return;
+  var MIN_SCALE = 0.75;
+  var DARK = matchMedia('(prefers-color-scheme: dark)').matches;
+  function fit() {
+    document.querySelectorAll('figure.diagram').forEach(function (fig) {
+      var svg = fig.querySelector('svg');
+      var natural = svg && svg.viewBox && svg.viewBox.baseVal.width;
+      if (!natural) return;
+      var cs = getComputedStyle(fig);
+      var room = fig.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      var width = Math.min(natural, Math.max(room, natural * MIN_SCALE));
+      if (width > room && width <= room * 1.08) width = room; // a hair over is not worth a scrollbar
+      svg.style.maxWidth = 'none';
+      svg.style.width = Math.round(width) + 'px';
+      svg.style.height = 'auto';
+      var scrolls = width > room + 1;
+      fig.classList.toggle('scrolls', scrolls);
+      fig.classList.toggle('dark', DARK);
+      if (scrolls) { fig.tabIndex = 0; fig.setAttribute('role', 'group'); fig.setAttribute('aria-label', 'Diagram, scrolls sideways'); }
+      else { fig.removeAttribute('tabindex'); fig.removeAttribute('role'); fig.removeAttribute('aria-label'); }
+    });
+  }
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: DARK ? 'dark' : 'neutral',
+    securityLevel: 'loose',
+    sequence: { wrap: true, width: 126, actorMargin: 20, useMaxWidth: true },
+    flowchart: { subGraphTitleMargin: { top: 2, bottom: 26 } }
+  });
+  function run() { mermaid.run({ querySelector: 'pre.mermaid' }).then(fit, fit); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  var timer; window.addEventListener('resize', function () { clearTimeout(timer); timer = setTimeout(fit, 120); });
+})();
+</script>
+</body>
+</html>

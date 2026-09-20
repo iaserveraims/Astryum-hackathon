@@ -21,13 +21,22 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { platformApi, type PlatformStatus } from '@/services/v1Api';
-import { CHANGELOG, KIND_LABEL, PLATFORM_VERSION, type ChangeKind } from '@/lib/platform/changelog';
+import { CHANGELOG, PLATFORM_VERSION } from '@/lib/platform/changelog';
+import { buildShipLog, clumpLine, clumpSpan } from '@/lib/platform/shipLog';
 import { PulseDot } from '@/components/ui/motion';
 import { MicroLabel } from '@/components/ui/primitives';
 import { useAuthorities } from '@/hooks/useAuthorities';
 import { useT } from '@/i18n/LanguageProvider';
 
 type Light = 'online' | 'offline' | 'no-signal' | 'loading';
+
+/** Gap between the button and the panel, and the panel and the viewport edge. */
+const PANEL_GAP = 8;
+/** The log never grows past this; it shrinks below it when the viewport is short. */
+const LOG_MAX_HEIGHT = 300;
+
+// The log is folded ONCE per module load — the changelog is a constant.
+const SHIP_LOG = buildShipLog(CHANGELOG);
 
 export default function OrbitStatusCard() {
   const { lang } = useT();
@@ -45,13 +54,23 @@ export default function OrbitStatusCard() {
   // (residual motion filter/transform), so later siblings paint above any
   // z-index inside an earlier one. Same root cause the PerformanceModal
   // documented; same cure: escape to <body>.
-  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
+  // maxHeight: a fixed panel cannot be scrolled INTO view, so on a short
+  // viewport (phone, or the card low on the page) it must shrink to what
+  // fits below the button — the log inside takes the squeeze.
+  const [panelPos, setPanelPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
 
   const place = () => {
     const r = rootRef.current?.getBoundingClientRect();
-    if (r) setPanelPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+    if (!r) return;
+    const top = r.bottom + PANEL_GAP;
+    setPanelPos({
+      top,
+      right: Math.max(PANEL_GAP, window.innerWidth - r.right),
+      maxHeight: Math.max(160, window.innerHeight - top - PANEL_GAP),
+    });
   };
 
   useEffect(() => {
@@ -102,6 +121,35 @@ export default function OrbitStatusCard() {
       window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
+
+  // The wheel never leaves the panel (founder 2026-09-15: «se abre, pero no
+  // funciona el scroll»). When the log had nothing left to scroll — or the
+  // pointer sat over the status header — the browser chained the wheel to
+  // the page, the page scrolled, and the listener above closed the panel
+  // under the user's hand: "scroll doesn't work". The log scrolls natively
+  // while it can; every other wheel over the panel is swallowed here. Native
+  // listener because React registers wheel as passive (preventDefault would
+  // be ignored). overscroll-contain on the log covers touch the same way.
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const onWheel = (e: WheelEvent) => {
+      const log = logRef.current;
+      if (log && e.target instanceof Node && log.contains(e.target)) {
+        const room = log.scrollHeight - log.clientHeight;
+        if (room > 1) {
+          const up = e.deltaY < 0;
+          const atTop = log.scrollTop <= 0;
+          const atBottom = log.scrollTop >= room - 1;
+          if (up ? !atTop : !atBottom) return; // the log takes it
+        }
+      }
+      e.preventDefault();
+    };
+    panel.addEventListener('wheel', onWheel, { passive: false });
+    return () => panel.removeEventListener('wheel', onWheel);
+  }, [open, panelPos]);
 
   const dotClass =
     light === 'online'
@@ -157,11 +205,11 @@ export default function OrbitStatusCard() {
           <div
             ref={panelRef}
             data-authority={activeGoverned ? 'governed' : 'single'}
-            className="astry-panel fixed z-[80] w-[340px] overflow-hidden"
-            style={{ top: panelPos.top, right: panelPos.right }}
+            className="astry-panel fixed z-[80] flex w-[340px] max-w-[calc(100vw-16px)] flex-col overflow-hidden"
+            style={{ top: panelPos.top, right: panelPos.right, maxHeight: panelPos.maxHeight }}
           >
           {/* status detail — the founders' hand-written reason while offline */}
-          <div className="px-4 py-3.5">
+          <div className="shrink-0 px-4 py-3.5">
             <div className="flex items-center gap-2">
               <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} aria-hidden />
               <span className="text-sm font-medium text-ink">
@@ -189,49 +237,55 @@ export default function OrbitStatusCard() {
             )}
           </div>
 
-          {/* the noticiero — newest first. DeFi items get their full line (a
-              new capability is worth reading); everything else collapses into
-              one generic line per kind (founder 2026-07-26: "no quiero que dé
-              tanto detalle"). */}
-          <div className="border-t border-ink/[0.06] max-h-[300px] overflow-y-auto px-4 py-3">
+          {/* the noticiero — newest first, como HISTORIA y no como letanía
+              (fundador 2026-08-26: «aglomera todos los behaviour juntos entre
+              cada improvement defi»). Los hitos DeFi conservan su línea
+              completa con versión y fecha; lo genérico se aglomera en UNA fila
+              por día de trabajo con contadores por tipo y el rango de
+              versiones que resume (lib/platform/shipLog.ts). Es el log
+              entero: con filas por día caben los meses, y el scroll es suyo. */}
+          <div
+            ref={logRef}
+            className="min-h-0 overflow-y-auto overscroll-contain border-t border-ink/[0.06] px-4 py-3"
+            style={{ maxHeight: LOG_MAX_HEIGHT }}
+          >
             <MicroLabel>{es ? 'Bitácora de a bordo' : 'Ship log'}</MicroLabel>
-            {/* Last TWELVE versions (founder 2026-08-08, superseding the four of
-                2026-07-27): most releases are visual/perf one-liners, so with
-                only four a DeFi entry scrolled out of sight within days. The
-                panel keeps its height — beyond it, the list scrolls. */}
             <ul className="mt-2.5 space-y-3.5">
-              {CHANGELOG.slice(0, 12).map((entry) => {
-                const defi = entry.items.filter((i) => i.kind === 'defi');
-                const otherKinds = [
-                  ...new Set(
-                    entry.items.map((i) => i.kind).filter((k): k is Exclude<ChangeKind, 'defi'> => k !== 'defi'),
-                  ),
-                ];
-                return (
-                  <li key={entry.version}>
+              {/* Keys carry the index: the log has carried the same version
+                  number twice more than once (two sessions, one number), and a
+                  duplicate key would drop a row silently. */}
+              {SHIP_LOG.map((b, i) =>
+                b.kind === 'milestone' ? (
+                  <li key={`m-${i}-${b.entry.version}`}>
                     <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-[11px] font-semibold text-volt">v{entry.version}</span>
-                      <span className="font-mono text-[10px] text-ink/30">{entry.date}</span>
+                      <span className="font-mono text-[11px] font-semibold text-volt">v{b.entry.version}</span>
+                      <span className="font-mono text-[10px] text-ink/30">{b.entry.date}</span>
                     </div>
                     <ul className="mt-1 space-y-1">
-                      {defi.map((item) => (
-                        <li key={item.es} className="flex gap-2 text-[12.5px] leading-snug text-ink/70">
-                          <span className="mt-[3px] shrink-0 rounded border border-volt/30 bg-volt/10 px-1 font-mono text-[8.5px] uppercase tracking-wide text-volt">
-                            DeFi
-                          </span>
-                          {es ? item.es : item.en}
-                        </li>
-                      ))}
-                      {otherKinds.map((k) => (
-                        <li key={k} className="flex gap-2 text-[12px] leading-snug text-ink/45">
-                          <span className="mt-[7px] h-[3px] w-[3px] shrink-0 rounded-full bg-ink/25" aria-hidden />
-                          {es ? KIND_LABEL[k].es : KIND_LABEL[k].en}
-                        </li>
-                      ))}
+                      {b.entry.items
+                        .filter((i) => i.kind === 'defi')
+                        .map((item) => (
+                          <li key={item.es} className="flex gap-2 text-[12.5px] leading-snug text-ink/70">
+                            <span className="mt-[3px] shrink-0 rounded border border-volt/30 bg-volt/10 px-1 font-mono text-[8.5px] uppercase tracking-wide text-volt">
+                              DeFi
+                            </span>
+                            {es ? item.es : item.en}
+                          </li>
+                        ))}
                     </ul>
                   </li>
-                );
-              })}
+                ) : (
+                  <li key={`c-${i}-${b.clump.newest.version}`} className="pl-0.5">
+                    <div className="flex gap-2 text-[12px] leading-snug text-ink/45">
+                      <span className="mt-[7px] h-[3px] w-[3px] shrink-0 rounded-full bg-ink/25" aria-hidden />
+                      <span>
+                        {clumpLine(b.clump, es ? 'es' : 'en')}
+                        <span className="block font-mono text-[10px] text-ink/25 mt-0.5">{clumpSpan(b.clump)}</span>
+                      </span>
+                    </div>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
           </div>,

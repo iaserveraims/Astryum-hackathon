@@ -282,6 +282,81 @@ describe('POST /api/flare-demo/pa-withdraw-transfer/prepare — validation', () 
   });
 });
 
+describe('POST /api/flare-demo/pa-transfer/prepare — validation', () => {
+  // La puerta mueve el saldo LIBRE de la Personal Account. Sin `asset` es el
+  // cuerpo de siempre (FXRP); con `asset: 'FLR'` es el saldo NATIVO de esa
+  // cuenta saliendo hacia Flare (fundador 2026-08-28).
+  const validFxrp = {
+    xrplAddress: GOOD_XRPL,
+    evmWallet: GOOD_EVM,
+    amountFxrpBase: '5000000',
+    amountXrpForMint: 1,
+  };
+
+  it('sin `asset` sigue siendo FXRP — el cuerpo viejo no cambia de significado', async () => {
+    const res = await request(app).post('/api/flare-demo/pa-transfer/prepare').send(validFxrp);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
+  });
+
+  it.each(['XRP', 'USDT0', 'fxr', ''])('rechaza un activo que esta puerta no mueve (%s)', async (bad) => {
+    const res = await request(app)
+      .post('/api/flare-demo/pa-transfer/prepare')
+      .send({ ...validFxrp, asset: bad });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_ASSET');
+  });
+
+  it('acepta FLR con su cantidad en wei — pasa validación y para en el gate', async () => {
+    const res = await request(app)
+      .post('/api/flare-demo/pa-transfer/prepare')
+      .send({
+        xrplAddress: GOOD_XRPL,
+        evmWallet: GOOD_EVM,
+        asset: 'flr', // minúsculas: se normaliza
+        amountFlrWei: '1000000000000000000',
+        amountXrpForMint: 1,
+      });
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
+  });
+
+  it('FLR SIN amountFlrWei es 400 — jamás cae al amountFxrpBase de al lado', async () => {
+    // El fallo que este test existe para impedir: leer la cantidad del campo
+    // equivocado convertiría «envía 5 FLR» en «envía 0,000000000005 FLR».
+    const res = await request(app)
+      .post('/api/flare-demo/pa-transfer/prepare')
+      .send({ ...validFxrp, asset: 'FLR' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_AMOUNT');
+  });
+
+  it.each(['0', '-1', 'Infinity', '1.5', 'abc'])(
+    'rechaza un amountFlrWei que no sea un entero positivo (%s)',
+    async (bad) => {
+      const res = await request(app)
+        .post('/api/flare-demo/pa-transfer/prepare')
+        .send({ xrplAddress: GOOD_XRPL, evmWallet: GOOD_EVM, asset: 'FLR', amountFlrWei: bad, amountXrpForMint: 1 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('INVALID_AMOUNT');
+    },
+  );
+
+  it('el destino del FLR sigue siendo una dirección EVM — una r-address es 400', async () => {
+    const res = await request(app)
+      .post('/api/flare-demo/pa-transfer/prepare')
+      .send({
+        xrplAddress: GOOD_XRPL,
+        evmWallet: GOOD_XRPL,
+        asset: 'FLR',
+        amountFlrWei: '1000000000000000000',
+        amountXrpForMint: 1,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_EVM_WALLET');
+  });
+});
+
 describe('POST /api/flare-demo/pa-unmint/prepare — validation', () => {
   const valid = { xrplAddress: GOOD_XRPL, amountFxrpBase: '5000000', amountXrpForMint: 1 };
 

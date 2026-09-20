@@ -6,6 +6,7 @@ import { StepUpRequiredError } from './stepUpError';
 import { stepUpBus, featureForEndpoint } from './stepUpBus';
 import { useAuthStore } from '../stores/authStore';
 import { getApiBase } from '../lib/env';
+import { isSurfacedUnauthorized } from './v1Api';
 
 class ApiService {
   public baseURL: string;
@@ -39,8 +40,24 @@ class ApiService {
     return headers;
   }
 
-  private handleUnauthorized(): void {
+  /**
+   * A 401 THAT IS NOT «YOUR SESSION ENDED» (productizer it. 19, R5 R6).
+   *
+   * `withLiveSession` refuses an authority WRITE whose session predates an
+   * account takeover and answers 401 `session_revoked`. That is a verdict about
+   * that one write, not about the session the person is using — and this client
+   * read the status alone, with the body still unread: token wiped, straight to
+   * /login, the step-up matrix the person was editing gone. A security fix that
+   * throws the user out of the app is a security fix nobody survives.
+   *
+   * So the body is read FIRST (see `handleResponse`) and handed here; a
+   * `session_revoked` clears nothing and navigates nowhere — the caller receives
+   * the refusal (status + code) and says it in place. Same verdict as
+   * `services/v1Api`, so the two clients cannot drift apart.
+   */
+  private handleUnauthorized(body?: unknown): void {
     if (typeof window === 'undefined') return;
+    if (isSurfacedUnauthorized(body)) return;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('astryum-auth-storage');
     if (!window.location.pathname.startsWith('/login')) {
@@ -64,8 +81,11 @@ class ApiService {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      if (response.status === 401) this.handleUnauthorized();
+      // it. 19 (R5 R6) — READ THE BODY BEFORE DECIDING TO LOG ANYONE OUT. The
+      // 401 used to be acted on with the answer still unread, so the one 401
+      // that must NOT end the session (`session_revoked`) ended it.
       const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) this.handleUnauthorized(errorData);
       // Step-up locks: surface a typed error so callers can run the signature
       // handshake and retry. Carries which feature/action was gated. Also emit
       // on the bus so the global host can prompt + refetch for plain reads.
@@ -76,7 +96,12 @@ class ApiService {
       const error: ApiError = {
         message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
         status: response.status,
-        code: errorData.code,
+        // it. 19 (R5 R6): several routes name the code `error`, not `code`. A
+        // caller that has to tell `session_revoked` from a plain expiry cannot
+        // do it from the status, so the code travels — the SENTENCE is still the
+        // caller's to write (the server's `detail` is Spanish on these routes
+        // and is never rendered).
+        code: errorData.code ?? errorData.error,
       };
       throw error;
     }

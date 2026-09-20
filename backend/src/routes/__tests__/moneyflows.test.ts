@@ -18,9 +18,22 @@ import express from 'express';
 import request from 'supertest';
 import moneyflowsRouter from '../moneyflows';
 
-const app = express();
-app.use(express.json());
-app.use('/api/moneyflows', moneyflowsRouter);
+const USER_ID = 'user-1';
+
+/** requireSiweAuth sets req.siwe in production; every wallet lookup is scoped to it. */
+function buildApp(userId: string | null = USER_ID) {
+  const a = express();
+  a.use(express.json());
+  if (userId) {
+    a.use((req, _res, next) => {
+      (req as express.Request).siwe = { userId, sessionId: 's1', walletAddress: '0x0' };
+      next();
+    });
+  }
+  a.use('/api/moneyflows', moneyflowsRouter);
+  return a;
+}
+const app = buildApp();
 
 const WALLET = '0xEabCD745000000000000000000000000000000cd';
 
@@ -122,14 +135,19 @@ describe('GET /api/moneyflows — rules grouped by canonicalRef', () => {
 });
 
 describe('GET /api/moneyflows/capability — the honest matrix', () => {
-  test('Flare lists real triggers only; XRPL is ∅ until the builders land', async () => {
+  // The matrix moved twice in the window and this pin moved WITH the truth:
+  // 'price' became real on Flare (M3, live FTSO vs the rule's baseline) and
+  // XRPL stopped being ∅ (M4: transfer/supply over the live rule rails).
+  test('Flare lists real triggers only; XRPL lists what its live rails serve', async () => {
     const res = await request(app).get('/api/moneyflows/capability');
     expect(res.status).toBe(200);
     const flare = res.body.chains.find((c: { chain: string }) => c.chain === 'eip155:14');
     expect(flare.mode).toBe('sign-at-trigger');
-    expect(flare.triggers).toEqual(['health-factor', 'ltv', 'reward', 'idle-balance', 'time']); // no price (still a stub)
+    expect(flare.triggers).toEqual(['health-factor', 'ltv', 'reward', 'idle-balance', 'time', 'price']);
     const xrpl = res.body.chains.find((c: { chain: string }) => c.chain === 'xrpl:0');
-    expect(xrpl.verbs).toEqual([]);
+    expect(xrpl.mode).toBe('sign-at-trigger');
+    expect(xrpl.verbs).toEqual(['transfer', 'supply']);
+    expect(xrpl.triggers).toEqual(['time', 'idle-balance', 'price']);
   });
 });
 
@@ -171,5 +189,60 @@ describe('flow-level revoke — pause/resume/delete by canonicalRef (guardarraí
     mockRuleFindMany.mockResolvedValue([]);
     const miss = await request(app).delete(`/api/moneyflows/nope-ref`).query({ address: WALLET });
     expect(miss.status).toBe(404);
+  });
+});
+
+/**
+ * productizer 13-sep — a public address is not a key.
+ *
+ * The wallet lookups matched the address ALONE, so any session listed, paused,
+ * resumed or deleted another user's flows by typing their address. These fail
+ * on the code as it shipped before the fix (no userId in any `where`).
+ */
+describe('ownership — every wallet lookup is the session user\'s', () => {
+  const REF = 'cmf-test-0001';
+
+  test('GET asks for THIS user\'s wallet rows with that address', async () => {
+    mockWalletFindMany.mockResolvedValue([{ id: 'w1' }]);
+    mockRuleFindMany.mockResolvedValue([]);
+    await request(app).get('/api/moneyflows').query({ address: WALLET });
+    expect(mockWalletFindMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID, address: { equals: WALLET, mode: 'insensitive' } },
+      select: { id: true },
+    });
+  });
+
+  test('a foreign address reads as an empty list', async () => {
+    mockWalletFindMany.mockResolvedValue([]); // no row of this user carries it
+    mockRuleFindMany.mockResolvedValue([]);
+    const res = await request(buildApp('user-stranger')).get('/api/moneyflows').query({ address: WALLET });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: 0, flows: [] });
+    expect(mockRuleFindMany.mock.calls[0][0].where.walletId).toEqual({ in: [] });
+  });
+
+  test('pause / resume / delete on a foreign address → 404 and nothing is touched', async () => {
+    mockWalletFindMany.mockResolvedValue([]);
+    const stranger = buildApp('user-stranger');
+
+    expect((await request(stranger).post(`/api/moneyflows/${REF}/pause`).send({ address: WALLET })).status).toBe(404);
+    expect((await request(stranger).post(`/api/moneyflows/${REF}/resume`).send({ address: WALLET })).status).toBe(404);
+    expect((await request(stranger).delete(`/api/moneyflows/${REF}`).query({ address: WALLET })).status).toBe(404);
+
+    expect(mockRuleFindMany).not.toHaveBeenCalled();
+    expect(mockRuleUpdateMany).not.toHaveBeenCalled();
+    expect(mockRuleDeleteMany).not.toHaveBeenCalled();
+    for (const call of mockWalletFindMany.mock.calls) {
+      expect(call[0].where.userId).toBe('user-stranger');
+    }
+  });
+
+  test('no session → 401 on every wallet-scoped route', async () => {
+    const anon = buildApp(null);
+    expect((await request(anon).get('/api/moneyflows').query({ address: WALLET })).status).toBe(401);
+    expect((await request(anon).post(`/api/moneyflows/${REF}/pause`).send({ address: WALLET })).status).toBe(401);
+    expect((await request(anon).post(`/api/moneyflows/${REF}/resume`).send({ address: WALLET })).status).toBe(401);
+    expect((await request(anon).delete(`/api/moneyflows/${REF}`).query({ address: WALLET })).status).toBe(401);
+    expect(mockWalletFindMany).not.toHaveBeenCalled();
   });
 });

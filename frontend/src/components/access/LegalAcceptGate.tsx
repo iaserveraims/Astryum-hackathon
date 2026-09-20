@@ -6,36 +6,86 @@
  * inician sesión por primera vez y se debe guardar que han aceptado").
  *
  * Shows once per account whenever the recorded versions are stale: first
- * dashboard entry of wallet-first (SIWE) accounts that never passed the
- * register click-wrap, and every account after a material version bump (e.g.
- * the €50 liability cap added 2026-07-30). Deliberately NOT dismissable — no
- * X, no backdrop click, no Escape: the dashboard stays blurred behind it
- * until the user accepts. Wording is legally precise: the demo terms are
- * ACCEPTED (contract); the privacy notice is READ (GDPR informs, it does not
- * ask consent to a notice). The server records both with version + timestamp
- * (POST /auth/legal-accept → User.preferences.legal).
+ * dashboard entry of wallet-first (SIWE / XRP Identity) accounts that never
+ * passed the register ceremony, and every account after a material version
+ * bump (e.g. the €50 liability cap added 2026-07-30). Deliberately NOT
+ * dismissable — no X, no backdrop click, no Escape: the dashboard stays
+ * blurred behind it until the user signs. The server records both with
+ * version + timestamp (POST /auth/legal-accept → User.preferences.legal).
+ *
+ * ── DESDE EL 13-SEP LA ACEPTACIÓN ES UNA FIRMA ──────────────────────────────
+ * Fundador: «que te obligue a leer y firmar los documentos, que aparezca el
+ * texto, que te obligue a bajar hasta abajo, y que la firma sea como en Xaman
+ * — deslizar una flecha». Las dos casillas y sus dos enlaces (que casi nadie
+ * abría) dan paso a LegalSignCeremony: el texto publicado delante, el final
+ * de los documentos como condición, y el gesto de firma de Xaman. La MISMA
+ * ceremonia que el alta — una sola pieza, para que la puerta del panel y la
+ * de la cuenta no acaben pidiendo cosas distintas. Lo que se registra no
+ * cambia.
+ *
+ * Segunda pasada del mismo día («que esté mejor hecho todo el proceso»): la
+ * puerta DICE por qué aparece (/auth/me trae `reason` y lo firmado), pide
+ * releer SOLO el documento que cambió, y al firmar enseña el recibo un
+ * instante antes de retirarse — nada de desaparecer a mitad de gesto. Una
+ * cuenta de email que firmó los dos textos en el alta ya no la ve: el alta
+ * escribe el mismo registro.
+ *
+ * Wording is legally precise: the terms are ACCEPTED (contract); the privacy
+ * notice is READ (GDPR informs, it does not ask consent to a notice) — the
+ * ceremony's signing sentence says exactly that, and carries the 18+
+ * declaration that used to ride the terms checkbox.
  *
  * Mounted once in the /app layout. Renders nothing until GET /auth/me answers
  * with `legal.required: true` — no flash, and the public demo (which never
  * reaches /auth/me) never sees it.
+ *
+ * ── TRES ESTADOS, Y SOLO UNO ES UNA PUERTA (it. 25) ─────────────────────────
+ * Una lectura ilegible JAMÁS puede encerrar a una persona fuera de su
+ * aplicación. Cuando el servidor no pudo leer la ficha de la cuenta manda
+ * `legal.unreadable: true` con `required: false`, y esta pieza pinta una NOTA
+ * —descartable, en una esquina, sin bloquear nada— en lugar de la ceremonia.
+ * Jamás dice «no has firmado»: no lo sabemos. Qué estado toca lo decide
+ * `legalGateMode` (lib/legal), que es donde está escrito el porqué; aquí solo
+ * se dibuja. El bucle que esto rompe: ficha ilegible ⇒ `required: true` ⇒
+ * modal sin salida ⇒ su único botón llama a /auth/legal-accept ⇒ 409
+ * `PREFERENCES_UNREADABLE` no reintentable ⇒ nadie entra, y las salidas de esa
+ * persona viven detrás de esta misma puerta.
  */
 
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { FileText, ScrollText, ShieldCheck } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import { useAuthStore } from '../../stores/authStore';
+import { LegalSignCeremony, type LegalDocId } from '../legal/LegalSignCeremony';
+import { T } from '../landing/useLang';
+import {
+  LEGAL_RECORD_UNREADABLE_EN,
+  LEGAL_RECORD_UNREADABLE_ES,
+  LEGAL_RECORD_UNREADABLE_TITLE_EN,
+  LEGAL_RECORD_UNREADABLE_TITLE_ES,
+  legalGateMode,
+} from '../../lib/legal/legalGateMode';
+
+/** Cuánto se queda el recibo a la vista antes de retirar la puerta. */
+const RECEIPT_MS = 1800;
 
 export default function LegalAcceptGate() {
-  const { t } = useT();
+  const { lang } = useT();
   const legalGate = useAuthStore((s) => s.legalGate);
   const acceptLegal = useAuthStore((s) => s.acceptLegal);
-  const [terms, setTerms] = useState(false);
-  const [privacyRead, setPrivacyRead] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [signedAt, setSignedAt] = useState<string | null>(null);
+  const [holdOpen, setHoldOpen] = useState(false);
   const [error, setError] = useState(false);
+  const [refusal, setRefusal] = useState<
+    'session_revoked' | 'session_expired' | 'server' | 'network' | 'not_recorded' | 'record_unreadable' | null
+  >(null);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
 
-  const open = legalGate?.required === true;
+  // 'sign' | 'unreadable' | 'closed' — el porqué de cada uno, en lib/legal.
+  const mode = legalGateMode(legalGate);
+  const required = mode.kind === 'sign';
+  // Firmada, la puerta se queda un instante con el recibo y luego se va.
+  const open = required || holdOpen;
 
   // A modal that paints over the app is not the same as a modal that BLOCKS it.
   // Audit 2026-08-01: the gate shipped at z-[97] while four app layers sit
@@ -58,124 +108,162 @@ export default function LegalAcceptGate() {
   }, [open]);
 
   const submit = async () => {
-    if (!terms || !privacyRead || busy) return;
+    if (busy) return;
     setBusy(true);
     setError(false);
     const ok = await acceptLegal();
     setBusy(false);
-    if (!ok) setError(true); // the gate stays up — no unearned success
+    // it. 17 — «check your connection» WAS THE WRONG SENTENCE FOR A REVOKED
+    // SESSION. Since the live-session check, /legal-accept refuses a request
+    // whose session died (an account takeover, a sign-out elsewhere): telling
+    // that person to check their network leaves them clicking a gate that can
+    // never close. The store already distinguishes the four cases.
+    setRefusal(ok ? null : (useAuthStore.getState().legalAcceptRefusal ?? 'server'));
+    // The gate only closes on a CONFIRMED write — an optimistic close would
+    // show an acceptance whose record never landed.
+    if (ok) {
+      setSignedAt(useAuthStore.getState().legalGate?.accepted?.acceptedAt ?? new Date().toISOString());
+      setHoldOpen(true);
+      window.setTimeout(() => setHoldOpen(false), RECEIPT_MS);
+    } else {
+      setError(true);
+      // SI EL SERVIDOR ACABA DE DECIR «no pude leer tu ficha», ESTA PUERTA SE
+      // RETIRA SOLA (it. 25). El 409 `PREFERENCES_UNREADABLE` no es
+      // reintentable: la firma no puede aterrizar nunca sobre esa fila, así que
+      // seguir pidiéndola es exigir lo imposible. /auth/me ya contesta
+      // `unreadable: true, required: false` para la misma fila, de modo que
+      // volver a leerlo convierte el callejón en la nota de más abajo. Un 401
+      // (sesión revocada o caducada) no toca nada: refreshMe corta al no ser
+      // 200 y el mensaje correcto sigue en pantalla.
+      void useAuthStore.getState().refreshMe();
+    }
   };
 
+  // Solo se exige releer lo que cambió; sin razón conocida (backend antiguo),
+  // los dos, como siempre.
+  const reason = legalGate?.reason ?? null;
+  const require: LegalDocId[] =
+    reason === 'terms' ? ['terms'] : reason === 'privacy' ? ['privacy'] : ['terms', 'privacy'];
+
   return (
-    <AnimatePresence>
+    <>
+      {/* SIN <AnimatePresence> (fundador 2026-09-14: «cuando desaparece el
+          popup se queda la página sin poder usarse hasta que recargas»).
+          Reproducido en navegador: con la ceremonia como hijo DIRECTO de un
+          AnimatePresence, la animación de salida corre —el overlay llega a
+          opacity 0— pero el nodo NO se desmonta nunca, y ese `fixed inset-0`
+          invisible con pointer-events:auto se queda comiéndose todos los
+          clics hasta que se recarga. La regla ya estaba escrita en
+          ui/ModalPortal.tsx: «insertar un componente que no es motion.* entre
+          la frontera de presencia y el elemento animado» rompe la salida. Un
+          `key` NO lo arregla (probado); montar y desmontar a secas, sí. Se
+          pierde el fundido de salida de 0,2 s. La entrada no cambia: la lleva
+          el propio motion.div de la ceremonia. */}
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[200] flex items-start justify-center bg-[#06070c]/70 backdrop-blur-md p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('Before you continue')}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 14, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.98 }}
-            transition={{ duration: 0.22 }}
-            className="w-full max-w-md my-auto rounded-2xl border border-white/10 bg-[#0d0f16] p-6 shadow-2xl"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10">
-                <ShieldCheck className="h-5 w-5 text-amber-300" />
-              </div>
-              <div>
-                <h2 className="text-[15px] font-semibold text-white">{t('Before you continue')}</h2>
-                <p className="text-xs text-white/45">
-                  {t('One minute, once — so you know exactly what you are using.')}
-                </p>
-              </div>
-            </div>
-
-            <p className="mt-4 text-[13px] leading-relaxed text-white/60">
-              {t(
-                'Astryum is an open demo with real XRP under deliberate caps. Its conditions and its privacy notice are published as living pages; your acceptance is recorded with the text version and date.',
-              )}
-            </p>
-
-            <div className="mt-4 space-y-2.5">
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-colors hover:bg-white/[0.05]">
-                <input
-                  type="checkbox"
-                  checked={terms}
-                  onChange={(e) => setTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-amber-400"
-                />
-                <span className="text-[13px] leading-snug text-white/70">
-                  {t('I accept the')}{' '}
-                  <a
-                    href="/demo-terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-medium text-amber-300 underline underline-offset-2"
-                  >
-                    <ScrollText className="h-3.5 w-3.5" />
-                    {t('demo terms')}
-                  </a>{' '}
-                  {t('— experimental software, caps by design, liability limited to €50 with the legal carve-outs.')}{' '}
-                  {/* Age self-declaration (2026-08-01): the demo had NO minimum
-                      age anywhere — a minor could sign with real money. A
-                      declaration is the proportionate check for a demo that by
-                      design has no KYC; it rides the same versioned record. */}
-                  {t('I declare that I am 18 or older.')}
-                </span>
-              </label>
-
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-colors hover:bg-white/[0.05]">
-                <input
-                  type="checkbox"
-                  checked={privacyRead}
-                  onChange={(e) => setPrivacyRead(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-amber-400"
-                />
-                <span className="text-[13px] leading-snug text-white/70">
-                  {t('I have read the')}{' '}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-medium text-amber-300 underline underline-offset-2"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    {t('privacy notice')}
-                  </a>{' '}
-                  {t('— what is processed, who receives it, and what public chains make permanent.')}
-                </span>
-              </label>
-            </div>
-
-            {error && (
-              <p className="mt-3 text-xs text-red-400">
-                {t('Could not record your acceptance — check your connection and try again.')}
-              </p>
-            )}
-
-            <button
-              onClick={submit}
-              disabled={!terms || !privacyRead || busy}
-              className="mt-5 w-full rounded-xl bg-amber-400 py-2.5 text-sm font-semibold text-black transition-all enabled:hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {busy ? t('Recording…') : t('Accept and continue')}
-            </button>
-
-            <p className="mt-3 text-center font-mono text-[10px] text-white/30">
-              {t('Version')} {legalGate?.termsVersion || '—'} ·{' '}
-              {t('Recorded with date on your account')}
-            </p>
-          </motion.div>
-        </motion.div>
+        <LegalSignCeremony
+          lang={lang}
+          heading={T('Antes de continuar', 'Before you continue', lang)}
+          intro={T(
+            'Un minuto, una vez — para que sepas exactamente qué estás usando.',
+            'One minute, once — so you know exactly what you are using.',
+            lang,
+          )}
+          busy={busy}
+          signed={signedAt !== null}
+          signedAt={signedAt}
+          require={require}
+          reason={reason}
+          accepted={legalGate?.accepted ?? null}
+          currentVersions={legalGate ? { terms: legalGate.termsVersion, privacy: legalGate.privacyVersion } : null}
+          error={
+            error
+              ? refusal === 'session_revoked'
+                ? T(
+                    'Tu sesión ya no vale — vuelve a entrar y firma entonces. No se registró nada.',
+                    'Your session is no longer valid — sign in again and accept then. Nothing was recorded.',
+                    lang,
+                  )
+                : refusal === 'session_expired'
+                  ? T(
+                      'Tu sesión ha caducado — vuelve a entrar y firma entonces. No se registró nada.',
+                      'Your session has expired — sign in again and accept then. Nothing was recorded.',
+                      lang,
+                    )
+                  : refusal === 'not_recorded'
+                    ? // it. 27 — EL SERVIDOR ACEPTÓ LA PETICIÓN Y SIGUE DICIENDO
+                      // QUE FALTA LA FIRMA. Antes esto no se veía: el store
+                      // forzaba `required: false` y la pantalla enseñaba el
+                      // recibo, así que el fallo volvía en el siguiente
+                      // /auth/me disfrazado de bug intermitente. Se dice lo que
+                      // pasa, sin acusar a nadie de no haber firmado, y se
+                      // nombra la única vía que puede arreglarlo si insiste.
+                      T(
+                        'Tu firma se envió y el servidor la aceptó, pero sigue diciendo que hace falta firmar. No es algo que hayas hecho mal, y no se ha movido nada de tu cuenta: inténtalo otra vez y, si vuelve a pasar, escríbenos y lo reparamos.',
+                        'Your signature was sent and the server accepted it, but it still reports the signature as missing. This is not something you did, and nothing on your account moved: try once more and, if it happens again, write to us and we will repair it.',
+                        lang,
+                      )
+                    : refusal === 'record_unreadable'
+                      ? // it. 34 (agente D) — EL 409 NO REINTENTABLE YA NO DICE «EN
+                        // UN MOMENTO». El store adopta el veredicto del propio 409
+                        // (`legal.unreadable`), así que esta puerta se retira en el
+                        // mismo render y la nota del tercer estado habla; esta
+                        // frase solo se ve si algo la mantiene abierta, y entonces
+                        // dice la verdad: esperar no lo arregla, no es culpa tuya,
+                        // y la app no te la cierra.
+                        T(
+                          'No pudimos leer tu ficha para registrar la firma, y esperar no lo arregla. No es algo que hayas hecho mal, no se te pide nada y la aplicación queda abierta; si esto persiste, escríbenos y lo reparamos.',
+                          'We could not read your account record to register the signature, and waiting will not fix that. This is not something you did, nothing is being asked of you and the app stays open; if it persists, write to us and we will repair it.',
+                          lang,
+                        )
+                    : refusal === 'server'
+                      ? T(
+                          'El servidor no pudo registrar tu firma — inténtalo de nuevo en un momento.',
+                          'The server could not record your signature — try again in a moment.',
+                          lang,
+                        )
+                      : T(
+                          'No se pudo registrar tu firma — revisa la conexión e inténtalo de nuevo.',
+                          'Could not record your signature — check your connection and try again.',
+                          lang,
+                        )
+              : null
+          }
+          onSigned={() => void submit()}
+          versionLine={`${T('Versión', 'Version', lang)} ${legalGate?.termsVersion || '—'} · ${T(
+            'se registra con la fecha en tu cuenta',
+            'recorded with the date on your account',
+            lang,
+          )}`}
+        />
       )}
-    </AnimatePresence>
+
+      {/* LA NOTA DEL TERCER ESTADO. No es un modal: no hay overlay, no hay
+          `inset-0`, no come clics (el contenedor de la esquina es el único
+          nodo con pointer-events) y lleva su propio botón de cerrar. La
+          aplicación entera queda utilizable detrás, que es justamente el
+          punto — incluidas las salidas. */}
+      {mode.kind === 'unreadable' && !noticeDismissed && (
+        <div className="fixed bottom-4 right-4 z-[60] w-[min(92vw,380px)] rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl">
+          <div className="flex items-start gap-3 p-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-ink/90">
+                {T(LEGAL_RECORD_UNREADABLE_TITLE_ES, LEGAL_RECORD_UNREADABLE_TITLE_EN, lang)}
+              </div>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink/60">
+                {T(LEGAL_RECORD_UNREADABLE_ES, LEGAL_RECORD_UNREADABLE_EN, lang)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNoticeDismissed(true)}
+              className="shrink-0 rounded-lg px-2 py-1 text-[12px] text-ink/45 hover:text-ink/80"
+              aria-label={T('Cerrar', 'Dismiss', lang)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

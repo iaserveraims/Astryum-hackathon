@@ -24,6 +24,13 @@ import { GhostButton, Pill, PrimaryButton } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
 import { awaitValidation } from '../../lib/xrpl/councilSigning';
+import {
+  cancelPayloadAndDecide,
+  decideCloseStep,
+  payloadStrayNotice,
+  strayStateOf,
+  type XamanCancelUi,
+} from '../../lib/xaman/payloadBus';
 
 const XRPSCAN_TX = 'https://xrpscan.com/tx/';
 
@@ -69,6 +76,21 @@ export default function CloseDoorSign({
   const [dispatched, setDispatched] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const uuidRef = useRef<string | undefined>(undefined);
+  /**
+   * xaman-cancelar 3 — "Cancel" DID NOT CANCEL, on the most irreversible
+   * operation in the product. This button called `onCancel()` and nothing else:
+   * no DELETE. What stayed on the phone was the AccountSet that disables the
+   * master key, created with `{ submit: true, expire: 1440 }` — Xaman
+   * BROADCASTS it on its own, and it stays signable for 24 HOURS. Someone who
+   * pressed Cancel, walked away and later tapped the request in Xaman closed
+   * the door for good, from a screen that had told them it was cancelled.
+   *
+   * Same vocabulary as the signing modal (payloadBus): 'cancelling' while we
+   * ask, and 'alive' / 'unknown' / 'resolved' for the answers that mean we
+   * could NOT confirm the request is dead. Those are said out loud, never
+   * swallowed — "we could not read it" is not "it is cancelled".
+   */
+  const [cancelUi, setCancelUi] = useState<XamanCancelUi>('idle');
 
   const start = useCallback(async () => {
     setPhase('creating');
@@ -101,6 +123,36 @@ export default function CloseDoorSign({
     }
   }, [xrplTx]);
 
+  const requestCancel = useCallback(async () => {
+    const uuid = uuidRef.current;
+    // Same branch table as the signing modal: a LIVE payload never leaves the
+    // screen without a DELETE having been asked for, and every other branch is
+    // a way out (so a hung upstream can never make signing the only exit).
+    const step = decideCloseStep({ hasPrompt: !!uuid, status: 'pending', cancelUi });
+    // Unreachable from the button (it is disabled while the round trip is in
+    // flight, and cancelXamanPayload bounds itself at 8s) — but a double press
+    // must never fire a second DELETE.
+    if (step === 'stop-waiting') return;
+    if (step === 'close' || !uuid) {
+      onCancel?.();
+      return;
+    }
+    setCancelUi('cancelling');
+    const { action, cancelUi: next } = await cancelPayloadAndDecide(
+      uuid,
+      () => uuidRef.current ?? null,
+    );
+    if (action === 'ignore') return;
+    if (action === 'close') {
+      // Confirmed dead (or already gone): nothing signable is left on anyone's
+      // phone, so leaving is honest.
+      uuidRef.current = undefined;
+      onCancel?.();
+      return;
+    }
+    setCancelUi(next);
+  }, [cancelUi, onCancel]);
+
   // Poll until the master-key holder signs (or cancels / expires).
   useEffect(() => {
     if (phase !== 'waiting') return;
@@ -127,6 +179,10 @@ export default function CloseDoorSign({
     }, 3000);
     return () => clearInterval(id);
   }, [phase, onSettled, t]);
+
+  // Something we asked Xaman to kill and could not confirm dead: it may still
+  // be signable on the master-key holder's phone for the rest of its 24 hours.
+  const stray = strayStateOf(cancelUi);
 
   if (phase === 'idle') {
     return (
@@ -172,7 +228,19 @@ export default function CloseDoorSign({
                 <ExternalLink size={12} className="mr-1 inline" /> {t('Open in Xaman')}
               </a>
             )}
-            {onCancel && <GhostButton onClick={onCancel}>{t('Cancel')}</GhostButton>}
+            {stray && (
+              <InlineNotice tone="warning">
+                {payloadStrayNotice(stray, t)}
+                {stray === 'resolved' &&
+                  ` ${t('If it was signed, it is already on its way to the network — check your activity before signing again.')}`}
+              </InlineNotice>
+            )}
+            {onCancel && (
+              <GhostButton onClick={() => void requestCancel()} disabled={cancelUi === 'cancelling'}>
+                {cancelUi === 'cancelling' && <Loader2 size={12} className="animate-spin" />}
+                {stray ? t('Close anyway') : t('Cancel')}
+              </GhostButton>
+            )}
           </div>
         </div>
       )}

@@ -17,6 +17,15 @@
  * machine watches, `signingId` stays set (no double-sign) and `settling`
  * exposes pending | stalled | failed for the UI.
  *
+ * UNCONFIRMED (unearned-success family, 13-sep): an error AFTER the calls
+ * reached the wallet (RECEIPT_UNREAD, a dropped RPC…) used to clear
+ * `signingId` and hand the sign button back — a second signature of an
+ * intent that may already be on-chain. Such an intent is now BLOCKED for the
+ * life of this hook (`isBlocked`), and `unconfirmed` carries the amber panel.
+ * The same block applies when the operation settled on-chain but recording it
+ * in the backend failed: the intent still reads as waiting, and signing it
+ * again would execute it twice.
+ *
  * `onChanged(intentId)` fires after a CONFIRMED sign OR a dismiss so the caller
  * can re-poll / optimistically drop the intent it just acted on.
  */
@@ -28,7 +37,15 @@ import type { SettlementState } from '../../lib/settlement/settlement';
 import { intentsApi, type PreparedIntent } from '../../services/v1Api';
 import { translateError } from '../../lib/errors/translateError';
 import { settlementReasonText } from '../../lib/settlement/reasonText';
+import { signFailureAction, type UnconfirmedSignature } from '../../lib/wallet/signOutcome';
 import { useT } from '../../i18n/LanguageProvider';
+
+export interface IntentUnconfirmed extends UnconfirmedSignature {
+  /** The intent whose signature could not be followed. */
+  id: string;
+  /** Chain of the calls, for the explorer link. */
+  chainId: number;
+}
 
 export interface IntentSigning {
   evm: ReturnType<typeof useWalletPartner>;
@@ -41,6 +58,12 @@ export interface IntentSigning {
   lastSigned: { id: string; txHash: string } | null;
   /** live settlement state of the signed intent (pending/stalled/…), or null. */
   settling: SettlementState | null;
+  /** The latest signature we could not follow — render the amber panel. */
+  unconfirmed: IntentUnconfirmed | null;
+  /** True when this intent may already be on-chain: never offer to sign it. */
+  isBlocked: (intentId: string) => boolean;
+  /** Hides the amber panel. The intent stays blocked. */
+  closeUnconfirmedNotice: () => void;
   clearError: () => void;
   sign: (intent: PreparedIntent) => Promise<void>;
   dismiss: (intent: PreparedIntent) => Promise<void>;
@@ -56,15 +79,22 @@ export function useIntentSigning(
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [lastSigned, setLastSigned] = useState<{ id: string; txHash: string } | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState<IntentUnconfirmed | null>(null);
+  const [blocked, setBlocked] = useState<Record<string, true>>({});
+  const block = (id: string) => setBlocked((b) => ({ ...b, [id]: true }));
 
   async function sign(intent: PreparedIntent) {
     if (!intent.txData) return;
+    // Defence in depth: even if a surface forgets to disable the button, an
+    // intent that may already be on-chain never reaches the wallet again.
+    if (blocked[intent.id]) return;
     setActionError(null);
     if (!evm.isConnected) {
       evm.openConnect();
       return;
     }
     setSigningId(intent.id);
+    let handedToPartner = false;
     try {
       const txData = intent.txData;
       const prereqs = (intent.preState.prerequisiteCalls ?? []).map((c) => ({
@@ -77,6 +107,7 @@ export function useIntentSigning(
         ...prereqs,
         { to: txData.to, data: txData.data, value: String(txData.value ?? '0'), chainId: txData.chainId },
       ];
+      handedToPartner = true;
       const { handle } = await evm.sendIntentCalls(calls);
       // The backend FSM only ever hears about CONFIRMED submissions — the ref
       // reported is a real tx hash (5792 refs upgrade on confirmation).
@@ -85,15 +116,22 @@ export function useIntentSigning(
         setLastSigned({ id: intent.id, txHash: ref });
         await onChanged?.(intent.id);
       };
+      // On-chain it SETTLED; only the backend record can fail here. The intent
+      // then still reads as waiting, so it is blocked instead of re-offered.
+      const confirmOrBlock = (ref: string) =>
+        confirm(ref).catch(() => {
+          block(intent.id);
+          setActionError(
+            t('The operation settled on-chain, but recording it in Astryum failed. Do not sign this intent again — its receipt is already on the explorer.'),
+          );
+        });
       if (handle.status === 'settled') {
-        await confirm(handle.ref);
+        await confirmOrBlock(handle.ref);
         setSigningId(null);
       } else {
         settlement.track(handle, {
           onSettled: (s) => {
-            void confirm(s.ref)
-              .catch((e) => setActionError(translateError(e, t).message))
-              .finally(() => setSigningId(null));
+            void confirmOrBlock(s.ref).finally(() => setSigningId(null));
           },
           onFailed: (reason) => {
             setActionError(
@@ -104,7 +142,21 @@ export function useIntentSigning(
         });
       }
     } catch (e) {
-      setActionError(translateError(e, t).message);
+      const action = signFailureAction(e, handedToPartner, t);
+      if (action.view === 'unconfirmed') {
+        // No red error beside the amber panel, and no sign button for this
+        // intent again: it may already be on-chain.
+        block(intent.id);
+        setActionError(null);
+        setUnconfirmed({
+          id: intent.id,
+          chainId: intent.txData?.chainId ?? 14,
+          txHash: action.txHash,
+          trace: action.trace,
+        });
+      } else {
+        setActionError(action.message);
+      }
       setSigningId(null);
     }
   }
@@ -129,6 +181,9 @@ export function useIntentSigning(
     actionError,
     lastSigned,
     settling: settlement.state,
+    unconfirmed,
+    isBlocked: (intentId: string) => blocked[intentId] === true,
+    closeUnconfirmedNotice: () => setUnconfirmed(null),
     clearError: () => setActionError(null),
     sign,
     dismiss,

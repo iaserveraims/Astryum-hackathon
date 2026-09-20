@@ -1,37 +1,37 @@
 /**
- * Beta gate — who may CREATE an account (founder 2026-08-01, beta opens 08-06).
+ * Beta gate — who may CREATE an account.
  *
- * One env, FAIL-CLOSED like legacyAccess:
+ * DEFAULT OPEN since 2026-08-16 (founder: the closed-beta phase ends at the
+ * next deploy of this code — acquisition needs the world to be able to sign
+ * up). One env closes it again:
  *
- *   · BETA_REGISTRATION_OPEN — only the literal 'true' (case-insensitive)
- *     opens registration to everyone. Anything else — 'false', unset, a
- *     typo — ⇒ CLOSED: an account can only be created by an email a founder
- *     approved in the waitlist (waitlist_signups.approvedAt set via the
- *     admin panel's approve button, POST /api/admin-beta/approve).
+ *   · BETA_REGISTRATION_OPEN — only the literal 'false' (case-insensitive)
+ *     CLOSES registration. Closed ⇒ an account can only be created by an
+ *     email a founder approved in the waitlist (waitlist_signups.approvedAt
+ *     set via the admin panel's approve button, POST /api/admin-beta/approve).
+ *     Unset, 'true', or anything else ⇒ OPEN.
  *
- * Why closed-by-default: the public X post says "Closed beta — request early
- * access", and the Make Waves posture (limited pilot, caps, per-user switch)
- * depends on the door actually existing. Deploying this code CLOSES public
- * registration until the founders approve emails or flip the env.
+ * History: until 2026-08-16 this was FAIL-CLOSED (only the literal 'true'
+ * opened it) — right while the public X post said "Closed beta — request
+ * early access"; a wall once the doors are meant to be open. The waitlist
+ * keeps working either way (marketing list + the approve flow still sends
+ * the boarding-pass email); it is simply no longer the only way in.
  *
  * Scope — the gate guards CREATION only, on every path that mints a new User:
- *   · email register        (AuthService.register)        → approved email
- *   · OAuth first login     (AuthService.oauthLogin)      → approved email
- *   · SIWE first login      (SiweAuth wallet-first create) → closed (no email)
- *   · Xaman first login     (SiweAuth.verifyXamanPayload)  → closed (no email)
+ *   · email register        (AuthService.register)
+ *   · OAuth first login     (AuthService.oauthLogin)
+ *   · SIWE first login      (SiweAuth wallet-first create)
+ *   · Xaman first login     (SiweAuth.verifyXamanPayload)
  * Existing accounts are NEVER touched: login/refresh/OAuth-returning all skip
- * this module. Wallet-first signup has no email to approve, so in closed beta
+ * this module. When CLOSED, wallet-first signup has no email to approve, so
  * it is closed — an approved user registers with their email first and binds
  * wallets inside the app (the product's normal binding flow).
- *
- * Jury note (mainnet review 08-05): approve the judges' emails from the admin
- * panel — approval is instant and the invite email is optional.
  */
 import { prisma } from '../database/prismaClient';
 
-/** The global switch: only the literal 'true' opens registration for everyone. */
+/** The global switch: open unless the literal 'false' closes it. */
 export function isBetaRegistrationOpen(): boolean {
-  return (process.env.BETA_REGISTRATION_OPEN ?? '').trim().toLowerCase() === 'true';
+  return (process.env.BETA_REGISTRATION_OPEN ?? '').trim().toLowerCase() !== 'false';
 }
 
 /** Whether this email has a founder approval on the waitlist. */

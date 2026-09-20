@@ -53,7 +53,11 @@ export function inferDraftKind(asset?: string): DraftKind {
 /* ------------------------------------------------------------------ */
 
 export type LaunchStrategy = (
-  kind: 'e1' | 'e2' | 'e3' | 'v-firelight' | 'v-earnxrp' | 'v-monarq',
+  kind:
+    | 'e1' | 'e2' | 'e3' | 'v-firelight' | 'v-earnxrp' | 'v-monarq'
+    // eth-morpho pair (W3) — runtime-gated cards; the agent can deep-link them
+    // and the modal's backend gate still decides (flag + geofence, server-side).
+    | 'em-carry' | 'em-lend',
   initial?: { amount?: string; ratio?: string; targetHF?: string },
 ) => void;
 

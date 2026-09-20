@@ -68,6 +68,8 @@ export interface UpshiftPendingRedemption {
   sharesBase: string;
   /** FXRP those shares are worth at the live NAV; null if unreadable. */
   estFxrpBase: string | null;
+  /** it. 29 — true = `getSharePrice()` did not answer: the amount is UNREAD, not zero. */
+  estFxrpUnreadable: boolean;
   /** true once the vault is serving that epoch (or an earlier one). */
   claimable: boolean;
   /** ISO midnight UTC of the epoch day. */
@@ -142,12 +144,26 @@ export class UpshiftVaultAdapter extends BaseAdapter {
 
     for (const d of this.getVaultDescriptors()) {
       const lp = new ethers.Contract(d.lpToken, LP_TOKEN_ABI, provider);
-      const balance: bigint = await lp.balanceOf(wallet).catch(() => 0n);
+      // UN ERROR DE LECTURA NO ES SALDO CERO (fundador 2026-09-09: «he hecho
+      // la operación y no se muestra»). Esto tragaba cualquier fallo del RPC
+      // —los 429 del nodo público son el pan de estos días— como `0n`, y la
+      // posición desaparecía del snapshot SIN señal de degradación… y ese
+      // snapshot se cacheaba cinco minutos. Ahora el error sube: el engine
+      // deja el adapter fuera de ESE barrido (lo dice en el log) y no
+      // fosiliza la ausencia en caché. El precio sí puede faltar: una
+      // posición sin NAV se declara con underlying null, no se esconde.
+      const balance: bigint = await lp.balanceOf(wallet);
       if (balance <= 0n) continue;
 
       // NAV per share, live from the vault (protocol data — invariant #9).
+      // it. 31 — a failed price read keeps the row (the shares ARE the money)
+      // and says the amount is unread, instead of a silent `0n` → null.
       const vault = new ethers.Contract(d.vault, VAULT_READ_ABI, provider);
-      const sharePriceE6: bigint = await vault.getSharePrice().catch(() => 0n);
+      const sharePriceRead = await (vault.getSharePrice() as Promise<bigint>).then(
+        (v) => ({ ok: true as const, value: BigInt(v) }),
+        () => ({ ok: false as const }),
+      );
+      const sharePriceE6: bigint = sharePriceRead.ok ? sharePriceRead.value : 0n;
       const underlyingFxrpUBA =
         sharePriceE6 > 0n ? (balance * sharePriceE6) / SHARE_PRICE_SCALE : null;
 
@@ -170,6 +186,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
           ...(underlyingFxrpUBA && underlyingFxrpUBA > 0n
             ? { underlying: { symbol: 'XRP', amount: underlyingFxrpUBA.toString(), decimals: 6 } }
             : {}),
+          underlyingUnreadable: !sharePriceRead.ok,
           sharePriceSource: 'vault.getSharePrice() (live on-chain)',
         },
         discoveredAt: now,
@@ -201,6 +218,9 @@ export class UpshiftVaultAdapter extends BaseAdapter {
               ...(q.estFxrpBase
                 ? { underlying: { symbol: 'XRP', amount: q.estFxrpBase, decimals: 6 } }
                 : {}),
+              // it. 29 — the amount is UNREAD, not absent: the row stays, and
+              // carries the admission for whoever renders it.
+              estFxrpUnreadable: q.estFxrpUnreadable,
               exiting: true,
               claimable: q.claimable,
               availableAt: q.availableAt,
@@ -221,8 +241,16 @@ export class UpshiftVaultAdapter extends BaseAdapter {
             discoveredAt: now,
           });
         }
-      } catch {
-        /* queue unreadable — never break the vault reading for it */
+      } catch (e) {
+        // it. 29 — this catch used to swallow the queue: a 429 on the epoch or
+        // lag read left the LP balance in the snapshot and the queued exit
+        // OUT of it, and the engine cached that absence for five minutes.
+        // Same rule as the balance read above: the error rises, the engine
+        // drops this adapter from THIS sweep (and says so), nothing is
+        // fossilised. Money in flight never disappears in silence.
+        throw new Error(
+          `UPSHIFT_QUEUE_UNREADABLE: ${d.name} pending redemptions did not answer (${(e as Error).message})`,
+        );
       }
     }
 
@@ -252,11 +280,23 @@ export class UpshiftVaultAdapter extends BaseAdapter {
       [...VAULT_READ_ABI, ...VAULT_EPOCH_ABI],
       provider ?? this.provider.getHttpProvider(),
     );
-    const [epoch, lagSeconds, sharePriceE6] = await Promise.all([
+    // it. 29 — `lagDuration().catch(() => 0n)` made `lagDays = 0` and shrank
+    // the scan window to -3..+1 days. Monarq's lagDuration is 7 DAYS (probed
+    // on-chain), so one failed read hid its queued exit for up to a week. An
+    // unread lag now RISES: the caller (discoverPositions) lets it take the
+    // adapter out of THAT sweep, as the balance read already does, instead of
+    // fossilising an empty queue in the 5-minute cache.
+    // `getSharePrice()` only prices the row; a failed read keeps the row and
+    // marks the amount unread (`estFxrpUnreadable`) rather than dropping it.
+    const [epoch, lagSeconds, sharePriceRead] = await Promise.all([
       vault.getWithdrawalEpoch() as Promise<[bigint, bigint, bigint, bigint]>,
-      vault.lagDuration().catch(() => 0n) as Promise<bigint>,
-      vault.getSharePrice().catch(() => 0n) as Promise<bigint>,
+      vault.lagDuration() as Promise<bigint>,
+      (vault.getSharePrice() as Promise<bigint>).then(
+        (v) => ({ ok: true as const, value: BigInt(v) }),
+        () => ({ ok: false as const }),
+      ),
     ]);
+    const sharePriceE6 = sharePriceRead.ok ? sharePriceRead.value : 0n;
 
     const servedUTC = Date.UTC(Number(epoch[0]), Number(epoch[1]) - 1, Number(epoch[2]));
     if (!Number.isFinite(servedUTC)) return [];
@@ -269,17 +309,22 @@ export class UpshiftVaultAdapter extends BaseAdapter {
       days.push(new Date(servedUTC + offset * 86_400_000));
     }
 
+    // it. 31 — the same `.catch(() => 0n)` that it. 29 removed from
+    // `lagDuration` in this very function was still here, on the read that
+    // holds the MONEY: a 429 on one day's `getBurnableAmountByReceiver` read
+    // as «nothing queued that day», and the queued exit vanished from the
+    // snapshot in silence. An unread day now RISES like the lag does; the
+    // caller (discoverPositions) turns it into UPSHIFT_QUEUE_UNREADABLE, the
+    // engine drops this adapter from THIS sweep and names it to the person.
     const shares = await Promise.all(
       days.map(
         (day) =>
-          vault
-            .getBurnableAmountByReceiver(
-              day.getUTCFullYear(),
-              day.getUTCMonth() + 1,
-              day.getUTCDate(),
-              wallet,
-            )
-            .catch(() => 0n) as Promise<bigint>,
+          vault.getBurnableAmountByReceiver(
+            day.getUTCFullYear(),
+            day.getUTCMonth() + 1,
+            day.getUTCDate(),
+            wallet,
+          ) as Promise<bigint>,
       ),
     );
 
@@ -294,6 +339,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
         sharesBase: amount.toString(),
         estFxrpBase:
           sharePriceE6 > 0n ? ((amount * sharePriceE6) / SHARE_PRICE_SCALE).toString() : null,
+        estFxrpUnreadable: !sharePriceRead.ok,
         // The vault serves `servedUTC`; anything up to and including it is
         // claimable now, later days are still waiting their turn.
         claimable: dayUTC <= servedUTC,
@@ -332,6 +378,12 @@ export class UpshiftVaultAdapter extends BaseAdapter {
    *   priceUSD: number (XRP/USD via FTSO)
    *   instantRedemptionFeeBps?: number (live read, passed by the caller)
    *   flrPriceUSD?: number (gas)
+   *
+   * it. 27 — AN ABSENT FEE IS NOT A FEE OF ZERO. `?? 0` read «the caller did
+   * not pass it» as «this vault charges nothing», and then `if (fee > 0)`
+   * DELETED the warning that exists to show it: the one input that could not
+   * be read was also the one the simulation stopped mentioning. Both states
+   * are now said out loud (invariant #6).
    */
   async simulateAction(action: ProtocolAction): Promise<SimulationResult> {
     this.assertActive();
@@ -343,7 +395,11 @@ export class UpshiftVaultAdapter extends BaseAdapter {
     const priceUSD = Number(action.inputs?.priceUSD ?? 0);
     const human = Number(amount) / 10 ** decimals;
     const amountUSD = priceUSD * human;
-    const feeBps = Number(action.inputs?.instantRedemptionFeeBps ?? 0);
+    // null = the caller did not pass a fee, i.e. NOBODY READ IT. Never folded
+    // into 0 (it. 27).
+    const feeBpsRaw = action.inputs?.instantRedemptionFeeBps;
+    const feeBps =
+      feeBpsRaw != null && Number.isFinite(Number(feeBpsRaw)) ? Number(feeBpsRaw) : null;
     const flrPriceUSD = Number(action.inputs?.flrPriceUSD ?? 0.02);
 
     let netUSDImpact = 0;
@@ -356,10 +412,25 @@ export class UpshiftVaultAdapter extends BaseAdapter {
         if (amountUSD <= 0) warnings.push('Deposit amount must be > 0');
         break;
       case 'withdraw': {
-        const fee = (amountUSD * feeBps) / 10_000;
-        netUSDImpact = amountUSD - fee;
         riskDelta = 1;
-        if (fee > 0) warnings.push(`Instant redemption fee: $${fee.toFixed(2)} (${feeBps} bps)`);
+        if (feeBps == null) {
+          // The figure below is the GROSS, and it is labelled as such instead
+          // of being quietly netted with a fee of zero.
+          netUSDImpact = amountUSD;
+          warnings.push(
+            'Instant redemption fee UNKNOWN — this vault charges one in bips and it was not read, so this figure is the GROSS and not what you would receive. Do not sign against it.',
+          );
+        } else {
+          const fee = (amountUSD * feeBps) / 10_000;
+          netUSDImpact = amountUSD - fee;
+          // Said even at zero: a silent fee row reads as «free», and here that
+          // silence used to cover the unread case too.
+          warnings.push(
+            fee > 0
+              ? `Instant redemption fee: $${fee.toFixed(2)} (${feeBps} bps)`
+              : `Instant redemption fee: none (${feeBps} bps)`,
+          );
+        }
         warnings.push('Fee-free withdrawal uses requestRedeem + epoch claim (lagDuration applies)');
         break;
       }

@@ -29,6 +29,36 @@ interface ConfigResponse {
 
 const STEP_UP_ENABLED = process.env.NEXT_PUBLIC_STEP_UP_ENABLED === 'true';
 
+/**
+ * WHY THE SAVE WAS REFUSED, IN THIS CARD (productizer it. 19, R5 R6).
+ *
+ * The matrix is an AUTHORITY write, so the backend refuses one whose session
+ * predates a change of ownership on the account: 401 `session_revoked`. The
+ * client used to act on that 401 with the body unread — token wiped, straight to
+ * /login — so a person editing their own locks was thrown out of the app by the
+ * very check meant to protect them. The client now hands the refusal back, and
+ * this is the sentence for it: what happened, that NOTHING was saved, and what
+ * to do. The server's own `detail` is never printed (Spanish, with ids in it)
+ * and neither is the raw code.
+ */
+export function stepUpSaveRefusal(e: unknown, t: (s: string) => string): string {
+  // Plain JS on purpose: this body is also EXECUTED out of the source by the
+  // test (extractFromSource), so it carries no type syntax of its own.
+  const err = Object(e ?? {});
+  const code = typeof err.code === 'string' ? err.code : '';
+  if (err.status === 401 && code === 'session_revoked') {
+    return t('Nothing was saved: this session is older than a change of ownership on this account, so it may not change what is protected. You are still signed in here — sign in again with your current key and save it once more.');
+  }
+  if (err.status === 401) {
+    return t('Nothing was saved: your session is no longer valid. Sign in again and save it once more.');
+  }
+  const message = typeof err.message === 'string' ? err.message.trim() : '';
+  // «HTTP 403: Forbidden» is the client's own filler, not something a person can
+  // act on: it goes the same way the raw code does.
+  if (message && !/^HTTP \d/.test(message)) return message;
+  return t('Could not save these settings. Nothing was changed.');
+}
+
 export default function StepUpSettings() {
   const { t } = useT();
   const { withStepUp, pending, error: signError } = useStepUp();
@@ -85,8 +115,8 @@ export default function StepUpSettings() {
         apiService.put('/security/step-up/config', { enabled, grantTtlSeconds: ttl, matrix }, grant)
       );
       setSaved(true);
-    } catch (e: any) {
-      setSaveError(e?.message ?? e?.error ?? 'Could not save settings.');
+    } catch (e: unknown) {
+      setSaveError(stepUpSaveRefusal(e, t));
     } finally {
       setSaving(false);
     }

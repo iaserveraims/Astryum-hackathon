@@ -17,6 +17,7 @@ import { ethers } from 'ethers';
 import { isValidClassicAddress, validate, xrpToDrops } from 'xrpl';
 import { withSourceTag } from '../../../config/xrplSourceTag';
 import type { XrplTxHandoff } from './XrplTxHandoff';
+import { withCredentialIds } from '../../../services/XrplAnchorGateService';
 
 // ── Network config (Coston2 demo / Flare mainnet) ───────────────────────────
 
@@ -385,19 +386,29 @@ export function buildOrderPaymentTx(
   orderAnchor: string,
   memoHex: string,
   amountDrops = '1',
+  /**
+   * Los IDs de credencial XLS-70 del firmante (27-ago). Cuando el ancla es una
+   * PUERTA (DepositAuth + AuthorizeCredentials), el pago solo entra si los lleva
+   * y el ledger los da por válidos. Vacío = sin campo: un ancla sin puerta los
+   * ignora igual.
+   */
+  credentialIds: string[] = [],
 ): Record<string, unknown> {
   if (!isValidClassicAddress(council)) throw new Error(`council is not a valid XRPL address: ${council}`);
   if (!isValidClassicAddress(orderAnchor)) throw new Error(`order anchor is not a valid XRPL address: ${orderAnchor}`);
   if (council === orderAnchor) throw new Error('order anchor must differ from the council account (XRPL forbids self-payment)');
   if (!/^[0-9A-F]{64}$/.test(memoHex)) throw new Error('memoHex must be 32 bytes (64 uppercase hex)');
   if (!/^[1-9]\d*$/.test(amountDrops)) throw new Error('amountDrops must be a positive integer drops string (≥ 1)');
-  const tx = withSourceTag({
-    TransactionType: 'Payment' as const,
-    Account: council,
-    Destination: orderAnchor,
-    Amount: amountDrops,
-    Memos: [{ Memo: { MemoData: memoHex } }],
-  });
+  const tx = withCredentialIds(
+    withSourceTag({
+      TransactionType: 'Payment' as const,
+      Account: council,
+      Destination: orderAnchor,
+      Amount: amountDrops,
+      Memos: [{ Memo: { MemoData: memoHex } }],
+    }),
+    credentialIds,
+  );
   validate(tx as never); // xrpl.js validates the Payment shape
   return tx;
 }

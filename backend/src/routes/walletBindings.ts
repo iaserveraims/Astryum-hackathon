@@ -14,6 +14,13 @@ import { requireSiweAuth } from '../middleware/requireSiweAuth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
 import { personaKYCProvider } from '../services/PersonaKYCProvider';
+import {
+  isSessionRevoked,
+  isTransactionBusy,
+  respondBusyRetry,
+  respondSessionRevoked,
+  withLiveSession,
+} from '../services/identity/liveSession';
 
 /**
  * XRPL addresses are case-sensitive base58 — never lowercase them. EVM addresses
@@ -129,6 +136,18 @@ function buildBindingMessage(address: string, nonce: string, timestamp: string):
     `Timestamp: ${timestamp}`,
     'By signing you prove ownership of this wallet. No funds are moved.',
   ].join('\n');
+}
+
+/**
+ * Does the EVM-signed text commit to THIS pending challenge? It must carry the
+ * exact `Nonce: <nonce>` line (as SiweAuth / StepUpAuth require) and the
+ * address being bound (case-insensitive: EIP-55 vs lowercase is the same
+ * wallet). Exported for tests.
+ */
+export function evmMessageBindsChallenge(message: string, nonce: string, address: string): boolean {
+  if (!nonce || !address) return false;
+  if (!message.includes(`Nonce: ${nonce}`)) return false;
+  return message.toLowerCase().includes(address.toLowerCase());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -262,6 +281,21 @@ router.post('/confirm', async (req: Request, res: Response) => {
     if (!signature) {
       return res.status(400).json({ error: 'SIGNATURE_REQUIRED', detail: 'EVM binding needs a signature.' });
     }
+    // productizer-it6 — THE SIGNATURE MUST BE OVER *THIS* CHALLENGE.
+    //
+    // WHAT FAILED IN SILENCE: `message` comes from the body and was only
+    // checked to recover to the address. Any personal_sign the victim ever made
+    // in public (a forum proof, another dApp's login) passed, and became a
+    // WalletBinding with `signatureProof` — which provenAddresses treats as
+    // PROVEN, and which links the caller's KYC to that wallet. The nonce was
+    // consumed but never bound to the bytes signed. Same rule as SiweAuth and
+    // StepUpAuth: the signed text must carry the pending nonce AND the address.
+    if (!evmMessageBindsChallenge(message, nonce, normAddress)) {
+      return res.status(422).json({
+        error: 'MESSAGE_NOT_BOUND_TO_NONCE',
+        detail: 'The signed message must be the binding challenge from /initiate: it has to contain this nonce and this address.',
+      });
+    }
     let recovered: string;
     try {
       recovered = ethers.verifyMessage(message, signature);
@@ -291,60 +325,72 @@ router.post('/confirm', async (req: Request, res: Response) => {
   // 4. Upsert binding
   const userId = req.siwe!.userId;
   try {
-    // Check if user is KYC verified — if so, mark this binding as kycLinked immediately
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { kycVerified: true, personaInquiryId: true },
-    });
-    const isKycVerified = user?.kycVerified ?? false;
-    const personaInquiryId = user?.personaInquiryId ?? null;
-
-    // The proof we persist depends on the chain: EVM signature, or the XRPL
-    // Xaman-signed blob.
-    const proof = chainType === 'evm' ? signature : signedTxHex;
-
-    const binding = await prisma.walletBinding.upsert({
-      where: { userId_address_chainType: { userId, address: normAddress, chainType } },
-      create: {
-        userId,
-        address: normAddress,
-        chainType,
-        label,
-        mode,
-        signatureProof: proof,
-        isActive: true,
-        kycLinked: isKycVerified,
-        kycLinkedAt: isKycVerified ? new Date() : null,
-      },
-      update: {
-        label,
-        mode,
-        signatureProof: proof,
-        isActive: true,
-        linkedAt: new Date(),
-        // Only update kycLinked if newly becoming linked
-        ...(isKycVerified ? { kycLinked: true, kycLinkedAt: new Date() } : {}),
-      },
-      select: {
-        id: true,
-        address: true,
-        chainType: true,
-        label: true,
-        mode: true,
-        linkedAt: true,
-        kycLinked: true,
-      },
-    });
-
-    // Keep the unified `wallets` table in sync: a read_and_receive binding is the
-    // signature-proof that upgrades a read-only wallet to tx-capable. The bundle
-    // router reads Wallet.purpose, so promote watch/destination_only → both.
-    if (mode === 'read_and_receive') {
-      await prisma.wallet.updateMany({
-        where: { userId, address: normAddress, purpose: { in: ['watch', 'destination_only'] } },
-        data: { purpose: 'both' },
+    // THE SESSION IS RE-CHECKED INSIDE THE WRITE (productizer it. 14, 4.4).
+    // The ownership proof above is a window of seconds: an account takeover can
+    // commit while it runs, and a binding written after it is born with
+    // `linkedAt > takeoverAt` and a `signatureProof` — which provenAddresses
+    // reads as PROVEN, handing the owner a wallet that is not theirs. The row
+    // lock inside the transaction serialises against the takeover: either this
+    // binding lands before it (and its sweep deactivates it), or nothing is
+    // written and the caller gets 401.
+    const { binding, isKycVerified, personaInquiryId } = await withLiveSession(req.siwe!, async (tx) => {
+      // Check if user is KYC verified — if so, mark this binding as kycLinked immediately
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { kycVerified: true, personaInquiryId: true },
       });
-    }
+      const kycVerified = user?.kycVerified ?? false;
+      const inquiryId = user?.personaInquiryId ?? null;
+
+      // The proof we persist depends on the chain: EVM signature, or the XRPL
+      // Xaman-signed blob.
+      const proof = chainType === 'evm' ? signature : signedTxHex;
+
+      const row = await tx.walletBinding.upsert({
+        where: { userId_address_chainType: { userId, address: normAddress, chainType } },
+        create: {
+          userId,
+          address: normAddress,
+          chainType,
+          label,
+          mode,
+          signatureProof: proof,
+          isActive: true,
+          kycLinked: kycVerified,
+          kycLinkedAt: kycVerified ? new Date() : null,
+        },
+        update: {
+          label,
+          mode,
+          signatureProof: proof,
+          isActive: true,
+          linkedAt: new Date(),
+          // Only update kycLinked if newly becoming linked
+          ...(kycVerified ? { kycLinked: true, kycLinkedAt: new Date() } : {}),
+        },
+        select: {
+          id: true,
+          address: true,
+          chainType: true,
+          label: true,
+          mode: true,
+          linkedAt: true,
+          kycLinked: true,
+        },
+      });
+
+      // Keep the unified `wallets` table in sync: a read_and_receive binding is the
+      // signature-proof that upgrades a read-only wallet to tx-capable. The bundle
+      // router reads Wallet.purpose, so promote watch/destination_only → both.
+      if (mode === 'read_and_receive') {
+        await tx.wallet.updateMany({
+          where: { userId, address: normAddress, purpose: { in: ['watch', 'destination_only'] } },
+          data: { purpose: 'both' },
+        });
+      }
+
+      return { binding: row, isKycVerified: kycVerified, personaInquiryId: inquiryId };
+    });
 
     // Async: notify Persona so the audit trail in their dashboard shows all linked wallets.
     // Non-blocking — local DB binding is already saved. Persona tag is supplemental.
@@ -358,6 +404,10 @@ router.post('/confirm', async (req: Request, res: Response) => {
 
     return res.status(201).json({ binding });
   } catch (err: any) {
+    if (isSessionRevoked(err)) return respondSessionRevoked(res);
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) return respondBusyRetry(res);
     return res.status(500).json({ error: 'BINDING_CREATE_FAILED', detail: err?.message });
   }
 });

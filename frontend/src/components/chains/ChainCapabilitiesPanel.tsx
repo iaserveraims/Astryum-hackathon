@@ -2,6 +2,7 @@
 
 import { useChainCapabilities, type ChainCapabilityRow } from "../../hooks/useChainCapabilities";
 import { useT } from "../../i18n/LanguageProvider";
+import { AstryumLoader } from '../ui/AstryumLoader';
 
 const CAPS: Array<{ key: keyof ChainCapabilityRow; label: string }> = [
   { key: "discovery", label: "Discover" },
@@ -20,7 +21,7 @@ export function ChainCapabilitiesPanel() {
   const { t } = useT();
   const { chains, loading, error } = useChainCapabilities();
 
-  if (loading) return <div className="text-sm text-white/50">{t('Loading supported chains…')}</div>;
+  if (loading) return <AstryumLoader size={40} label={t('Loading supported chains…')} className="py-6" />;
   if (error) return <div className="text-sm text-red-400">{t("Couldn't load chain capabilities.")}</div>;
 
   const rows = Object.values(chains)

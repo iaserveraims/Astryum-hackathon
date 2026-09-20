@@ -7,9 +7,16 @@ libs = ["../lib"]
 solc_version = "0.8.24"
 optimizer = true
 optimizer_runs = 200
-# The vault targets Flare mainnet (EVM version pinned conservatively — Flare
-# supports london/paris-era opcodes; avoid PUSH0-era assumptions).
-evm_version = "london"
+# via-ir: without it AstryumVaultDeployer (which carries AstryumVault's
+# creationCode) sits 95 bytes OVER the EIP-170 runtime ceiling; with it the
+# margin is +2.6KB. Whole suite green under both pipelines (2026-08-21).
+via_ir = true
+# The vault targets Flare mainnet. Verified empirically 2026-08-21 via
+# state-override eth_call against the public RPC: PUSH0 (0x5f), MCOPY (0x5e)
+# and TSTORE (0x5d) all execute on chain 14 — Flare's EVM is cancun-capable.
+# (The previous london pin dated from July and OZ v5.6's Memory.sol needs
+# mcopy.) Re-verify before targeting any OTHER chain with these artifacts.
+evm_version = "cancun"
 
 [fuzz]
 runs = 512

@@ -29,23 +29,79 @@ import { FLARE_EVM_CAPABILITY, XRPL_CAPABILITY } from '../canonical/moneyflow/Ch
 
 const router = Router();
 
+// ── Ownership (productizer 13-sep) ───────────────────────────────────────────
+// A public address is not a key. The wallet lookups here used to match the
+// address ALONE, so any session could list, pause, resume or delete another
+// user's flows by typing their address. Every lookup is now the session user's
+// wallet rows for that address (same predicate as routes/rules.ts); a foreign
+// address reads as an empty list and a foreign flow as 404 — indistinguishable
+// from one that does not exist.
+
+function sessionUserId(req: Request): string | null {
+  return req.siwe?.userId ?? null;
+}
+
+/** The session user's wallet ids for `address` (case-insensitive, like rules). */
+async function sessionWalletIds(userId: string, address: string): Promise<string[]> {
+  const wallets = await prisma.wallet.findMany({
+    where: { userId, address: { equals: address, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  return wallets.map((w) => w.id);
+}
+
 const translateBodySchema = z.object({
   cmf: canonicalMoneyFlowSchema,
   chainId: z.number().int().positive().default(14),
+  /** XRPL only: compile 'transfer' to the COUNCIL rail (quorum signs). */
+  governed: z.boolean().default(false),
 });
 
 // POST /api/moneyflows/translate — CMF → rule payloads (dry-run, no writes).
-router.post('/translate', (req: Request, res: Response) => {
+// chainId 1440002 compiles through the XRPL translator (M4, 2026-08-16);
+// anything else keeps the Flare/EVM path. Price floors need a LIVE read to
+// become drop-from-baseline rules — the route reads it (best-effort) so the
+// translator stays pure; a failed read surfaces as its readable error.
+router.post('/translate', asyncHandler(async (req: Request, res: Response) => {
   const parsed = translateBodySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_cmf', issues: parsed.error.issues });
+  }
+  if (parsed.data.chainId === 1440002) {
+    const { translateCmfToXrplRules } = await import('../canonical/moneyflow/CanonicalXrplTranslator');
+    let prices: Record<string, number> | undefined;
+    const priceSymbols = parsed.data.cmf.steps
+      .map((s) => s.trigger)
+      .filter((t) => t.kind === 'price')
+      .map((t) => (t as { asset: { symbol: string } }).asset.symbol.toUpperCase());
+    if (priceSymbols.length > 0) {
+      try {
+        const { createFTSOPriceProvider } = await import('../engines/normalisation/NormalisationEngine');
+        const provider = await createFTSOPriceProvider();
+        prices = {};
+        for (const sym of [...new Set(priceSymbols)]) {
+          const p = await provider.getPriceUSD(sym);
+          if (p > 0) prices[sym] = p; // 0 = failed read — never a baseline
+        }
+      } catch {
+        /* provider unavailable — the translator says so, readably */
+      }
+    }
+    const result = translateCmfToXrplRules(parsed.data.cmf, {
+      governed: parsed.data.governed,
+      ...(prices ? { prices } : {}),
+    });
+    if (!result.ok) {
+      return res.status(422).json({ error: 'cmf_not_translatable', errors: result.errors });
+    }
+    return res.json(result);
   }
   const result = translateCmfToEvmRules(parsed.data.cmf, { chainId: parsed.data.chainId });
   if (!result.ok) {
     return res.status(422).json({ error: 'cmf_not_translatable', errors: result.errors });
   }
   return res.json(result);
-});
+}));
 
 // GET /api/moneyflows?address= — the wallet's rules grouped by canonicalRef.
 // The address can be EVM (0x…) or XRPL (r…): the strategies page lists flows
@@ -53,16 +109,15 @@ router.post('/translate', (req: Request, res: Response) => {
 // XRPL wallet (console spam, 2026-07-19). Same loose schema as the flow-level
 // routes; unknown addresses simply return an empty list.
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = sessionUserId(req);
+  if (!userId) return res.status(401).json({ error: 'missing_session' });
   const parsed = z.object({ address: z.string().min(4).max(64) }).safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });
   }
-  const wallets = await prisma.wallet.findMany({
-    where: { address: { equals: parsed.data.address, mode: 'insensitive' } },
-    select: { id: true },
-  });
+  const walletIds = await sessionWalletIds(userId, parsed.data.address);
   const rules = await prisma.automationRule.findMany({
-    where: { walletId: { in: wallets.map((w) => w.id) }, canonicalRef: { not: null } },
+    where: { walletId: { in: walletIds }, canonicalRef: { not: null } },
     orderBy: { createdAt: 'asc' },
   });
 
@@ -103,15 +158,14 @@ router.get('/apy-markets', asyncHandler(async (_req: Request, res: Response) => 
   });
 }));
 
-/** Resolve the flow's rule ids, scoped to the caller-named wallet address —
- *  a canonicalRef never operates on rules that hang off someone else's wallet. */
-async function flowRuleIds(canonicalRef: string, address: string): Promise<string[]> {
-  const wallets = await prisma.wallet.findMany({
-    where: { address: { equals: address, mode: 'insensitive' } },
-    select: { id: true },
-  });
+/** Resolve the flow's rule ids, scoped to the SESSION USER's wallet rows for
+ *  the named address — a canonicalRef never operates on rules that hang off
+ *  someone else's wallet, whatever address the caller names. */
+async function flowRuleIds(canonicalRef: string, address: string, userId: string): Promise<string[]> {
+  const walletIds = await sessionWalletIds(userId, address);
+  if (walletIds.length === 0) return [];
   const rules = await prisma.automationRule.findMany({
-    where: { canonicalRef, walletId: { in: wallets.map((w) => w.id) } },
+    where: { canonicalRef, walletId: { in: walletIds } },
     select: { id: true, expiresAt: true },
   });
   return rules.map((r) => r.id);
@@ -121,9 +175,11 @@ const flowBodySchema = z.object({ address: z.string().min(4).max(64) });
 
 // POST /api/moneyflows/:ref/pause — instant, owner-side, whole flow.
 router.post('/:ref/pause', asyncHandler(async (req: Request, res: Response) => {
+  const userId = sessionUserId(req);
+  if (!userId) return res.status(401).json({ error: 'missing_session' });
   const parsed = flowBodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
-  const ids = await flowRuleIds(req.params.ref, parsed.data.address);
+  const ids = await flowRuleIds(req.params.ref, parsed.data.address, userId);
   if (ids.length === 0) return res.status(404).json({ error: 'flow_not_found' });
   await prisma.automationRule.updateMany({ where: { id: { in: ids } }, data: { enabled: false } });
   return res.json({ ok: true, paused: ids.length });
@@ -132,9 +188,11 @@ router.post('/:ref/pause', asyncHandler(async (req: Request, res: Response) => {
 // POST /api/moneyflows/:ref/resume — re-arm the flow; expired rules stay off
 // (renewal = a new create, so the TTL clamp always re-runs).
 router.post('/:ref/resume', asyncHandler(async (req: Request, res: Response) => {
+  const userId = sessionUserId(req);
+  if (!userId) return res.status(401).json({ error: 'missing_session' });
   const parsed = flowBodySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', issues: parsed.error.issues });
-  const ids = await flowRuleIds(req.params.ref, parsed.data.address);
+  const ids = await flowRuleIds(req.params.ref, parsed.data.address, userId);
   if (ids.length === 0) return res.status(404).json({ error: 'flow_not_found' });
   const result = await prisma.automationRule.updateMany({
     where: { id: { in: ids }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
@@ -151,9 +209,11 @@ router.post('/:ref/resume', asyncHandler(async (req: Request, res: Response) => 
 
 // DELETE /api/moneyflows/:ref?address= — remove the whole flow.
 router.delete('/:ref', asyncHandler(async (req: Request, res: Response) => {
+  const userId = sessionUserId(req);
+  if (!userId) return res.status(401).json({ error: 'missing_session' });
   const parsed = flowBodySchema.safeParse({ address: req.query.address });
   if (!parsed.success) return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });
-  const ids = await flowRuleIds(req.params.ref, parsed.data.address);
+  const ids = await flowRuleIds(req.params.ref, parsed.data.address, userId);
   if (ids.length === 0) return res.status(404).json({ error: 'flow_not_found' });
   await prisma.automationRule.deleteMany({ where: { id: { in: ids } } });
   return res.status(200).json({ ok: true, deleted: ids.length });

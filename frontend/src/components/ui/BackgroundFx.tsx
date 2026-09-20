@@ -1,11 +1,47 @@
 'use client';
 
-// The app's atmosphere — the same deep space the landing flies through, seen
-// from inside the cabin: warm radial base, a faint breathing star field, two
-// slow gold auras and a near-invisible grain. Deliberately quieter than the
-// landing (dense screens must stay readable): stars are static CSS dots, the
-// auras drift by translation only, nothing moves fast.
+// La ATMÓSFERA del panel — y es lo primero que cambia con el tema.
+//
+//   · astryum       — el mismo espacio profundo por el que vuela la landing,
+//                     visto desde dentro de la cabina: base radial cálida, un
+//                     campo de estrellas que respira, dos auras doradas lentas
+//                     y un grano casi invisible. Deliberadamente más callado
+//                     que la landing (una pantalla densa tiene que seguir
+//                     leyéndose): las estrellas son puntos CSS estáticos, las
+//                     auras se mueven solo por traslación, nada corre.
+//   · institutional — el RAYADO DE SEGURIDAD (ui/skin/marks.tsx): trama de
+//                     ondas finas, dos rosetas de guilloché como marca de agua
+//                     y una viñeta. Ni estrellas, ni auras, ni grano — el
+//                     papel no tiene cielo, y un aura difusa es exactamente lo
+//                     que haría que la lámina volviera a parecer una nave.
+//
+// Las dos caras ocupan el mismo hueco y cuestan lo mismo: una capa fija detrás
+// de todo, sin eventos de ratón.
+
+import { useEngraved } from '../../stores/themeStore';
+import { GuillocheField } from './skin/marks';
+
 export default function BackgroundFx() {
+  const engraved = useEngraved();
+
+  if (engraved) {
+    return (
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden>
+        {/* El tono del papel: un lavado plano del color del tema sobre
+            --shell-bg. Plano a propósito — un degradado radial aquí volvería
+            a dibujar un sol, que es justo el mundo del que este tema sale. */}
+        <div className="absolute inset-0" style={{ background: 'hsl(var(--volt) / 0.028)' }} />
+        <GuillocheField />
+        {/* La sombra del canto superior: asienta el chrome contra el papel,
+            como el doblez de una hoja encuadernada. */}
+        <div
+          className="absolute inset-x-0 top-0 h-40"
+          style={{ background: 'linear-gradient(to bottom, hsl(var(--ink) / 0.05), transparent)' }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden>
       <style>{`

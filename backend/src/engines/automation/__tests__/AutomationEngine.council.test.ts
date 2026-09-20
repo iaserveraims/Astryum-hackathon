@@ -123,7 +123,10 @@ describe('AutomationEngine — governed MoneyFlow (councilPayment → proposal i
     );
     expect(mockSendToUser).toHaveBeenCalledWith(
       'user-1',
-      expect.objectContaining({ url: '/app/wallets' }),
+      // El aviso del consejo ABRE la bandeja (G5, `ba97c0c`): antes caía en
+      // «info» y la propuesta caducaba sin que nadie la viera. El test se
+      // quedó con la URL vieja y dejó la suite backend en rojo.
+      expect.objectContaining({ url: '/app/legacy?tab=proposals' }),
     );
     // The CREATION path writes an Alert row scoped to the COUNCIL wallet
     // (walletId 'w1'), so GET /alerts?address=<council r-address> — now XRPL-aware
@@ -146,6 +149,37 @@ describe('AutomationEngine — governed MoneyFlow (councilPayment → proposal i
     const res = await new AutomationEngine().tick();
     expect(res.firedCount).toBe(1);
     expect(mockSendToUser).not.toHaveBeenCalled(); // no push spam while queued
+  });
+
+  // productizer-it6 — the service re-checks the owner's seat at trigger time;
+  // a refusal is recorded on the rule's run (and Alert) as a failure, never as
+  // a composed proposal or a busy council.
+  it('an owner who no longer sits on the council → run recorded as error with the reason, no push', async () => {
+    prismaModule.__setRules([councilRule({ id: 'rule-council-removed' })]);
+    mockCreateProposal.mockResolvedValue({
+      ok: false,
+      reason: 'NOT_A_COUNCIL_MEMBER',
+      detail: "this rule's owner does not hold a seat on council " + COUNCIL,
+    });
+
+    await new AutomationEngine().tick();
+
+    const prisma = (jest.requireMock('../../../database/prismaClient') as {
+      prisma: { automationRun: { create: jest.Mock }; alert: { create: jest.Mock } };
+    }).prisma;
+    expect(prisma.automationRun.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ruleId: 'rule-council-removed',
+          status: 'error',
+          notes: expect.stringContaining('council_proposal_failed (NOT_A_COUNCIL_MEMBER)'),
+        }),
+      }),
+    );
+    expect(prisma.alert.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ message: expect.stringContaining('NOT_A_COUNCIL_MEMBER') }) }),
+    );
+    expect(mockSendToUser).not.toHaveBeenCalled();
   });
 
   it('an expired rule is disabled and never evaluated (enforced TTL)', async () => {

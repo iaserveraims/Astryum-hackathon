@@ -1,7 +1,11 @@
 'use client';
 
 import { ReactNode, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useMotionLevel } from '../../stores/motionStore';
+import { useEngraved } from '../../stores/themeStore';
+import { AstryumLoader } from './AstryumLoader';
+import { useCursorGlow } from './motion';
 import { useT } from '../../i18n/LanguageProvider';
 
 // Translate string children/props in shared primitives so every page's chrome (headers,
@@ -53,8 +57,13 @@ export function MicroLabel({
 }) {
   const tr = useTNode();
   const color = tone === 'muted' ? 'text-ink/40' : 'text-volt-soft/60';
+  // `ui-microlabel` es el asidero del TEMA: en la lámina institucional esta
+  // etiqueta deja de ser una micro-nota y pasa a ser el encabezado de una
+  // columna de registro (globals.css). Se viste por CSS y no por hook a
+  // propósito — este primitivo se pinta cientos de veces por pantalla y
+  // suscribir cada instancia al store sería pagar el tema en cada celda.
   return (
-    <span className={`text-[10px] font-mono uppercase tracking-[0.18em] ${color} ${className}`}>
+    <span className={`ui-microlabel text-[10px] font-mono uppercase tracking-[0.18em] ${color} ${className}`}>
       {tr(children)}
     </span>
   );
@@ -87,7 +96,7 @@ export function Pill({
   const dims = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-[11px]';
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border font-medium leading-none ${dims} ${
+      className={`ui-pill inline-flex items-center gap-1.5 rounded-full border font-medium leading-none ${dims} ${
         mono ? 'font-mono tabular-nums' : ''
       } ${tones[tone]} ${className}`}
     >
@@ -117,6 +126,32 @@ export function SegmentedControl<K extends string>({
   layoutId?: string;
 }) {
   const tr = useTNode();
+  // TRES ARTEFACTOS por nivel de movimiento (stores/motionStore.ts): el tinte
+  // que se DESLIZA con muelle (full), el tinte que se desliza DESPACIO y sin
+  // rebote (calm) y el SUBRAYADO sin píldora (minimal).
+  const level = useMotionLevel();
+  if (level === 'minimal') {
+    return (
+      <div role="tablist" className={`inline-flex items-center gap-4 border-b border-ink/10 ${className}`}>
+        {options.map((o) => {
+          const on = o.key === value;
+          return (
+            <button
+              key={o.key}
+              role="tab"
+              aria-selected={on}
+              onClick={() => onChange(o.key)}
+              className={`-mb-px border-b-2 px-1 py-1.5 text-xs font-medium ${
+                on ? 'border-volt text-ink' : 'border-transparent text-ink/45 hover:text-ink/80'
+              }`}
+            >
+              {tr(o.label)}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div
       role="tablist"
@@ -134,9 +169,7 @@ export function SegmentedControl<K extends string>({
               on ? 'text-ink' : 'text-ink/45 hover:text-ink/80'
             }`}
           >
-            {on && (
-              <MotionSegment layoutId={layoutId ?? 'seg'} />
-            )}
+            {on && <MotionSegment layoutId={layoutId ?? 'seg'} calm={level === 'calm'} />}
             <span className="relative">{tr(o.label)}</span>
           </button>
         );
@@ -145,12 +178,13 @@ export function SegmentedControl<K extends string>({
   );
 }
 
-function MotionSegment({ layoutId }: { layoutId: string }) {
+function MotionSegment({ layoutId, calm = false }: { layoutId: string; calm?: boolean }) {
   return (
     <motion.span
       layoutId={layoutId}
       className="absolute inset-0 rounded-[10px] bg-volt/15 border border-volt/20"
-      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+      // Sereno: tween lento en la casa curve, sin rebote.
+      transition={calm ? { duration: 0.4, ease: [0.16, 1, 0.3, 1] } : { type: 'spring', stiffness: 420, damping: 34 }}
       aria-hidden
     />
   );
@@ -171,7 +205,7 @@ export function IconTile({
 }) {
   const dims = size === 'lg' ? 'w-12 h-12 rounded-2xl' : 'w-10 h-10 rounded-xl';
   return (
-    <div className={`${dims} grid place-items-center bg-volt/10 border border-volt/20 text-volt ${className}`}>
+    <div className={`ui-icontile ${dims} grid place-items-center bg-volt/10 border border-volt/20 text-volt ${className}`}>
       {children}
     </div>
   );
@@ -189,54 +223,72 @@ export function Card({
   hover = false,
   glow = false,
   spotlight = false,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   padded?: boolean;
   hover?: boolean;
   glow?: boolean;
+  /** Inline overrides merged over the card's own shadow — the wallet-identity
+   *  wash (walletWash: background + borderColor) enters through here. */
+  style?: React.CSSProperties;
   spotlight?: boolean;
 }) {
-  const reduced = useReducedMotion();
+  // TRES ARTEFACTOS por nivel (stores/motionStore.ts): en FULL el reflejo
+  // sigue al cursor en tiempo real y la tarjeta se eleva al pasar; en CALM el
+  // reflejo lo sigue CON RETARDO (useCursorGlow, fundador 2026-09-12) y la
+  // tarjeta sube UN píxel y aclara el borde, despacio (300ms); en MINIMAL no
+  // hay reflejo, pierde la sombra, redondea menos y su borde se ve — una
+  // hoja, no un panel flotante.
+  const level = useMotionLevel();
+  const minimal = level === 'minimal';
+  // EL TEMA INSTITUCIONAL CONVIERTE LA TARJETA EN UNA LÁMINA (2026-09-13): la
+  // clase `plate` le pone el doble filete de un título valor (globals.css) y
+  // le quita la sombra difusa, que ahí la apaga la regla del material. Y le
+  // quita el REFLEJO que sigue al cursor: una luz especular viajando por el
+  // panel es el gesto más «nave espacial» que tiene la casa, y es justo el
+  // mundo del que este tema sale. Un documento no tiene brillos.
+  const engraved = useEngraved();
   const ref = useRef<HTMLDivElement>(null);
   const [lit, setLit] = useState(false);
-  const track = spotlight && !reduced;
-
-  const onMove = (e: React.MouseEvent) => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
-    el.style.setProperty('--my', `${e.clientY - r.top}px`);
-  };
+  const light = useCursorGlow(ref);
+  const track = spotlight && light.active && !engraved;
 
   return (
     <div
       ref={ref}
-      onMouseMove={track ? onMove : undefined}
+      onMouseMove={track ? light.onMove : undefined}
       onMouseEnter={track ? () => setLit(true) : undefined}
       onMouseLeave={track ? () => setLit(false) : undefined}
-      className={`relative rounded-2xl border bg-surface-1 transition-all duration-200 ${
-        glow ? 'border-volt/25' : 'border-ink/[0.05]'
-      } ${hover ? 'hover:border-ink/[0.09] hover:bg-surface-2 hover:-translate-y-0.5' : ''} ${
-        padded ? 'p-6' : ''
-      } ${className}`}
+      className={`relative ${engraved ? 'plate rounded-lg' : minimal ? 'rounded-lg' : 'rounded-2xl'} border bg-surface-1 transition-all duration-200 ${
+        glow ? 'border-volt/25' : minimal ? 'border-ink/10' : 'border-ink/[0.05]'
+      } ${
+        hover
+          ? level === 'full'
+            ? 'hover:border-ink/[0.09] hover:bg-surface-2 hover:-translate-y-0.5'
+            : level === 'calm'
+              ? 'duration-300 hover:border-ink/[0.12] hover:bg-surface-2 hover:-translate-y-px'
+              : 'hover:border-ink/[0.16]'
+          : ''
+      } ${padded ? 'p-6' : ''} ${className}`}
       style={{
-        boxShadow: glow
-          ? '0 1px 2px rgba(0,0,0,0.32), 0 0 48px -8px hsl(var(--volt) / 0.14)'
-          : '0 1px 2px rgba(0,0,0,0.32), 0 16px 36px -22px rgba(0,0,0,0.7)',
+        boxShadow: minimal
+          ? 'none'
+          : glow
+            ? '0 1px 2px rgba(0,0,0,0.32), 0 0 48px -8px hsl(var(--volt) / 0.14)'
+            : '0 1px 2px rgba(0,0,0,0.32), 0 16px 36px -22px rgba(0,0,0,0.7)',
+        ...style,
       }}
     >
       {children}
       {track && (
-        <div
+        <motion.div
           aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-500 z-[1]"
-          style={{
-            opacity: lit ? 1 : 0,
-            background:
-              'radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), hsl(var(--volt-soft) / 0.06), transparent 65%)',
-          }}
+          className="pointer-events-none absolute inset-0 rounded-[inherit] z-[1]"
+          style={{ background: light.background }}
+          animate={{ opacity: lit ? 1 : 0 }}
+          transition={{ duration: 0.5 }}
         />
       )}
     </div>
@@ -297,24 +349,48 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   const tr = useTNode();
+  // LA CABECERA CAMBIA DE FORMA, no solo de color (fundador 2026-09-13:
+  // «que cambie los colores, dibujos y LAYOUTS»). En la lámina, el encabezado
+  // de página se convierte en el de un expediente: el epígrafe sube a
+  // versalitas espaciadas, el título va en serif y todo el bloque se apoya en
+  // una regla doble — gruesa y fina, como la cabecera de un impreso. Es el
+  // cambio que se ve en TODAS las pantallas a la vez, porque todas montan
+  // este primitivo.
+  const engraved = useEngraved();
   return (
-    <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-      <div className="min-w-0">
-        {eyebrow ? (
-          <div className="text-xs text-ink/40 font-medium mb-2">{tr(eyebrow)}</div>
-        ) : null}
-        <h1 className="text-[24px] md:text-[28px] font-semibold tracking-tight leading-[1.15] text-ink text-balance">
-          {tr(title)}
-        </h1>
-        {subtitle ? (
-          <p className="text-sm text-ink/55 mt-2 max-w-2xl leading-relaxed">{tr(subtitle)}</p>
+    <div className={engraved ? 'mb-8' : ''}>
+      <div
+        className={`flex flex-col md:flex-row md:items-end md:justify-between gap-4 ${
+          engraved ? 'pb-3' : 'mb-8'
+        }`}
+        style={engraved ? { borderBottom: '1px solid var(--plate-rule)' } : undefined}
+      >
+        <div className="min-w-0">
+          {eyebrow ? (
+            engraved ? (
+              <div className="plate-register mb-2 text-[10px] text-volt-soft/70">{tr(eyebrow)}</div>
+            ) : (
+              <div className="text-xs text-ink/40 font-medium mb-2">{tr(eyebrow)}</div>
+            )
+          ) : null}
+          <h1 className="text-[24px] md:text-[28px] font-semibold tracking-tight leading-[1.15] text-ink text-balance">
+            {tr(title)}
+          </h1>
+          {subtitle ? (
+            <p className="text-sm text-ink/55 mt-2 max-w-2xl leading-relaxed">{tr(subtitle)}</p>
+          ) : null}
+        </div>
+        {(actions || meta) ? (
+          <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
+            {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+            {meta ? <div>{meta}</div> : null}
+          </div>
         ) : null}
       </div>
-      {(actions || meta) ? (
-        <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
-          {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
-          {meta ? <div>{meta}</div> : null}
-        </div>
+      {/* El segundo filete de la regla doble. Un div y no un ::after porque
+          la cabecera no tiene una caja propia donde anclarlo. */}
+      {engraved ? (
+        <div className="mt-[2px] h-px" style={{ background: 'var(--plate-rule-soft)' }} aria-hidden />
       ) : null}
     </div>
   );
@@ -335,7 +411,7 @@ export function HairlineGroup({
 }) {
   return (
     <div
-      className={`grid gap-px rounded-2xl overflow-hidden border border-ink/[0.05] bg-ink/[0.06] ${columns} ${className}`}
+      className={`ui-hairline-group grid gap-px rounded-2xl overflow-hidden border border-ink/[0.05] bg-ink/[0.06] ${columns} ${className}`}
       style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.32), 0 16px 36px -22px rgba(0,0,0,0.7)' }}
     >
       {children}
@@ -374,8 +450,16 @@ export function SectionTitle({
   actions?: ReactNode;
 }) {
   const tr = useTNode();
+  // En la lámina, el título de sección se apoya en su regla: es el
+  // encabezado de un apartado de documento, no una etiqueta flotando sobre
+  // el contenido (globals.css .plate-head).
+  const engraved = useEngraved();
   return (
-    <div className="flex items-end justify-between mb-4 gap-4">
+    <div
+      className={`flex items-end justify-between gap-4 ${
+        engraved ? 'plate-head mb-4 pb-2.5' : 'mb-4'
+      }`}
+    >
       <div>
         <h2 className="text-[15px] font-semibold tracking-tight text-ink">{tr(children)}</h2>
         {hint ? <div className="text-sm text-ink/45 mt-1">{tr(hint)}</div> : null}
@@ -409,14 +493,25 @@ export function EmptyState({
     error: 'text-tone-danger',
     loading: 'text-ink/55',
   };
-  const body = (
+  // LA ESPERA DE UNA SECCIÓN LLEVA EL COMETA (fundador 2026-09-11: «si está
+  // algo cargando tiene que aparecer el logo… homogéneo en todas las
+  // páginas»). Una sección vacía que espera dato = AstryumLoader con su
+  // línea; el título llega ya traducido y hace de etiqueta. La regla entera
+  // (cometa / esqueleto / spinner) está en la cabecera de AstryumLoader.
+  const body =
+    variant === 'loading' ? (
+      <>
+        <AstryumLoader size={48} label={typeof title === 'string' ? tr(title) as string : undefined} />
+        {hint ? <div className="text-sm text-ink/45 mt-2 max-w-md leading-relaxed">{tr(hint)}</div> : null}
+      </>
+    ) : (
     <>
       {icon ? <IconTile size="lg" className="mb-4">{icon}</IconTile> : null}
       <div className={`text-sm font-medium ${tones[variant]}`}>{tr(title)}</div>
       {hint ? <div className="text-sm text-ink/45 mt-2 max-w-md leading-relaxed">{tr(hint)}</div> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </>
-  );
+    );
   if (bare) {
     return <div className="flex flex-col items-center justify-center text-center py-12">{body}</div>;
   }
@@ -427,6 +522,7 @@ export function PrimaryButton({
   children,
   onClick,
   disabled,
+  disabledReason,
   type = 'button',
   className = '',
   'aria-label': ariaLabel,
@@ -434,20 +530,61 @@ export function PrimaryButton({
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  /**
+   * POR QUÉ está gris (fundador 2026-08-27: «si tienes algún parámetro mal
+   * configurado… el botón se queda en gris y no se puede pulsar — que al pasar
+   * el ratón la página te diga qué está fallando»). Un botón apagado sin
+   * motivo obliga a repasar el formulario a ciegas; con el motivo encima, el
+   * paso se explica solo. Llega YA TRADUCIDO desde el que llama (este
+   * primitivo no tiene t()). Solo se enseña mientras `disabled` es true —
+   * es la explicación del bloqueo, no un tooltip genérico.
+   *
+   * Un botón disabled no dispara eventos de ratón en JS, pero SÍ recibe
+   * :hover en CSS — el tooltip va por group-hover puro, sin estado. El
+   * `title` nativo acompaña como red (lectores, long-press en táctil).
+   */
+  disabledReason?: string;
   type?: 'button' | 'submit';
   className?: string;
   /** Accessible name for icon-only usages — the visual stays icon-clean. */
   'aria-label'?: string;
 }) {
+  const showReason = !!disabled && !!disabledReason;
+  // TRES ARTEFACTOS por nivel (stores/motionStore.ts): con halo y brillo al
+  // pasar (full); plano, sin halo, oscurece un punto al pasar (calm); un
+  // CONTORNO volt de esquinas cortas que se rellena al pasar (minimal). En
+  // los tres sigue siendo el único botón volt de la pantalla: la jerarquía
+  // la lleva el color, no la sombra.
+  const level = useMotionLevel();
+  const face =
+    level === 'minimal'
+      ? 'rounded-md border border-volt bg-transparent text-volt hover:bg-volt hover:text-volt-ink'
+      : level === 'calm'
+        ? 'rounded-xl bg-volt text-volt-ink hover:bg-volt/90 transition-colors'
+        : 'rounded-xl bg-volt text-volt-ink hover:brightness-105 transition-all shadow-[0_8px_24px_-10px_hsl(var(--volt)/0.45)]';
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-volt text-volt-ink text-sm font-semibold hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_8px_24px_-10px_hsl(var(--volt)/0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 ${className}`}
+      title={showReason ? disabledReason : undefined}
+      className={`ui-primary group/pbtn relative inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 ${face} ${className}`}
     >
       {children}
+      {showReason && (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-[280px] -translate-x-1/2 translate-y-1 rounded-lg border border-ink/15 bg-surface-3 px-3 py-2 text-left text-[11.5px] font-normal normal-case leading-snug text-ink/85 opacity-0 shadow-xl transition-all duration-200 group-hover/pbtn:translate-y-0 group-hover/pbtn:opacity-100"
+        >
+          {disabledReason}
+          {/* la flechita, del mismo material que el borde */}
+          <span
+            aria-hidden
+            className="absolute left-1/2 top-full -mt-px h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-ink/15 bg-surface-3"
+          />
+        </span>
+      )}
     </button>
   );
 }
@@ -466,12 +603,17 @@ export function GhostButton({
   /** Accessible name for icon-only usages — the visual stays icon-clean. */
   'aria-label'?: string;
 }) {
+  // Mínimo: esquinas cortas y sin relleno — la misma hoja que Card y el
+  // contorno de PrimaryButton (stores/motionStore.ts).
+  const minimal = useMotionLevel() === 'minimal';
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] text-ink/80 text-sm hover:bg-ink/[0.06] hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 ${className}`}
+      className={`ui-ghost inline-flex items-center justify-center gap-2 px-4 py-2.5 border text-ink/80 text-sm hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0 ${
+        minimal ? 'rounded-md border-ink/15 bg-transparent hover:bg-ink/[0.04]' : 'rounded-xl border-ink/10 bg-ink/[0.03] hover:bg-ink/[0.06]'
+      } ${className}`}
     >
       {children}
     </button>

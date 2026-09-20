@@ -15,6 +15,7 @@ import {
   type RiskSnapshot,
 } from '@/services/v1Api';
 import { listMyWallets } from '@/services/walletLinkService';
+import { EMPTY_FOLD, foldKey, resolvePaFold, type PaFoldMap } from '@/lib/wallet/paFold';
 
 export interface WalletRecord {
   id?: string;
@@ -103,8 +104,50 @@ export function dedupeWallets(userAddress: string | undefined, wallets: WalletRe
   return [...map.values()];
 }
 
-/** The demo reads exactly two rails: Flare (14) and XRPL (pseudo 1440002). */
-export const DEMO_CHAIN_IDS = new Set([14, 1440002]);
+/**
+ * The portfolio surface reads two rails by default: Flare (14) and XRPL
+ * (pseudo 1440002). The filter exists to drop the external reader's dust on
+ * other chains (BNB, AVAX…) — not to hide real product positions. Ethereum (1)
+ * joins the set behind the W3 flag (FXRP/RLUSD lend-borrow): without it the
+ * new market's position would be invisible here (plan §13 / BuildSpec B4).
+ * NEXT_PUBLIC_* is inlined at build time — the runtime kill-switch stays
+ * server-side (ETH_RLUSD_FXRP_ENABLED gates the prepare routes).
+ */
+const BASE_CHAIN_IDS = [14, 1440002];
+const ETH_RAIL_BUILT_IN = process.env.NEXT_PUBLIC_ETH_RLUSD_FXRP_ENABLED === 'true';
+
+/**
+ * Runtime state of the Ethereum rail, as the BACKEND reports it (`/status`).
+ * null = todavía no se ha leído → manda el valor de build.
+ *
+ * El hueco que cierra (H10): `NEXT_PUBLIC_*` se incrusta en el BUILD, así que
+ * un kill-switch caliente escondía las cards del carril y dejaba la posición
+ * de Ethereum VISIBLE en el portfolio — el producto decía «apagado» y el
+ * dinero seguía en pantalla. Ahora la visibilidad sigue al mismo interruptor
+ * que todo lo demás, sin redeploy.
+ */
+let ethRailLive: boolean | null = null;
+
+/** Lo llaman las superficies que YA preguntan por `/status` (las cards de
+ *  Earn y el tablero de posiciones): ninguna petición nueva. */
+export function setEthRailLive(active: boolean): void {
+  ethRailLive = active;
+}
+
+/** Solo para tests: vuelve al estado «sin leer». */
+export function _resetEthRailLive(): void {
+  ethRailLive = null;
+}
+
+/**
+ * Las chains que esta superficie muestra. El filtro existe para tirar el
+ * polvo del lector externo (BNB, AVAX…), nunca para esconder posiciones
+ * reales del producto.
+ */
+export function demoChainIds(): Set<number> {
+  const ethOn = ethRailLive ?? ETH_RAIL_BUILT_IN;
+  return new Set(ethOn ? [...BASE_CHAIN_IDS, 1] : BASE_CHAIN_IDS);
+}
 
 /* ------------------------------------------------------------------------ */
 /* What a wallet HOLDS — the one shared reading.                            */
@@ -163,7 +206,8 @@ export function normaliseSnap(raw: PortfolioSnapshot): PortfolioSnapshot {
   const all = Array.isArray(raw.positions) ? raw.positions : [];
   // Demo rails only — the external multichain reader also reports dust on
   // other chains (BNB, AVAX…) for EVM wallets; this surface is Flare + XRPL.
-  const positions = all.filter((p) => DEMO_CHAIN_IDS.has(p.chainId ?? 14));
+  const chains = demoChainIds();
+  const positions = all.filter((p) => chains.has(p.chainId ?? 14));
   if (positions.length === all.length) {
     return {
       ...raw,
@@ -225,6 +269,10 @@ export function mergeSnaps(snaps: PortfolioSnapshot[]): PortfolioSnapshot | null
     breakdown: { byProtocol: {}, byAsset: {}, byKind: {} },
     takenAt: new Date(0).toISOString(),
   };
+  // Ola 0 (15-sep) — what a wallet's sweep could NOT read travels with the
+  // merge, tagged with its wallet. It used to be dropped here, so a fleet
+  // view built from three wallets, one of them unread, looked complete.
+  const unreadable: NonNullable<PortfolioSnapshot['unreadable']> = [];
   for (const s of snaps) {
     acc.totalUSD += s.totalUSD;
     acc.collateralUSD += s.collateralUSD;
@@ -239,7 +287,11 @@ export function mergeSnaps(snaps: PortfolioSnapshot[]): PortfolioSnapshot | null
     addMaps(acc.breakdown.byAsset, s.breakdown.byAsset);
     addMaps(acc.breakdown.byKind, s.breakdown.byKind as Record<string, number>);
     if (new Date(s.takenAt).getTime() > new Date(acc.takenAt).getTime()) acc.takenAt = s.takenAt;
+    for (const u of Array.isArray(s.unreadable) ? s.unreadable : []) {
+      unreadable.push(u.wallet ? u : { ...u, wallet: s.wallet });
+    }
   }
+  if (unreadable.length > 0) acc.unreadable = unreadable;
   return acc;
 }
 
@@ -340,6 +392,11 @@ export interface AggregatedPortfolio {
     snap: PortfolioSnapshot;
     risk: RiskSnapshot | null;
     history: { takenAt: string; totalUSD: number }[];
+    /** Set when this row ABSORBED its Flare Smart Account (paFold, visual
+     *  fold 2026-08-17): the PA's positions/value ride inside this snap and
+     *  the PA row is gone from perWallet. Value = the PA's address, so the
+     *  surfaces can badge the owner and keep the unmint door reachable. */
+    absorbedSmartAccount?: string;
   }[];
 }
 
@@ -352,7 +409,18 @@ export interface AggregatedPortfolio {
 // data is silently revalidated in the background when older than FRESH_MS.
 const PORTFOLIO_FRESH_MS = 60_000;
 let portfolioCache: { key: string; data: AggregatedPortfolio; fetchedAt: number } | null = null;
-const portfolioInflight = new Map<string, Promise<AggregatedPortfolio>>();
+
+// One in-flight load per wallet set, and EVERY caller gets its partials — not
+// only the one that started it. In Home the authority slot (sync badge) and
+// the fleet entry (the figure) ask for the same set at once; if only the first
+// saw the progression, the figure waited for the slowest wallet while the badge
+// beside it counted «2/5».
+interface PortfolioFlight {
+  result: Promise<AggregatedPortfolio>;
+  listeners: Set<(partial: AggregatedPortfolio) => void>;
+  latest: () => AggregatedPortfolio | null;
+}
+const portfolioInflight = new Map<string, PortfolioFlight>();
 
 // The reactive store registers here so invalidation (after an action that
 // changes positions) both drops the module cache AND forces a store reload —
@@ -399,16 +467,28 @@ export async function loadAggregatedPortfolio(
   // One in-flight load per wallet set: five surfaces mounting at once must
   // not fan out five identical request storms.
   const pending = portfolioInflight.get(cacheKey);
-  if (pending) return pending;
+  if (pending) {
+    if (onPartial) {
+      pending.listeners.add(onPartial);
+      const latest = pending.latest();
+      if (latest) onPartial(latest);
+    }
+    return pending.result;
+  }
 
-  const load = fetchAggregatedPortfolio(addresses, onPartial)
-    .then((result) => {
-      portfolioCache = { key: cacheKey, data: result, fetchedAt: Date.now() };
-      return result;
+  const listeners = new Set<(partial: AggregatedPortfolio) => void>(onPartial ? [onPartial] : []);
+  let latest: AggregatedPortfolio | null = null;
+  const result = fetchAggregatedPortfolio(addresses, (partial) => {
+    latest = partial;
+    for (const fn of listeners) fn(partial);
+  })
+    .then((data) => {
+      portfolioCache = { key: cacheKey, data, fetchedAt: Date.now() };
+      return data;
     })
     .finally(() => portfolioInflight.delete(cacheKey));
-  portfolioInflight.set(cacheKey, load);
-  return load;
+  portfolioInflight.set(cacheKey, { result, listeners, latest: () => latest });
+  return result;
 }
 
 async function fetchAggregatedPortfolio(
@@ -417,6 +497,14 @@ async function fetchAggregatedPortfolio(
 ): Promise<AggregatedPortfolio> {
   const results: (Awaited<ReturnType<typeof loadWalletData>> | null)[] =
     addresses.map(() => null);
+
+  // The visual fold (paFold): owner↔Smart-Account pairs resolve in parallel
+  // with the wallet loads; partials built before it lands simply don't fold
+  // yet (the final build always does — the promise joins the barrier below).
+  let fold: PaFoldMap = EMPTY_FOLD;
+  const foldReady = resolvePaFold(addresses).then((m) => {
+    fold = m;
+  });
 
   const build = (): AggregatedPortfolio => {
     // Live "now" point per wallet: with it, ONE stored snapshot is enough to
@@ -435,25 +523,67 @@ async function fetchAggregatedPortfolio(
           : stored;
       return { address: addresses[i], snap, risk: r[2], history };
     });
-    const perWallet = enriched.filter(
+    const perWalletRaw = enriched.filter(
       (w): w is AggregatedPortfolio['perWallet'][number] => w?.snap != null,
     );
+    // FOLD (2026-08-17): a Smart Account whose owner is in the same set is
+    // absorbed — its positions/value merge into the owner's row and its own
+    // row disappears. Totals are unchanged (the global snap merges the RAW
+    // list); only the per-wallet shape folds. An orphan PA (owner missing or
+    // owner's load failed) stays visible — never hide value.
+    const byKey = new Map(perWalletRaw.map((w) => [foldKey(w.address), w] as const));
+    const perWallet = perWalletRaw.flatMap((w) => {
+      const owner = fold.ownerByPa.get(foldKey(w.address));
+      if (owner && byKey.has(foldKey(owner))) return []; // absorbed into the owner below
+      const paAddr = fold.paByOwner.get(foldKey(w.address));
+      const paEntry = paAddr ? byKey.get(foldKey(paAddr)) : undefined;
+      if (!paEntry) return [w];
+      const merged = mergeSnaps([w.snap, paEntry.snap]);
+      if (!merged) return [w]; // defensive — two real snaps always merge
+      return [
+        {
+          ...w,
+          snap: normaliseSnap(merged),
+          risk: w.risk ?? paEntry.risk,
+          absorbedSmartAccount: paEntry.address,
+        },
+      ];
+    });
     const histories = enriched.map((w) => w?.history ?? []);
     const risks = enriched.map((w) => w?.risk).filter((r): r is RiskSnapshot => r != null);
     return {
-      snap: mergeSnaps(perWallet.map((w) => w.snap)),
+      snap: mergeSnaps(perWalletRaw.map((w) => w.snap)),
       history: mergeHistories(histories),
       risk: mergeRisks(risks),
       perWallet,
     };
   };
 
-  await Promise.all(
-    addresses.map(async (a, i) => {
-      results[i] = await loadWalletData(a);
+  await Promise.all([
+    foldReady,
+    ...addresses.map(async (a, i) => {
+      // EL SNAPSHOT PINTA EN CUANTO LLEGA (fundador 2026-09-11: «el home
+      // sigue tardando demasiado en leer las posiciones»). Antes cada
+      // wallet esperaba a que contestaran las TRES lecturas —snapshot,
+      // histórico y riesgo— antes de pintar nada: el riesgo recalcula sobre
+      // el mismo snapshot y el histórico es solo la curva; ninguno debería
+      // retener las posiciones. Ahora el snapshot se pinta al aterrizar y
+      // curva y riesgo se rellenan después, sin tocar el resultado final.
+      const isEvm = EVM_ADDRESS_RE.test(a);
+      const historyP = portfolioV1
+        .history(a, 14)
+        .catch(() => null as { points: { takenAt: string; totalUSD: number }[] } | null);
+      const riskP = isEvm
+        ? riskApi.portfolio(a, 14).catch(() => null as RiskSnapshot | null)
+        : Promise.resolve(null as RiskSnapshot | null);
+      const snap = await portfolioV1.get(a, 14).catch(() => null as PortfolioSnapshot | null);
+      results[i] = [snap, null, null] as const;
+      onPartial?.(build());
+      const [history, risk] = await Promise.all([historyP, riskP]);
+      results[i] = [snap, history, risk] as const;
       onPartial?.(build());
     }),
-  );
+  ]);
   return build();
 }
 

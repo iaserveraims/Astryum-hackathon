@@ -207,6 +207,108 @@ describe('POST /api/wallet-transfer/prepare — xrpl (XRP)', () => {
   });
 });
 
+/**
+ * La nota del pago: DestinationTag (el número de cuenta DENTRO del destino) y
+ * Memos (texto libre, público para siempre). Las dos opcionales, las dos del
+ * usuario: se validan, se devuelven en la divulgación para que se revisen
+ * antes de firmar, y en el rail EVM se RECHAZAN en vez de perderse en
+ * silencio.
+ */
+describe('POST /api/wallet-transfer/prepare — la nota del pago (tag + memo)', () => {
+  const valid = { rail: 'xrpl', from: GOOD_XRPL, to: GOOD_XRPL_2, amount: 2 };
+
+  it('sin nota, el pago sale exactamente igual que antes', async () => {
+    const res = await request(app).post('/api/wallet-transfer/prepare').send(valid);
+    expect(res.status).toBe(200);
+    expect(res.body.xrplPayment.DestinationTag).toBeUndefined();
+    expect(res.body.xrplPayment.Memos).toBeUndefined();
+    expect(res.body.disclosure.destinationTag).toBeUndefined();
+    expect(res.body.disclosure.memo).toBeUndefined();
+  });
+
+  it('mete el tag en el pago y lo devuelve en la divulgación', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ ...valid, destinationTag: '101' });
+    expect(res.status).toBe(200);
+    expect(res.body.xrplPayment.DestinationTag).toBe(101); // número, no texto
+    expect(res.body.disclosure.destinationTag).toBe(101);
+  });
+
+  it('codifica el memo en hex y lo devuelve legible para la revisión', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ ...valid, memo: 'Pago de Hugo' });
+    expect(res.status).toBe(200);
+    expect(res.body.xrplPayment.Memos).toEqual([
+      {
+        Memo: {
+          MemoData: Buffer.from('Pago de Hugo', 'utf8').toString('hex').toUpperCase(),
+          MemoFormat: Buffer.from('text/plain', 'utf8').toString('hex').toUpperCase(),
+        },
+      },
+    ]);
+    // Lo que se enseña antes de firmar es el texto, no el hex.
+    expect(res.body.disclosure.memo).toBe('Pago de Hugo');
+  });
+
+  it('acepta las dos a la vez', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ ...valid, destinationTag: 4294967295, memo: 'x' });
+    expect(res.status).toBe(200);
+    expect(res.body.xrplPayment.DestinationTag).toBe(4294967295);
+    expect(res.body.xrplPayment.Memos).toHaveLength(1);
+  });
+
+  it('recorta el tag pegado con espacios en vez de rechazarlo', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ ...valid, destinationTag: ' 101 ' });
+    expect(res.status).toBe(200);
+    expect(res.body.xrplPayment.DestinationTag).toBe(101);
+  });
+
+  it.each(['-1', '1.5', '1 0', 'abc', '0x10', '4294967296', true])(
+    'rechaza un tag que no es un entero uint32 (%s)',
+    async (bad) => {
+      const res = await request(app)
+        .post('/api/wallet-transfer/prepare')
+        .send({ ...valid, destinationTag: bad as unknown as string });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('INVALID_DESTINATION_TAG');
+    },
+  );
+
+  it('rechaza un memo que pasa de 128 bytes — y cuenta BYTES, no letras', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ ...valid, memo: 'á'.repeat(65) }); // 130 bytes en UTF-8
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_MEMO');
+  });
+
+  it('un memo vacío o en blanco no es un error: simplemente no viaja', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ ...valid, memo: '   ', destinationTag: '' });
+    expect(res.status).toBe(200);
+    expect(res.body.xrplPayment.Memos).toBeUndefined();
+    expect(res.body.xrplPayment.DestinationTag).toBeUndefined();
+  });
+
+  it.each([
+    { destinationTag: '101' },
+    { memo: 'para Hugo' },
+  ])('en el rail EVM la nota se RECHAZA, jamás se ignora (%s)', async (note) => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/prepare')
+      .send({ rail: 'evm', from: GOOD_EVM, to: GOOD_EVM_2, amount: '1', ...note });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('NOTE_NOT_SUPPORTED_ON_EVM');
+  });
+});
+
 describe('POST /api/wallet-transfer/bridge/xrpl-to-flare/prepare — validation', () => {
   const valid = { xrplAddress: GOOD_XRPL, evmDestination: GOOD_EVM, amountXrp: 25 };
 
@@ -259,6 +361,25 @@ describe('POST /api/wallet-transfer/bridge/flare-to-xrpl/prepare — validation'
       .send({ ...valid, xrplDestination: bad });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('INVALID_TO_ADDRESS');
+  });
+
+  // El tag del destino en una SALIDA: es lo único que cabe en el pago que hace
+  // el agente, y quien sale hacia un exchange lo necesita. Se valida con el
+  // resto de la entrada — antes del interruptor y sin tocar la cadena.
+  it.each(['-1', '1.5', 'abc', '4294967296'])('rechaza un tag invalido (%s) sin llegar al gate', async (bad) => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/bridge/flare-to-xrpl/prepare')
+      .send({ ...valid, destinationTag: bad });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_DESTINATION_TAG');
+  });
+
+  it('un tag valido pasa la validacion y se detiene en el interruptor (sin RPC)', async () => {
+    const res = await request(app)
+      .post('/api/wallet-transfer/bridge/flare-to-xrpl/prepare')
+      .send({ ...valid, destinationTag: '101' });
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
   });
 
   it.each(['NaN', -5, 0])('rejects bad amountXrp (%s)', async (bad) => {

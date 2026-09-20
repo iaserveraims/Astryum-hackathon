@@ -50,13 +50,17 @@ import {
   find0xFeAttestation,
   delete0xFeAttestation,
   saveParked0xFe,
+  markHandoffParkedByUserOpHash,
   deleteParked0xFe,
   listParked0xFe,
+  saveDismissed0xFe,
+  listDismissed0xFeHashes,
 } from './DirectMintHandoffStore';
 import {
   checkExecutorFuel,
   executorAlert,
   assertDailyFeeBudget,
+  FeeBudgetExceeded,
   legacyFeeReserveWei,
   recordFeeSpend,
   feeBudgetStatus,
@@ -358,7 +362,10 @@ export async function xrplWsRequest(
  * (xrplWsRequest); si tampoco, sube el último error HTTP — el que describe el
  * problema de transporte real (p.ej. `txnNotFound` o `xrpl_http_402`).
  */
-async function xrplJsonRpc(
+// Exported 2026-08-16 (panel métricas SourceTag): the generic XRPL JSON-RPC
+// with endpoint rotation + freshness guard is exactly what any account_tx
+// consumer needs — one transport, not two.
+export async function xrplJsonRpc(
   method: string,
   params: Record<string, unknown>,
   preferred?: string,
@@ -510,6 +517,15 @@ export async function resolveUserOpData(
   const stored = await findHandoffByUserOpHash(input.memo.userOpHash);
   if (stored?.userOpData) {
     if (ethers.keccak256(stored.userOpData).toLowerCase() === input.memo.userOpHash) {
+      // VERDAD DEL LEDGER (incidente 2026-08-21, gemelo nonce 19): estar aquí
+      // significa que el Payment de este memo EXISTE validado en XRPL — el
+      // usuario firmó, diga lo que diga su navegador. Se marca `signedAt` sin
+      // depender del aviso del cliente: el guard del asiento queda cerrado
+      // server-side aunque el fire-and-forget del front se hubiera perdido.
+      if (!stored.signedAt && stored.memoHex) {
+        const { markHandoffSignedByMemo } = await import('./DirectMintHandoffStore');
+        void markHandoffSignedByMemo(stored.memoHex, '').catch(() => {});
+      }
       return { userOpData: stored.userOpData, source: 'store' };
     }
     log(`[0xFE-executor] fila del store corrupta para ${input.memo.userOpHash} — sigo con reconstrucción`);
@@ -566,6 +582,44 @@ export interface PendingRow {
 }
 
 /**
+ * ¿Es NUESTRO este Payment de instrucción? (14-sep)
+ *
+ * Hasta hoy «mío» era solo «lleva la SourceTag del proyecto». Pero desde el ciclo
+ * productizer (it. 12) las cuentas OPERATIVAS — el omnibus del exchange, el
+ * consejo — firman SIN la etiqueta a propósito (T&C Make Waves §7: la operativa
+ * no cuenta como actividad de usuario). Con el filtro viejo, TODO 0xFE operativo
+ * era invisible al executor: el put-to-work del autopilot, el de la mesa, el
+ * nacimiento de un pote por el consejo. Visto en staging: 11 XRP de un cliente
+ * validados en el Core Vault y ningún executor los tocaba.
+ *
+ * Ahora es nuestro si (a) lleva la etiqueta, o (b) es 0xFE y su userOpHash tiene
+ * fila en NUESTRO store — lo compusimos aquí. Un 0xFE de otra app que comparte el
+ * Core Vault no tiene fila y sigue ignorándose (no se ejecuta lo ajeno). Si el
+ * store no se puede leer, NO es nuestro en este tick: no se ejecuta lo que no se
+ * puede probar, y el siguiente tick lo vuelve a mirar. `onlyTag` null = modo
+ * FLARE_EXECUTOR_ALL (todo).
+ */
+export async function isOwnInstruction(
+  row: { tag?: number; opcode: string; memoHex: string },
+  opts: { onlyTag?: number | null; hasHandoff?: (userOpHash: string) => Promise<boolean> },
+): Promise<boolean> {
+  if (opts.onlyTag == null) return true;
+  if (row.tag === opts.onlyTag) return true;
+  if (row.opcode !== 'FE' || !opts.hasHandoff) return false;
+  let userOpHash: string;
+  try {
+    userOpHash = parseMemo0xFE(row.memoHex).userOpHash;
+  } catch {
+    return false;
+  }
+  try {
+    return (await opts.hasHandoff(userOpHash)) === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Barre los Payments entrantes al Core Vault con memo de instrucción Smart
  * Account y comprueba contra el MasterAccountController si cada uno se
  * ejecutó. Un 0xFE tesSUCCESS sin ejecutar = XRP de un usuario aparcado
@@ -575,6 +629,8 @@ export async function sweepInstructionPayments(opts: {
   provider: ethers.Provider;
   wssUrl?: string;
   onlyTag?: number | null;
+  /** Además de la etiqueta: un 0xFE sin ella es nuestro si su despacho está en nuestro store (isOwnInstruction). */
+  hasHandoff?: (userOpHash: string) => Promise<boolean>;
   maxPages?: number;
 }): Promise<{ coreVault: string; rows: PendingRow[] }> {
   const am = new ethers.Contract(await resolveAssetManagerFxrp(opts.provider), ASSET_MANAGER_ABI, opts.provider);
@@ -613,7 +669,8 @@ export async function sweepInstructionPayments(opts: {
       // Instrucciones Smart Account que esperan ejecución vía executor
       if (!['FE', 'FF', 'E0', 'E1', 'E2', 'D0', 'D1'].includes(opcode)) continue;
       const tag = tx.SourceTag as number | undefined;
-      if (opts.onlyTag != null && tag !== opts.onlyTag) continue;
+      // Antes del isTransactionIdUsed de abajo: lo ajeno no gasta una llamada RPC.
+      if (!(await isOwnInstruction({ tag, opcode, memoHex }, { onlyTag: opts.onlyTag, hasHandoff: opts.hasHandoff }))) continue;
       const amount = (tx.Amount ?? tx.DeliverMax) as string;
       rows.push({
         hash: (entry.hash ?? (tx.hash as string)) as string,
@@ -764,7 +821,23 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
   const userOpData = resolved.userOpData;
   log(`[3] userOpData resuelto (${resolved.source}) — keccak256 == hash del memo ✓`);
 
-  // msg.value que el executor debe adjuntar = Σ call.value del batch (aquí 0).
+  // EL EXECUTOR NO PONE DINERO EN EL BATCH DEL USUARIO (28-ago-2026).
+  //
+  // La guía de Flare dice que el executor «debe adjuntar msg.value = Σ call.value».
+  // Es media verdad, y la media que falta cuesta dinero: el contrato
+  // (`MemoInstructions.sol`) hace `_personalAccount.call{value: msg.value}(callData)`
+  // — REENVÍA el msg.value, no lo exige. Con msg.value = 0 la Personal Account
+  // paga los `value` de sus propias piernas con su propio saldo nativo
+  // (verificado contra mainnet con un eth_call sobre una PA real: fondeada pasa,
+  // a cero revierte). Adjuntarlo aquí no habilita nada — solo hace que la wallet
+  // caliente de Astryum financie el envío del usuario y deje ese FLR aparcado
+  // en la PA.
+  //
+  // Hasta hoy daba igual: todos los batches tenían Σ call.value = 0. Deja de dar
+  // igual con `pa-transfer` de FLR nativo, que es exactamente una pierna con
+  // `value` — y sin este 0, cada FLR que un usuario enviase lo pagaría Astryum.
+  // Se sigue calculando para poder AVISAR, nunca para pagarlo.
+  const EXECUTOR_ATTACHED_VALUE = 0n;
   const decodedOp = ethers.AbiCoder.defaultAbiCoder().decode(
     ['tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature)'],
     userOpData,
@@ -774,6 +847,11 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
   ]);
   const innerDecoded = paIface.decodeFunctionData('executeUserOp', decodedOp.callData)[0] as Array<{ value: bigint }>;
   const totalCallValue = innerDecoded.reduce((a: bigint, c) => a + BigInt(c.value), 0n);
+  if (totalCallValue > 0n) {
+    log(
+      `    el batch mueve ${ethers.formatEther(totalCallValue)} FLR nativo — lo paga la PA de su propio saldo; el executor adjunta 0`,
+    );
+  }
 
   // ── 3b. Ejecutabilidad de los bytes ANTES de tocar el FDC ────────────────
   // sender y nonce viven DENTRO de los bytes comprometidos: si no casan con el
@@ -1011,7 +1089,7 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
   const amSigner = am.connect(input.wallet!) as ethers.Contract;
   const attemptExecute = async (depth: number): Promise<ethers.TransactionReceipt> => {
     try {
-      await amSigner.executeDirectMintingWithData.staticCall(proofStruct, userOpData, { value: totalCallValue });
+      await amSigner.executeDirectMintingWithData.staticCall(proofStruct, userOpData, { value: EXECUTOR_ATTACHED_VALUE });
     } catch (err) {
       const reason = describeRevert(err);
       const delayed = reason.match(/DirectMintingStillDelayed\((\d+)\)/);
@@ -1025,7 +1103,7 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
       throw new ExecutorAbort(`la simulación revierte — NO se envía nada. Motivo: ${reason}`);
     }
     log('    simulación OK → enviando executeDirectMintingWithData (FIRMA 2)…');
-    const tx = await amSigner.executeDirectMintingWithData(proofStruct, userOpData, { value: totalCallValue });
+    const tx = await amSigner.executeDirectMintingWithData(proofStruct, userOpData, { value: EXECUTOR_ATTACHED_VALUE });
     const receipt = await tx.wait();
     if (!receipt || receipt.status !== 1) throw new ExecutorAbort(`la ejecución revirtió on-chain (tx ${tx.hash})`);
     return receipt;
@@ -1147,6 +1225,13 @@ export class DirectMintExecutorWatcher {
   /** backoff por tx: unix ms a partir del cual se reintenta. */
   private nextAttemptAt = new Map<string, number>();
   private failures = new Map<string, number>();
+  /**
+   * 0xFE firmados DIFERIDOS por el presupuesto diario de fees (FeeBudgetExceeded).
+   * No son fallos: ni cuentan para el tope ni se aparcan. La alerta suena al pasar
+   * de 0 → ≥1 esperando (una por episodio); se vacía al ejecutarse o al dejar de
+   * estar pendientes.
+   */
+  private feeBudgetWaiting = new Set<string>();
   /** 0xFE colgados ya alertados al operador (una alerta por tx, no spam). */
   private stuckAlerted = new Set<string>();
   /**
@@ -1237,6 +1322,19 @@ export class DirectMintExecutorWatcher {
       dateISO: row?.dateISO ?? null,
       memoHex: row?.memoHex ?? null,
     });
+    // Aparcar LIBERA el asiento de nonce (incidente 12-sep): estos bytes ya no
+    // van a ejecutar, así que el usuario puede re-preparar/firmar en ese nonce.
+    // Sin esto, el guard NONCE_SEAT_TAKEN seguía viendo el handoff 'queued' y el
+    // re-claim quedaba en bucle. La fila no se borra: si el Payment se firmó, el
+    // executor aún halla los bytes por userOpHash.
+    if (row?.memoHex) {
+      try {
+        const { userOpHash } = parseMemo0xFE(row.memoHex);
+        await markHandoffParkedByUserOpHash(userOpHash);
+      } catch {
+        /* sin memo legible no hay asiento que liberar por esta vía */
+      }
+    }
   }
 
   /**
@@ -1248,6 +1346,11 @@ export class DirectMintExecutorWatcher {
    */
   async listStuck(): Promise<StuckSnapshot> {
     await this.hydrateParked();
+    // Las lápidas descartadas no vuelven a la radiografía: archivadas, no vivas.
+    const dismissed = await listDismissed0xFeHashes();
+    for (const hash of [...this.parked.keys()]) {
+      if (dismissed.has(hash.toUpperCase())) this.parked.delete(hash);
+    }
     const persisted = new Map((await listParked0xFe()).map((r) => [r.hash.toUpperCase(), r]));
     const resolveAction = async (memoHex: string | null | undefined): Promise<string | null> => {
       if (!memoHex) return null;
@@ -1313,7 +1416,7 @@ export class DirectMintExecutorWatcher {
    */
   async unstick(
     hashRaw: string,
-    op: 'retry' | 'park',
+    op: 'retry' | 'park' | 'dismiss',
     reason?: string,
   ): Promise<{ ok: boolean; op: string; hash: string; detail: string; kicked: boolean; envSkipListed: boolean }> {
     await this.hydrateParked();
@@ -1331,6 +1434,50 @@ export class DirectMintExecutorWatcher {
         op,
         hash,
         detail: 'aparcado — sin reintentos ni coste hasta que se le dé a Reintentar',
+        kicked: false,
+        envSkipListed: false,
+      };
+    }
+
+    if (op === 'dismiss') {
+      // Descartar = archivar una LÁPIDA (fundador 2026-08-22): solo se ofrece
+      // sobre lo APARCADO — jamás sobre algo que aún podría ejecutar. La fila
+      // pasa al namespace '0xfe-dismissed' (auditoría intacta: qué era, por qué
+      // murió, cuánto carrier quedó en el Core Vault) y el barrido, la lista de
+      // pendientes y la radiografía la ignoran para siempre.
+      const parkedReason = this.parked.get(hash);
+      if (parkedReason == null) {
+        return {
+          ok: false,
+          op,
+          hash,
+          detail: 'solo se puede descartar un dispatch APARCADO — aparca primero (Park) si de verdad está muerto',
+          kicked: false,
+          envSkipListed: false,
+        };
+      }
+      const persisted = (await listParked0xFe()).find((r) => r.hash.toUpperCase() === target);
+      await saveDismissed0xFe({
+        hash,
+        reason: reason?.trim() || parkedReason,
+        source: persisted?.source ?? 'operator',
+        parkedAt: persisted?.parkedAt ?? new Date().toISOString(),
+        account: persisted?.account ?? null,
+        drops: persisted?.drops ?? null,
+        dateISO: persisted?.dateISO ?? null,
+        memoHex: persisted?.memoHex ?? null,
+        dismissedAt: new Date().toISOString(),
+      });
+      this.parked.delete(hash);
+      this.failures.delete(hash);
+      this.nextAttemptAt.delete(hash);
+      this.stuckAlerted.delete(hash);
+      await deleteParked0xFe(hash);
+      return {
+        ok: true,
+        op,
+        hash,
+        detail: 'descartado — archivado en la auditoría; el panel y el barrido lo dejan de ver',
         kicked: false,
         envSkipListed: false,
       };
@@ -1466,9 +1613,16 @@ export class DirectMintExecutorWatcher {
 
     // B3 — feeding hop del anchor: si el anchor juntó ≥ X XRP (las fees de las
     // órdenes del consejo), acúñalas → FXRP → executor; el refuel de arriba las
-    // vuelve FLR. No-op sin LEGACY_ANCHOR_SEED. Best-effort: NO aborta el tick.
+    // vuelve FLR. Best-effort: NO aborta el tick. DOS anclas, MISMA tubería:
+    // el Legacy v1 (LEGACY_ORDER_ANCHOR) y la jaula v2 (ASTRYUM_ORDER_ANCHOR),
+    // cada una con su clave. No-op para la que no tenga seed configurada.
     try {
-      await checkAnchorFeeding(provider);
+      await checkAnchorFeeding(provider); // Legacy v1 (por defecto)
+      const astryumAnchor = (process.env.ASTRYUM_ORDER_ANCHOR ?? '').trim();
+      const astryumSeed = (process.env.ASTRYUM_ANCHOR_SEED ?? '').trim();
+      if (astryumAnchor && astryumSeed) {
+        await checkAnchorFeeding(provider, { anchor: astryumAnchor, seed: astryumSeed, label: 'astryum' });
+      }
     } catch (e) {
       console.error(`[0xFE-executor] anchor-feed falló (sigo con el barrido): ${(e as Error).message}`);
     }
@@ -1477,6 +1631,8 @@ export class DirectMintExecutorWatcher {
       provider,
       wssUrl: process.env.XRPL_WSS_URL || DEFAULTS.wssUrl,
       onlyTag: onlyMine ? sourceTag : null,
+      // Los 0xFE de cuentas operativas (sin etiqueta) que compusimos nosotros.
+      hasHandoff: async (userOpHash) => Boolean(await findHandoffByUserOpHash(userOpHash)),
       maxPages: Number(process.env.FLARE_EXECUTOR_SWEEP_PAGES || 3),
     });
     // Skip-list del operador (Railway): hashes a no tocar JAMÁS — sobrevive a
@@ -1491,9 +1647,21 @@ export class DirectMintExecutorWatcher {
       if (!this.parked.has(hash)) this.parked.set(hash, 'skip-list del operador (FLARE_EXECUTOR_SKIP_TXS)');
     }
 
-    const pendingAll = rows.filter((r) => !r.used && r.opcode === 'FE');
+    // Los descartados (lápidas archivadas por el operador) son invisibles al
+    // barrido entero: ni pendientes, ni reintentos, ni re-aparcar. El registro
+    // de auditoría sigue en '0xfe-dismissed'.
+    const dismissed = await listDismissed0xFeHashes();
+    const pendingAll = rows.filter(
+      (r) => !r.used && r.opcode === 'FE' && !dismissed.has(r.hash.toUpperCase()),
+    );
     const pending = pendingAll.filter((r) => !this.parked.has(r.hash));
     this.lastPending = pending;
+    // Un diferido por presupuesto que ya no está pendiente (ejecutado por otro,
+    // aparcado, descartado) cierra su parte del episodio: si la espera se vacía,
+    // la próxima negativa del presupuesto vuelve a alertar.
+    for (const h of [...this.feeBudgetWaiting]) {
+      if (!pending.some((r) => r.hash === h)) this.feeBudgetWaiting.delete(h);
+    }
     if (pendingAll.length > pending.length) {
       console.log(`[0xFE-executor] ${pendingAll.length - pending.length} Payment(s) 0xFE aparcados (sin reintento ni coste)`);
     }
@@ -1561,6 +1729,7 @@ export class DirectMintExecutorWatcher {
         });
         this.failures.delete(row.hash);
         this.stuckAlerted.delete(row.hash);
+        this.feeBudgetWaiting.delete(row.hash);
         if (outcome.stage === 'delayed' && outcome.executionAllowedAt) {
           this.nextAttemptAt.set(row.hash, outcome.executionAllowedAt * 1000);
           console.log(`[0xFE-executor] ${row.hash} diferido por el AssetManager — reintento tras allowedAt`);
@@ -1574,59 +1743,124 @@ export class DirectMintExecutorWatcher {
           void confirmDailySpendXrp(row.account, Number(row.drops) / DROPS);
         }
       } catch (e) {
-        // Bytes estructuralmente inejecutables (sender ajeno, nonce consumido):
-        // aparcar YA — reintentarlos es quemar fees por un revert garantizado
-        // (lección 2026-07-18: 244 attestations × 20 FLR por 3 txs imposibles).
-        if (e instanceof ExecutorAbort && e.permanent) {
-          await this.parkTx(row.hash, (e as Error).message, 'permanent', row);
-          console.error(`[0xFE-executor] ⛔ ${row.hash} INEJECUTABLE — aparcado sin coste: ${(e as Error).message}`);
-          await executorAlert(
-            'critical',
-            `0xFE ${row.hash} aparcado DEFINITIVAMENTE (bytes inejecutables, nada pagado): ${(e as Error).message}`,
-            {
-              key: `parked:${row.hash}`,
-              facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS },
-              runbook:
-                'Esto NO se cura con Reintentar: los bytes firmados llevan un sender o un nonce imposibles. Hay que ' +
-                're-preparar la operación y que el usuario firme de nuevo. Su XRP sigue en el Core Vault, no se ha perdido. ' +
-                'Revisa el prepare que generó estos bytes antes de repetir la operación.',
-            },
-          );
-          continue;
-        }
-        const n = (this.failures.get(row.hash) ?? 0) + 1;
-        this.failures.set(row.hash, n);
-        // Tope duro de reintentos: un fallo repetible que no se cura solo no
-        // debe correr para siempre con dinero real. Gracias a la caché de
-        // attestation los reintentos ya no re-pagan la fee, pero el tope corta
-        // también el ruido y señala intervención manual.
-        const maxFailures = Math.max(Number(process.env.FLARE_EXECUTOR_MAX_FAILURES || 12), 1);
-        if (n >= maxFailures) {
-          await this.parkTx(row.hash, `tope de ${maxFailures} fallos alcanzado — último: ${(e as Error).message}`, 'failures', row);
-          console.error(`[0xFE-executor] ⛔ ${row.hash} aparcado tras ${n} fallos: ${(e as Error).message}`);
-          await executorAlert(
-            'critical',
-            `0xFE ${row.hash} aparcado tras ${n} fallos. Último error: ${(e as Error).message}`,
-            {
-              key: `parked:${row.hash}`,
-              facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS, fallos: n },
-              runbook:
-                '/app/admin → Sistema → Desatascar → Reintentar (no cuesta fee nueva). Si vuelve a fallar por lo mismo, ' +
-                'rescate manual: USER_OP_DATA=0x… npx ts-node src/scripts/execute-direct-mint.ts --live',
-            },
-          );
-          continue;
-        }
-        // backoff exponencial 5 → 15 → 45 min (cap 60): errores persistentes
-        // (p.ej. e1 sin fila en el store) necesitan intervención manual, no spam.
-        const backoffMin = Math.min(5 * 3 ** (n - 1), 60);
-        this.nextAttemptAt.set(row.hash, Date.now() + backoffMin * 60_000);
-        console.error(
-          `[0xFE-executor] ✗ ${row.hash} fallo #${n}/${maxFailures} (reintento en ${backoffMin} min): ${(e as Error).message}`,
-        );
+        await this.handleAttemptError(row, e);
       }
     }
   }
+
+  /**
+   * Qué hace el watcher con un intento fallido de ejecutar un 0xFE. Es la
+   * clasificación del `catch` del barrido, sacada a un método para probarla sin
+   * RPC (el bucle de `tick` solo la llama). Tres caminos:
+   *
+   *  - ExecutorAbort permanent → aparcar YA (semántica intacta).
+   *  - FeeBudgetExceeded       → DIFERIR: ni cuenta para el tope ni aparca.
+   *  - cualquier otro error    → contador + backoff; aparcar al tope (intacto).
+   */
+  async handleAttemptError(row: PendingRow, e: unknown): Promise<'parked' | 'deferred' | 'backoff'> {
+    // Bytes estructuralmente inejecutables (sender ajeno, nonce consumido):
+    // aparcar YA — reintentarlos es quemar fees por un revert garantizado
+    // (lección 2026-07-18: 244 attestations × 20 FLR por 3 txs imposibles).
+    if (e instanceof ExecutorAbort && e.permanent) {
+      await this.parkTx(row.hash, (e as Error).message, 'permanent', row);
+      console.error(`[0xFE-executor] ⛔ ${row.hash} INEJECUTABLE — aparcado sin coste: ${(e as Error).message}`);
+      await executorAlert(
+        'critical',
+        `0xFE ${row.hash} aparcado DEFINITIVAMENTE (bytes inejecutables, nada pagado): ${(e as Error).message}`,
+        {
+          key: `parked:${row.hash}`,
+          facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS },
+          runbook:
+            'Esto NO se cura con Reintentar: los bytes firmados llevan un sender o un nonce imposibles. Hay que ' +
+            're-preparar la operación y que el usuario firme de nuevo. Su XRP sigue en el Core Vault, no se ha perdido. ' +
+            'Revisa el prepare que generó estos bytes antes de repetir la operación.',
+        },
+      );
+      return 'parked';
+    }
+
+    // LA SALIDA JAMÁS SE GATEA — y un presupuesto configurado no es un fallo.
+    //
+    // FeeBudgetExceeded salta ANTES de firmar la attestation: no se ha gastado
+    // nada y los bytes del usuario son perfectamente ejecutables. Contarlo como
+    // fallo aparcaba el 0xFE tras FLARE_EXECUTOR_MAX_FAILURES (~9 h de backoff)
+    // mientras la ventana del presupuesto es de 24 h — y un aparcado exige a un
+    // fundador para volver. Eso incluía SALIDAS cuyo XRP portador ya está en el
+    // Core Vault: una política (el tope diario) reteniendo capital firmado. Aquí
+    // se DIFIERE: este tick se salta, se reintenta en unos minutos (el reintento
+    // no paga nada si el presupuesto sigue agotado — vuelve a saltar antes de
+    // firmar), y el operador recibe UNA alerta por episodio.
+    if (e instanceof FeeBudgetExceeded) {
+      const retryMin = feeBudgetRetryMin();
+      this.nextAttemptAt.set(row.hash, Date.now() + retryMin * 60_000);
+      const firstOfEpisode = this.feeBudgetWaiting.size === 0;
+      this.feeBudgetWaiting.add(row.hash);
+      console.warn(
+        `[0xFE-executor] ⏸ ${row.hash} diferido por el presupuesto diario de fees (no es fallo, no aparca; ` +
+          `reintento en ${retryMin} min): ${(e as Error).message}`,
+      );
+      if (firstOfEpisode) {
+        await executorAlert(
+          'critical',
+          `Operaciones 0xFE FIRMADAS esperando al presupuesto diario de fees FDC: ${row.hash} ` +
+            `(${Number(row.drops) / DROPS} XRP de ${row.account}) y las que se sumen. No se aparcan ni cuentan como ` +
+            `fallo: se reintentan cada ${retryMin} min hasta que ruede la ventana o suba el presupuesto.`,
+          {
+            key: 'fee-budget:signed-waiting',
+            facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS, reintentoMin: retryMin },
+            runbook:
+              'Son firmas de usuarios (pueden ser SALIDAS) con su XRP ya en el Core Vault. Si el gasto del día es ' +
+              'legítimo, sube FLARE_EXECUTOR_DAILY_FEE_BUDGET_FLR en Railway y se ejecutan en el siguiente reintento. ' +
+              'Si no lo es, /app/admin → Sistema → Desatascar para ver qué consumió el presupuesto.',
+          },
+        );
+      }
+      return 'deferred';
+    }
+
+    const n = (this.failures.get(row.hash) ?? 0) + 1;
+    this.failures.set(row.hash, n);
+    // Tope duro de reintentos: un fallo repetible que no se cura solo no
+    // debe correr para siempre con dinero real. Gracias a la caché de
+    // attestation los reintentos ya no re-pagan la fee, pero el tope corta
+    // también el ruido y señala intervención manual.
+    const maxFailures = Math.max(Number(process.env.FLARE_EXECUTOR_MAX_FAILURES || 12), 1);
+    if (n >= maxFailures) {
+      await this.parkTx(row.hash, `tope de ${maxFailures} fallos alcanzado — último: ${(e as Error).message}`, 'failures', row);
+      console.error(`[0xFE-executor] ⛔ ${row.hash} aparcado tras ${n} fallos: ${(e as Error).message}`);
+      await executorAlert(
+        'critical',
+        `0xFE ${row.hash} aparcado tras ${n} fallos. Último error: ${(e as Error).message}`,
+        {
+          key: `parked:${row.hash}`,
+          facts: { hash: row.hash, cuenta: row.account, xrp: Number(row.drops) / DROPS, fallos: n },
+          runbook:
+            '/app/admin → Sistema → Desatascar → Reintentar (no cuesta fee nueva). Si vuelve a fallar por lo mismo, ' +
+            'rescate manual: USER_OP_DATA=0x… npx ts-node src/scripts/execute-direct-mint.ts --live',
+        },
+      );
+      return 'parked';
+    }
+    // backoff exponencial 5 → 15 → 45 min (cap 60): errores persistentes
+    // (p.ej. e1 sin fila en el store) necesitan intervención manual, no spam.
+    const backoffMin = Math.min(5 * 3 ** (n - 1), 60);
+    this.nextAttemptAt.set(row.hash, Date.now() + backoffMin * 60_000);
+    console.error(
+      `[0xFE-executor] ✗ ${row.hash} fallo #${n}/${maxFailures} (reintento en ${backoffMin} min): ${(e as Error).message}`,
+    );
+    return 'backoff';
+  }
+}
+
+/**
+ * Minutos entre reintentos de un 0xFE diferido por el presupuesto de fees
+ * (env FLARE_EXECUTOR_FEE_BUDGET_RETRY_MIN, default 5, mínimo 1). El reintento
+ * es gratis — assertDailyFeeBudget vuelve a cortar antes de firmar — pero cada
+ * uno re-lee la tx XRPL y el estado on-chain: «unos minutos», no cada tick.
+ */
+function feeBudgetRetryMin(): number {
+  const n = Number(process.env.FLARE_EXECUTOR_FEE_BUDGET_RETRY_MIN || 5);
+  return Number.isFinite(n) && n >= 1 ? n : 5;
 }
 
 export const directMintExecutorWatcher = new DirectMintExecutorWatcher();

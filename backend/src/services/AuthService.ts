@@ -15,10 +15,20 @@
  */
 
 import crypto from 'crypto';
+import { withLegalAcceptance } from '../config/legalAcceptance';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../database/prismaClient';
 import { assertSignupAllowed } from '../config/betaGate';
 import type { OAuthClaims } from './oauthVerify';
+import type { Prisma } from '@prisma/client';
+import {
+  credentialsEpochOf,
+  lockCredentialState,
+  sessionPredatesEpoch,
+  splitTakeoverPreferences,
+} from './identity/credentialsEpoch';
+import { forgetCageAck } from './flare/LegacyCageAckService';
+import { forgetStepUpConfig } from './StepUpLockService';
 
 const ACCESS_TTL_SECONDS  = 24 * 60 * 60;   // 24h
 const REFRESH_TTL_MS      = 30 * 24 * 60 * 60 * 1000; // 30d
@@ -71,6 +81,37 @@ function issueAccessJwt(userId: string, sessionId: string): string {
   );
 }
 
+/**
+ * A password row whose address nobody ever proved: plain `register` writes it
+ * with `emailVerified` false. A verified row, or one with no password, links
+ * onto an OAuth identity as before.
+ */
+/**
+ * May the reset token leave the server by any path other than the mailbox (the
+ * POST /auth/forgot-password body, the server log)? Only on an explicit opt-in
+ * for local development: NODE_ENV must not be production AND
+ * AUTH_EXPOSE_RESET_TOKEN must be literally 'true'. The default is never — a
+ * staging that forgot NODE_ENV=production used to hand the token of any
+ * password account to whoever typed its address (productizer it. 12, 5.4).
+ */
+export function resetTokenExposureEnabled(): boolean {
+  return process.env.NODE_ENV !== 'production' && process.env.AUTH_EXPOSE_RESET_TOKEN === 'true';
+}
+
+/**
+ * Does a successful reset prove the mailbox? Only when the reset token could
+ * not have travelled anywhere else. With exposure enabled, whoever typed the
+ * address holds the token — flipping `emailVerified` there would hand a stranger
+ * the verified-founder doors the takeover exists to protect.
+ */
+function resetTokenOnlyReachesMailbox(): boolean {
+  return !resetTokenExposureEnabled();
+}
+
+function isSquattedPasswordAccount(row: { passwordHash: string | null; emailVerified: boolean }): boolean {
+  return Boolean(row.passwordHash) && row.emailVerified !== true;
+}
+
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export interface AuthResult {
@@ -89,7 +130,16 @@ export class AuthService {
     email: string,
     password: string,
     meta?: { ipAddress?: string; userAgent?: string },
-    profile?: { username?: string; firstName?: string; lastName?: string; demoTermsVersion?: string },
+    profile?: {
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+      demoTermsVersion?: string;
+      /** The sign-up ceremony presented BOTH documents and the user signed
+       *  (2026-09-13): the unified `legal` record is written at birth, so the
+       *  first dashboard entry does not ask for the same texts again. */
+      legalSigned?: boolean;
+    },
   ): Promise<AuthResult> {
     const normalised = email.toLowerCase().trim();
 
@@ -121,7 +171,16 @@ export class AuthService {
         // Click-wrap proof: WHICH demo-risk text was accepted and WHEN
         // (route enforces acceptance; no migration — rides preferences JSON).
         ...(profile?.demoTermsVersion
-          ? { preferences: { demoTerms: { version: profile.demoTermsVersion, acceptedAt: new Date().toISOString() } } }
+          ? {
+              preferences: (() => {
+                const clickWrap = { demoTerms: { version: profile.demoTermsVersion, acceptedAt: new Date().toISOString() } };
+                // Signed both texts at sign-up ⇒ the same record /legal-accept
+                // writes, from day one. One signature, never asked twice.
+                return profile.legalSigned ? withLegalAcceptance(clickWrap, profile.demoTermsVersion) : clickWrap;
+                // `as never`: Prisma's Json input type rejects a plain
+                // Record<string, unknown> — same cast /legal-accept uses.
+              })() as never,
+            }
           : {}),
       },
     });
@@ -149,9 +208,21 @@ export class AuthService {
       throw Object.assign(new Error('invalid_credentials'), { code: 'invalid_credentials' });
     }
 
-    await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
-
-    return this._createSession(user.id, meta);
+    // scrypt is a window: a takeover (or a reset) can commit while it runs. The
+    // session is born only if the row STILL holds the password just checked —
+    // compare-and-swap under the row lock (lockCredentialState).
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await lockCredentialState(tx, user.id, user);
+        await tx.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
+        return this._createSession(user.id, meta, tx);
+      });
+    } catch (err: any) {
+      if (err?.code === 'credentials_changed') {
+        throw Object.assign(new Error('invalid_credentials'), { code: 'invalid_credentials' });
+      }
+      throw err;
+    }
   }
 
   /**
@@ -177,7 +248,14 @@ export class AuthService {
 
     if (!user && claims.email && claims.emailVerified) {
       const byEmail = await prisma.user.findUnique({ where: { email: claims.email } });
-      if (byEmail) {
+      if (byEmail && isSquattedPasswordAccount(byEmail)) {
+        user = await this._takeOverSquattedAccount(byEmail, oauthSub, claims.provider);
+      } else if (byEmail && byEmail.isActive === false) {
+        // A disabled row (an admin suspension, or a takeover QUARANTINE account)
+        // never takes an identity on: linking it would write `oauthSub` and
+        // `emailVerified` onto an account nobody may sign into.
+        throw Object.assign(new Error('account_disabled'), { code: 'account_disabled' });
+      } else if (byEmail) {
         user = await prisma.user.update({
           where: { id: byEmail.id },
           data: {
@@ -248,10 +326,36 @@ export class AuthService {
       throw Object.assign(new Error('refresh_token_expired'), { code: 'refresh_token_expired' });
     }
 
-    // Revoke old session and issue new one (rotation)
-    await prisma.session.update({ where: { id: session.id }, data: { isActive: false } });
+    const invalid = () => Object.assign(new Error('refresh_token_invalid'), { code: 'refresh_token_invalid' });
 
-    return this._createSession(session.userId);
+    // Observe the credential state right after the session check.
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { passwordHash: true, preferences: true },
+    });
+    if (!user) throw invalid();
+    if (sessionPredatesEpoch(session.createdAt, credentialsEpochOf(user.preferences))) {
+      await prisma.session.update({ where: { id: session.id }, data: { isActive: false } }).catch(() => undefined);
+      throw invalid();
+    }
+
+    // Rotation under the row lock: if a takeover committed since the check the
+    // CAS fails and no new session is born; the old one is revoked only if it
+    // is STILL active (two concurrent refreshes cannot both rotate it).
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await lockCredentialState(tx, session.userId, user);
+        const rotated = await tx.session.updateMany({
+          where: { id: session.id, isActive: true },
+          data: { isActive: false },
+        });
+        if (rotated.count !== 1) throw invalid();
+        return this._createSession(session.userId, undefined, tx);
+      });
+    } catch (err: any) {
+      if (err?.code === 'credentials_changed') throw invalid();
+      throw err;
+    }
   }
 
   async logout(sessionId: string): Promise<void> {
@@ -278,13 +382,16 @@ export class AuthService {
       },
     });
 
-    // In production wire this to an email provider (SMTP/SendGrid).
-    // For now, log to server console (never exposed in API response).
-    if (process.env.NODE_ENV !== 'production') {
+    // In production wire this to an email provider (SMTP/SendGrid). The token
+    // is logged, and the route returns it, ONLY under the explicit dev opt-in
+    // (resetTokenExposureEnabled) — never by default.
+    if (resetTokenExposureEnabled()) {
       console.info(`[AuthService] Password reset token for ${normalised}: ${rawToken}`);
     }
 
-    return { resetToken: rawToken }; // returned only in dev; prod would email it
+    // The caller (route) decides exposure; this value never reaches a response
+    // unless resetTokenExposureEnabled() — a mailer would send it instead.
+    return { resetToken: rawToken };
   }
 
   async resetPassword(rawToken: string, newPassword: string): Promise<void> {
@@ -299,23 +406,249 @@ export class AuthService {
 
     const passwordHash = await hashPassword(newPassword);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash, resetToken: null, resetTokenExpiresAt: null },
-    });
-
-    // Revoke all active sessions for this user after password change
-    await prisma.session.updateMany({
-      where: { userId: user.id, isActive: true },
-      data: { isActive: false },
+    await prisma.$transaction(async (tx) => {
+      // Conditional on the token STILL being there: the hash above is a window,
+      // and a takeover that committed during it cleared the token — without
+      // this the old holder's new password would land on the owner's account.
+      const updated = await tx.user.updateMany({
+        where: { id: user.id, resetToken: hashed, resetTokenExpiresAt: { gt: new Date() } },
+        data: {
+          passwordHash,
+          resetToken: null,
+          resetTokenExpiresAt: null,
+          // Using the link proves the mailbox — only where the link reached
+          // nothing BUT the mailbox (see resetTokenOnlyReachesMailbox).
+          ...(resetTokenOnlyReachesMailbox() ? { emailVerified: true } : {}),
+        },
+      });
+      if (updated.count !== 1) {
+        throw Object.assign(new Error('reset_token_invalid'), { code: 'reset_token_invalid' });
+      }
+      // Revoke all active sessions for this user after password change
+      await tx.session.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: { isActive: false },
+      });
     });
   }
 
   // ── Private ──────────────────────────────────────────────────────────────────
 
+  /**
+   * PRE-ACCOUNT HIJACK (productizer it. 8). `register` stores any address with
+   * no verification loop, so whoever typed a password on this row never proved
+   * they own the mailbox. The provider that just attested the address is the
+   * first real proof of ownership: its holder TAKES OVER the account instead of
+   * inheriting a stranger's password and live sessions — which, since the
+   * admin/exemption/Legacy doors key on `emailVerified`, would have handed the
+   * squatter those powers the moment the real owner signed in.
+   *
+   * Everything the unverified password holder could come back through is cut,
+   * in one transaction (if revocation cannot be written, nothing is linked):
+   *   · the password (and any pending reset token for it);
+   *   · every session — `verifyToken` and `refresh` both check `isActive`, so
+   *     issued JWTs and refresh tokens die with their row;
+   *   · every login passkey on the row: a logged-in squatter can add one
+   *     (PasskeyService.verifyRegistration), and it would re-open a session.
+   *     They are login credentials only, never on-chain signers; the owner adds
+   *     their own again.
+   *   · the credential epoch (`preferences.security.credentialsEpoch`): a session
+   *     or JWT from before it is refused even if its row escaped the sweep;
+   *     `preferences.security.takeoverAt` marks the handover (same instant) for
+   *     consumers that must not trust what the previous holder attached — the
+   *     demo exchange's wallet proof and provenAddressesOf honour it.
+   *   · what the previous holder attached that could PASS for the owner's:
+   *     wallet bindings are deactivated on the row (re-binding with a fresh
+   *     signature re-activates and re-dates them; they stay on the account,
+   *     dated before `takeoverAt`, and every reader that matters honours that
+   *     mark). Everything else the previous holder left is REASSIGNED to a
+   *     quarantine account — see below.
+   *
+   * NOTHING IS DELETED (productizer it. 14, 4.3 — REGRESSION of it. 11/13).
+   * Deleting the `wallet` rows cascaded into the audit trail itself:
+   * transaction_intents, transaction_executions, transaction_confirmations,
+   * positions, automation_rules and ai_recommendations all hang off
+   * `wallets.id` with ON DELETE CASCADE (v1_baseline/migration.sql:1319-1388).
+   * A founder who registered with a password and only later signed in with
+   * Google is "the squatter" by this rule, and the sweep destroyed their whole
+   * history — irreversible, and a broken audit trail (invariant #11).
+   *
+   * So the residue MOVES instead: the transaction creates a QUARANTINE user (no
+   * password, no oauthSub, no passkeys, `isActive: false`, a synthetic
+   * `…@invalid` address nobody can receive mail at, and a `quarantine` mark in
+   * its preferences naming the account it came from and when) and re-points the
+   * previous holder's rows at it with `updateMany`:
+   *     Wallet (and with it, untouched, every intent / execution / confirmation
+   *     / position / automation rule / recommendation that hangs off it),
+   *     AddressBookEntry, AgentDocument, AgentRule, AgentConversation (+
+   *     messages), UserAnthropicKey, UserMCPConnection, TriggerRule, MoneyFlow
+   *     (+ runs), GovernedAccount, WalletWatchlist (+ positions/interactions),
+   *     Alert, PartnerIntent, TaxEvent, TransactionExecution,
+   *     TransactionConfirmation and StepUpLockConfig.
+   * The owner sees none of it (every read is scoped by userId or by their own
+   * wallets); the previous holder cannot reach it either (the quarantine row has
+   * no credential and no session, and `isActive: false` is refused by every
+   * login path); and an admin can still hand it back. Rows that steer money or
+   * data are also switched OFF as they move (AutomationRule/TriggerRule/
+   * MoneyFlow `enabled`, AgentRule/UserMCPConnection/WalletWatchlist `isActive`)
+   * so no background tick keeps working for a quarantined account.
+   * The one deletion left is the passkey credentials (login keys, no dependants).
+   * Only counts are logged — no address, no email, no content.
+   * The row lock is taken FIRST (user update) so credential issuers that CAS on
+   * the same row (login, refresh, passkey login and registration) and the
+   * preferences writers (identity/userPreferences) serialise against this.
+   */
+  private async _takeOverSquattedAccount(
+    byEmail: { id: string; oauthSub: string | null },
+    oauthSub: string,
+    provider: string,
+  ) {
+    const takeoverAt = new Date();
+    const { user, quarantineId, residue } = await prisma.$transaction(async (tx) => {
+      const cleared = await tx.user.update({
+        where: { id: byEmail.id },
+        data: {
+          oauthSub: byEmail.oauthSub ?? oauthSub,
+          emailVerified: true,
+          authProvider: provider,
+          passwordHash: null,
+          resetToken: null,
+          resetTokenExpiresAt: null,
+        },
+      });
+      // Preferences re-read under the lock the update above holds: the owner
+      // keeps everything EXCEPT the consent the previous holder clicked (legal /
+      // demoTerms), which travels to the quarantine row.
+      const split = splitTakeoverPreferences(cleared.preferences, takeoverAt);
+      const updated = await tx.user.update({
+        where: { id: byEmail.id },
+        data: { preferences: split.owner as never },
+      });
+      // The account that inherits the residue. It can never be signed into:
+      // no password, no oauthSub, no passkey, no session, isActive false — and
+      // the address is in the reserved `.invalid` TLD (RFC 2606), so no provider
+      // can ever verify it either.
+      const quarantine = await tx.user.create({
+        data: {
+          xrplAddress: null,
+          email: `takeover-quarantine+${byEmail.id}+${takeoverAt.getTime()}@invalid`,
+          passwordHash: null,
+          oauthSub: null,
+          authProvider: 'quarantine',
+          emailVerified: false,
+          isActive: false,
+          preferences: {
+            ...split.quarantined,
+            quarantine: { fromUserId: byEmail.id, takeoverAt: takeoverAt.toISOString() },
+          } as never,
+        },
+        select: { id: true },
+      });
+      const sessions = await tx.session.updateMany({
+        where: { userId: byEmail.id, isActive: true },
+        data: { isActive: false },
+      });
+      // Login credentials, not history: the only rows still removed (and they
+      // have no dependants, so nothing cascades).
+      const passkeys = await tx.passkeyCredential.deleteMany({ where: { userId: byEmail.id } });
+      const bindings = await tx.walletBinding.updateMany({
+        where: { userId: byEmail.id, isActive: true },
+        data: { isActive: false },
+      });
+      const owned = { userId: byEmail.id };
+      const moveTo = { userId: quarantine.id };
+      // BEFORE the wallets move: the rules that hang off them are switched off
+      // and counted while they can still be found by their owner's id.
+      const automationRules = await tx.automationRule.updateMany({
+        where: { wallet: owned, enabled: true },
+        data: { enabled: false },
+      });
+      const wallets = await tx.wallet.updateMany({ where: owned, data: moveTo });
+      const contacts = await tx.addressBookEntry.updateMany({ where: owned, data: moveTo });
+      const agentDocuments = await tx.agentDocument.updateMany({ where: owned, data: moveTo });
+      const agentRules = await tx.agentRule.updateMany({ where: owned, data: { ...moveTo, isActive: false } });
+      const agentConversations = await tx.agentConversation.updateMany({ where: owned, data: moveTo });
+      const anthropicKeys = await tx.userAnthropicKey.updateMany({ where: owned, data: moveTo });
+      const mcpConnections = await tx.userMCPConnection.updateMany({
+        where: owned,
+        data: { ...moveTo, isActive: false },
+      });
+      const triggerRules = await tx.triggerRule.updateMany({ where: owned, data: { ...moveTo, enabled: false } });
+      const moneyFlows = await tx.moneyFlow.updateMany({
+        where: { ownerId: byEmail.id },
+        data: { ownerId: quarantine.id, enabled: false },
+      });
+      const governedAccounts = await tx.governedAccount.updateMany({ where: owned, data: moveTo });
+      const watchlist = await tx.walletWatchlist.updateMany({ where: owned, data: { ...moveTo, isActive: false } });
+      const alerts = await tx.alert.updateMany({ where: owned, data: moveTo });
+      const partnerIntents = await tx.partnerIntent.updateMany({ where: owned, data: moveTo });
+      const taxEvents = await tx.taxEvent.updateMany({ where: owned, data: moveTo });
+      const executions = await tx.transactionExecution.updateMany({ where: owned, data: moveTo });
+      const confirmations = await tx.transactionConfirmation.updateMany({ where: owned, data: moveTo });
+      // One row per user: a fresh quarantine account has none, so the move never
+      // collides, and the owner is back to the default (off) until they set
+      // their own — an intruder's matrix would lock them out of their features.
+      const stepUpLocks = await tx.stepUpLockConfig.updateMany({ where: owned, data: moveTo });
+      return {
+        user: updated,
+        quarantineId: quarantine.id,
+        residue: {
+          sessions: sessions.count,
+          passkeys: passkeys.count,
+          bindings: bindings.count,
+          wallets: wallets.count,
+          contacts: contacts.count,
+          automationRules: automationRules.count,
+          agentDocuments: agentDocuments.count,
+          agentRules: agentRules.count,
+          agentConversations: agentConversations.count,
+          anthropicKeys: anthropicKeys.count,
+          mcpConnections: mcpConnections.count,
+          triggerRules: triggerRules.count,
+          moneyFlows: moneyFlows.count,
+          governedAccounts: governedAccounts.count,
+          watchlist: watchlist.count,
+          alerts: alerts.count,
+          partnerIntents: partnerIntents.count,
+          taxEvents: taxEvents.count,
+          executions: executions.count,
+          confirmations: confirmations.count,
+          stepUpLocks: stepUpLocks.count,
+        },
+      };
+    });
+    // The cage acknowledgement is cached in memory per user: a positive cached
+    // before the takeover would let the OWNER fund a cage on the intruder's
+    // reading (it. 14, 4.1). Dropped only after the transaction commits, and
+    // with the takeover instant so a read still in flight cannot re-seed the
+    // positive it computed BEFORE the handover (it. 16, 4.4).
+    forgetCageAck(byEmail.id, takeoverAt);
+    // Same shape for the step-up lock matrix: the row moved to quarantine above,
+    // but this process would keep serving the intruder's matrix for its TTL and
+    // lock the owner out of their own features.
+    forgetStepUpConfig(byEmail.id);
+    // No email and no address in the log line: ids and counts diagnose it.
+    console.warn(
+      `[AuthService] ${provider} verified the address of password account ${byEmail.id} — ` +
+        `password cleared; revoked ${residue.sessions} sessions, ${residue.passkeys} passkeys, ` +
+        `${residue.bindings} wallet bindings; moved to quarantine account ${quarantineId}: ` +
+        `${residue.wallets} wallet rows, ${residue.contacts} address-book entries, ` +
+        `${residue.automationRules} automation rules, ${residue.agentDocuments} agent documents, ` +
+        `${residue.agentRules} agent rules, ${residue.agentConversations} agent conversations, ` +
+        `${residue.anthropicKeys} Anthropic keys, ${residue.mcpConnections} MCP connections, ` +
+        `${residue.triggerRules} trigger rules, ${residue.moneyFlows} money flows, ` +
+        `${residue.governedAccounts} governed accounts, ${residue.watchlist} watchlist entries, ` +
+        `${residue.alerts} alerts, ${residue.partnerIntents} partner intents, ` +
+        `${residue.taxEvents} tax events, ${residue.executions} transaction executions, ` +
+        `${residue.confirmations} transaction confirmations, ${residue.stepUpLocks} step-up lock configs`,
+    );
+    return user;
+  }
+
   private async _createSession(
     userId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    db: Prisma.TransactionClient = prisma,
   ): Promise<AuthResult> {
     const rawRefresh = crypto.randomBytes(64).toString('hex');
     const hashedRefresh = sha256(rawRefresh);
@@ -324,7 +657,7 @@ export class AuthService {
     const sessionToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
 
-    const session = await prisma.session.create({
+    const session = await db.session.create({
       data: {
         userId,
         token: sessionToken,
@@ -333,6 +666,8 @@ export class AuthService {
         userAgent: meta?.userAgent,
         isActive: true,
         lastActivity: new Date(),
+        // App clock, same clock that stamps the credential epoch.
+        createdAt: new Date(),
         expiresAt,
       },
     });

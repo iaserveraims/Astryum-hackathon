@@ -6,7 +6,7 @@
  * balance. Every receipt token (stXRP, sFLR, earnXRP, Kinetic underlyings)
  * goes through the paths pinned here.
  */
-import { NormalisationEngine } from '../NormalisationEngine';
+import { NormalisationEngine, humanFromBase } from '../NormalisationEngine';
 import type { RawPosition } from '../../../types/domain/Position';
 
 const STXRP_ADDR = '0x4C18Ff3C89632c3Dd62E796c0aFA5c07c4c1B2b3';
@@ -148,5 +148,55 @@ describe('NormalisationEngine — receipt-token valuation', () => {
     );
     expect(n.asset).toBe(addr);
     expect(n.amountUSD).toBe(0);
+  });
+});
+
+/**
+ * La cantidad legible (14-sep-2026). El Token Inventory enseñaba el entero del
+ * ledger: «400548823209107060000» por 400,55 FLR y «10453867» por 10,45 FXRP.
+ * La cantidad se resuelve AQUÍ, que es el único punto del barrido donde se sabe
+ * qué decimales declara el activo, y viaja ya resuelta en `qty`.
+ */
+describe('NormalisationEngine — la cantidad que acaba en una pantalla', () => {
+  test('FLR (18 dec): 400.548823209107060000 wei → "400.54882320910706"', async () => {
+    const [n] = await NormalisationEngine.unify(
+      [
+        rawPosition({
+          protocolId: 'wallet',
+          kind: 'FREE',
+          amount: 400_548_823_209_107_060_000n,
+          raw: { symbol: 'FLR', decimals: 18, native: true },
+        }),
+      ],
+      { priceProvider },
+    );
+    expect(n.qty).toBe('400.54882320910706');
+  });
+
+  test('FXRP (6 dec): 10453867 UBA → "10.453867", no el entero', async () => {
+    const [n] = await NormalisationEngine.unify(
+      [rawPosition({ kind: 'FREE', amount: 10_453_867n, raw: { symbol: 'FXRP', decimals: 6 } })],
+      { priceProvider },
+    );
+    expect(n.qty).toBe('10.453867');
+  });
+
+  test('sin decimales declarados NO se afirma una cantidad', async () => {
+    // El 18 por defecto vale para estimar USD, jamás para enseñar una cifra:
+    // asumido sobre un token de 6 convierte 10 FXRP en 0,00000000001.
+    const [n] = await NormalisationEngine.unify(
+      [rawPosition({ kind: 'FREE', amount: 10_453_867n, raw: { symbol: 'FXRP' } })],
+      { priceProvider },
+    );
+    expect(n.qty).toBeUndefined();
+  });
+
+  test('humanFromBase es exacto donde un double ya ha perdido la cola', () => {
+    // 21 dígitos: Number() redondea a partir del 16.º.
+    expect(humanFromBase(123_456_789_012_345_678_901n, 18)).toBe('123.456789012345678901');
+    expect(humanFromBase(0n, 6)).toBe('0');
+    expect(humanFromBase(10_000_000n, 6)).toBe('10'); // sin ceros de cola
+    expect(humanFromBase(42n, 0)).toBe('42');
+    expect(humanFromBase(-2_500_000n, 6)).toBe('-2.5');
   });
 });

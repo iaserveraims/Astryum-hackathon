@@ -29,10 +29,13 @@ export type TransferRail = 'evm' | 'xrpl';
  * Which transfer rail a linked wallet belongs to, or null when the beta does
  * not support transfers for it (Solana/Bitcoin/other read-only ecosystems).
  *
- * EVM: ONLY Flare-chain wallets (chainId 14, or an EVM wallet with no chainId,
- * which the demo reads on Flare) ride the FLR rail. Wallets linked on other
- * EVM chains (Ethereum, Base…) get NO rail for now — their balance is hidden
- * instead of showing a Flare read under an Ethereum badge.
+ * EVM: Flare-chain wallets (chainId 14, or an EVM wallet with no chainId,
+ * which the demo reads on Flare) ride the FLR rail, and Ethereum-linked
+ * wallets (chainId 1) ride the EVM rail for SIGNING — the eth-morpho vault
+ * flow switches the wallet to chain 1 at sign time (BuildSpec B5-UI paso 1.3).
+ * Their native balance is still NOT read (fetchNativeBalance guards on
+ * chainId): a FLR figure under an Ethereum badge would be a lie. Other EVM
+ * chains (Base…) get NO rail.
  */
 export function transferRailOf(
   wallet: Pick<BackendWallet, 'address' | 'chainId' | 'ecosystem'>,
@@ -40,6 +43,7 @@ export function transferRailOf(
   if (wallet.ecosystem?.toLowerCase() === 'xrpl' || wallet.address.startsWith('r')) return 'xrpl';
   if (!/^0x/.test(wallet.address)) return null;
   if (wallet.chainId === 14) return 'evm';
+  if (wallet.chainId === 1) return 'evm';
   if (wallet.chainId == null && wallet.ecosystem?.toLowerCase() === 'evm') return 'evm';
   return null;
 }
@@ -76,6 +80,10 @@ async function nativePriceUsd(coingeckoId: 'flare-networks' | 'ripple'): Promise
 export async function fetchNativeBalance(wallet: BackendWallet): Promise<NativeBalance | null> {
   const kind = transferRailOf(wallet);
   if (!kind) return null;
+  // Ethereum-linked rows sign on chain 1 but the balance endpoint reads Flare —
+  // return null so the caller explains instead of pretending (no FLR figure
+  // under an Ethereum badge).
+  if (kind === 'evm' && wallet.chainId === 1) return null;
   try {
     const res = await fetch(
       `${API_BASE}/network/balance?kind=${kind}&address=${encodeURIComponent(wallet.address)}`,

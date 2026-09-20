@@ -41,20 +41,17 @@ export async function GET(
     }
 
     // A signature is also when Xaman hands us the token that lets the NEXT
-    // request reach this person as a push instead of a QR. Capture it here,
-    // server-side: it never travels to the browser. Fire-and-forget — a lost
-    // token costs a QR, never a signature.
+    // request reach this person as a push instead of a QR. Only the payload
+    // UUID travels to the backend: it re-reads the payload from Xaman itself
+    // and files the token for the account that really signed — never an
+    // address or a token this route (or a browser) asserts. Fire-and-forget —
+    // a lost token costs a QR, never a signature.
     const d = data as {
       meta?: { signed?: boolean };
       application?: { issued_user_token?: string };
-      response?: { account?: string; signer?: string };
     } | null;
     if (d?.meta?.signed && d.application?.issued_user_token) {
-      void rememberPushToken(
-        d.response?.signer || d.response?.account,
-        d.application.issued_user_token,
-        req.headers.get('authorization'),
-      );
+      void rememberPushToken(uuid, req.headers.get('authorization'));
     }
 
     return NextResponse.json(data);

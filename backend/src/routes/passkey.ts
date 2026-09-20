@@ -44,13 +44,16 @@ router.post('/register/options', requireSiweAuth, async (req: Request, res: Resp
 
 router.post('/register/verify', requireSiweAuth, async (req: Request, res: Response) => {
   if (guard503(res)) return;
-  const userId = req.siwe!.userId;
+  const { userId, sessionId } = req.siwe!;
   const { response, deviceLabel } = req.body ?? {};
   if (!response) return res.status(400).json({ error: 'missing_response' });
   try {
-    const result = await verifyRegistration(userId, response, deviceLabel);
+    // sessionId: the credential is written only if THIS session is still alive
+    // under the row lock — the auth check above ran before the WebAuthn window.
+    const result = await verifyRegistration(userId, response, deviceLabel, sessionId);
     return res.json(result);
   } catch (err: any) {
+    if (err?.code === 'session_revoked') return res.status(401).json({ error: 'session_revoked' });
     return res.status(422).json({ error: err?.code ?? 'registration_failed' });
   }
 });
@@ -71,13 +74,18 @@ router.post('/auth/verify', async (req: Request, res: Response) => {
   const { challengeId, response } = req.body ?? {};
   if (!challengeId || !response) return res.status(400).json({ error: 'missing_params' });
   try {
-    const { userId } = await verifyAuthentication(challengeId, response);
+    // The session is issued INSIDE the credential lock (PasskeyService): if an
+    // account takeover deleted this passkey or moved the credential epoch while
+    // the WebAuthn verification ran, nothing is issued.
     // Passkey accounts may have no wallet — issue a wallet-less session.
-    const session = await issueSessionForUser(userId, null, {
-      ipAddress: req.ip,
-      userAgent: req.header('user-agent') ?? undefined,
-    });
-    await prisma.user.update({ where: { id: userId }, data: { lastLogin: new Date() } }).catch(() => undefined);
+    const { issued: session } = await verifyAuthentication(challengeId, response, (tx, userId) =>
+      issueSessionForUser(
+        userId,
+        null,
+        { ipAddress: req.ip, userAgent: req.header('user-agent') ?? undefined },
+        tx,
+      ),
+    );
     return res.json({
       token: session.token,
       sessionId: session.sessionId,
@@ -86,7 +94,11 @@ router.post('/auth/verify', async (req: Request, res: Response) => {
       linkedWallets: session.linkedWallets,
     });
   } catch (err: any) {
-    return res.status(422).json({ error: err?.code ?? 'authentication_failed' });
+    const code = err?.code;
+    if (code === 'credentials_changed' || code === 'credential_revoked' || code === 'account_disabled') {
+      return res.status(401).json({ error: code });
+    }
+    return res.status(422).json({ error: code ?? 'authentication_failed' });
   }
 });
 

@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Wallet, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Wallet, ArrowRight, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { motion, useAnimationControls } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 import { AsteroidMark, Card, HairlineGroup, HairlineCell, MicroLabel, Pill } from '@/components/ui/primitives';
 import { CountUp, RevealGroup, RevealItem, Spotlight } from '@/components/ui/motion';
-import { AllocationDonut, AllocationLegend, OrbitDial } from '@/components/ui/charts';
+import { OrbitDial } from '@/components/ui/charts';
 // PerformanceCard is UNMOUNTED (founder 2026-07-25: "me gusta, pero no le veo
 // mucho el sentido" + the one-viewport contract below). Preserved whole at
 // components/dashboard/PerformanceCard.tsx — its slot now hosts WalletsBand.
@@ -14,8 +17,9 @@ import { AllocationDonut, AllocationLegend, OrbitDial } from '@/components/ui/ch
 // Component preserved at components/dashboard/NetworkStatusCard.tsx for that
 // per-operation migration; its header slot now hosts OrbitStatusCard.
 import OrbitStatusCard from '@/components/dashboard/OrbitStatusCard';
-import DemoCapUsageCard from '@/components/dashboard/DemoCapUsageCard';
 import ProductTour from '@/components/onboarding/ProductTour';
+import WalletManager from '@/components/wallet/WalletManager';
+import DemoCapUsageCard from '@/components/dashboard/DemoCapUsageCard';
 import { FirstWalletGuide } from '@/components/wallet/FirstWalletGuide';
 // ProductModeCard is UNMOUNTED (founder 2026-07-18): the product toggle moved
 // to the sidebar (components/authority/ProductToggle.tsx). Card preserved at
@@ -24,7 +28,6 @@ import { FirstWalletGuide } from '@/components/wallet/FirstWalletGuide';
 // 2026-07-18): the Legacy is "una wallet más" — its data feeds the EXISTING
 // Net worth / Health organisms below instead of a parallel section. The
 // component is preserved at components/dashboard/LegacySummaryPanel.tsx.
-import { useAuthorities } from '@/hooks/useAuthorities';
 import { getLegacyNickname } from '@/components/legacy/legacyLocal';
 import { healthTone as legacyHealthTone, headlineLabel } from '@/components/legacy/MyLegaciesList';
 import type { LegacyHealth } from '@/services/v1Api';
@@ -38,16 +41,26 @@ import {
   type PortfolioSnapshot,
   type RiskSnapshot,
 } from '@/services/v1Api';
-import { useAuthorityWallets } from '@/hooks/useAuthorityWallets';
-import { walletColorResolver, walletIconResolver, walletNameResolver, type WalletIconSlug } from '@/lib/walletIdentity';
-import WalletGlyphIcon from '@/components/wallet/WalletGlyphIcon';
-import { TokenLogo } from '@/components/ui/TokenLogo';
-import { useAggregatedPortfolio } from '@/hooks/useAggregatedPortfolio';
-import { EVM_ADDRESS_RE, walletHoldings } from '@/lib/portfolioMerge';
+// The fleet, read ONCE (hooks/useFleet): the hero, the health, the band and
+// both rings all read the SAME arrays — so the figure on top is by
+// construction the sum of the rows underneath, and there is no second scan.
+import { useFleet } from '@/hooks/useFleet';
+import FleetBand from '@/components/dashboard/FleetBand';
+import { DonutCard, earningRing, assetQuantities } from '@/components/dashboard/DonutCard';
+import { SignalBeacon } from '@/components/ui/scenes';
+import { SignetMark } from '@/components/ui/skin/marks';
+import { useEngraved } from '@/stores/themeStore';
+import { EVM_ADDRESS_RE } from '@/lib/portfolioMerge';
+/** Cuenta clásica de XRPL — el mismo patrón que valida el backend. */
+const XRPL_CLASSIC_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 import { healthScoreFromHF, healthTone, healthWords } from '@/lib/healthScore';
+import { type EthMorphoHealth } from '@/lib/earn/useEthMorphoHealth';
+import { PortfolioSyncBadge } from '@/components/dashboard/PortfolioSyncBadge';
+import { PortfolioUnreadableNotice } from '@/components/dashboard/PortfolioUnreadableNotice';
+import { homePositionsVerdict, unreadableOf } from '@/lib/portfolioUnreadable';
 import { useBalanceVisibility, MASK } from '@/stores/balanceVisibilityStore';
-import { formatMoney, formatMoneyCompact } from '@/lib/formatMoney';
-import { positionState, nextArrival } from '@/lib/positionKinds';
+import { formatMoneyCompact } from '@/lib/formatMoney';
+import { CAPITAL_SECTION_HREF } from '@/lib/nav/capitalSection';
 
 const SEV_TONE: Record<string, 'danger' | 'warning' | 'info' | 'neutral'> = {
   CRITICAL: 'danger',
@@ -70,12 +83,6 @@ const CHAIN_LABEL: Record<number, string> = {
 const PROTECTIVE_TRIGGER_TYPES = new Set(['HF_BELOW', 'HF_CRITICAL', 'LTV_ABOVE', 'LIQUIDATION_DISTANCE_USD']);
 
 type HistoryPoint = { takenAt: string; totalUSD: number };
-type WalletSlice = {
-  address: string;
-  snap: PortfolioSnapshot;
-  risk: RiskSnapshot | null;
-  history: HistoryPoint[];
-};
 
 // Backend sometimes returns partial snapshots (missing breakdown / positions
 // when no engine has produced a snapshot yet). Render code calls .toFixed on
@@ -100,20 +107,7 @@ function normaliseSnap(raw: PortfolioSnapshot | null | undefined): PortfolioSnap
   return snap;
 }
 
-// Real token quantities per asset, derived from the snapshot's positions
-// (qty = amountUSD / priceUSD when the position carries a live price). Assets
-// without a price stay undefined and render as no quantity — never invented.
-function assetQuantities(positions: PortfolioSnapshot['positions']): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const p of positions) {
-    const usd = typeof p.amountUSD === 'number' ? p.amountUSD : 0;
-    const price = typeof p.priceUSD === 'number' ? p.priceUSD : 0;
-    const asset = typeof p.asset === 'string' ? p.asset : '';
-    if (!asset || usd === 0 || price <= 0) continue;
-    out[asset] = (out[asset] ?? 0) + Math.abs(usd) / price;
-  }
-  return out;
-}
+// assetQuantities moved to components/dashboard/DonutCard (fusión 2026-08-22).
 
 // Engine kind enums → words a person would use (same register as Portfolio).
 // PARKED 2026-07-30 (with prettyKinds/onlyEarningKinds below): the Assets
@@ -161,46 +155,45 @@ export default function OverviewPage() {
   const es = lang === 'es';
   const user = useAuthStore((s) => s.user);
   const address = user?.address;
-  // Portfolio comes from the shared reactive store (survives navigation, paints
-  // instantly on return, refreshes invisibly) — no per-page fetch/flash.
-  const { data: aggregated } = useAggregatedPortfolio();
-  const snap = useMemo(
-    () => (aggregated?.snap ? normaliseSnap(aggregated.snap) : null),
-    [aggregated],
-  );
-  const riskSnap = aggregated?.risk ?? null;
-  const perWallet = (aggregated?.perWallet ?? []) as WalletSlice[];
+  // EL HOME ENSEÑA SIEMPRE LA FLOTA ENTERA (fundador 2026-08-22, quinta
+  // pasada: «el summary siempre muestra el whole fleet, no pongas botón, hay
+  // que simplificar más las cosas»). La lente que se podía reencuadrar por
+  // fila duró un día: un botón de más en la pantalla que debe leerse de un
+  // vistazo. Para mirar una cuenta sola está Wallets, que es adonde lleva la
+  // fila al pulsarla.
+  const fleet = useFleet();
+  const snap = useMemo(() => normaliseSnap(fleet.snap), [fleet.snap]);
+  const riskSnap = fleet.risk;
+  // La cartera agregada no tiene adapter para morpho-blue, así que sin esta
+  // lectura la tarjeta decía «Sana — nada puede liquidarse» sobre un carry
+  // apalancado VIVO.
+  const emHealth = fleet.emHealth;
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
   // Real count of enabled, protective automation rules guarding any connected
   // wallet — never invented. null = still loading (renders as an em dash).
   const [protections, setProtections] = useState<number | null>(null);
 
-  // The ONE source, scoped to the ACTIVE AUTHORITY (switcher): overview =
-  // every simple wallet, single = that wallet, governed = the council account.
-  // Same scope as Portfolio/Capital Map — surfaces can never disagree.
-  // `walletsResolving` is true until wallets AND authorities have loaded — used
-  // below to hold the welcome/dashboard decision so the page reveals ONCE.
-  const { wallets: myWallets, loading: walletsResolving } = useAuthorityWallets();
-  const walletsKey = myWallets.map((w) => w.address).join(',').toLowerCase();
-
-  // Wallet display name — the ONE shared rule (walletIdentity): nickname,
-  // else the provider's proper name, else the short address. Same resolver
-  // as Wallets and Portfolio, so the same wallet never wears two names.
-  const labelFor = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);
-
-  // The wallet's personal colour follows it everywhere (walletIdentity):
-  // the same hue in Wallets, these rows, and the performance bars.
-  const colorFor = useMemo(() => walletColorResolver(myWallets), [myWallets]);
-  // Same idea, one layer further: an optional personal glyph. When set, rows
-  // below swap the plain colour dot for the glyph painted in that colour.
-  const iconFor = useMemo(() => walletIconResolver(myWallets), [myWallets]);
+  // Alerts and protections cover the WHOLE fleet, same as the net-worth figure
+  // beside them: counting rules that guard wallets the figure does not include
+  // would be two readings of two different accounts sharing one panel.
+  const fleetAddresses = fleet.addresses;
+  const walletsKey = fleetAddresses.join(',').toLowerCase();
+  const walletsResolving = fleet.loading;
 
   useEffect(() => {
     // Alerts cover EVERY connected wallet — same scope as net worth/HF. The
     // /alerts endpoint takes one address, so fan out per wallet and merge,
     // deduping by id and summing the real per-wallet counts (each capped
     // server-side at 100, not at the 4 rows we render).
-    const addresses = myWallets.map((w) => w.address).filter((a) => EVM_ADDRESS_RE.test(a));
+    // G2 (auditoría 17-ago) — este filtro EVM dejaba fuera TODA cuenta XRPL,
+    // y con ella el único canal donde vive el «por qué no pasó nada» de una
+    // regla gobernada: el motor escribe una Alert por cada disparo Y por cada
+    // ERROR (consejo sin jaula, compose fallido, pago programado inválido) con
+    // el walletId de la cuenta del consejo. El backend ya acepta r-address
+    // (routes/alerts.ts lo arregló); este era el ÚNICO consumidor y las
+    // descartaba antes de preguntar. Resultado: silencio absoluto sobre
+    // protecciones gobernadas que llevaban semanas sin funcionar.
+    const addresses = fleetAddresses.filter((a) => EVM_ADDRESS_RE.test(a) || XRPL_CLASSIC_RE.test(a));
     if (addresses.length === 0) return;
     let alive = true;
     (async () => {
@@ -227,7 +220,7 @@ export default function OverviewPage() {
     // Protections guard every connected wallet, same scope as net worth/HF
     // above — one /rules call per address, deduped by id (mirrors
     // DefiPositionsBoard's loadRules for the same multi-wallet shape).
-    const addresses = myWallets.map((w) => w.address);
+    const addresses = fleetAddresses;
     if (addresses.length === 0) {
       setProtections(0);
       return;
@@ -254,25 +247,28 @@ export default function OverviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletsKey]);
 
-  const hasPositions = !!snap && snap.positions.length > 0;
   // Wallet connected, snapshot loaded, nothing in it — the moment the
   // dashboard should nudge toward Earn instead of just showing empty charts.
-  const noPositionsYet = !!snap && !hasPositions;
+  //
+  // Ola 0 (15-sep) — ONLY when every adapter answered. `positions.length === 0`
+  // alone said «nothing is working yet — Open your first strategy» over a live
+  // carry whenever the forced refresh after a signature landed on a 429 and
+  // the snapshot came back without Kinetic. `snapshot.unreadable` has been
+  // there since it. 31; this is its reader (lib/portfolioUnreadable).
+  const positionsVerdict = homePositionsVerdict(snap);
+  const hasPositions = positionsVerdict === 'positions';
+  const noPositionsYet = positionsVerdict === 'empty';
+  const snapUnreadable = unreadableOf(snap);
 
-  // Product coherence (founder 2026-07-18): the Legacy is "una wallet más" —
-  // when a governed authority is active the SAME organisms below read its
-  // account (useAuthorityWallets already swapped the portfolio's address set).
-  // Here we only add the governance differences, straight from the ONE source
-  // of truth (useAuthorities: ledger reads minute-cached, ADR-011).
-  const { activeGoverned } = useAuthorities();
-  const legacyMode = !!activeGoverned;
-  const governed = activeGoverned;
+  // El héroe ya NO se viste de un Legacy concreto: la cifra de arriba es la de
+  // toda la flota, así que ponerle al lado el consejo de una de las cuentas
+  // sería describir el dinero equivocado. La identidad y la gobernanza de una
+  // cuenta del consejo viven en su tarjeta, en Wallets.
 
   // The dashboard belongs to anyone with capital linked: a SIWE login address
-  // OR any wallet connected from the Wallets tab (email/passkey accounts have
-  // no user.address, and an XRPL-only user must still see their capital).
-  // In Legacy mode the surface is the loaded Legacy itself.
-  const hasCapitalSurface = legacyMode ? !!governed : !!address || myWallets.length > 0;
+  // OR any wallet, OR any governed structure (an heir with no personal wallet
+  // must still see the fleet).
+  const hasCapitalSurface = !!address || fleet.rows.length > 0;
 
   // Load-once, reveal-once (bug 2026-07-21: "carga una vez, no lo carga todo y
   // luego vuelve a cargarlo todo"). For a user whose capital comes from
@@ -291,59 +287,14 @@ export default function OverviewPage() {
   const showDashboard = hasCapitalSurface || surfaceUndecided;
   const showWelcome = !hasCapitalSurface && !surfaceUndecided;
 
-  // "Assets Earning" ring (founder 2026-08-04: "en el donut assets earning
-  // debes sacar el Not earning del lado del donut, allí solo irá la disposición
-  // de los assets en vaults"): the ring charts ONLY capital placed in a venue,
-  // broken down BY ASSET. The idle remainder used to ride in the ring as one
-  // slate slice — on most accounts it WAS the ring, a single grey circle that
-  // said nothing about allocation. It still reads, in figures, in the split
-  // line above the donut (Working · On the way · Not earning), so nothing is
-  // hidden: it just stops competing with the allocation for the eye. Debt never
-  // enters either side, matching totalUSD's gross-assets semantics.
-  //
-  // In-flight STAYS in the ring (founder 2026-08-01: "he hecho withdraw y estos
-  // activos no van a llegar hasta el día 2"): money leaving a venue is still
-  // sitting AT the venue, only with an exit date — it belongs to the placed
-  // capital, in its own amber slice, never mistaken for idle coins.
-  //
-  // Consequence, by design: this ring's centre total is the capital at work, so
-  // it no longer matches My Assets. That difference IS the reading.
-  const inflightLabel = es ? 'En camino' : 'On the way';
-  const workingByAsset: Record<string, number> = {};
-  const workingQty: Record<string, number> = {};
-  let idleUSD = 0;
-  let inflightUSD = 0;
-  const inflightPositions: PortfolioSnapshot['positions'] = [];
-  for (const p of snap?.positions ?? []) {
-    const state = positionState(p);
-    if (state === 'debt') continue;
-    const usd = typeof p.amountUSD === 'number' ? Math.abs(p.amountUSD) : 0;
-    if (usd === 0) continue;
-    if (state === 'earning') {
-      const asset = typeof p.asset === 'string' && p.asset ? p.asset : '—';
-      workingByAsset[asset] = (workingByAsset[asset] ?? 0) + usd;
-      const price = typeof p.priceUSD === 'number' ? p.priceUSD : 0;
-      if (price > 0) workingQty[asset] = (workingQty[asset] ?? 0) + usd / price;
-    } else if (state === 'inflight') {
-      inflightUSD += usd;
-      inflightPositions.push(p);
-    } else {
-      idleUSD += usd;
-    }
-  }
-  const workingUSD = Object.values(workingByAsset).reduce((s, v) => s + v, 0);
-  // Partial snapshots can carry totals without position rows — still show the
-  // honest all-idle ring rather than an empty box next to a filled My Assets.
-  if (workingUSD + idleUSD + inflightUSD <= 0.01 && (snap?.totalUSD ?? 0) > 0.01) {
-    idleUSD = snap!.totalUSD;
-  }
-  const generatingDonut: Record<string, number> = {
-    ...workingByAsset,
-    ...(inflightUSD > 0.01 ? { [inflightLabel]: inflightUSD } : {}),
-  };
-  // The date the in-flight money lands — the ONE fact the founder was missing.
-  // Read from the adapter's own claim data; no arrival date, no promise.
-  const inflightArrival = nextArrival(inflightPositions);
+  // The two allocation rings, back on the Summary (founder 2026-08-22: the
+  // fusion had sent them to the Portfolio and took the page's balance with
+  // them). Same organisms the Portfolio renders — ONE component, in
+  // components/dashboard/DonutCard — reading whatever the lens selected.
+  const ring = useMemo(
+    () => earningRing(snap, es ? 'En camino' : 'On the way'),
+    [snap, es],
+  );
 
   // Personalised, time-of-day greeting — the assistant welcome. "Captain" is the
   // mission-control fallback when there's no name yet. The hour is read after
@@ -359,6 +310,20 @@ export default function OverviewPage() {
         : hour < 12 ? 'Good morning' : hour < 20 ? 'Good afternoon' : 'Good evening';
   const pilotName = user?.username || (es ? 'Capitán' : 'Captain');
 
+  // El panel incrustado de Wallets MURIÓ (2026-08-22, quinta pasada): Wallets
+  // volvió a ser un destino propio del menú, así que la superficie completa
+  // vive en /app/wallets y no hace falta esconderla dentro del Home. Los
+  // enlaces viejos siguen entrando: `?panel=wallets` se reenvía allí, con su
+  // query intacta (`?add=1` incluido).
+  const router = useRouter();
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('panel') !== 'wallets') return;
+    qs.delete('panel');
+    const rest = qs.toString();
+    router.replace(`/app/wallets${rest ? `?${rest}` : ''}`);
+  }, [router]);
+
   return (
     /* One-viewport contract (founder 2026-07-25: "que no tenga scroll, que se
        vea todo en una carga"): on lg+ the column takes exactly the viewport
@@ -366,7 +331,11 @@ export default function OverviewPage() {
        which flexes and lets its donuts scale down. No overflow-hidden — on a
        genuinely tiny window the page still scrolls rather than cutting
        content. Below lg the page stacks and scrolls naturally, as ever. */
-    <RevealGroup className="flex flex-col gap-4 lg:h-[calc(100dvh-4rem)] lg:min-h-[560px]" stagger={0.045}>
+    // min-h, no h (fundador 2026-09-11: «es prioritario que se pueda hacer
+    // scroll a que se vean cortados los gráficos»): con sitio, la columna llena
+    // el viewport como siempre; sin sitio —pantalla baja— CRECE y la página
+    // hace scroll, en vez de apretar la fila de anillos hasta recortarlos.
+    <RevealGroup className="flex flex-col gap-4 lg:min-h-[calc(100dvh-4rem)]" stagger={0.045}>
       {/* Greeting + live network telemetry, sharing the header band. The ONE
           brand moment of the page: the asteroid mark, the mission line, and
           the pilot's name carrying the landing's gold sweep. */}
@@ -375,32 +344,31 @@ export default function OverviewPage() {
           <div className="flex items-center gap-2 mb-2.5">
             <AsteroidMark size={15} />
             <MicroLabel>
-              {legacyMode
-                ? es ? 'Astryum Legacy · capital bajo reglas' : 'Astryum Legacy · capital under rules'
-                : es ? 'Astryum · plano de control' : 'Astryum · control plane'}
+              {es ? 'Astryum · plano de control' : 'Astryum · control plane'}
             </MicroLabel>
           </div>
           <h1 className="text-[26px] md:text-[30px] font-semibold tracking-tight leading-[1.1] text-ink text-balance">
             {greeting}, <span className="text-gold-sweep font-semibold">{pilotName}</span>
           </h1>
           <p className="text-ink/55 mt-2 text-sm">{t('Here is where your capital stands today.')}</p>
+          {/* The "Across all fleets" line of the fusion is GONE (2026-08-22,
+              this pass): the hero figure below IS that total by default, and
+              the band prints each half's subtotal — a third copy of the same
+              number was furniture. */}
         </div>
         {/* The product toggle left this header (founder 2026-07-18): it lives
             in the sidebar slot (ProductToggle). Only telemetry remains here. */}
-        {/* First-run coachmarks: the sidebar explained once, right here in
-            the Summary. Skips any target the current mode hides; replayable
-            from Settings. The 'switcher' anchor now lives on the sidebar's
-            product toggle (the slot that replaced the account switcher). */}
+        {/* First-run tour — back from the retired Home (fusión 2026-08-22):
+            the Summary is the meeting point again. Fresh id 'summary' so the
+            fused layout replays even for pilots who saw the Home tour. */}
         <ProductTour
           tour="summary"
           steps={[
-            { target: null, title: t('Welcome aboard'), body: t('This is your control deck. A one-minute walk through the sidebar and you will know where everything lives. You can skip and replay it any time from Settings.') },
-            { target: 'switcher', title: t('Two products, one dashboard'), body: t('Astryum Personal and Astryum Legacy. Flip it here — the whole dashboard re-tints and the menu follows the product you are operating.') },
-            { target: 'nav-summary', title: t('Home'), body: t('The overview: net worth, health, alerts and how each wallet is performing — always scoped to the active account.') },
-            { target: 'nav-asset-production', title: t('Earn'), body: t('Where capital goes to work: ready-made strategies, the AI agent, and your strategy registry. You always sign in your own wallet.') },
-            { target: 'nav-legacy', title: t('Legacy'), body: t('Council-governed accounts: capital under rules that a quorum signs. Constitute one or govern the ones you sit on.') },
+            { target: null, title: t('Welcome aboard'), body: t('This is your Home: all your capital, across every account, in one place. A minute of tour and you will know where everything lives — skip and replay it any time from Settings.') },
+            { target: 'fleet-band', title: t('Your accounts'), body: t('Every account you own, at a glance — including the ones a council governs: how much of each is working, how it stands, what it is worth. Click any row to manage it.') },
+            { target: 'nav-wallets', title: t('Wallets'), body: t('Where your accounts are managed: connect, watch or create them, and give one a quorum of your own keys. A Legacy — an account a council governs — lives here too, and you govern it from its own card.') },
             { target: 'nav-portfolio', title: t('Portfolio'), body: t('Every position, token and movement across your wallets — with filters, health readings and export.') },
-            { target: 'nav-wallets', title: t('Wallets'), body: t('Connect, watch and manage your wallets: colours, nicknames, permissions and what counts in your totals.') },
+            { target: 'nav-asset-production', title: t('Earn'), body: t('Where capital goes to work: ready-made strategies, the AI agent, and your strategy registry. You always sign in your own wallet.') },
             { target: 'nav-settings', title: t('Settings'), body: t('Language, region, security and your profile. The tutorial can be replayed from here whenever you want.') },
             { target: 'copilot', title: t('Co-pilot'), body: t('Stuck anywhere? The co-pilot explains the ship — ask it anything about what a screen or button does.') },
           ]}
@@ -425,7 +393,7 @@ export default function OverviewPage() {
 
       {showWelcome && (
         <RevealItem>
-          <WelcomePanel es={es} t={t} />
+          <WelcomePanel es={es} t={t} onConnect={() => router.push('/app/wallets?add=1')} />
         </RevealItem>
       )}
 
@@ -439,37 +407,31 @@ export default function OverviewPage() {
           <RevealItem className="shrink-0">
             {/* Cursor light travels across the hero like the landing's
                 spotlight cards — the panel feels lit, not painted. */}
+            {/* La luz del cursor viaja por el héroe como en las tarjetas de la
+                landing — el panel se siente iluminado, no pintado. Y encima,
+                y el barrido lento que lo recorre solo. El relevo por los
+                cuatro paneles se retiró (fundador 2026-08-25): la luz se queda
+                AQUÍ, en el primer recuadro, a la misma velocidad. */}
             <Spotlight className="rounded-2xl">
+              <div className="relative rounded-2xl">
+                <span className="hero-sheen" aria-hidden />
               <HairlineGroup columns="lg:grid-cols-2">
                 <HairlineCell className="p-5 md:p-6">
-                  <NetWorthCard
-                    snap={snap}
-                    es={es}
-                    t={t}
-                    legacy={
-                      governed
-                        ? {
-                            nickname: governed.label || getLegacyNickname(governed.address),
-                            address: governed.address,
-                            health: governed.health,
-                            total: governed.memberCount,
-                            signed: governed.status?.signedCount,
-                          }
-                        : null
-                    }
-                  />
+                  <NetWorthCard snap={snap} es={es} t={t} legacy={null} />
                 </HairlineCell>
                 <HairlineCell className="p-5 md:p-6">
                   <HealthCard
                     snap={snap}
                     riskSnap={riskSnap}
+                    emHealth={emHealth}
                     protections={protections}
                     es={es}
                     t={t}
-                    legacy={!!governed}
+                    legacy={false}
                   />
                 </HairlineCell>
               </HairlineGroup>
+              </div>
             </Spotlight>
           </RevealItem>
 
@@ -479,59 +441,63 @@ export default function OverviewPage() {
             </RevealItem>
           )}
 
-          {/* The wallets, promoted to their own band (founder 2026-07-25):
-              they used to sit squeezed under the net-worth figure. Rows link
-              into Portfolio scoped to that wallet (2026-08-01) — the Summary
-              sends you where the row's own content lives. */}
-          {perWallet.length > 0 ? (
+          {/* Ola 0 — lo que el barrido NO pudo leer se dice aquí, con
+              reintento que pide un snapshot fresco; nunca se disfraza de
+              «nada trabajando». */}
+          {snapUnreadable.length > 0 && (
             <RevealItem className="shrink-0">
-              <WalletsBand perWallet={perWallet} labelFor={labelFor} colorFor={colorFor} iconFor={iconFor} es={es} t={t} />
+              <PortfolioUnreadableNotice snap={snap} />
             </RevealItem>
-          ) : !aggregated ? (
-            /* Skeleton with the band's real footprint, so the page doesn't
-               reflow-and-collide when the wallets resolve a beat later
-               (founder 2026-07-25: "se queda medio bugeado… las cards
-               pegadas unas con otras"). */
-            <RevealItem className="shrink-0">
-              <Card padded={false} className="overflow-hidden" aria-hidden>
-                <div className="px-5 pt-3.5 pb-2.5">
-                  <div className="h-4 w-24 animate-pulse rounded bg-ink/[0.06]" />
-                </div>
-                <div className="border-t border-ink/[0.05] px-5 py-2 space-y-2">
-                  {[0, 1].map((i) => (
-                    <div key={i} className="flex items-center gap-3 py-2">
-                      <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-ink/[0.08]" />
-                      <div className="h-3.5 w-28 animate-pulse rounded bg-ink/[0.06]" />
-                      <div className="h-1.5 flex-1 animate-pulse rounded-full bg-ink/[0.05]" />
-                      <div className="h-3.5 w-20 animate-pulse rounded bg-ink/[0.06]" />
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </RevealItem>
-          ) : null}
+          )}
 
-          {/* Destinations (founder 2026-07-25): My Assets → Portfolio;
-              Assets Earning → the strategy registry inside Earn. */}
-          <RevealItem className="flex-1 min-h-0 grid gap-4 lg:grid-cols-2">
+          {/* LAS CUENTAS, una línea cada una (fundador 2026-08-22, quinta
+              pasada): el vistazo de siempre — lo que trabaja, cómo está, lo
+              que vale — con los Legacy dentro de la misma lista. No se
+              seleccionan: la fila lleva a Wallets, que es donde se gestionan y
+              de donde cuelga la gobernanza de una cuenta del consejo. */}
+          <RevealItem className="shrink-0">
+            <FleetBand view={fleet} />
+          </RevealItem>
+
+          {/* StructuresBand (the governed fleet) LEFT this page (founder
+              2026-08-19: "quita estructuras del summary") — it closes the
+              Portfolio now, under every lens. The Summary keeps one viewport:
+              hero, wallets, destinations.
+
+              Destinations (founder 2026-07-25): My Assets → Portfolio;
+              Assets Earning → the strategy registry inside Earn. Both read the
+              LENS, so the rings answer "of what I just picked". */}
+          {/* El suelo de esta fila es lo que arregla los quesitos (fundador
+              2026-08-22: «sigue roto lo de los quesitos»). Con la banda alta,
+              el `flex-1` dejaba a los anillos menos alto del que necesitan y
+              el aro se desbordaba por encima del título de su propia tarjeta.
+              Ahora la fila no baja de lo que el anillo pide: si el viewport no
+              da, la página hace scroll — que es lo que el contrato de una
+              pantalla siempre dijo que debía pasar, en vez de recortar. */}
+          <RevealItem className="flex-1 min-h-0 lg:min-h-[252px] grid gap-4 lg:grid-cols-2">
             <DonutCard
               title={t('My Assets')}
               data={snap?.breakdown.byAsset ?? {}}
               qty={hasPositions && snap ? assetQuantities(snap.positions) : undefined}
               href="/app/portfolio"
-              loading={!snap}
+              loading={!snap && fleet.loading}
             />
             <DonutCard
               title={t('Assets Earning')}
-              data={generatingDonut}
-              qty={Object.keys(workingQty).length > 0 ? workingQty : undefined}
+              data={ring.donut}
+              qty={Object.keys(ring.workingQty).length > 0 ? ring.workingQty : undefined}
               split={
-                workingUSD + idleUSD + inflightUSD > 0.01
-                  ? { working: workingUSD, idle: idleUSD, inflight: inflightUSD, arrivesAt: inflightArrival }
+                ring.workingUSD + ring.idleUSD + ring.inflightUSD > 0.01
+                  ? {
+                      working: ring.workingUSD,
+                      idle: ring.idleUSD,
+                      inflight: ring.inflightUSD,
+                      arrivesAt: ring.inflightArrival,
+                    }
                   : undefined
               }
-              href="/app/asset-production?view=strategies"
-              loading={!snap}
+              href={CAPITAL_SECTION_HREF}
+              loading={!snap && fleet.loading}
             />
           </RevealItem>
 
@@ -550,12 +516,15 @@ export default function OverviewPage() {
 }
 
 // ── Welcome (no wallet connected) ─────────────────────────────────────────────
-function WelcomePanel({ es, t }: { es: boolean; t: (s: string) => string }) {
+function WelcomePanel({ es, t, onConnect }: { es: boolean; t: (s: string) => string; onConnect?: () => void }) {
   // First-wallet guide (founder 2026-08-08): users landing from an exchange
   // own tokens but no wallet — for them "Connect wallet" is a wall, so the
   // welcome panel carries its own door into the step-by-step guide. Mounted
   // WITHOUT connect handlers: its last step hands over to /app/wallets?add=1.
   const [showGuide, setShowGuide] = useState(false);
+  // El grabado del tema Institucional en lugar del faro de satélites: las
+  // wallets que firman ante el registro (ui/skin/marks.tsx SignetMark).
+  const engraved = useEngraved();
   return (
     <Card glow spotlight padded={false} className="relative overflow-hidden p-8 md:p-12">
       <div
@@ -563,6 +532,18 @@ function WelcomePanel({ es, t }: { es: boolean; t: (s: string) => string }) {
         style={{ background: 'radial-gradient(circle, hsl(var(--volt) / 0.12), transparent 70%)' }}
         aria-hidden
       />
+      {/* The living beacon — the empty state wears a SCENE, not a void
+          (founder 2026-08-22: "cara de página terminada"). Hidden below lg
+          where the copy needs the room. */}
+      <div className="pointer-events-none absolute right-8 top-1/2 hidden -translate-y-1/2 lg:block opacity-90" aria-hidden>
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 220, damping: 30, delay: 0.15 }}
+        >
+          {engraved ? <SignetMark size={210} /> : <SignalBeacon width={280} height={230} />}
+        </motion.div>
+      </div>
       <div className="relative max-w-xl">
         <Pill tone="info">{t('Non-custodial · You always sign')}</Pill>
         <h2 className="mt-5 text-2xl md:text-3xl font-semibold tracking-tight leading-snug text-ink text-balance">
@@ -579,12 +560,12 @@ function WelcomePanel({ es, t }: { es: boolean; t: (s: string) => string }) {
           {/* Navigational Links styled with the PrimaryButton/GhostButton
               recipe (the primitives are <button>s and can't carry an href) —
               same colors, same one hover direction, no ad-hoc gold. */}
-          <Link
-            href="/app/wallets"
+          <button
+            onClick={onConnect}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-volt text-volt-ink text-sm font-semibold hover:brightness-105 transition-all shadow-[0_8px_24px_-10px_hsl(var(--volt)/0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0"
           >
             <Wallet className="w-4 h-4" strokeWidth={2} /> {t('Connect wallet')}
-          </Link>
+          </button>
           <Link
             href="/app/asset-production"
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-ink/10 bg-ink/[0.03] text-ink/80 text-sm hover:bg-ink/[0.06] hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0"
@@ -726,6 +707,11 @@ function NetWorthCard({
           ? `${positions} ${positions === 1 ? t('position') : t('positions')}${chainLabel ? ` · ${chainLabel}` : ''}`
           : t('Loading…')}
       </div>
+      {/* «Aún leyendo tus wallets» — la cifra parcial se declara parcial
+          (fundador 2026-09-07: sin esta señal, un total a medias asusta). */}
+      <div className="mt-2.5">
+        <PortfolioSyncBadge />
+      </div>
     </div>
   );
 }
@@ -770,332 +756,29 @@ function signedMoney(v: number): string {
   return `${v < 0 ? '−' : '+'}${formatMoneyCompact(Math.abs(v))}`;
 }
 
-// ── What a wallet holds, in one line ─────────────────────────────────────────
-// Reads straight off the snapshot's own positions: the top assets by value and,
-// when the money is out working, the venue it sits in ("XRP · FXRP · Kinetic").
-// No history, no heuristic, nothing that can drift from the truth — if the
-// snapshot says it, the row says it. Debt legs are excluded: an open borrow is
-// not something the wallet HOLDS, and it is already reported by the health
-// reading beside it. Asset keys that arrive as raw addresses (some adapters
-// key by contract) are dropped rather than shown as 0x noise.
-const HOLDING_DEBT_KINDS = new Set(['debt', 'borrow']);
-
-/** Symbols (by value, biggest first) + the venue holding most of the money.
- *  The symbols come from the SHARED walletHoldings (portfolioMerge) — the
- *  same reading the Wallets screen paints — so the two surfaces can never
- *  disagree about what a wallet holds. */
-function holdingsOf(snap: PortfolioSnapshot): { symbols: string[]; venue: string | null } {
-  const byVenue: Record<string, number> = {};
-  for (const p of snap.positions) {
-    const kind = String(p.kind ?? '').toLowerCase();
-    if (HOLDING_DEBT_KINDS.has(kind)) continue;
-    const usd = Math.abs(typeof p.amountUSD === 'number' ? p.amountUSD : 0);
-    if (usd <= 0.01) continue;
-    const proto = String(p.protocolId ?? '').trim();
-    // "wallet" / "wallet-8453" = the balance sits in the wallet itself, which
-    // is the absence of a venue, not a venue.
-    if (proto && !/^wallet(-\d+)?$/i.test(proto)) {
-      byVenue[proto] = (byVenue[proto] ?? 0) + usd;
-    }
-  }
-  const venues = Object.entries(byVenue)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k]) => k);
-  return {
-    symbols: walletHoldings(snap).map((h) => h.symbol),
-    venue: venues.length ? venues[0].charAt(0).toUpperCase() + venues[0].slice(1) : null,
-  };
-}
-
-/** The same reading as words — for the row's tooltip and its screen-reader text. */
-function holdingsLine(snap: PortfolioSnapshot, es: boolean): string {
-  const { symbols, venue } = holdingsOf(snap);
-  if (!symbols.length && !venue) return es ? 'sin activos' : 'no assets';
-  const head = symbols.slice(0, 2).join(' · ');
-  const more = symbols.length > 2 ? ` +${symbols.length - 2}` : '';
-  return `${head}${more}${venue ? `${symbols.length ? ' · ' : ''}${venue}` : ''}`;
-}
-
-// ── What the capital in a wallet is DOING ────────────────────────────────────
-// The meter's numbers, read through the SHARED classifier (lib/positionKinds)
-// so this row and the Summary ring can never disagree about what "working"
-// means — including the CLAIM kind, money already leaving a venue, which is
-// neither working nor idle.
+// ── The per-wallet reading MOVED OUT (2026-08-22, revisión de la fusión) ────
+// holdingsOf/holdingsLine, capitalMix, healthLine and the CapitalMeter now
+// live with the band that draws them, in components/dashboard/FleetBand.tsx —
+// one copy, not two. What must not be re-litigated there:
 //
-// The denominator is the wallet's ASSETS: open debt is excluded, exactly as
-// positionKinds prescribes. Two reasons it must not become a fourth segment
-// here: it would double-encode what the health reading beside the meter already
-// says, and in the light theme the debt token (#BA1C1C) and the volt token
-// (#977217) sit at CVD ΔE 5.9 (deutan) — a red/gold pair a deuteranope cannot
-// separate. Checked with the dataviz validator, not by eye.
-function capitalMix(snap: PortfolioSnapshot): {
-  assetsUSD: number;
-  earningPct: number;
-  inflightPct: number;
-} {
-  let earning = 0;
-  let inflight = 0;
-  let assets = 0;
-  for (const p of snap.positions) {
-    const state = positionState(p);
-    if (state === 'debt') continue;
-    const usd = Math.abs(typeof p.amountUSD === 'number' ? p.amountUSD : 0);
-    if (usd <= 0.01) continue;
-    assets += usd;
-    if (state === 'earning') earning += usd;
-    else if (state === 'inflight') inflight += usd;
-  }
-  if (assets <= 0) return { assetsUSD: 0, earningPct: 0, inflightPct: 0 };
-  return { assetsUSD: assets, earningPct: (earning / assets) * 100, inflightPct: (inflight / assets) * 100 };
-}
-
-// ── How a wallet stands, in words ────────────────────────────────────────────
-// The 3-level dot never said what it meant, so now it carries its word (spec
-// R1.2: a health reading never renders alone — word first, number second).
+//  · The meter's denominator is the wallet's ASSETS; open debt stays out,
+//    exactly as positionKinds prescribes. Debt must NOT become a fourth
+//    segment: it would double-encode what the health reading beside it already
+//    says, and in the light theme the debt token (#BA1C1C) and the volt token
+//    (#977217) sit at CVD ΔE 5.9 (deutan) — a red/gold pair a deuteranope
+//    cannot separate. Checked with the dataviz validator, not by eye.
+//  · The value is ALWAYS carried by a direct label beside the bar, never by
+//    colour alone (the light theme's worst pair is protan ΔE 7.7, which the
+//    spec allows only WITH secondary encoding — hence the 2px gap, the label
+//    and the legend, all three present).
+//  · A health reading never renders alone: word first, score second, and the
+//    score only when the wallet actually carries debt (with no borrow the
+//    scale pins at 100 by definition, so "100/100" on four rows teaches
+//    nothing).
 //
-// The score is the repo's calibrated 0–100 (lib/healthScore, 100 reserved for
-// zero debt), and it is printed ONLY when the wallet carries debt — which is
-// the only case where it varies. Founder 2026-08-01 asked for a health
-// percentage on every row; on a wallet with no borrow the scale pins at 100 by
-// definition, so four rows reading "100/100" would teach nothing and "100/100"
-// on an empty wallet would be plain odd. Word when there is nothing to score,
-// word + score the moment there is.
-function healthLine(
-  snap: PortfolioSnapshot,
-  hf: number | null,
-  hasDebt: boolean,
-  es: boolean,
-): { text: string; tone: 'success' | 'warning' | 'danger' | 'neutral'; detail: string | null } {
-  const empty = (snap.netWorthUSD ?? 0) < 0.01 && snap.positions.length === 0;
-  if (empty) return { text: es ? 'Sin actividad' : 'No activity', tone: 'neutral', detail: null };
-  // Just the word. The "· sin deuda" qualifier that rode with it left
-  // 2026-08-01 (founder: "sin deuda a fuera") — at 100 the word IS the reading,
-  // and the reason behind it stays one hover away.
-  if (!hasDebt) {
-    return {
-      text: es ? 'Sana' : 'Healthy',
-      tone: 'success',
-      detail: es ? 'Sin deuda abierta — nada puede liquidarse' : 'No open debt — nothing can be liquidated',
-    };
-  }
-  const score = healthScoreFromHF(hf, true);
-  const word = healthWords(score, es);
-  return {
-    text: score != null ? `${word} · ${score}/100` : word,
-    tone: healthTone(score),
-    detail: hf != null ? `HF ${hf.toFixed(2)} — 1.00 = ${es ? 'liquidación' : 'liquidation'}` : null,
-  };
-}
-
-// ── The capital meter ────────────────────────────────────────────────────────
-// Two fills over a recessive track: working, in flight, and whatever is left is
-// money sitting still. Marks follow the dataviz spec — thin, rounded ends, a
-// 2px SURFACE GAP between segments (never a border to separate them), and the
-// value always carried by a direct label beside the bar, never by colour alone.
-//
-// Palette = the design system's own status tokens, validated with the skill's
-// checker in both themes and both authorities rather than by eye: chroma, CVD
-// separation, normal-vision separation and contrast pass everywhere; the light
-// theme's worst pair is protan ΔE 7.7, which the spec allows only WITH
-// secondary encoding — hence the gap, the direct label and the legend, all
-// three present. The categorical "lightness band" check fails by design: these
-// are reserved status colours, not interchangeable identity slots.
-function CapitalMeter({ earningPct, inflightPct }: { earningPct: number; inflightPct: number }) {
-  const e = Math.max(0, Math.min(100, earningPct));
-  const f = Math.max(0, Math.min(100 - e, inflightPct));
-  return (
-    <span className="relative block h-1.5 w-full rounded-full bg-ink/[0.07]" aria-hidden>
-      {e > 0.5 && (
-        <span className="absolute inset-y-0 left-0 rounded-full bg-tone-success/85" style={{ width: `${e}%` }} />
-      )}
-      {f > 0.5 && (
-        <span
-          className="absolute inset-y-0 rounded-full bg-volt/85"
-          style={{ left: `calc(${e}% + 2px)`, width: `max(2px, calc(${f}% - 2px))` }}
-        />
-      )}
-    </span>
-  );
-}
-
-// ── Wallets band — the per-wallet rows, promoted to their own organism ────────
-// They used to sit squeezed under the net-worth figure; now they take the full
-// width Capital Performance occupied (preserved at
-// components/dashboard/PerformanceCard.tsx).
-//
-// Each row answers the two questions a summary owes you about a wallet, both
-// read straight off its snapshot: HOW IT STANDS (health dot + its word) and
-// WHAT IS INSIDE (top assets + the venue they work in), then its net worth.
-// The P&L range that lived here until 2026-08-01 is parked above (pnlRange) —
-// it read as a slider and, on small wallets, priced transfers as performance.
-//
-// Rows link to Portfolio SCOPED TO THAT WALLET (founder 2026-08-01: "al pulsar
-// encima, que lleve a la posición de esa cartera en portfolio") — the row
-// states what is inside, so the click must open exactly that, not the wallet
-// admin screen it pointed at before (founder 2026-07-25).
-function WalletsBand({
-  perWallet,
-  labelFor,
-  colorFor,
-  iconFor,
-  es,
-  t,
-}: {
-  perWallet: WalletSlice[];
-  labelFor: (a: string) => string;
-  colorFor: (a: string) => string;
-  iconFor: (a: string) => WalletIconSlug | null;
-  es: boolean;
-  t: (s: string) => string;
-}) {
-  const hidden = useBalanceVisibility((s) => s.hidden);
-  // 3 security levels, colour only: green = healthy, amber = watch, red = danger.
-  const dotBg: Record<string, string> = {
-    success: 'bg-tone-success',
-    warning: 'bg-tone-warning',
-    danger: 'bg-tone-danger',
-    neutral: 'bg-ink/25',
-  };
-  const rows = [...perWallet].sort((a, b) => (b.snap.netWorthUSD ?? 0) - (a.snap.netWorthUSD ?? 0));
-  const anyAssets = rows.some((w) => capitalMix(w.snap).assetsUSD > 0);
-  // Past four wallets the rows tighten instead of the band growing: 6 wallets
-  // at the loose rhythm ate ~265px of a dashboard that owes the user one
-  // viewport. Nothing is hidden — every wallet keeps its row.
-  const dense = rows.length > 4;
-  return (
-    <Card spotlight padded={false} className="overflow-hidden">
-      {/* Header carries the legend, centred between the title and Manage
-          (founder 2026-08-01) — a whole strip at the foot for three words was
-          furniture. It sits in the flow, never absolutely positioned, so it can
-          not collide with either side; below sm it steps aside entirely (the
-          rows drop their word there too and the tooltip carries the reading). */}
-      <div className="flex items-center gap-3 px-5 pt-3.5 pb-2.5">
-        <h3 className="text-[15px] font-semibold tracking-tight text-ink shrink-0">
-          {t('Wallets')}
-          <span className="ml-2 text-xs font-normal text-ink/35">{rows.length}</span>
-        </h3>
-        {anyAssets && (
-          <div className="hidden sm:flex flex-1 items-center justify-center gap-4 text-[10px] text-ink/35">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-1.5 rounded-full bg-tone-success/85" aria-hidden /> {es ? 'trabajando' : 'working'}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-1.5 rounded-full bg-volt/85" aria-hidden /> {es ? 'en camino' : 'in flight'}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2.5 h-1.5 rounded-full bg-ink/[0.12]" aria-hidden /> {es ? 'quieto' : 'sitting still'}
-            </span>
-          </div>
-        )}
-        <Link
-          href="/app/wallets"
-          className="ml-auto sm:ml-0 shrink-0 inline-flex items-center gap-1 text-[11px] text-ink/40 hover:text-volt transition-colors"
-        >
-          {es ? 'Gestionar' : 'Manage'} <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
-        </Link>
-      </div>
-      {/* ONE column, always. The two-column split (rows.length > 3) left
-          2026-08-01: an enriched row needs ~700px of card width, so two of them
-          need ~1460px — more than the shell leaves even at 2xl, and the columns
-          squeezed the meter to nothing. Many wallets are absorbed by `dense`
-          above, not by splitting. */}
-      <div className="border-t border-ink/[0.05] px-5 py-2">
-        {rows.map((w) => {
-          const hf = typeof w.risk?.healthFactor === 'number' ? w.risk.healthFactor : null;
-          const hasDebt = (w.snap.debtUSD ?? 0) > 0.01;
-          const health = healthLine(w.snap, hf, hasDebt, es);
-          const tone = health.tone;
-          const color = colorFor(w.address);
-          const icon = iconFor(w.address);
-          const { symbols } = holdingsOf(w.snap);
-          const holdings = holdingsLine(w.snap, es);
-          const mix = capitalMix(w.snap);
-          const working = Math.round(mix.earningPct + mix.inflightPct);
-          const workingWord = mix.assetsUSD <= 0
-            ? (es ? 'sin activos' : 'no assets')
-            : working >= 1
-              ? (es ? 'trabajando' : 'working')
-              : (es ? 'quieto' : 'sitting still');
-          return (
-            <Link
-              key={w.address}
-              // Lands on the Overview lens with the wallet pre-selected
-              // (founder 2026-08-12: ?tab=positions dropped you one lens too
-              // deep). tab=overview is EXPLICIT on purpose: without it the
-              // page restores the last persisted lens, not Overview.
-              href={`/app/portfolio?wallet=${encodeURIComponent(w.address)}&tab=overview`}
-              title={
-                es
-                  ? `${labelFor(w.address)} — ${health.text}${health.detail ? ` (${health.detail})` : ''} · ${holdings} · ${working}% del capital trabajando${mix.inflightPct >= 1 ? `, ${Math.round(mix.inflightPct)}% en camino` : ''}. Abre esta cartera en Portfolio.`
-                  : `${labelFor(w.address)} — ${health.text}${health.detail ? ` (${health.detail})` : ''} · ${holdings} · ${working}% of the capital working${mix.inflightPct >= 1 ? `, ${Math.round(mix.inflightPct)}% in flight` : ''}. Opens this wallet in Portfolio.`
-              }
-              className="group block rounded-lg px-1 -mx-1 hover:bg-ink/[0.025] transition-colors"
-            >
-              {/* No background tint. A share-of-capital fill in the wallet's own
-                  colour lived here for one deploy and left the same day
-                  (founder 2026-08-01: "el sombreado del alrededor en color azul
-                  y gris debe desaparecer") — at row height it read as a
-                  selection highlight stuck behind the name, not as weight. The
-                  balance figure carries the size of a wallet on its own. */}
-              <span className={`flex items-center gap-2.5 ${dense ? 'py-1.5' : 'py-2'}`}>
-                {/* Personal glyph (walletIdentity) wins when set, painted in the
-                    wallet's own colour; otherwise the plain colour dot. */}
-                {icon ? (
-                  <WalletGlyphIcon icon={icon} size={14} color={color} className="shrink-0" />
-                ) : (
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-ink/20" style={{ background: color }} aria-hidden />
-                )}
-                <span className="w-20 md:w-24 truncate text-[13px] text-ink/80 shrink-0">{labelFor(w.address)}</span>
-                {/* What's inside, wearing its real face — the marks carry the
-                    identity, the venue name follows in text. Not a balance, so
-                    the hide-balances eye leaves it alone. */}
-                <span className="hidden sm:flex items-center shrink-0 w-[3.25rem]">
-                  {symbols.slice(0, 3).map((s, i) => (
-                    <span key={s} className="relative" style={{ marginLeft: i === 0 ? 0 : -6, zIndex: 3 - i }}>
-                      <TokenLogo symbol={s} size="xs" className="ring-1 ring-surface-1" />
-                    </span>
-                  ))}
-                </span>
-                {/* No venue column. It named the place ("Firelight", "in the
-                    wallet") and left 2026-08-01: founder — "con la indicación de
-                    working o sitting still se sabe dónde está el asset". True at
-                    this altitude, and the 90px it freed is what lets six wallets
-                    sit comfortably in one column. The venue name survives in the
-                    row's tooltip and one click away in Portfolio. */}
-                {/* The row's hero reading: how much of this wallet's capital is
-                    actually at work. Bar + direct label, never colour alone. */}
-                <span className="flex-1 min-w-[2.5rem]">
-                  <CapitalMeter earningPct={mix.earningPct} inflightPct={mix.inflightPct} />
-                </span>
-                {/* Narrow screens keep the figure and drop the word — the
-                    legend at the foot still names the colours. */}
-                <span className="w-9 sm:w-[6.5rem] shrink-0 text-[11px] text-ink/55">
-                  <span className="font-mono tabular-nums text-ink/80">{mix.assetsUSD > 0 ? `${working}%` : '—'}</span>{' '}
-                  <span className="hidden sm:inline text-ink/40">{workingWord}</span>
-                </span>
-                {/* How it stands — the dot keeps the colour, the word makes it
-                    legible. Only warning/danger tint the text; a healthy wallet
-                    stays quiet so the loud ones are the ones you notice. */}
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotBg[tone]}`} aria-hidden />
-                <span
-                  className={`hidden md:block w-[6.5rem] truncate text-[11px] shrink-0 ${
-                    tone === 'danger' ? 'text-tone-danger/90' : tone === 'warning' ? 'text-tone-warning/90' : 'text-ink/45'
-                  }`}
-                >
-                  {health.text}
-                </span>
-                <span className="w-20 md:w-24 text-right font-mono tabular-nums text-sm text-ink shrink-0">
-                  {hidden ? MASK : formatMoney(w.snap.netWorthUSD)}
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 shrink-0 text-ink/25 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
+// The P&L range that lived in those rows until 2026-08-01 is parked above
+// (pnlRange): it read as a slider and, on small wallets, priced transfers as
+// performance.
 
 // ── Position health — simple, honest, one small ornament ────────────────────
 // History of this card, so nobody re-grows it: the "Capital in orbit" dial
@@ -1109,6 +792,7 @@ function WalletsBand({
 function HealthCard({
   snap,
   riskSnap,
+  emHealth,
   protections,
   es,
   t,
@@ -1116,6 +800,8 @@ function HealthCard({
 }: {
   snap: PortfolioSnapshot | null;
   riskSnap: RiskSnapshot | null;
+  /** Riesgo del carril de Ethereum — el snapshot agregado no lo ve. */
+  emHealth: EthMorphoHealth;
   protections: number | null;
   es: boolean;
   t: (s: string) => string;
@@ -1123,8 +809,13 @@ function HealthCard({
    *  itself lives beside the balance in NetWorthCard (founder 2026-07-18). */
   legacy?: boolean;
 }) {
-  const hf = typeof riskSnap?.healthFactor === 'number' ? riskSnap.healthFactor : null;
-  const hasDebt = (snap?.debtUSD ?? 0) > 0.01;
+  const snapHf = typeof riskSnap?.healthFactor === 'number' ? riskSnap.healthFactor : null;
+  // El PEOR de los dos mundos manda. Sin esto, con un carry vivo en Ethereum
+  // esta tarjeta afirmaba «Sin deuda abierta — nada puede liquidarse», que es
+  // la mentira mas cara del producto: hace que dejes de mirar.
+  const emHf = emHealth.healthFactor;
+  const hf = snapHf != null && emHf != null ? Math.min(snapHf, emHf) : (snapHf ?? emHf);
+  const hasDebt = (snap?.debtUSD ?? 0) > 0.01 || emHf != null;
 
   const hfTone = hf == null ? 'text-ink' : hf < 1.2 ? 'text-tone-danger' : hf < 1.5 ? 'text-tone-warning' : 'text-tone-success';
 
@@ -1167,13 +858,28 @@ function HealthCard({
           </div>
           <div className="flex flex-wrap items-center gap-x-10 gap-y-4">
             <Reading label={es ? 'Protecciones activas' : 'Active protections'}>
-              <span className={`font-mono ${protections != null && protections > 0 ? 'text-tone-success' : 'text-ink'}`}>
-                {protections != null ? protections : '—'}
+              <span className="inline-flex items-center gap-2">
+                {/* El latido solo late cuando HAY algo vigilando. Una regla
+                    activa es un hecho vivo —está mirando tu posición ahora
+                    mismo— y merece decirlo; con cero protecciones no hay nada
+                    que respire, y fingirlo sería decorar una ausencia. */}
+                {protections != null && protections > 0 && (
+                  <span
+                    className="live-beat relative inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-tone-success text-tone-success"
+                    aria-hidden
+                  />
+                )}
+                {/* La cifra CUENTA al llegar (idioma de la casa: «figures
+                    count up»). Antes el guion se sustituía por el número de
+                    golpe — el pop que el fundador señaló (2026-08-25). */}
+                <span className={`font-mono ${protections != null && protections > 0 ? 'text-tone-success' : 'text-ink'}`}>
+                  {protections != null ? <CountUp value={protections} format={(v) => String(Math.round(v))} /> : '—'}
+                </span>
               </span>
             </Reading>
             <Reading label={es ? 'Salud' : 'Health'} title={hfScoreTitle}>
               <span className={`font-mono ${snap && !hasDebt ? 'text-tone-success' : hfTone}`}>
-                {hfScore != null ? `${hfScore}/100` : '—'}
+                {hfScore != null ? <CountUp value={hfScore} format={(v) => `${Math.round(v)}/100`} /> : '—'}
               </span>
             </Reading>
           </div>
@@ -1220,151 +926,31 @@ function Reading({
   );
 }
 
-// The donut's orbital frame — the sized box plus the dashed orbit and its
-// moonlet (the landing's solar hero, miniaturised). Shared by the charted ring
-// and the at-rest ring so both land in exactly the same place on the card: when
-// the first position starts working, the ring fills without the card reflowing.
-function DonutFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative shrink-0 m-2 w-[190px] h-[190px] md:w-[210px] md:h-[210px] lg:w-auto lg:h-[calc(100%-1rem)] lg:min-h-[140px] lg:max-h-[216px] lg:aspect-square">
-      <div className="donut-orbit absolute -inset-2.5 rounded-full border border-dashed border-volt/20" aria-hidden>
-        <span
-          className="absolute w-[5px] h-[5px] rounded-full bg-volt-soft"
-          style={{ top: '3%', left: '50%', boxShadow: '0 0 8px hsl(var(--volt-soft) / 0.9), 0 0 20px hsl(var(--volt) / 0.5)' }}
-        />
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// ── Allocation donuts — clickable, distinct colours, no caption noise ─────────
-function DonutCard({
-  title,
-  data,
-  qty,
-  split,
-  href,
-  loading = false,
-}: {
-  title: string;
-  data: Record<string, number>;
-  qty?: Record<string, number>;
-  /** Working vs in-flight vs idle aggregate figures (Assets Earning) — the
-      one-line split whose working side the ring then breaks down by asset.
-      `inflight` is money leaving a venue; `arrivesAt` is the date it lands
-      (protocol data — absent when the venue can't say yet). */
-  split?: { working: number; idle: number; inflight?: number; arrivesAt?: string | null };
-  href: string;
-  /** Snapshot still on its way: hold the donut's footprint with a quiet pulse
-      instead of flashing "Nothing to chart yet" and reflowing when it lands. */
-  loading?: boolean;
-}) {
-  const { t, lang } = useT();
-  // Same eye as everywhere: the split's dollar figures mask, percentages stay.
-  const hidden = useBalanceVisibility((s) => s.hidden);
-  const empty = Object.keys(data).length === 0;
-  const inflight = split?.inflight ?? 0;
-  const splitTotal = split ? split.working + split.idle + inflight : 0;
-  // Short, locale-obeying arrival date ("2 ago" / "2 Aug") — same rule as every
-  // other number on the dashboard: it follows the language in use.
-  const arrival = split?.arrivesAt
-    ? new Date(split.arrivesAt).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', {
-        day: 'numeric',
-        month: 'short',
-      })
-    : null;
-  return (
-    <Link href={href} className="group block h-full min-h-0">
-      <Card hover spotlight padded={false} className="h-full p-5 flex flex-col">
-        <div className="flex items-center justify-between mb-3 shrink-0">
-          <h3 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h3>
-          <ArrowRight className="w-4 h-4 shrink-0 text-ink/30 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
-        </div>
-        {/* The split line survives an empty ring (2026-08-04): with every coin
-            parked the ring has nothing to draw, and this line IS the reading —
-            hiding it would leave the card mute about capital it can see. */}
-        {split && splitTotal > 0 && (
-          <div className="shrink-0 -mt-2 mb-3 text-[11px] font-mono tabular-nums text-ink/45">
-            {t('Working')}{' '}
-            <span className="text-ink/85">{hidden ? MASK : formatMoneyCompact(split.working)}</span>
-            <span className="text-ink/35"> ({Math.round((split.working / splitTotal) * 100)}%)</span>
-            {inflight > 0.01 && (
-              <>
-                <span className="mx-1.5 text-ink/25">·</span>
-                {t('On the way')}{' '}
-                <span className="text-ink/85">{hidden ? MASK : formatMoneyCompact(inflight)}</span>
-                <span className="text-ink/35"> ({Math.round((inflight / splitTotal) * 100)}%)</span>
-                {/* The date the venue releases it — protocol data, never a
-                    promise: no date read, no date shown. */}
-                {arrival && <span className="text-ink/35"> · {t('lands')} {arrival}</span>}
-              </>
-            )}
-            <span className="mx-1.5 text-ink/25">·</span>
-            {t('Not earning')}{' '}
-            <span className="text-ink/85">{hidden ? MASK : formatMoneyCompact(split.idle)}</span>
-            <span className="text-ink/35"> ({Math.round((split.idle / splitTotal) * 100)}%)</span>
-          </div>
-        )}
-        {empty && loading ? (
-          <div className="flex-1 flex items-center gap-6 py-4" aria-hidden>
-            <div className="m-2 h-[170px] w-[170px] shrink-0 animate-pulse rounded-full border-[22px] border-ink/[0.05]" />
-            <div className="flex-1 space-y-2.5">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-3.5 animate-pulse rounded bg-ink/[0.05]" style={{ width: `${78 - i * 18}%` }} />
-              ))}
-            </div>
-          </div>
-        ) : empty && split && splitTotal > 0 ? (
-          /* Capital seen, none of it placed: the ring has nothing to draw and
-             draws nothing — an empty band, never a full grey circle standing in
-             for idle money (that is what the split line above is for). Same
-             frame as the charted ring so the card holds its shape. */
-          <div className="flex-1 min-h-0 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            <DonutFrame>
-              {/* Same band as the charted ring — a radial gradient, not a
-                  border, so the 62%/92% radii hold at every size the
-                  one-viewport contract gives this box. */}
-              <div
-                className="absolute inset-[4%] rounded-full"
-                style={{ background: 'radial-gradient(closest-side, transparent 67%, hsl(var(--ink) / 0.05) 67.5%)' }}
-                aria-hidden
-              />
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-xs text-ink/40">total</div>
-                <div className="text-base font-mono text-ink/50">{hidden ? MASK : formatMoneyCompact(0)}</div>
-              </div>
-            </DonutFrame>
-            <div className="flex-1 w-full min-w-0 sm:pr-2">
-              <p className="text-sm text-ink/70">{t('Nothing at work yet')}</p>
-              <p className="mt-1.5 text-xs leading-relaxed text-ink/40">
-                {t('This ring charts only capital placed in a vault. Pick a strategy and it shows up here.')}
-              </p>
-            </div>
-          </div>
-        ) : empty ? (
-          <div className="flex-1 grid place-items-center py-10 text-ink/40 text-sm">{t('Nothing to chart yet')}</div>
-        ) : (
-          /* Donut big on the left, legend breathing on the right — one organic
-             read: shape first, detail beside it. Stacks on small screens.
-             On lg the donut takes whatever height the one-viewport contract
-             left for this row (AllocationDonut `fill`), instead of a fixed
-             box forcing the page to scroll. */
-          <div className="flex-1 min-h-0 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            <DonutFrame>
-              <AllocationDonut data={data} fill />
-            </DonutFrame>
-            <div className="flex-1 w-full min-w-0 sm:pr-2">
-              <AllocationLegend data={data} qty={qty} showUSD />
-            </div>
-          </div>
-        )}
-      </Card>
-    </Link>
-  );
-}
+// DonutFrame + DonutCard moved to components/dashboard/DonutCard (fusión
+// 2026-08-22) — the Portfolio's Overview renders them now.
 
 // ── Recent alerts (mobile surface — desktop reads the health card counter) ────
+/**
+ * LA PUERTA DEL AVISO (25-ago-2026). El motor manda el deep-link de cada
+ * disparo accionable —repago de la posición de Ethereum, propuesta del consejo,
+ * pago programado, escrow— y hasta hoy ese enlace viajaba SOLO en el push. Aquí
+ * la fila era texto muerto: «Ethereum repay ready to prepare» y a buscarte la
+ * vida, con el reloj de la liquidación corriendo. Es el hallazgo H4 («un aviso
+ * que no abre nada es un aviso que miente») reentrando por la superficie de al
+ * lado, que además es la que se lee en escritorio, donde no hay push.
+ *
+ * Solo se convierte en enlace lo que trae `data.url` y es una ruta interna: un
+ * aviso sin puerta se sigue pintando como antes (no se inventa un destino), y
+ * un `url` que no empiece por `/` no se sigue jamás — el dato viene de la BD y
+ * un enlace externo en una alerta es un vector de phishing, no una comodidad.
+ */
+function alertHref(a: Alert): string | null {
+  const url = (a.data as { url?: unknown } | null | undefined)?.url;
+  if (typeof url !== 'string') return null;
+  if (!url.startsWith('/') || url.startsWith('//')) return null;
+  return url;
+}
+
 function AlertsPanel({ alerts, t }: { alerts: Alert[]; t: (s: string) => string }) {
   return (
     <div>
@@ -1376,18 +962,37 @@ function AlertsPanel({ alerts, t }: { alerts: Alert[]; t: (s: string) => string 
       </div>
       <Card spotlight padded={false} className="overflow-hidden">
         <ul>
-          {alerts.map((a) => (
-            <li key={a.id} className="flex items-start gap-3.5 p-4 border-b border-ink/[0.04] last:border-0">
-              <Pill tone={SEV_TONE[a.severity] ?? 'neutral'}>{a.severity}</Pill>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-ink/90 truncate">{a.title}</div>
-                <div className="text-sm text-ink/45 truncate mt-0.5">{a.message}</div>
-              </div>
-              <div className="text-xs text-ink/30 font-mono whitespace-nowrap pt-1">
-                {new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </li>
-          ))}
+          {alerts.map((a) => {
+            const href = alertHref(a);
+            const row = (
+              <>
+                <Pill tone={SEV_TONE[a.severity] ?? 'neutral'}>{a.severity}</Pill>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-ink/90 truncate">{a.title}</div>
+                  <div className="text-sm text-ink/45 truncate mt-0.5">{a.message}</div>
+                  {href && (
+                    <span className="text-[11px] text-volt inline-flex items-center gap-1 mt-1">
+                      {t('Open it')} <ArrowRight className="w-3 h-3" strokeWidth={1.5} />
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-ink/30 font-mono whitespace-nowrap pt-1">
+                  {new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </>
+            );
+            return (
+              <li key={a.id} className="border-b border-ink/[0.04] last:border-0">
+                {href ? (
+                  <Link href={href} className="flex items-start gap-3.5 p-4 hover:bg-ink/[0.03] transition-colors">
+                    {row}
+                  </Link>
+                ) : (
+                  <div className="flex items-start gap-3.5 p-4">{row}</div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </Card>
     </div>

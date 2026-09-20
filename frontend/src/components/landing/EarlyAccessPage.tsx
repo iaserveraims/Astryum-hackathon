@@ -16,7 +16,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useMotionLevel, useReducedMotion } from '../../stores/motionStore';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { getApiBase } from '@/lib/env';
@@ -142,7 +143,9 @@ function Backdrop() {
 
 // ─── Rotating early-access seal (SVG textPath) — the stamp on the manifest. ─────────
 function Seal({ size = 96 }: { size?: number }) {
-  const reduce = useReducedMotion();
+  // El anillo del sello gira solo: únicamente en el nivel COMPLETO.
+  const level = useMotionLevel();
+  const reduce = level === 'minimal';
   return (
     <motion.div
       style={{ width: size, height: size }}
@@ -162,7 +165,7 @@ function Seal({ size = 96 }: { size?: number }) {
           <text fontSize="8.6" letterSpacing="2.1" fill={GOLD_SOFT} fontFamily="JetBrains Mono, Monaco, monospace">
             <textPath href="#ea-seal-ring">ASTRYUM · EARLY ACCESS · V1 FLARE ·</textPath>
           </text>
-          {!reduce && (
+          {level === 'full' && (
             <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="40s" repeatCount="indefinite" />
           )}
         </g>
@@ -642,7 +645,12 @@ export default function EarlyAccessPage() {
               <div className="mt-10">
                 <AnimatePresence mode="wait" initial={false}>
                   {sentEmail ? (
-                    <ManifestCard key="manifest" email={sentEmail} lang={lang} />
+                    // motion.* como hijo directo de la frontera: un
+                    // componente normal no avisa de que salió y, con
+                    // `mode="wait"`, el siguiente no entra nunca.
+                    <motion.div key="manifest" exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+                      <ManifestCard email={sentEmail} lang={lang} />
+                    </motion.div>
                   ) : (
                     <motion.div key="console" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25, ease: EASE }}>
                       <Console lang={lang} intent={intent} onDone={setSentEmail} />

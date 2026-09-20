@@ -19,6 +19,7 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Card, MicroLabel } from './primitives';
+import { useEngraved } from '../../stores/themeStore';
 
 export type DoorTone = 'gold' | 'sky' | 'emerald' | 'amber' | 'violet' | 'rose';
 
@@ -34,6 +35,7 @@ const TONE: Record<DoorTone, { border: string; cta: string }> = {
 
 export function SceneDoor({
   scene,
+  engraving,
   eyebrow,
   title,
   desc,
@@ -46,6 +48,11 @@ export function SceneDoor({
   className = '',
 }: {
   scene: ReactNode;
+  /** EL GRABADO DEL TEMA INSTITUCIONAL (ui/skin/marks.tsx): sustituye a la
+   *  escena de espacio cuando el tema es la lámina — misma caja, otro dibujo,
+   *  la receta de EarnDoor. Sin él, la puerta enseña su escena en los dos
+   *  temas (con el bronce encima, que es lo que el tema no quiere ser). */
+  engraving?: ReactNode;
   eyebrow: string;
   title: string;
   desc: string;
@@ -61,6 +68,8 @@ export function SceneDoor({
   className?: string;
 }) {
   const tint = TONE[tone];
+  const engraved = useEngraved();
+  const art = engraved && engraving !== undefined ? engraving : scene;
   const inner = (
     <>
       {badge ? <div className="absolute right-4 top-4 z-[3]">{badge}</div> : null}
@@ -93,7 +102,7 @@ export function SceneDoor({
       )}
       {/* the scene — lives IN the panel, brightening under attention */}
       <div className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 hidden sm:block opacity-70 group-hover:opacity-100 transition-opacity duration-500">
-        {scene}
+        {art}
       </div>
     </Card>
   );

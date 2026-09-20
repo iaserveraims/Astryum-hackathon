@@ -132,13 +132,14 @@ export async function anchorWalletFromSeed(raw: string, expected?: string): Prom
  * cura reintentando. Se avisa como tal, con el arreglo escrito, en vez de dejar
  * el mensaje críptico del `catch` genérico repitiéndose en cada tick.
  */
-async function anchorKeyAlert(anchor: string, why: string): Promise<void> {
-  await executorAlert('critical', `LEGACY_ANCHOR_SEED ${why} — anchor-feed abortado (config, no se arregla solo)`, {
-    key: 'anchor-feed:bad-key',
-    facts: { anchor },
+async function anchorKeyAlert(anchor: string, why: string, label = 'legacy'): Promise<void> {
+  const seedVar = label === 'legacy' ? 'LEGACY_ANCHOR_SEED' : 'ASTRYUM_ANCHOR_SEED';
+  await executorAlert('critical', `${seedVar} ${why} — anchor-feed (${label}) abortado (config, no se arregla solo)`, {
+    key: `anchor-feed:bad-key:${label}`,
+    facts: { anchor, label },
     runbook:
       `Reexporta los secret numbers del anchor ${anchor} desde Xaman y vuelve a pegarlos en ` +
-      'LEGACY_ANCHOR_SEED (Railway). Qué cuenta abre la clave de ahora: /app/admin → Sistema → anchor, campo `seed`.',
+      `${seedVar} (Railway). Qué cuenta abre la clave de ahora: /app/admin → Sistema → anchor, campo \`seed\`.`,
   });
 }
 
@@ -157,10 +158,14 @@ export interface AnchorFeedGauge extends AnchorFeedDecision {
  */
 export async function checkAnchorFeeding(
   provider: ethers.JsonRpcProvider,
+  opts?: { anchor?: string; seed?: string; label?: string },
 ): Promise<AnchorFeedGauge | null> {
-  const seed = process.env.LEGACY_ANCHOR_SEED;
+  // Por defecto, el ancla del Legacy v1; con `opts`, cualquier otra (la de la
+  // jaula v2 — MISMA tubería, otra cuenta). Cada ancla tiene su clave.
+  const seed = opts?.seed ?? process.env.LEGACY_ANCHOR_SEED;
   const pk = process.env.FLARE_EXECUTOR_PK;
-  const anchor = process.env.LEGACY_ORDER_ANCHOR;
+  const anchor = opts?.anchor ?? process.env.LEGACY_ORDER_ANCHOR;
+  const label = opts?.label ?? 'legacy';
   if (!seed || !pk || !anchor) return null; // no-op sin clave/executor/anchor
 
   try {
@@ -180,11 +185,11 @@ export async function checkAnchorFeeding(
     try {
       wallet = await anchorWalletFromSeed(seed, anchor);
     } catch (e) {
-      await anchorKeyAlert(anchor, `no se puede leer (${(e as Error).message})`);
+      await anchorKeyAlert(anchor, `no se puede leer (${(e as Error).message})`, label);
       return { ...decision, fed: false };
     }
     if (wallet.classicAddress !== anchor) {
-      await anchorKeyAlert(anchor, `abre ${wallet.classicAddress}, que no es el anchor`);
+      await anchorKeyAlert(anchor, `abre ${wallet.classicAddress}, que no es el anchor`, label);
       return { ...decision, fed: false };
     }
     const executor = new ethers.Wallet(pk).address;
@@ -197,6 +202,8 @@ export async function checkAnchorFeeding(
       grossXrpDrops,
       innerCalls,
       action: 'anchor-feed',
+      // Astryum's own anchor seed signs this Payment below: never the project tag.
+      attribution: 'operational',
     });
 
     // Firmar + mandar el Payment del anchor (patrón XrplEscrowKeeper).
@@ -212,7 +219,7 @@ export async function checkAnchorFeeding(
       if (result === 'tesSUCCESS') {
         await executorAlert(
           'info',
-          `anchor-feed: ${decision.feedXrp} XRP → mint FXRP → executor ${executor} (tx ${res.result.hash}). ` +
+          `anchor-feed (${label}): ${decision.feedXrp} XRP → mint FXRP → executor ${executor} (tx ${res.result.hash}). ` +
             'El executor lo recogerá por el memo; el refuel lo volverá FLR.',
         );
         return { ...decision, fed: true, txHash: res.result.hash };

@@ -37,7 +37,7 @@
  * be gamed there either.
  */
 
-import { kvGet, kvUpsert } from '../services/persistence/backgroundJobKv';
+import { kvGetStrict, kvUpsert } from '../services/persistence/backgroundJobKv';
 
 const DEFAULT_MAX_XRP_PER_TX = 1;
 
@@ -117,6 +117,12 @@ export function getDemoCapExemptEmails(): Set<string> {
  * no userId / empty list / no DB / lookup error ⇒ NOT exempt, the cap stays on.
  * The email set is checked before touching the DB so the common case (no list
  * configured) costs nothing.
+ *
+ * VERIFIED email only (productizer it. 8, same door as adminPanel.emailGate):
+ * `AuthService.register` stores whatever address it is sent, so a plain email
+ * on the list proved nothing — registering an exempt address skipped the real
+ * 0xFE mint caps (and the cage-creation limits that reuse this check). Only
+ * `emailVerified === true` (an OAuth provider attested the address) exempts.
  */
 export async function isDemoCapExemptUser(userId: string | null | undefined): Promise<boolean> {
   if (!userId) return false;
@@ -125,9 +131,12 @@ export async function isDemoCapExemptUser(userId: string | null | undefined): Pr
   if (!process.env.DATABASE_URL) return false;
   try {
     const { prisma } = await import('../database/prismaClient');
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, emailVerified: true },
+    });
     const email = user?.email?.trim().toLowerCase();
-    return !!email && emails.has(email);
+    return !!email && emails.has(email) && user.emailVerified === true;
   } catch (e) {
     console.error(`[demoCap] exempt-account lookup failed: ${(e as Error).message}`);
     return false;
@@ -182,8 +191,33 @@ function liveSpendXrp(entries: DailySpendEntry[], now: number): number {
   return sum;
 }
 
+/**
+ * it. 29 — el gasto del día NO SE PUDO LEER (Postgres falló). Hermano del
+ * `FeeLedgerUnreadable` del executor: «no sé cuánto lleva hoy esta dirección»
+ * no es «no lleva nada». Lo lanza `readDailyEntries`; `checkDemoCap` lo
+ * convierte en un 503 retryable que no reserva, no cuenta y no inventa.
+ */
+export class DailySpendUnreadable extends Error {
+  constructor(capKey: string, cause: unknown) {
+    super(`DEMO_CAP_UNREADABLE: ${capKey} (${cause instanceof Error ? cause.message : String(cause)})`);
+    this.name = 'DailySpendUnreadable';
+  }
+}
+
 async function readDailyEntries(capKey: string): Promise<DailySpendEntry[]> {
-  const p = await kvGet(DAILY_JOB_TYPE, 'capKey', capKey);
+  // it. 29 — `kvGetStrict`, no `kvGet`: el laxo devolvía `null` tanto sin fila
+  // como con Postgres caído, y ese `null` caía al espejo en memoria — VACÍO
+  // tras cada redeploy — devolviendo el cupo diario ÍNTEGRO a cada dirección
+  // justo cuando la BD parpadea. Ahora `null` significa sólo «la BD contestó
+  // y no hay fila»; un fallo de BD SUBE (DailySpendUnreadable), y quien lo
+  // atrapa decide: el prepare rechaza sin inventar, el executor no escribe
+  // por encima de una fila que no leyó.
+  let p: Record<string, unknown> | null;
+  try {
+    p = await kvGetStrict(DAILY_JOB_TYPE, 'capKey', capKey);
+  } catch (e) {
+    throw new DailySpendUnreadable(capKey, e);
+  }
   if (Array.isArray(p?.entries)) return p.entries as DailySpendEntry[];
   // Fila legacy (v1: un acumulado) — se migra como gasto confirmado del día.
   if (typeof p?.xrp === 'number' && p.xrp > 0) return [{ xrp: p.xrp, at: 0, confirmed: true }];
@@ -240,10 +274,56 @@ export interface DemoCapError {
 }
 
 /**
+ * LA SALIDA NUNCA SE GATEA (doctrina de producto). Un redeem / claim / withdraw /
+ * unwind de vuelta a la wallet del holder no se bloquea por geofence ni por el
+ * presupuesto diario por dirección: eso es política, no física.
+ *
+ * Lo que SÍ se mantiene sobre una salida es el tope POR TRANSACCIÓN de su CARRIER
+ * 0xFE: el carrier mintea de verdad y es el radio de explosión del contrato no
+ * auditado (una tx que revierte deja como mucho `maxTx` XRP en juego). No limita
+ * lo que sale — solo el tamaño del pago XRP que transporta la operación, y el
+ * carrier mínimo (~0,35 XRP) cabe siempre bajo cualquier tope viable.
+ *
+ * CONTABILIDAD DIARIA de un carrier de salida — decisión:
+ *   · El prepare NO lo lee ni lo reserva: jamás puede rechazarlo, y un prepare de
+ *     salida sin firmar no le quita cupo de ENTRADA al holder.
+ *   · Si se EJECUTA, el executor lo confirma igual que cualquier mint
+ *     (`confirmDailySpendXrp`, re-aserción): el presupuesto FLR se gastó de
+ *     verdad y el contador lo refleja con honestidad. Efecto: una salida
+ *     ejecutada puede reducir el cupo de ENTRADAS de ese día; nunca el de salidas.
+ * El guard global de combustible del executor (§3) sigue aplicando en la ruta —
+ * sin executor no hay transporte — pero con su propio mensaje: el capital no se
+ * ha movido y sigue donde está.
+ */
+export function checkExitCarrierCap(
+  carrierXrp: number,
+  address: string | null | undefined,
+): DemoCapError | null {
+  if (isDemoCapExempt(address)) return null;
+  if (!(carrierXrp > 0)) return null; // carrier validity is the route's job
+  const maxTx = getDemoMaxXrpPerTx();
+  if (carrierXrp <= maxTx) return null;
+  return {
+    status: 400,
+    body: {
+      error: 'DEMO_TX_CAP_EXCEEDED',
+      detail:
+        `La salida en sí no tiene límite: lo que sale de tu posición no se capa ni se bloquea. ` +
+        `Lo único limitado es el tamaño del carrier del 0xFE (el pago XRP que transporta la operación ` +
+        `y que mintea de verdad): máximo ${maxTx} XRP por transacción durante la fase abierta, mientras ` +
+        `el contrato no está auditado. Vuelve a prepararla con un carrier (amountXrpForMint) de como mucho ` +
+        `${maxTx} XRP — las comisiones de red son fijas (~0,3 XRP), así que un carrier pequeño basta.`,
+    },
+  };
+}
+
+/**
  * Enforce the cap for one prepare. Returns a DemoCapError to hand to the client, or null
  * when allowed. Exempt addresses bypass both layers. The per-tx cap is enforced
  * synchronously first (never depends on the DB). The daily layer is persisted (§1).
  * `amountXrpEquiv` is the XRP that reaches the Core Vault (FXRP tracks XRP 1:1).
+ *
+ * ENTRIES only. An exit's carrier goes through `checkExitCarrierCap` (per-tx only).
  */
 export async function checkDemoCap(
   amountXrpEquiv: number,
@@ -270,7 +350,25 @@ export async function checkDemoCap(
   const day = todayUTC();
   const capKey = `${addr}:${day}`;
   const maxDay = getDemoMaxXrpPerAddressPerDay();
-  const entries = await readDailyEntries(capKey);
+  let entries: DailySpendEntry[];
+  try {
+    entries = await readDailyEntries(capKey);
+  } catch (e) {
+    if (!(e instanceof DailySpendUnreadable)) throw e;
+    // it. 29 — ENTRADAS solamente (las salidas nunca pasan por aquí): sin la
+    // lectura no hay cupo que conceder ni que negar. No se reserva nada y no
+    // se afirma nada sobre lo gastado; se reintenta.
+    console.error(`[demoCap] ${e.message}`);
+    return {
+      status: 503,
+      body: {
+        error: 'DEMO_CAP_UNREADABLE',
+        detail:
+          'No hemos podido leer el gasto de hoy de esta dirección (la base de datos no ha contestado), y sin esa ' +
+          'lectura no concedemos cupo a ciegas. No se ha preparado ni firmado nada. Inténtalo de nuevo en un momento.',
+      },
+    };
+  }
   const spent = liveSpendXrp(entries, now);
   if (spent + amountXrpEquiv > maxDay) {
     return {
@@ -297,10 +395,15 @@ export async function checkDemoCap(
  * middleware lets them through untouched. `userId` is the AUTHENTICATED caller (the
  * flare-demo router mounts behind requireSiweAuth): an account on
  * DEMO_CAP_EXEMPT_EMAILS bypasses both cap layers whichever wallet it pays from.
+ *
+ * `opts.exit` (the route is an EXIT — config/demoCapRoutes.ts EXIT_PREPARE_ROUTES): the
+ * amount found is the exit's 0xFE CARRIER, checked against the per-tx cap ONLY — never
+ * refused by, nor reserved against, the per-address daily budget (see checkExitCarrierCap).
  */
 export async function demoCapFromBody(
   body: unknown,
   userId?: string | null,
+  opts: { exit?: boolean } = {},
 ): Promise<DemoCapError | null> {
   const b = (body ?? {}) as Record<string, unknown>;
   const raw = b.amountXrpForMint ?? b.amountXrp ?? b.amountFxrp;
@@ -312,6 +415,7 @@ export async function demoCapFromBody(
     (typeof b.xrplAddress === 'string' && b.xrplAddress) ||
     (typeof b.evmAddress === 'string' && b.evmAddress) ||
     null;
+  if (opts.exit) return checkExitCarrierCap(amt, addr as string | null);
   return checkDemoCap(amt, addr as string | null);
 }
 
@@ -406,5 +510,27 @@ export function assertDemoCapSane(logger?: { warn: (m: string) => void; log?: (m
     (logger?.warn ?? ((m: string) => console.warn(m)))(msg);
     return msg;
   }
+  // THE EXIT IS NEVER GATED — but the per-tx cap is physics that applies to the
+  // 0xFE carrier too. An exit (pa-unmint, pa-withdraw-transfer, vault-withdraw,
+  // vault-claim, pa-repay…) rides a carrier that must cover minting + executor
+  // fees plus a margin; below ZEROXFE_CARRIER_FLOOR_XRP every one of them is
+  // refused with DEMO_TX_CAP_EXCEEDED. Between 0.30 and 0.35 the check above is
+  // silent, so the exits die silently: say it at boot.
+  if (maxTx < ZEROXFE_CARRIER_FLOOR_XRP) {
+    const msg =
+      `[demoCap] DEMO_MAX_XRP_PER_TX=${maxTx} < ${ZEROXFE_CARRIER_FLOOR_XRP} XRP (minimum 0xFE carrier: ` +
+      `minting + executor fees + margin, see GET /api/flare-demo/carrier): every 0xFE EXIT needs a carrier ` +
+      `above the fees and would be refused by the per-tx cap — holders could not take their capital out. ` +
+      `Raise DEMO_MAX_XRP_PER_TX to at least ${ZEROXFE_CARRIER_FLOOR_XRP}.`;
+    (logger?.warn ?? ((m: string) => console.warn(m)))(msg);
+    return msg;
+  }
   return null;
 }
+
+/**
+ * Minimum viable 0xFE carrier (XRP): the verified-working floor the carrier
+ * endpoint never goes below (flareDemo GET /carrier, FLOOR_UBA = 350_000). An
+ * exit's carrier must be ≥ this, so a per-tx cap below it blocks every 0xFE exit.
+ */
+export const ZEROXFE_CARRIER_FLOOR_XRP = 0.35;

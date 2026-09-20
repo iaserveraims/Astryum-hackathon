@@ -15,6 +15,14 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
+import {
+  isSessionRevoked,
+  isTransactionBusy,
+  respondBusyRetry,
+  respondSessionRevoked,
+  withLiveSession,
+  type LiveSessionRef,
+} from '../services/identity/liveSession';
 
 const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 
@@ -27,6 +35,11 @@ function requireUserId(req: Request, res: Response): string | null {
     return null;
   }
   return userId;
+}
+
+/** The session the write must still be able to prove (identity/liveSession). */
+function sessionRef(req: Request): LiveSessionRef | undefined {
+  return req.siwe as LiveSessionRef | undefined;
 }
 
 const selectFields = {
@@ -69,13 +82,28 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (!XRPL_ADDRESS_RE.test(address)) {
     return res.status(400).json({ error: 'INVALID_XRPL_ADDRESS' });
   }
-  const account = await prisma.governedAccount.upsert({
-    where: { userId_ecosystem_address: { userId, ecosystem, address } },
-    create: { userId, ecosystem, address, label: label ?? null },
-    update: { removedAt: null, ...(label !== undefined ? { label } : {}) },
-    select: selectFields,
-  });
-  return res.status(201).json({ account });
+  // Live-session check INSIDE the write (productizer it. 16, 4.1). A pointer is
+  // what the authority switcher reads to decide which councils this account
+  // governs; a request already in flight when the account is taken over would
+  // otherwise plant the previous holder's council on the owner's switcher, dated
+  // after the handover and indistinguishable from one they added themselves.
+  try {
+    const account = await withLiveSession(sessionRef(req), (tx) =>
+      tx.governedAccount.upsert({
+        where: { userId_ecosystem_address: { userId, ecosystem, address } },
+        create: { userId, ecosystem, address, label: label ?? null },
+        update: { removedAt: null, ...(label !== undefined ? { label } : {}) },
+        select: selectFields,
+      }),
+    );
+    return res.status(201).json({ account });
+  } catch (err) {
+    if (isSessionRevoked(err)) return respondSessionRevoked(res);
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) return respondBusyRetry(res);
+    throw err;
+  }
 }));
 
 // PATCH /:id — rename the pointer's label.

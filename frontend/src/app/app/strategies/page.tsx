@@ -19,7 +19,7 @@
  * modal: Astryum never signs, never executes.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -36,11 +36,19 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { PageHeader, Card, MicroLabel, Pill, GhostButton, PrimaryButton } from '../../../components/ui/primitives';
+import { PageHeader, Card, MicroLabel, Pill, GhostButton, PrimaryButton, SegmentedControl } from '../../../components/ui/primitives';
+import ManagedShelf from '../../../components/managed/ManagedShelf';
+import {
+  capitalSectionLabel,
+  isCapitalTab,
+  type CapitalTab,
+} from '../../../lib/nav/capitalSection';
 import { formatMoney } from '../../../lib/formatMoney';
-import { RevealGroup, RevealItem } from '../../../components/ui/motion';
+import { Arrive, RevealGroup, RevealItem } from '../../../components/ui/motion';
 import { OrbitDial } from '../../../components/ui/charts';
 import { MoonScene } from '../../../components/earn/icons';
+import { RegisterMark } from '../../../components/ui/skin/marks';
+import { useEngraved } from '../../../stores/themeStore';
 import DefiPositionsBoard, { type BoardAutoAction } from '../../../components/positions/DefiPositionsBoard';
 import MoneyFlowsPanel from '../../../components/moneyflows/MoneyFlowsPanel';
 import StrategySection from '../../../components/strategies/StrategySection';
@@ -50,7 +58,7 @@ import { hfWord } from '../../../lib/healthScore';
 import { fmtQtyActive } from '../../../lib/format';
 import { VaultWithdrawModal, type VaultPositionRef } from '../../../components/positions/VaultWithdrawModal';
 import { VaultClaimModal, type VaultClaimRef } from '../../../components/positions/VaultClaimModal';
-import { PaActionsModal, type PaHolder, type PaLegs } from '../../../components/positions/PaActionsModal';
+import { type PaHolder, type PaLegs } from '../../../components/positions/PaActionsModal';
 import { getApiBase } from '../../../lib/env';
 import { canonicalizeSymbol } from '../../../lib/canonicalizeSymbol';
 import { MyStrategyDrafts, type LaunchStrategy } from '../../../components/earn/StrategyAgent';
@@ -63,16 +71,34 @@ import {
 import { useAuthStore } from '../../../stores/authStore';
 import { getUserRegion } from '../../../lib/region';
 import { useMyWallets } from '../../../hooks/useMyWallets';
+import { useEthMorphoHealth } from '../../../lib/earn/useEthMorphoHealth';
 import { useAuthorities } from '../../../hooks/useAuthorities';
 import GovernedMoneyFlows from '../../../components/legacy/GovernedMoneyFlows';
-import CouncilVaultEntry from '../../../components/legacy/CouncilVaultEntry';
+import ScheduledPaymentCard from '../../../components/moneyflows/ScheduledPaymentCard';
 import { useXrplWalletPartner } from '../../../lib/wallet/useXrplWalletPartner';
+import { applyXrplSignFailure, confirmOnLedger } from '../../../lib/xrpl/ledgerSignOutcome';
 import { invalidatePortfolioCache } from '../../../lib/portfolioMerge';
 import { useAggregatedPortfolio } from '../../../hooks/useAggregatedPortfolio';
 import { profileIdentity } from '../../../lib/profileStore';
 import { listDrafts, type StrategyDraft } from '../../../lib/strategyDrafts';
 import { useT } from '../../../i18n/LanguageProvider';
+import {
+  UNREAD,
+  isFailing,
+  loadRunHealth,
+  retainKnownRuns,
+  type RunHealth,
+  rulePillState,
+  RULE_PILL_TONE,
+  type RulePillState,
+} from '../../../lib/rules/runHealth';
 import { ModalOverlay } from '@/components/ui/ModalPortal';
+// LA tarjeta compartida de protección — la misma que montan el board y Earn.
+// Una sola fábrica de reglas: si cada puerta creara la suya, dos protecciones
+// con el mismo nombre podrían vigilar cosas distintas.
+import { ProtectRuleCard } from '../../../components/moneyflows/ProtectRuleCard';
+import { walletNameResolver } from '../../../lib/walletIdentity';
+import { useOperationStore } from '../../../stores/operationStore';
 
 const API_BASE = getApiBase();
 
@@ -173,12 +199,247 @@ function Reading({ label, children }: { label: string; children: React.ReactNode
  * differed from the wagmi-connected one, or the account held more than one
  * wallet. Same source everywhere ⇒ the same number everywhere.
  */
+/**
+ * ProtectionsHealth — LA superficie honesta de las protecciones de esta
+ * pantalla, y la razón por la que esconder MoneyFlows no deja un agujero.
+ *
+ * El apartado de MoneyFlows era donde una regla que revienta en CADA disparo
+ * lo decía (G4, auditoría 2026-08-17). Al esconderlo —y con el panel embebido
+ * del tablero apagado aquí desde el split de 2026-07-20— esta página se
+ * quedaba SIN ningún sitio donde una protección rota se delatara… justo
+ * mientras estrena un botón para crear protecciones. Crear una vigilancia y no
+ * tener dónde ver que no funciona es peor que no ofrecerla.
+ *
+ * Así que la salud de las reglas sube AQUÍ, pegada al health factor que las
+ * justifica, en dos líneas en vez de un catálogo: cuántas vigilan, y cuáles
+ * fallaron su último disparo con su porqué. Reparte por el MISMO reductor
+ * compartido (rulePillState) que las otras superficies — «no lo sé» jamás se
+ * pinta como «va bien».
+ */
+function ProtectionsHealth() {
+  const { t } = useT();
+  const { wallets } = useMyWallets();
+  const key = wallets.map((w) => w.address).join(',');
+  const [rows, setRows] = useState<AutomationRule[]>([]);
+  const [health, setHealth] = useState<Record<string, RunHealth>>({});
+  const seq = useRef(0);
+
+  useEffect(() => {
+    const addrs = wallets.map((w) => w.address);
+    if (addrs.length === 0) {
+      setRows([]);
+      return;
+    }
+    const mine = ++seq.current;
+    void (async () => {
+      const results = await Promise.allSettled(addrs.map((a) => rulesApi.list(a)));
+      const collected: AutomationRule[] = [];
+      for (const r of results) {
+        if (r.status !== 'fulfilled') continue;
+        collected.push(...(r.value.rules ?? []));
+      }
+      // Las de ahorro tienen su propio apartado más abajo; aquí van las
+      // automatizaciones que vigilan una posición.
+      const flows = [...new Map(collected.map((r) => [r.id, r])).values()].filter(
+        (r) => (r.action as { kind?: string })?.kind !== 'escrow',
+      );
+      if (mine !== seq.current) return;
+      setRows(flows);
+      const ids = flows.map((r) => r.id);
+      setHealth((prev) => retainKnownRuns(prev, ids));
+      const read = await loadRunHealth(ids, (id) => rulesApi.runs(id));
+      if (mine !== seq.current) return;
+      setHealth(read);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const armed = rows.filter((r) => r.enabled !== false);
+  if (armed.length === 0) return null;
+  const broken = armed.filter((r) => isFailing(health[r.id] ?? UNREAD));
+
+  return (
+    <Arrive>
+    <Card padded={false} className="p-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <MicroLabel>{t('Protections')}</MicroLabel>
+        <span className="font-mono text-[13px] text-ink/85">{armed.length}</span>
+        <span className="text-[12px] text-ink/45">{t('watching your positions')}</span>
+        {/* El estado del CONJUNTO, por el mismo reductor compartido: la
+            píldora dice «active» solo cuando la lectura lo respalda; mientras
+            no se haya leído dice que no se ha leído, nunca verde. */}
+        {broken.length === 0 && (() => {
+          const worst = armed.reduce<RulePillState>((acc, r) => {
+            const st = rulePillState(true, health[r.id] ?? UNREAD);
+            return acc === 'active' ? st : acc;
+          }, 'active');
+          return <Pill tone={RULE_PILL_TONE[worst]}>{t(worst)}</Pill>;
+        })()}
+        {broken.length > 0 && <Pill tone="danger">{t('failing')} · {broken.length}</Pill>}
+      </div>
+      {broken.length > 0 && (
+        <ul className="mt-3 space-y-1.5 border-t border-ink/5 pt-3">
+          {broken.map((r) => (
+            <li key={r.id} className="text-[12px] leading-snug text-tone-danger/90">
+              {r.name || r.id}
+              <span className="text-ink/45">
+                {' — '}
+                {(() => {
+                  const h = health[r.id];
+                  return h && h.state === 'failed' && h.note ? h.note : t('the engine recorded no reason');
+                })()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+    </Arrive>
+  );
+}
+
+/**
+ * ProtectDialog — la puerta de PROTEGER, abierta desde el health factor
+ * (fundador 2026-08-24: «añade un botón donde el health factor, que tenga
+ * cierta gracia, que sirva para proteger una posición… auto payment functions
+ * y demás estrategias de protección que ya están creadas»).
+ *
+ * No inventa ninguna protección: monta la MISMA tarjeta que ya crean todos los
+ * caminos (ProtectRuleCard — escalera de HF, repago por % de la deuda VIVA o
+ * importe fijo). Lo único que aporta es el sitio: hasta hoy esa tarjeta vivía
+ * dentro del panel de estrategias de cada fila, apagado en esta pantalla, así
+ * que la protección estaba a tres clics de la cifra que te dice que la
+ * necesitas.
+ *
+ * Elegir posición cuando hay varias deudas: se pregunta, no se adivina. Poner
+ * una regla sobre la posición equivocada es peor que no ponerla, porque te deja
+ * creyendo que estás cubierto.
+ */
+function ProtectDialog({
+  debts,
+  onClose,
+  onCreated,
+}: {
+  debts: { protocolId: string; asset: string; wallet: string; usd: number }[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const { t } = useT();
+  const [picked, setPicked] = useState<number | null>(debts.length === 1 ? 0 : null);
+  const target = picked != null ? debts[picked] : null;
+  return (
+    <ModalOverlay
+      onEscape={onClose}
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+    >
+      <div className="my-auto flex max-h-[min(90dvh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-ink/5 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl border border-tone-success/30 bg-tone-success/10 text-tone-success">
+              <ShieldCheck className="h-5 w-5" strokeWidth={1.7} />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-ink">{t('Protect this position')}</h2>
+              <p className="mt-0.5 text-xs text-ink/45">
+                {t('A watch that repays for you before liquidation — you sign every move.')}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-ink/40 transition-colors hover:text-ink" aria-label={t('Close')}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          {target ? (
+            <>
+              {debts.length > 1 && (
+                <button
+                  onClick={() => setPicked(null)}
+                  className="inline-flex items-center gap-1.5 text-[12px] text-ink/45 transition-colors hover:text-ink"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> {t('Choose another position')}
+                </button>
+              )}
+              <ProtectRuleCard
+                walletAddress={target.wallet}
+                protocolId={target.protocolId}
+                assetLabel={target.asset}
+                onCreated={() => {
+                  onCreated();
+                  onClose();
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] leading-relaxed text-ink/60">
+                {t('Which position do you want to watch?')}
+              </p>
+              <div className="space-y-2">
+                {debts.map((d, i) => (
+                  <button
+                    key={`${d.protocolId}:${d.asset}:${d.wallet}`}
+                    onClick={() => setPicked(i)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-3.5 py-3 text-left transition-colors hover:border-tone-success/30 hover:bg-tone-success/[0.06]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] text-ink/85 capitalize">{d.protocolId}</span>
+                      <span className="block text-[11px] text-ink/45">{d.asset}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[13px] text-ink/75">{formatMoney(d.usd)}</span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-ink/30" />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
+
 function HealthStrip() {
   const { t } = useT();
   const address = useAuthStore((s) => s.user?.address);
   // Shared reactive store — instant on navigation, refreshes invisibly.
   const { data, loading, error: err } = useAggregatedPortfolio();
   const snap = data?.risk ?? null;
+  // El snapshot agregado NO tiene adapter para morpho-blue: con una deuda viva
+  // en Ethereum llegaba `healthFactor: null` y la rama de abajo declaraba «sin
+  // riesgo de liquidación». El carril se lee por su propia puerta y entra aquí.
+  const { wallets: myWallets } = useMyWallets();
+  const emAddrs = useMemo(
+    () => {
+      const out = new Set<string>();
+      if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) out.add(address);
+      for (const w of myWallets ?? []) {
+        if (/^0x[a-fA-F0-9]{40}$/.test(w.address ?? '')) out.add(w.address);
+      }
+      return [...out];
+    },
+    [address, myWallets],
+  );
+  const em = useEthMorphoHealth(emAddrs);
+  const [protectOpen, setProtectOpen] = useState(false);
+
+  /** Las posiciones con deuda ABIERTA, del mismo agregado que ya se lee arriba
+   *  — son las únicas que una protección puede vigilar. Sin deuda no hay nada
+   *  que proteger, y el botón no aparece: ofrecer una puerta que no lleva a
+   *  ningún sitio es peor que no ofrecerla. */
+  const debts = useMemo(() => {
+    const out: { protocolId: string; asset: string; wallet: string; usd: number }[] = [];
+    for (const pos of data?.snap?.positions ?? []) {
+      const kind = String(pos.kind ?? '').toLowerCase();
+      if (kind !== 'debt' && kind !== 'borrow') continue;
+      const usd = Math.abs(typeof pos.amountUSD === 'number' ? pos.amountUSD : 0);
+      if (usd <= 0.01) continue;
+      const wallet = typeof pos.wallet === 'string' ? pos.wallet : data?.snap?.wallet;
+      if (!wallet || wallet === 'all') continue;
+      out.push({ protocolId: pos.protocolId, asset: String(pos.asset ?? ''), wallet, usd });
+    }
+    return out.sort((a, b) => b.usd - a.usd);
+  }, [data]);
 
   if (!address) {
     // Quiet inline note — an empty banner card would outrank the real content.
@@ -211,36 +472,88 @@ function HealthStrip() {
       </Card>
     );
   }
-  const hf = snap?.healthFactor;
-  if (!snap || hf == null) {
+  // El peor de los dos mundos manda: la cartera agregada (Flare) y el carril de
+  // Ethereum. Nunca el más bonito.
+  const snapHf = snap?.healthFactor ?? null;
+  const hf =
+    snapHf != null && em.healthFactor != null ? Math.min(snapHf, em.healthFactor)
+      : snapHf != null ? snapHf
+      : em.healthFactor;
+
+  if (hf == null) {
+    // Sin número no se afirma nada. Se dice qué se ha mirado y qué no: decir
+    // «no tienes riesgo» sobre una lectura que falló hace que dejes de mirar,
+    // y eso es peor que un error, porque el error se reintenta.
+    //
+    // `em.loading` cuenta como «no lo sé» y no como «no hay»: en el primer
+    // pintado la lectura de Ethereum sigue EN VUELO, y sin esta condición la
+    // tira afirmaba «sin riesgo de liquidación» durante ese hueco — con la
+    // deuda ahí, solo que aún sin leer. Es la afirmación absoluta la que no
+    // puede salir; una frase honesta mientras carga, sí.
     return (
       <Card className="p-4">
         <p className="text-sm text-ink/60">
-          {t('No debt to watch — your active strategies have no liquidation risk.')}
+          {em.loading
+            ? t('No debt to watch on the chains we could read — still reading Ethereum…')
+            : em.unknown
+            ? t("No debt to watch on the chains we could read — but one position couldn't be read just now, so this isn't the full picture.")
+            : t('No debt to watch — your active strategies have no liquidation risk.')}
         </p>
       </Card>
     );
   }
 
   const w = healthWord(hf, t);
+  /** El HF que se enseña viene del snapshot ⇒ sus detalles acompañan. */
+  const showsSnapDetail = snapHf != null && hf === snapHf;
   // Price drop to HF=1: at liquidation price_liq = price_now / HF ⇒ drop = (1 − 1/HF).
   const dropPct = Math.max(0, (1 - 1 / hf) * 100);
   // The protection buffer as an orbit: how far your capital sits from liquidation.
   const buffer = Math.min(100, Math.round(dropPct));
 
   return (
+    /* La tarjeta LLEGA cuando el dato sustituye al esqueleto (2026-08-25). */
+    <Arrive>
     <Card spotlight padded={false} className="relative overflow-hidden">
+      {protectOpen && (
+        <ProtectDialog
+          debts={debts}
+          onClose={() => setProtectOpen(false)}
+          onCreated={() => invalidatePortfolioCache()}
+        />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center gap-6 p-5 md:p-6">
         <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2">
-            <ShieldCheck className={`w-4 h-4 mt-0.5 shrink-0 ${w.tone}`} strokeWidth={1.6} />
-            <p className="text-sm text-ink/85 leading-relaxed">
-              {t('Your position is')} <span className={`font-medium ${w.tone}`}>{w.label}</span> —{' '}
-              {t("you're protected if the price falls about")}{' '}
-              <span className="font-medium font-mono">{dropPct.toFixed(0)}%</span>.
-            </p>
+          {/* EL VEREDICTO, a tamaño de veredicto (2026-08-24). Era una frase de
+              14px con un icono al lado; ahora la palabra que resume tu riesgo
+              se lee primero y el resto la explica. El escudo LATE mientras haya
+              deuda viva: hay algo que vigilar y la pantalla lo dice sin
+              escribir una palabra más. */}
+          <div className="flex items-center gap-3">
+            <span
+              className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${w.tone} ${
+                debts.length > 0 ? 'live-beat' : ''
+              }`}
+              style={{ borderColor: 'currentColor', background: 'color-mix(in srgb, currentColor 12%, transparent)' }}
+            >
+              <ShieldCheck className="relative h-[18px] w-[18px]" strokeWidth={1.7} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
+                {t('Your position is')}
+              </div>
+              <div className={`text-[19px] font-semibold leading-tight tracking-tight ${w.tone}`}>{w.label}</div>
+            </div>
           </div>
-          {snap.liquidationPriceUSD != null && (
+          <p className="mt-3 text-sm leading-relaxed text-ink/70">
+            {t("you're protected if the price falls about")}{' '}
+            <span className="font-mono font-medium text-ink/90">{dropPct.toFixed(0)}%</span>.
+          </p>
+          {/* Estas tres lecturas son del snapshot de cartera. Solo se enseñan
+              cuando el HF que manda ES el suyo: colgar el precio de liquidación
+              de Flare debajo de un HF que viene de Ethereum sería mezclar dos
+              posiciones distintas en la misma frase. */}
+          {showsSnapDetail && snap?.liquidationPriceUSD != null && (
             <p className="text-xs text-ink/55 mt-1.5 ml-6">
               {t('If the price touches')}{' '}
               <span className="font-mono text-ink/80">${snap.liquidationPriceUSD.toFixed(4)}</span>,{' '}
@@ -253,17 +566,42 @@ function HealthStrip() {
             <Reading label={t('Health Factor')}>
               <span className={`font-mono ${w.tone}`}>{hf.toFixed(2)}</span>
             </Reading>
-            {snap.ltv != null && (
+            {showsSnapDetail && snap?.ltv != null && (
               <Reading label="LTV">
                 <span className="font-mono text-ink/85">{(snap.ltv * 100).toFixed(1)}%</span>
               </Reading>
             )}
-            {snap.liquidationDistanceUSD != null && (
+            {showsSnapDetail && snap?.liquidationDistanceUSD != null && (
               <Reading label={t('Distance')}>
                 <span className="font-mono text-ink/85">${snap.liquidationDistanceUSD.toFixed(0)}</span>
               </Reading>
             )}
           </div>
+
+          {/* LA PUERTA DE PROTEGER, pegada a la cifra que la justifica
+              (fundador 2026-08-24). Sale solo cuando hay deuda que vigilar: sin
+              posición abierta no protege nada, y una puerta que no lleva a
+              ningún sitio es peor que ninguna puerta. Lo que abre es la MISMA
+              tarjeta que crea el resto de la app — escalera de HF y repago por
+              porcentaje de la deuda viva — así que ninguna protección nace de
+              una fábrica distinta. */}
+          {debts.length > 0 && (
+            <button
+              onClick={() => setProtectOpen(true)}
+              className="group mt-5 inline-flex items-center gap-2 overflow-hidden rounded-xl border border-tone-success/35 bg-tone-success/[0.08] px-4 py-2.5 text-[13px] font-medium text-tone-success transition-colors hover:bg-tone-success/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tone-success/40"
+            >
+              <ShieldCheck className="h-4 w-4 transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-110" strokeWidth={1.8} />
+              {t('Protect this position')}
+              <ArrowRight className="h-3.5 w-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+            </button>
+          )}
+          {(em.unknown || em.loading) && (
+            <p className="text-xs text-tone-warning mt-3">
+              {em.loading
+                ? t('Still reading Ethereum — this reading may not be your worst yet.')
+                : t("One position couldn't be read just now — this reading may not be your worst.")}
+            </p>
+          )}
           <p className="text-[11px] text-ink/35 pt-3 mt-4 border-t border-ink/5">
             {t('Net P&L per strategy appears once your position accumulates history.')}
           </p>
@@ -279,6 +617,7 @@ function HealthStrip() {
         </div>
       </div>
     </Card>
+    </Arrive>
   );
 }
 
@@ -293,17 +632,38 @@ function useSavingsStrategies() {
   const { address } = useXrplWalletPartner();
   const [escrows, setEscrows] = useState<XrplEscrowRow[]>([]);
   const [rules, setRules] = useState<AutomationRule[]>([]);
+  // G4-strategies — last run per rule id, READ from GET /rules/:id/runs.
+  // `ActiveSavings` below used to pin a green «active» pill on every enabled
+  // rule; the verdict now travels with the rules so it cannot. Every rule gets
+  // an entry, INCLUDING the ones whose read failed: an absent entry is
+  // indistinguishable from "healthy". The seq guard drops the answer of a
+  // superseded refresh, and we never wipe the map (that flashed a rule already
+  // known to be failing back to green once per refresh).
+  const [runHealth, setRunHealth] = useState<Record<string, RunHealth>>({});
+  const runsSeq = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!address) {
       setEscrows([]);
       setRules([]);
+      setRunHealth({});
       return;
     }
     const [esc, rl] = await Promise.allSettled([xrplSavings.escrows(address), rulesApi.list(address)]);
     if (esc.status === 'fulfilled') setEscrows(esc.value.escrows);
     if (rl.status === 'fulfilled') {
-      setRules(rl.value.rules.filter((r) => (r.action as { kind?: string })?.kind === 'escrow'));
+      const rows = rl.value.rules.filter((r) => (r.action as { kind?: string })?.kind === 'escrow');
+      setRules(rows);
+      // Read AFTER the rows are on screen (fire and forget): a slow /runs must
+      // never delay the list. One read per mount/refresh, never a poll.
+      const ruleIds = rows.map((r) => r.id);
+      const seq = ++runsSeq.current;
+      setRunHealth((prev) => retainKnownRuns(prev, ruleIds));
+      void (async () => {
+        const health = await loadRunHealth(ruleIds, (id) => rulesApi.runs(id));
+        if (seq !== runsSeq.current) return;
+        setRunHealth(health);
+      })();
     }
   }, [address]);
 
@@ -311,7 +671,7 @@ function useSavingsStrategies() {
     void refresh();
   }, [refresh]);
 
-  return { escrows, rules, refresh };
+  return { escrows, rules, runHealth, refresh };
 }
 
 /**
@@ -319,17 +679,25 @@ function useSavingsStrategies() {
  * FinishAfter (same flow as Movements): prepare unsigned → the user signs in
  * Xaman. Available both from the hub preview and inside Running · Online.
  */
+/** `busyId` while a release is unconfirmed: disables every Withdraw, spins none. */
+const UNCONFIRMED_RELEASE = '__unconfirmed-release__';
+
 function useEscrowRelease(onDone: () => void) {
   const { t } = useT();
   const { address, sendIntent } = useXrplWalletPartner();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  // A release that went to Xaman and whose ending we could not read: it may
+  // already be on the ledger, so no Withdraw is offered again on this page
+  // (until it reloads) and the warning line says why, with the hash to check.
+  const [unconfirmed, setUnconfirmed] = useState<{ txHash?: string; trace: string | null } | null>(null);
 
   const release = useCallback(
     async (row: XrplEscrowRow) => {
-      if (!address || !row.owner || !row.previousTxnID) return;
+      if (!address || !row.owner || !row.previousTxnID || unconfirmed) return;
       setBusyId(row.previousTxnID);
       setError('');
+      let handedToPartner = false;
       try {
         const h = await xrplSavings.prepareFinish({
           account: address,
@@ -337,20 +705,41 @@ function useEscrowRelease(onDone: () => void) {
           previousTxnID: row.previousTxnID,
           region: getUserRegion() ?? undefined,
         });
-        await sendIntent({ tx: h.xrplTx as never });
+        handedToPartner = true;
+        const { txHash } = await sendIntent({ tx: h.xrplTx as never });
+        // «Signed» is Xaman's word: onDone only after a validated tesSUCCESS.
+        await confirmOnLedger(txHash);
         onDone();
       } catch (err) {
-        // Finish is permissionless — someone may have released it first; the
-        // XRP always ends at its destination either way.
-        setError((err as Error)?.message ?? t('Something went wrong.'));
+        if (!handedToPartner) {
+          // The prepare refused: nothing reached Xaman.
+          setError((err as Error)?.message ?? t('Something went wrong.'));
+          return;
+        }
+        const action = applyXrplSignFailure(err, handedToPartner, t, {
+          setError,
+          setUnconfirmed,
+          setPhase: () => {},
+        });
+        if (action.view === 'form') {
+          // Validated with a failure — Finish is permissionless, someone may
+          // have released it first; the XRP always ends at its destination.
+          setError(`${action.message} — ${t('it may already have been released (anyone can, after the unlock date); the XRP always ends at its destination.')}`);
+        } else if (action.view === 'unconfirmed') {
+          setError(
+            `${t('The transaction went to Xaman and we could not confirm how it ended. Do NOT sign it again — it may already be on the ledger. Check the hash and your account history first.')}${action.txHash ? ` ${action.txHash}` : ''}`,
+          );
+          // Re-read: if it did validate, the escrow leaves the list by itself.
+          onDone();
+        }
       } finally {
         setBusyId(null);
       }
     },
-    [address, sendIntent, onDone, t],
+    [address, unconfirmed, sendIntent, onDone, t],
   );
 
-  return { release, busyId, error };
+  return { release, busyId: busyId ?? (unconfirmed ? UNCONFIRMED_RELEASE : null), error };
 }
 
 /** Active savings inside Funcionando · Online — locked escrows + enabled rules.
@@ -358,24 +747,38 @@ function useEscrowRelease(onDone: () => void) {
 function ActiveSavings({
   escrows,
   rules,
+  runHealth,
   onRelease,
   releasingId,
   releaseError,
 }: {
   escrows: XrplEscrowRow[];
   rules: AutomationRule[];
+  /**
+   * G4-strategies — the verdict of each rule's LAST fire, read from
+   * GET /rules/:id/runs. WHAT WAS FAILING IN SILENCE: this card pinned
+   * `<Pill tone="success">{t('active')}</Pill>` and a live-coloured bolt on
+   * EVERY enabled rule, with no reading of what its fires produced. An escrow
+   * rule that errors on every fire keeps `enabled: true`, gets no push and
+   * never increments `totalTimesTriggered` (the "exito no ganado" guard), so
+   * it sat here in green under the heading «Active savings» — on the very
+   * page dedicated to strategies.
+   */
+  runHealth: Record<string, RunHealth>;
   onRelease: (row: XrplEscrowRow) => void;
   releasingId: string | null;
   releaseError: string;
 }) {
   const { t } = useT();
   const router = useRouter();
+  // En la lámina, el registro reglado: lo que quedó apartado está ASENTADO.
+  const engraved = useEngraved();
   if (escrows.length === 0 && rules.length === 0) return null;
   return (
     <Card spotlight padded={false} className="relative overflow-hidden">
       {/* capital resting in shadow until its unlock date — the Movements moon */}
       <div className="pointer-events-none absolute -right-5 -top-7 hidden sm:block opacity-[0.22]">
-        <MoonScene size={150} />
+        {engraved ? <RegisterMark size={150} /> : <MoonScene size={150} />}
       </div>
       <div className="relative z-[1] p-5 space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -415,15 +818,61 @@ function ActiveSavings({
             </span>
           </li>
         ))}
-        {rules.map((rule) => (
-          <li key={rule.id} className="flex flex-wrap items-center gap-3 py-2.5">
-            <Zap size={14} className="text-volt" />
-            <span className="text-sm font-medium min-w-0 truncate">{rule.name}</span>
-            <span className="ml-auto">
-              <Pill tone="success">{t('active')}</Pill>
-            </span>
-          </li>
-        ))}
+        {rules.map((rule) => {
+          // G4-strategies — an enabled rule whose LAST fire errored is not
+          // «active»: it is armed and reminding nobody.
+          const health = runHealth[rule.id] ?? UNREAD;
+          const failing = isFailing(health);
+          // G4 — la séptima superficie. Las otras seis ya reparten por
+          // `rulePillState`; esta se quedó con `isFailing`, que es FALSO para
+          // `unread` y `unreadable` ⇒ verde «active» en el primer pintado y
+          // tras cualquier timeout de /runs. Y en la MISMA fila ya se imprimía
+          // el descargo ámbar de «no pudimos leer»: el desmentido y la mentira
+          // juntos. Verde exige ahora una lista de disparos leída de verdad.
+          const pill = rulePillState(rule.enabled !== false, health);
+          return (
+            <li key={rule.id} className="flex flex-wrap items-center gap-3 py-2.5">
+              <Zap
+                size={14}
+                className={
+                  pill === 'failing'
+                    ? 'text-tone-danger'
+                    : pill === 'unreadable'
+                      ? 'text-tone-warning'
+                      : pill === 'active'
+                        ? 'text-volt'
+                        : 'text-ink/40'
+                }
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium truncate">{rule.name}</span>
+                {health.state === 'failed' && (
+                  <span className="block text-[11px] text-tone-danger">
+                    {t('Its last run FAILED — this rule is armed but it produced nothing to sign.')}
+                  </span>
+                )}
+                {health.state === 'unreadable' && (
+                  <span className="block text-[11px] text-tone-warning" title={health.detail}>
+                    {t('Could not read this rule’s run history — we cannot tell you whether its last fire worked.')}
+                  </span>
+                )}
+              </span>
+              <span className="ml-auto">
+                <Pill tone={RULE_PILL_TONE[pill]}>
+                  {pill === 'paused'
+                    ? t('paused')
+                    : pill === 'failing'
+                      ? t('failing')
+                      : pill === 'unreadable'
+                        ? t('unknown')
+                        : pill === 'unread'
+                          ? t('checking…')
+                          : t('active')}
+                </Pill>
+              </span>
+            </li>
+          );
+        })}
       </ul>
       {releaseError && <p className="text-xs text-tone-warning">{releaseError}</p>}
       <p className="text-[11px] text-ink/35">
@@ -494,6 +943,20 @@ function PausedSavings({
 /* PAGE                                                                */
 /* ------------------------------------------------------------------ */
 
+// TWO switches, and only ONE of them is on screen (both 2026-08-24, from two
+// different edits that landed the same day — read them together):
+//   · CapitalTab (outer, VISIBLE) — WHAT KIND of thing: run by you, or run by
+//     a manager. Lives in lib/nav/capitalSection.ts because the nav reads it
+//     too. Uses SegmentedControl, the canonical selected-state language.
+//   · ShelfView  (inner, HIDDEN)  — the STATE of your own things: running or
+//     saved. Its buttons were retired when MoneyFlows left the page (see the
+//     note at the shelves): without that apartado, "Guardadas" was the
+//     inventory of what is NOT happening, and this screen is about what IS.
+//     The state stays pinned to 'online' and the offline shelf stays mounted
+//     below — hiding is not deleting.
+// So there is no two-controls-at-two-sizes problem to solve today. If the
+// inner switch ever comes back, it must NOT look like the outer one: same
+// treatment at two levels reads as one broken control.
 type ShelfView = 'online' | 'offline';
 
 export default function StrategiesPage({
@@ -506,9 +969,25 @@ export default function StrategiesPage({
    *  deep-link into Earn (goEarn). */
   onLaunch?: LaunchStrategy;
 } = {}) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const [view, setView] = useState<ShelfView>('online');
+
+  // The outer tab. Embedded inside Earn there is no tab row at all (that embed
+  // is inert since the section got its own nav row, but the prop is preserved
+  // — nothing built gets deleted), so it stays pinned to the strategies side.
+  const [tab, setTab] = useState<CapitalTab>('strategies');
+  // ABIERTA PARA TODOS (fundador 2026-08-25). Estuvo un dia tras isAdmin, y
+  // dejo de tener sentido en cuanto la puerta de Earn se publico: un usuario
+  // podia leer como funciona una boveda con gestor y no tener donde ver la
+  // suya. Embebida dentro de Earn no hay barra (ese embed esta inerte desde
+  // que la seccion recupero su fila del menu, pero la prop se conserva).
+  // Managed vaults ya NO es una pestaña aparte (fundador 8-sep: «solo hay una
+  // sección strategies»): sus posiciones viven DENTRO de Strategies, como un
+  // apartado más. Sin conmutador → siempre la sección de strategies.
+  const showTabs = false;
+  const activeTab: CapitalTab = 'strategies';
+  void tab;
 
   const user = useAuthStore((s) => s.user);
   const identity = profileIdentity(user) ?? 'anon';
@@ -527,7 +1006,7 @@ export default function StrategiesPage({
   }, []);
 
   const groups = useStrategyGroups(groupsNonce);
-  const { escrows, rules, refresh: refreshSavings } = useSavingsStrategies();
+  const { escrows, rules, runHealth: savingsRunHealth, refresh: refreshSavings } = useSavingsStrategies();
   const activeRules = rules.filter((r) => r.enabled);
   const pausedRules = rules.filter((r) => !r.enabled);
 
@@ -540,7 +1019,7 @@ export default function StrategiesPage({
   const cageGroups = activeGoverned
     ? (groups ?? []).filter((g) => g.wallet === activeGoverned.address)
     : [];
-  const [cageModal, setCageModal] = useState<StrategyGroup | null>(null);
+  const openCageOp = useOperationStore((st) => st.openCageOp);
 
   // Hub → board deep-link: which position's action to open on entering Online.
   const [autoAction, setAutoAction] = useState<BoardAutoAction | null>(null);
@@ -551,13 +1030,12 @@ export default function StrategiesPage({
   // Withdraw works DIRECTLY from the hub: the modal opens here, over the
   // shelves. XRPL-read strategies resolve their Smart Account first.
   const { wallets: myWallets } = useMyWallets();
+  // LA regla canónica (2026-08-22) — ver WorkingStrategies: nunca la
+  // dirección como nombre de una wallet propia.
+  const walletNameOf = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);
   const aliasFor = useCallback(
-    (addr?: string) => {
-      if (!addr) return undefined;
-      const hit = myWallets.find((w) => w.address.toLowerCase() === addr.toLowerCase());
-      return hit?.label ?? `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-    },
-    [myWallets],
+    (addr?: string) => (addr ? walletNameOf(addr) : undefined),
+    [walletNameOf],
   );
   type HubModal =
     | { kind: 'vault'; ref: VaultPositionRef; holders?: VaultPositionRef[] }
@@ -565,6 +1043,7 @@ export default function StrategiesPage({
     | { kind: 'claim'; ref: VaultClaimRef }
     | { kind: 'norail'; name: string };
   const [hubModal, setHubModal] = useState<HubModal | null>(null);
+  const openPaOp = useOperationStore((st) => st.openPaOp);
   const [resolvingKey, setResolvingKey] = useState<string | null>(null);
   const [hubError, setHubError] = useState('');
 
@@ -622,11 +1101,12 @@ export default function StrategiesPage({
                 }),
             )
           ).filter((h): h is PaHolder => h !== null);
-          setHubModal({
-            kind: 'kinetic',
+          openPaOp({
             owner: holder,
             legs: kineticLegsFromGroup(g),
             holders: [{ owner: holder, legs: kineticLegsFromGroup(g) }, ...kinHolders],
+            action: 'withdraw',
+            onChanged: refreshStrategies,
           });
         } else {
           setHubModal({ kind: 'norail', name: g.name });
@@ -676,16 +1156,23 @@ export default function StrategiesPage({
     [t],
   );
 
-  // Deep-link contract: /app/strategies?view=online|offline — used by Earn's
-  // manual builder ("view it in Estrategias") and cleaned so refreshes land
-  // back on the hub.
+  // Deep-link contract: /app/strategies?tab=strategies|managed&view=online|offline
+  // — `view` picks the inner shelf (used by Earn's manual builder, "view it in
+  // Estrategias"), `tab` picks the outer one. Both are cleaned from the URL so
+  // a refresh lands where the user actually is. Two independent reads: a link
+  // that only carries `view` must not reset the tab, and vice versa.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const qs = new URLSearchParams(window.location.search);
-    const wanted = qs.get('view');
-    if (wanted !== 'online' && wanted !== 'offline') return;
-    setView(wanted);
+    const wantedView = qs.get('view');
+    const wantedTab = qs.get('tab');
+    const hasView = wantedView === 'online' || wantedView === 'offline';
+    const hasTab = isCapitalTab(wantedTab);
+    if (!hasView && !hasTab) return;
+    if (hasView) setView(wantedView);
+    if (hasTab) setTab(wantedTab);
     qs.delete('view');
+    qs.delete('tab');
     const rest = qs.toString();
     window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
   }, []);
@@ -732,14 +1219,42 @@ export default function StrategiesPage({
             row give the context, so the page header would be a double title. */}
         {!embedded && (
           <div className="flex-none">
+            {/* The title is the SECTION's name, read from lib/nav/capitalSection.ts
+                so the nav row and this header can never disagree — and so the
+                rename stays one edit. The old pair stuttered (eyebrow
+                "Strategies" over title "My strategies"); the possessive is gone
+                because no other destination has one: in a personal dashboard
+                every screen is yours, and "My" only earned its keep back when
+                this was a CARD inside Earn that had to tell itself apart from
+                the catalogue. */}
             <PageHeader
-              eyebrow={t('Strategies')}
-              title={t('My strategies')}
+              eyebrow={t('Your registry')}
+              title={capitalSectionLabel(lang)}
               subtitle={t('Everything in one place — the ones running now and the ones you saved.')}
             />
           </div>
         )}
 
+        {showTabs && (
+          <div className="flex-none mb-4">
+            <SegmentedControl<CapitalTab>
+              layoutId="capital-tab-pill"
+              className="overflow-x-auto scrollbar-hide"
+              value={activeTab}
+              onChange={setTab}
+              options={[
+                { key: 'strategies', label: t('Strategies') },
+                { key: 'managed', label: t('Managed vaults') },
+              ]}
+            />
+          </div>
+        )}
+
+        {/* ── The strategies tab: everything YOU run. The body below is the
+            page as it already was — the outer tab only decides whether it is
+            on screen, and deliberately changed nothing inside it. ── */}
+        {activeTab === 'strategies' && (
+          <>
         {claimableNow.length > 0 && (
           <div className="flex-none mb-4 rounded-2xl border border-tone-warning/25 bg-tone-warning/[0.07] p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -771,39 +1286,28 @@ export default function StrategiesPage({
             </div>
           </div>
         )}
-        {/* Section toggle — the SAME segmented control the Legacy panel uses,
-            in place of the two big cards you used to click into. The selected
-            view renders inline underneath. */}
-        <div className="mb-5 inline-flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-ink/10 bg-ink/[0.02] p-1">
-          {([
-            ['online', <Layers key="i" className="w-4 h-4" strokeWidth={1.6} />, t('Running · Online'), (groups?.length ?? 0) + escrows.length + activeRules.length],
-            ['offline', <Bookmark key="i" className="w-4 h-4" strokeWidth={1.6} />, t('Saved · Offline'), drafts.length + pausedRules.length],
-          ] as const).map(([id, icon, label, count]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setView(id)}
-              aria-pressed={view === id}
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition ${
-                view === id ? 'bg-ink/10 text-ink' : 'text-ink/50 hover:text-ink/80'
-              }`}
-            >
-              <span className={view === id ? 'text-volt' : 'text-ink/40'} aria-hidden>
-                {icon}
-              </span>
-              {label}
-              <span className="rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 font-mono text-[11px] font-normal text-ink/55">
-                {count}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* EL CONMUTADOR Funcionando/Guardadas SE ESCONDE (fundador 2026-08-24:
+            «quita moneyflows… entonces tienes que esconder también el toggle de
+            running saved»). Sin el apartado de MoneyFlows, el estante Guardadas
+            se quedaba con los borradores y las reglas en pausa — el inventario
+            de lo que NO está pasando — y esta pantalla trata de lo que SÍ.
+
+            El estante offline sigue montado y entero más abajo (`view` nunca
+            sale de 'online'): esconder no es borrar, y el día que vuelva basta
+            con devolver estos botones. */}
 
         <RevealGroup className="space-y-6">
           {view === 'online' && (
             <>
               <RevealItem>
                 <HealthStrip />
+              </RevealItem>
+
+              {/* La salud de las protecciones, pegada al factor que las
+                  justifica: es LA superficie honesta de reglas de esta página
+                  desde que MoneyFlows se escondió. */}
+              <RevealItem>
+                <ProtectionsHealth />
               </RevealItem>
 
               {/* Apartado 1 — DeFi positions (protocols + capital). The embedded
@@ -834,7 +1338,7 @@ export default function StrategiesPage({
                             </p>
                           </div>
                           <span className="font-mono text-base text-ink">{formatMoney(g.totalUSD)}</span>
-                          <PrimaryButton onClick={() => setCageModal(g)}>
+                          <PrimaryButton onClick={() => activeGoverned && openCageOp({ account: activeGoverned.address, vaultTitle: g.name })}>
                             {t('Move capital')} <ArrowRight size={14} />
                           </PrimaryButton>
                         </div>
@@ -844,28 +1348,35 @@ export default function StrategiesPage({
                 </RevealItem>
               )}
 
-              {/* Apartado 2 — Strategy · MoneyFlows: the active rules as cards.
-                  A council's rules are GOVERNED (quorum-signed) — its surface
-                  replaces the personal composer here, same spot, other rail. */}
+              {/* Managed vaults — el capital que un TERCERO gestiona dentro de
+                  los límites que firmaste (Producto A). Va DENTRO de Strategies
+                  (fundador 8-sep), como un apartado más, no en pestaña aparte.
+                  Solo aparece si tienes shares en algún pote — y las busca en
+                  TODAS tus wallets y en la Personal Account de cada XRPL. */}
               <RevealItem>
-                {activeGoverned ? (
-                  <GovernedMoneyFlows account={activeGoverned.address} />
-                ) : (
-                  <StrategySection
-                    mode="online"
-                    addresses={myWallets.map((w) => w.address)}
-                    identity={identity}
-                    onLaunch={runStrategy}
-                    onChanged={refreshStrategies}
-                  />
-                )}
+                <ManagedShelf />
               </RevealItem>
+
+              {/* APARTADO DE MONEYFLOWS ESCONDIDO (fundador 2026-08-24: «vamos a
+                  quitar la función de moneyflows, es decir escóndela»). El
+                  motor sigue intacto y las reglas siguen corriendo: lo que se
+                  retira es su escaparate en esta pantalla. La protección —que
+                  ES una MoneyFlow— entra ahora por su propia puerta, arriba,
+                  al lado del health factor, que es donde el usuario la
+                  necesita. StrategySection y GovernedMoneyFlows quedan
+                  montados y sin tocar para el día que vuelva. */}
+
+              {/* PAGO RECURRENTE ESCONDIDO (fundador 2026-08-24: «quiero que
+                  escondas el recurring payment»). Mismo trato: el carril vive,
+                  la tarjeta no se enseña. ScheduledPaymentCard sigue entera en
+                  components/moneyflows. */}
 
               {/* Active savings — locked escrows + enabled rules */}
               <RevealItem>
                 <ActiveSavings
                   escrows={escrows}
                   rules={activeRules}
+                  runHealth={savingsRunHealth}
                   onRelease={(row) => void releaseEscrow(row)}
                   releasingId={releasingId}
                   releaseError={releaseError}
@@ -899,6 +1410,9 @@ export default function StrategiesPage({
             </>
           )}
         </RevealGroup>
+          </>
+        )}
+
 
         {/* Direct actions from the hub — the SAME prepare→review→sign modals
             the board uses, opened right here. Astryum signs nothing. */}
@@ -917,39 +1431,11 @@ export default function StrategiesPage({
             onChanged={refreshStrategies}
           />
         )}
-        {hubModal?.kind === 'kinetic' && (
-          <PaActionsModal
-            owner={hubModal.owner}
-            legs={hubModal.legs}
-            holders={hubModal.holders}
-            action="withdraw"
-            onClose={() => setHubModal(null)}
-            onChanged={refreshStrategies}
-          />
-        )}
-        {/* The cage's action modal — the governed twin of the hub modals
-            above: same gesture, but what it composes is a COUNCIL ORDER
-            (prepare-only, quorum signs, the vault executes on Flare). */}
-        {cageModal && activeGoverned && (
-          <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-surface-1 border border-ink/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
-                <div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--authority-border)] bg-[var(--authority-soft)] text-ink/60">
-                    {t('Council order · the cage')}
-                  </span>
-                  <h2 className="mt-1.5 text-lg font-semibold text-ink capitalize">{cageModal.name}</h2>
-                </div>
-                <button onClick={() => setCageModal(null)} className="text-ink/40 hover:text-ink transition-colors mt-1">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
-                <CouncilVaultEntry account={activeGoverned.address} vaultTitle={cageModal.name} />
-              </div>
-            </div>
-          </ModalOverlay>
-        )}
+        {/* La retirada Kinetic abre por el HOST GLOBAL (operationStore) —
+            así sobrevive a la navegación con el panel anclado (2026-08-26). */}
+        {/* La orden de consejo abre por el HOST GLOBAL (operationStore,
+            2026-08-26): ancla, minimiza y sobrevive a la navegación como el
+            resto de operaciones. */}
 
         {hubModal?.kind === 'norail' && (
           <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">

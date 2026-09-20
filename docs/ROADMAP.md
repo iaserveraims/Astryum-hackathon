@@ -15,7 +15,7 @@ sequence.
 
 Astryum is live on Flare Mainnet and XRPL Mainnet with real capital. The `0xFE` rail works end to
 end — XRP becomes FXRP, enters a position, is monitored, and comes back out as FXRP at the user's own
-address, the user can at any moment unmint his FXRP to XRP again from the wallets menu. 
+address, the user can at any moment unmint his FXRP to XRP again from the wallets menu.
 Our own contracts are deployed with verified sources, and a family council has governed
 them from XRPL through the FDC. Our executor has signed hundreds of transactions on Flare.
 
@@ -177,6 +177,61 @@ promised.**
 assessment rather than an engineering project — and the user experiences it only as more of their
 capital, and more places for it to work, on a screen they already know.
 
+### 1.7 Find any asset, buy it where it lives — including the ones behind a permission
+
+**The direction.** One search across every chain the Capital Map already reads: a name, a ticker, an
+issuer or an address. What comes back is not a price list but the facts needed to decide — where the
+asset lives, what it is (a native asset, an e-money token, a wrapped IOU, a share in a tokenised
+fund), who issues it and what it takes to hold it — and, where the user is able to hold it, a route
+to buy it, composed and returned to their own wallet to sign.
+
+**Search is wide; buying is narrow.** Reading covers everything. Buying is composed only where a
+certified route exists: each asset on its own ecosystem, through that ecosystem's venue — the XRPL
+order book and AMM, Enso and CoW on EVM, the direct adapters on Flare, Jupiter when Solana arrives.
+We compose orders on markets that exist; we do not become one. Paying from another ecosystem crosses
+origin → destination directly over the rails of 1.4 — **never with a stop on XRPL**. Every result
+carries its risk scan, and an asset the scanner cannot see is shown as *not assessed*, never as safe;
+each buy route sits behind its own risk assessment and feature flag like any venue, and where none is
+certified the result links to the issuer instead of improvising a path. Results are ordered by match,
+never by yield, and any rate shown is the issuer's figure with its source named.
+
+**Assets behind a permission — the case that matters most.** Some of the most sought-after assets on
+XRPL can only be held by an account the issuer has cleared. Tokenised US Treasuries are the clearest
+example: Ondo's OUSG, minted and redeemed around the clock against RLUSD, for qualified purchasers;
+OpenEden's TBILL, for accredited and professional investors after the fund's own KYC. On XRPL that
+permission is a ledger object — a trust line the issuer authorises, or a credential accepted in a
+permissioned domain the issuer controls — and what normally stands between a user and it is a scatter
+of portals, forms and hand-built transactions. Astryum turns it into one path:
+
+1. **The requirement first.** Before anything is signed: who may hold the asset, from which
+   jurisdictions, the issuer's minimum, whose verification it accepts, and the reserve a trust line
+   locks.
+2. **The issuer's onboarding, inside the flow.** The user goes through the issuer's KYC — or the
+   verifier the issuer accepts — and every ledger step on the user's side (the trust line the issuer
+   will authorise, the acceptance of the credential it issues) arrives composed, to be signed in the
+   user's own wallet.
+3. **Proof that travels.** Where the issuer's domain accepts a credential the user already holds, from
+   a provider it trusts, nothing is proven twice — the portable identity of 5.8, doing work.
+4. **Then the purchase.** Once the ledger says yes, the order is composed like any other: a
+   subscription at the issuer against its settlement asset, or an offer on the issuer's permissioned
+   order book — with the fee, the route and the minimum on screen before the signature.
+
+**The line.** The permission is obtained *from inside* Astryum, never granted *by* Astryum.
+Eligibility is the issuer's rule and clearance is the issuer's decision, or its verifier's: we do not
+assess who qualifies, we do not issue the permission, and we do not recommend the asset. And a share
+in a tokenised fund is a financial instrument, not a crypto-asset — it falls under securities
+regulation rather than MiCA, so routing orders in it is analysed on that basis before the first route
+opens: jurisdiction by jurisdiction, behind the same regional switch that fences in-app execution,
+and written into [regulatory/MICA_BOUNDARIES.md](./regulatory/MICA_BOUNDARIES.md) in the same pull
+request. Until then, permissioned assets are searchable and visible in the Capital Map, and the path
+to them ends at the issuer's door.
+
+**Done when** a user types *"OUSG"* and sees on one screen where it lives, what it is, who may hold it
+and what holding it costs — and, if the issuer clears them, goes from that search to holding it
+without leaving Astryum except for the issuer's own verification, signing every step in their own
+wallet. And adding an asset to search, or a buy route to an asset, is a configuration change gated by
+its risk assessment rather than an engineering project.
+
 ---
 
 ## Phase 2 — What growth obliges us to earn
@@ -261,6 +316,31 @@ key or a signed blob.
 
 **Done when** a user can leave a rule running and the worst case is bounded by something a contract
 enforces — not by our good behaviour, and not by a model's judgement.
+
+### Composition — the other axis, and the one we climb first
+
+The ladder above answers *who fires an action and under whose authority*. A second, independent
+question decides how much work the product takes off a person's hands: **who designs the
+allocation.** Today a strategy is one venue and one signature. The direction is a **composer**:
+the user shapes a whole position — several venues, a weight each, a liquid reserve, the rules that
+protect it — reviews it with every fee and route on screen, and signs it. The assistant's job
+there is to *compile and explain*, turning plain language into a composition the user can move,
+with protocol rates quoted as facts with a source; it never picks the weights the user did not
+state, and it never proposes a strategy "for you" — a personalised proposal is advice, and advice
+belongs to a licensed occupant on the rail, never to us.
+
+The two axes are deliberately independent: **we climb composition without climbing autonomy.**
+However elaborate a composition becomes, it ends the same way — the user signs, and the limits are
+the ones the contract enforces: the per-venue cap, the liquid floor, the venue allowlist with its
+waiting period, and an exit no one can gate. A signature is not an exemption: an open-ended mandate
+with residual discretion is precisely what portfolio-management regulation describes, which is why
+the composer produces closed, reviewable actions rather than a policy someone else interprets.
+
+**Done when** a person can build a multi-venue position in one sitting, understand what each leg
+costs and where it can be recovered from, and sign it — without naming a chain, a contract or a
+receipt token. The reasoning and the ordered build queue are in
+[ADR-013](../DECISIONS.md) and
+[Astryum_Estrategia_Composicion_Goal_Strategy_Policy_2026-09-13.md](./context/Astryum_Estrategia_Composicion_Goal_Strategy_Policy_2026-09-13.md).
 
 ---
 
@@ -377,6 +457,20 @@ proof travels with the account to every partner that accepts it.
   desktop surface they can do from a phone, with the same disclosures, the same unsigned hand-off
   and the same keys — no reduced "lite" mode that quietly loosens a guarantee to fit a smaller
   screen.
+- **The credential rail — the same cage, for actors.** Everything above governs *capital*; the
+  same primitives govern *who may act*. XRPL credentials with expiry, permissioned domains and
+  preauthorised deposits already gate a human manager on mainnet; the same gate works for any
+  actor whose authority someone else attests — including an AI agent whose certified pipeline a
+  TEE can prove it ran. The shape is strict: **permission and settlement on one rail** — no valid
+  credential, no action, and no payout, enforced by the ledger itself, with escrow release
+  credential-gated so revocation mid-job blocks payment natively. Astryum's role is bounded the
+  same way as everywhere else in this document: we never issue credentials, never test agents,
+  never judge work and never pick the judge — issuers, verifiers and judgement providers are
+  third parties on the rail, and the EU's eIDAS 2.0 attestation framework is the natural anchor
+  for the human side. Direction, not commitment: the thesis and its open legal questions are
+  documented in
+  [Astryum_Agentic_Credentials_Rail_Tesis_2026-09-08.md](./context/Astryum_Agentic_Credentials_Rail_Tesis_2026-09-08.md),
+  and nothing here ships before the questions it lists are answered.
 - **The North Star: the account as pure authority.** The governing account stops holding capital
   and becomes authority alone; capital lives in protocol-managed arms, each on its native chain —
   **capital never travels, orders do.** Why XRPL at the head: not because the capital lives there,

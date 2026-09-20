@@ -1448,7 +1448,19 @@ model AutomationRule {
   cooldownMinutes     Int       @default(15)
   maxValueUSD         Float
   totalTimesTriggered Int       @default(0)
+  /// Cooldown stamp: written on EVERY fire, artefact or not. Read by the tick's
+  /// `cooldownMinutes` guard — it is what stops a failing rule from re-firing
+  /// every 60s. It is NOT the "this occurrence is done" marker (G3, below).
   lastTriggeredAt     DateTime?
+  /// G3 (auditoría 2026-08-17) — "consumed occurrence", split OUT of the
+  /// cooldown stamp. Written only when the fire actually produced its ARTEFACT
+  /// (council proposal, prepared intent, actionable nudge). TIME_TRIGGER
+  /// measures its cron occurrence against THIS field: before the split, a fire
+  /// that errored (or found the council busy) still stamped `lastTriggeredAt`,
+  /// the evaluator read `due <= lastTriggeredAt` as "already done", and that
+  /// month's occurrence was burnt for good — the payment silently never
+  /// happened. Nullable: a rule that has never produced an artefact has none.
+  lastArtefactAt      DateTime?
   /// Enforced TTL (guardarraíl MoneyFlows: sin caducidad + revocación no se
   /// entrega). Required (≤90d, server-clamped) for moneyflow-origin rules
   /// (canonicalRef) and council rules; nullable for legacy manual/template
@@ -2755,4 +2767,44 @@ model WaitlistSignup {
 
   @@index([createdAt])
   @@map("waitlist_signups")
+}
+
+// El perfil PÚBLICO del gestor (fundador 6-sep): campos auto-declarados que el
+// cliente revisa antes de poner capital. Solo lo escribe el dueño PROBADO de la
+// r-address (wallet vinculada por firma al usuario); los hechos verificados
+// (credenciales, caducidad, prueba en Base) NO viven aquí — se leen del ledger.
+model ManagerPublicProfile {
+  account     String   @id // r-address del gestor
+  userId      String // quién lo escribió (dueño probado de la wallet)
+  displayName String
+  entity      String?
+  bio         String?
+  avatarUrl   String?
+  website     String?
+  twitter     String?
+  actorKind   String   @default("human") // 'human' | 'agent' — auto-declarado por el dueño probado
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Apoyo público («upvote») de un usuario a la r-address de un gestor. Un voto
+// por usuario y cuenta: la PK lo garantiza sin lógica de aplicación.
+model ManagerEndorsement {
+  userId    String
+  account   String   // r-address del gestor apoyado
+  createdAt DateTime @default(now())
+
+  @@id([userId, account])
+  @@index([account])
+}
+
+// Imagen elegida para un pote (emblema de la casa o la foto del perfil del
+// gestor). No se verifica on-chain que el pote sea de esa cuenta: el cliente
+// SOLO la aplica si el consejo del pote en el catálogo coincide con `account`.
+model VaultImage {
+  pote      String   @id // dirección EVM del pote, en minúsculas
+  account   String   // r-address del consejo que la puso (dueño probado). El cliente SOLO la aplica si el consejo del pote en el catálogo coincide con esta cuenta.
+  kind      String   // 'emblem' | 'profile' | 'none'
+  emblem    String?  // clave del emblema de la casa cuando kind = 'emblem'
+  updatedAt DateTime @updatedAt
 }

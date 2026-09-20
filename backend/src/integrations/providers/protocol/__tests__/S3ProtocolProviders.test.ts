@@ -14,12 +14,49 @@ import {
   EnosysProvider,
 } from '..';
 import type { ProviderCallContext } from '../../../interfaces/IProvider';
+import { resetAddressCache } from '../../../../config/protocolAddresses';
 
 const WALLET = '0x000000000000000000000000000000000000abcd';
 
 function makeCtx(overrides: Partial<ProviderCallContext> = {}): ProviderCallContext {
   return { traceId: 'trace-s3', wallet: WALLET, sessionId: 'sess-s3', ...overrides };
 }
+
+// The env vars that switch each S3 adapter on (KineticAdapter / SparkDEXAdapter
+// / FirelightAdapter / EnosysAdapter `isActive`). Prisma loads backend/.env when
+// its client is constructed — imported transitively through the registry — so a
+// developer's own .env made the adapters ACTIVE and broke the «inactive»
+// assertions below, while CI (no .env) stayed green. Blank them per test: ''
+// reads as unset, and dotenv never overwrites a key that already exists, so a
+// later Prisma load cannot bring the values back. The address cache is dropped
+// too, or a cached object keeps the adapters on.
+const S3_ADAPTER_ENV = [
+  'KINETIC_COMPTROLLER',
+  'KINETIC_ISO_COMPTROLLER',
+  'SPARKDEX_NFPM',
+  'FIRELIGHT_STAKING',
+  'FIRELIGHT_STXRP',
+  'ENOSYS_ROUTER',
+  'ENOSYS_FARMING',
+] as const;
+let savedAdapterEnv: Record<string, string | undefined> = {};
+
+beforeEach(() => {
+  savedAdapterEnv = {};
+  for (const key of S3_ADAPTER_ENV) {
+    savedAdapterEnv[key] = process.env[key];
+    process.env[key] = '';
+  }
+  resetAddressCache();
+});
+
+afterEach(() => {
+  for (const key of S3_ADAPTER_ENV) {
+    if (savedAdapterEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = savedAdapterEnv[key];
+  }
+  resetAddressCache();
+});
 
 describe('V1.1 S3 protocol providers (kinetic / sparkdex / firelight / enosys)', () => {
   test('bootstrap registers the 4 S3 protocol providers', () => {
@@ -53,9 +90,8 @@ describe('V1.1 S3 protocol providers (kinetic / sparkdex / firelight / enosys)',
   });
 
   test('health() reports disabled while adapter is inactive (env vars missing)', async () => {
-    // None of the S3 protocol env vars (KINETIC_COMPTROLLER, SPARKDEX_NFPM,
-    // FIRELIGHT_STAKING + STXRP, ENOSYS_ROUTER+FACTORY) are set in the test
-    // env, so all four should report `disabled` rather than fail loudly.
+    // beforeEach blanks every activation var (S3_ADAPTER_ENV), so all four
+    // should report `disabled` rather than fail loudly.
     const providers = [
       new KineticProvider(),
       new SparkdexProvider(),

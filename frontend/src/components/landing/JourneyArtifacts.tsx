@@ -441,3 +441,107 @@ export function LegacyArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, 
     </Frame>
   );
 }
+
+// ─── Núcleo — tu cuenta, y las cuentas que abres dentro ──────────────────────
+// La primera parada nueva del viaje (fundador 2026-09-20: «lo de las cuentas
+// bancarias del usuario de Astryum sea el astro, el core»). Cada cuenta con su
+// regla, y la regla vive en el ledger. Cifras y nombres de MAQUETA.
+export function CoreArtifact({ lang, accent = GOLD, soft = GOLD_SOFT, rgb = '201,162,39' }: ArtifactProps) {
+  const INDIGO = '#A5B1FD';
+  const rows = [
+    // El primer asiento de cada fila es SIEMPRE el tuyo y va en el acento del
+    // mundo: «distintos usos, la misma firma» dicho con un punto dorado.
+    { name: T('Matrimonio', 'Marriage', lang), rule: T('2 de 2', '2 of 2', lang), seats: [1, 1], color: INDIGO },
+    { name: T('Hijos', 'Children', lang), rule: T('2 de 3', '2 of 3', lang), seats: [1, 1, 0], color: INDIGO },
+    { name: T('Fundación', 'Foundation', lang), rule: T('Consejo 3 de 5', 'Council 3 of 5', lang), seats: [1, 1, 1, 0, 0], color: INDIGO },
+    { name: T('Empresa', 'Business', lang), rule: T('Órgano 2 de 4', 'Body 2 of 4', lang), seats: [1, 1, 0, 0], color: 'hsl(var(--product-institutional))' },
+    { name: T('Legado', 'Legacy', lang), rule: T('Consejo + relevo', 'Council + handover', lang), seats: [1, 1, 1, 0, 0], color: INDIGO },
+  ];
+  return (
+    <Frame>
+      <div className="flex items-center gap-2.5">
+        <span className="w-4 h-4 rounded-full shrink-0" style={{ background: dotGradient(accent), boxShadow: `0 0 10px rgba(${rgb},0.6)` }} />
+        <span className="text-[13px] font-semibold text-white">{T('Tu cuenta', 'Your account', lang)}</span>
+        <span className="ml-auto text-[9px] font-mono uppercase tracking-[0.14em] text-white/40">{T('la misma firma · cinco usos', 'same signer · five uses', lang)}</span>
+      </div>
+      <div className="mt-2.5 ml-[7px] pl-3 space-y-[5px]" style={{ borderLeft: `1px dashed rgba(${rgb},0.4)` }}>
+        {rows.map((r) => (
+          <div key={r.name} className="flex items-center gap-2 py-[3px]">
+            <span className="text-[12px] text-white/85 w-[88px] shrink-0 truncate">{r.name}</span>
+            <span className="flex gap-1">
+              {r.seats.map((on, k) => (
+                <span
+                  key={k}
+                  className="block w-[7px] h-[7px] rounded-full"
+                  style={on ? { background: k === 0 ? accent : r.color, boxShadow: k === 0 ? `0 0 6px rgba(${rgb},0.7)` : undefined } : { border: '1px solid rgba(255,255,255,0.3)' }}
+                />
+              ))}
+            </span>
+            <span className="ml-auto text-[9.5px] font-mono uppercase tracking-wider whitespace-nowrap" style={{ color: r.color }}>
+              {r.rule}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2.5 pt-2.5 text-[10px] font-mono text-white/35" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        {T('El punto dorado eres tú · cada regla vive en el ledger', 'The gold dot is you · every rule lives on the ledger', lang)}
+        <span style={{ color: soft }}> ·</span>
+      </div>
+    </Frame>
+  );
+}
+
+// ─── Operar — la orden preparada: describes, se simula, firmas una vez ───────
+// La última parada nueva: la dificultad la absorbe Astryum. Cuatro nodos y una
+// mota que los recorre mientras la parada está viva; la firma es siempre del
+// usuario (INVARIANTES #1 y #6: sin firmar, con costes a la vista).
+export function OperateArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, rgb = '201,162,39' }: ArtifactProps) {
+  const nodes = [
+    { at: '4%', label: T('Describes', 'Describe', lang) },
+    { at: '35%', label: T('Se prepara', 'Prepared', lang) },
+    { at: '66%', label: T('Se simula', 'Simulated', lang) },
+    { at: '96%', label: T('Firmas', 'Sign', lang) },
+  ];
+  const facts = [
+    { k: T('Orden', 'Order', lang), v: 'XRP → FXRP → Kinetic' },
+    { k: T('Costes', 'Costs', lang), v: T('A la vista', 'In plain sight', lang) },
+    { k: T('Salida', 'Exit', lang), v: T('Declarada', 'Declared', lang) },
+    { k: T('Firma', 'Signature', lang), v: 'Xaman · 1 toque' },
+  ];
+  return (
+    <Frame>
+      <style>{JA_CSS}</style>
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md tracking-wider whitespace-nowrap"
+          style={{ background: `rgba(${rgb},0.1)`, color: accent, border: `1px solid rgba(${rgb},0.3)` }}
+        >
+          {T('«Pon 500 XRP a trabajar»', '“Put 500 XRP to work”', lang)}
+        </span>
+        <span className="text-[9px] font-mono uppercase tracking-wider text-white/40 truncate">{T('sin firmar todavía', 'unsigned so far', lang)}</span>
+      </div>
+      <div className="relative mt-4 h-10">
+        <div className="absolute left-1 right-1 top-[9px] h-px" style={{ background: `linear-gradient(90deg, transparent, rgba(${rgb},0.45), transparent)` }} />
+        <span
+          className="absolute w-[5px] h-[5px] rounded-full ja-anim"
+          style={{ top: 7, background: soft, animation: active ? 'jaMote 3.2s ease-in-out infinite' : 'none', left: active ? undefined : '96%', opacity: active ? undefined : 0 }}
+        />
+        {nodes.map((n, i) => (
+          <div key={n.label} className="absolute -translate-x-1/2 flex flex-col items-center gap-1.5" style={{ left: n.at, top: 6 }}>
+            <span className="w-[7px] h-[7px] rounded-full" style={{ border: `1px solid ${accent}`, background: i === 3 ? accent : `rgba(${rgb},0.25)` }} />
+            <span className="text-[9px] font-mono uppercase tracking-wider text-white/40 whitespace-nowrap">{n.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        {facts.map((f) => (
+          <div key={f.k} className="flex items-baseline justify-between gap-2 min-w-0">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-white/35 whitespace-nowrap">{f.k}</span>
+            <span className="text-[10px] font-mono text-white/65 truncate">{f.v}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2.5 text-[10px] font-mono text-white/35">{T('Astryum prepara · tú firmas', 'Astryum prepares · you sign', lang)}</div>
+    </Frame>
+  );
+}

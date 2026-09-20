@@ -12,7 +12,7 @@ import type {
   TransactionIntent,
   IntentBuildContext,
 } from '../../../types/domain/Intent';
-import type { EncodedAction, EncodeActionParams } from '../IProtocolAdapter';
+import type { EncodedAction, EncodeActionParams, PositionDiscovery, UnreadableRead } from '../IProtocolAdapter';
 
 /**
  * Compound-V2-fork (CErc20) entrypoints. All four actions call the per-asset
@@ -33,6 +33,41 @@ const ACTION_TO_FN: Record<string, string> = {
   borrow: 'borrow',
   repay: 'repayBorrow',
 };
+
+/**
+ * «No pude leer la posición» — el error que sustituye al `0n` inventado.
+ *
+ * it. 29. Lo lanza `KineticAdapter.isoRead` y lo traducen las rutas ISO a un
+ * rechazo retryable que NOMBRA la lectura caída, en vez de afirmar un hecho
+ * sobre el dinero de alguien. Es de OURS-failed, no una política: no gatea
+ * ninguna salida, no mueve nada, y se cura reintentando.
+ */
+export class IsoReadUnavailableError extends Error {
+  readonly what: string;
+  constructor(what: string, cause?: unknown) {
+    const why = cause instanceof Error ? ` (${cause.message})` : '';
+    super(`ISO_READ_UNAVAILABLE: ${what}${why}`);
+    this.name = 'IsoReadUnavailableError';
+    this.what = what;
+  }
+}
+
+/**
+ * it. 31 — «no pude leer la posicion» del TABLERO (discoverPositions). Hermano
+ * de IsoReadUnavailableError (rutas /iso-*): un `balanceOf`, `balanceOfUnderlying`
+ * o `borrowBalanceCurrent` que no contesta ya no se lee como `0n` — ni una
+ * deuda viva como «sin deuda». Sube; el engine deja este adapter fuera de ESE
+ * barrido y se lo dice a la persona (`snapshot.unreadable`).
+ */
+export class KineticPositionUnreadableError extends Error {
+  readonly what: string;
+  constructor(what: string, cause?: unknown) {
+    const why = cause instanceof Error ? ` (${cause.message})` : '';
+    super(`KINETIC_POSITION_UNREADABLE: ${what} did not answer${why}`);
+    this.name = 'KineticPositionUnreadableError';
+    this.what = what;
+  }
+}
 
 const ERC20_APPROVE_ABI = ['function approve(address spender, uint256 amount) returns (bool)'];
 const COMPTROLLER_ENTER_ABI = ['function enterMarkets(address[] cTokens) returns (uint256[])'];
@@ -97,20 +132,56 @@ export class KineticAdapter extends BaseAdapter {
     return !!this.addresses.comptroller || !!this.addresses.isoComptroller;
   }
 
+  /**
+   * All-or-nothing entry (legacy callers: canonical aggregation, the
+   * single-adapter route, the probe script). Any unread market makes the whole
+   * answer a throw — a list with silent holes is the bug this file has been
+   * removing since it. 29. The board and the portfolio engine read
+   * `discoverPositionsPartial` instead and serve what WAS read.
+   */
   async discoverPositions(wallet: string): Promise<RawPosition[]> {
-    if (!this.isActive) return [];
+    const { positions, unreadable } = await this.discoverPositionsPartial(wallet);
+    if (unreadable.length > 0) {
+      throw new KineticPositionUnreadableError(unreadable.map((u) => u.what).join(', '));
+    }
+    return positions;
+  }
+
+  /**
+   * Ola 0 (15-sep) — DEGRADE PER MARKET, NOT PER PROTOCOL. it. 31 made every
+   * money read THROW instead of reading `0n`; right — but inside two
+   * `Promise.all`s (~20 reads across two comptrollers), so ONE 429 on the
+   * `balanceOf` probe of a market the wallet never touched took the whole
+   * adapter down, and the carry holder's FXRP supply, USDT0 debt and «Repay»
+   * door vanished from the board under the gateway's routine 429. Before
+   * it. 31 that probe read `0n` and the carry rows were untouched; the fix
+   * had traded a hidden lend-only supply for a hidden carry.
+   *
+   * Now each market is its own unit: a market whose money read did not answer
+   * is NAMED in `unreadable` (typed, with the read and the node's reason) and
+   * emits no row; every market that answered is served. Within a market it is
+   * still all-or-nothing (a SUPPLY row without its debt read would read as
+   * «no debt» — the it. 31 lie, one level down).
+   */
+  async discoverPositionsPartial(wallet: string): Promise<PositionDiscovery> {
+    if (!this.isActive) return { positions: [], unreadable: [] };
     // Scan BOTH the primary comptroller AND the ISO comptroller (where FXRP lives —
     // the E1 supply FXRP + borrow USDT0 position). The ISO market is a DISTINCT
     // comptroller with its own kTokens; without this the FXRP position is invisible.
     const comptrollers = [this.addresses.comptroller, this.addresses.isoComptroller]
       .filter((c, i, arr): c is string => !!c && arr.indexOf(c) === i);
 
-    const positions: RawPosition[] = [];
-    for (const comptrollerAddr of comptrollers) {
-      const iso = comptrollerAddr === this.addresses.isoComptroller;
-      positions.push(...(await this.scanComptroller(comptrollerAddr, wallet, iso)));
-    }
-    return positions;
+    // Los dos comptrollers a la vez (14-sep): en serie, el segundo esperaba
+    // todas las vueltas del primero. Promise.all conserva el orden.
+    const scans = await Promise.all(
+      comptrollers.map((comptrollerAddr) =>
+        this.scanComptroller(comptrollerAddr, wallet, comptrollerAddr === this.addresses.isoComptroller),
+      ),
+    );
+    return {
+      positions: scans.flatMap((s) => s.positions),
+      unreadable: scans.flatMap((s) => s.unreadable),
+    };
   }
 
   /** Read open supply/borrow positions for `wallet` under one Compound-fork comptroller. */
@@ -118,54 +189,123 @@ export class KineticAdapter extends BaseAdapter {
     comptrollerAddr: string,
     wallet: string,
     iso: boolean,
-  ): Promise<RawPosition[]> {
+  ): Promise<PositionDiscovery> {
     const { ethers } = await import('ethers');
     const provider = this.provider.getHttpProvider();
     const comptroller = new ethers.Contract(comptrollerAddr, COMPTROLLER_ABI, provider);
+    const unreadable: UnreadableRead[] = [];
+    const reasonOf = (e: unknown) => String((e as Error)?.message ?? e ?? 'no answer').slice(0, 200);
 
     // getAssetsIn only lists ENTERED markets — and a plain supply (E3 lend-only,
     // carry re-supply) deliberately never calls enterMarkets, so it is invisible
-    // there. Borrowing DOES require membership, so debt can't hide. Union the
-    // entered set with every market where the wallet holds kToken shares
+    // there. Borrowing DOES require membership, so debt can't hide THERE. Union
+    // the entered set with every market where the wallet holds kToken shares
     // (cheap balanceOf probe over getAllMarkets), or the supply can't be seen —
     // or withdrawn — from the positions board.
-    let cTokens: string[] = [];
-    try {
-      cTokens = [...(await comptroller.getAssetsIn(wallet))];
-    } catch {
-      /* comptroller not reachable / no entered markets — the probe below still runs */
-    }
-    try {
-      const entered = new Set(cTokens.map((a: string) => a.toLowerCase()));
-      const all: string[] = await comptroller.getAllMarkets();
-      const probes = await Promise.all(
-        all
-          .filter((m) => !entered.has(m.toLowerCase()))
-          .map(async (m) => {
-            const bal: bigint = await new ethers.Contract(m, CTOKEN_ABI, provider)
-              .balanceOf(wallet)
-              .catch(() => 0n);
-            return bal > 0n ? m : null;
-          }),
-      );
-      cTokens.push(...probes.filter((m): m is string => m !== null));
-    } catch {
-      /* getAllMarkets unavailable — fall back to the entered set alone */
-    }
-    if (cTokens.length === 0) return [];
+    //
+    // Ola 0 (15-sep) — getAssetsIn IS a money read. It was soft (`catch {}` →
+    // `[]`), so when it did not answer only markets with kToken shares > 0 were
+    // read: a USDT0 debt against FXRP collateral (balanceOf = 0 in kUSDT0)
+    // was not read at all, and the wallet showed supply without its debt —
+    // «debt can't hide» was only true when getAssetsIn had answered. Now a
+    // failed getAssetsIn widens the read to EVERY market (supply AND debt on
+    // each, no probe shortcut); only when getAllMarkets fails too is the
+    // comptroller named unreadable, because then nothing can be known.
+    // `Promise.resolve().then(fn)` — a getter missing from the contract (a
+    // vault deployment or a test double without it) throws synchronously and
+    // must fall in the SAME bucket as a node that did not answer.
+    const listRead = (fn: () => Promise<string[]>) =>
+      Promise.resolve()
+        .then(fn)
+        .then(
+          (v) => ({ ok: true as const, value: [...v] }),
+          (e: unknown) => ({ ok: false as const, reason: reasonOf(e) }),
+        );
+    const [enteredRead, allRead] = await Promise.all([
+      listRead(() => comptroller.getAssetsIn(wallet) as Promise<string[]>),
+      listRead(() => comptroller.getAllMarkets() as Promise<string[]>),
+    ]);
 
-    const positions: RawPosition[] = [];
+    let cTokens: string[] = [];
+    if (enteredRead.ok === false && allRead.ok === false) {
+      unreadable.push({
+        what: `getAssetsIn/getAllMarkets on comptroller ${comptrollerAddr}`,
+        reason: enteredRead.reason,
+        market: comptrollerAddr,
+      });
+      return { positions: [], unreadable };
+    }
+    if (enteredRead.ok === false) {
+      // Entered set unknown → read every market fully; debt can't hide.
+      cTokens = allRead.ok === true ? allRead.value : [];
+    } else {
+      cTokens = enteredRead.value;
+      if (allRead.ok === false) {
+        // A lend-only supply lives outside the entered set: with getAllMarkets
+        // down we cannot say there is none. The entered markets are still read.
+        unreadable.push({
+          what: `getAllMarkets on comptroller ${comptrollerAddr}`,
+          reason: allRead.reason,
+          market: comptrollerAddr,
+        });
+      } else {
+        const entered = new Set(cTokens.map((a: string) => a.toLowerCase()));
+        // it. 31 — the probe IS a money read: «could not read whether this
+        // wallet holds shares in market M» used to be `0n`, i.e. «it holds
+        // none». Ola 0 — and it names THAT market only: the others are served.
+        const probes = await Promise.all(
+          allRead.value
+            .filter((m) => !entered.has(m.toLowerCase()))
+            .map((m) =>
+              (new ethers.Contract(m, CTOKEN_ABI, provider).balanceOf(wallet) as Promise<bigint>).then(
+                (bal) => ({ ok: true as const, market: m, held: BigInt(bal) > 0n }),
+                (e: unknown) => ({ ok: false as const, market: m, reason: reasonOf(e) }),
+              ),
+            ),
+        );
+        for (const p of probes) {
+          if (p.ok === false) unreadable.push({ what: `balanceOf on market ${p.market}`, reason: p.reason, market: p.market });
+          else if (p.held) cTokens.push(p.market);
+        }
+      }
+    }
+    if (cTokens.length === 0) return { positions: [], unreadable };
+
     const now = new Date();
 
-    for (const cTokenAddr of cTokens) {
+    // Cada mercado en paralelo (14-sep): en serie eran dos vueltas al RPC POR
+    // mercado, una detrás de otra — con ocho mercados, dieciséis vueltas. Ahora
+    // ethers agrupa las lecturas de todos los mercados en un lote. El orden de
+    // salida es el de `cTokens`: Promise.all lo conserva.
+    const perMarket = await Promise.all(cTokens.map(async (cTokenAddr): Promise<RawPosition[]> => {
+      const positions: RawPosition[] = [];
       const cToken = new ethers.Contract(cTokenAddr, CTOKEN_ABI, provider);
-      const [supplyAmount, borrowAmount, underlying, cTokenSymbol] = await Promise.all([
-        cToken.balanceOfUnderlying.staticCall(wallet).catch(() => 0n),
-        cToken.borrowBalanceCurrent.staticCall(wallet).catch(() => 0n),
+      // it. 31 — supply and DEBT are money reads: `.catch(() => 0n)` on
+      // `borrowBalanceCurrent` showed a wallet with live USDT0 debt as
+      // debt-free whenever the node 429'd, and the unwind guide read that
+      // zero as «nothing to repay». Ola 0 — a failed one marks THIS market
+      // unreadable (no row for it, named) and leaves the other markets alone;
+      // the metadata reads (underlying, symbol) keep their soft fallbacks — a
+      // missing label hides no money.
+      const [supplyRead, borrowRead, underlying, cTokenSymbol] = await Promise.all([
+        (cToken.balanceOfUnderlying.staticCall(wallet) as Promise<bigint>).then(
+          (v) => ({ ok: true as const, value: BigInt(v) }),
+          (e: unknown) => ({ ok: false as const, what: `balanceOfUnderlying on market ${cTokenAddr}`, reason: reasonOf(e) }),
+        ),
+        (cToken.borrowBalanceCurrent.staticCall(wallet) as Promise<bigint>).then(
+          (v) => ({ ok: true as const, value: BigInt(v) }),
+          (e: unknown) => ({ ok: false as const, what: `borrowBalanceCurrent on market ${cTokenAddr}`, reason: reasonOf(e) }),
+        ),
         cToken.underlying().catch(() => ethers.ZeroAddress),
         cToken.symbol().catch(() => 'cUNKNOWN'),
       ]);
-      if (supplyAmount <= 0n && borrowAmount <= 0n) continue;
+      for (const r of [supplyRead, borrowRead]) {
+        if (r.ok === false) unreadable.push({ what: r.what, reason: r.reason, market: cTokenAddr });
+      }
+      if (supplyRead.ok === false || borrowRead.ok === false) return positions;
+      const supplyAmount = supplyRead.value;
+      const borrowAmount = borrowRead.value;
+      if (supplyAmount <= 0n && borrowAmount <= 0n) return positions;
 
       // Amounts are denominated in the UNDERLYING (balanceOfUnderlying /
       // borrowBalanceCurrent) — so symbol and decimals must be the
@@ -214,9 +354,10 @@ export class KineticAdapter extends BaseAdapter {
           discoveredAt: now,
         });
       }
-    }
+      return positions;
+    }));
 
-    return positions;
+    return { positions: perMarket.flat(), unreadable };
   }
 
   normalizePosition(raw: RawPosition): NormalizedPosition {
@@ -881,6 +1022,28 @@ export class KineticAdapter extends BaseAdapter {
     ];
   }
 
+  /**
+   * A LIVE position read that either ANSWERED or DID NOT — never a zero
+   * invented to stand in for silence (it. 29, hermano de `readOrUnread`).
+   *
+   * WHAT THIS EXISTS TO STOP. `balanceOf`, `balanceOfUnderlying` and
+   * `borrowBalanceCurrent` were read with `.catch(() => 0n)`, and a public-RPC
+   * 429 — the bread of these days — therefore arrived downstream as «this
+   * account holds nothing». `readIsoLegs` then turned that zero into `null`,
+   * the route served it with HTTP 200, and two screens said it out loud: the
+   * guided unwind announced «No FXRP collateral left — the unwind is complete»
+   * over a carry with live debt, and `/iso-withdraw/prepare` answered an exit
+   * with «This wallet has no FXRP supplied». A read that failed is not a fact
+   * about anybody's money (invariant #9).
+   */
+  private async isoRead(what: string, read: () => Promise<bigint>): Promise<bigint> {
+    try {
+      return BigInt(await read());
+    } catch (e) {
+      throw new IsoReadUnavailableError(what, e);
+    }
+  }
+
   /** The configured ISO kToken market for an asset, or throws (never guesses). */
   private isoMarketFor(asset: 'usdt0' | 'fxrp'): string {
     const iso = this.addresses;
@@ -906,11 +1069,17 @@ export class KineticAdapter extends BaseAdapter {
     const market = this.isoMarketFor(asset);
     const { ethers } = await import('ethers');
     const kToken = new ethers.Contract(market, CTOKEN_ABI, provider ?? this.provider.getHttpProvider());
+    // it. 29 — THROWS (IsoReadUnavailableError) when the chain does not answer.
+    // The old `.catch(() => 0n)` made silence indistinguishable from an empty
+    // position, and every caller then asserted the emptiness to the person.
     const [sharesBase, underlyingBase] = await Promise.all([
-      kToken.balanceOf(holder).catch(() => 0n) as Promise<bigint>,
-      kToken.balanceOfUnderlying.staticCall(holder).catch(() => 0n) as Promise<bigint>,
+      this.isoRead(`${asset} kToken balanceOf`, () => kToken.balanceOf(holder) as Promise<bigint>),
+      this.isoRead(
+        `${asset} balanceOfUnderlying`,
+        () => kToken.balanceOfUnderlying.staticCall(holder) as Promise<bigint>,
+      ),
     ]);
-    return { kToken: market, sharesBase: BigInt(sharesBase), underlyingBase: BigInt(underlyingBase) };
+    return { kToken: market, sharesBase, underlyingBase };
   }
 
   /**
@@ -933,7 +1102,9 @@ export class KineticAdapter extends BaseAdapter {
     const [fxrp, usdt0, debt] = await Promise.all([
       this.readIsoSupplySnapshot('fxrp', owner, p),
       this.readIsoSupplySnapshot('usdt0', owner, p),
-      kUsdt0.borrowBalanceCurrent.staticCall(owner).catch(() => 0n) as Promise<bigint>,
+      // it. 29 — a debt we could not read is NEVER a debt of zero: that zero is
+      // what let step 3 of the guided unwind call a carry «complete».
+      this.isoRead('USDT0 borrowBalanceCurrent', () => kUsdt0.borrowBalanceCurrent.staticCall(owner) as Promise<bigint>),
     ]);
     const asBase = (v: bigint) => (v > 0n ? v.toString() : null);
     return {

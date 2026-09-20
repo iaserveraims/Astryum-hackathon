@@ -47,7 +47,20 @@ function fetchMyWalletsDeduped(force: boolean): Promise<WalletRecord[]> {
   return run;
 }
 
-export function useMyWallets(): { wallets: WalletRecord[]; loading: boolean; reload: () => void } {
+export interface UseMyWalletsOptions {
+  /**
+   * Also return the wallets the user toggled OUT of the dashboard totals.
+   * Default false: every monetary surface must agree on what "your wallets"
+   * means. Non-monetary surfaces that read a wallet as an IDENTITY — the
+   * manager desk follows one linked XRPL account to read its ledger — pass
+   * true: a dedicated governing account is exactly the kind of wallet one
+   * excludes from the totals, and it must still be offered there.
+   */
+  includeExcluded?: boolean;
+}
+
+export function useMyWallets(options: UseMyWalletsOptions = {}): { wallets: WalletRecord[]; loading: boolean; reload: () => void } {
+  const { includeExcluded = false } = options;
   const userAddress = useAuthStore((s) => s.user?.address);
   const [list, setList] = useState<WalletRecord[]>(() => walletListCache ?? []);
   // Only "loading" when we have nothing cached to show yet.
@@ -96,8 +109,8 @@ export function useMyWallets(): { wallets: WalletRecord[]; loading: boolean; rel
   // (which reads useWalletLinking, not this hook).
   const wallets = useMemo(
     () =>
-      dedupeWallets(userAddress, list).filter((w) => w.includeInPortfolio !== false),
-    [userAddress, list],
+      dedupeWallets(userAddress, list).filter((w) => includeExcluded || w.includeInPortfolio !== false),
+    [userAddress, list, includeExcluded],
   );
   return {
     wallets,

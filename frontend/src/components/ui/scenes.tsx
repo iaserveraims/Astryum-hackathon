@@ -90,6 +90,49 @@ export function RadarSweep({ size = 168 }: { size?: number }) {
 }
 
 /* ── Legacy · permanence, the constitution ─────────────────────────────────── */
+/**
+ * PantheonScene — el panteón del Legacy, dibujándose (fundador 2026-08-25:
+ * «the legacy logo (pantheon) animated and representing the legacy» en la
+ * estación de la cuenta). El templo se traza a sí mismo al montar (CSS
+ * stroke-dashoffset, escalonado), la estrella del norte titila con la clase
+ * de la casa y el conjunto flota apenas. Índigo SIEMPRE (--product-legacy):
+ * representa al producto, no al tema activo. Reduced motion: quieto y entero.
+ */
+export function PantheonScene({ size = 168 }: { size?: number }) {
+  const strokeStyle = { stroke: 'hsl(var(--product-legacy))' } as React.CSSProperties;
+  return (
+    <svg width={size} height={size} viewBox="0 0 168 168" fill="none" aria-hidden className="pantheon-float">
+      <defs>
+        <radialGradient id="pt-halo" cx="0.5" cy="0.42" r="0.5">
+          <stop offset="0%" stopColor="hsl(var(--product-legacy))" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="hsl(var(--product-legacy))" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="84" cy="78" r="72" fill="url(#pt-halo)" />
+      {/* la estrella del norte, sobre el frontón */}
+      <path
+        d="M84 18l2.6 6.2 6.6 0.9-4.8 4.6 1.2 6.6-5.6-3.2-5.6 3.2 1.2-6.6-4.8-4.6 6.6-0.9z"
+        fill="hsl(var(--product-legacy))"
+        className="eicon-star"
+      />
+      <g strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={strokeStyle}>
+        {/* frontón */}
+        <path d="M84 44 L128 68 H40 Z" className="pantheon-draw" style={{ ['--pd' as never]: '0s' }} />
+        {/* arquitrabe */}
+        <path d="M44 76 H124" className="pantheon-draw" style={{ ['--pd' as never]: '0.18s' }} />
+        {/* columnas */}
+        <path d="M52 76 V116" className="pantheon-draw" style={{ ['--pd' as never]: '0.3s' }} />
+        <path d="M73 76 V116" className="pantheon-draw" style={{ ['--pd' as never]: '0.4s' }} />
+        <path d="M95 76 V116" className="pantheon-draw" style={{ ['--pd' as never]: '0.5s' }} />
+        <path d="M116 76 V116" className="pantheon-draw" style={{ ['--pd' as never]: '0.6s' }} />
+        {/* estilóbato — los dos escalones */}
+        <path d="M46 124 H122" className="pantheon-draw" style={{ ['--pd' as never]: '0.72s' }} />
+        <path d="M38 132 H130" className="pantheon-draw" style={{ ['--pd' as never]: '0.82s' }} />
+      </g>
+    </svg>
+  );
+}
+
 export function MonumentScene({ size = 168 }: { size?: number }) {
   const c = 84;
   return (

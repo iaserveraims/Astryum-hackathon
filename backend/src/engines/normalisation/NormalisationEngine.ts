@@ -34,6 +34,24 @@ export interface UnderlyingValuation {
   decimals: number;
 }
 
+/**
+ * Base units → a human decimal string, EXACT (bigint, never a float).
+ *
+ * `Number(raw.amount) / 10 ** decimals` is fine for pricing (a cent either way
+ * changes nothing) but not for the number a person reads: 400548823209107060000
+ * wei has 21 digits and a double holds 15–16, so the tail is invented. Trailing
+ * zeros are trimmed — "10.000000" is noise, "10" is the amount.
+ */
+export function humanFromBase(base: bigint, decimals: number): string {
+  if (!Number.isInteger(decimals) || decimals < 0) return base.toString();
+  if (decimals === 0) return base.toString();
+  const neg = base < 0n;
+  const abs = neg ? -base : base;
+  const unit = 10n ** BigInt(decimals);
+  const frac = (abs % unit).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return `${neg ? '-' : ''}${abs / unit}${frac ? `.${frac}` : ''}`;
+}
+
 function parseUnderlying(v: unknown): UnderlyingValuation | null {
   if (!v || typeof v !== 'object') return null;
   const { symbol, amount, decimals } = v as Record<string, unknown>;
@@ -177,6 +195,14 @@ export class NormalisationEngine {
         kind: raw.kind,
         asset: this.canonicaliseAsset(raw),
         amount: raw.amount,
+        // La cantidad legible viaja YA resuelta: aquí es donde se sabe qué
+        // decimales tiene el activo, y era el único sitio donde se sabía.
+        // Sin `decimals` declarados no se afirma nada (`undefined`): el 18 de
+        // arriba vale para valorar en USD, no para enseñar una cifra.
+        qty:
+          typeof raw.raw?.decimals === 'number'
+            ? humanFromBase(raw.amount, raw.raw.decimals as number)
+            : undefined,
         amountUSD,
         priceUSD,
         metadata: { ...raw.raw, symbol: symbol ?? raw.raw?.symbol ?? null },

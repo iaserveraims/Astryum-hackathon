@@ -38,6 +38,10 @@
  *   XRPL_KEEPER_ACCOUNTS=rA,rB       — cuentas cuyos escrows vigila
  *   XRPL_KEEPER_INTERVAL_MIN=60      — cadencia del tick
  *
+ * Con el flag ENCENDIDO y la config rota (sin seed, seed que no abre cuenta, sin
+ * cuentas válidas) el keeper NO arranca — pero tampoco se calla: avisa a ops y
+ * late FALLANDO para el Sentinel. Ver `announceNotStarted` (G11).
+ *
  * ── Atribución: estas tx van SIN el SourceTag del proyecto ──────────────────
  * Las firma una cuenta OPERATIVA de Astryum y las dispara un cron. Las bases
  * del Make Waves definen la unidad de actividad por el FIRMANTE — *«An Active
@@ -57,9 +61,12 @@ import {
   buildEscrowFinish,
 } from '../connectors/protocols/xrpl/XrplEscrowService';
 import { xrplProvider } from '../integrations/providers/chain/XRPLProvider';
+import { diagnoseXrplSecret } from '../utils/xrplSecret';
 import { opsAlert } from './OpsAlertService';
+import { markAgentTick } from './ops/agentHeartbeats';
 
 const SOURCE = 'xrpl-escrow-keeper';
+const AGENT_TITLE = 'Keeper de escrows XRPL';
 
 /** tec codes that mean "ya no procede" — otro lo hizo o aún no toca. No son fallos. */
 const BENIGN_TEC = new Set(['tecNO_TARGET', 'tecNO_PERMISSION', 'tecNO_ENTRY']);
@@ -97,6 +104,22 @@ function parseAccounts(raw: string | undefined): string[] {
     .filter((s) => /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(s));
 }
 
+/**
+ * Why a key does not open its account, carrying NO fragment of the key.
+ *
+ * xrpl.js echoes the offending character when base58 fails (`Unknown letter:
+ * "-"`) and that character is a character OF THE SECRET. Invariant #2 (no
+ * secret in logs, ever) does not have a "just one letter" exception, and this
+ * reason travels to the log, to the ops inbox and to Discord. Our own codes
+ * (`XRPL_SECRET_NUMBERS_*`) only name formats and group positions, so they pass
+ * through — they are the actionable ones; anything else collapses to a fixed
+ * phrase that still tells the operator what to look at.
+ */
+export function safeSeedReason(error: string | undefined): string {
+  if (error && /^XRPL_SECRET_NUMBERS_/.test(error)) return error;
+  return 'no es un family seed (s…) legible ni unos secret numbers de Xaman';
+}
+
 export class XrplEscrowKeeper {
   private timer: NodeJS.Timeout | null = null;
   private bootTimer: NodeJS.Timeout | null = null;
@@ -104,34 +127,123 @@ export class XrplEscrowKeeper {
   private done = new Set<string>();
   private lastRunAt: Date | null = null;
   private submitted: Array<{ action: string; owner: string; txHash: string; at: string }> = [];
+  /** Por qué NO arrancó teniendo el flag encendido. null = o corre, o está apagado a propósito. */
+  private notStartedReason: string | null = null;
+  private alarmTimer: NodeJS.Timeout | null = null;
+
+  /** La cadencia esperada del tick, en ms — la misma que se le promete al Sentinel. */
+  private intervalMs(): number {
+    return Math.max(Number(process.env.XRPL_KEEPER_INTERVAL_MIN || 60), 5) * 60_000;
+  }
 
   start(): void {
-    if (this.timer) return;
+    if (this.timer || this.alarmTimer) return;
     if (process.env.XRPL_KEEPER_ENABLED !== 'true') {
+      // Silencio POR DISEÑO: un carril apagado por flag no puede echarse de menos.
       console.log('[xrpl-escrow-keeper] apagado (XRPL_KEEPER_ENABLED != true)');
       return;
     }
     if (!process.env.XRPL_KEEPER_SEED) {
-      console.error('[xrpl-escrow-keeper] XRPL_KEEPER_ENABLED=true pero falta XRPL_KEEPER_SEED — no arranca');
+      this.announceNotStarted(
+        'XRPL_KEEPER_ENABLED=true pero falta XRPL_KEEPER_SEED — el keeper NO arrancó',
+        'Pon XRPL_KEEPER_SEED en Railway (family seed s… o los secret numbers de Xaman de la cuenta PROPIA del ' +
+          'keeper, la que paga sus fees) y redespliega. Si ya no quieres el keeper, apágalo de verdad con ' +
+          'XRPL_KEEPER_ENABLED=false: así el aviso se calla sin mentir.',
+      );
+      return;
+    }
+    // La seed se valida AQUÍ, no el día que haya un escrow que vencer: derivar la
+    // cuenta es la única prueba de que esta clave puede firmar algo (ver xrplSecret,
+    // donde formato y algoritmo ya han mordido). La cuenta es dato público; la
+    // clave no sale ni en el error (safeSeedReason).
+    const seed = diagnoseXrplSecret(process.env.XRPL_KEEPER_SEED);
+    if (!seed.address) {
+      this.announceNotStarted(
+        `XRPL_KEEPER_SEED no abre ninguna cuenta (formato leído: ${seed.format}; ${safeSeedReason(seed.error)}) — ` +
+          'el keeper NO arrancó',
+        'Revisa XRPL_KEEPER_SEED en Railway: se acepta el family seed (s…) o los 8 grupos de 6 dígitos de Xaman. ' +
+          'El panel de admin del executor tiene el mismo diagnóstico para la clave del anchor si quieres comparar.',
+      );
       return;
     }
     if (parseAccounts(process.env.XRPL_KEEPER_ACCOUNTS).length === 0) {
-      console.error('[xrpl-escrow-keeper] sin XRPL_KEEPER_ACCOUNTS válidas — no arranca');
+      this.announceNotStarted(
+        'XRPL_KEEPER_ENABLED=true pero XRPL_KEEPER_ACCOUNTS no trae ninguna dirección r… válida — el keeper NO arrancó',
+        'Pon en XRPL_KEEPER_ACCOUNTS las cuentas cuyos escrows se vigilan, separadas por comas (rA,rB). ' +
+          'Si ya no quieres el keeper, apágalo con XRPL_KEEPER_ENABLED=false.',
+      );
       return;
     }
-    const minutes = Math.max(Number(process.env.XRPL_KEEPER_INTERVAL_MIN || 60), 5);
+    const everyMs = this.intervalMs();
     this.bootTimer = setTimeout(() => void this.tick(), 45_000); // no compite con el boot
     if (typeof this.bootTimer.unref === 'function') this.bootTimer.unref();
-    this.timer = setInterval(() => void this.tick(), minutes * 60_000);
+    this.timer = setInterval(() => void this.tick(), everyMs);
     if (typeof this.timer.unref === 'function') this.timer.unref();
-    console.log(`[xrpl-escrow-keeper] keeper permissionless en marcha — tick cada ${minutes}min`);
+    console.log(
+      `[xrpl-escrow-keeper] keeper permissionless en marcha desde ${seed.address} — tick cada ${everyMs / 60_000}min`,
+    );
+  }
+
+  /**
+   * G11 (auditoría 2026-08-17) — the operator asked for it and it did not run.
+   *
+   * WHAT FAILED IN SILENCE: with XRPL_KEEPER_ENABLED=true but no seed, an
+   * unusable seed or no valid accounts, start() did a console.error and RETURNED
+   * WITHOUT EVER CALLING markAgentTick. agentHeartbeats watches only agents that
+   * announced themselves at least once — "you cannot miss what never said it was
+   * there" — a rule written for rails switched OFF BY FLAG. Here the flag is ON,
+   * so the keeper was indistinguishable from a rail nobody turned on: intent and
+   * reality diverged with nothing but one boot line in the logs, and an escrow
+   * that should have been finished (XRP to the Destination) or cancelled (XRP
+   * back to the Owner) could sit unattended for weeks with every gauge green.
+   *
+   * THE SIGNAL, and why it is not just one alert:
+   *  · opsAlert once, at boot → ops inbox (persisted) + Discord, naming the env
+   *    var to fix. A log line is not a signal: nobody reads logs on a good day.
+   *  · a FAILING heartbeat that keeps beating on the keeper's own cadence → the
+   *    Sentinel `agentes` probe reports it as failing and escalates to critical
+   *    after 3 beats, for as long as the misconfiguration lasts. It MUST be
+   *    refreshed: a single stale heartbeat would trip the probe's other branch
+   *    and claim "su ciclo se ha parado — reinicia el servicio", which is false
+   *    (the cycle never started; a restart fixes nothing). Being loud is not
+   *    enough — the reason has to be true too.
+   *  · `timer` stays null on purpose: the keeper is NOT running and must not
+   *    look like it is. Only the alarm beats; nothing here signs anything.
+   */
+  private announceNotStarted(reason: string, runbook: string): void {
+    console.error(`[${SOURCE}] ${reason}`);
+    this.notStartedReason = reason;
+    this.beatNotStarted();
+    this.alarmTimer = setInterval(() => this.beatNotStarted(), this.intervalMs());
+    if (typeof this.alarmTimer.unref === 'function') this.alarmTimer.unref();
+    // Nunca puede tumbar el arranque del proceso: opsAlert ya se traga sus fallos,
+    // el .catch es el cinturón por si un día deja de hacerlo.
+    void opsAlert(SOURCE, 'warn', reason, {
+      key: 'no-arranca',
+      runbook,
+      facts: { flag: 'XRPL_KEEPER_ENABLED=true', arrancado: false },
+    }).catch(() => undefined);
+  }
+
+  /** El latido de la divergencia: el operador lo quiso encendido y no corre. */
+  private beatNotStarted(): void {
+    if (!this.notStartedReason) return;
+    markAgentTick(SOURCE, {
+      title: AGENT_TITLE,
+      everyMs: this.intervalMs(),
+      ok: false,
+      detail: this.notStartedReason,
+    });
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     if (this.bootTimer) clearTimeout(this.bootTimer);
+    if (this.alarmTimer) clearInterval(this.alarmTimer);
     this.timer = null;
     this.bootTimer = null;
+    this.alarmTimer = null;
+    this.notStartedReason = null;
   }
 
   async tick(): Promise<void> {
@@ -149,11 +261,9 @@ export class XrplEscrowKeeper {
     // Latido para el Sentinel (2026-08-03): este keeper avisaba de lo que hacía,
     // pero no de que seguía vivo. Si su ciclo se para, nadie lo notaba.
     try {
-      const { markAgentTick } = await import('./ops/agentHeartbeats');
-      const everyMs = Math.max(Number(process.env.XRPL_KEEPER_INTERVAL_MIN || 60), 5) * 60_000;
-      markAgentTick('xrpl-escrow-keeper', {
-        title: 'Keeper de escrows XRPL',
-        everyMs,
+      markAgentTick(SOURCE, {
+        title: AGENT_TITLE,
+        everyMs: this.intervalMs(),
         ok: failed.length === 0,
         ...(failed.length > 0 ? { detail: failed.join(' · ') } : {}),
       });
@@ -253,11 +363,20 @@ export class XrplEscrowKeeper {
   }
 
   status(): {
+    /** Lo que el operador PIDIÓ (el flag), no lo que pasa. */
+    enabled: boolean;
+    /** Lo que de verdad corre. `enabled && !running` es la divergencia de G11. */
+    running: boolean;
+    /** El motivo cuando el flag está encendido y no corre; null si no aplica. */
+    notStartedReason: string | null;
     lastRunAt: string | null;
     resolvedCount: number;
     submitted: Array<{ action: string; owner: string; txHash: string; at: string }>;
   } {
     return {
+      enabled: process.env.XRPL_KEEPER_ENABLED === 'true',
+      running: this.timer !== null,
+      notStartedReason: this.notStartedReason,
       lastRunAt: this.lastRunAt?.toISOString() ?? null,
       resolvedCount: this.done.size,
       submitted: [...this.submitted],

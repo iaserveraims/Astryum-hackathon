@@ -159,6 +159,19 @@
      audit found zero focus-visible outside dead shadcn files). Elements with
      their own ring (PrimaryButton/GhostButton) override via focus-visible
      utilities; everything else gets this. */
+  /* Los spinners nativos de input[type=number] (las flechitas blancas del
+     navegador) rompen el tema en cada campo de cantidad (fundador
+     2026-08-25) — la casa pone MAX y slider; las flechitas sobran. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
   :focus-visible {
     outline: 2px solid hsl(var(--volt) / 0.75);
     outline-offset: 2px;
@@ -391,11 +404,33 @@
   opacity: 1;
   transform: translateY(0);
 }
-@media (prefers-reduced-motion: reduce) {
-  .plogo,
-  .plogo-name {
-    transition: none;
-  }
+
+/* ─── NIVEL DE MOVIMIENTO (stores/motionStore.ts, fundador 2026-09-10) ──────
+   Las guardas de «movimiento reducido» de esta hoja ya NO miran al SO: miran
+   `data-motion` en <html>, que estampa el usuario desde Settings (el script
+   pre-pintado de app/layout.tsx lo pone antes del primer frame). Tres guardas:
+
+     :root:not([data-motion='full'])                    → SERENO y MÍNIMO: los
+         bucles RÁPIDOS o llamativos (barridos de luz, marquesinas, pulsos que
+         viajan, motas SMIL, ping) se apagan. Ni siquiera despacio valen.
+     :root:not([data-motion='full']):not([data-motion='calm']) → solo MÍNIMO
+         (y el atributo ausente): todo lo que se mueve solo se para, y los
+         trazos que se dibujan al pasar el ratón quedan ya dibujados.
+     :root[data-motion='calm']                          → SERENO: los bucles
+         LENTOS (órbitas, radar, deriva, respiraciones, twinkle, sello del
+         CTA) siguen vivos A UN TERCIO DE VELOCIDAD — el bloque «tempo del
+         sereno» de abajo. Sereno no es quieto: es lento, pequeño y nunca
+         persigue al cursor (fundador, tercera pasada: «el modo calm lo has
+         dejado sin animaciones, quiero que lo animes»).
+     :root[data-motion='minimal']                       → además, las
+         transiciones de estado se cortan y el loader de marca queda quieto.
+
+   El atributo ausente (antes del script, o sin JS) cae en la guarda de
+   MÍNIMO: sin nivel conocido, quieto. Es la dirección segura. ─────────── */
+
+:root[data-motion='minimal'] .plogo,
+:root[data-motion='minimal'] .plogo-name {
+  transition: none;
 }
 
 /* Thin rotating conic ring (featured accents) */
@@ -414,17 +449,28 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .text-gold-sweep { animation: none; background-position: 50% 50%; }
-  .aurora-drift,
-  .animate-marquee,
-  .animate-marquee-rev { animation: none !important; }
-  .conic-ring::after { animation: none; }
-}
+:root:not([data-motion='full']) .text-gold-sweep { animation: none; background-position: 50% 50%; }
+:root:not([data-motion='full']) .animate-marquee,
+:root:not([data-motion='full']) .animate-marquee-rev { animation: none !important; }
+:root:not([data-motion='full']):not([data-motion='calm']) .aurora-drift { animation: none !important; }
+:root:not([data-motion='full']):not([data-motion='calm']) .conic-ring::after { animation: none; }
 
 /* ─── Earn surface icon life (components/earn/icons.tsx) ─────────────────────
    The orbit ring spins only while its door is hovered; constellation stars
    twinkle softly all the time; the comet trail stretches on hover. */
+/* ── El sidebar cambia de traje (raíl ↔ menú completo, 2026-09-10) ─────────
+   El ANCHO del aside y el MARGEN del contenido se mueven a la vez (500ms,
+   la salida expresiva de la casa) y el contenido nuevo del panel entra
+   después, breve y desde la izquierda: primero se abre el hueco, luego se
+   asienta lo que va dentro — así el ojo no ve dos cosas peleando. En Mínimo
+   no anima nada de esto. */
+@keyframes shell-reveal {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.shell-reveal { animation: shell-reveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both; }
+:root[data-motion='minimal'] .shell-reveal { animation: none; }
+
 @keyframes eicon-spin { to { transform: rotate(360deg); } }
 .eicon-orbit { transform-origin: 12px 12px; }
 .group:hover .eicon-orbit { animation: eicon-spin 7s linear infinite; }
@@ -434,6 +480,114 @@
   50% { opacity: 1; }
 }
 .eicon-star { animation: eicon-twinkle 3s ease-in-out infinite; }
+
+/* ── Los cuerpos de operación miden SU panel, no la ventana (2026-08-26) ──
+   La misma lección de los quesitos: anclada a 430px con la ventana ancha,
+   un sm:grid-cols-2 de viewport aplasta dos columnas donde solo cabe una.
+   OperationSurface declara el contenedor (.op-flow) y los pares de cajas
+   (.op-grid-2) deciden por el ancho REAL del panel — flotante ancho = dos
+   columnas; anclado estrecho = una, y al redimensionar el asa responden. */
+.op-flow { container-type: inline-size; }
+.op-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 30rem) {
+  .op-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── El re-tinte lento del cruce de producto (2026-08-25) ─────────────────/* ── El re-tinte lento del cruce de producto (2026-08-25) ─────────────────
+   ThemeApplier añade .authority-retint al <html> durante ~1s alrededor de
+   cada flip de data-authority: todo lo que consume los tokens (--volt,
+   --surface-*, --shell-*) cruza de color EN LA PÁGINA, despacio, en vez de
+   saltar. Solo transicionan propiedades de color — jamás transform/opacity,
+   que pelearían con framer. La clase se retira sola: fuera del cruce, coste
+   cero. */
+.authority-retint,
+.authority-retint *,
+.authority-retint *::before,
+.authority-retint *::after {
+  transition:
+    background-color 0.9s ease,
+    border-color 0.9s ease,
+    color 0.9s ease,
+    fill 0.9s ease,
+    stroke 0.9s ease,
+    box-shadow 0.9s ease !important;
+}
+:root[data-motion='minimal'] .authority-retint,
+:root[data-motion='minimal'] .authority-retint *,
+:root[data-motion='minimal'] .authority-retint *::before,
+:root[data-motion='minimal'] .authority-retint *::after {
+  transition: none !important;
+}
+
+/* ── El BARRIDO del cambio de tema (ThemeApplier, 2026-09-14) ──────────────
+   Fundador: «alguna especie de barrido para cuando se cambia el tema». Una
+   banda de luz del ACENTO DEL TEMA NUEVO (los tokens ya están estampados
+   cuando se monta) recorre la pantalla de izquierda a derecha en el tiempo
+   del re-tinte, por encima del contenido y por debajo de los modales. Es luz
+   que pasa, no una cortina: en ningún punto tapa ni oscurece la página
+   (regla de las transiciones sin cortina, 2026-07-24). Solo transform, así
+   que se compone en GPU. En Sereno va más despacio; en Mínimo no existe. */
+@keyframes theme-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.theme-sweep {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  pointer-events: none;
+  /* Medido en el navegador (14-sep): el oro sobre espacio se veía; el bronce
+     desaturado sobre grafito, no. La luz se MEZCLA en vez de superponerse:
+     `screen` sobre las caras oscuras aclara con el acento, y en la cara
+     clara `multiply` oscurece con él — así la banda se ve en los cuatro
+     materiales sin tapar nunca lo que hay debajo. */
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    hsl(var(--volt-hi) / 0.18) 44%,
+    hsl(var(--volt) / 0.5) 50%,
+    hsl(var(--volt-hi) / 0.18) 56%,
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  transform: translateX(-100%);
+  /* Curva de CRUCERO, no la de salida de la casa: con el ease-out expresivo
+     la banda cruzaba dos anchos de pantalla en 300 ms — un fogonazo que ni
+     el ojo ni una captura recogen (sondeado en el navegador el 14-sep:
+     transform −1440 → +268 → +1412 px en 60/260/560 ms). Arranca suave, cruza
+     a velocidad legible y frena al salir. */
+  animation: theme-sweep 1.4s cubic-bezier(0.45, 0.05, 0.25, 1) forwards;
+  will-change: transform;
+}
+:root[data-theme='light'] .theme-sweep {
+  mix-blend-mode: multiply;
+}
+:root[data-motion='calm'] .theme-sweep {
+  animation-duration: 1.9s;
+}
+:root[data-motion='minimal'] .theme-sweep {
+  display: none;
+}
+
+/* ── PantheonScene (Legacy)/* ── PantheonScene (Legacy) — el templo se traza al montar y flota apenas ── */
+.pantheon-draw {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  animation: pantheon-draw 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--pd, 0s);
+}
+@keyframes pantheon-draw { to { stroke-dashoffset: 0; } }
+.pantheon-float { animation: pantheon-float 7s ease-in-out infinite; }
+@keyframes pantheon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+:root:not([data-motion='full']):not([data-motion='calm']) .pantheon-draw { animation: none; stroke-dashoffset: 0; }
+:root:not([data-motion='full']):not([data-motion='calm']) .pantheon-float { animation: none; }
 .eicon-d1 { animation-delay: 0.5s; }
 .eicon-d2 { animation-delay: 1.1s; }
 .eicon-d3 { animation-delay: 1.7s; }
@@ -441,11 +595,18 @@
 .eicon-trail { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: 9px 15px; }
 .group:hover .eicon-trail { transform: translate(1px, -1px); }
 
-@media (prefers-reduced-motion: reduce) {
-  .eicon-star { animation: none; opacity: 1; }
-  .group:hover .eicon-orbit { animation: none; }
-  .eicon-trail { transition: none; }
+:root:not([data-motion='full']):not([data-motion='calm']) .eicon-star { animation: none; opacity: 1; }
+:root:not([data-motion='full']):not([data-motion='calm']) .group:hover .eicon-orbit { animation: none; }
+:root:not([data-motion='full']):not([data-motion='calm']) .eicon-trail { transition: none; }
+
+/* ─── Launch App beacon (landing header CTA, 2026-08-16) — the dashboard
+   door breathes its gold glow, softly: present without shouting. ─── */
+@keyframes cta-beacon {
+  0%, 100% { box-shadow: 0 6px 22px hsl(var(--volt) / 0.22); }
+  50% { box-shadow: 0 6px 32px hsl(var(--volt) / 0.45); }
 }
+.cta-beacon { animation: cta-beacon 3.2s ease-in-out infinite; }
+:root:not([data-motion='full']):not([data-motion='calm']) .cta-beacon { animation: none; box-shadow: 0 6px 22px hsl(var(--volt) / 0.28); }
 
 /* ─── Authority crossing glass (components/authority/AuthorityCrossing.tsx) ──
    The Personal↔Legacy crossing frosts the page instead of curtaining it
@@ -459,9 +620,11 @@
    (1500ms, 300ms under reduced motion); fill-mode `both` parks the pane at
    blur(0) once it ends, so the exit unmount never snaps. */
 @keyframes acx-glass {
+  /* 4px desde 2026-08-23 (cruce más sutil — el fundador siente el de 6px
+     intrusivo ahora que gobernar navega a /app/legacy en cada clic). */
   0%   { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-  22%  { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-  78%  { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  22%  { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  78%  { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
   100% { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
 }
 .acx-glass { animation: acx-glass var(--acx-dur, 1500ms) ease-in-out both; }
@@ -472,17 +635,55 @@
    draws itself while its door is hovered. */
 .escene-spin-a { animation: eicon-spin 36s linear infinite; }
 .escene-spin-b { animation: eicon-spin 22s linear infinite reverse; }
+/* La capa media de las escenas v3 (2026-08-29): un tercer tempo, para que dos
+   anillos de la misma escena nunca respiren al unísono. */
+.escene-spin-c { animation: eicon-spin 14s linear infinite; }
 .escene-draw {
   stroke-dasharray: 260;
   stroke-dashoffset: 260;
-  transition: stroke-dashoffset 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+  /* 1.6s (antes 1.1): el trazo acompaña, ya no protagoniza — y a esta
+     velocidad el des-dibujado al salir también es un gesto, no un tirón. */
+  transition: stroke-dashoffset 1.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .group:hover .escene-draw { stroke-dashoffset: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .escene-spin-a,
-  .escene-spin-b { animation: none; }
-  .escene-draw { transition: none; stroke-dashoffset: 0; opacity: 0.4; }
+/* v4 (fundador 2026-08-29: «no creo que estén bien hechas las reacciones al
+   ratón, simples líneas no me gusta»): reacciones DE SISTEMA. Las capas
+   `escene-boost-*` son envoltorios ADITIVOS que solo giran bajo atención —
+   parten de 0°, así que la rotación constante del hijo no salta de fase: el
+   sistema simplemente acelera bajo la mano y se relaja al soltar. Las motas
+   `escene-mote` viajan SIEMPRE por su camino (animateMotion nativo, sin ids)
+   y el hover solo las enciende. `escene-pop` es el crecimiento con muelle de
+   los cuerpos centrales (sol, capital, candado) — transform-box para que el
+   scale gire sobre el propio cuerpo, no sobre el viewBox. */
+/* v4.1 (fundador 2026-08-29, segunda vuelta: «la reactividad es too much…
+   más lenta», y «que no se reinicie de manera brusca al quitar el ratón»).
+   El reinicio brusco era esta capa: al soltar el hover perdía su animación y
+   el ángulo acumulado saltaba a 0° de golpe. Ahora la animación existe
+   SIEMPRE y el hover solo la despierta (play-state): al salir, la capa se
+   CONGELA donde esté — nada salta — y al volver, reanuda. Velocidades a la
+   mitad, que es la otra mitad del encargo. */
+.escene-boost-a { animation: eicon-spin 18s linear infinite; animation-play-state: paused; }
+.escene-boost-b { animation: eicon-spin 14s linear infinite reverse; animation-play-state: paused; }
+.group:hover .escene-boost-a,
+.group:hover .escene-boost-b { animation-play-state: running; }
+.escene-pop {
+  transition: transform 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-box: fill-box;
+  transform-origin: center;
 }
+.group:hover .escene-pop { transform: scale(1.1); }
+.escene-mote { transition: opacity 0.5s ease; }
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-spin-a,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-spin-b,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-spin-c,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-spin-slower,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-boost-a,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-boost-b { animation: none; }
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-draw { transition: none; stroke-dashoffset: 0; opacity: 0.4; }
+:root:not([data-motion='full']):not([data-motion='calm']) .group:hover .escene-pop { transform: none; }
+/* animateMotion no obedece a los media queries: la mota se esconde y la
+   escena queda completa sin ella (son adornos aditivos). */
+:root:not([data-motion='full']) .escene-mote { display: none; }
 
 /* ─── Capital in orbit — the dashboard's echo of the landing's solar system.
    A dashed ring around allocation donuts rotates imperceptibly slowly, with a
@@ -493,9 +694,33 @@
   animation: orbit-slow 45s linear infinite;
   transform-origin: center;
 }
-@media (prefers-reduced-motion: reduce) {
-  .donut-orbit { animation: none; }
+/* ── DonutCard: la fila dona+leyenda decide por el ancho de SU tarjeta, no del
+   viewport (fundador 2026-08-25: en la tira de 4 quesitos del Portfolio las
+   leyendas se salían del recuadro — la tarjeta es estrecha aunque la ventana
+   sea ancha, y un sm:flex-row de viewport no puede saberlo). Container queries
+   nativas: tarjeta ancha = dona a la izquierda y leyenda al lado; tarjeta
+   estrecha = dona arriba centrada y la leyenda debajo A TODO EL ANCHO.
+
+   ⚠️ ESTO ES LAYOUT, NO MOVIMIENTO, y por eso vive FUERA de la consulta de
+   movimiento reducido. Nació dentro de ella por un pegado desafortunado
+   (2026-08-25) y el resultado fue que en cualquier equipo SIN «reducir
+   movimiento» —o sea, casi todos— ni `.donut-scale` ni `.donut-row` existían:
+   el marco de la dona se quedaba sin medidas, el anillo no se dibujaba, la
+   órbita punteada se estiraba en cápsula sobre una caja de tamaño cero y la
+   leyenda se montaba encima del total. Se veía roto en Home y en Portfolio a
+   la vez, que era la pista: lo que fallaba era lo COMPARTIDO. */
+.donut-flow { container-type: inline-size; }
+.donut-row { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.donut-scale { width: 170px; height: 170px; }
+@container (min-width: 27rem) {
+  .donut-row { flex-direction: row; gap: 1.5rem; }
+  .donut-scale { width: 200px; height: 200px; }
 }
+
+/* La guarda de siempre, restaurada: el pegado la había convertido en
+   `.donut-orbit .donut-orbit`, un descendiente de sí misma que no casa con
+   nada — así que la órbita seguía girando con el movimiento reducido puesto. */
+:root:not([data-motion='full']):not([data-motion='calm']) .donut-orbit { animation: none; }
 
 /* ─── Page scenes (components/ui/scenes.tsx) ─────────────────────────────────
    The visual voice beyond Earn: a radar that sweeps, a ceremonial ring that
@@ -557,24 +782,31 @@
   animation: escene-rail 3.4s linear infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .escene-radar,
-  .escene-spin-slower,
-  .escene-drift,
-  .escene-signal,
-  .escene-rail,
-  .escene-tune { animation: none; }
-  .escene-signal,
-  .escene-rail { stroke-dasharray: none; }
-  .escene-sign { transition: none; stroke-dashoffset: 0; opacity: 0.4; }
-}
+:root:not([data-motion='full']) .escene-signal,
+:root:not([data-motion='full']) .escene-rail { animation: none; }
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-radar,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-spin-slower,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-drift,
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-tune { animation: none; }
+:root:not([data-motion='full']) .escene-signal,
+:root:not([data-motion='full']) .escene-rail { stroke-dasharray: none; }
+:root:not([data-motion='full']):not([data-motion='calm']) .escene-sign { transition: none; stroke-dashoffset: 0; opacity: 0.4; }
 
 /* ── Authority theming (ADR-009 — the account switcher) ─────────────────────
    The shell's atmosphere follows the ACTIVE AUTHORITY: warm gold-on-space for
    simple accounts / overview, a deeper, colder vault palette when a governed
    account is active. The palette is an ACCOMPANIMENT — the GoverningBar and
    the switcher's text carry the state; colour is never the only indicator. */
-:root {
+/* Un SUBÁRBOL puede declarar su propio tema (2026-09-13). Los tokens de
+   Astryum viven en :root porque Astryum es la línea base; eso basta mientras
+   solo haya un tema en la página, pero deja de bastar en cuanto una probeta
+   quiere enseñar el tema que NO está puesto — un <div data-skin='astryum'>
+   dentro de un panel institucional heredaría el bronce, y la probeta mentiría.
+   Repitiendo el selector, cualquier caja puede vestirse de un tema completo y
+   sus hijos lo heredan. Lo usa el selector de Settings para enseñar los dos
+   temas de verdad, uno al lado del otro, sin tocar la página. */
+:root,
+[data-skin='astryum'] {
   --shell-bg: #0b0a08;
   --shell-panel: rgba(16, 14, 10, 0.9);
   --shell-seam: rgba(201, 162, 39, 0.18);
@@ -610,6 +842,26 @@
   --product-personal-ink: 0 0% 4%;
   --product-legacy: 234 89% 74%;
   --product-legacy-ink: 0 0% 4%;
+  /* EL TERCER PRODUCTO (2026-09-18): la landing gana un mundo Institucional y
+     este token tenía que existir ANTES que él. Sin su par, todo lo que se pinta
+     "del color del producto" —el chip del conmutador, y sobre todo la travesía
+     de AuthorityCrossing, que elige entre dos valores— caía al oro, y el cruce
+     hacia la institución se veía de color Personal. Es el bronce del tema
+     Institucional de la aplicación (--volt de [data-skin='institutional']), no
+     un color nuevo: el mismo material en la web pública y en el panel. */
+  --product-institutional: 36 36% 58%;
+  --product-institutional-ink: 210 15% 8%;
+  /* LOS CUATRO A LOS MANDOS (2026-09-19): la landing pasa a un mundo por
+     gobernador. Autocustodia hereda el oro de Personal y Empresa el bronce
+     institucional; Exchange y Agente necesitaban su par ANTES de existir, por
+     la misma razón que el bronce: sin token, todo lo que se pinta «del color
+     del producto» cae al oro sin que nada se queje. Platino frío para la
+     estación del exchange; plata apagada para la sonda del agente, que además
+     se dibuja a trazo discontinuo porque todavía está en diseño. */
+  --product-exchange: 216 41% 73%;
+  --product-exchange-ink: 216 30% 8%;
+  --product-agent: 216 9% 79%;
+  --product-agent-ink: 220 10% 6%;
   /* Tonal status text (HSL components), same wrapping trick as --ink: Pill/
      StatTile read these instead of hardcoded text-emerald-300/amber-200/
      red-300 so the light theme (below) can swap in AA-legible shades —
@@ -619,7 +871,8 @@
   --tone-warning: 48 97% 77%;
   --tone-danger: 0 94% 82%;
 }
-[data-authority='governed'] {
+[data-authority='governed'],
+[data-skin='astryum'][data-authority='governed'] {
   --shell-bg: #07080d;
   --shell-panel: rgba(11, 13, 21, 0.92);
   --shell-seam: rgba(148, 170, 220, 0.22);
@@ -640,7 +893,8 @@
    contrast on paper); Legacy = cool paper with a deepened indigo. These
    blocks are UNLAYERED on purpose: they must beat the @layer base defaults
    (--volt*) regardless of order, same trick the authority flip relies on. */
-[data-theme='light'] {
+[data-theme='light'],
+[data-skin='astryum'][data-theme='light'] {
   /* Paper, not printer-white (founder 2026-07-22): the background carries a
      touch more warmth and the cards sit BELOW white — second de-glare pass
      2026-07-26 ("sigue teniendo un efecto un poco de blanco nuclear"): the
@@ -669,12 +923,17 @@
   --product-personal-ink: 45 100% 97%;
   --product-legacy: 231 48% 42%;
   --product-legacy-ink: 228 100% 97%;
+  /* El bronce oscurecido para leerse sobre papel, como sus dos hermanos. */
+  --product-institutional: 32 46% 30%;
+  --product-institutional-ink: 45 40% 97%;
   /* Darkened so success/warning/danger pill text stays AA-legible on paper. */
   --tone-success: 163 94% 24%;
   --tone-warning: 26 90% 37%;
   --tone-danger: 0 74% 42%;
 }
-[data-theme='light'] [data-authority='governed'] {
+[data-theme='light'] [data-authority='governed'],
+[data-theme='light'][data-authority='governed'],
+[data-skin='astryum'][data-theme='light'][data-authority='governed'] {
   /* Same second de-glare pass as the personal paper, in the indigo family. */
   --shell-bg: #dfe3ee;
   --shell-panel: rgba(238, 242, 250, 0.92);
@@ -692,4 +951,908 @@
   --authority-accent: #3d4f8c;
   --authority-accent-soft: rgba(61, 79, 140, 0.09);
   --authority-accent-border: rgba(61, 79, 140, 0.3);
+}
+
+/* ── The Summary's fleet band ───────────────────────────────────────────────
+   Two ambient gestures, both tied to a FACT rather than to decoration:
+
+   1. `.meter-flow` — a slow sheen travels the "working" stretch of a capital
+      meter. Money at work flows; money sitting still does not, and the class
+      is only ever applied to the working fill, so the movement IS the reading.
+   2. `.lens-breathe` — the selection light on the chosen row keeps a very
+      slow, very faint pulse, so "this is what the figure above is reading"
+      stays legible without a second label competing for the eye.
+
+   Both stop dead under prefers-reduced-motion; the selection keeps its border
+   and tint, which is what carries the meaning. */
+.lens-marker-volt {
+  border-color: hsl(var(--volt) / 0.45);
+  background: hsl(var(--volt) / 0.07);
+  box-shadow: 0 0 0 1px hsl(var(--volt) / 0.08), 0 0 22px -6px hsl(var(--volt) / 0.35);
+}
+.lens-marker-legacy {
+  border-color: hsl(var(--product-legacy) / 0.5);
+  background: hsl(var(--product-legacy) / 0.1);
+  box-shadow: 0 0 0 1px hsl(var(--product-legacy) / 0.1), 0 0 22px -6px hsl(var(--product-legacy) / 0.4);
+}
+@keyframes lens-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.78; }
+}
+.lens-breathe { animation: lens-breathe 4.2s ease-in-out infinite; }
+
+.meter-flow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    hsl(var(--ink) / 0.28) 45%,
+    hsl(var(--ink) / 0.34) 55%,
+    transparent 100%
+  );
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  animation: meter-flow 3.6s linear infinite;
+  opacity: 0.55;
+}
+@keyframes meter-flow {
+  0% { background-position: -60% 0; }
+  100% { background-position: 190% 0; }
+}
+
+:root:not([data-motion='full']):not([data-motion='calm']) .lens-breathe { animation: none; }
+:root:not([data-motion='full']) .meter-flow::after { animation: none; opacity: 0; }
+
+/* ── El Home, con vida propia ───────────────────────────────────────────────
+   Fundador 2026-08-24: «el home está genial, simple pero efectivo… ¿podemos
+   darle un toque extra de vida?». La regla que no se rompe al hacerlo: nada
+   de esto INFORMA de nada, así que nada de esto puede pedir atención. Son
+   gestos lentos, de bajo contraste, que se notan cuando te quedas mirando y
+   no cuando trabajas — el barrido tarda 14s, el latido 4.
+
+   `.hero-sheen` — la luz que cruza el héroe, y SOLO el héroe (fundador
+   2026-08-25: «deja el efecto únicamente en el primer recuadro, el de net
+   worth, como la primera versión, pero mantén la velocidad actual y todo»).
+
+   El relevo por los cuatro paneles se retira. Con un único panel el reparto en
+   cuartos deja de tener sentido —dejaría la tarjeta apagada 36 de cada 48s— así
+   que vuelve la cadencia de la v1: la travesía ocupa el 70% del ciclo y el
+   resto es la pausa. Con un ciclo de 17s eso son ~12s de travesía: EXACTAMENTE
+   la velocidad que ya tenía, porque el recorrido (±95%) tampoco cambia. Solo
+   desaparecen la espera larga y los otros tres barridos.
+
+   Lo aprendido con el relevo, que no conviene perder por si vuelve:
+     · Con `animation-delay`, `animation-fill-mode: backwards` NO es opcional —
+       sin él la banda se queda aparcada y encendida durante toda la espera.
+     · El bloque mide un 120% del panel: le basta ±92% de su propio ancho para
+       entrar y salir. Con ±130% dos tercios del tiempo se gastaban fuera de la
+       tarjeta y el cruce visible se quedaba en un tercio.
+
+   `.live-beat` — un halo que respira DETRÁS de un punto de estado. Se usa solo
+   donde hay un hecho vivo que lo justifique (protecciones vigilando), nunca
+   como adorno de una cifra cualquiera. */
+.hero-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  /* Por encima de lo que la tarjeta apila por dentro, o la luz pasaría por
+     debajo de su contenido. */
+  z-index: 5;
+}
+.hero-sheen::after {
+  content: '';
+  position: absolute;
+  inset: -40% -10%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--volt-soft) / 0.05) 45%,
+    hsl(var(--volt-soft) / 0.08) 50%,
+    hsl(var(--volt-soft) / 0.05) 55%,
+    transparent 100%
+  );
+  animation: hero-sheen 17s linear infinite;
+}
+/* La travesía ocupa el 70% del ciclo (la cadencia de la v1) y el 30% restante
+   es la pausa antes de volver a entrar. `linear`: a esta lentitud una curva de
+   aceleración se nota como un tirón en el centro, y lo que se busca es deriva
+   constante. */
+@keyframes hero-sheen {
+  0%        { transform: translateX(-95%) skewX(-12deg); opacity: 0; }
+  3%        { opacity: 1; }
+  62%       { opacity: 1; }
+  70%, 100% { transform: translateX(95%) skewX(-12deg); opacity: 0; }
+}
+
+@keyframes live-beat {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50%      { transform: scale(2.1); opacity: 0; }
+}
+.live-beat::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: live-beat 2.8s ease-out infinite;
+}
+
+:root:not([data-motion='full']) .hero-sheen::after { animation: none; opacity: 0; }
+:root:not([data-motion='full']):not([data-motion='calm']) .live-beat::before { animation: none; opacity: 0; }
+
+/* ── ceremony-compact (fundador 2026-08-26: la constitución como operación
+   anclable). En un panel de 360–720px las reservas de escena del LegacyPanel
+   (lg:pr-56 / lg:pr-60 + las constelaciones decorativas absolutas) estrangulan
+   el contenido: aquí se anulan por envoltorio, sin tocar la ceremonia — en
+   /app/legacy a página completa siguen intactas. El selector compuesto gana a
+   la utilidad de Tailwind sin !important. */
+.ceremony-compact .lg\:pr-56,
+.ceremony-compact .lg\:pr-60 {
+  padding-right: 1.25rem;
+}
+.ceremony-compact div[aria-hidden].hidden.lg\:block {
+  display: none;
+}
+
+/* ── AstryumLoader (ui/AstryumLoader.tsx) — la carga con marca ──────────────
+   Dos actos: el NACIMIENTO corre una vez (fill-mode both, nada de infinite:
+   reiniciar el dibujo cada ciclo cansa) y el BUCLE — halo que respira, estela
+   que reluce, mota en órbita — es lo único infinito, así una espera larga
+   respira en vez de parpadear. pathLength=100 en el SVG normaliza los dashes
+   sin medir trazos. Reduced motion: logo terminado y quieto. */
+@keyframes astry-streak {
+  0% { transform: translate(-16px, -13px); opacity: 0; }
+  45% { opacity: 1; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes astry-trail-shine {
+  0%, 62%, 100% { opacity: 1; }
+  74% { opacity: 0.25; }
+  88% { opacity: 1; }
+}
+@keyframes astry-fall {
+  0% { transform: translate(-34px, -27px) scale(0.86); opacity: 0; }
+  28% { opacity: 1; }
+  74% { transform: translate(2.4px, 1.9px) scale(1.015); opacity: 1; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes astry-ring-draw {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  12% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes astry-crater-pop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+@keyframes astry-halo-life {
+  0% { opacity: 0; }
+  55% { opacity: 0; }
+  80% { opacity: 0.18; }
+  100% { opacity: 0.09; }
+}
+/* Halo contenido (fundador 2026-09-08, tercera pasada: «el color es un poco
+   extraño») — al 0.3 teñía de marrón el hueco entre la roca y el anillo. */
+@keyframes astry-halo-breathe {
+  0%, 100% { opacity: 0.09; }
+  50% { opacity: 0.18; }
+}
+.astry-load-trail {
+  animation:
+    astry-streak 0.5s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both,
+    astry-trail-shine 3.4s ease-in-out calc(var(--d, 0s) + 1.7s) infinite;
+}
+/* La roca CAE por la diagonal de las estelas y asienta con un punto de
+   rebote (74%) — es un cometa: cae, no se dibuja. */
+.astry-load-rock {
+  animation: astry-fall 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+.astry-load-ring {
+  stroke-dasharray: 100;
+  animation: astry-ring-draw 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both;
+}
+.astry-load-crater {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: astry-crater-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) var(--d, 1s) both;
+}
+.astry-load-halo {
+  animation:
+    astry-halo-life 1.6s ease-out both,
+    astry-halo-breathe 3.4s ease-in-out 1.7s infinite;
+}
+.astry-load-mote { opacity: 0.85; }
+:root[data-motion='minimal'] .astry-load-trail,
+:root[data-motion='minimal'] .astry-load-rock,
+:root[data-motion='minimal'] .astry-load-ring,
+:root[data-motion='minimal'] .astry-load-crater,
+:root[data-motion='minimal'] .astry-load-halo { animation: none; }
+/* El anillo se revela por MÁSCARA (v3): sin animación hay que dejar el
+   arco de la máscara destapado, o el anillo no existiría. */
+:root[data-motion='minimal'] .astry-load-ring { stroke-dashoffset: 0; opacity: 1; }
+:root[data-motion='minimal'] .astry-load-halo { opacity: 0.18; }
+:root[data-motion='minimal'] .astry-load-mote { display: none; }
+
+/* ── Wallets: la rejilla de tarjetas mide SU PANEL, no el viewport ──────────
+   Fundador 2026-08-28: con una operación anclada a la derecha, las tarjetas
+   «se ven muy abultadas, se hacen pequeñas y no se reparten bien». La causa es
+   estructural y ya la pagaron los quesitos y los cuerpos de operación: los
+   breakpoints de viewport no saben que el dock se ha comido 800px del ancho.
+   Container queries — la rejilla cuenta sus columnas según el ancho REAL que
+   le queda, así que con el dock abierto baja a 2 (o 1) columnas cómodas y sin
+   él sube a 3-4, respondiendo en vivo al asa de redimensionar del panel. */
+.wallet-cards-flow { container-type: inline-size; }
+.wallet-cards {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: 1fr;
+}
+/* Los umbrales garantizan que una tarjeta nunca baje de ~300px de ancho (subido
+   de ~260 el 2026-08-29, fundador: «quiero que las hagas más grandes» — y el
+   dorso ahora aloja DOS direcciones etiquetadas, que piden ese aire).
+   OJO (2026-08-29): estas queries son solo el PRIMER PINTADO sin JS. El
+   recuento vivo lo pisa WalletCardsGrid (WalletManager.tsx) con un estilo
+   inline ASENTADO — cambiar columnas en pleno ensanche del dock hacía dos
+   redimensiones y un salto a mitad de gesto. Cambiar umbrales = cambiar
+   CARD_COL_STEPS_REM allí también. */
+@container (min-width: 38rem) { .wallet-cards { grid-template-columns: repeat(2, 1fr); } }
+@container (min-width: 58rem) { .wallet-cards { grid-template-columns: repeat(3, 1fr); } }
+@container (min-width: 77rem) { .wallet-cards { grid-template-columns: repeat(4, 1fr); } }
+
+/* ── Wallets: la INVITACIÓN al giro (fundador 2026-09-10: «que no sea un
+   simple botón que aparece — algo más complejo»). Al posarse en la tarjeta,
+   tres gestos a la vez: la pestaña del giro se DESPLIEGA de círculo a
+   píldora y enseña su palabra, el arco se traza alrededor del icono mientras
+   este da media vuelta, y la marca de agua del fondo se corre unos píxeles a
+   contramano del amago 3D (la tarjeta empieza el giro en framer — ver
+   CompactWalletCard). El aura de vuelo la lleva framer (segunda pasada,
+   fundador: «se queda la sombra en color iluminada por detrás»): plena solo
+   MIENTRAS la tarjeta gira, insinuada bajo el cursor, y sigue al ángulo real
+   — por eso ya no hay regla CSS para .wcard-aura.
+   Sereno: los mismos gestos, a la mitad de tempo. Mínimo: la pestaña aparece
+   entera y quieta (arco ya trazado, icono sin vuelta, marca de agua fija) —
+   la guarda global de transiciones ya corta el resto. ─────────────────── */
+.wflip-pill {
+  opacity: 0;
+  max-width: 1.75rem;
+  transition:
+    max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease;
+}
+.group\/card:hover .wflip-pill,
+.group\/card:focus-within .wflip-pill { opacity: 1; max-width: 9.5rem; }
+.wflip-label {
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 0.3s ease 0.1s, transform 0.3s ease 0.1s;
+}
+.group\/card:hover .wflip-label,
+.group\/card:focus-within .wflip-label { opacity: 1; transform: none; }
+.wflip-icon { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.group\/card:hover .wflip-icon { transform: rotate(180deg); }
+.wflip-arc {
+  stroke-dashoffset: 66;
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.05s;
+}
+.group\/card:hover .wflip-arc { stroke-dashoffset: 15; }
+.wcard-float { transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+.group\/card:hover .wcard-float { transform: translateX(-5px) scale(1.03); }
+/* Sereno: mismo gesto, tempo doble — lento, pequeño, respuesta al usuario. */
+:root[data-motion='calm'] .wflip-pill { transition-duration: 0.9s, 0.5s; }
+:root[data-motion='calm'] .wflip-label { transition-duration: 0.6s, 0.6s; }
+:root[data-motion='calm'] .wflip-icon { transition-duration: 1.2s; }
+:root[data-motion='calm'] .wflip-arc { transition-duration: 1.4s; }
+:root[data-motion='calm'] .wcard-float { transition-duration: 1.4s; }
+/* Mínimo: quieto — sin vuelta, sin trazo, sin deriva. */
+:root[data-motion='minimal'] .wflip-icon { transform: none !important; }
+:root[data-motion='minimal'] .wflip-arc { stroke-dashoffset: 15; }
+:root[data-motion='minimal'] .wcard-float { transform: none !important; }
+
+/* ─── Nivel de movimiento — reglas globales (ver la nota de cabecera) ──────
+   Las utilidades de Tailwind no obedecen a ningún atributo por sí solas. El
+   `animate-spin` NO se toca en ningún nivel: un spinner dice «trabajando», y
+   quitarlo convierte una espera en un cuelgue. `animate-pulse` (esqueletos
+   de carga) tampoco: es opacidad, no movimiento, y también informa. */
+:root:not([data-motion='full']) .animate-ping,
+:root:not([data-motion='full']) .animate-bounce { animation: none; }
+
+/* Mínimo: los cambios de estado son instantáneos. Solo transiciones — las
+   animaciones ya están apagadas una a una arriba, y el spinner se queda. */
+:root[data-motion='minimal'] *,
+:root[data-motion='minimal'] *::before,
+:root[data-motion='minimal'] *::after {
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+}
+
+/* ─── Tempo del SERENO — los bucles lentos, a un tercio (ver la nota) ──────
+   Cambiar la duración re-mapea la fase y el elemento salta UNA vez, al
+   cambiar de nivel en Settings: aceptable; el nivel no cambia solo. */
+:root[data-motion='calm'] .aurora-drift { animation-duration: 48s; }
+:root[data-motion='calm'] .conic-ring::after { animation-duration: 18s; }
+:root[data-motion='calm'] .eicon-star { animation-duration: 6s; }
+:root[data-motion='calm'] .group:hover .eicon-orbit { animation-duration: 14s; }
+:root[data-motion='calm'] .pantheon-float { animation-duration: 21s; }
+:root[data-motion='calm'] .cta-beacon { animation-duration: 9s; }
+:root[data-motion='calm'] .escene-spin-a { animation-duration: 108s; }
+:root[data-motion='calm'] .escene-spin-b { animation-duration: 66s; }
+:root[data-motion='calm'] .escene-spin-c { animation-duration: 42s; }
+:root[data-motion='calm'] .escene-spin-slower { animation-duration: 270s; }
+:root[data-motion='calm'] .escene-boost-a { animation-duration: 54s; }
+:root[data-motion='calm'] .escene-boost-b { animation-duration: 42s; }
+:root[data-motion='calm'] .donut-orbit { animation-duration: 135s; }
+:root[data-motion='calm'] .escene-radar { animation-duration: 18s; }
+:root[data-motion='calm'] .escene-drift { animation-duration: 33s; }
+:root[data-motion='calm'] .escene-drift-b { animation-duration: 42s; }
+:root[data-motion='calm'] .escene-drift-c { animation-duration: 27s; }
+:root[data-motion='calm'] .escene-tune { animation-duration: 27s; }
+:root[data-motion='calm'] .lens-breathe { animation-duration: 8.4s; }
+:root[data-motion='calm'] .live-beat::before { animation-duration: 5.6s; }
+/* Los trazos que se dibujan y el pop bajo el cursor van más despacio también. */
+:root[data-motion='calm'] .escene-draw,
+:root[data-motion='calm'] .escene-sign { transition-duration: 1.6s; }
+:root[data-motion='calm'] .escene-pop { transition-duration: 1.4s; }
+
+/* ─── Emblemas del SERENO (components/earn/icons.tsx *Emblem) ─────────────
+   El grabado tiene pulso: el aro punteado da una vuelta cada dos minutos y
+   el núcleo respira en seis segundos. Solo existen en sereno; en mínimo no
+   se montan, pero la guarda de abajo los pararía igual. */
+@keyframes emblem-breathe {
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 1; }
+}
+.emblem-turn { animation: eicon-spin 120s linear infinite; }
+.emblem-turn-rev { animation: eicon-spin 150s linear infinite reverse; }
+.emblem-breathe { animation: emblem-breathe 6s ease-in-out infinite; }
+:root:not([data-motion='full']):not([data-motion='calm']) .emblem-turn,
+:root:not([data-motion='full']):not([data-motion='calm']) .emblem-turn-rev,
+:root:not([data-motion='full']):not([data-motion='calm']) .emblem-breathe { animation: none; }
+
+/* ── La mesa del exchange (stage/, 2026-09-11) ──────────────────────────────
+   NOTAS PLEGADAS: dentro del escenario, las notas al pie inline de cada
+   estación del desk (los <p> tenues de 11px) se pliegan tras «Notes» — el
+   tour y el «Why» de cada paso llevan la explicación. Selector por atributo
+   sobre las utilidades que esas notas ya llevan: ExchangeDesk no cambia. */
+[data-hints='off'] p.text-\[11px\].text-ink\/50 { display: none; }
+[data-hints='off'][data-station='AUTO'] > div > p.text-xs.text-ink\/60:first-child { display: none; }
+
+/* EL FOCO: la estación que el tour señala. Un halo dorado que respira una
+   vez y se queda como contorno; sin animación en Mínimo. */
+.station-spot {
+  box-shadow: 0 0 0 2px hsl(var(--volt) / 0.55), 0 18px 48px -24px hsl(var(--volt) / 0.55);
+  animation: station-spot-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes station-spot-in {
+  0% { box-shadow: 0 0 0 0 hsl(var(--volt) / 0), 0 0 0 0 hsl(var(--volt) / 0); }
+  40% { box-shadow: 0 0 0 6px hsl(var(--volt) / 0.28), 0 18px 48px -24px hsl(var(--volt) / 0.7); }
+  100% { box-shadow: 0 0 0 2px hsl(var(--volt) / 0.55), 0 18px 48px -24px hsl(var(--volt) / 0.55); }
+}
+:root[data-motion='minimal'] .station-spot { animation: none; }
+
+/* EL SITIO DEL CLIENTE (client/ExchangeClientSite): la lógica es ClientInner
+   tal cual; aquí se le pone la casa alrededor — las tarjetas respiran al
+   pasar el ratón y las transiciones son las de Card. Sin transform en Mínimo. */
+.exchange-client section,
+.exchange-client > div > div.rounded-2xl {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s, box-shadow 0.25s;
+}
+.exchange-client section:hover,
+.exchange-client > div > div.rounded-2xl:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--volt) / 0.3);
+  box-shadow: 0 18px 44px -28px hsl(var(--volt) / 0.45);
+}
+:root[data-motion='minimal'] .exchange-client section:hover,
+:root[data-motion='minimal'] .exchange-client > div > div.rounded-2xl:hover { transform: none; }
+
+/* ── EL RAÍL DE ESTACIONES (StationProgress v3, 2026-09-12) ─────────────────
+   El lado lo decide la CAJA, no la pantalla: en una ventana flotante (42rem)
+   o un anclaje estrecho, la tira va encima del contenido; con 52rem de caja
+   (la página entera, o el anclaje ensanchado) el raíl vertical se pone al lado,
+   pegado arriba mientras se hace scroll. Así el campo usable de la derecha
+   nunca se queda pequeño. */
+.station-rail { container-type: inline-size; }
+.srl-rail { display: none; }
+.station-rail .srl-aside { margin-bottom: 1rem; }
+/* La rejilla va en una capa INTERIOR: una @container solo ve ancestros, así
+   que el contenedor (.station-rail) no puede cambiar su propia rejilla. */
+@container (min-width: 52rem) {
+  .station-rail .station-rail-grid {
+    display: grid;
+    grid-template-columns: var(--srl-w, 13.5rem) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  /* Pegado arriba; si la columna lleva compañía (el tour) y no cabe, scrollea sola. */
+  .station-rail .srl-aside { position: sticky; top: 1rem; margin-bottom: 0; max-height: calc(100dvh - 2rem); overflow-y: auto; }
+  .station-rail .srl-rail { display: block; }
+  .station-rail .srl-strip { display: none; }
+}
+
+/* LOS ESTANTES DE WALLETS (12-sep): cada función con su raíl de color a la
+   izquierda (personal · gestor · Legacy) y la misma cabecera en línea — se ve
+   de un vistazo qué hace cada wallet, sin bandas que partan la página. */
+.shelf-rail { border-left: 2px solid var(--shelf, transparent); padding-left: 1rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL TEMA INSTITUCIONAL — la lámina
+   (fundador 2026-09-13: «un tema más reglamentario para instituciones, no uno
+   soso… que cambie los colores, dibujos y layouts… algo disruptivo y que se
+   note, no un simple cambio de colores»)
+
+   El modelo entero, y por qué son DOS ejes, está en lib/theme/appearance.ts.
+   Resumen para quien edite esto: `data-skin` dice de qué MATERIAL está hecha
+   la interfaz; `data-theme` sigue diciendo si hay luz o no. Los dos se cruzan,
+   igual que ya se cruzaban `data-theme` y `data-authority` — un tema sin cara
+   clara sería medio tema.
+
+   NADA DE ESTO TOCA EL TEMA ASTRYUM. Todas las reglas de aquí abajo cuelgan de
+   [data-skin='institutional']; sin ese sello, el panel es exactamente el de
+   siempre, hasta el último pixel. Esa es la condición que el fundador puso
+   primero («déjalo todo como está y llámalo tema astryum»).
+
+   Los bloques van SIN CAPA (@layer) a propósito, como los de luz y autoridad:
+   así ganan a las utilidades de Tailwind pase lo que pase con el orden.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. MATERIAL — grafito y bronce, nunca espacio y oro ────────────────────
+   Astryum tiñe TODA la escalera de superficies de cálido (43-44° de tono): es
+   una nave iluminada por un sol. La institución no tiene sol: tiene luz
+   neutra de sala de lectura, y el único color de la casa es el bronce de los
+   herrajes. De ahí el giro de tono a 210° (gris frío verdadero) y un acento
+   muy desaturado — el oro de Astryum es 68% de saturación; este bronce es 36%.
+   Esa distancia es lo que hace que se note sin cambiar de empresa. */
+[data-skin='institutional'] {
+  --shell-bg: #101215;
+  --shell-panel: rgba(21, 24, 28, 0.94);
+  --shell-seam: rgba(176, 146, 95, 0.22);
+  --surface-0: 210 10% 7%;
+  --surface-1: 210 9% 10%;
+  --surface-2: 210 8% 14%;
+  --surface-3: 208 8% 18%;
+  /* Marfil, no blanco de quirófano: el texto de un documento impreso. */
+  --ink: 40 14% 94%;
+  --volt: 36 36% 58%;
+  --volt-soft: 38 30% 70%;
+  --volt-hi: 40 45% 86%;
+  --volt-deep: 34 30% 20%;
+  --volt-ink: 210 15% 8%;
+  --authority-accent: #b0925f;
+  --authority-accent-soft: rgba(176, 146, 95, 0.08);
+  --authority-accent-border: rgba(176, 146, 95, 0.28);
+  /* Los estados bajan el tono: en una lámina nada es fosforescente, pero el
+     verde sigue siendo verde y el rojo sigue siendo rojo (invariante: el
+     color acompaña al estado, nunca lo sustituye). */
+  --tone-success: 150 30% 62%;
+  --tone-warning: 38 58% 66%;
+  --tone-danger: 4 52% 68%;
+  --product-personal: 36 36% 58%;
+  --product-personal-ink: 210 15% 8%;
+  --product-legacy: 216 26% 64%;
+  --product-legacy-ink: 214 20% 9%;
+  /* Tokens propios de la lámina: el filete. Sustituye a la sombra como
+     ÚNICO recurso de profundidad — ver §4. */
+  --plate-rule: hsl(var(--ink) / 0.14);
+  --plate-rule-soft: hsl(var(--ink) / 0.07);
+  --plate-rule-strong: hsl(var(--ink) / 0.26);
+  --radius: 0.1875rem;
+}
+
+/* La institución gobernada: el bronce cede el sitio al acero. Mismo material,
+   otra aleación — igual que Astryum pasa de oro a índigo. */
+[data-skin='institutional'][data-authority='governed'] {
+  --shell-bg: #0d1014;
+  --shell-panel: rgba(17, 21, 26, 0.94);
+  --shell-seam: rgba(140, 164, 198, 0.22);
+  --surface-0: 214 14% 7%;
+  --surface-1: 214 13% 10%;
+  --surface-2: 214 12% 14%;
+  --surface-3: 213 11% 18%;
+  --volt: 214 26% 64%;
+  --volt-soft: 213 30% 74%;
+  --volt-hi: 212 40% 88%;
+  --volt-deep: 215 24% 22%;
+  --authority-accent: #8ca4c6;
+  --authority-accent-soft: rgba(140, 164, 198, 0.08);
+  --authority-accent-border: rgba(140, 164, 198, 0.3);
+}
+
+/* ── LA LÁMINA CLARA ────────────────────────────────────────────────────────
+   Aquí el tema enseña de verdad lo que es: papel de registro. Astryum en
+   claro es pergamino cálido (43° de tono); esto es papel de barba gris, con
+   la tinta casi negra y el bronce oscurecido hasta ser legible sobre blanco
+   (AA). Es la cara con la que el tema se enseña en el cuestionario de alta. */
+[data-skin='institutional'][data-theme='light'] {
+  --shell-bg: #e9e7e1;
+  --shell-panel: rgba(250, 249, 246, 0.95);
+  --shell-seam: rgba(122, 98, 52, 0.3);
+  --surface-0: 45 12% 90%;
+  --surface-1: 45 25% 97%;
+  --surface-2: 45 12% 91%;
+  --surface-3: 44 10% 87%;
+  --ink: 210 16% 12%;
+  --volt: 32 46% 30%;
+  --volt-soft: 32 36% 40%;
+  --volt-hi: 38 48% 70%;
+  --volt-deep: 30 44% 18%;
+  --volt-ink: 45 40% 97%;
+  --authority-accent: #7a6234;
+  --authority-accent-soft: rgba(122, 98, 52, 0.09);
+  --authority-accent-border: rgba(122, 98, 52, 0.32);
+  --tone-success: 158 58% 22%;
+  --tone-warning: 28 68% 32%;
+  --tone-danger: 2 58% 38%;
+  --product-personal: 32 46% 30%;
+  --product-personal-ink: 45 40% 97%;
+  --product-legacy: 216 36% 34%;
+  --product-legacy-ink: 214 60% 97%;
+  --plate-rule: hsl(var(--ink) / 0.2);
+  --plate-rule-soft: hsl(var(--ink) / 0.1);
+  --plate-rule-strong: hsl(var(--ink) / 0.36);
+}
+
+[data-skin='institutional'][data-theme='light'][data-authority='governed'] {
+  --shell-bg: #e2e5ea;
+  --shell-panel: rgba(247, 249, 251, 0.95);
+  --shell-seam: rgba(52, 72, 102, 0.3);
+  --surface-0: 214 16% 89%;
+  --surface-1: 214 30% 97%;
+  --surface-2: 214 16% 90%;
+  --surface-3: 214 14% 86%;
+  --ink: 214 22% 12%;
+  --volt: 216 36% 34%;
+  --volt-soft: 216 28% 44%;
+  --volt-hi: 214 44% 74%;
+  --volt-deep: 217 34% 20%;
+  --volt-ink: 214 60% 97%;
+  --authority-accent: #344866;
+  --authority-accent-soft: rgba(52, 72, 102, 0.09);
+  --authority-accent-border: rgba(52, 72, 102, 0.32);
+}
+
+/* ── 2. GEOMETRÍA — todo se cuadra ──────────────────────────────────────────
+   Las esquinas generosas de Astryum (16px) son lo que hace que una pantalla
+   densa lea «acogedora». Una institución no busca acogedora: busca
+   ARCHIVABLE. Cuadrar la geometría es el cambio que más se nota de lejos y el
+   que menos código toca — una regla por utilidad, en un sitio.
+
+   `rounded-full` NO se toca: los avatares, los puntos de estado y las barras
+   de progreso son círculos porque son círculos, no por decoración. */
+[data-skin='institutional'] .rounded-2xl,
+[data-skin='institutional'] .rounded-xl,
+[data-skin='institutional'] .rounded-\[10px\],
+[data-skin='institutional'] .rounded-\[28px\] {
+  border-radius: 3px;
+}
+[data-skin='institutional'] .rounded-lg,
+[data-skin='institutional'] .rounded-md,
+[data-skin='institutional'] .rounded-\[4px\] {
+  border-radius: 2px;
+}
+[data-skin='institutional'] .rounded-t-xl,
+[data-skin='institutional'] .rounded-t-lg {
+  border-radius: 3px 3px 0 0;
+}
+[data-skin='institutional'] .rounded-b-2xl,
+[data-skin='institutional'] .rounded-b-lg {
+  border-radius: 0 0 3px 3px;
+}
+
+/* ── 3. VOZ — serif en los títulos, versalitas en las etiquetas ─────────────
+   El cambio de voz es, junto al de geometría, lo que hace que el tema se
+   RECONOZCA en una captura. Newsreader (app/layout.tsx) es una serif de
+   TEXTO, no de portada: da autoridad sin disfrazarse de periódico.
+
+   Solo los titulares. Los números siguen en mono tabular en los dos temas —
+   una cifra es una cifra, y cambiarle la tipografía a un saldo es el tipo de
+   coquetería que rompe la lectura. */
+[data-skin='institutional'] h1,
+[data-skin='institutional'] h2,
+[data-skin='institutional'] h3,
+[data-skin='institutional'] h4,
+[data-skin='institutional'] .plate-title {
+  font-family: var(--font-serif), Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: 0 !important;
+}
+/* Astryum aprieta el interletraje de los titulares (tracking-tight) porque es
+   una sans grande; una serif apretada se emborrona. Se devuelve a normal. */
+[data-skin='institutional'] h1.tracking-tight,
+[data-skin='institutional'] h2.tracking-tight,
+[data-skin='institutional'] h3.tracking-tight {
+  letter-spacing: 0;
+}
+/* La etiqueta de instrumento (primitives MicroLabel) se abre: en la lámina es
+   el encabezado de una columna de registro, no una micro-nota. */
+[data-skin='institutional'] .plate-register {
+  font-family: var(--font-jetbrains-mono), monospace;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/* ── 4. PROFUNDIDAD — el filete sustituye a la sombra ───────────────────────
+   LA REGLA DEL MATERIAL. En Astryum todo flota: cada tarjeta lleva una sombra
+   difusa de 36px y los botones y los aros llevan halo del color de la marca.
+   En la lámina NADA flota — el papel no levita. La profundidad la da un
+   segundo filete, y solo los planos que de verdad se superponen (modales)
+   conservan una sombra, dura y corta.
+
+   Por qué con `!important` y por qué por atributo `style`: 57 sitios del
+   panel escriben su sombra INLINE (Card, HairlineGroup, los modales…) y una
+   declaración inline gana a cualquier hoja de estilos salvo que sea
+   importante. Seleccionar por `[style*='shadow']` es lo que permite que este
+   tema apague TODOS los halos desde un sitio en vez de tocar 57 ficheros —
+   y que mañana un fichero nuevo con su sombra inline ya nazca apagado. */
+[data-skin='institutional'] [class*='shadow-'],
+[data-skin='institutional'] [style*='shadow'] {
+  box-shadow: 0 0 0 1px var(--plate-rule-soft) !important;
+}
+/* Los planos que SÍ se superponen al resto de la página. Sombra dura, corta y
+   sin color: la de un papel sobre otro papel, no la de un objeto en órbita. */
+[data-skin='institutional'] [role='dialog'][class*='shadow-'],
+[data-skin='institutional'] [role='dialog'][style*='shadow'],
+[data-skin='institutional'] .plate-raised {
+  box-shadow:
+    0 0 0 1px var(--plate-rule),
+    0 10px 26px -18px rgba(0, 0, 0, 0.7) !important;
+}
+/* El halo del anillo de foco pierde el difuminado pero NUNCA la visibilidad:
+   un tema no puede empeorar el teclado (barrido a11y 2026-08-03). */
+[data-skin='institutional'] :focus-visible {
+  outline: 2px solid hsl(var(--volt));
+  outline-offset: 2px;
+}
+
+/* ── 5. LA LÁMINA — el marco de doble filete ────────────────────────────────
+   El artefacto que sustituye a la tarjeta flotante. Lo monta primitives Card
+   cuando el tema es institucional: un filete exterior, un pelo de aire, y el
+   filete interior — el marco de un título valor. */
+[data-skin='institutional'] .plate {
+  border-color: var(--plate-rule) !important;
+  position: relative;
+}
+[data-skin='institutional'] .plate::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--plate-rule-soft);
+  pointer-events: none;
+}
+/* La cabecera de lámina: el título del panel sobre su regla, como el
+   encabezado de una sección de documento. */
+[data-skin='institutional'] .plate-head {
+  border-bottom: 1px solid var(--plate-rule);
+}
+
+/* ── 6. EL FONDO — retícula grabada, no cielo ───────────────────────────────
+   Las estrellas, las dos auras y el grano de BackgroundFx son LA firma
+   visual de Astryum; en la lámina se cambian por el rayado fino de un
+   documento de seguridad (components/ui/skinArt.tsx GuillocheField). Aquí
+   vive solo su latido, que es el mismo gesto lento de la casa y se apaga con
+   el nivel de movimiento como todo lo demás. */
+@keyframes plate-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+.plate-breathe {
+  animation: plate-breathe 22s ease-in-out infinite;
+}
+:root[data-motion='calm'] .plate-breathe {
+  animation-duration: 66s;
+}
+:root[data-motion='minimal'] .plate-breathe {
+  animation: none;
+}
+
+/* ── 6b. LA ENTRADA — la lámina se imprime (2026-09-14) ─────────────────────
+   Fundador: «con el nuevo estilo gráfico institucional no tiene animación de
+   inicio el portfolio, aparecen todos los cuadros sin más». No era una
+   regresión: §4 quita las sombras y los halos que hacían LEGIBLE la entrada
+   sutil de Astryum, y el tema nunca trajo la suya. La trae ahora, en tres
+   piezas que se leen como una: los bloques se IMPRIMEN de izquierda a derecha
+   (ui/motion.tsx, printVariants), el filete interior de cada lámina se TRAZA
+   un instante después (aquí), y las orlas de los instrumentos grabados se
+   dibujan al llegar (.plate-draw, DonutCard EngravedOrla). Nada funde, nada
+   flota: se escribe.
+
+   EL MOVIMIENTO MANDA SOBRE EL TEMA, como siempre: en Mínimo ninguna de las
+   tres se mueve. En Sereno el bloque y su filete van AL MISMO tempo que en
+   Completo — imprimir ya es lento y pequeño, y un filete que tardara el
+   doble que su bloque serían dos tempos para un gesto que se vende como uno
+   (astryum-73, 14-sep); solo la orla del instrumento, que es otro gesto, se
+   ralentiza. Los selectores llevan `:root[data-motion]` Y `[data-skin]`
+   sobre el mismo <html>, sin descendiente entre medias — los dos sellos
+   viven en la raíz (ThemeApplier).
+
+   Y LA ENTRADA ESPERA AL VELO: en recarga dura AccessGate retiene la cortina
+   ~1,9 s y el panel monta debajo; RevealGroup arranca al caer la cortina
+   (lib/motion/veil.ts). El filete de aquí es una animación CSS que corre al
+   montar, así que en recarga dura se traza detrás del velo — es el único de
+   los tres gestos que se pierde ahí, y se pierde a propósito: un filete que
+   esperase al velo tendría que ser JS, y el filete es CSS para que las
+   cientos de placas de una pantalla no se suscriban a un store. */
+@keyframes plate-rule-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+[data-skin='institutional'] .plate::after {
+  /* `both`: durante el retardo el filete aún no existe; luego se escribe. */
+  animation: plate-rule-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+}
+:root[data-motion='minimal'][data-skin='institutional'] .plate::after {
+  animation: none;
+}
+/* El trazo que se dibuja: pide `pathLength="100"` en el elemento, así la
+   longitud es la misma sea cual sea el radio. `--draw-delay` escalona
+   varios trazos de una misma orla. */
+@keyframes plate-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.plate-draw {
+  stroke-dasharray: 100;
+  animation: plate-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--draw-delay, 0.25s);
+}
+:root[data-motion='calm'] .plate-draw {
+  animation-duration: 2.4s;
+}
+:root[data-motion='minimal'] .plate-draw {
+  animation: none;
+  stroke-dasharray: none;
+}
+
+/* ── 7. EL MENÚ — filas a hueso ─────────────────────────────────────────────
+   En Astryum la fila activa es una píldora de color con su raíl. En la lámina
+   la fila activa es una BANDA con su filete a la izquierda, del ancho
+   completo del panel: el índice de un expediente. */
+[data-skin='institutional'] .app-nav-row {
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  margin-left: -0.75rem;
+  margin-right: -0.75rem;
+  padding-left: calc(0.75rem + 2px);
+  padding-right: 0.75rem;
+}
+[data-skin='institutional'] .app-nav-row[aria-current='page'] {
+  border-left-color: hsl(var(--volt));
+  background-color: hsl(var(--ink) / 0.05);
+}
+/* El raíl animado de Astryum (la barrita que se desliza entre filas) sobra
+   cuando la propia fila ya lleva su filete: dos marcas para un estado es
+   exactamente lo que el barrido de a11y llamó ruido. */
+[data-skin='institutional'] .app-nav-rail {
+  display: none;
+}
+[data-skin='institutional'] .app-sidebar {
+  border-right-width: 1px;
+  border-right-color: var(--plate-rule);
+}
+
+/* ── 7b. LOS PRIMITIVOS — la casa entera desde seis asideros ────────────────
+   Cada uno de estos nombres es una clase FIJA que el primitivo pinta siempre
+   (components/ui/primitives.tsx); el tema la viste desde aquí. Se hace por CSS
+   y no por hook a propósito: MicroLabel y Pill se pintan cientos de veces por
+   pantalla, y suscribir cada instancia al store del tema sería pagar el tema
+   en cada celda de cada tabla. Los que cambian de ESTRUCTURA —Card,
+   PageHeader, SectionTitle— sí leen el hook, porque ahí no hay CSS que valga:
+   cambian las etiquetas. */
+[data-skin='institutional'] .ui-microlabel {
+  letter-spacing: 0.24em;
+}
+[data-skin='institutional'] .ui-pill {
+  border-radius: 2px;
+  font-variant-numeric: tabular-nums;
+}
+/* El icono deja de vivir en una pastilla tintada y pasa a vivir en una
+   CASILLA reglada: el mismo filete que todo lo demás. */
+[data-skin='institutional'] .ui-icontile {
+  border-radius: 2px;
+  background-color: transparent;
+  border-color: var(--plate-rule);
+}
+/* La rejilla de filetes se hace VISIBLE: en Astryum es un pelo que apenas
+   separa lecturas; aquí es la retícula de una tabla de registro. */
+[data-skin='institutional'] .ui-hairline-group {
+  background-color: var(--plate-rule);
+  border-color: var(--plate-rule);
+}
+/* El botón principal conserva su relleno —la jerarquía la lleva el color, en
+   los dos temas— pero cambia de acabado: sin halo proyectado y con un filete
+   interior claro, que es como se marca un troquel sobre tinta plana. */
+[data-skin='institutional'] .ui-primary {
+  box-shadow: inset 0 0 0 1px hsl(var(--volt-hi) / 0.26) !important;
+}
+[data-skin='institutional'] .ui-ghost {
+  border-color: var(--plate-rule);
+  background-color: transparent;
+}
+
+/* ── 8. LO QUE NO CAMBIA ────────────────────────────────────────────────────
+   Deliberadamente FUERA del tema, porque no son decoración:
+     · el color de estado (success/warning/danger) — solo baja de brillo;
+     · `rounded-full` en avatares, puntos y barras;
+     · la tipografía de las CIFRAS (mono tabular en los dos temas);
+     · el nivel de movimiento, que es un eje aparte y manda sobre el tema;
+     · la marca: el asteroide es el mismo en los dos (la institución es
+       Astryum de etiqueta, no otra empresa).
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── El cielo del viaje Legacy (landing/art/ThresholdScene.tsx) ────────────
+   TRES animaciones, una por banda de brillo, y no una por estrella: en SVG una
+   animación de opacidad por elemento es un repintado por elemento y por
+   fotograma, nunca una animación del compositor. El centelleo real solo se ve
+   en las brillantes, así que una por banda basta y sobra. */
+@keyframes thBand { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+:root:not([data-motion='full']) .th-star { animation: none !important; }
+
+/* ── Las láminas de producto de la portada (landing/art/plateStyle.tsx) ────
+   Los fotogramas clave viven AQUÍ y no dentro de los componentes: un `<style>`
+   en un componente se inyecta una vez POR INSTANCIA montada —tres o cuatro
+   copias en el DOM en la versión apilada— y, sobre todo, el interruptor de
+   movimiento de la casa apunta a CLASES y no ve una regla incrustada. */
+@keyframes iaScan {
+  0%   { top: 0;    transform: translateY(-100%); }
+  100% { top: 100%; transform: translateY(0); }
+}
+.ia-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 16px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, hsl(var(--volt) / 0.14), transparent);
+  animation: iaScan 3.6s linear infinite;
+}
+@keyframes lgBreathe { 0%, 100% { opacity: 0.32; } 50% { opacity: 0.9; } }
+.lg-breathe { animation: lgBreathe 2.6s ease-in-out infinite; }
+
+/* Sereno y Mínimo apagan los bucles decorativos de las láminas; el resto de la
+   entrada (que va por framer y por `transform`) sigue viva y más lenta. */
+:root:not([data-motion='full']) .ia-anim,
+:root:not([data-motion='full']) .lg-anim { animation: none !important; }
+
+/* ── LA ENTRADA DEL MUNDO INSTITUCIONAL ──────────────────────────────────
+   Fundador, 2026-09-19: «cuando cambias de modo el personal es el único modo
+   que tiene aparición de entrada». Cierto: SolarJourney monta su columna solar
+   con `initial={{opacity:0, scale:0.92}}` y el institucional aparecía de golpe.
+
+   El gesto es el NOMBRE componiéndose letra a letra, que es lo que hace un
+   cajista: cada letra baja a su pluma medida con su propio retardo. Va en CSS y
+   no en framer a propósito — la separación por scroll escribe el atributo
+   `transform` y el `style.opacity` de cada letra, así que la entrada tiene que
+   vivir en un `<g>` ENVOLVENTE o las dos se pisan. */
+@keyframes ivLetter {
+  from { opacity: 0; transform: translateY(10px) scale(1.035) }
+  60%  { opacity: 1 }
+  to   { opacity: 1; transform: none }
+}
+/* Veintiséis píxeles de caída con rebote era un letrero cayendo; una letra que
+   se ESTAMPA llega de frente y se asienta. Diez píxeles, un tres y medio por
+   ciento de sobre-escala y una salida sin rebote: el gesto de una prensa, no el
+   de un cartel. */
+.iv-letter { animation: ivLetter 0.62s cubic-bezier(0.22, 0.61, 0.24, 1) both; }
+/* En «mínimo» el nombre ya está puesto: la parada cuenta lo mismo sin gesto. */
+:root[data-motion='minimal'] .iv-letter { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .iv-letter { animation: none; }
 }

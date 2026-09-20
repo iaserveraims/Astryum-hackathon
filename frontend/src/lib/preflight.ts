@@ -18,6 +18,9 @@ export interface PreflightInfo {
   available: boolean;
   willSucceed: boolean;
   reason?: string;
+  /** Codigo del check que fallo — el CONTRATO que la UI SI puede traducir.
+   *  La prosa del backend (`reason`) es solo el respaldo. */
+  code?: string;
   steps?: PreflightStep[];
   /** merged verdicts: one leg could not be simulated — an incomplete green that must say so. */
   partial?: boolean;

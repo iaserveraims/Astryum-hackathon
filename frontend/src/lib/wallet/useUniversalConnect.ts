@@ -61,28 +61,47 @@ export function useUniversalConnect(refresh: () => Promise<void> | void) {
     }
   }, []);
 
-  /** XRPL via Xaman (deeplink/QR). Updates walletStore so signing sees it too. */
-  const connectXrpl = useCallback(async () => {
-    setError(null);
-    setBusy('xrpl');
-    try {
-      const account = await walletService.connectWallet('xaman');
-      if (!account?.address) throw new Error('XAMAN_CONNECT_FAILED');
-      await persist({
-        address: account.address,
-        ecosystem: 'xrpl',
-        network: 'xrpl',
-        caip2: 'xrpl:mainnet',
-        walletType: 'Xaman',
-      });
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-      throw e;
-    } finally {
-      setBusy(null);
-    }
-  }, [refresh]);
+  /**
+   * XRPL via Xaman (deeplink/QR). Updates walletStore so signing sees it too.
+   *
+   * `confirm` ES LA PARADA ANTES DE ESCRIBIR (fundador 2026-09-13: «si estás
+   * añadiendo una wallet que es legacy quiero que te avise»). La dirección sólo
+   * se conoce DESPUÉS de conectar, así que la comprobación no puede vivir antes
+   * de este bloque: se le entrega aquí la dirección recién conocida y, si
+   * contesta `false`, no se persiste nada y el alta termina en CANCELLED —
+   * un final con nombre, nunca un silencio. Sin `confirm` el comportamiento es
+   * el de siempre (lo usa la guía de primera wallet).
+   */
+  const connectXrpl = useCallback(
+    async (confirm?: (address: string) => Promise<boolean>) => {
+      setError(null);
+      setBusy('xrpl');
+      try {
+        const account = await walletService.connectWallet('xaman');
+        if (!account?.address) throw new Error('XAMAN_CONNECT_FAILED');
+        if (confirm && !(await confirm(account.address))) {
+          throw Object.assign(new Error('ADD_WALLET_CANCELLED'), { cancelled: true as const });
+        }
+        await persist({
+          address: account.address,
+          ecosystem: 'xrpl',
+          network: 'xrpl',
+          caip2: 'xrpl:mainnet',
+          walletType: 'Xaman',
+        });
+        await refresh();
+        return account.address;
+      } catch (e) {
+        // Una cancelación del propio usuario no es un fallo que deba pintarse
+        // en rojo: la pantalla ya está enseñando por qué paró.
+        if (!(e as { cancelled?: boolean })?.cancelled) setError((e as Error).message);
+        throw e;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [refresh],
+  );
 
   /** Aptos via Petra. Updates walletStore so signing sees it too. */
   const connectAptos = useCallback(async () => {

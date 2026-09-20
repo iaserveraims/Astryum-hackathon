@@ -31,12 +31,18 @@
     "mcp:dev": "ts-node src/mcp/astryum-mcp-server.ts",
     "mcp:start": "node dist/mcp/astryum-mcp-server.js",
     "verify:kinetic": "ts-node src/scripts/verify-kinetic.ts",
+    "verify:firelight": "ts-node src/scripts/verify-firelight.ts",
+    "verify:eth-morpho": "ts-node src/scripts/verify-eth-morpho.ts",
+    "verify:fxrp-bridge": "ts-node src/scripts/verify-fxrp-oft-bridge.ts",
+    "dryrun:eth-morpho": "ts-node src/scripts/dryrun-eth-morpho.ts",
+    "dryrun:em-protection": "ts-node src/scripts/dryrun-em-protection.ts",
     "probe:kinetic": "ts-node src/scripts/probe-kinetic-wallet.ts",
     "e1:prepare": "ts-node src/scripts/e1-prepare.ts",
     "golden-path": "bash scripts/golden-path.sh",
     "docker:build": "docker build -t astryum-backend .",
     "docker:run": "docker run -p 3001:3001 astryum-backend",
-    "precommit": "npm run lint && npm run test"
+    "precommit": "npm run lint && npm run test",
+    "simulate:eth-morpho": "ts-node src/scripts/simulate-eth-morpho.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
@@ -59,6 +65,7 @@
     "helmet": "^7.1.0",
     "ioredis": "^5.4.1",
     "joi": "^17.11.0",
+    "jose": "^6.2.10",
     "jsonwebtoken": "^9.0.2",
     "lru-cache": "^11.0.2",
     "nodemailer": "^6.10.1",
@@ -116,7 +123,7 @@
       ]
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(xrpl|@xrplf|@noble|ripple-binary-codec|ripple-address-codec|ripple-keypairs|@scure)/)"
+      "node_modules/(?!(xrpl|@xrplf|@noble|ripple-binary-codec|ripple-address-codec|ripple-keypairs|@scure|jose)/)"
     ]
   },
   "prisma": {
@@ -140,7 +147,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/iaserveraims/Astryum-hackathon.git"
+    "url": "git+https://github.com/iaserveraims/Astryum.git"
   },
   "author": "Astryum Team",
   "license": "SEE LICENSE IN LICENSE"

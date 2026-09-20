@@ -247,10 +247,23 @@ interface TrustLegacy {
   } | null;
 }
 
+// Make Waves attribution, aggregates ONLY (the public-cutoff doctrine above:
+// counters that identify nobody are explicitly allowed; the r-address list
+// behind them is not and is never served here).
+interface TrustSourceTag {
+  activeUsers: number;
+  txCount: number;
+  volumeXrp: number;
+  /** true = page cap hit somewhere — the numbers are a floor, said out loud. */
+  truncated: boolean;
+  updatedAt: string | null;
+}
+
 interface TrustPayload {
   path: TrustPath;
   sample: TrustSample | null;
   legacy: TrustLegacy | null;
+  sourceTag: TrustSourceTag | null;
   updatedAt: string;
 }
 
@@ -402,7 +415,27 @@ router.get('/trust', asyncHandler(async (_req: Request, res: Response) => {
     resolveTrustSample(),
     resolveTrustLegacy(),
   ]);
-  const data: TrustPayload = { path, sample, legacy, updatedAt: new Date().toISOString() };
+  // The tag metrics ride the aggregator's in-memory snapshot — no pass is
+  // forced from the public route (that is the admin's button); before the
+  // first pass, or with the tag unconfigured, the block is null and the page
+  // simply doesn't show it. Aggregates only — never addresses.
+  let sourceTag: TrustSourceTag | null = null;
+  try {
+    const { getSourceTagMetrics } = await import('../services/XrplSourceTagMetricsService');
+    const snap = getSourceTagMetrics().snapshot();
+    if (snap.passes > 0 && snap.tag !== null && snap.error === null) {
+      sourceTag = {
+        activeUsers: snap.activeUsers,
+        txCount: snap.txCount,
+        volumeXrp: snap.volumeXrp,
+        truncated: snap.truncated,
+        updatedAt: snap.lastPassAt,
+      };
+    }
+  } catch {
+    /* aggregator unavailable — the card just doesn't render */
+  }
+  const data: TrustPayload = { path, sample, legacy, sourceTag, updatedAt: new Date().toISOString() };
   // A fully-empty answer (cold RPC / no DB) only sticks for 30s, not 5 min —
   // the underlying resolvers memoize, so the retry is cheap.
   const empty = !sample && !legacy && Object.values(path).every((v) => v === null);

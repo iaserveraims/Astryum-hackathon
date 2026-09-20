@@ -10,7 +10,10 @@ import { assertCouncilBinding } from '../../../connectors/protocols/xrpl/XrplCou
 import {
   buildVaultDepositCalls,
   checkDirectTo,
+  checkMoveDestination,
   checkRecall,
+  checkSetPayees,
+  checkVenueAcceptsEntry,
   computeStrayAssets,
   decodeVenueKind,
   formatBaseUnits,
@@ -165,6 +168,108 @@ describe('checkDirectTo mirrors every revert in _allocate', () => {
   });
 });
 
+/**
+ * REUSE (auditoría 2026-08-18) — `checkMoveDestination` lived in
+ * CouncilProposalService.ts with its OWN literal copy of the VENUE_RETIRED and
+ * VENUE_NOT_READY branches of `checkDirectTo`: same codes, same conditions,
+ * only the prose differed, and its own comment admitted it only sat there
+ * because that round did not own this file.
+ *
+ * These tests pin BOTH halves of the deduplication, and each of them would have
+ * to be written twice against the old code:
+ *  - the CONDITION now has one source (`checkVenueAcceptsEntry`), so a fourth
+ *    entry guard cannot be learned by one door and missed by the other;
+ *  - the rescue PROSE survived the merge. That sentence is the reason a council
+ *    does not compose the order anyway: «closed to new entries» invites
+ *    «but this is a rescue, not a new entry», and the FDC round is already paid
+ *    for by the time the vault says otherwise.
+ */
+describe('checkVenueAcceptsEntry — una condición, dos voces (directTo vs move)', () => {
+  const RETIRED = () => {
+    const st = vaultState();
+    st.venues[1].retired = true;
+    return st;
+  };
+  const NOT_READY = (now: number) => {
+    const st = vaultState();
+    st.venues[1].readyAt = now + 3_600;
+    return st;
+  };
+
+  it('las dos puertas coinciden SIEMPRE en el veredicto y en el código', () => {
+    const now = 1_800_000_000;
+    const cases: Array<[LegacyVaultState, number]> = [
+      [vaultState(), 1],
+      [RETIRED(), 1],
+      [NOT_READY(now), 1],
+      [vaultState(), 99],
+    ];
+    for (const [st, venueId] of cases) {
+      // `checkDirectTo` runs on an amount the vault can honour, so the only
+      // thing that can differ between the two is the entry gate they share.
+      const direct = checkDirectTo(st, venueId, one('10'), now);
+      const move = checkMoveDestination(st, venueId, now);
+      expect(move.ok).toBe(direct.ok);
+      expect(move.code).toBe(direct.code);
+    }
+  });
+
+  it('un venue retirado: mismo código, y el move CONSERVA su frase de rescate', () => {
+    const st = RETIRED();
+    const direct = checkDirectTo(st, 1, one('10'));
+    const move = checkMoveDestination(st, 1);
+    expect(direct.code).toBe('VENUE_RETIRED');
+    expect(move.code).toBe('VENUE_RETIRED');
+    // La prosa del move es la que explica POR QUÉ un rescate tampoco entra.
+    expect(move.reason).toContain('a rescue is still an entry');
+    expect(direct.reason).not.toContain('a rescue');
+    // …y la de directTo sigue diciendo lo suyo: las salidas nunca se bloquean.
+    expect(direct.reason).toContain('Exits from it still work');
+  });
+
+  it('dentro de la ventana D1a: mismo código, misma fecha, frases distintas', () => {
+    const now = 1_800_000_000;
+    const st = NOT_READY(now);
+    const opensAt = new Date((now + 3_600) * 1000).toISOString();
+    const direct = checkDirectTo(st, 1, one('10'), now);
+    const move = checkMoveDestination(st, 1, now);
+    expect(direct.code).toBe('VENUE_NOT_READY');
+    expect(move.code).toBe('VENUE_NOT_READY');
+    expect(direct.reason).toContain(opensAt);
+    expect(move.reason).toContain(opensAt);
+    expect(move.reason).toContain('not even a rescue');
+    expect(move.reason).toContain("30-day waiting period");
+    // Pasada la ventana, las dos puertas abren.
+    expect(checkMoveDestination(st, 1, now + 7_200).ok).toBe(true);
+    expect(checkDirectTo(st, 1, one('10'), now + 7_200).ok).toBe(true);
+  });
+
+  it('la puerta devuelve el venue cuando abre, para que quien la llama no lo busque otra vez', () => {
+    const gate = checkVenueAcceptsEntry(vaultState(), 1, 0, 'direct');
+    expect(gate.ok).toBe(true);
+    if (gate.ok) expect(gate.venue.id).toBe(1);
+  });
+
+  it('checkMoveDestination juzga el VENUE y nada del tamaño: ni tope D2 ni principal ocioso', () => {
+    // 50% cap with venue #0 already holding 40 of 100: `directTo` refuses 11
+    // more, a rescue must NOT — `_allocate(..., enforceCap = false)`.
+    const capped = vaultState({ maxVenueBps: 5_000 });
+    expect(checkDirectTo(capped, 0, one('11')).code).toBe('ENTRY_CAP_EXCEEDED');
+    expect(checkMoveDestination(capped, 0).ok).toBe(true);
+    // And the idle balance is irrelevant to a rescue: the principal arrives
+    // from the origin venue in the same call, never from the idle pot.
+    const dry = vaultState({ idlePrincipal: '0' });
+    expect(checkDirectTo(dry, 1, one('1')).code).toBe('INSUFFICIENT_IDLE_PRINCIPAL');
+    expect(checkMoveDestination(dry, 1).ok).toBe(true);
+  });
+
+  it('un venue que no existe se nombra por su número (no «basis insuficiente»)', () => {
+    const v = checkMoveDestination(vaultState(), 99);
+    expect(v.code).toBe('VENUE_UNKNOWN');
+    expect(v.reason).toMatch(/Venue #99 does not exist/);
+  });
+});
+
 describe('funding the cage (approve + deposit)', () => {
   it('composes approve then deposit, in that order, both unsigned', () => {
     const plan = buildVaultDepositCalls(vaultState(), one('25'));
@@ -298,5 +403,79 @@ describe('checkRecall mirrors the exit side', () => {
     // recall carries no notMigrated modifier in the contract — capital must
     // always be able to come home out of a venue.
     expect(checkRecall(vaultState({ migrated: true }), 0, one('40'))).toEqual({ ok: true });
+  });
+});
+
+describe('checkSetPayees (E6) — the ceremony saver and the trap guard', () => {
+  const VAULT = '0xc8379c79779cCE3B738424892709fe0D4339E3b1';
+  const BRIDGE = '0x02aEb26F000000000000000000000000000000AA';
+  const stack = { vault: VAULT, bridge: BRIDGE };
+  const HEIR_A = '0x1111111111111111111111111111111111111111';
+  const HEIR_B = '0x2222222222222222222222222222222222222222';
+
+  it('accepts an exact 100.00% split', () => {
+    expect(
+      checkSetPayees(stack, [
+        { account: HEIR_A, bps: 6_000 },
+        { account: HEIR_B, bps: 4_000 },
+      ]),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts the EMPTY list — the endowment decision composes', () => {
+    // payees=[] is legal on the contract and is the way BACK to pure
+    // capitalization; refusing it here would lock a family into a split.
+    expect(checkSetPayees(stack, [])).toEqual({ ok: true });
+  });
+
+  it('refuses Σ ≠ 10000 — the 90% order that used to reach the quorum', () => {
+    // 60% + 30% passed the old UI, got signed, paid an FDC round, and only
+    // then reverted PayeeBpsSumInvalid() on the vault.
+    const v = checkSetPayees(stack, [
+      { account: HEIR_A, bps: 6_000 },
+      { account: HEIR_B, bps: 3_000 },
+    ]);
+    expect(v.code).toBe('PAYEE_BPS_SUM_INVALID');
+    expect(v.reason).toContain('90.00%');
+  });
+
+  it('refuses the bridge as payee — funds trapped for ever, not a revert', () => {
+    const v = checkSetPayees(stack, [{ account: BRIDGE, bps: 10_000 }]);
+    expect(v.code).toBe('PAYEE_TRAPS_FUNDS');
+    expect(v.reason).toContain('bridge');
+  });
+
+  it('refuses the vault itself as payee — yield would become stray assets', () => {
+    const v = checkSetPayees(stack, [{ account: VAULT, bps: 10_000 }]);
+    expect(v.code).toBe('PAYEE_TRAPS_FUNDS');
+  });
+
+  it('compares trap addresses case-insensitively (EVM addresses)', () => {
+    const v = checkSetPayees(stack, [{ account: BRIDGE.toLowerCase(), bps: 10_000 }]);
+    expect(v.code).toBe('PAYEE_TRAPS_FUNDS');
+  });
+
+  it('refuses the zero address and zero/fractional shares like the contract', () => {
+    expect(
+      checkSetPayees(stack, [{ account: '0x0000000000000000000000000000000000000000', bps: 10_000 }]).code,
+    ).toBe('PAYEE_ZERO_ADDRESS');
+    expect(checkSetPayees(stack, [{ account: HEIR_A, bps: 0 }]).code).toBe('PAYEE_ZERO_BPS');
+    expect(checkSetPayees(stack, [{ account: HEIR_A, bps: 99.5 }]).code).toBe('PAYEE_ZERO_BPS');
+  });
+
+  it('refuses malformed input instead of letting the encoder throw generically', () => {
+    expect(checkSetPayees(stack, 'not-a-list').code).toBe('PAYEE_INVALID');
+    expect(checkSetPayees(stack, [{ account: 'rXRPLAddressNotEvm', bps: 10_000 }]).code).toBe('PAYEE_INVALID');
+  });
+
+  it('ALLOWS a duplicated address — the contract splits twice; the form warns', () => {
+    // Blocking here would make the pre-flight a second authority over the
+    // cage: a duplicate lands fine on-chain (two transfers, same wallet).
+    expect(
+      checkSetPayees(stack, [
+        { account: HEIR_A, bps: 5_000 },
+        { account: HEIR_A, bps: 5_000 },
+      ]),
+    ).toEqual({ ok: true });
   });
 });

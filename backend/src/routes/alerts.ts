@@ -12,7 +12,20 @@ const evmAddress = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'invalid_wallet');
 const xrplAddress = z.string().regex(/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/, 'invalid_wallet');
 const walletAddress = z.union([evmAddress, xrplAddress]);
 
+// ── Ownership (productizer 13-sep) ───────────────────────────────────────────
+// An address is public; an alert is not. The wallet lookup used to match the
+// address alone, so any session read another user's alert inbox (council
+// failures, proposals, amounts) by typing their address, and PATCH acknowledged
+// any alert id. Both are now scoped to the session user's wallet rows, and a
+// foreign id answers the same 404 as a missing one, so ids cannot be probed.
+
+function sessionUserId(req: Request): string | null {
+  return req.siwe?.userId ?? null;
+}
+
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = sessionUserId(req);
+  if (!userId) return res.status(401).json({ error: 'missing_session' });
   const parsed = z
     .object({
       address: walletAddress,
@@ -27,7 +40,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const wallets = await prisma.wallet.findMany({
     // Case-insensitive: rows may hold the EIP-55 checksummed form while the
     // caller sends lowercase (mirrors the rules route).
-    where: { address: { equals: parsed.data.address, mode: 'insensitive' } },
+    where: { userId, address: { equals: parsed.data.address, mode: 'insensitive' } },
     select: { id: true },
   });
   const walletIds = wallets.map((w) => w.id);
@@ -43,9 +56,21 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 router.patch('/:id/read', async (req: Request, res: Response) => {
+  const userId = sessionUserId(req);
+  if (!userId) return res.status(401).json({ error: 'missing_session' });
   try {
-    const updated = await prisma.alert.update({
+    const alert = await prisma.alert.findUnique({
       where: { id: req.params.id },
+      select: { id: true, walletId: true },
+    });
+    if (!alert || !alert.walletId) return res.status(404).json({ error: 'alert_not_found' });
+    const owned = await prisma.wallet.findFirst({
+      where: { id: alert.walletId, userId },
+      select: { id: true },
+    });
+    if (!owned) return res.status(404).json({ error: 'alert_not_found' });
+    const updated = await prisma.alert.update({
+      where: { id: alert.id },
       data: { acknowledged: true },
     });
     return res.json(updated);

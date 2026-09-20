@@ -1,5 +1,7 @@
 import crypto from 'crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../database/prismaClient';
+import { credentialsEpochOf, lockCredentialState, sessionPredatesEpoch } from './identity/credentialsEpoch';
 
 /**
  * PasskeyService — WebAuthn registration + authentication via @simplewebauthn.
@@ -66,15 +68,39 @@ export async function getRegistrationOptions(userId: string, userName: string): 
   return options;
 }
 
+function sessionRevoked(): Error {
+  return Object.assign(new Error('session_revoked'), { code: 'session_revoked' });
+}
+
+/**
+ * Add a passkey to the account of `sessionId`'s session.
+ *
+ * The auth middleware checked the session BEFORE the WebAuthn verification ran;
+ * an account takeover can commit in between, and a passkey written after its
+ * sweep would log the previous holder in forever. So the credential is created
+ * inside a transaction that first takes the row lock (lockCredentialState, a
+ * CAS on the credential state observed here) and THEN re-reads the session:
+ * alive, the user's, and born after the credential epoch — or nothing is written.
+ */
 export async function verifyRegistration(
   userId: string,
   response: any,
-  deviceLabel?: string
+  deviceLabel: string | undefined,
+  sessionId: string,
 ): Promise<{ verified: boolean }> {
   const { verifyRegistrationResponse } = getLib();
   purge(regChallenges);
+  // Consumed before the verification window opens, like the login challenge: two
+  // parallel registrations of the same challenge cannot both proceed.
   const entry = regChallenges.get(userId);
+  regChallenges.delete(userId);
   if (!entry) throw Object.assign(new Error('challenge_expired'), { code: 'challenge_expired' });
+
+  const observed = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true, preferences: true },
+  });
+  if (!observed || !sessionId) throw sessionRevoked();
 
   const verification = await verifyRegistrationResponse({
     response,
@@ -85,20 +111,40 @@ export async function verifyRegistration(
   if (!verification.verified || !verification.registrationInfo) {
     throw Object.assign(new Error('registration_failed'), { code: 'registration_failed' });
   }
-  regChallenges.delete(userId);
 
   const info = verification.registrationInfo;
-  await prisma.passkeyCredential.create({
-    data: {
-      userId,
-      credentialId: info.credentialID, // Base64URLString
-      publicKey: Buffer.from(info.credentialPublicKey),
-      counter: BigInt(info.counter ?? 0),
-      transports: response?.response?.transports ?? [],
-      deviceLabel: deviceLabel ?? null,
-      backedUp: Boolean(info.credentialBackedUp),
-    },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const fresh = await lockCredentialState(tx, userId, observed);
+      const session = await tx.session.findUnique({ where: { id: sessionId } });
+      if (
+        !session ||
+        !session.isActive ||
+        session.userId !== userId ||
+        session.expiresAt < new Date() ||
+        sessionPredatesEpoch(session.createdAt, credentialsEpochOf(fresh.preferences))
+      ) {
+        throw sessionRevoked();
+      }
+      await tx.passkeyCredential.create({
+        data: {
+          userId,
+          credentialId: info.credentialID, // Base64URLString
+          publicKey: Buffer.from(info.credentialPublicKey),
+          counter: BigInt(info.counter ?? 0),
+          transports: response?.response?.transports ?? [],
+          deviceLabel: deviceLabel ?? null,
+          backedUp: Boolean(info.credentialBackedUp),
+          // App clock, same clock that stamps the credential epoch (login
+          // refuses a credential born before it).
+          createdAt: new Date(),
+        },
+      });
+    });
+  } catch (err: any) {
+    if (err?.code === 'credentials_changed') throw sessionRevoked();
+    throw err;
+  }
   return { verified: true };
 }
 
@@ -115,13 +161,48 @@ export async function getAuthenticationOptions(): Promise<{ options: any; challe
   return { options, challengeId };
 }
 
-export async function verifyAuthentication(
+function credentialRevoked(): Error {
+  return Object.assign(new Error('credential_revoked'), { code: 'credential_revoked' });
+}
+
+/**
+ * Log in with a passkey and issue the session — both under the row lock.
+ *
+ * The WebAuthn verification is a window: an account takeover can commit while
+ * it runs (or right after), deleting this credential and moving the credential
+ * epoch. A session issued outside any lock is born AFTER the epoch, passes
+ * verifyToken, and with it /register/verify adds a brand-new passkey — the
+ * previous holder would be back forever (productizer it. 12, finding 5.1).
+ *
+ * So `issue` runs inside a transaction that first takes the row lock
+ * (lockCredentialState, CAS on the credential state observed BEFORE the
+ * verification) and then, under that lock:
+ *   · re-reads the credential: it must still exist, still be this user's, and
+ *     be born after the credential epoch — or `credential_revoked`;
+ *   · advances the counter conditionally on the value verified against, in the
+ *     same transaction (a parallel use of the same assertion loses);
+ *   · refuses a disabled account.
+ * A takeover that committed first fails the CAS (`credentials_changed`); one
+ * that locks after us sees and revokes the session we just wrote.
+ * `issue` is mandatory: no caller gets a verified user id without the lock.
+ */
+export async function verifyAuthentication<T>(
   challengeId: string,
-  response: any
-): Promise<{ userId: string }> {
+  response: any,
+  issue: (tx: Prisma.TransactionClient, userId: string) => Promise<T>,
+): Promise<{ userId: string; issued: T }> {
   const { verifyAuthenticationResponse } = getLib();
   purge(authChallenges);
+  // CONSUMED FIRST, in one synchronous step (productizer it. 14, menores). The
+  // challenge used to be deleted only after the WebAuthn verification, so two
+  // assertions of the SAME challenge both read it before either deleted it and
+  // both reached the issue step — and an authenticator that always reports
+  // counter 0 (most platform passkeys) leaves the conditional counter advance
+  // unable to tell them apart. `get` + `delete` with no await between them
+  // cannot interleave: the loser gets `challenge_expired`. A failed verification
+  // burns the challenge; the client asks for fresh options.
   const entry = authChallenges.get(challengeId);
+  authChallenges.delete(challengeId);
   if (!entry) throw Object.assign(new Error('challenge_expired'), { code: 'challenge_expired' });
 
   const credentialId: string = response?.id;
@@ -129,6 +210,13 @@ export async function verifyAuthentication(
 
   const cred = await prisma.passkeyCredential.findUnique({ where: { credentialId } });
   if (!cred) throw Object.assign(new Error('credential_unknown'), { code: 'credential_unknown' });
+
+  // Observe the credential state BEFORE the verification window opens.
+  const observed = await prisma.user.findUnique({
+    where: { id: cred.userId },
+    select: { passwordHash: true, preferences: true },
+  });
+  if (!observed) throw credentialRevoked();
 
   const verification = await verifyAuthenticationResponse({
     response,
@@ -145,12 +233,25 @@ export async function verifyAuthentication(
   if (!verification.verified) {
     throw Object.assign(new Error('authentication_failed'), { code: 'authentication_failed' });
   }
-  authChallenges.delete(challengeId);
 
-  await prisma.passkeyCredential.update({
-    where: { credentialId },
-    data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
+  const userId = cred.userId;
+  const issued = await prisma.$transaction(async (tx) => {
+    const fresh = await lockCredentialState(tx, userId, observed);
+    if (!fresh.isActive) {
+      throw Object.assign(new Error('account_disabled'), { code: 'account_disabled' });
+    }
+    const live = await tx.passkeyCredential.findUnique({ where: { credentialId } });
+    if (!live || live.userId !== userId || sessionPredatesEpoch(live.createdAt, credentialsEpochOf(fresh.preferences))) {
+      throw credentialRevoked();
+    }
+    const advanced = await tx.passkeyCredential.updateMany({
+      where: { credentialId, userId, counter: cred.counter },
+      data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
+    });
+    if (!advanced || advanced.count !== 1) throw credentialRevoked();
+    await tx.user.update({ where: { id: userId }, data: { lastLogin: new Date() } });
+    return issue(tx, userId);
   });
 
-  return { userId: cred.userId };
+  return { userId, issued };
 }

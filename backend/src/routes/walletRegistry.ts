@@ -18,6 +18,13 @@ import {
   TurnkeyNotConfiguredError,
   type PasskeyAttestation,
 } from '../services/wallet/TurnkeyEmbeddedService';
+import {
+  isSessionRevoked,
+  isTransactionBusy,
+  respondBusyRetry,
+  respondSessionRevoked,
+  withLiveSession,
+} from '../services/identity/liveSession';
 
 const router = Router();
 
@@ -64,12 +71,25 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
     return res.status(400).json({ success: false, error: 'MISSING_PASSKEY', detail: 'passkey attestation required' });
   }
 
+  let subOrgId = '';
+  // Hoisted for the orphan ledger: when the write half fails we still want to
+  // write down WHICH address is sitting unreferenced at Turnkey (it. 20, 3.8).
+  let subOrgAddress = '';
   try {
-    const { subOrgId, address } = await turnkeyEmbeddedService.createWallet(userId, passkey);
+    // THE NETWORK CALL HAPPENS FIRST, AND IT IS THE WIDEST WINDOW IN THE REPO.
+    // Creating the Turnkey sub-org is a round-trip to a partner; an account
+    // takeover can commit while it is in the air. The live-session check
+    // therefore runs AFTER it returns and BEFORE the row is written (productizer
+    // it. 16, 4.1): a wallet born after the handover, with `isPrimary` and
+    // purpose 'sign', is a DESTINATION the owner never chose.
+    const created = await turnkeyEmbeddedService.createWallet(userId, passkey);
+    subOrgId = created.subOrgId;
+    const address = created.address;
+    subOrgAddress = address;
 
     // Persist into the unified wallets table (same pattern as /connect). The
     // embedded metadata lives in `permissions` so no schema migration is needed.
-    const wallet = await prisma.$transaction(async (tx) => {
+    const wallet = await withLiveSession(req.siwe!, async (tx) => {
       // Same gate as /connect: mirror the one-primary partial index, never the
       // purpose-based count (see the comment there).
       const isFirstEvm =
@@ -104,14 +124,78 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
 
     return res.status(201).json({ success: true, data: { wallet, subOrgId } });
   } catch (err) {
+    // ORPHAN LEDGER FIRST, ALWAYS (productizer it. 18, 3.6). Once `subOrgId` is
+    // set, a sub-org EXISTS at Turnkey holding the user's key and no row in our
+    // database points at it. Only the revoked-session branch used to say so, so
+    // every other failure — a pool timeout, a unique-constraint clash, the
+    // takeover's lock — left the sub-org with no trace anywhere and nobody able
+    // to reconcile it. It is recorded before we decide what to answer.
+    //
+    // AND IT IS NO LONGER ONLY A LOG (productizer it. 20, 3.8). A greppable line
+    // on a platform that rotates logs is not a record: «reconciliable» promised
+    // more than it could keep. `recordOrphanSubOrg` keeps the same log line and
+    // adds a durable `background_jobs` row (its own jobType, no poller, no
+    // pruning) plus the admin-panel alert — see services/identity/orphanSubOrgLedger.
+    if (subOrgId) {
+      try {
+        const { recordOrphanSubOrg } = await import('../services/identity/orphanSubOrgLedger');
+        await recordOrphanSubOrg({
+          subOrgId,
+          userId,
+          address: subOrgAddress,
+          reason: isSessionRevoked(err) ? 'session-revoked' : isTransactionBusy(err) ? 'account-busy' : 'write-failed',
+          error: err,
+        });
+      } catch (ledgerErr) {
+        // The ledger never throws by contract; this is the belt for the import
+        // itself. The sub-org still gets a line, because losing it is the bug.
+        console.warn(
+          `[wallets/embedded/create] orphan-suborg ${subOrgId} for user ${userId}: could not be recorded ` +
+            `(${(ledgerErr as Error)?.message ?? 'unknown'}). Turnkey created it and the wallet row was NOT written.`,
+        );
+      }
+    }
+    if (isSessionRevoked(err)) {
+      // The sub-org exists at Turnkey (the passkey is its root authenticator, so
+      // only the user can ever reach it) but no wallet row was written. The user
+      // is told plainly rather than being handed a 500.
+      return respondSessionRevoked(
+        res,
+        'This session is no longer valid — it was signed out, or the account was taken over by its verified ' +
+          'owner. The embedded wallet was NOT attached to any account. Sign in again and create it once more; ' +
+          'your passkey is the only key to it either way.',
+      );
+    }
+    if (isTransactionBusy(err)) {
+      // The account was busy (typically the takeover's own long transaction).
+      // Nothing broke and nothing was lost: 503 «try again», never 500.
+      return respondBusyRetry(
+        res,
+        subOrgId
+          ? 'Your account was busy for a moment, so the embedded wallet was NOT attached to it. Nothing else ' +
+              'changed. Try again — your passkey is the only key to the wallet either way.'
+          : undefined,
+      );
+    }
     if (err instanceof TurnkeyNotConfiguredError) {
       return res.status(503).json({ success: false, error: 'PARTNER_NOT_CONFIGURED', detail: err.message });
     }
     if ((err as Error).message === 'PASSKEY_ATTESTATION_REQUIRED') {
       return res.status(400).json({ success: false, error: 'INVALID_PASSKEY' });
     }
+    // NO RAW ERROR ON THE WIRE (it. 18, 3.6). `(err as Error).message` here was a
+    // Prisma chain — table names, constraint names, connection strings — shown to
+    // the user as if it were an explanation. The chain stays in the log above.
     console.error('[wallets/embedded/create] failed:', err);
-    return res.status(500).json({ success: false, error: 'CREATE_FAILED', detail: (err as Error).message });
+    return res.status(500).json({
+      success: false,
+      error: 'CREATE_FAILED',
+      detail: subOrgId
+        ? 'The wallet was created at our provider but could not be attached to your account. Nothing was lost — ' +
+          'your passkey is the only key to it. Try again, and tell us if it keeps failing.'
+        : 'The embedded wallet could not be created. Nothing was created and nothing moved. Try again, and tell ' +
+          'us if it keeps failing.',
+    });
   }
 });
 
@@ -214,10 +298,15 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
     });
   }
 
-  // The whole connect runs as one transaction. `forceNonPrimary` is the retry
-  // path for the rare concurrent race on the one-primary-per-ecosystem index.
+  // The whole connect runs as one transaction, and that transaction first proves
+  // the session is STILL live (productizer it. 16, 4.1). `TrialCapService` above
+  // is a pricing round-trip, so the window is real: a wallet row written after a
+  // takeover becomes the owner's primary EVM wallet — the address the send modal
+  // pre-fills and the router picks — without a single signature from them.
+  // `forceNonPrimary` is the retry path for the rare concurrent race on the
+  // one-primary-per-ecosystem index.
   const runConnect = (forceNonPrimary: boolean) =>
-    prisma.$transaction(async (tx) => {
+    withLiveSession(req.siwe!, async (tx) => {
       // Look up existing row by the unique tuple (userId, address, network).
       const existing = await tx.wallet.findUnique({
         where: { userId_address_network: { userId, address: d.address, network: d.network } },
@@ -327,6 +416,10 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
       },
     });
   } catch (err) {
+    if (isSessionRevoked(err)) return respondSessionRevoked(res);
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) return respondBusyRetry(res);
     console.error('[wallets/connect] failed:', err);
     return res.status(500).json({ success: false, error: 'CONNECT_FAILED', detail: (err as Error).message });
   }

@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-08-21T17:03:56.882Z",
+  "chainId": 14,
+  "stXRP": "0x4C18Ff3C89632c3Dd62E796c0aFA5c07c4c1B2b3",
+  "asset": "0xAd552A648C74D49E10027AB8a618A3ad4901c5bE",
+  "assetSymbol": "FXRP",
+  "assetDecimals": 6,
+  "periodSeconds": 86400,
+  "worstCaseExitSeconds": 172800,
+  "recommendedCooldownSeconds": 259200,
+  "currentPeriod": 262,
+  "note": "withdrawalsOf returns ASSETS not shares; redeem burns now and queues into currentPeriod+1; claimWithdraw(period) reverts unless period < currentPeriod()."
+}

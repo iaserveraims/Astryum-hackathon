@@ -2,15 +2,29 @@ const mockFindMany = jest.fn();
 const mockUpsert = jest.fn();
 const mockUpdateMany = jest.fn();
 
-jest.mock('../../database/prismaClient', () => ({
-  prisma: {
+/**
+ * The live session the POST now proves inside its own transaction (productizer
+ * it. 16, 4.1). `live` is what the row lock + session read see; flip it to
+ * simulate a takeover that committed while the request was in flight.
+ */
+const live = { userRows: 1, user: null as unknown, session: null as unknown };
+
+jest.mock('../../database/prismaClient', () => {
+  const client: Record<string, unknown> = {
     governedAccount: {
       findMany: (...a: unknown[]) => mockFindMany(...a),
       upsert: (...a: unknown[]) => mockUpsert(...a),
       updateMany: (...a: unknown[]) => mockUpdateMany(...a),
     },
-  },
-}));
+    user: {
+      updateMany: async () => ({ count: live.userRows }),
+      findUnique: async () => live.user,
+    },
+    session: { findUnique: async () => live.session },
+  };
+  client.$transaction = async (fn: (tx: unknown) => unknown) => fn(client);
+  return { prisma: client };
+});
 
 import express from 'express';
 import request from 'supertest';
@@ -40,6 +54,15 @@ beforeEach(() => {
   mockFindMany.mockReset();
   mockUpsert.mockReset();
   mockUpdateMany.mockReset();
+  live.userRows = 1;
+  live.user = { isActive: true, preferences: null };
+  live.session = {
+    id: 's1',
+    userId: USER_ID,
+    isActive: true,
+    createdAt: new Date(Date.now() - 60_000),
+    expiresAt: new Date(Date.now() + 3_600_000),
+  };
 });
 
 describe('GET /api/governed-accounts', () => {
@@ -90,6 +113,32 @@ describe('POST /api/governed-accounts', () => {
       .send({ address: COUNCIL, ecosystem: 'evm' });
     expect(res.status).toBe(400);
     expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  /**
+   * productizer it. 16 (4.1) — a pointer says which councils the authority
+   * switcher shows. A request that passed requireSiweAuth before a takeover
+   * would otherwise land AFTER it and plant the intruder's council on the owner.
+   */
+  describe('a takeover that commits while the request is in flight', () => {
+    test.each([
+      ['the session was revoked', () => { (live.session as { isActive: boolean }).isActive = false; }],
+      ['the account is disabled', () => { live.user = { isActive: false, preferences: null }; }],
+      ['the session predates the credential epoch', () => {
+        const epoch = new Date().toISOString();
+        live.user = { isActive: true, preferences: { security: { credentialsEpoch: epoch, takeoverAt: epoch } } };
+        (live.session as { createdAt: Date }).createdAt = new Date(Date.now() - 3_600_000);
+      }],
+    ])('%s → 401 session_revoked and NO row is written', async (_label, kill) => {
+      kill();
+      const res = await request(buildApp())
+        .post('/api/governed-accounts')
+        .send({ address: COUNCIL, label: 'Familia' });
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('session_revoked');
+      expect(typeof res.body.detail).toBe('string');
+      expect(mockUpsert).not.toHaveBeenCalled();
+    });
   });
 });
 

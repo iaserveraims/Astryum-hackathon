@@ -108,3 +108,57 @@ describe('buildCagePositions', () => {
     expect(out[0].protocol).toBe('legacy-venue-0');
   });
 });
+
+/**
+ * The other half of the 2026-08-22 staging bug: the cage was resolved fine and
+ * the READ failed, and `cageStateFor` returned null for it — indistinguishable
+ * from "this account has no cage". Real principal left the Home's totals with
+ * no error anywhere. A cage we know exists and cannot read must say so.
+ */
+describe('cageStateFor — an unreadable cage is not "no capital"', () => {
+  const VAULT = '0xc8379c79779cCE3B738424892709fe0D4339E3b1';
+  let warn: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.resetModules();
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+    jest.restoreAllMocks();
+  });
+
+  /** Load the service with the resolver/reader stubbed underneath it. */
+  function load(cage: { vault: string } | null, read: () => Promise<never> | Promise<unknown>) {
+    jest.doMock('../LegacyCageResolver', () => ({
+      cageForCouncil: jest.fn().mockResolvedValue(cage),
+    }));
+    jest.doMock('../LegacyVaultStateService', () => ({
+      ...jest.requireActual('../LegacyVaultStateService'),
+      readVaultState: jest.fn().mockImplementation(read),
+    }));
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('../LegacyCagePositionsService') as typeof import('../LegacyCagePositionsService');
+  }
+
+  it('says out loud which cage went unread, and whose', async () => {
+    const svc = load({ vault: VAULT }, () => Promise.reject(new Error('missing revert data')));
+    await expect(svc.cageStateFor(COUNCIL)).resolves.toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = String(warn.mock.calls[0][0]);
+    expect(line).toContain(VAULT);
+    expect(line).toContain(COUNCIL);
+    expect(line).toMatch(/missing revert data/);
+    // The scan survives it — a dashboard must not die because one RPC blinked.
+    await expect(svc.cagePositionsFor(COUNCIL, 3, 't')).resolves.toEqual([]);
+    // …and it is said ONCE per cage, not once per portfolio scan.
+    await svc.cageStateFor(COUNCIL);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays quiet for an account that simply has no cage', async () => {
+    const svc = load(null, () => Promise.reject(new Error('never called')));
+    await expect(svc.cageStateFor(COUNCIL)).resolves.toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

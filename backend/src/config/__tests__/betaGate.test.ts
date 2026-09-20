@@ -1,11 +1,11 @@
 /**
- * betaGate — the closed beta's door is FAIL-CLOSED and guards CREATION only.
+ * betaGate — DEFAULT OPEN since 2026-08-16 (founder: the closed-beta phase
+ * ends at the next deploy; acquisition needs the world to sign up), and it
+ * guards CREATION only.
  *
- * The stakes (2026-08-01): the public X post says "Closed beta", the Make
- * Waves posture leans on a real limited pilot, and the founders open on 08-06
- * by approving waitlist emails. A typo'd env that silently OPENED registration
- * would falsify all three — so absence/typo must read as CLOSED, and only an
- * approved waitlist email (or the literal 'true' switch) may mint an account.
+ * The contract flipped: only the literal 'false' closes registration.
+ * Closed-mode behaviour (waitlist approval as the only door) is unchanged
+ * and still tested below — the founder can raise the wall again with one env.
  */
 import { isBetaRegistrationOpen, isEmailApproved, assertSignupAllowed } from '../betaGate';
 
@@ -24,22 +24,22 @@ afterAll(() => {
   process.env = ENV;
 });
 
-describe('betaGate — BETA_REGISTRATION_OPEN is FAIL-CLOSED', () => {
-  it('unset ⇒ closed (deploying the gate closes public registration, nothing to configure wrong)', () => {
-    expect(isBetaRegistrationOpen()).toBe(false);
+describe('betaGate — BETA_REGISTRATION_OPEN is DEFAULT OPEN (2026-08-16)', () => {
+  it('unset ⇒ open (the closed-beta phase ended; deploying opens public registration)', () => {
+    expect(isBetaRegistrationOpen()).toBe(true);
   });
 
-  it("only the literal 'true' opens registration (case-insensitive, trimmed)", () => {
-    for (const on of ['true', 'TRUE', ' True ']) {
-      process.env.BETA_REGISTRATION_OPEN = on;
-      expect(isBetaRegistrationOpen()).toBe(true);
+  it("only the literal 'false' closes registration (case-insensitive, trimmed)", () => {
+    for (const off of ['false', 'FALSE', ' False ']) {
+      process.env.BETA_REGISTRATION_OPEN = off;
+      expect(isBetaRegistrationOpen()).toBe(false);
     }
   });
 
-  it('malformed values read as CLOSED (absence/typo ≠ open)', () => {
-    for (const bad of ['false', '1', 'yes', 'on', '', '   ', 'ture']) {
-      process.env.BETA_REGISTRATION_OPEN = bad;
-      expect(isBetaRegistrationOpen()).toBe(false);
+  it('any other value reads as OPEN (true, legacy spellings, typos)', () => {
+    for (const on of ['true', '1', 'yes', 'on', '', '   ', 'flase']) {
+      process.env.BETA_REGISTRATION_OPEN = on;
+      expect(isBetaRegistrationOpen()).toBe(true);
     }
   });
 });
@@ -53,6 +53,7 @@ describe('betaGate — assertSignupAllowed', () => {
   });
 
   it('closed + approved waitlist email ⇒ allowed (normalised before lookup)', async () => {
+    process.env.BETA_REGISTRATION_OPEN = 'false';
     findUnique.mockResolvedValue({ approvedAt: new Date() });
     await expect(assertSignupAllowed('  Approved@Example.ORG ')).resolves.toBeUndefined();
     expect(findUnique).toHaveBeenCalledWith(
@@ -61,17 +62,20 @@ describe('betaGate — assertSignupAllowed', () => {
   });
 
   it('closed + waitlisted-but-not-approved ⇒ not_invited (being on the list is not a seat)', async () => {
+    process.env.BETA_REGISTRATION_OPEN = 'false';
     findUnique.mockResolvedValue({ approvedAt: null });
     await expect(assertSignupAllowed('waiting@example.org')).rejects.toMatchObject({ code: 'not_invited' });
   });
 
   it('closed + unknown email ⇒ not_invited', async () => {
+    process.env.BETA_REGISTRATION_OPEN = 'false';
     findUnique.mockResolvedValue(null);
     await expect(assertSignupAllowed('stranger@example.org')).rejects.toMatchObject({ code: 'not_invited' });
     expect(await isEmailApproved('stranger@example.org')).toBe(false);
   });
 
   it('closed + wallet-first (no email) ⇒ not_invited — a new wallet cannot mint an account', async () => {
+    process.env.BETA_REGISTRATION_OPEN = 'false';
     await expect(assertSignupAllowed(null)).rejects.toMatchObject({ code: 'not_invited' });
     await expect(assertSignupAllowed(undefined)).rejects.toMatchObject({ code: 'not_invited' });
     // No email means nothing to look up — the DB must not be touched.

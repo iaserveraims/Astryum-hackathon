@@ -62,7 +62,7 @@ export class StrategyMetricsService {
   static computeCarryOptions(
     amountXrp: number,
     rates: StrategyRatesInput,
-    opts?: { targetUsd?: number; ratios?: number[] },
+    opts?: { targetUsd?: number; ratios?: number[]; lang?: 'es' | 'en' },
   ): StrategyMetrics {
     if (!(amountXrp > 0)) throw new Error('STRATEGY_METRICS_BAD_AMOUNT');
     if (!(rates.fxrpPriceUSD > 0)) throw new Error('STRATEGY_METRICS_BAD_PRICE');
@@ -97,9 +97,14 @@ export class StrategyMetricsService {
       const targetRatio = targetUsd / maxBorrowUSD;
       if (targetRatio > 0 && targetRatio <= 1) ratios.add(Number(targetRatio.toFixed(4)));
       else
+        // La nota lleva números interpolados: se compone en el idioma del
+        // dashboard (el cliente lo manda; 'es' si no llega — clientes viejos).
         notes.push(
-          `Para sacar $${targetUsd.toFixed(0)} harían falta más XRP o superar el máximo prestable ` +
-            `(~$${maxBorrowUSD.toFixed(0)} al 100% de tu capacidad, que además sería HF≈1 y liquidación inmediata).`,
+          opts?.lang === 'en'
+            ? `Taking out $${targetUsd.toFixed(0)} would need more XRP, or exceeding the borrowable maximum ` +
+              `(~$${maxBorrowUSD.toFixed(0)} at 100% of your capacity — which would also mean HF≈1 and immediate liquidation).`
+            : `Para sacar $${targetUsd.toFixed(0)} harían falta más XRP o superar el máximo prestable ` +
+              `(~$${maxBorrowUSD.toFixed(0)} al 100% de tu capacidad, que además sería HF≈1 y liquidación inmediata).`,
         );
     }
 

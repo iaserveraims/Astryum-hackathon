@@ -130,4 +130,40 @@ describe('UpshiftVaultAdapter', () => {
     expect(withdraw.warnings.some((w) => /30 bps/.test(w))).toBe(true);
     expect(withdraw.warnings.some((w) => /requestRedeem/.test(w))).toBe(true);
   });
+
+  /* ── it. 27 — «nobody passed the fee» is not «there is no fee» ─────────── */
+
+  test('withdraw with NO fee input says the figure is the gross, instead of netting a zero', async () => {
+    // `?? 0` used to read the missing input as a fee of zero, and then
+    // `if (fee > 0)` DELETED the warning that exists to show it: the one
+    // number nobody could read was also the one the simulation stopped
+    // mentioning. Invariant #6 — a fee is shown, or its absence is SAID.
+    const withdraw = await new UpshiftVaultAdapter().simulateAction({
+      kind: 'withdraw',
+      protocolId: 'upshift',
+      chainId: 14,
+      wallet: RECEIVER,
+      inputs: { amount: 100_000_000n, priceUSD: 2 }, // no instantRedemptionFeeBps
+    });
+    expect(withdraw.netUSDImpact).toBeCloseTo(200, 5); // the GROSS, and named as such
+    expect(withdraw.warnings.some((w) => /UNKNOWN/.test(w))).toBe(true);
+    expect(withdraw.warnings.some((w) => /GROSS/.test(w))).toBe(true);
+    // It must NOT claim a fee it never saw.
+    expect(withdraw.warnings.some((w) => /Instant redemption fee: \$/.test(w))).toBe(false);
+  });
+
+  test('a REAL zero-bps fee still gets a row of its own', async () => {
+    // Silence in a fee row reads as «free»; the difference between «read, and
+    // it is nothing» and «not read» has to survive to the person.
+    const withdraw = await new UpshiftVaultAdapter().simulateAction({
+      kind: 'withdraw',
+      protocolId: 'upshift',
+      chainId: 14,
+      wallet: RECEIVER,
+      inputs: { amount: 100_000_000n, priceUSD: 2, instantRedemptionFeeBps: 0 },
+    });
+    expect(withdraw.netUSDImpact).toBeCloseTo(200, 5);
+    expect(withdraw.warnings.some((w) => /Instant redemption fee: none \(0 bps\)/.test(w))).toBe(true);
+    expect(withdraw.warnings.some((w) => /UNKNOWN/.test(w))).toBe(false);
+  });
 });

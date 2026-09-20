@@ -27,7 +27,7 @@ export function resumePending(
   deps: TrackerDeps,
   onUpdate: (ref: string, state: SettlementState) => void,
 ): () => void {
-  return trackSettlement(startPending(p.rail, p.ref, p.explorerUrl), deps, {
+  return trackSettlement(startPending(p.rail, p.ref, p.explorerUrl, p.chainId), deps, {
     onUpdate: (s) => onUpdate(p.ref, s),
     startedAt: p.startedAt,
   });

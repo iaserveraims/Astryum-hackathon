@@ -219,7 +219,11 @@ function toCanonical(p: PortfolioPositionEntry, wallet: string, source: SourceRe
           priceUSD: p.priceUSD || null,
           source,
         },
-        amount: p.amount,
+        // `CanonicalAssetExposure.amount` es HUMANO en todos los demás
+        // proveedores (XRP, no drops); la entrada del snapshot trae unidades
+        // base. Se emite la cantidad ya resuelta; solo si el activo no
+        // declaró decimales queda el entero crudo — como antes, nunca peor.
+        amount: p.qty ?? p.amount,
         amountUSD: p.amountUSD,
       },
     ],

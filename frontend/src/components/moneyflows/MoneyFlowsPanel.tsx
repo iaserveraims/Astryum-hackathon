@@ -17,13 +17,22 @@
  * this panel shows it and offers the instant owner-side revocation.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Hourglass, Loader2, Pause, Pencil, Play, ShieldCheck, Trash2, Waves } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Hourglass, Loader2, Pause, Pencil, Play, ShieldCheck, Trash2, Waves } from 'lucide-react';
 import { Card, MicroLabel, Pill } from '../ui/primitives';
 import { useT } from '../../i18n/LanguageProvider';
 import { moneyflows as moneyflowsApi, rules as rulesApi, type AutomationRule } from '../../services/v1Api';
 import { RuleEditModal } from './RuleEditModal';
 import { describeAction, describeTrigger } from '../../lib/rules/describeRule';
+import {
+  RULE_PILL_TONE,
+  UNREAD,
+  loadRunHealth,
+  retainKnownRuns,
+  rulePillState,
+  worstPillState,
+  type RunHealth as LastRun,
+} from '../../lib/rules/runHealth';
 
 export type MoneyFlowsMode = 'personal' | 'governed';
 
@@ -41,6 +50,86 @@ interface LooseRule extends AutomationRule {
   address: string;
 }
 
+/**
+ * G4 (auditoría 2026-08-17) — «watching» que no vigila.
+ *
+ * WHAT WAS FAILING IN SILENCE: when a rule fires, the engine records an
+ * AutomationRun (backend/src/engines/automation/AutomationEngine.ts). If the
+ * ACTION could not be composed — a `councilOrder` on a Legacy with no cage
+ * (`NoCageForLegacy`), `NOT_A_COUNCIL`, `council_compose_failed`,
+ * `scheduled_payment_invalid` — the run is stored with `status: 'error'` and
+ * the reason in `notes`, and then, by design (the "éxito no ganado" guard),
+ * `totalTimesTriggered` is NOT incremented and NO push is sent. Correct on the
+ * engine side, catastrophic on this surface: with no counter and no push, a
+ * rule that failed EVERY SINGLE fire rendered exactly like a healthy one —
+ * green "active" pill, "expires in 87d" — so a family believed they were
+ * protected by a rule that had never once produced anything to sign.
+ *
+ * The run history was already there: GET /rules/:id/runs (backend/src/routes/
+ * rules.ts) returns status + notes, newest first. This panel READS it — one
+ * read per mount/refresh, no polling — and says what the ledger of runs says.
+ * If the read itself fails we SAY so; we never infer health from silence, and
+ * we never paint green over a status we could not read.
+ *
+ * G4-strategies (round 2): the reducer and the loader now live in ONE place,
+ * lib/rules/runHealth.ts. This file used to carry a literal copy of them (as
+ * did LegacyActivityFeed and DefiPositionsBoard) — three copies of the same
+ * verdict is three chances for two surfaces to disagree about the same rule.
+ */
+
+function runAt(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+/**
+ * The failure line. Loud on `failed`, honest on `unreadable`, silent otherwise
+ * (a healthy rule already speaks through "fired ×N" and its expiry).
+ *
+ * G4-pildoras (round 3) — `enabled` arrived because this note never looked at
+ * it: a PAUSED rule with an old failed run claimed «this rule is armed» beside
+ * a Resume button. The failure still shows (it happened); the tense follows the
+ * rule's actual state.
+ */
+function LastRunNote({ run, enabled, t }: { run: LastRun; enabled: boolean; t: (s: string) => string }) {
+  if (run.state === 'failed') {
+    return (
+      <div className="rounded-md border border-red-500/25 bg-red-500/[0.06] px-2 py-1.5 text-[11px] text-red-200/90">
+        <div className="flex items-start gap-1.5">
+          <AlertTriangle size={12} className="mt-[1px] shrink-0" />
+          <div className="min-w-0">
+            {/* Whole sentences, never assembled fragments — the translator
+                needs the full clause, and so does the reader. */}
+            <p className="font-medium">
+              {enabled
+                ? t('Its last run FAILED — this rule is armed but it produced nothing to sign.')
+                : t('Its last run FAILED before it was paused — it produced nothing to sign.')}
+            </p>
+            <p className="mt-0.5 text-red-200/70">
+              {runAt(run.at)}
+              {run.note ? ` · ${run.note}` : ` · ${t('the engine recorded no reason')}`}
+            </p>
+            {run.consecutive > 1 && (
+              <p className="mt-0.5 text-red-200/70">
+                {t('Consecutive failed runs:')} {run.consecutive}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (run.state === 'unreadable') {
+    return (
+      <p className="text-[11px] text-amber-300/70">
+        {t('Could not read this rule’s run history — we cannot tell you whether its last fire worked.')}
+        {run.detail ? ` (${run.detail})` : ''}
+      </p>
+    );
+  }
+  return null;
+}
+
 // One rule, one sentence — the shared reader (lib/rules/describeRule) speaks
 // for triggers everywhere; the council payment keeps its amount+destination
 // detail because that is the fact a family checks.
@@ -50,11 +139,14 @@ function triggerText(trigger: Record<string, unknown>, t: (s: string) => string)
 
 function actionText(action: Record<string, unknown>, t: (s: string) => string): string {
   const kind = String(action?.kind ?? '');
-  if (kind === 'councilPayment') {
+  // Both payment kinds keep their amount+destination detail because that is
+  // the fact an owner (or a family) checks — the phrase alone hides the money.
+  if (kind === 'councilPayment' || kind === 'scheduledPayment') {
     const p = (action.params ?? {}) as Record<string, unknown>;
     const xrp = Number(p.amountDrops ?? 0) / 1_000_000;
     const dst = String(p.destination ?? '');
-    return `${t('propose payment of')} ${xrp} XRP → ${dst.slice(0, 6)}…${dst.slice(-4)}`;
+    const verb = kind === 'councilPayment' ? t('propose payment of') : t('prepare payment of');
+    return `${verb} ${xrp} XRP → ${dst.slice(0, 6)}…${dst.slice(-4)}`;
   }
   const proto = action.protocolId ? ` · ${action.protocolId}` : '';
   return `${describeAction(action, t)}${proto}`;
@@ -91,14 +183,33 @@ export default function MoneyFlowsPanel({
   const [error, setError] = useState('');
   // In-place edit (founder 2026-07-25): threshold/amount/cooldown, PATCH-gated.
   const [editRule, setEditRule] = useState<AutomationRule | null>(null);
+  // G4 — last run per rule id, READ from GET /rules/:id/runs. `unread` until
+  // the read lands; the seq guard drops the answer of a superseded refresh so a
+  // slow read can never repaint a stale verdict over a fresh list.
+  const [lastRuns, setLastRuns] = useState<Record<string, LastRun>>({});
+  const runsSeq = useRef(0);
 
   const key = useMemo(() => addresses.filter(Boolean).join(','), [addresses]);
+
+  /**
+   * G4 — one read per rule, per mount/refresh. NOT a poll: run history only
+   * changes on an engine tick, and a rule that failed stays failed until the
+   * owner fixes it, so hammering the endpoint would buy nothing. Every rule
+   * gets an entry, including the ones whose read failed: an absent entry would
+   * be indistinguishable from "healthy", which is the bug this closes.
+   */
+  const loadRuns = useCallback(async (ruleIds: string[], seq: number) => {
+    const next = await loadRunHealth(ruleIds, (id) => rulesApi.runs(id));
+    if (seq !== runsSeq.current) return;
+    setLastRuns(next);
+  }, []);
 
   const refresh = useCallback(async () => {
     const addrs = key.split(',').filter(Boolean);
     if (addrs.length === 0) {
       setFlows([]);
       setLoose([]);
+      setLastRuns({});
       setLoading(false);
       return;
     }
@@ -119,14 +230,31 @@ export default function MoneyFlowsPanel({
           };
         }),
       );
-      setFlows(perAddress.flatMap((x) => x.flows));
-      setLoose(perAddress.flatMap((x) => x.loose));
+      const nextFlows = perAddress.flatMap((x) => x.flows);
+      const nextLoose = perAddress.flatMap((x) => x.loose);
+      setFlows(nextFlows);
+      setLoose(nextLoose);
+      // G4 — the run history is read AFTER the list is on screen (fire and
+      // forget): a slow /runs must never delay the rules themselves. Until it
+      // lands every rule reads as `unread`, which prints nothing.
+      const ruleIds = [
+        ...nextFlows.flatMap((f) => f.rules.map((r) => r.id)),
+        ...nextLoose.map((r) => r.id),
+      ];
+      const seq = ++runsSeq.current;
+      // G4-strategies — do NOT wipe the map here. `setLastRuns({})` sent every
+      // rule back to `unread` for the whole round-trip, so a rule already known
+      // to be FAILING flashed back to the green «active» pill on every refresh
+      // — the reassurance this front exists to remove, reintroduced once per
+      // reload. Hold the verdicts we already read for the rules still present.
+      setLastRuns((prev) => retainKnownRuns(prev, ruleIds));
+      void loadRuns(ruleIds, seq);
     } catch (e) {
       setError((e as Error).message ?? String(e));
     } finally {
       setLoading(false);
     }
-  }, [key]);
+  }, [key, loadRuns]);
 
   useEffect(() => {
     void refresh();
@@ -188,32 +316,53 @@ export default function MoneyFlowsPanel({
             const exp = expiryText(f.rules[0]?.expiresAt, t);
             const anyEnabled = f.rules.some((r) => r.enabled);
             const k = `flow:${f.canonicalRef}`;
+            // G4 — an enabled flow whose last fire errored is NOT "active": the
+            // green pill was the lie the family read as protection.
+            // G4-pildoras (round 3) — and a flow whose runs we have NOT READ is
+            // not "active" either: `isFailing` is false for `unread` and for
+            // `unreadable`, so both fell into the green arm and a /runs timeout
+            // returned a failing flow to green. The worst verdict among its
+            // rules wins, and «I do not know yet» outranks «active».
+            const pill = worstPillState(f.rules.map((r) => rulePillState(r.enabled, lastRuns[r.id])));
             return (
               <div key={k} className="rounded-lg border border-ink/[0.08] bg-ink/[0.02] p-3 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={13} className="shrink-0 text-ink/40" />
                   <span className="text-sm text-ink/80 truncate">{f.name}</span>
-                  <Pill tone={anyEnabled ? 'success' : 'neutral'}>{anyEnabled ? t('active') : t('paused')}</Pill>
+                  <Pill tone={RULE_PILL_TONE[pill]}>
+                    {pill === 'paused'
+                      ? t('paused')
+                      : pill === 'failing'
+                        ? t('failing')
+                        : pill === 'unreadable'
+                          ? t('unknown')
+                          : pill === 'unread'
+                            ? t('checking…')
+                            : t('active')}
+                  </Pill>
                   <span className={`ml-auto flex items-center gap-1 text-[11px] ${exp.expired ? 'text-amber-400/80' : 'text-ink/40'}`}>
                     <Hourglass size={11} /> {exp.label}
                   </span>
                 </div>
                 <ul className="space-y-0.5">
                   {f.rules.map((r) => (
-                    <li key={r.id} className="flex items-center gap-1.5 text-[12px] text-ink/50">
-                      <span className="min-w-0 truncate">
-                        {triggerText(r.trigger, t)} → {actionText(r.action, t)}
-                        {r.totalTimesTriggered > 0 && (
-                          <span className="text-ink/30"> · {t('fired')} ×{r.totalTimesTriggered}</span>
-                        )}
+                    <li key={r.id} className="space-y-1 text-[12px] text-ink/50">
+                      <span className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate">
+                          {triggerText(r.trigger, t)} → {actionText(r.action, t)}
+                          {r.totalTimesTriggered > 0 && (
+                            <span className="text-ink/30"> · {t('fired')} ×{r.totalTimesTriggered}</span>
+                          )}
+                        </span>
+                        <button
+                          onClick={() => setEditRule(r)}
+                          title={t('Edit')}
+                          className="shrink-0 rounded p-0.5 text-ink/30 hover:text-ink/70 transition-colors"
+                        >
+                          <Pencil size={11} />
+                        </button>
                       </span>
-                      <button
-                        onClick={() => setEditRule(r)}
-                        title={t('Edit')}
-                        className="shrink-0 rounded p-0.5 text-ink/30 hover:text-ink/70 transition-colors"
-                      >
-                        <Pencil size={11} />
-                      </button>
+                      <LastRunNote run={lastRuns[r.id] ?? UNREAD} enabled={r.enabled} t={t} />
                     </li>
                   ))}
                 </ul>
@@ -252,12 +401,31 @@ export default function MoneyFlowsPanel({
           {loose.map((r) => {
             const exp = expiryText(r.expiresAt, t);
             const k = `rule:${r.id}`;
+            // G4 — the council rules (councilOrder / councilPayment) live HERE:
+            // they carry no canonicalRef, so this is the card that used to say
+            // "active / expires in 87d" for a rule failing every single fire.
+            const lastRun = lastRuns[r.id] ?? UNREAD;
+            // G4-pildoras (round 3) — `state === 'failed'` alone left `unread`
+            // and `unreadable` in the green arm: a council rule read as
+            // «active» before its first run was read, and went back to green
+            // whenever /runs broke.
+            const pill = rulePillState(r.enabled, lastRun);
             return (
               <div key={k} className="rounded-lg border border-ink/[0.08] bg-ink/[0.02] p-3 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={13} className="shrink-0 text-ink/40" />
                   <span className="text-sm text-ink/80 truncate">{r.name}</span>
-                  <Pill tone={r.enabled ? 'success' : 'neutral'}>{r.enabled ? t('active') : t('paused')}</Pill>
+                  <Pill tone={RULE_PILL_TONE[pill]}>
+                    {pill === 'paused'
+                      ? t('paused')
+                      : pill === 'failing'
+                        ? t('failing')
+                        : pill === 'unreadable'
+                          ? t('unknown')
+                          : pill === 'unread'
+                            ? t('checking…')
+                            : t('active')}
+                  </Pill>
                   <span className={`ml-auto flex items-center gap-1 text-[11px] ${exp.expired ? 'text-amber-400/80' : 'text-ink/40'}`}>
                     <Hourglass size={11} /> {exp.label}
                   </span>
@@ -266,6 +434,7 @@ export default function MoneyFlowsPanel({
                   {triggerText(r.trigger, t)} → {actionText(r.action, t)}
                   {r.totalTimesTriggered > 0 && <span className="text-ink/30"> · {t('fired')} ×{r.totalTimesTriggered}</span>}
                 </p>
+                <LastRunNote run={lastRun} enabled={r.enabled} t={t} />
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     onClick={() => setEditRule(r)}

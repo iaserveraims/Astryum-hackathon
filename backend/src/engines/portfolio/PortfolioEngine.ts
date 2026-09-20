@@ -1,4 +1,5 @@
 import { ProtocolRegistry } from '../../connectors/protocols/ProtocolRegistry';
+import { createScanLimiter } from './scanLimiter';
 import { registerFlareAdapters } from '../../connectors/protocols/adapters';
 import {
   NormalisationEngine,
@@ -8,10 +9,11 @@ import {
 import {
   SnapshotBuilder,
   type PortfolioSnapshot,
+  type PortfolioUnreadableProtocol,
 } from './SnapshotBuilder';
 import { getRedis } from '../../database/redisClient';
 import { prisma } from '../../database/prismaClient';
-import type { IProtocolAdapter } from '../../connectors/protocols/IProtocolAdapter';
+import { discoverWithUnreadable, describeUnreadable, type IProtocolAdapter } from '../../connectors/protocols/IProtocolAdapter';
 import type {
   RawPosition,
   NormalizedPosition,
@@ -24,7 +26,7 @@ import type { CanonicalPosition } from '../../canonical/types/Position';
 // import { zerionPortfolioProvider } from '../../integrations/providers/portfolio/ZerionPortfolioProvider';
 import { coinStatsProvider } from '../../integrations/providers/portfolio/CoinStatsProvider';
 import { deBankPortfolioProvider } from '../../integrations/providers/portfolio/DeBankPortfolioProvider';
-import { onChainBalanceProvider } from '../../integrations/providers/portfolio/OnChainBalanceProvider';
+import { onChainBalanceProvider, readManagedPotePositions } from '../../integrations/providers/portfolio/OnChainBalanceProvider';
 import { solanaBalanceProvider, SOLANA_PSEUDO_CHAIN_ID } from '../../integrations/providers/portfolio/SolanaBalanceProvider';
 import { xrplBalanceProvider } from '../../integrations/providers/portfolio/XrplBalanceProvider';
 import { aptosBalanceProvider, APTOS_PSEUDO_CHAIN_ID } from '../../integrations/providers/portfolio/AptosBalanceProvider';
@@ -89,13 +91,19 @@ function canonicalToNormalized(pos: CanonicalPosition): NormalizedPosition | nul
     wallet: pos.wallet,
     kind,
     asset: primary.asset.symbol,
-    amount: 0n, // human amount not needed; amountUSD drives the snapshot
+    // Los proveedores externos reportan cantidades HUMANAS (XRP, no drops), no
+    // unidades base: no hay entero de ledger que poner aquí y nada aguas abajo
+    // lo pide. La cantidad real viaja en `qty` — dejarla caer era lo que hacía
+    // que cada fila de XRP y de pote se enseñara con un 0 al lado de su valor.
+    amount: 0n,
+    qty: primary.amount,
     amountUSD: totalUSD,
     priceUSD: primary.asset.priceUSD ?? 0,
     metadata: {
       source: pos.source.providerId,
       external: true,
       chainId: pos.chainId,
+      decimals: primary.asset.decimals,
       assets: pos.assets.map((a) => ({
         symbol: a.asset.symbol,
         amountUSD: a.amountUSD,
@@ -110,6 +118,30 @@ const FLARE_CHAIN_ID = 14;
 // more often than this only buys "Loading…" screens. Actions that change
 // positions go through POST /snapshot (forceRefresh) and bypass the cache.
 const CACHE_TTL_SECONDS = 300;
+/** TTL de un snapshot al que le falta algún adapter (RPC caído, deadline):
+ *  breve, para reintentar pronto sin martillear el nodo mientras falla. */
+const DEGRADED_CACHE_TTL_SECONDS = Number(process.env.PORTFOLIO_DEGRADED_CACHE_TTL_S ?? 30);
+/**
+ * STALE-WHILE-REVALIDATE (fundador 2026-09-11: «el home sigue tardando
+ * demasiado en leer las posiciones»). Un snapshot cuya caché fresca ha
+ * expirado NO obliga a esperar el barrido completo (hasta 15 s por el
+ * deadline de un adapter lento): se sirve al instante la ÚLTIMA versión
+ * conocida —guardada aparte con esta vida larga— y el recálculo corre por
+ * detrás, coalescido, refrescando la caché para la siguiente lectura. El
+ * usuario paga el barrido una sola vez por wallet; después, nunca espera.
+ * POST /snapshot (forceRefresh) sigue saltándose todo: tras firmar, dato
+ * fresco de verdad.
+ */
+const STALE_TTL_SECONDS = Number(process.env.PORTFOLIO_STALE_TTL_S ?? 1800);
+/** Un adapter que tarda más que esto se anota: son los que deciden la espera. */
+const SLOW_ADAPTER_MS = 3000;
+/**
+ * Cuántos barridos de wallet corren A LA VEZ contra el RPC de Flare (18-sep):
+ * una cuenta con trece wallets EVM recomputándose de golpe cada cinco minutos
+ * saturaba el nodo público y BlazeSwap cruzaba su deadline. Ver scanLimiter.
+ */
+const MAX_CONCURRENT_SCANS = Number(process.env.PORTFOLIO_MAX_CONCURRENT_SCANS ?? 3) || 3;
+const scanLimiter = createScanLimiter(MAX_CONCURRENT_SCANS);
 // A read (GET) persists at most one snapshot per wallet per hour — every page
 // load was inserting a full-positions row, growing portfolio_snapshots (and
 // the /history payload) linearly with visits. Explicit POST /snapshot bypasses.
@@ -172,6 +204,8 @@ export class PortfolioEngine {
   // In-flight coalescing: the risk engine calls getPortfolio concurrently with
   // the portfolio route for the same wallet; without this both pay a full scan.
   private inflight = new Map<string, Promise<PortfolioSnapshot>>();
+  /** La última versión conocida por wallet (vida larga) — ver STALE_TTL_SECONDS. */
+  private staleCache = new Map<string, { expires: number; snap: PortfolioSnapshot }>();
 
   static getInstance(): PortfolioEngine {
     if (!this.instance) this.instance = new PortfolioEngine();
@@ -195,17 +229,61 @@ export class PortfolioEngine {
     return null;
   }
 
-  private async cacheSet(key: string, snap: PortfolioSnapshot): Promise<void> {
+  private async staleGet(key: string): Promise<PortfolioSnapshot | null> {
     const redis = getRedis();
     if (redis) {
       try {
-        await redis.setex(key, CACHE_TTL_SECONDS, JSON.stringify(serialiseSnapshot(snap)));
+        const cached = await redis.get(`${key}:stale`);
+        if (cached) return reviveSnapshot(JSON.parse(cached));
+      } catch (err) {
+        console.warn('[portfolio] redis stale get failed:', (err as Error).message);
+      }
+      return null;
+    }
+    const hit = this.staleCache.get(key);
+    if (hit && hit.expires > Date.now()) return hit.snap;
+    if (hit) this.staleCache.delete(key);
+    return null;
+  }
+
+  private async staleSet(key: string, snap: PortfolioSnapshot): Promise<void> {
+    const redis = getRedis();
+    if (redis) {
+      try {
+        await redis.setex(`${key}:stale`, STALE_TTL_SECONDS, JSON.stringify(serialiseSnapshot(snap)));
+      } catch (err) {
+        console.warn('[portfolio] redis stale setex failed:', (err as Error).message);
+      }
+      return;
+    }
+    this.staleCache.set(key, { expires: Date.now() + STALE_TTL_SECONDS * 1000, snap });
+    if (this.staleCache.size > 500) {
+      const oldest = this.staleCache.keys().next().value;
+      if (oldest !== undefined) this.staleCache.delete(oldest);
+    }
+  }
+
+  private async cacheSet(key: string, snap: PortfolioSnapshot, ttlSeconds: number = CACHE_TTL_SECONDS): Promise<void> {
+    // Toda escritura fresca COMPLETA renueva también la copia de vida larga.
+    //
+    // Ola 0 (15-sep) — un snapshot DEGRADADO no la pisa. `staleSet` corría
+    // siempre: tras una retirada, `afterSettled` fuerza un snapshot de todas
+    // las wallets a la vez (el burst más propenso al 429), el barrido salía
+    // sin Kinetic, y esa copia sin el carry SUSTITUÍA a la última versión
+    // conocida durante media hora: el SWR servía «no tienes nada» como si
+    // fuera la memoria larga. La copia larga guarda la última lectura
+    // COMPLETA; la degradada vive solo en la caché corta, con su `unreadable`.
+    if (!isDegraded(snap)) await this.staleSet(key, snap);
+    const redis = getRedis();
+    if (redis) {
+      try {
+        await redis.setex(key, ttlSeconds, JSON.stringify(serialiseSnapshot(snap)));
       } catch (err) {
         console.warn('[portfolio] redis setex failed:', (err as Error).message);
       }
       return;
     }
-    this.memoryCache.set(key, { expires: Date.now() + CACHE_TTL_SECONDS * 1000, snap });
+    this.memoryCache.set(key, { expires: Date.now() + ttlSeconds * 1000, snap });
     // Bound the fallback cache so a long-lived process can't grow unbounded.
     if (this.memoryCache.size > 500) {
       const oldest = this.memoryCache.keys().next().value;
@@ -252,6 +330,16 @@ export class PortfolioEngine {
     if (!opts.forceRefresh) {
       const cached = await this.cacheGet(cacheKey);
       if (cached) return cached;
+      // SWR: caché fresca expirada pero hay una última versión conocida —
+      // se sirve YA y el recálculo corre por detrás (coalescido: una sola
+      // computación aunque lleguen diez lecturas mientras dura).
+      const stale = await this.staleGet(cacheKey);
+      if (stale) {
+        void this.coalesce(cacheKey, () => this.computeEvmPortfolio(wallet, chainId, cacheKey, opts)).catch((err) => {
+          console.warn('[portfolio] background refresh failed:', (err as Error).message);
+        });
+        return stale;
+      }
     }
 
     return this.coalesce(cacheKey, () => this.computeEvmPortfolio(wallet, chainId, cacheKey, opts));
@@ -277,22 +365,66 @@ export class PortfolioEngine {
         })
       : Promise.resolve([]);
 
-    const settled = await Promise.allSettled(
-      adapters.map(async (a) => ({
-        adapter: a,
-        positions: await withAdapterDeadline(a.discoverPositions(wallet), a.protocolId),
-      }))
+    // Tras una firma (forceRefresh) los adapters olvidan lo memorizado de esta
+    // wallet: la posición recién abierta se busca con un barrido entero.
+    if (opts.forceRefresh) for (const a of adapters) a.invalidateWallet?.(wallet);
+    // Un hueco del limitador para TODO el barrido de esta wallet: el deadline
+    // de cada adapter empieza cuando el barrido empieza de verdad, no en la cola.
+    const settled = await scanLimiter.run(() =>
+      Promise.allSettled(
+        adapters.map(async (a) => {
+          const t0 = Date.now();
+          // Ola 0 (15-sep) — lectura PARCIAL cuando el adapter sabe nombrar lo
+          // que no contestó: las filas leídas entran; lo ilegible va nombrado.
+          const discovery = await withAdapterDeadline(discoverWithUnreadable(a, wallet), a.protocolId);
+          const ms = Date.now() - t0;
+          // Quién decide la espera: el barrido tarda lo que su adapter más lento.
+          if (ms > SLOW_ADAPTER_MS) console.warn(`[portfolio] slow adapter ${a.protocolId}: ${ms}ms for ${wallet}`);
+          return { adapter: a, positions: discovery.positions, unreadable: discovery.unreadable };
+        }),
+      ),
     );
 
     const allRaw: { adapter: IProtocolAdapter; raws: RawPosition[] }[] = [];
+    // Los adapters que NO contestaron en este barrido. Un snapshot al que le
+    // falta un protocolo no es «el usuario no tiene nada ahí»: es «no pudimos
+    // mirar». Se recuerda para no fosilizarlo en caché (ver cacheSet abajo).
+    //
+    // it. 31 — Y SE LE DICE A LA PERSONA, no solo al log. El comentario de la
+    // 29 decia «the engine drops this adapter from THIS sweep (and says so)»:
+    // lo decia a `console.warn`. La pantalla recibia un snapshot sin Firelight
+    // —participaciones quemadas, FXRP en cola— identico al de quien no tiene
+    // nada alli. El snapshot lleva ahora `unreadable[]` con el protocolo y el
+    // motivo, y viaja tal cual por /api/portfolio.
+    //
+    // Ola 0 — y un adapter que contestó A MEDIAS (un mercado, un periodo) ya
+    // no es un adapter caído: sus filas entran y `unreadable[]` lleva la
+    // entrada con `partial: true` y las lecturas que faltaron.
+    const dropped: string[] = [];
+    const unreadable: PortfolioUnreadableProtocol[] = [];
     for (let i = 0; i < settled.length; i++) {
       const r = settled[i];
       if (r.status === 'fulfilled') {
         allRaw.push({ adapter: r.value.adapter, raws: r.value.positions });
+        if (r.value.unreadable.length > 0) {
+          unreadable.push({
+            protocolId: adapters[i].protocolId,
+            reason: describeUnreadable(r.value.unreadable).slice(0, 300),
+            partial: true,
+            reads: r.value.unreadable,
+          });
+          console.warn(
+            `[portfolio] adapter ${adapters[i].protocolId} read partially for ${wallet}:`,
+            describeUnreadable(r.value.unreadable),
+          );
+        }
       } else {
+        const reason = String((r.reason as Error)?.message ?? r.reason ?? 'no answer').slice(0, 300);
+        dropped.push(adapters[i].protocolId);
+        unreadable.push({ protocolId: adapters[i].protocolId, reason });
         console.warn(
           `[portfolio] adapter ${adapters[i].protocolId} dropped from snapshot:`,
-          (r.reason as Error).message,
+          reason,
         );
       }
     }
@@ -336,6 +468,22 @@ export class PortfolioEngine {
       (n) => !coveredOnChain.has(`${n.chainId}:${walletBucket(n.protocolId)}:${n.kind}:${n.asset.toUpperCase()}`),
     );
 
+    // Managed vault shares (potes) — SIEMPRE en Flare, al margen del barrido
+    // externo (que la demo apaga con PORTFOLIO_EXTERNAL_SCAN=off). Se valoran
+    // por su FXRP subyacente y cuentan en el patrimonio como cualquier holding.
+    // La Personal Account está registrada como watch wallet, así que sus shares
+    // entran en Home y en la wallet (fundador 8-sep).
+    if (chainId === FLARE_CHAIN_ID) {
+      try {
+        const poteNormalized = (await readManagedPotePositions(wallet))
+          .map(canonicalToNormalized)
+          .filter((n): n is NormalizedPosition => n !== null);
+        externalNormalized = [...externalNormalized, ...poteNormalized];
+      } catch (err) {
+        console.warn('[portfolio] managed pote positions failed:', (err as Error).message);
+      }
+    }
+
     const allNormalized = [...onChainNormalized, ...externalNormalized];
 
     const adapterByProto = new Map<string, IProtocolAdapter>();
@@ -354,12 +502,15 @@ export class PortfolioEngine {
       ...externalNormalized.map(() => Promise.resolve<PositionMetrics>({})),
     ]);
 
-    const snapshot = SnapshotBuilder.build({
-      wallet,
-      chainId,
-      normalized: allNormalized,
-      metrics,
-    });
+    const snapshot: PortfolioSnapshot = {
+      ...SnapshotBuilder.build({
+        wallet,
+        chainId,
+        normalized: allNormalized,
+        metrics,
+      }),
+      ...(unreadable.length > 0 ? { unreadable } : {}),
+    };
 
     if (opts.persist !== false) {
       await this.persistSnapshot(snapshot, opts.persist === true).catch((err) => {
@@ -370,7 +521,19 @@ export class PortfolioEngine {
       });
     }
 
-    await this.cacheSet(cacheKey, snapshot);
+    // UN SNAPSHOT INCOMPLETO NO SE CACHEA CINCO MINUTOS (2026-09-09). Con un
+    // adapter caído —un 429 del RPC, un deadline— el snapshot salía sin ese
+    // protocolo y se guardaba el TTL entero: la posición recién depositada
+    // «no existía» durante cinco minutos, y con 429s seguidos, otros cinco.
+    // Degradado se cachea breve, lo justo para no martillear el RPC mientras
+    // dura el fallo; el siguiente barrido vuelve a intentarlo.
+    // Ola 0 — degradado es TAMBIÉN el parcial (un mercado sin leer): misma
+    // vida corta, y ninguno de los dos renueva la copia larga (cacheSet).
+    const degraded = unreadable.length > 0;
+    await this.cacheSet(cacheKey, snapshot, degraded ? DEGRADED_CACHE_TTL_SECONDS : undefined);
+    if (degraded) {
+      console.warn(`[portfolio] degraded snapshot for ${wallet} (missing: ${dropped.join(', ') || '—'}; partial: ${unreadable.filter((u) => u.partial).map((u) => u.protocolId).join(', ') || '—'}) — cached ${DEGRADED_CACHE_TTL_SECONDS}s only`);
+    }
 
     return snapshot;
   }
@@ -468,11 +631,19 @@ export class PortfolioEngine {
     if (!opts.forceRefresh) {
       const cached = await this.cacheGet(cacheKey);
       if (cached) return cached;
+      // SWR: caché fresca expirada pero hay una última versión conocida —
+      // se sirve YA y el recálculo corre por detrás (coalescido: una sola
+      // computación aunque lleguen diez lecturas mientras dura).
+      const stale = await this.staleGet(cacheKey);
+      if (stale) {
+        void this.coalesce(cacheKey, () => this.computeNonEvmPortfolio(wallet, chainId, provider, cacheKey, opts)).catch((err) => {
+          console.warn('[portfolio] background refresh failed:', (err as Error).message);
+        });
+        return stale;
+      }
     }
 
-    return this.coalesce(cacheKey, () =>
-      this.computeNonEvmPortfolio(wallet, chainId, provider, cacheKey, opts),
-    );
+    return this.coalesce(cacheKey, () => this.computeNonEvmPortfolio(wallet, chainId, provider, cacheKey, opts));
   }
 
   private async computeNonEvmPortfolio(
@@ -484,6 +655,13 @@ export class PortfolioEngine {
   ): Promise<PortfolioSnapshot> {
     const traceId = randomUUID();
     let canonical: CanonicalPosition[] = [];
+    // Ola 0 (15-sep) — la misma familia de fallo que el camino EVM: la lectura
+    // del ledger no contesta → `canonical = []` → un snapshot a CERO que se
+    // persistía (caída falsa en el patrimonio), pisaba la copia larga y se
+    // cacheaba cinco minutos como hecho. `afterSettled` fuerza también la
+    // XRPL tras cada asiento. Ahora se nombra, y sigue el mismo carril
+    // degradado: caché corta, copia larga intacta, sin fila en el histórico.
+    const unreadable: PortfolioUnreadableProtocol[] = [];
     try {
       const result = await provider.call<{ walletAddress: string }, CanonicalPosition[]>(
         'portfolio.getPositions',
@@ -492,7 +670,9 @@ export class PortfolioEngine {
       );
       canonical = result.data;
     } catch (err) {
-      console.warn(`[portfolio] non-EVM (${chainId}) fetch failed:`, (err as Error).message);
+      const reason = String((err as Error)?.message ?? err ?? 'no answer').slice(0, 300);
+      unreadable.push({ protocolId: provider.id, reason });
+      console.warn(`[portfolio] non-EVM (${chainId}) fetch failed:`, reason);
     }
 
     const normalized = canonical
@@ -500,14 +680,17 @@ export class PortfolioEngine {
       .filter((n): n is NormalizedPosition => n !== null);
     const metrics: PositionMetrics[] = normalized.map(() => ({}));
 
-    const snapshot = SnapshotBuilder.build({ wallet, chainId, normalized, metrics });
+    const snapshot: PortfolioSnapshot = {
+      ...SnapshotBuilder.build({ wallet, chainId, normalized, metrics }),
+      ...(unreadable.length > 0 ? { unreadable } : {}),
+    };
 
     if (opts.persist !== false) {
       await this.persistSnapshot(snapshot, opts.persist === true).catch((err) => {
         console.warn('[portfolio] persist non-EVM snapshot failed (continuing):', err.message);
       });
     }
-    await this.cacheSet(cacheKey, snapshot);
+    await this.cacheSet(cacheKey, snapshot, unreadable.length > 0 ? DEGRADED_CACHE_TTL_SECONDS : undefined);
     return snapshot;
   }
 
@@ -582,6 +765,18 @@ export class PortfolioEngine {
   }
 
   private async persistSnapshot(s: PortfolioSnapshot, force = false): Promise<void> {
+    // Ola 0 (15-sep) — UN SNAPSHOT DEGRADADO NO ES UN HECHO Y NO SE PERSISTE,
+    // ni con `force` (POST /snapshot tras cada asiento). Se persistía sin
+    // mirar `unreadable`: el histórico registraba una caída falsa del
+    // patrimonio y `getLatestSnapshot` devolvía la copia sin el carry. La
+    // última fila de la BD es la última lectura COMPLETA; la degradada viaja
+    // en la respuesta (con su `unreadable`) y muere en la caché corta.
+    if (isDegraded(s)) {
+      console.warn(
+        `[portfolio] degraded snapshot for ${s.wallet} NOT persisted (unreadable: ${s.unreadable!.map((u) => u.protocolId).join(', ')})`,
+      );
+      return;
+    }
     // Non-EVM wallets register with chainId NULL (the registry has no EVM
     // chain for them) while their snapshots carry the pseudo chain-id — accept
     // both so XRPL/Solana history actually persists.
@@ -647,7 +842,17 @@ function serialiseSnapshot(s: PortfolioSnapshot): unknown {
 function reviveSnapshot(s: any): PortfolioSnapshot {
   return { ...s, takenAt: new Date(s.takenAt) };
 }
+/** Degradado = le falta algo que no se pudo leer (adapter caído o lectura parcial). */
+function isDegraded(s: PortfolioSnapshot): boolean {
+  return Array.isArray(s.unreadable) && s.unreadable.length > 0;
+}
+
 function rowToSnapshot(row: any, wallet: string, chainId: number): PortfolioSnapshot {
+  // Ola 0 — a row's `unreadable` (kept under `performance`, the JSON column
+  // that already carries the snapshot's side facts) is never dropped on the
+  // way out. No degraded snapshot is persisted today (persistSnapshot), so a
+  // row carrying it is an older one — and it still says what it could not see.
+  const unreadable = Array.isArray(row.performance?.unreadable) ? (row.performance.unreadable as PortfolioUnreadableProtocol[]) : [];
   return {
     wallet,
     chainId,
@@ -658,5 +863,6 @@ function rowToSnapshot(row: any, wallet: string, chainId: number): PortfolioSnap
     positions: row.positions ?? [],
     breakdown: row.allocation ?? { byProtocol: {}, byAsset: {}, byKind: {} },
     takenAt: row.takenAt,
+    ...(unreadable.length > 0 ? { unreadable } : {}),
   };
 }

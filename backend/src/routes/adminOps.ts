@@ -80,6 +80,32 @@ router.post('/sentinel/test', async (req: Request, res: Response) => {
   }
 });
 
+// GET /sourcetag — las métricas del SourceTag de Make Waves (entregable §8
+// del T&C): Active Users / txs / volumen atribuidos al tag, leídos del ledger.
+// Si el agregador aún no ha pasado (proceso recién arrancado) se fuerza una
+// pasada: un panel de ceros que parecen «sin tracción» sería mentira por
+// omisión. Solo lecturas.
+router.get('/sourcetag', async (_req: Request, res: Response) => {
+  try {
+    const { getSourceTagMetrics } = await import('../services/XrplSourceTagMetricsService');
+    const svc = getSourceTagMetrics();
+    const snap = svc.snapshot();
+    res.json(snap.passes === 0 ? await svc.runPass() : snap);
+  } catch (e) {
+    res.status(500).json({ error: 'SOURCETAG_METRICS_FAILED', detail: (e as Error).message });
+  }
+});
+
+// POST /sourcetag/run — pasada inmediata (el botón «Contar ahora»).
+router.post('/sourcetag/run', async (_req: Request, res: Response) => {
+  try {
+    const { getSourceTagMetrics } = await import('../services/XrplSourceTagMetricsService');
+    res.json(await getSourceTagMetrics().runPass());
+  } catch (e) {
+    res.status(500).json({ error: 'SOURCETAG_RUN_FAILED', detail: (e as Error).message });
+  }
+});
+
 /**
  * GET /cages — la flota de jaulas, para el panel (Sistema → «Jaulas · factory»).
  *
@@ -205,6 +231,130 @@ router.get('/whois', async (req: Request, res: Response) => {
     });
   } catch (e) {
     return res.status(500).json({ error: 'WHOIS_FAILED', detail: (e as Error).message });
+  }
+});
+
+// GET /identity-probe — ¿nos da XRP Identity la wallet del usuario?
+//
+// La pregunta abierta del 17-ago: su perfil tiene una tarjeta «XRPL Wallet» que
+// se conecta firmando con Xaman, pero su id_token no la trae. Puede que el
+// scope `profile:read` (que nuestro client_id ya acepta) la exponga en
+// /userinfo — y si es así, no hay que pedirle nada al operador.
+//
+// Esto responde a esa pregunta con LOGINS REALES, no con conjeturas: enciende
+// XRPL_IDENTITY_PROFILE_SCOPE=true en Railway, entra una vez, y mira aquí qué
+// claims llegaron. Se guardan NOMBRES Y FORMAS, jamás valores: para saber si la
+// dirección viaja basta con `{name:'xrpl_address', kind:'string',
+// xrplAddress:true}`, sin quedarnos la wallet de nadie en memoria.
+//
+// Recordatorio de límite, por si alguien construye encima: una dirección que
+// llegue por aquí es de SEGUNDA MANO (su nonce, su verificación). Sirve como
+// puntero watch-only a datos públicos. Para ACTUAR, la firma nuestra. Siempre.
+router.get('/identity-probe', async (_req: Request, res: Response) => {
+  try {
+    const { recentIdentityProbes, xrplIdentityProfileScopeEnabled, xrplIdentityScopes } = await import(
+      '../services/xrplIdentityOidc'
+    );
+    const probes = recentIdentityProbes();
+    return res.json({
+      enabled: xrplIdentityProfileScopeEnabled(),
+      scopesRequested: xrplIdentityScopes(),
+      probes,
+      // La conclusión, ya masticada: ¿ha llegado alguna vez algo con forma de
+      // r-address? Si es null es que aún no ha entrado nadie desde que se
+      // encendió (el proceso reinicia y esto se vacía: vive en memoria).
+      walletClaimSeen:
+        probes.length === 0
+          ? null
+          : probes.some((p) => p.userinfo.ok && p.userinfo.claims.some((c) => c.xrplAddress)),
+      // La vía que el operador SÍ ofrece (Thomas, 19-ago): la Account API de
+      // profile.xrpl.in, abierta con el mismo token de `profile:read`.
+      walletViaAccountApi:
+        probes.length === 0
+          ? null
+          : probes.some((p) => p.accountApi?.ok === true && p.accountApi.looksLikeXrplAddress),
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    return res.status(500).json({ error: 'IDENTITY_PROBE_FAILED', detail: (e as Error).message });
+  }
+});
+
+/**
+ * GET /signup-gate — ¿puede darse de alta alguien nuevo AHORA MISMO?
+ *
+ * Nació de una campaña a punto de salir (19-ago): con la puerta única de XRP
+ * Identity, un visitante nuevo entra por OIDC y su cuenta se CREA en ese primer
+ * login. Si el alta está cerrada y su email no está aprobado, rebota con 403
+ * not_invited — y eso, con tráfico traído por un KOL, es la primera impresión.
+ * Hasta ahora la única forma de saberlo era abrir Railway; es la misma familia
+ * del botón muerto de la beta, y por eso vive aquí y no en una consola.
+ *
+ * Ojo al sentido de la variable, que se invirtió el 16-ago: BETA_REGISTRATION_OPEN
+ * es DEFAULT OPEN — solo el literal 'false' cierra. Sin definir ⇒ abierta.
+ */
+router.get('/signup-gate', async (_req: Request, res: Response) => {
+  try {
+    const { isBetaRegistrationOpen } = await import('../config/betaGate');
+    const raw = process.env.BETA_REGISTRATION_OPEN;
+    const open = isBetaRegistrationOpen();
+
+    let approvedOnWaitlist: number | null = null;
+    if (!open) {
+      // Cerrada: lo único que importa es cuánta gente PODRÍA entrar igualmente.
+      try {
+        const { prisma } = await import('../database/prismaClient');
+        approvedOnWaitlist = await prisma.waitlistSignup.count({ where: { approvedAt: { not: null } } });
+      } catch {
+        approvedOnWaitlist = null;
+      }
+    }
+
+    return res.json({
+      open,
+      // El valor crudo, para que «no está puesta» y «está puesta a otra cosa»
+      // no se confundan: la primera es lo normal y correcto.
+      variableSet: raw !== undefined,
+      rawValue: raw === undefined ? null : raw,
+      approvedOnWaitlist,
+      note: open
+        ? 'Cualquiera puede crear cuenta. Un visitante nuevo entra por XRP Identity sin rebotar.'
+        : 'CERRADA: solo emails aprobados en la lista de espera crean cuenta; el resto recibe 403 not_invited.',
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    return res.status(500).json({ error: 'SIGNUP_GATE_FAILED', detail: (e as Error).message });
+  }
+});
+
+/**
+ * GET /keeper — ¿el keeper de escrows XRPL está haciendo lo que el operador pidió?
+ *
+ * G11 de la auditoría de fallos silenciosos: con el flag ENCENDIDO pero la seed
+ * inservible, `start()` registraba el motivo y volvía — intención del operador y
+ * realidad divergiendo sin que nadie lo echara de menos. La mitad de dentro ya
+ * estaba arreglada (la seed se valida al arrancar, no el día que haya un escrow
+ * que vencer, y el latido sigue latiendo en fallo); lo que faltaba era la
+ * ventana: `status()` no lo leía NADIE. Un gauge que nadie puede mirar no es un
+ * gauge, y la regla de la casa es que estos viven en /app/admin y no en una
+ * consola de Railway.
+ *
+ * El campo que importa es `divergent`: `enabled && !running`. Lo demas es
+ * contexto para saber por que.
+ */
+router.get('/keeper', async (_req: Request, res: Response) => {
+  try {
+    const { xrplEscrowKeeper } = await import('../services/XrplEscrowKeeper');
+    const st = xrplEscrowKeeper.status();
+    return res.json({
+      ...st,
+      // Se calcula aqui, una vez, en vez de dejar que cada superficie repita la
+      // condicion y una de ellas la escriba al reves.
+      divergent: st.enabled && !st.running,
+    });
+  } catch (e) {
+    // Ni siquiera se pudo preguntar: se DICE, no se pinta un keeper apagado.
+    return res.status(500).json({ error: 'KEEPER_STATUS_FAILED', detail: (e as Error).message });
   }
 });
 

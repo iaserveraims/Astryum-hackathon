@@ -22,6 +22,12 @@ import { useAccount, useChainId, useConnect, useSignMessage, useDisconnect } fro
 import type { Connector } from 'wagmi';
 import { getAppKitModal } from './appkit';
 import {
+  isAddressRemoved,
+  markAddressRemoved,
+  removedAddresses,
+  unmarkAddressRemoved,
+} from './removedAddresses';
+import {
   FLARE_CHAIN_ID,
   ensureFlareNetwork,
   injectedProvider,
@@ -54,51 +60,11 @@ const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
  * wallet app (it becomes the connected address) or watch-adding it by hand
  * expresses fresh intent and clears the mark.
  */
-const REMOVED_ADDRESSES_KEY = 'astryum-removed-wallet-addresses';
-
-/** EVM addresses compare lower-cased; XRPL base58 stays case-sensitive. */
-function removalKey(address: string): string {
-  return /^0x[0-9a-fA-F]{40}$/.test(address) ? address.toLowerCase() : address;
-}
-
-function removedAddresses(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const raw = window.localStorage.getItem(REMOVED_ADDRESSES_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistRemovedAddresses(set: Set<string>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(REMOVED_ADDRESSES_KEY, JSON.stringify([...set]));
-  } catch {
-    /* storage unavailable — removal simply won't stick across reconnects */
-  }
-}
-
-function markAddressRemoved(address: string): void {
-  const set = removedAddresses();
-  set.add(removalKey(address));
-  persistRemovedAddresses(set);
-}
-
-function unmarkAddressRemoved(address: string): void {
-  const set = removedAddresses();
-  if (set.delete(removalKey(address))) persistRemovedAddresses(set);
-}
-
-/**
- * Whether the user deleted this address from their wallet list. Every path that
- * re-registers a wallet on its own (not from an explicit click) MUST ask first —
- * otherwise the trash button is a no-op the user has to keep pressing.
- */
-export function isAddressRemoved(address: string): boolean {
-  return removedAddresses().has(removalKey(address));
-}
+// La lista de direcciones quitadas vive en su propio módulo (sin wagmi
+// detrás), para que el registro de cuentas gobernadas pueda consultarla
+// también: ahí estaba el camino que resucitaba lo borrado. Ver
+// lib/wallet/removedAddresses.ts.
+export { isAddressRemoved, markAddressRemoved, unmarkAddressRemoved };
 
 /**
  * The MetaMask connector among the ones wagmi discovered.

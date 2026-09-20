@@ -55,3 +55,12 @@ jobs:
       # de verdad — se cumple el objetivo de R4a: un verde de CI que sí comprobó algo.
       - name: Unit tests
         run: npm run test:vitest
+
+      # Bloqueante: ninguna pantalla publicada puede llevar copy sin traducir.
+      # Se descubrieron DOS huecos en producción (18-19 ago 2026) que ninguna
+      # revisión humana vio: la frase que evita firmar dos veces, construida con
+      # plantilla y por tanto intraducible; y las 22 cadenas del catálogo, que
+      # viajan como DATO (`t(vault.plain)`) y son invisibles a un grep de
+      # `t('literal')`. El script barre las dos formas — ver scripts/check-i18n.js.
+      - name: i18n completeness
+        run: npm run check:i18n

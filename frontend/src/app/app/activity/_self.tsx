@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  Check,
+  ChevronDown,
   Clock,
   ExternalLink,
   EyeOff,
   RefreshCw,
   Wallet,
+  X,
 } from 'lucide-react';
 import {
   activity as activityApi,
@@ -21,7 +25,6 @@ import { Card, EmptyState, PageHeader, Pill, SectionTitle } from '../../../compo
 import { SourceBadge } from '../../../components/v11/SourceBadge';
 import { AuthRequired, FriendlyError, hasAuthToken } from '../../../lib/authError';
 import { useAuthorityWallets } from '../../../hooks/useAuthorityWallets';
-import { fetchActivityExport } from '../../../services/v1Api';
 import { EVM_ADDRESS_RE } from '../../../lib/portfolioMerge';
 
 const TYPE_TONE: Record<
@@ -71,6 +74,97 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 /** Short label for a wallet in a sentence — never the raw 42-char address. */
 function shortAddress(a: string): string {
   return a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+}
+
+/**
+ * TypeFilterDropdown — el selector de tipos como UN desplegable animado
+ * (fundador 2026-08-24: los trece chips sueltos eran «mucho ruido»; «un
+ * desplegable más bonito animado, en la misma línea que el filter de fecha»).
+ * Vacío = todos los tipos (el mismo contrato que ya hablaba el backend).
+ */
+function TypeFilterDropdown({
+  allTypes,
+  selected,
+  onToggle,
+  t,
+}: {
+  allTypes: string[];
+  selected: Set<string>;
+  onToggle: (type: string) => void;
+  t: (s: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+          selected.size > 0
+            ? 'border-volt/40 bg-volt/10 text-volt'
+            : 'border-ink/10 bg-ink/5 text-ink/70 hover:bg-ink/10'
+        }`}
+      >
+        {selected.size === 0 ? t('All types') : `${selected.size} ${selected.size === 1 ? t('type') : t('types')}`}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            role="listbox"
+            aria-multiselectable
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-0 top-full z-30 mt-1.5 w-52 origin-top rounded-xl border border-ink/10 bg-surface-1 p-1.5 shadow-2xl max-h-72 overflow-y-auto"
+          >
+            {allTypes.map((ty, idx) => {
+              const on = selected.has(ty);
+              return (
+                <motion.li
+                  key={ty}
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.15, delay: Math.min(idx * 0.015, 0.12) }}
+                >
+                  <button
+                    role="option"
+                    aria-selected={on}
+                    onClick={() => onToggle(ty)}
+                    className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                      on ? 'text-volt bg-volt/10' : 'text-ink/70 hover:bg-ink/5 hover:text-ink'
+                    }`}
+                  >
+                    {ty}
+                    {on && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                </motion.li>
+              );
+            })}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function ActivityPage({
@@ -125,34 +219,100 @@ export default function ActivityPage({
   );
   const walletsKey = scopedWallets.map((w) => w.address).join(',');
   const [events, setEvents] = useState<RailedEvent[]>([]);
-  // Movements export (§3 fiscal read): period window + per-wallet download.
+  // ── EL EXPORT ES LA PANTALLA (fundador 2026-09-07: «me lo exporta sin
+  // datos cuando en la pantalla sí veo operaciones»). Dos causas, las dos de
+  // raíz. (1) El motor viejo pedía UN fichero por wallet con a.click() en
+  // bucle, y el navegador solo concede una descarga por gesto: con «All
+  // wallets» llegaba la primera —la EVM, a menudo vacía— y la de Xaman, donde
+  // estaban las operaciones que se veían, se bloqueaba en silencio. (2) Y
+  // además re-pedía al backend con OTROS parámetros (límite 500, refresco
+  // forzado, sin filtro de tipos, ventana en UTC): un origen distinto del que
+  // se pinta, con todas sus divergencias. Ahora se exporta EXACTAMENTE la
+  // lista renderizada — mismo ámbito, misma ventana, mismos tipos, un solo
+  // fichero. Lo que ves es lo que te llevas, por construcción.
+  //
+  // La honestidad viaja dentro: si alguna wallet no contestó o Flare estaba
+  // ciego, el JSON lo declara (`partial`) y el nombre del fichero también —
+  // un fichero al que le faltan movimientos en silencio es peor que ninguno.
+  // El endpoint fiscal del backend (/activity/export) sigue existiendo para
+  // quien lo consuma por API; esta pantalla ya no depende de él.
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
-  const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const exportMovements = async (format: 'csv' | 'json') => {
-    setExporting(true);
+  const csvCell = (v: unknown): string => {
+    const str = v == null ? '' : String(v);
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const exportMovements = (format: 'csv' | 'json') => {
     setExportError(null);
-    try {
-      for (const w of scopedWallets) {
-        const blob = await fetchActivityExport({
-          wallet: w.address,
-          format,
-          from: exportFrom ? new Date(`${exportFrom}T00:00:00Z`).toISOString() : undefined,
-          to: exportTo ? new Date(`${exportTo}T23:59:59Z`).toISOString() : undefined,
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `astryum-movements-${w.address.slice(0, 8)}.${format}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      setExportError((e as Error).message);
-    } finally {
-      setExporting(false);
+    if (filteredEvents.length === 0) {
+      setExportError(t('Nothing to export in this window.'));
+      return;
     }
+    const explorerBlind = blind != null && !blind.ok;
+    const partial = unreadable.length > 0 || explorerBlind;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const scope = scopedWallets.length === 1 ? scopedWallets[0].address.slice(0, 8) : 'all-wallets';
+    const window = exportFrom || exportTo ? `${exportFrom || 'start'}_${exportTo || 'today'}` : 'full';
+    const name = `astryum-movements-${scope}-${window}${partial ? '-PARTIAL' : ''}-${stamp}.${format}`;
+    let body: string;
+    let mime: string;
+    if (format === 'json') {
+      body = JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          wallets: scopedWallets.map((w) => ({ address: w.address, rail: w.rail })),
+          window: { from: exportFrom || null, to: exportTo || null },
+          types: selectedTypes.size > 0 ? Array.from(selectedTypes) : 'all',
+          partial: partial
+            ? {
+                walletsNotAnswering: unreadable,
+                flareExplorer: explorerBlind
+                  ? { ok: false, reason: blind?.reason ?? null, cachedThrough: blind?.cachedThrough ?? null }
+                  : null,
+              }
+            : null,
+          count: filteredEvents.length,
+          events: filteredEvents,
+        },
+        null,
+        2,
+      );
+      mime = 'application/json';
+    } else {
+      // Mismas columnas que el fichero fiscal del backend, más el carril.
+      type Exposure = { asset?: { symbol?: string }; amount?: string | number };
+      const header = ['timestamp', 'type', 'rail', 'wallet', 'txHash', 'protocol', 'assetIn', 'amountIn', 'assetOut', 'amountOut', 'source'];
+      const rows = filteredEvents.map((e) => {
+        const x = e as RailedEvent & { assetIn?: Exposure; assetOut?: Exposure };
+        return [
+          e.timestamp,
+          e.type,
+          e.rail,
+          e.wallet,
+          e.txHash,
+          e.protocol ?? '',
+          x.assetIn?.asset?.symbol ?? '',
+          x.assetIn?.amount ?? '',
+          x.assetOut?.asset?.symbol ?? '',
+          x.assetOut?.amount ?? '',
+          (e.source as { provider?: string } | undefined)?.provider ?? '',
+        ]
+          .map(csvCell)
+          .join(',');
+      });
+      body = [header.join(','), ...rows].join('\n');
+      mime = 'text/csv;charset=utf-8';
+    }
+    // UNA descarga, dentro del gesto del usuario; el objeto se libera después,
+    // no en el mismo tick (revocarlo al instante corta la descarga en algunos
+    // navegadores).
+    const url = URL.createObjectURL(new Blob([body], { type: mime }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -280,15 +440,26 @@ export default function ActivityPage({
     }
   };
 
+  // Las fechas filtran TAMBIÉN la lista visible (fundador 2026-08-24: «tiene
+  // que haber un filter de fechas») — el mismo rango alimenta el export.
+  const filteredEvents = useMemo(() => {
+    if (!exportFrom && !exportTo) return events;
+    const from = exportFrom ? `${exportFrom}T00:00:00` : null;
+    const to = exportTo ? `${exportTo}T23:59:59.999` : null;
+    return events.filter(
+      (ev) => (!from || ev.timestamp >= from) && (!to || ev.timestamp <= to),
+    );
+  }, [events, exportFrom, exportTo]);
+
   const grouped = useMemo(() => {
     const out: Record<string, RailedEvent[]> = {};
-    for (const ev of events) {
+    for (const ev of filteredEvents) {
       const day = ev.timestamp.slice(0, 10);
       out[day] ??= [];
       out[day].push(ev);
     }
     return out;
-  }, [events]);
+  }, [filteredEvents]);
 
   if (error === 'no_session') return <AuthRequired />;
 
@@ -330,20 +501,12 @@ export default function ActivityPage({
 
   return (
     <div className="space-y-6">
+      {/* Sin sermón (fundador 2026-08-24: «casi que no hace falta ni la
+          explicación») — el título, el refresco, y a la lista. */}
       {embedded ? (
-        <SectionTitle
-          hint={t('On-chain timeline across your connected wallets · Flare via Flarescan, XRPL live from the ledger')}
-          actions={refreshButton}
-        >
-          Activity
-        </SectionTitle>
+        <SectionTitle actions={refreshButton}>Activity</SectionTitle>
       ) : (
-        <PageHeader
-          eyebrow="History"
-          title="Activity"
-          subtitle="On-chain timeline across your connected wallets · classified via canonical selectors · Flare via Flarescan, XRPL live from the ledger"
-          actions={refreshButton}
-        />
+        <PageHeader eyebrow="History" title="Activity" actions={refreshButton} />
       )}
       {/* Fallo PARCIAL: hay filas que enseñar, pero no son todas. El aviso dice
           cuántas carteras faltan y ofrece la salida que sí funciona — mirar una
@@ -398,63 +561,60 @@ export default function ActivityPage({
         </Card>
       )}
 
-      <Card>
-        <div className="flex flex-wrap gap-2">
-          {ALL_TYPES.map((t) => (
-            <button
-              key={t}
-              onClick={() => toggleType(t)}
-              className={`px-2.5 py-1 rounded-full text-xs border ${
-                selectedTypes.has(t)
-                  ? 'border-volt/50 bg-volt/10 text-volt'
-                  : 'border-ink/10 bg-ink/5 text-ink/60 hover:bg-ink/10'
-              }`}
+      {/* ── LA BARRA (fundador 2026-08-24): fechas + tipos + limpiar a la
+          izquierda, export a la derecha — una línea, sin cajas apiladas. El
+          rango filtra la lista Y acota el export; el porqué fiscal del export
+          viaja en su title, no en un párrafo. ── */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-ink/5 pb-3">
+        <input
+          type="date"
+          value={exportFrom}
+          onChange={(e) => setExportFrom(e.target.value)}
+          aria-label={t('Start date')}
+          className="rounded-lg border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink/25 [color-scheme:dark]"
+        />
+        <span className="text-ink/25 text-xs">→</span>
+        <input
+          type="date"
+          value={exportTo}
+          onChange={(e) => setExportTo(e.target.value)}
+          aria-label={t('End date')}
+          className="rounded-lg border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink/25 [color-scheme:dark]"
+        />
+        <TypeFilterDropdown allTypes={ALL_TYPES} selected={selectedTypes} onToggle={toggleType} t={t} />
+        <AnimatePresence>
+          {(selectedTypes.size > 0 || exportFrom || exportTo) && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => {
+                setSelectedTypes(new Set());
+                setExportFrom('');
+                setExportTo('');
+              }}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-ink/45 hover:text-ink transition-colors"
             >
-              {t}
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      {/* The fiscal read (§3): the period's movements as a FILE for the user's
-          tax advisor — exactly what the book knows how to read today, one file
-          per wallet in scope. Astryum reports data, never advises. */}
-      <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs text-ink/45">
-            {t('Start date')}
-            <input
-              type="date"
-              value={exportFrom}
-              onChange={(e) => setExportFrom(e.target.value)}
-              className="mt-1 block rounded-lg border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink/25 [color-scheme:dark]"
-            />
-          </label>
-          <label className="text-xs text-ink/45">
-            {t('End date')}
-            <input
-              type="date"
-              value={exportTo}
-              onChange={(e) => setExportTo(e.target.value)}
-              className="mt-1 block rounded-lg border border-ink/10 bg-ink/5 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink/25 [color-scheme:dark]"
-            />
-          </label>
-          {(['csv', 'json'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => void exportMovements(f)}
-              disabled={exporting || scopedWallets.length === 0}
-              className="rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink/75 transition-colors hover:bg-ink/10 disabled:opacity-40"
-            >
-              {exporting ? '…' : `${t('Export')} ${f.toUpperCase()}`}
-            </button>
-          ))}
-          <span className="text-[11px] text-ink/40">
-            {t('One file per wallet in scope. Astryum reports data; the filing is your advisor’s job.')}
-          </span>
-        </div>
-        {exportError && <p className="mt-2 text-sm text-amber-400">{exportError}</p>}
-      </Card>
+              <X className="w-3.5 h-3.5" />
+              {t('Clear filters')}
+            </motion.button>
+          )}
+        </AnimatePresence>
+        <span className="flex-1" />
+        {(['csv', 'json'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => exportMovements(f)}
+            disabled={scopedWallets.length === 0 || filteredEvents.length === 0}
+            title={t('Exports exactly the list you see — same wallets, dates and types, one file. Astryum reports data; the filing is your advisor’s job.')}
+            className="rounded-lg border border-ink/10 bg-ink/5 px-3 py-1.5 text-xs text-ink/70 transition-colors hover:bg-ink/10 disabled:opacity-40"
+          >
+            {`${t('Export')} ${f.toUpperCase()}`}
+          </button>
+        ))}
+      </div>
+      {exportError && <p className="text-sm text-amber-400">{exportError}</p>}
 
       {error === 'no_session' ? (
         <AuthRequired />
@@ -476,7 +636,7 @@ export default function ActivityPage({
         <FriendlyError message={`Couldn't load your timeline. ${error} Use refresh to retry.`} />
       ) : (loading || walletsLoading) && events.length === 0 ? (
         <Card>
-          <div className="text-center text-ink/50 py-8">{t('Loading timeline…')}</div>
+          <EmptyState variant="loading" bare title={t('Loading timeline…')} />
         </Card>
       ) : events.length === 0 && unreadable.length > 0 ? (
         // Cero filas Y carteras que no contestaron: no hemos podido mirar, así
@@ -506,6 +666,14 @@ export default function ActivityPage({
                 ? 'No wallet matches the selected filters.'
                 : 'Connect a wallet to see activity.'
           }
+        />
+      ) : filteredEvents.length === 0 ? (
+        // Hay historia — es el RANGO el que no coge nada. Decirlo evita que
+        // un filtro olvidado se lea como una cuenta sin movimientos.
+        <EmptyState
+          icon={<Clock className="w-8 h-8 text-ink/40" />}
+          title={t('Nothing in this date range')}
+          hint={t('Your history has events outside the selected dates — widen the range or clear the filters.')}
         />
       ) : (
         Object.entries(grouped).map(([day, dayEvents]) => (

@@ -107,8 +107,8 @@ router.post('/unstick', async (req: Request, res: Response) => {
   if (typeof hash !== 'string' || !XRPL_TX_HASH_RE.test(hash.trim())) {
     return res.status(400).json({ error: 'INVALID_HASH', detail: 'hash must be a 64-hex XRPL tx hash' });
   }
-  if (op !== 'retry' && op !== 'park') {
-    return res.status(400).json({ error: 'INVALID_OP', detail: "op must be 'retry' | 'park'" });
+  if (op !== 'retry' && op !== 'park' && op !== 'dismiss') {
+    return res.status(400).json({ error: 'INVALID_OP', detail: "op must be 'retry' | 'park' | 'dismiss'" });
   }
   try {
     const { directMintExecutorWatcher } = await import('../services/flare/DirectMintExecutorService');

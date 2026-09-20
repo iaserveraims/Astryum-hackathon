@@ -22,6 +22,8 @@ import { ModalOverlay } from '@/components/ui/ModalPortal';
 import { AmountSliderUsd } from './AmountSliderUsd';
 import { translateError } from '../../lib/errors/translateError';
 import { fmtQtyActive } from '../../lib/format';
+import { applySignFailure, type UnconfirmedSignature } from '../../lib/wallet/signOutcome';
+import { UnconfirmedSignatureNotice } from '../settlement/UnconfirmedSignatureNotice';
 
 const API_BASE = getApiBase();
 
@@ -69,7 +71,12 @@ interface PreparedExit {
   };
 }
 
-type Phase = 'form' | 'preparing' | 'review' | 'signing' | 'done';
+// familia-no-pude-leer (2026-08-20): 'unconfirmed' is the honest ending this
+// modal was missing — the signature may already be on Flare and we could not
+// read it. Without it every failure returned to 'review', i.e. to the sign
+// button, and a second unwrap is a second gas bill over a position that may
+// already have exited.
+type Phase = 'form' | 'preparing' | 'review' | 'signing' | 'done' | 'unconfirmed';
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -100,6 +107,9 @@ export function FtsoExitModal({
   const [amount, setAmount] = useState('');
   const [atMax, setAtMax] = useState(false);
   const [prepared, setPrepared] = useState<PreparedExit | null>(null);
+  // What a signature we could not follow left behind: the hash to check and
+  // the wallet's verbatim words (never a translated verdict).
+  const [unconfirmed, setUnconfirmed] = useState<UnconfirmedSignature | null>(null);
 
   // The wallet that HOLDS the WFLR must sign — MetaMask picks the account, so
   // all we can do is say it plainly when the connected one is not the owner.
@@ -178,7 +188,14 @@ export function FtsoExitModal({
   async function sign() {
     if (!prepared) return;
     setError('');
+    setUnconfirmed(null);
     setPhase('signing');
+    // Knowledge no error message carries: whether the payload was handed to the
+    // wallet partner at all. Everything thrown before this flips is provably
+    // unsigned. It says PARTNER, not wallet: sendIntentCalls still guards its
+    // input, switches chain and estimates gas before any wallet opens, and what
+    // that stage refuses is subtracted by name inside signOutcome.
+    let handedToPartner = false;
     try {
       if (!evm.isConnected) throw new Error(t('Connect your EVM wallet (Flare) to continue'));
       if (!ownerIsConnected) {
@@ -186,14 +203,23 @@ export function FtsoExitModal({
           `${t('Switch your wallet to the account that holds this position')} (${short(position.owner)}).`,
         );
       }
+      handedToPartner = true;
       const { handle } = await evm.sendIntentCalls(
         prepared.calls.map((c) => ({ to: c.to, data: c.data, value: c.value, chainId: c.chainId })),
       );
       settlement.track(handle, { onSettled: onChanged });
       setPhase('done');
     } catch (e) {
-      setError(translateError(e, t).message);
-      setPhase('review');
+      // familia-no-pude-leer — «no pude leer» NO es «falló». This catch used to
+      // end at `setPhase('review')`, one tap from the sign button, for EVERY
+      // failure including a receipt we simply could not read. One decision, in
+      // one place, for every signing surface (lib/wallet/signOutcome).
+      applySignFailure(e, handedToPartner, t, {
+        setError,
+        setUnconfirmed,
+        setPhase,
+        clearPrepared: () => setPrepared(null),
+      });
     }
   }
 
@@ -367,9 +393,23 @@ export function FtsoExitModal({
           </div>
         )}
 
+        {/* familia-no-pude-leer — amber, not red: nothing here says the exit
+            failed, and there is no way back to the sign button. */}
+        {phase === 'unconfirmed' && unconfirmed && (
+          <UnconfirmedSignatureNotice
+            rail="evm"
+            chainId={prepared?.chainId}
+            unconfirmed={unconfirmed}
+            onClose={() => {
+              onChanged();
+              onClose();
+            }}
+          />
+        )}
+
         {phase === 'done' && settlement.state && (
           <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
-            <SettlementIndicator state={settlement.state} />
+            <SettlementIndicator state={settlement.state} protocol="ftso" />
             <button
               onClick={onClose}
               className="w-full border border-ink/10 bg-ink/5 text-ink/70 text-sm py-2.5 rounded-xl hover:bg-ink/10 transition-colors"

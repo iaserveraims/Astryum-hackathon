@@ -14,11 +14,39 @@
  * no promises, no softening. Every claim here must stay true against the
  * code; the tx-builder section describes the prepare→sign→verify pipeline
  * exactly as built (unsigned payloads, simulation, caps, executor role).
+ *
+ * ── UN SOLO TEXTO, DOS SITIOS (2026-09-13) ──────────────────────────────────
+ * El fundador pidió que el alta OBLIGUE a leer y firmar estos documentos, con
+ * el texto delante. Ese texto NO se copia: el cuerpo de esta página se exporta
+ * (`DemoTermsBody`) y la ceremonia de firma (components/legal) monta el mismo
+ * componente en `plain`. Dos copias de un texto legal acabarían diciendo cosas
+ * distintas, y la aceptación quedaría registrada contra una versión que el
+ * usuario no leyó.
+ *
+ * `plain` hace dos cosas y solo dos: quita los márgenes de página y apaga los
+ * revelados por scroll (el observador de Reveal mira el VIEWPORT — dentro de
+ * una caja con scroll propio las secciones se quedarían invisibles, que es la
+ * peor forma posible de enseñar un documento legal).
  */
 
+import { createContext, useContext, type ReactNode } from 'react';
 import SubpageShell from './SubpageShell';
 import { BORDER, GOLD, Reveal } from './interactions';
 import { T, type Lang } from './useLang';
+
+/** El documento se pinta dentro de una caja, no en su página. */
+const PlainDoc = createContext(false);
+
+/** Reveal en la página; un div quieto dentro de la caja. */
+function Block({ children, delay, className }: { children: ReactNode; delay?: number; className?: string }) {
+  const plain = useContext(PlainDoc);
+  if (plain) return <div className={className}>{children}</div>;
+  return (
+    <Reveal delay={delay} className={className}>
+      {children}
+    </Reveal>
+  );
+}
 
 const GOLD_SOFT = '#E8C25A';
 const CARD: React.CSSProperties = { border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.02)' };
@@ -181,14 +209,16 @@ const PIPELINE = (lang: Lang) => [
   },
 ];
 
-export default function DemoTermsPage() {
+/**
+ * El documento entero. `plain` = dentro de la ceremonia de firma.
+ */
+export function DemoTermsBody({ lang, plain = false }: { lang: Lang; plain?: boolean }) {
   return (
-    <SubpageShell>
-      {(lang) => (
-        <>
+    <PlainDoc.Provider value={plain}>
+      <>
           {/* hero */}
-          <section className="px-6 pt-36 pb-14 text-center">
-            <Reveal>
+          <section className={plain ? 'pb-6 text-center' : 'px-6 pt-36 pb-14 text-center'}>
+            <Block>
               <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/40">
                 {T('Documentación pública · Demo', 'Public documentation · Demo', lang)}
               </p>
@@ -215,28 +245,28 @@ export default function DemoTermsPage() {
                   lang,
                 )}
               </p>
-            </Reveal>
+            </Block>
           </section>
 
           {/* the risks, honestly */}
-          <section className="px-6 pb-20">
+          <section className={plain ? 'pb-8' : 'px-6 pb-20'}>
             <div className="mx-auto max-w-3xl">
-              <Reveal>
+              <Block>
                 <h2 className="text-center font-bold text-white" style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.02em' }}>
                   {T('Los riesgos, sin suavizar', 'The risks, unsoftened', lang)}
                 </h2>
-              </Reveal>
+              </Block>
               <div className="mt-8 space-y-4">
                 {RISKS(lang).map((r, i) => (
-                  <Reveal key={r.title} delay={0.05 * i}>
+                  <Block key={r.title} delay={0.05 * i}>
                     <div className="rounded-2xl p-5" style={CARD}>
                       <h3 className="text-[15px] font-semibold text-white">{r.title}</h3>
                       <p className="mt-2 text-sm leading-relaxed text-white/55">{r.body}</p>
                     </div>
-                  </Reveal>
+                  </Block>
                 ))}
               </div>
-              <Reveal delay={0.2}>
+              <Block delay={0.2}>
                 <p className="mx-auto mt-8 max-w-2xl text-center text-[13px] leading-relaxed text-white/40">
                   {T(
                     'Al crear una cuenta y usar la demo confirmas que entiendes y aceptas estos riesgos. Nada en esta página limita derechos que la ley te reconozca como consumidor.',
@@ -244,35 +274,35 @@ export default function DemoTermsPage() {
                     lang,
                   )}
                 </p>
-              </Reveal>
+              </Block>
             </div>
           </section>
 
           {/* the rules of use — the clauses that protect both sides */}
-          <section className="px-6 pb-20">
+          <section className={plain ? 'pb-8' : 'px-6 pb-20'}>
             <div className="mx-auto max-w-3xl">
-              <Reveal>
+              <Block>
                 <h2 className="text-center font-bold text-white" style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.02em' }}>
                   {T('Las reglas de uso', 'The rules of use', lang)}
                 </h2>
-              </Reveal>
+              </Block>
               <div className="mt-8 space-y-4">
                 {RULES(lang).map((r, i) => (
-                  <Reveal key={r.title} delay={0.05 * i}>
+                  <Block key={r.title} delay={0.05 * i}>
                     <div className="rounded-2xl p-5" style={CARD}>
                       <h3 className="text-[15px] font-semibold text-white">{r.title}</h3>
                       <p className="mt-2 text-sm leading-relaxed text-white/55">{r.body}</p>
                     </div>
-                  </Reveal>
+                  </Block>
                 ))}
               </div>
             </div>
           </section>
 
           {/* how every transaction is built — the tx data builder, documented */}
-          <section className="px-6 pb-20">
+          <section className={plain ? 'pb-8' : 'px-6 pb-20'}>
             <div className="mx-auto max-w-3xl">
-              <Reveal>
+              <Block>
                 <h2 className="text-center font-bold text-white" style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.02em' }}>
                   {T('Cómo se construye cada transacción', 'How every transaction is built', lang)}
                 </h2>
@@ -283,10 +313,10 @@ export default function DemoTermsPage() {
                     lang,
                   )}
                 </p>
-              </Reveal>
+              </Block>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
                 {PIPELINE(lang).map((s, i) => (
-                  <Reveal key={s.step} delay={0.05 * i}>
+                  <Block key={s.step} delay={0.05 * i}>
                     <div className="h-full rounded-2xl p-5" style={CARD}>
                       <span className="font-mono text-[11px]" style={{ color: GOLD_SOFT }}>
                         {s.step}
@@ -294,35 +324,42 @@ export default function DemoTermsPage() {
                       <h3 className="mt-1.5 text-[15px] font-semibold text-white">{s.title}</h3>
                       <p className="mt-2 text-sm leading-relaxed text-white/55">{s.body}</p>
                     </div>
-                  </Reveal>
+                  </Block>
                 ))}
               </div>
             </div>
           </section>
 
           {/* verify it yourself — the counterweight */}
-          <section className="px-6 pb-28 text-center">
-            <Reveal>
-              <h2
-                className="mx-auto max-w-2xl font-bold text-white text-balance"
-                style={{ fontSize: 'clamp(1.5rem, 3.2vw, 2.3rem)', lineHeight: 1.1, letterSpacing: '-0.03em' }}
-              >
-                {T('No te pedimos que nos creas.', "We don't ask you to believe us.", lang)}
-              </h2>
-              <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/50">
-                {T(
-                  'Las operaciones ejecutadas desde Astryum se publican en vivo, cada una con su comprobante verificable en los exploradores públicos de XRPL y Flare.',
-                  'Operations executed through Astryum are published live, each with its receipt verifiable on the public XRPL and Flare explorers.',
-                  lang,
-                )}
-              </p>
-              <a
-                href="/what-we-offer#live"
-                className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-black transition-transform hover:scale-[1.02]"
-                style={{ background: GOLD, boxShadow: '0 8px 28px hsl(var(--volt) / 0.3)' }}
-              >
-                {T('Ver la actividad en vivo', 'Watch the live activity', lang)} →
-              </a>
+          <section className={plain ? 'pb-2 text-center' : 'px-6 pb-28 text-center'}>
+            <Block>
+              {/* El cierre de la página (y su botón, que se va de aquí) no
+                  entra en la ceremonia de firma: allí estás creando una
+                  cuenta, no navegando. Las dos líneas legales de abajo sí. */}
+              {!plain && (
+                <>
+                  <h2
+                    className="mx-auto max-w-2xl font-bold text-white text-balance"
+                    style={{ fontSize: 'clamp(1.5rem, 3.2vw, 2.3rem)', lineHeight: 1.1, letterSpacing: '-0.03em' }}
+                  >
+                    {T('No te pedimos que nos creas.', "We don't ask you to believe us.", lang)}
+                  </h2>
+                  <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/50">
+                    {T(
+                      'Las operaciones ejecutadas desde Astryum se publican en vivo, cada una con su comprobante verificable en los exploradores públicos de XRPL y Flare.',
+                      'Operations executed through Astryum are published live, each with its receipt verifiable on the public XRPL and Flare explorers.',
+                      lang,
+                    )}
+                  </p>
+                  <a
+                    href="/what-we-offer#live"
+                    className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-black transition-transform hover:scale-[1.02]"
+                    style={{ background: GOLD, boxShadow: '0 8px 28px hsl(var(--volt) / 0.3)' }}
+                  >
+                    {T('Ver la actividad en vivo', 'Watch the live activity', lang)} →
+                  </a>
+                </>
+              )}
               <p className="mx-auto mt-8 max-w-lg font-mono text-[10.5px] leading-relaxed text-white/30">
                 {T(
                   'Dudas o problemas: astryum@astryum.xyz · Si cambiamos esta página de forma material, lo anunciaremos en la app.',
@@ -340,10 +377,13 @@ export default function DemoTermsPage() {
                   {T('Aviso de privacidad', 'Privacy notice', lang)}
                 </a>
               </p>
-            </Reveal>
+            </Block>
           </section>
-        </>
-      )}
-    </SubpageShell>
+      </>
+    </PlainDoc.Provider>
   );
+}
+
+export default function DemoTermsPage() {
+  return <SubpageShell>{(lang) => <DemoTermsBody lang={lang} />}</SubpageShell>;
 }

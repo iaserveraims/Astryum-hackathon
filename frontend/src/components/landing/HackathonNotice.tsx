@@ -34,6 +34,12 @@ const HACKATHONS = [
     url: 'https://dorahacks.io/hackathon/flaresummersignal/detail',
     logo: '/partners/flare.svg', // pink mark — reads on dark and on cream
     logoInk: '/partners/flare.svg',
+    // SECOND PLACE, 2026-08-24. A result, not a claim: it is the kind of fact
+    // GLOSSARY.md allows on this page — verifiable at the program link right
+    // next to it, and it says nothing about what the product will do for
+    // anyone. Kept as data on the one source of truth so the badge appears
+    // everywhere the hackathon does and nowhere it does not.
+    result: { es: '2.º puesto', en: '2nd place' },
   },
   {
     id: 'xrpl-commons',
@@ -42,17 +48,20 @@ const HACKATHONS = [
     url: 'https://hackathons.xrpl-commons.org/hackathons/make-waves-041f8ce6',
     logo: '/partners/xrpl-commons-mark.svg', // white variant → dark fields
     logoInk: '/partners/xrpl-commons-mark-ink.svg', // ink variant → cream field
+    result: null, // still running
   },
 ] as const;
 
 function HackathonLink({
   h,
   tone,
+  lang,
   size = 14,
   shortBelowMd = false,
 }: {
   h: (typeof HACKATHONS)[number];
   tone: 'dark' | 'ink';
+  lang: Lang;
   size?: number;
   shortBelowMd?: boolean;
 }) {
@@ -80,6 +89,20 @@ function HackathonLink({
       ) : (
         <span className="font-semibold">{h.label}</span>
       )}
+      {h.result && (
+        // Hidden below md when the link is already running in short mode: the
+        // banner is a fixed-height strip and every extra nowrap element there
+        // is width the smallest phones do not have.
+        <span
+          className={`${shortBelowMd ? 'hidden md:inline-block' : 'inline-block'} rounded-full px-1.5 py-px font-mono text-[9px] font-semibold uppercase leading-[1.6] tracking-[0.1em]`}
+          style={{
+            color: tone === 'ink' ? 'hsl(var(--volt-deep))' : 'hsl(var(--volt))',
+            border: `1px solid ${tone === 'ink' ? 'rgba(20,18,14,0.25)' : 'hsl(var(--volt) / 0.45)'}`,
+          }}
+        >
+          {T(h.result.es, h.result.en, lang)}
+        </span>
+      )}
     </a>
   );
 }
@@ -106,11 +129,28 @@ export function HackathonBanner({ lang }: { lang: Lang }) {
         {T('Hackathon:', 'Hackathon:', lang)}
       </span>
       <span className="flex items-center gap-2 md:gap-3 text-[11px] md:text-[12px]">
-        <HackathonLink h={HACKATHONS[0]} tone="dark" shortBelowMd />
+        <HackathonLink h={HACKATHONS[0]} tone="dark" lang={lang} shortBelowMd />
         <span className="text-white/25" aria-hidden>
           ·
         </span>
-        <HackathonLink h={HACKATHONS[1]} tone="dark" shortBelowMd />
+        <HackathonLink h={HACKATHONS[1]} tone="dark" lang={lang} shortBelowMd />
+      </span>
+    </div>
+  );
+}
+
+// ─── The footer COLUMN (SiteFooter) ───────────────────────────────────────────
+// Same disclosure, same two links, stacked — the landing's dark footer files
+// them under their own heading (founder 2026-08-22: "lo de los hackathones irá
+// abajo del todo"). One source of truth: HACKATHONS above.
+export function HackathonFooterList({ lang, tone = 'dark' }: { lang: Lang; tone?: 'dark' | 'ink' }) {
+  return (
+    <div className="flex flex-col items-start gap-2.5 text-[13px]">
+      {HACKATHONS.map((h) => (
+        <HackathonLink key={h.id} h={h} tone={tone} lang={lang} size={15} />
+      ))}
+      <span className="text-[11px]" style={{ color: tone === 'ink' ? 'rgba(20,18,14,0.42)' : 'rgba(255,255,255,0.28)' }}>
+        {T('Beta abierta, en concurso', 'Open beta, competing', lang)}
       </span>
     </div>
   );
@@ -126,11 +166,11 @@ export function HackathonFooterNote({ lang, tone = 'dark' }: { lang: Lang; tone?
             is live and usable, not a one-off hackathon artifact. */}
         {T('Beta abierta para los hackathons:', 'Open beta for the hackathons:', lang)}
       </span>
-      <HackathonLink h={HACKATHONS[0]} tone={tone} size={13} />
+      <HackathonLink h={HACKATHONS[0]} tone={tone} lang={lang} size={13} />
       <span style={{ color: labelColor }} aria-hidden>
         ·
       </span>
-      <HackathonLink h={HACKATHONS[1]} tone={tone} size={13} />
+      <HackathonLink h={HACKATHONS[1]} tone={tone} lang={lang} size={13} />
     </div>
   );
 }

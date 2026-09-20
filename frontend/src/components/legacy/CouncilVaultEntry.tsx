@@ -24,12 +24,12 @@ import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Coins, Landmark, Loader2, R
 import { GhostButton, MicroLabel, Pill, PrimaryButton } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import CageDisclosureModal from './CageDisclosureModal';
-import CouncilMultisigFlow from './CouncilMultisigFlow';
-import ProposeToCouncil from './ProposeToCouncil';
+import { CouncilSigningDoors } from './CouncilMultisigFlow';
 import { DisclosureBlock } from './LegacyPanel';
 import { useT } from '../../i18n/LanguageProvider';
 import { getUserRegion } from '../../lib/region';
 import { LEGACY_ASSET_DECIMALS_FALLBACK, displayBaseUnits, formatBaseUnits, tryParseBaseUnits } from '../../lib/legacy/baseUnits';
+import { CAGE_ACK_CANNOT_CONFIRM_FALLBACK, cageAckRefusalOf } from '../../lib/legacy/cageAckRefusal';
 import {
   xrplLegacy,
   type CouncilOrderHandoff,
@@ -37,6 +37,14 @@ import {
   type LegacyVaultState,
   type LegacyVenueRow,
 } from '../../services/v1Api';
+import { mayConfirmAnotherOrder, sameOrderMinutesAgo } from '../../lib/institutional/api';
+import { composeKindOf } from '../../lib/xrpl/singleSignVerdict';
+import {
+  CouncilOrderInFlightConfirm,
+  CouncilOrderServerWarnings,
+  StaleOrderLockNote,
+  useStaleOrderLock,
+} from '../xrpl/XamanSingleSign';
 
 /**
  * Three moves, and they are NOT interchangeable:
@@ -67,14 +75,71 @@ interface PendingOrder {
    * on the first live run, 2026-07-29 12:29 UTC).
    */
   orderData?: string;
+  /** council-order/prepare's exit token (recall): forwarded to /multisign/prepare. */
+  exitToken?: string | null;
+  /** it.13: exits the server could not remember — keep the screen open or relay by hash. */
+  recoveryWarning?: string;
+  /** it.13: another order of this council is already in flight. */
+  inFlightWarning?: string;
+  /** it.14: the SAME order went out for this council a moment ago. */
+  duplicateWarning?: string;
 }
 
 function shortAddr(a: string): string {
   return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
 }
 
-/** Backend failures → copy a person can act on. */
-function orderError(err: unknown, t: (s: string) => string): string {
+/**
+ * G13 — the funding quote is now allowed to answer "I could not read the
+ * council". `LegacyVaultFundQuote` in services/v1Api.ts still declares these
+ * three fields as non-nullable (that file is shared with other work in this
+ * window, so widening it is a follow-up); the honest runtime shape is declared
+ * here. The widening direction is safe: every `LegacyVaultFundQuote` is a valid
+ * `FundQuote`.
+ */
+type FundQuote = Omit<LegacyVaultFundQuote, 'signerCount' | 'txFeeXrp' | 'maxGrossXrp'> & {
+  /** null = the signer list could not be read. NEVER 0-as-unknown. */
+  signerCount: number | null;
+  /** null = the multisig fee could not be sized, so nobody may quote one. */
+  txFeeXrp: string | null;
+  /** null = spendable-minus-fee is unknown, so there is no MAX to offer. */
+  maxGrossXrp: string | null;
+};
+
+/**
+ * The three answers the ledger can give about who signs, kept apart — because
+ * the bug was collapsing them into one number.
+ *
+ * What failed in SILENCE (G13): a transient XRPL read error made the backend
+ * report `signerCount: 0`, so this surface printed "(a quorum of 0 signs…)" as
+ * if it were a fact and MAX reserved the fee of a SINGLE signature. A quorum
+ * of three then signed a payment its own account could not pay for, and the
+ * only feedback was a tec code after the ceremony. A read that did not happen
+ * has no number: it has a sentence saying it did not happen.
+ */
+export type FundFeeState =
+  | { kind: 'quorum'; signerCount: number; txFeeXrp: string; maxGrossXrp: string }
+  | { kind: 'single'; txFeeXrp: string; maxGrossXrp: string }
+  | { kind: 'unread' };
+
+/** Only the three fields the decision reads — the rest of the quote is data. */
+export type FundFeeQuote = Pick<FundQuote, 'signerCount' | 'txFeeXrp' | 'maxGrossXrp'>;
+
+/** Exported for the test: this is the ONE place that decides whether a signing
+ *  fee (and therefore a MAX) exists at all. Null quote = nothing to say yet. */
+export function fundFeeState(quote: FundFeeQuote | null): FundFeeState | null {
+  if (!quote) return null;
+  const { signerCount, txFeeXrp, maxGrossXrp } = quote;
+  // Any one of the three missing means the chain that produces them broke.
+  if (signerCount === null || txFeeXrp === null || maxGrossXrp === null) return { kind: 'unread' };
+  return signerCount > 0
+    ? { kind: 'quorum', signerCount, txFeeXrp, maxGrossXrp }
+    : { kind: 'single', txFeeXrp, maxGrossXrp };
+}
+
+/** Backend failures → copy a person can act on. Exported: CouncilOrderCard
+ *  speaks the same error language (E6 — one mapper, never two vocabularies). */
+export function orderError(err: unknown, t: (s: string) => string): string {
   const body = (err as { body?: { error?: string; detail?: string } })?.body;
   const status = (err as { status?: number })?.status;
   // The pre-flight speaks plainly already (it mirrors the contract's reverts).
@@ -110,6 +175,15 @@ export default function CouncilVaultEntry({
   const [pending, setPending] = useState<PendingOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 409 SAME_ORDER_RECENTLY_LAUNCHED (it.14; COUNCIL_ORDER_IN_FLIGHT in it.13):
+  // composing the same order again is an explicit confirm, never a silent retry.
+  const [inFlight, setInFlight] = useState<{ detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
+  /**
+   * it.14 (R2 2.3): the ceremony's broadcast landed on a spent Sequence and the
+   * order's fate says a sibling already went out (or could not be checked).
+   * Composing stays shut here until the council says it checked.
+   */
+  const staleLock = useStaleOrderLock();
   /** The one-way disclosure, opened by the server's refusal (or by the link). */
   const [ackOpen, setAckOpen] = useState(false);
   /** Qué está pasando DESPUÉS de firmar — la etapa que antes no se contaba. */
@@ -117,7 +191,7 @@ export default function CouncilVaultEntry({
 
   /** The council's real XRP, its ceiling and the floor below which nothing
    *  lands — without this the amount box was blind on all three. */
-  const [quote, setQuote] = useState<LegacyVaultFundQuote | null>(null);
+  const [quote, setQuote] = useState<FundQuote | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -185,14 +259,22 @@ export default function CouncilVaultEntry({
   const venueBlocked =
     direction === 'in' && !!venue && (venue.retired || nowSec < venue.readyAt);
 
+  /** G13 — the ceiling exists only if the signing fee could be sized, and the
+   *  fee only if the council was read. `unread` is not zero: MAX disappears,
+   *  the upper guard stands down, and the copy below says why. */
+  const feeState = fundFeeState(quote);
+  const maxGrossXrp = feeState && feeState.kind !== 'unread' ? feeState.maxGrossXrp : null;
+
   /** Funding is bounded by the fee floor below and the council's balance above.
    *  Both are only known once the quote loads; without it we let the backend
-   *  be the judge rather than blocking on a number we could not read. */
+   *  be the judge rather than blocking on a number we could not read — and the
+   *  same applies to the ceiling alone when only the council read failed. */
   const fundOutOfRange =
     direction === 'fund' &&
     quote !== null &&
     parsed !== null &&
-    (Number(amount) < Number(quote.minGrossXrp) || Number(amount) > Number(quote.maxGrossXrp));
+    (Number(amount) < Number(quote.minGrossXrp) ||
+      (maxGrossXrp !== null && Number(amount) > Number(maxGrossXrp)));
 
   const canCompose =
     !!state &&
@@ -200,10 +282,16 @@ export default function CouncilVaultEntry({
     !state.migrated &&
     (direction === 'fund' ? !fundOutOfRange : !!venue && !overCeiling && !venueBlocked);
 
-  const compose = useCallback(async () => {
+  const compose = useCallback(async (opts?: { confirmAnotherOrder?: boolean }) => {
+    // it.14: a stale order of this council may already be on its way to Flare.
+    // it.16 (R3 3.1): direction 'out' is a RECALL — capital coming out — and an
+    // exit is warned, never stopped. Only 'fund' / 'in' are paused, and the
+    // person's «compose it again anyway» composes instead of returning here.
     if (!state || parsed === null) return;
+    if (staleLock.blocks(composeKindOf(direction === 'out' ? 'recall' : 'direct-to'), { confirmed: opts?.confirmAnotherOrder })) return;
     setBusy(true);
     setError(null);
+    setInFlight(null);
     try {
       if (direction === 'fund') {
         // A mint, not a council order: the quorum signs one XRPL payment whose
@@ -227,6 +315,7 @@ export default function CouncilVaultEntry({
           // Base units — the contract's own integers, never a rounded float.
           params: { venueId: venue.id, amount: parsed.toString() },
           region: getUserRegion() ?? undefined,
+          ...(opts?.confirmAnotherOrder ? { confirmAnotherOrder: true } : {}),
         });
         setPending({
           xrplTx: h.xrplTx,
@@ -234,20 +323,44 @@ export default function CouncilVaultEntry({
           title: h.order.summary,
           kind: 'order',
           orderData: h.order.orderData,
+          exitToken: h.exitToken,
+          recoveryWarning: h.recoveryWarning,
+          inFlightWarning: h.inFlightWarning,
+          duplicateWarning: h.duplicateWarning,
         });
       }
     } catch (err) {
+      const body = (err as { body?: { error?: string; detail?: string; minutesAgo?: number; launchedAt?: string; retryAfterSeconds?: number } })?.body;
+      // it. 21 (§2.7): «we could not check» comes through this same door and is
+      // NOT «it already went out» — its own sentence, its own retry.
+      if (mayConfirmAnotherOrder(body) && !opts?.confirmAnotherOrder) {
+        // The same order went out a moment ago: an explicit confirm, never a
+        // silent retry. Both guard names are read (it.13 / it.14).
+        setInFlight({ detail: body?.detail, code: body?.error, minutesAgo: sameOrderMinutesAgo(body), retryAfterSeconds: body?.retryAfterSeconds ?? null });
+        return;
+      }
       // Funding adds principal that is as one-way as the first: the server holds
       // the disclosure gate, and its refusal opens the text (then retries).
-      if ((err as { body?: { error?: string } })?.body?.error === 'CAGE_ACK_REQUIRED') {
-        setAckOpen(true);
+      //
+      // it. 31 (4.3) — …ONLY when confirming can clear it (`cause`, it. 27, was
+      // never read here): a security record that does not parse, or is dated
+      // ahead of the server's clock, or a database that did not answer, reopened
+      // the modal and confirming brought the same 409 back. Those show the
+      // server's sentence for that cause instead. Same rule as CageBirthCard.
+      const ack = cageAckRefusalOf(err);
+      if (ack) {
+        if (ack.confirmHelps) {
+          setAckOpen(true);
+          return;
+        }
+        setError(ack.detail ?? t(CAGE_ACK_CANNOT_CONFIRM_FALLBACK));
         return;
       }
       setError(orderError(err, t));
     } finally {
       setBusy(false);
     }
-  }, [state, venue, parsed, account, direction, amount, t]);
+  }, [state, venue, parsed, account, direction, amount, staleLock, t]);
 
   const reset = useCallback(() => {
     setPending(null);
@@ -284,13 +397,18 @@ export default function CouncilVaultEntry({
   );
 
   const inputCls =
-    'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25';
+    'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25';
 
   // ── The composed order, awaiting the quorum ──────────────────────────────
   if (pending) {
     return (
       <div className="space-y-3">
         <DisclosureBlock handoff={pending as never} />
+        <CouncilOrderServerWarnings
+          recoveryWarning={pending.recoveryWarning}
+          inFlightWarning={pending.inFlightWarning}
+          duplicateWarning={pending.duplicateWarning}
+        />
         <p className="text-[12px] text-ink/55">
           {pending.kind === 'fund'
             ? t(
@@ -307,8 +425,25 @@ export default function CouncilVaultEntry({
             )}
           </p>
         )}
-        <CouncilMultisigFlow xrplTx={pending.xrplTx} account={account} onSettled={onSettled} />
-        <ProposeToCouncil xrplTx={pending.xrplTx} account={account} defaultTitle={pending.title} />
+        {/* consejo-superficies 2: one element, one rule — the async door
+            stays shut (and says why) while the ceremony holds the seat. */}
+        <CouncilSigningDoors
+          xrplTx={pending.xrplTx}
+          account={account}
+          defaultTitle={pending.title}
+          onSettled={onSettled}
+          exitToken={pending.exitToken}
+          onStaleFate={staleLock.report}
+        />
+        {/* it.16 (R5 5.5): the lock ARMS here — the ceremony's broadcast is what
+            comes back stale — and its note used to live only in the form branch
+            below this early `return`, so the console paused with no headline and
+            no way out. It is rendered on both screens now. */}
+        <StaleOrderLockNote
+          lock={staleLock.lock}
+          onRelease={staleLock.release}
+          pausing={staleLock.blocks(composeKindOf(direction === 'out' ? 'recall' : 'direct-to'))}
+        />
         {onGoToProposals && (
           <button onClick={onGoToProposals} className="text-[12px] text-volt hover:underline">
             {t('Go to Proposals →')}
@@ -518,8 +653,9 @@ export default function CouncilVaultEntry({
               ) : (
                 `${t('In this venue:')} ${formatBaseUnits(venue?.basis ?? '0', decimals)} ${symbol}`
               )}
-              {direction === 'fund' && quote && Number(quote.maxGrossXrp) > 0 && (
-                <button type="button" onClick={() => setAmount(quote.maxGrossXrp)} className="text-volt hover:underline">
+              {/* G13: no MAX unless the fee under it was actually read. */}
+              {direction === 'fund' && maxGrossXrp !== null && Number(maxGrossXrp) > 0 && (
+                <button type="button" onClick={() => setAmount(maxGrossXrp)} className="text-volt hover:underline">
                   {t('Max')}
                 </button>
               )}
@@ -534,13 +670,33 @@ export default function CouncilVaultEntry({
               )}
             </span>
             {/* The three numbers that decide whether this can work at all —
-                said before the amount is typed, not after it fails. */}
+                said before the amount is typed, not after it fails. The fee is
+                only spoken when it was READ (G13): its old sentence printed
+                "a quorum of 0 signs" whenever XRPL had simply not answered. */}
             {direction === 'fund' && quote && (
               <span className="mt-1 block text-[11px] text-ink/40">
-                {t('Max keeps back the signing fee of')} {quote.txFeeXrp} XRP{' '}
-                {t('(a quorum of {n} signs, so it costs more than one signature).').replace('{n}', String(quote.signerCount))}{' '}
+                {feeState && feeState.kind !== 'unread' && (
+                  <>
+                    {t('Max keeps back the signing fee of')} {feeState.txFeeXrp} XRP{' '}
+                    {feeState.kind === 'quorum'
+                      ? t('(a quorum of {n} signs, so it costs more than one signature).').replace(
+                          '{n}',
+                          String(feeState.signerCount),
+                        )
+                      : t('(this account has no signer list on the ledger, so it pays for one signature).')}{' '}
+                  </>
+                )}
                 {t('Minimum that actually lands:')} {quote.minGrossXrp} XRP —{' '}
                 {t('below that the minting and executor fees take the whole payment.')}
+              </span>
+            )}
+            {/* A read that did not happen gets a sentence, never a figure. */}
+            {direction === 'fund' && feeState?.kind === 'unread' && (
+              <span className="mt-1 flex items-start gap-1.5 text-[11px] text-tone-warning">
+                <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                {t(
+                  'The council could not be read from XRPL just now, so the signing fee — which grows with every member of the quorum — is unknown. There is no Max while that is true: leave room for it, or reload before funding.',
+                )}
               </span>
             )}
             {/* The per-amount breakdown the invariant demands: what THIS payment
@@ -580,14 +736,20 @@ export default function CouncilVaultEntry({
               {quote.minGrossXrp} XRP.
             </p>
           )}
-          {direction === 'fund' && quote && parsed !== null && Number(amount) > Number(quote.maxGrossXrp) && (
-            <p className="flex items-start gap-2 text-[12px] text-tone-warning">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              {t('More than the council can spend. It holds')} {quote.balanceXrp} XRP,{' '}
-              {t('of which')} {quote.reserveXrp} {t('is locked as the ledger reserve and')} {quote.txFeeXrp}{' '}
-              {t('is needed to pay for the signatures.')}
-            </p>
-          )}
+          {/* Only claimable when the fee under the ceiling was read (G13). */}
+          {direction === 'fund' &&
+            quote &&
+            feeState &&
+            feeState.kind !== 'unread' &&
+            parsed !== null &&
+            Number(amount) > Number(feeState.maxGrossXrp) && (
+              <p className="flex items-start gap-2 text-[12px] text-tone-warning">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                {t('More than the council can spend. It holds')} {quote.balanceXrp} XRP,{' '}
+                {t('of which')} {quote.reserveXrp} {t('is locked as the ledger reserve and')} {feeState.txFeeXrp}{' '}
+                {t('is needed to pay for the signatures.')}
+              </p>
+            )}
           {overCeiling && (
             <p className="flex items-start gap-2 text-[12px] text-tone-warning">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
@@ -597,11 +759,29 @@ export default function CouncilVaultEntry({
             </p>
           )}
 
-          <PrimaryButton onClick={() => void compose()} disabled={busy || !canCompose}>
+          <PrimaryButton onClick={() => void compose()} disabled={busy || !canCompose || staleLock.blocks(composeKindOf(direction === 'out' ? 'recall' : 'direct-to'))}>
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             {t('Compose the order for the council')}
           </PrimaryButton>
 
+          <StaleOrderLockNote
+          lock={staleLock.lock}
+          onRelease={staleLock.release}
+          pausing={staleLock.blocks(composeKindOf(direction === 'out' ? 'recall' : 'direct-to'))}
+        />
+
+          {inFlight && (
+            <CouncilOrderInFlightConfirm
+              detail={inFlight.detail}
+              code={inFlight.code}
+              minutesAgo={inFlight.minutesAgo}
+              retryAfterSeconds={inFlight.retryAfterSeconds}
+              busy={busy}
+              onConfirm={() => void compose({ confirmAnotherOrder: true })}
+              onRetry={() => void compose()}
+              onDismiss={() => setInFlight(null)}
+            />
+          )}
           {error && <InlineNotice tone="warning">{error}</InlineNotice>}
 
           <p className="text-[11px] leading-relaxed text-ink/40">

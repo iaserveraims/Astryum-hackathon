@@ -183,11 +183,41 @@ describe('cages born from the factory (per-Legacy stacks)', () => {
     expect(cage).toMatchObject({ vault: B_VAULT });
   });
 
-  it('falls back to the env stack when the factory address is not set', async () => {
+  it('consults the mainnet registry even when NOBODY set the variable', async () => {
+    // The staging bug (2026-08-22): with LEGACY_FACTORY_ADDRESS unset the
+    // registry was not asked at all, so a council whose cage was born from the
+    // factory resolved to "no cage" — and its principal vanished from the
+    // portfolio without a single error. The mainnet registry's address is
+    // public, immutable chain state, not a choice; seeing money that IS on the
+    // chain must not depend on someone remembering an env var.
     delete process.env.LEGACY_FACTORY_ADDRESS;
-    bornFromFactory(COUNCIL, B_BRIDGE, B_VAULT); // ignored: nothing to ask
+    bornFromFactory(OTHER_COUNCIL, B_BRIDGE, B_VAULT);
+    resolver.__resetCageResolverCacheForTests();
+    expect(await resolver.cageForCouncil(OTHER_COUNCIL)).toMatchObject({ vault: B_VAULT });
+  });
+
+  it('still falls back to the env stack for a council the registry never heard of', async () => {
+    delete process.env.LEGACY_FACTORY_ADDRESS;
     resolver.__resetCageResolverCacheForTests();
     expect(await resolver.cageForCouncil(COUNCIL)).toMatchObject({ vault: VAULT });
+  });
+
+  it('on a network with no built-in registry, says so instead of going quiet', async () => {
+    process.env.LEGACY_CHAIN = 'coston2';
+    delete process.env.LEGACY_FACTORY_ADDRESS;
+    resolver.__resetCageResolverCacheForTests();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      bornFromFactory(OTHER_COUNCIL, B_BRIDGE, B_VAULT); // nothing to ask it with
+      expect(await resolver.cageForCouncil(OTHER_COUNCIL)).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toMatch(/no cage registry/i);
+      // …once, not on every scan.
+      await resolver.cageForCouncil(OTHER_COUNCIL);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('says out loud when the factory address is misconfigured', async () => {

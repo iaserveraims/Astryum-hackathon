@@ -131,7 +131,10 @@ contract XrplCouncilBridge {
      * @param orderData abi.encode(uint64 nonce, bytes vaultCalldata) — the
      *        exact bytes whose keccak256 the council committed in the memo.
      */
-    function execute(IXRPPayment.Proof calldata proof, bytes calldata orderData) external {
+    /// @dev `virtual` desde el bridge v2 (XrplCouncilBridgeV2), que añade la
+    ///      comprobación del DESTINO (el ancla). Aquí no cambia nada — ni
+    ///      semántica ni bytecode desplegado.
+    function execute(IXRPPayment.Proof calldata proof, bytes calldata orderData) external virtual {
         address vault_ = vault;
         if (vault_ == address(0)) revert NotBound();
 

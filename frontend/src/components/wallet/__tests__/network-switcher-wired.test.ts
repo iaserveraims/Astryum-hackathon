@@ -24,9 +24,11 @@ const SRC = join(__dirname, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
 
 describe('flareChain.ts is the single source of chain params', () => {
+  // authStore left this list on 2026-08-22: login stopped touching the network
+  // altogether (see the "login must NOT ask for a network switch" test below),
+  // so it no longer consumes chain params from anywhere.
   const CONSUMERS = [
     'components/wallet/NetworkSwitcher.tsx',
-    'stores/authStore.ts',
     'lib/wallet/useSwitchToFlare.ts',
   ];
 
@@ -81,17 +83,32 @@ describe('useSwitchToFlare is the ONE switch engine', () => {
     expect(src).toMatch(/CHAINLIST_FLARE_URL/); // card keeps the honest way out too
   });
 
-  it('login keeps requiring Flare but answers a decline in human words', () => {
-    // The classification moved INTO the engine (ensureFlareNetwork) — the very
-    // consolidation this suite demands ("classification lives in flareChain").
-    // Login must delegate to it with its own prose, and the engine must be the
-    // one answering a decline as a choice, in human words.
+  it('login must NOT ask for a network switch — identity works on any EVM chain', () => {
+    // Founder 2026-08-22: entering astryum.xyz from a fresh browser met a
+    // MetaMask "switch network" dialog. Root cause: siweLogin() forced Flare
+    // before signing. It protected nothing — the server states that identity
+    // works on ANY EVM chain (SiweAuth.issueNonce) and the client never sends
+    // a chainId anyway. A first-time visitor (fresh MetaMask = Ethereum) must
+    // reach the signature without a single network prompt.
     const src = read('stores/authStore.ts');
-    expect(src).toMatch(/ensureFlareNetwork\(eth, SIWE_FLARE_MESSAGES\)/);
-    expect(src).toMatch(/declined in your wallet/);
+    expect(src).not.toMatch(/ensureFlareNetwork/);
+    expect(src).not.toMatch(/wallet_switchEthereumChain|wallet_addEthereumChain/);
+    // The engine keeps its human answer to a decline for the surfaces that DO
+    // demand Flare (linking a wallet, signing an operation).
     const chain = read('lib/wallet/flareChain.ts');
     expect(chain).toMatch(/isUserRejection\(err\)/);
     expect(chain).toMatch(/messages\?\.declined/);
+    // …and linking an EVM wallet is still the surface that pins chain 14.
+    expect(read('lib/wallet/useWalletLinking.ts')).toMatch(/ensureFlareNetwork/);
+  });
+
+  it('the banner lives INSIDE the app — public routes never wear it', () => {
+    // Same 2026-08-22 pass: a visitor on /login, /privacy or /proof cannot sign
+    // anything, so a red network bar there is pure noise. The old guard exempted
+    // the landing alone.
+    const src = read('components/wallet/NetworkSwitcher.tsx');
+    expect(src).toMatch(/if \(!pathname\?\.startsWith\('\/app'\)\) return null/);
+    expect(src).not.toMatch(/pathname === '\/'/);
   });
 
   it('classifies MetaMask 4001 as a user choice and 4902 as chain-not-added', () => {

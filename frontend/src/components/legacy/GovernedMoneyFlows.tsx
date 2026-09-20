@@ -24,6 +24,8 @@ import { CalendarClock, Landmark, Loader2, Plus, TrendingDown, X } from 'lucide-
 import { Card, MicroLabel } from '../ui/primitives';
 import { InlineNotice } from './InlineNotice';
 import { useT } from '../../i18n/LanguageProvider';
+import { describeServerRefusal, type ReadableRefusal } from '../../lib/errors/serverRefusal';
+import { ServerRefusalBody } from '../ui/ServerRefusalBody';
 import { moneyflows as moneyflowsApi, rules as rulesApi, xrplLegacy, type LegacyVaultState } from '../../services/v1Api';
 import { LEGACY_ASSET_DECIMALS_FALLBACK, displayBaseUnits, parseBaseUnits } from '../../lib/legacy/baseUnits';
 
@@ -37,7 +39,9 @@ const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const SCHEDULES: Array<{ key: string; label: string; cron: string }> = [
   { key: 'daily', label: 'Every day (12:00 UTC)', cron: '0 12 * * *' },
   { key: 'weekly', label: 'Every Monday (12:00 UTC)', cron: '0 12 * * 1' },
-  { key: 'monthly', label: 'Every month, day 1 (12:00 UTC)', cron: '0 12 1 * *' },
+  // 'monthly' now carries an explicit day-of-month (M2): the cron is built
+  // from the picker below, not fixed to day 1.
+  { key: 'monthly', label: 'Every month, on the day you pick (12:00 UTC)', cron: '' },
 ];
 
 type ApyMarket = { address: string; label: string; supplyAprPct: number | null; source: string };
@@ -57,8 +61,19 @@ function GovernedRuleCreator({
   const [ttlDays, setTtlDays] = useState('90');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  // schedule → council payment
+  /**
+   * it. 34 (agente D): «el servidor dijo que no», ENTERO — la frase y también
+   * las salidas y la puerta (`ways` / `door`) que `serverRefusalText` tiraba.
+   * El 403 NOT_A_COUNCIL_MEMBER de esta puerta nombra «register the wallet that
+   * holds your seat» y no había nada que pulsar. Las validaciones locales
+   * siguen en `error` (una frase basta para «ponle nombre a la regla»).
+   */
+  const [refusal, setRefusal] = useState<ReadableRefusal | null>(null);
+  // schedule → council payment («domiciliación gobernada», M2)
   const [schedule, setSchedule] = useState(SCHEDULES[2].key);
+  // Day-of-month 1–28 ON PURPOSE (same ledger truth as the personal card):
+  // the cron is literal, so a 29–31 rule silently skips the short months.
+  const [monthDay, setMonthDay] = useState('1');
   const [destination, setDestination] = useState('');
   const [amountXrp, setAmountXrp] = useState('');
   // apy → vault rotation (LA prueba Legacy: "si el APY cae de X, saca y pon en otro sitio")
@@ -100,6 +115,7 @@ function GovernedRuleCreator({
 
   async function create() {
     setError('');
+    setRefusal(null);
     const ttl = Number(ttlDays);
     if (!name.trim()) return setError(t('Give the rule a name.'));
     if (!(ttl >= 1 && ttl <= 90)) return setError(t('Expiry must be between 1 and 90 days.'));
@@ -119,7 +135,9 @@ function GovernedRuleCreator({
       } catch {
         return setError(t('Amount must be a positive number of XRP, with at most 6 decimals.'));
       }
-      trigger = { type: 'TIME_TRIGGER', cron: SCHEDULES.find((s) => s.key === schedule)?.cron ?? SCHEDULES[2].cron };
+      const preset = SCHEDULES.find((s) => s.key === schedule);
+      const cron = preset?.cron || `0 12 ${Number(monthDay)} * *`;
+      trigger = { type: 'TIME_TRIGGER', cron };
       action = {
         kind: 'councilPayment',
         params: { council: account, destination, amountDrops: amountDrops.toString() },
@@ -171,7 +189,12 @@ function GovernedRuleCreator({
       onCreated();
       onClose();
     } catch (e) {
-      setError((e as Error).message ?? String(e));
+      // v1Api's jpost puts the machine CODE in `message` (NOT_A_COUNCIL_MEMBER,
+      // COUNCIL_READ_FAILED, invalid_council…) and the readable sentence in
+      // `body.detail`. The shared reader shows the sentence and keeps the code
+      // for support; jpost itself stays as-is (other callers match on message).
+      // it. 34: and its `ways` and door travel with it, not the sentence alone.
+      setRefusal(describeServerRefusal(e, t));
     } finally {
       setBusy(false);
     }
@@ -197,7 +220,7 @@ function GovernedRuleCreator({
           <TrendingDown size={12} /> {t('If the APY falls below X%')}
         </button>
         <button onClick={() => setKind('schedule')} className={tab(kind === 'schedule')}>
-          <CalendarClock size={12} /> {t('Scheduled council payment')}
+          <CalendarClock size={12} /> {t('Council standing order')}
         </button>
       </div>
       <p className="text-[12px] text-ink/50">
@@ -206,7 +229,7 @@ function GovernedRuleCreator({
               'When the venue’s live supply APY drops below your floor, the rule fires: it alerts the council — or composes the rotation order (move funds to another venue) as a proposal the quorum signs. Rates are read live from the protocol, with source.',
             )
           : t(
-              'When the schedule fires, the rule COMPOSES a payment proposal from the council into the inbox above. Nothing is sent: the quorum reviews and signs each proposal, every time.',
+              'A standing order the council signs: Astryum watches the date and COMPOSES the exact payment into the inbox above; the quorum reviews and signs it, every time; the rule expires on its own. It is not a bank direct debit — nothing is ever sent without those signatures, and that is the point.',
             )}
       </p>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Name (e.g. Monthly stipend)')} className={field} />
@@ -220,6 +243,21 @@ function GovernedRuleCreator({
               </option>
             ))}
           </select>
+          {schedule === 'monthly' && (
+            <label className="block text-[11px] text-ink/45">
+              {t('Day of the month')}
+              <select value={monthDay} onChange={(e) => setMonthDay(e.target.value)} className={`${field} mt-1`}>
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={String(d)} className="bg-neutral-900">
+                    {d}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-ink/40">
+                {t('Days run 1–28 so the payment exists in every month (a 29–31 rule would silently skip the short ones).')}
+              </span>
+            </label>
+          )}
           <input
             value={destination}
             onChange={(e) => setDestination(e.target.value.trim())}
@@ -274,8 +312,11 @@ function GovernedRuleCreator({
                 const sym = vaultState.asset.symbol || 'FXRP';
                 const opt = (v: (typeof live)[number]) =>
                   `#${v.id} · ${displayBaseUnits(v.value, dec)} ${sym}`;
+                // Three SELECTS side by side die at 390px: each one shows
+                // "#1 · 1234.5678 FXRP" and the family reads this on a phone.
+                // Stack on mobile, keep the row from sm up (E7 QA móvil).
                 return (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <label className="text-[11px] text-ink/45">
                       {t('Move the money from')}
                       <select value={fromId} onChange={(e) => setFromId(e.target.value)} className={`${field} mt-1`}>
@@ -316,6 +357,11 @@ function GovernedRuleCreator({
       )}
 
       {error && <InlineNotice tone="danger">{error}</InlineNotice>}
+      {refusal && (
+        <InlineNotice tone="danger">
+          <ServerRefusalBody refusal={refusal} t={t} />
+        </InlineNotice>
+      )}
       <div className="flex items-center gap-2">
         <button
           onClick={() => void create()}

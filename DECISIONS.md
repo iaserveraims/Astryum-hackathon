@@ -2,7 +2,7 @@
 
 > Locked architecture decisions, ADR-style. This file is **authoritative** where it conflicts
 > with older internal working notes (historical context, not published in this repo).
-> Source of the 2026-06-20 batch: the validated architecture plan.
+> Source of the 2026-06-20 batch: [Astryum-Validated_Architecture.md](Astryum-Validated_Architecture.md).
 > The hard rules these decisions must respect live in [INVARIANTS.md](INVARIANTS.md); the system
 > shape they produce is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -123,7 +123,7 @@ partners do the heavy lifting.
 | XRP→EVM bridge (Phase 1.5) | XRPL EVM Sidechain + **Axelar** |
 | Embedded wallets | **Turnkey** (passkey-only for user funds — ADR-004) |
 | Fiat on/off-ramp (CASP, MiCA) | **MoonPay + Transak** |
-| KYC | **Crossmint / Persona** |
+| KYC | **Sumsub** (superseded here by ADR-012; was «Crossmint / Persona») |
 | Stablecoins | **Circle** (USDC/EURC) |
 | Keepers | Gelato / Chainlink (⚠ Gelato double-role — do not concentrate) |
 | Portfolio/data | CoinStats · DefiLlama · GoPlus (risk) · Tenderly (simulation) · Hypernative |
@@ -194,7 +194,7 @@ positioning, not N products to build** — build one deeply, show the generality
 - This supersedes the LegacyPanel's link-out-to-xApp hand-off for council accounts (kept only as a
   fallback), and the `Astryum_Legacy_Motor_Trazabilidad_Fiscal` §10 verdict that the tax engine
   "cannot be a hackathon deliverable" (based on a misread 21-Jul deadline; the Final Assessment is
-  21-Sep).
+  21-Sep — see project memory).
 
 ---
 
@@ -206,7 +206,7 @@ placed on top of an account whose authority is a quorum**. A normal wallet has o
 point of failure. A governed wallet replaces the key with a quorum: lose a key and you keep operating
 (within quorum margin), a stolen key moves nothing, coercion of one signer is not enough. The keys can
 be physical (Tangem/Ledger) — a quorum of cold keys Astryum coordinates and never touches. Introduces
-no new scope; it makes explicit the product the docs already described and the pieces built this
+no new scope; it makes explicit the product the internal operating summary already described and the pieces built this
 week (`d0908b4`, `2f54fee`) already implement without having named it.
 
 **Decision.** Treat authority-as-quorum as the Capa-0 primitive and build every capability on top of
@@ -246,15 +246,11 @@ signers, not the actual signing subset — a conservative overpay (never fails o
 
 **Cross-chain (PMW) stays 🔴 NOT BUILDABLE — PMW has not launched.** The council can be a co-signer of
 the TEE (the TEE does not sign without data providers AND co-signers), so the invariant survives — but
-it is vision with a gate, never a present promise (this is what sank Torch). Full essay + roadmap
-live in an internal ADR-009 working note. **The same TTL + two-channel-revocation
+it is vision with a gate, never a present promise (this is what sank Torch). Full essay + roadmap:
+an internal ADR-009 working note. **The same TTL + two-channel-revocation
 guardrails extend to XLS-75 governed delegation when it lands (roadmap #8, gated on
 `PermissionDelegationV1_1`): the council grants concrete, expiring, revocable permissions — it delegates
 permissions, never capital (internal XLS-75 working note).**
-
-*Update 2026-08-12: two of the "not built yet" items above have since shipped — the unsigned
-`SignerListSet` builder (`XrplCouncilService`) and the Legacy stack (`LegacyVault` + bridge +
-factory), deployed on Flare mainnet 2026-08-06; addresses in [contracts/README.md](contracts/README.md).*
 
 ---
 
@@ -281,11 +277,146 @@ decentralized or risk declared (today: Flare Foundation on Google CC); the 5 que
 is EVM-pure, `IntentPayload.ts:7-14`); external audit. `AuthorityAccount.executors[]` (switcher
 review, design-only) is the single data-model commitment already taken — PMW accounts and XLS-75
 delegations both enter through it without redesign. **Torch line: always told as "where the
-architecture goes, with these gates" — never as present.** Full essay + file:line verification
-live in an internal ADR-010 working note. **XLS-75 governed delegation
+architecture goes, with these gates" — never as present.** Full essay + verification file:line:
+an internal ADR-010 working note. **XLS-75 governed delegation
 (delegates permissions, not capital; hard gate = `PermissionDelegationV1_1` live on mainnet — the V1
-was disabled sep-2025 for a fee-drain bug) is specified in an internal XLS-75 working note
-(roadmap piece #8, zero build).**
+was disabled sep-2025 for a fee-drain bug) is specified in
+an internal XLS-75 working note (roadmap piece #8, zero build).**
+
+---
+
+## ADR-012 — KYC provider: Sumsub, one verification for the whole fiat perimeter · LOCKED · 2026-08-15 (recorded 2026-08-16)
+
+**Context.** The «Persona vs Sumsub» ADR had been pending since the provider lock (ADR-007
+listed «Crossmint / Persona»). Meanwhile the KYC router was pruned from the codebase
+(`e8f6f58`) — today nothing sets `kycVerified=true` and PolicyGuard P38 stays fail-closed —
+so the choice could still be made cleanly, on facts.
+
+**Decision (founder, 2026-08-15 — resolved de facto by the 14-15 ago research).** **Sumsub**
+is the KYC provider. The deciding fact is reuse across the WHOLE fiat perimeter with ONE
+verification: **MoonPay (Shared KYC) and Transak (KYC Reliance) both read the same Sumsub
+share token**, and the candidate self-custody card partner (**Gnosis Pay**) also runs on
+Sumsub. One user verification serves on-ramp, off-ramp and card — no partner re-onboarding.
+
+**Consequences.**
+- Astryum never becomes the verifier of record: Sumsub verifies; partners rely; Astryum
+  reads the outcome (prepare-only posture intact — same shape as «Sumsub emite, Xaman
+  acepta, Astryum jamás» in the Credentials architecture, post-21-sep).
+- P38 remains fail-closed until the Sumsub integration lands (commercial account first —
+  founder gestures list, 15-ago); no code path may fake `kycVerified`.
+- RedotPay also runs Sumsub but is NOT a chosen partner (ADR-002 unchanged: MoonPay +
+  Transak; card candidates = Gnosis Pay / Baanx, last-mile partners only).
+- ADR-007's KYC row is superseded by this ADR.
+
+Research trail: `Astryum_Arquitectura_Identidad_Credentials_UltimaMilla_2026-08-15.md` ·
+tarjeta self-custody memo 15-ago (Gnosis Pay/Sumsub) · plan del mes §11.3/§13.1 (§8.7).
+
+---
+
+## ADR-013 — Composition is a separate axis from autonomy: abstract the complexity, never the decision · LOCKED (build POST-21-sep) · 2026-09-13
+
+**Context.** A product thesis was put on the table (founder conversation, 13-sep): the user
+states a goal, an AI builds the strategy, and a constrained agent runs it across many venues —
+with today's vaults demoted from destination to execution venue. Three passes later the founder
+rejected it *as a build for now*, for four reasons: it is slow to build and prove; it replaces
+the whole DeFi interaction model at once; it removes personalisation and control from the user;
+and with a handful of venues the "strategy engine" is artificial, while the AI would have to
+know how to act on every class of DeFi product through a canonical language that is not built.
+The conclusion was neither "build it" nor "go back to a normal DeFi site" — it was a middle
+path.
+
+**Decision.**
+
+1. **Composition and autonomy are two different axes.** Composition is *who designs the
+   allocation* (manual → composed → assisted → recommended); autonomy is *who fires and under
+   whose authority* (the ROADMAP Phase 4 ladder, unchanged). **We climb composition without
+   climbing autonomy.** Every rung of composition ends the same way: the user signs. This is
+   what keeps a signed composition outside Art. 3(1)(25) portfolio management — a mandate with
+   no residual discretion (`Astryum_Estrategias_Prefirmadas_Roadmap_2026-07-25.md`).
+2. **The internal language becomes `Goal → Strategy → Policy → Container → Venues →
+   Execution`.** Integrated vaults are **venues** — reusable infrastructure — not the product;
+   the **pote** is the container; **policy** lives in the contract (per-venue cap, buffer floor,
+   allowlist, ungateable exit) and in the credential (who may order); execution is always a
+   user signature. We stop counting venues as product ("we have N vaults"); an integration earns
+   its place by serving the composer and the future agent.
+3. **The Strategy Composer is the demand surface of the CMF facade** already decided on
+   15-ago. It is built as one package — schema, translators, UI, copilot cage — and it works
+   with two venues; it does not wait for breadth.
+4. **Astryum compiles and explains; it never proposes "for you".** A personalised proposal is
+   advice under Art. 3(1)(16)(h) and belongs to a **licensed occupant on the same rail** (an
+   adviser or manager whose credential is verified on the ledger — tomorrow, their designated
+   agent), never to Astryum. The composer we build for the user is the same desk that occupant
+   would sit at; what changes is who sits there and which credential they carry.
+5. **Rejected, explicitly, so they are not reopened:** an ERC-4626 *wrapper* between the pote
+   and non-4626 venues — the pote already is the ERC-4626 container and the written direction is
+   a new audited `VenueKind` branch per activity, not a second custody surface; "autonomous AI
+   DeFi" as a build for now (RED under the 25-jul boundary until limits are enforced on-chain);
+   and a general-purpose DeFi site (wallet + protocol list + swaps), already barred by ADR-006.
+
+**Consequences.**
+- **Phase 3's "Goals layer"** below now means *the composer*, not a marketplace of AI
+  strategies. `GoalParserService` + the `GoalRequest`/`ManagerProposalV1` schema (built,
+  migrated, pruned in `e8f6f58`) are the natural parser for it.
+- CMF must grow an allocation vocabulary it does not have today: percent-of-portfolio, an
+  at-entry trigger, parallel legs at entry, and a rebalance verb (`moveToVenue` exists on-chain,
+  not in `CMF_VERBS`).
+- The copilot cage gets a new code-enforced violation — an AI draft may not carry weights the
+  user did not state, the same shape as the existing `ai_wrote_address` guard.
+- Public copy is unchanged: *"A person decides. The code decides what they can't."* Agent-side
+  phrasing stays in the future tense with its gates. "AI chooses the strategy", "the agent
+  decides", "AI-powered DeFi" are barred.
+- Zero code before 21-sep: the feature freeze and the shoot hold.
+
+Full reasoning, code recon with file:line, the ERC-4626 verdict, the CASP boundary and the
+ordered post-window queue: an internal working note (not published in this repo).
+
+**Amendment, 2026-09-15 — the queue order changes; the doctrine does not.** A 15-sep inventory
+against the contract, the deploy scripts and the live registry found that **no further venue can
+enter a pote today without new Solidity**: only two are wired and live (Kinetic kind 1, Firelight
+kind 2), and every other Flare protocol fails the shape, the chain or the asset gate. So the
+bottleneck on the rail that serves managers is the contract, not the cost of integrating. With
+the founder's 15-sep objective of attracting managers, **the Upshift branch moves from last in
+the queue to the main block**, in parallel with the canonical layer — one audited branch reaches
+two venues (earnXRP and Monarq), both FXRP on Flare. Everything else in this ADR stands: no
+wrapper, one audited `VenueKind` branch per activity, the pote as container, and Astryum
+compiling rather than proposing. Also recorded there: FBTC is **not** live on Flare mainnet, and
+when it ships it is a **new pote** (a vault's asset is immutable at construction), not a venue
+added to the FXRP ones. Sequence, scope limits and risks:
+an internal working note (not published in this repo).
+
+---
+
+## ADR-014 — Production carries only what was tested; the gate is code, never an env var · LOCKED · 2026-09-14
+
+**Context.** On 14-sep the founder found «Lend your RLUSD» live on astryum.xyz. Nobody had
+published it. The whole `build/ventana-21sep` branch had been merged into `main` on 13-sep with
+the two Ethereum-rail cards (`em-carry`, `em-lend`) inside, hidden behind a backend switch
+(`ETH_RLUSD_FXRP_ENABLED`, fail-closed). The production backend had not built for days (its
+deployments were SKIPPED), so the switch answered 404 and the cards stayed hidden. Railway
+production already carried `ETH_RLUSD_FXRP_ENABLED=true`. At 11:36 a portfolio fix produced
+the first deployment that actually built; the variable became effective and two untested vaults
+went live. No decision was taken that day — three latent facts lined up.
+
+**Decision.**
+- **Production shows only what passed an end-to-end test on the preview.** Code being on `main`
+  is not publication.
+- **Visibility in production is decided in code, never by an environment variable.** Env vars
+  are cloned between environments and take effect on the next deploy on their own. The vault
+  allowlist lives in `frontend/src/lib/earn/productionVaults.ts`; publishing a vault means
+  adding its `kind` there in a commit to `main` that states what was tested and when. Backend
+  flags remain each rail's kill-switch, not its publication gate.
+- **Defaults open outside production and close inside it** — `openOutsideProduction()` /
+  `isProductionDeploy()` in `frontend/src/lib/nav/hackathonHub.ts` is the single rule. A
+  `!== 'false'` default for anything visible is prohibited (it is how the hackathon hub
+  switched itself on the day before).
+- **Production env vars are never copied from staging.** Each one that enables something is set
+  by hand, after the thing is on the allowlist, and named in the publishing commit.
+- **No full merges of the branch into `main`.** `main` receives hand-picked subsets verified on
+  the candidate (types, tests, build).
+
+**Immediate remediation (same day).** `ETH_RLUSD_FXRP_ENABLED=false` in Railway production;
+the allowlist applied before any runtime switch in `FlareDemoEarn`; tests pin the six tested
+kinds and exclude the two Ethereum-rail ones.
 
 ---
 
@@ -298,10 +429,11 @@ was disabled sep-2025 for a fee-drain bug) is specified in an internal XLS-75 wo
   via MoonPay/Transak; KYC via partner; public EU launch.
 - **Phase 1.5:** XRP→EVM route via XRPL EVM Sidechain + Axelar + Enso/CoW.
 - **Phase 2:** Ride Flare Q3 2026 — **PMW + FCC as separate, MiCA-gated modules** (ADR-005).
-- **Phase 3:** Goals layer · delegated capital marketplace · Solana · more RWA (Plume) · tax-loss
+- **Phase 3:** Goals layer (= **the Strategy Composer**, ADR-013 — not a marketplace of AI
+  strategies) · delegated capital marketplace · Solana · more RWA (Plume) · tax-loss
   harvesting (calculate + propose, **user signs**, no fiscal advice).
 
 ---
 
-*New decisions append here as ADRs. When one supersedes an older internal note, say
+*New decisions append here as ADRs. When one supersedes an older internal working note, say
 so explicitly in the ADR rather than editing history.*

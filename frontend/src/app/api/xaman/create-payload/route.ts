@@ -27,10 +27,34 @@ export async function POST(req: NextRequest) {
     // Read it server-side and inject it — the token never reaches the browser.
     // `pushPayloadFor` is the signer we are asking (the council flow sends it);
     // without a token the payload is identical and the QR is the way in.
+    //
+    // The backend decides whether THIS session may ring THAT phone for THIS
+    // account (productizer 13-sep, H2b): its own proven address, or a co-signer
+    // of `txjson.Account`'s SignerList on a multisign request. A null answer
+    // injects nothing.
     const requested = (body ?? {}) as Record<string, unknown> & { pushPayloadFor?: unknown };
     const signerAddress = typeof requested.pushPayloadFor === 'string' ? requested.pushPayloadFor : undefined;
     delete requested.pushPayloadFor; // ours, not Xaman's — never forward it
-    const userToken = await lookupPushToken(signerAddress, req.headers.get('authorization'));
+    // The only token that may ride is one the backend just allowed — NEVER one
+    // the browser put in the body, with or without `pushPayloadFor`. A push
+    // token only works together with this app's API key and secret, which live
+    // here: forwarding a client-supplied `user_token` would let anyone who ever
+    // learnt a token (e.g. a co-signer reading it from the lookup) ring that
+    // phone with an arbitrary transaction under Astryum's name.
+    delete requested.user_token;
+    let userToken: string | null = null;
+    if (signerAddress) {
+      const txjson = requested.txjson as { Account?: unknown } | undefined;
+      const options = requested.options as { multisign?: unknown } | undefined;
+      userToken = await lookupPushToken(
+        {
+          address: signerAddress,
+          account: typeof txjson?.Account === 'string' ? txjson.Account : undefined,
+          multisign: options?.multisign === true,
+        },
+        req.headers.get('authorization'),
+      );
+    }
 
     const upstream = await fetch('https://xumm.app/api/v1/platform/payload', {
       method: 'POST',
@@ -44,7 +68,8 @@ export async function POST(req: NextRequest) {
           ? { ...requested, ...(userToken ? { user_token: userToken } : {}) }
           : {
               txjson: { TransactionType: 'SignIn' },
-              options: { submit: false, expire: 300 },
+              // Xaman's `expire` is in MINUTES: 5 = five minutes (300 was five hours).
+              options: { submit: false, expire: 5 },
             },
       ),
     });

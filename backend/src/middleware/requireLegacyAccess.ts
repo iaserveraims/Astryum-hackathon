@@ -22,6 +22,12 @@ import { Request, Response, NextFunction } from 'express';
 import { hasLegacyToggleAccess, isLegacyEnabledForAll } from '../config/legacyAccess';
 
 const CACHE_TTL_MS = 60_000;
+/**
+ * `email` is cached ONLY when the address is verified (productizer it. 8):
+ * `AuthService.register` stores any address unverified, so a plain email on
+ * LEGACY_ACCESS_EMAILS proved nothing. Unverified ⇒ cached as null ⇒ 403,
+ * the same door as adminPanel.emailGate.
+ */
 const emailCache = new Map<string, { at: number; email: string | null }>();
 
 export function __resetLegacyAccessGateForTests(): void {
@@ -50,8 +56,14 @@ export async function requireLegacyAccess(
     let entry = emailCache.get(userId);
     if (!entry || Date.now() - entry.at > CACHE_TTL_MS) {
       const { prisma } = await import('../database/prismaClient');
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      entry = { at: Date.now(), email: user?.email?.toLowerCase() ?? null };
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, emailVerified: true },
+      });
+      entry = {
+        at: Date.now(),
+        email: user?.emailVerified === true ? user.email?.toLowerCase() ?? null : null,
+      };
       emailCache.set(userId, entry);
     }
     if (!entry.email || !hasLegacyToggleAccess(entry.email)) {

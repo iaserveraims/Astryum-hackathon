@@ -15,6 +15,14 @@ import { agentKeyService } from '../services/AgentKeyService';
 import { agentContextBuilder } from '../services/AgentContextBuilder';
 import { MCP_CATALOG, getCatalogEntry } from '../config/mcpCatalog';
 import { PushNotificationService } from '../services/PushNotificationService';
+import {
+  isSessionRevoked,
+  isTransactionBusy,
+  respondBusyRetry,
+  respondSessionRevoked,
+  withLiveSession,
+  type LiveSessionRef,
+} from '../services/identity/liveSession';
 
 const router = Router();
 
@@ -24,6 +32,11 @@ const router = Router();
 
 function getUserId(req: Request): string {
   return (req as any).siwe?.userId ?? 'dev-user';
+}
+
+/** The session a write must still be able to prove (identity/liveSession). */
+function sessionRef(req: Request): LiveSessionRef | undefined {
+  return (req as any).siwe as LiveSessionRef | undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,8 +61,21 @@ router.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { message, conversationId: maybeConvId } = parse.data;
 
-  // Get or create conversation
+  // Get or create conversation. A conversation id from the body must be THIS
+  // user's: unscoped, the message below was appended to a stranger's history
+  // (and the reply built from it), which is both a leak and an injection into
+  // someone else's copilot. Same scoping the builder now applies to the history.
   let convId = maybeConvId;
+  if (convId) {
+    const owned = await prisma.agentConversation.findFirst({
+      where: { id: convId, userId },
+      select: { id: true },
+    });
+    if (!owned) {
+      res.status(404).json({ error: 'NOT_FOUND' });
+      return;
+    }
+  }
   if (!convId) {
     const conv = await prisma.agentConversation.create({
       data: {
@@ -249,7 +275,25 @@ router.put('/settings', asyncHandler(async (req: Request, res: Response) => {
       res.status(422).json({ error: 'INVALID_API_KEY', message: validation.error });
       return;
     }
-    await agentKeyService.saveUserAPIKey(userId, apiKey, model);
+    // The key decides whose Anthropic account the copilot's prompts go to, and
+    // `validateKey` above is a network round-trip — the widest window a takeover
+    // has to slip a key onto the owner. Live-session check inside the write
+    // (it. 16, 4.1).
+    try {
+      await agentKeyService.saveUserAPIKey(userId, apiKey, model, sessionRef(req));
+    } catch (err) {
+      if (isSessionRevoked(err)) {
+        respondSessionRevoked(res);
+        return;
+      }
+      // Contention with the takeover's long transaction is a WAIT, not a fault:
+      // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+      if (isTransactionBusy(err)) {
+        respondBusyRetry(res);
+        return;
+      }
+      throw err;
+    }
     res.json({ saved: true, model: model ?? 'claude-sonnet-4-6' });
     return;
   }
@@ -298,11 +342,31 @@ router.post('/mcp/connect', asyncHandler(async (req: Request, res: Response) => 
     apiKeyEnc = agentKeyService.encryptValue(apiKey);
   }
 
-  const conn = await prisma.userMCPConnection.upsert({
-    where: { userId_serverId: { userId, serverId } },
-    create: { userId, serverId, serverName, serverUrl, apiKeyEnc, isActive: true },
-    update: { serverUrl, apiKeyEnc, isActive: true, connectedAt: new Date() },
-  });
+  // A custom `serverUrl` + key decides where the owner's context is sent: a
+  // connection attached by a previous holder after a takeover would forward it
+  // to their server. Live-session check inside the write (it. 14, 4.4).
+  let conn;
+  try {
+    conn = await withLiveSession(sessionRef(req), (tx) =>
+      tx.userMCPConnection.upsert({
+        where: { userId_serverId: { userId, serverId } },
+        create: { userId, serverId, serverName, serverUrl, apiKeyEnc, isActive: true },
+        update: { serverUrl, apiKeyEnc, isActive: true, connectedAt: new Date() },
+      }),
+    );
+  } catch (err) {
+    if (isSessionRevoked(err)) {
+      respondSessionRevoked(res);
+      return;
+    }
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) {
+      respondBusyRetry(res);
+      return;
+    }
+    throw err;
+  }
 
   res.json({ connected: true, serverId: conn.serverId, serverName: conn.serverName });
 }));
@@ -340,9 +404,30 @@ router.post('/documents/upload', asyncHandler(async (req: Request, res: Response
   const { filename, contentType, content } = parse.data;
   const sizeBytes = Buffer.byteLength(content, 'utf8');
 
-  const doc = await prisma.agentDocument.create({
-    data: { userId, filename, contentType, content, sizeBytes, source: 'user_upload' },
-  });
+  // A document is authority: AgentContextBuilder pastes it into the copilot's
+  // system prompt. One uploaded by a previous account holder whose request lands
+  // after a takeover would speak to the owner in their own assistant, so the
+  // session is re-proved inside the write (it. 14, 4.4).
+  let doc;
+  try {
+    doc = await withLiveSession(sessionRef(req), (tx) =>
+      tx.agentDocument.create({
+        data: { userId, filename, contentType, content, sizeBytes, source: 'user_upload' },
+      }),
+    );
+  } catch (err) {
+    if (isSessionRevoked(err)) {
+      respondSessionRevoked(res);
+      return;
+    }
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) {
+      respondBusyRetry(res);
+      return;
+    }
+    throw err;
+  }
 
   res.json({ id: doc.id, filename: doc.filename, sizeBytes: doc.sizeBytes, uploadedAt: doc.uploadedAt });
 }));
@@ -406,9 +491,26 @@ router.post('/rules', asyncHandler(async (req: Request, res: Response) => {
   }
 
   const { triggerConfig, ...rest } = parse.data;
-  const rule = await (prisma.agentRule as any).create({
-    data: { userId, ...rest, triggerConfig },
-  });
+  // Same rule as documents: a rule is a prompt the agent will run for whoever
+  // holds the account. Written only while this session is still live.
+  let rule;
+  try {
+    rule = await withLiveSession(sessionRef(req), (tx) =>
+      (tx.agentRule as any).create({ data: { userId, ...rest, triggerConfig } }),
+    );
+  } catch (err) {
+    if (isSessionRevoked(err)) {
+      respondSessionRevoked(res);
+      return;
+    }
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) {
+      respondBusyRetry(res);
+      return;
+    }
+    throw err;
+  }
   res.status(201).json(rule);
 }));
 

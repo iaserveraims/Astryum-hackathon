@@ -69,10 +69,20 @@ interface TrustLegacy {
     flareTxHash: string | null;
   } | null;
 }
+// Make Waves attribution — aggregates ONLY (the backend never serves the
+// r-address list behind these numbers; counters identify nobody).
+interface TrustSourceTag {
+  activeUsers: number;
+  txCount: number;
+  volumeXrp: number;
+  truncated: boolean;
+  updatedAt: string | null;
+}
 interface TrustPayload {
   path: TrustPath;
   sample: TrustSample | null;
   legacy: TrustLegacy | null;
+  sourceTag: TrustSourceTag | null;
   updatedAt: string;
 }
 
@@ -419,6 +429,17 @@ const HONEST_LIMITS = (lang: Lang) => [
       lang,
     ),
   },
+  {
+    // M6 — the reviewer's question, answered before it is asked. Astryum DOES
+    // sign two things; saying so out loud is what makes "we never sign your
+    // money" credible (MICA_BOUNDARIES §9-bis, in plain language).
+    title: T('Sí firmamos dos cosas — y ninguna es tu dinero', 'We do sign two things — and neither is your money', lang),
+    body: T(
+      'Nuestro guardián de ahorros manda la liberación de un escrow desde SU propia cuenta, pagando su comisión: esa operación es abierta por diseño de XRPL — cualquiera puede lanzarla cuando llega la fecha, y es el ledger quien decide a dónde va el dinero (al destino que tú fijaste, o de vuelta a ti). Y nuestro entregador en Flare lleva órdenes que TÚ ya firmaste, con el contrato comparando la huella y revirtiendo si no cuadra. Disparamos resultados que la red ya tenía decididos; no movemos capital de nadie. Si apagáramos las dos piezas mañana, cualquier tercero podría pulsar esos mismos botones.',
+      'Our savings keeper sends an escrow’s release from ITS own account, paying its own fee: that operation is permissionless by XRPL design — anyone can send it once the date arrives, and the ledger decides where the money goes (to the destination you set, or back to you). And our Flare relayer carries orders YOU already signed, with the contract comparing the fingerprint and reverting if it does not match. We trigger outcomes the network had already decided; we move nobody’s capital. If we switched both pieces off tomorrow, any third party could press those same buttons.',
+      lang,
+    ),
+  },
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -484,7 +505,18 @@ function legacyChip(owner: 'familia' | 'astryum' | 'candado', lang: Lang): { lab
   };
 }
 
-/** Human label for a council-order action slug; unknown slugs show as-is. */
+/**
+ * Human label for a council-order action slug.
+ *
+ * G12-move: this switch knew four of the TWELVE slugs the backend enum accepts
+ * (`councilOrderSchema` in routes/xrplDefi.ts), and the rest fell to `default`,
+ * which printed the raw slug — `set-max-venue-bps` — on the PUBLIC proof page.
+ * The four venue doors shipped in G12 made three of those reachable for real;
+ * the governance ones (payees, cession, constitution) were reachable already.
+ * Every slug the backend can store now has a sentence here, and the fallback
+ * stops leaking machine vocabulary: an unknown slug reads as "a council order",
+ * which is true of every one of them, instead of as a field name.
+ */
 function legacyActionLabel(action: string | null, lang: Lang): string {
   switch (action) {
     case 'direct-to':
@@ -495,8 +527,26 @@ function legacyActionLabel(action: string | null, lang: Lang): string {
       return T('mover capital entre estrategias', 'moving capital between strategies', lang);
     case 'evacuate':
       return T('evacuar una estrategia', 'evacuating a strategy', lang);
+    case 'propose-venue':
+      return T('proponer una estrategia nueva (entra en 30 días)', 'proposing a new strategy (it opens in 30 days)', lang);
+    case 'retire-venue':
+      return T('cerrar una estrategia a nuevas entradas', 'closing a strategy to new entries', lang);
+    case 'set-max-venue-bps':
+      return T('fijar el tope por estrategia', 'setting the per-strategy ceiling', lang);
+    case 'set-linaje-fee-bps':
+      return T('fijar la parte del linaje', 'setting the family’s cut', lang);
+    case 'set-payees':
+      return T('fijar quién recibe el fruto', 'setting who receives the fruit', lang);
+    case 'cede':
+      return T('ceder la dirección (nunca los activos)', 'granting direction (never the assets)', lang);
+    case 'end-cession':
+      return T('terminar la cesión de dirección', 'ending the granted direction', lang);
+    case 'set-constitution-ref':
+      return T('apuntar a una versión nueva de la constitución', 'pointing at a new constitution version', lang);
     default:
-      return action ?? T('orden del consejo', 'council order', lang);
+      // Never the raw slug: this is the public surface, and a slug is our
+      // vocabulary, not a fact about the ledger.
+      return T('una orden del consejo', 'a council order', lang);
   }
 }
 
@@ -1026,6 +1076,50 @@ export default function ProofPage() {
 
           {/* every operation, live — the existing public feed */}
           <LiveActivity lang={lang} />
+
+          {/* Make Waves attribution — the tag's aggregates, read from the
+              ledger. Only numbers: the address list behind them is never
+              served (public-cutoff doctrine). Hidden until the aggregator
+              has a real pass — a zero that means «not counted yet» must not
+              read as «no traction». */}
+          {trust?.sourceTag && (
+            <section className="px-6 pb-16">
+              <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                <div className="mb-4 text-center text-[11px] font-mono uppercase tracking-[0.2em] text-white/40">
+                  {T('Actividad atribuida al proyecto (Make Waves)', 'Activity attributed to the project (Make Waves)', lang)}
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-white tabular-nums">{trust.sourceTag.activeUsers}</div>
+                    <div className="mt-1 text-[11px] text-white/45">
+                      {T('cuentas que han firmado', 'accounts that signed', lang)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white tabular-nums">{trust.sourceTag.txCount}</div>
+                    <div className="mt-1 text-[11px] text-white/45">
+                      {T('transacciones con el tag', 'transactions carrying the tag', lang)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white tabular-nums">
+                      {trust.sourceTag.volumeXrp.toLocaleString(lang === 'es' ? 'es-ES' : 'en-US', { maximumFractionDigits: 0 })}
+                    </div>
+                    <div className="mt-1 text-[11px] text-white/45">{T('XRP entregados', 'XRP delivered', lang)}</div>
+                  </div>
+                </div>
+                <p className="mt-4 text-center text-[11px] leading-relaxed text-white/35">
+                  {T(
+                    'Leído del ledger: transacciones validadas que llevan el SourceTag del proyecto. Solo números — jamás publicamos las direcciones de nuestros usuarios.',
+                    'Read from the ledger: validated transactions carrying the project’s SourceTag. Numbers only — we never publish our users’ addresses.',
+                    lang,
+                  )}
+                  {trust.sourceTag.truncated &&
+                    ` ${T('El recuento es un suelo: parte del histórico queda fuera del barrido.', 'The count is a floor: part of the history sits beyond the sweep.', lang)}`}
+                </p>
+              </div>
+            </section>
+          )}
 
           {/* verify it yourself */}
           <section className="px-6 pb-20">

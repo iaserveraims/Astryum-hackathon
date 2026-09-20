@@ -5,9 +5,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Home as HomeIcon,
   Wallet,
-  Wallet2,
+  PieChart,
+  Gauge,
   Layers,
   Settings as SettingsIcon,
   Search,
@@ -17,14 +17,22 @@ import {
   X,
   Clock,
   Sprout,
+  Orbit,
   Target,
   // PiggyBank left the nav with the Savings entry (Savings lives inside Earn now).
-  Landmark,
-  Loader2,
   ShieldCheck,
   ArrowUpRight,
+  Loader2,
   LucideIcon,
+  PanelLeftOpen,
+  PanelLeftClose,
+  Briefcase,
+  Building2,
+  Landmark,
+  Sparkles,
 } from 'lucide-react';
+import { MANAGER_DESK_OPEN } from '../../lib/nav/managerDesk';
+import { HACKATHON_HUB_OPEN } from '../../lib/nav/hackathonHub';
 import BackgroundFx from './BackgroundFx';
 // AIChatSidebar (floating "AI Copilot") removed from the shell: the /ai/chat
 // backend it talks to is not live, and a dead button erodes trust. The
@@ -36,7 +44,14 @@ import OnboardingModal from '../onboarding/OnboardingModal';
 // AuthoritySwitcher (the "Overview / per-account" selector) is UNMOUNTED
 // (founder 2026-07-18): the sidebar slot now holds only the product toggle.
 // Component preserved at components/authority/AuthoritySwitcher.tsx.
-import ProductToggle from '../authority/ProductToggle';
+// ProductToggle UNMOUNTED 2026-08-16 (theme follows the Home hub selection);
+// component preserved at components/authority/ProductToggle.tsx. Its
+// access walk-back effect survives as LegacyAccessGuard below.
+import LegacyAccessGuard from '../authority/LegacyAccessGuard';
+import EarnOperationHost from '../earn/EarnOperationHost';
+// THE name of the capital-at-work destination lives in ONE file so the
+// rename is one edit (it is still provisional — see lib/nav/capitalSection.ts).
+import { CAPITAL_SECTION_HREF, CAPITAL_SECTION_LABEL } from '../../lib/nav/capitalSection';
 // GoverningBar is UNMOUNTED (founder 2026-07-18): the data-authority palette
 // already tells governed mode apart; the strip duplicated it. Component
 // preserved at components/authority/GoverningBar.tsx.
@@ -44,15 +59,18 @@ import AuthorityCrossing, { type AuthorityCrossingDirection } from '../authority
 import { useAuthorities } from '../../hooks/useAuthorities';
 import { useAuthorityStore } from '../../stores/authorityStore';
 import { OVERVIEW_AUTHORITY_ID } from '../../lib/authority';
-import { EmptyState, GhostButton, PrimaryButton } from './primitives';
 import { useAuthStore } from '../../stores/authStore';
 import { useT } from '../../i18n/LanguageProvider';
 import { useIntentWatcher } from '../../hooks/useIntentWatcher';
+import { useDockStore } from '../../stores/dockStore';
+import { useOperationStore } from '../../stores/operationStore';
 import { useVaultClaimsWatcher } from '../../hooks/useVaultClaimsWatcher';
+import { useMyManagedTickets, type ManagedTicket } from '../../lib/institutional/useMyManagedPositions';
 import { usePortfolioAutoRefresh } from '../../hooks/useAggregatedPortfolio';
 import { SidebarIntentsCard } from '../intents/SidebarIntents';
 import { SidebarSettlements } from '../settlement/SidebarSettlements';
-import type { VaultClaimEntry } from '../../hooks/useVaultClaimsWatcher';
+import { useResumePendingSettlements } from '../../lib/settlement/useResumePendingSettlements';
+import type { VaultClaimEntry, VaultClaimsUnreadable } from '../../hooks/useVaultClaimsWatcher';
 import type { PreparedIntent } from '../../services/v1Api';
 // AuthorityContextBar stays UNMOUNTED: per-account switching returned to the
 // shell as AuthoritySwitcher + GoverningBar (ADR-011) — exactly the re-mount
@@ -90,7 +108,28 @@ function DiscordIcon({ className = '' }: { className?: string }) {
 // Naming: the holdings overview is "Portfolio" (was "Wallet"); "Wallets" is the
 // connected-wallets manager. Two different things, two clearly different names.
 
-type NavLeaf = { href: string; label: string; icon: LucideIcon };
+type NavLeaf = {
+  href: string;
+  /** English label — also the dict.ts key for every row that has one. */
+  label: string;
+  /**
+   * Spanish label carried INLINE, used only by the capital-at-work row.
+   *
+   * Every other row translates through `t(label)` against dict.ts, which is
+   * right for a fixed string. That row's name is still being chosen, so it
+   * reads from `lib/nav/capitalSection.ts` — and a dynamic `t(LABEL)` is
+   * invisible to `scripts/check-i18n.js`, which only scans literal arguments.
+   * CI would stay green while a Spanish user saw an English menu. Carrying the
+   * pair keeps the rename atomic and the check honest.
+   */
+  labelEs?: string;
+  icon: LucideIcon;
+};
+
+/** The row's visible name: the inline Spanish when there is one, else dict. */
+function leafLabel(item: NavLeaf, lang: string, t: (s: string) => string): string {
+  return lang === 'es' && item.labelEs ? item.labelEs : t(item.label);
+}
 
 // Savings is no longer a top-level destination: it lives inside Earn as the
 // Movements door — send/receive + savings (/app/asset-production?view=movements;
@@ -103,8 +142,10 @@ type NavLeaf = { href: string; label: string; icon: LucideIcon };
 // Astryum mode shows Wallets and hides Legacy; Legacy mode shows Legacy and
 // hides Wallets. Same dashboard, two products — the nav declares which one.
 // Earn stays in BOTH modes (founder 2026-07-18: never strip it from the
-// Legacy menu). Estrategias also serves both modes — it just moved INSIDE
-// Earn (?view=strategies), so it no longer needs its own row (see below).
+// Legacy menu). Estrategias also serves both modes — it lived INSIDE Earn
+// (?view=strategies) from 2026-07-18 until 2026-08-24, when it got its row
+// back as the capital-at-work section (see PRIMARY_NAV below). The old
+// ?view=strategies deep-link now redirects to /app/strategies.
 // Order (founder 2026-08-03/04, after a first-user test): the reading order —
 // how much (Summary), where (Portfolio) — then Earn: it is THE function of
 // the product ("lo que nos da de comer a nosotros y a nuestros usuarios"),
@@ -116,25 +157,66 @@ type NavLeaf = { href: string; label: string; icon: LucideIcon };
 // treatments were tried and retired the same day — a soft volt tint (read as
 // "selected") and a solid volt button (too loud). Do not re-introduce color
 // on a nav row to mark importance; the selected state owns the gold here.
-// Portfolio still sits ABOVE Legacy (founder 2026-07-19); Estrategias still
-// lives INSIDE Earn (?view=strategies, founder 2026-07-18) — /app/strategies
-// stays alive for old deep-links.
-// Naming (founder 2026-08-04): the overview at /app is called HOME — the
-// separate /app/home page was removed the same day, and its name moved here.
-// "Summary" survives only in internal ids (data-tour nav-summary, TourId,
-// stop-summary anchors) — renaming those buys nothing and breaks replays.
+// Portfolio still sits ABOVE Legacy (founder 2026-07-19). Estrategias lived
+// INSIDE Earn (?view=strategies, founder 2026-07-18) and came back OUT as its
+// own row on 2026-08-24 — /app/strategies was never retired, which is why the
+// return cost almost nothing.
+// Naming (founder 2026-08-15, "Home absorbe W1" — reverses 2026-08-04
+// consciously): HOME is the new hub at /app/home (the fleet: personal
+// wallets + Legacies + the add door), and the overview at /app goes back to
+// being SUMMARY. The Wallets row is GONE from the nav (W1): its full surface
+// lives embedded in Home behind ?panel=wallets, and /app/wallets redirects
+// there — every old deep-link keeps working. "Summary" internal ids
+// (data-tour nav-summary, TourId, stop-summary anchors) were never renamed.
+// The Home hub row LEFT the nav (fusión 2026-08-22): the Summary absorbed
+// the Home — greeting, fleet scope, the hidden Wallets surface
+// (?panel=wallets) and the first-run tour all live at /app now. /app/home
+// redirects there; HomeHub stays preserved at components/home/HomeHub.tsx.
+// Founder 2026-08-22 (quinta pasada): el vestíbulo vuelve a llamarse Home, y
+// el destino Legacy deja su sitio a WALLETS. Legacy no desaparece: vive DENTRO
+// de Wallets, porque una cuenta gobernada por un consejo es una wallet más y
+// su gobernanza es algo que se le hace a ELLA, no un apartado paralelo.
+// Portfolio suelta el icono de cartera —que es de Wallets— y se queda con el
+// del reparto, que es lo que esa pantalla enseña.
+// Fundador 2026-08-24 — se DESHACE el colapso del 18-jul: el registro vuelve a
+// tener fila propia. La razón no es de gusto, es de frecuencia. Earn es un
+// gesto que haces una vez (decidir); mirar lo que ya corre es un gesto
+// semanal. Tenerlo como cuarta puerta DENTRO de Earn ponía a dos clics lo que
+// más se repite, detrás de lo que menos. Y una card que solo contiene otras
+// cards es un marco sin navegación: cuando una agrupación necesita un
+// contenedor visible, la agrupación pertenece al MENÚ, no a una caja.
+//
+// El par queda partido por verbo: Earn = poner capital a trabajar (elegir /
+// componer con el agente / entrar con un gestor); la fila de abajo = lo que ya
+// está trabajando y lo que dejaste guardado. Va justo DESPUÉS de Earn a
+// propósito: es donde aterriza lo que acabas de crear, y así Earn no pierde su
+// posición (la regla de 2026-08-03/04: Earn es LA función del producto).
+//
+// El nombre todavía no es firme (lib/nav/capitalSection.ts). El icono sí puede
+// serlo: `Orbit` es neutral respecto al nombre que gane y habla el idioma
+// visual de la casa — las escenas de Earn son órbitas.
 const PRIMARY_NAV: NavLeaf[] = [
-  { href: '/app', label: 'Home', icon: HomeIcon },
-  { href: '/app/portfolio', label: 'Portfolio', icon: Wallet },
+  { href: '/app', label: 'Home', icon: Gauge },
+  { href: '/app/portfolio', label: 'Portfolio', icon: PieChart },
   { href: '/app/asset-production', label: 'Earn', icon: Sprout },
-  { href: '/app/legacy', label: 'Legacy', icon: Landmark },
-  { href: '/app/wallets', label: 'Wallets', icon: Wallet2 },
+  {
+    href: CAPITAL_SECTION_HREF,
+    label: CAPITAL_SECTION_LABEL.en,
+    labelEs: CAPITAL_SECTION_LABEL.es,
+    icon: Orbit,
+  },
+  { href: '/app/wallets', label: 'Wallets', icon: Wallet },
 ];
 
-function navForProduct(mode: 'astryum' | 'legacy'): NavLeaf[] {
-  return PRIMARY_NAV.filter((n) =>
-    mode === 'legacy' ? n.href !== '/app/wallets' : n.href !== '/app/legacy',
-  );
+// Legacy es un SITIO, no un producto (fundador 2026-08-22): está siempre en el
+// menú. Antes sólo aparecía dentro del modo índigo, así que para llegar a la
+// gobernanza había que descubrir primero un interruptor — y ese interruptor
+// además te escondía media flota. La puerta de acceso la sigue guardando
+// LegacyAccessGuard dentro de la propia pantalla.
+function primaryNav(): NavLeaf[] {
+  // Con el hub cerrado (producción, 2026-09-13) Legacy recupera su fila de
+  // siempre, detrás de Wallets. Con el hub abierto vive arriba, en el grupo.
+  return HACKATHON_HUB_OPEN ? PRIMARY_NAV : [...PRIMARY_NAV, LEGACY_NAV];
 }
 
 const SETTINGS_NAV: NavLeaf = { href: '/app/settings', label: 'Settings', icon: SettingsIcon };
@@ -146,27 +228,97 @@ const SETTINGS_NAV: NavLeaf = { href: '/app/settings', label: 'Settings', icon: 
 // hat they wear. Server-side gates stay untouched; this is pure discovery.
 const ADMIN_NAV: NavLeaf = { href: '/app/admin', label: 'Admin', icon: ShieldCheck };
 
+// La mesa del EXCHANGE (fundador 2026-09-11: «un slot en el menú que ponga
+// exchange»): la interfaz entera del exchange custodial en un sitio propio.
+// PUBLICADA (fundador 13-sep: «todo visible sin flags para la ventana») — la
+// fila la ve todo el mundo; la página perdió su PreviewOnly y las lecturas
+// del backend son públicas (anillo VER). Las mutaciones siguen tras admin
+// hasta la CredentialAccessGate.
+const EXCHANGE_NAV: NavLeaf = { href: '/app/exchange', label: 'Exchange', icon: Building2 };
+
+// La mesa del gestor de bóvedas dejó de ser fila del menú el 2026-09-10
+// (fundador: «no debería estar en la barra lateral… esconderlo dentro de
+// managed vaults»): se abre desde Earn → Managed vaults en ventana anclable
+// (ManagerOperation). /app/partner (la auditora) sigue solo por URL.
+//
+// …Y VUELVE, POR AHORA, ese mismo día (fundador: «es una herramienta que actúa
+// en el XRPL hackathon y se tiene que poder acceder fácilmente»): mientras
+// MANAGER_DESK_OPEN esté en marcha (lib/nav/managerDesk.ts) la fila se enseña
+// a todos y entra en ⌘K. Apagada la variable, se vuelve al párrafo de arriba
+// sin tocar código.
+const MANAGER_NAV: NavLeaf = { href: '/app/manager', label: 'Manager desk', icon: Briefcase };
+
+// EL HUB DEL HACKATHON (fundador 2026-09-12, lib/nav/hackathonHub.ts): las
+// tres puertas de la entrega de XRPL Commons, agrupadas y separadas del resto
+// al final del menú, para que un juez las encuentre sin pelearse con la
+// página. Descubrimiento, no permiso — cada página conserva su puerta.
+// Exchange sigue siendo solo de fundadores (adminOnly) mientras su página vaya
+// tras PreviewOnly: una fila pública a una página que no pinta nada sería
+// peor que ninguna fila.
+const HACKATHON_HUB_LABEL = 'Hackathon exclusives';
+type HubLeaf = NavLeaf & { adminOnly?: boolean };
+// Legacy NO es una función del hackathon: es un sitio del producto, con su
+// propia puerta (LegacyAccessGuard), y vivía en el menú de siempre desde el
+// 2026-08-22. Vive en el grupo sólo mientras el grupo existe; cerrado el hub
+// vuelve a su fila — sin esta constante compartida, cerrar el grupo se llevaba
+// Legacy por delante y dejaba la gobernanza sin puerta en producción.
+const LEGACY_NAV: NavLeaf = { href: '/app/legacy', label: 'Legacy', icon: Landmark };
+const HACKATHON_NAV: HubLeaf[] = [LEGACY_NAV, MANAGER_NAV, EXCHANGE_NAV];
+function hackathonNav(isAdmin: boolean): NavLeaf[] {
+  if (!HACKATHON_HUB_OPEN) return [];
+  return HACKATHON_NAV.filter((n) => !n.adminOnly || isAdmin).map(({ adminOnly: _a, ...n }) => n);
+}
+
 // Positions and Activity are Portfolio TABS (nav collapse + source
 // unification) and stay OUT of ⌘K too (founder 2026-07-19): hidden screens
 // must not resurface through search suggestions. They remain reachable inside
 // Portfolio itself; Capital Map likewise only via ?tab=map.
 
-// Every searchable destination for ⌘K — computed per product mode so the
-// hidden tab (Wallets or Legacy) doesn't surface through search either.
-// Admin joins the pool only for founder accounts — for anyone else it must
+// Every searchable destination for ⌘K. Admin joins the pool only for founder
+// accounts — for anyone else it must
 // not resurface through search (same rule as the hidden Portfolio tabs).
 type Destination = NavLeaf & { groupLabel: string };
-function destinationsForProduct(mode: 'astryum' | 'legacy', isAdmin: boolean): Destination[] {
-  return [...navForProduct(mode), SETTINGS_NAV, ...(isAdmin ? [ADMIN_NAV] : [])].map((n) => ({
-    ...n,
-    groupLabel: 'Menu',
-  }));
+function destinationsFor(isAdmin: boolean): Destination[] {
+  const hub = hackathonNav(isAdmin);
+  return [
+    ...[
+      ...primaryNav(),
+      // Sin el hub, Manager desk vuelve a su fila SÓLO si su propio
+      // interruptor lo permite, y Exchange no vuelve: su página contesta
+      // notFound() sin NEXT_PUBLIC_INSTITUTIONAL_ENABLED, y una fila que lleva
+      // a un 404 es peor que ninguna fila. Antes volvía sin condición.
+      ...(hub.length === 0 && MANAGER_DESK_OPEN ? [MANAGER_NAV] : []),
+      ...(hub.length === 0 && HACKATHON_HUB_OPEN ? [EXCHANGE_NAV] : []),
+      SETTINGS_NAV,
+      ...(isAdmin ? [ADMIN_NAV] : []),
+    ].map((n) => ({ ...n, groupLabel: 'Menu' })),
+    ...hub.map((n) => ({ ...n, groupLabel: HACKATHON_HUB_LABEL })),
+  ];
 }
 
 const isActive = (pathname: string, href: string) =>
   pathname === href || (href !== '/app' && pathname.startsWith(href + '/'));
 
 export default function AppShell({ children }: { children: ReactNode }) {
+  // La operación anclada (dockStore): desliza el contenido y colapsa el sidebar.
+  const dockedFlag = useDockStore((st) => st.docked);
+  // Multi-op: hay empuje solo si alguna operación está DESPLEGADA (activa).
+  // Con todas en píldora el dashboard recupera todo su sitio aunque el modo
+  // anclado siga recordado para cuando se restaure una.
+  const anyOpActive = useOperationStore((st) => st.activeId !== null);
+  const dockWidth = useDockStore((st) => st.width);
+  const dockResizing = useDockStore((st) => st.resizing);
+  // Minimizada, la operación es una píldora abajo: el dashboard recupera TODO
+  // su sitio (sin margen derecho, sidebar completo) — el anclaje solo empuja
+  // mientras el panel está de verdad desplegado.
+  const docked = dockedFlag && anyOpActive;
+  // EL SIDEBAR SE PLIEGA POR DEFECTO CON ALGO ANCLADO, PERO EL USUARIO MANDA
+  // (fundador 2026-09-10: «en una pantalla con más resolución da chance a
+  // abrir la barra lateral con algo anclado»). El raíl sigue siendo el
+  // defecto; abrirlo es una preferencia recordada (dockStore.sidebarOpen).
+  const sidebarOpen = useDockStore((st) => st.sidebarOpen);
+  const setSidebarOpen = useDockStore((st) => st.setSidebarOpen);
+  const collapsed = docked && !sidebarOpen;
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -179,7 +331,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // period (Firelight ~24h) that the redeem left in transit. Authority-scoped,
   // so the Intents card tells Personal and Legacy each its own truth. Feeds
   // the same card — one surface for "what needs me + what's on its way".
-  const { entries: vaultClaims, claimableCount: claimsWaiting, refresh: refreshClaims } = useVaultClaimsWatcher();
+  const { entries: vaultClaims, claimableCount: claimsWaiting, refresh: refreshClaims, unreadable: vaultClaimsUnreadable } = useVaultClaimsWatcher();
+  // Tickets de salida pendientes de managed vaults (requestRedeem): alimentan
+  // «pending to withdraw» en el sidebar, junto a las colas de Earn.
+  const { tickets: managedTickets, reload: refreshManagedTickets } = useMyManagedTickets();
 
   // Mounted ONCE for the whole shell: one shared poller keeps the portfolio
   // cache warm so every page paints instantly and refreshes invisibly.
@@ -196,7 +351,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // (founder 2026-07-17): governed mode shows Legacy and hides Wallets.
   // The Summary toggle (ProductModeCard) and the sidebar switcher both write
   // this same state — they can never disagree.
-  const { activeGoverned, loading: authoritiesLoading, setActive: setActiveAuthorityId } = useAuthorities();
+  const { activeGoverned, loading: authoritiesLoading } = useAuthorities();
   // The product is a first-class, persisted choice (founder 2026-08-04: the
   // LOBBY — legacy mode with nothing constituted yet must exist, or a fresh
   // account's toggle is a dead switch). Activating/leaving a governed account
@@ -205,29 +360,53 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const productMode = useAuthorityStore((s) => s.productMode);
   const { t } = useT();
   const router = useRouter();
-  // The lobby wears the product but claims no account — and the shared pages
-  // (Home, Portfolio, Earn…) fall back to the OVERVIEW scope, which painted
-  // PERSONAL capital under the Legacy shell (founder 2026-08-04, caught while
-  // walking the menus). In Legacy mode with nothing governed, the shell shows
-  // the lobby invitation instead of anyone's data. Exempt: /app/legacy (it IS
-  // the lobby and the door to constitute) and /app/admin + /app/settings
-  // (account chrome, not capital surfaces).
-  const legacyLobby =
-    productMode === 'legacy' &&
-    !activeGoverned &&
-    !(
-      pathname?.startsWith('/app/legacy') ||
-      pathname?.startsWith('/app/admin') ||
-      pathname?.startsWith('/app/settings')
-    );
+  // EL PRODUCTO SIGUE A LA PANTALLA (fundador 2026-08-22: «no que sea
+  // seleccionable como producto distinto, porque no lo es»). Esta es la ÚNICA
+  // línea que mueve el modo: dentro de /app/legacy — gobernar, constituir,
+  // reforzar, la bandeja del consejo — el shell se viste de índigo y la
+  // travesía de abajo se dispara sola; al salir, vuelve. Nadie más lo escribe,
+  // así que es imposible quedarse atrapado en un producto que no elegiste.
+  //
+  // Con esto muere el LOBBY: el modo legacy sólo existe estando EN la pantalla
+  // de Legacy, que era justo la ruta que el lobby eximía. Ya no hay estado en
+  // el que las páginas compartidas tengan que esconder los datos de nadie.
+  const setProductMode = useAuthorityStore((s) => s.setProductMode);
+  const activeAuthorityId = useAuthorityStore((s) => s.activeAuthorityId);
+  const setActiveAuthorityId = useAuthorityStore((s) => s.setActiveAuthority);
+  const onLegacySurface = !!pathname?.startsWith('/app/legacy');
+  useEffect(() => {
+    setProductMode(onLegacySurface ? 'legacy' : 'astryum');
+    // Y al SALIR, la autoridad gobernada se suelta. Sin esto quedaba el peor
+    // agujero de todo el modelo viejo: la selección se persiste, el
+    // interruptor que la deshacía ya no existe, y `useAuthorityWallets`
+    // acotaba TODA la aplicación a esa cuenta — Portfolio y Earn enseñando el
+    // dinero de un consejo, sin ninguna puerta visible para volver. Gobernar
+    // es algo que se hace ESTANDO en la pantalla de Legacy; fuera de ella el
+    // alcance es siempre la flota entera, que ahora ya la incluye.
+    if (!onLegacySurface && activeAuthorityId.startsWith('governed:')) {
+      setActiveAuthorityId(OVERVIEW_AUTHORITY_ID);
+    }
+  }, [onLegacySurface, activeAuthorityId, setProductMode, setActiveAuthorityId]);
+
   // Founder flag from /auth/me (refreshMe hydrates it on every mount) — adds
   // the Admin row at the end of the menu, in both product modes.
   const isAdmin = useAuthStore((s) => s.isAdmin);
+  // La mesa del gestor no tiene fila propia en reposo (fundador 2026-09-10:
+  // vive dentro de Earn → Managed vaults, en ventana anclable) — salvo con
+  // MANAGER_DESK_OPEN, el interruptor del hackathon (ver MANAGER_NAV).
+  // Con el hub del hackathon abierto (HACKATHON_NAV), Manager desk y Exchange
+  // viven en su grupo y no se repiten aquí; cerrado, vuelven a sus filas.
+  const hubNav = useMemo(() => hackathonNav(isAdmin), [isAdmin]);
   const nav = useMemo(
-    () => (isAdmin ? [...navForProduct(productMode), ADMIN_NAV] : navForProduct(productMode)),
-    [productMode, isAdmin],
+    () => [
+      ...primaryNav(),
+      ...(hubNav.length === 0 && MANAGER_DESK_OPEN ? [MANAGER_NAV] : []),
+      ...(hubNav.length === 0 && HACKATHON_HUB_OPEN ? [EXCHANGE_NAV] : []),
+      ...(isAdmin ? [ADMIN_NAV] : []),
+    ],
+    [isAdmin, hubNav],
   );
-  const destinations = useMemo(() => destinationsForProduct(productMode, isAdmin), [productMode, isAdmin]);
+  const destinations = useMemo(() => destinationsFor(isAdmin), [isAdmin]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
@@ -277,7 +456,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
         // astryum→legacy (lobby or account), or hopping between chambers.
         setCrossing({
           direction: 'to-legacy',
-          label: activeGoverned ? activeGoverned.label || activeGoverned.address.slice(0, 10) : undefined,
+          // Jamás la dirección como nombre (2026-08-22): un Legacy sin
+          // bautizar cruza como 'Legacy' a secas.
+          label: activeGoverned ? activeGoverned.label || t('Legacy') : undefined,
           quorum:
             typeof activeGoverned?.quorum === 'number' && typeof activeGoverned?.memberCount === 'number'
               ? `${activeGoverned.quorum}/${activeGoverned.memberCount}`
@@ -326,6 +507,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <Sidebar
           pathname={pathname}
           nav={nav}
+          hubNav={hubNav}
+          collapsed={collapsed}
+          collapsible={docked}
+          onToggleCollapsed={() => setSidebarOpen(!sidebarOpen)}
           mobileOpen={mobileOpen}
           onClose={() => setMobileOpen(false)}
           onOpenPalette={() => setPaletteOpen(true)}
@@ -333,6 +518,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
           refreshIntents={refreshIntents}
           vaultClaims={vaultClaims}
           refreshClaims={refreshClaims}
+          vaultClaimsUnreadable={vaultClaimsUnreadable}
+          managedTickets={managedTickets}
+          refreshManagedTickets={refreshManagedTickets}
         />
 
         {/* Slim mobile-only bar — the desktop header is gone for an immersive shell. */}
@@ -342,7 +530,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
           intentsWaiting={intentsWaiting + claimsWaiting}
         />
 
-        <div className="lg:ml-64">
+        <div
+          style={{ ['--dock-w' as never]: `${dockWidth}px` }}
+          // El margen se mueve con la MISMA curva y duración que el ancho del
+          // sidebar (500ms, la salida expresiva de la casa): los dos bordes
+          // del contenido se desplazan a la vez, como una sola pieza. En
+          // movimiento Mínimo, ninguno de los dos anima.
+          className={`${
+            dockResizing
+              ? ''
+              : 'transition-[margin] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] [html[data-motion=minimal]_&]:transition-none'
+          } ${docked ? `${collapsed ? 'lg:ml-[72px]' : 'lg:ml-64'} lg:mr-[var(--dock-w)]` : 'lg:ml-64'}`}
+        >
           {/* GoverningBar UNMOUNTED (founder 2026-07-18): the dashboard color
               (data-authority palette) already declares governed mode — the
               strip was redundant. Preserved at components/authority/GoverningBar.tsx. */}
@@ -355,59 +554,42 @@ export default function AppShell({ children }: { children: ReactNode }) {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="px-4 md:px-8 py-8 max-w-7xl mx-auto"
           >
-            {legacyLobby ? (
-              authoritiesLoading ? (
-                // While the registry resolves, show neither product's data —
-                // a personal flash under the Legacy shell is the exact bug.
-                <div className="flex justify-center py-24" role="status" aria-label={t('Loading')}>
-                  <Loader2 size={20} className="animate-spin text-ink/40" />
-                </div>
-              ) : (
-                <EmptyState
-                  icon={<Landmark size={20} />}
-                  title={t('No Legacy constituted yet')}
-                  hint={t(
-                    'This is the Legacy side of Astryum: it shows a council-governed account, and this profile has none yet. Personal capital stays on the Personal side — nothing is shown here until a council exists.',
-                  )}
-                  action={
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <PrimaryButton onClick={() => router.push('/app/legacy?constitute=1')}>
-                        <Landmark size={14} /> {t('Constitute a Legacy')}
-                      </PrimaryButton>
-                      <GhostButton onClick={() => setActiveAuthorityId(OVERVIEW_AUTHORITY_ID)}>
-                        {t('Back to Personal')}
-                      </GhostButton>
-                    </div>
-                  }
-                />
-              )
-            ) : (
-              children
-            )}
+            {/* El LOBBY murió con la selección de producto (2026-08-22): no
+                existe ya un estado «legacy sin cuenta» fuera de la propia
+                pantalla de Legacy, así que ninguna página compartida tiene que
+                esconder los datos de nadie. La invitación a constituir vive
+                donde toca — en la banda del Summary y en /app/legacy. */}
+            {children}
           </motion.main>
         </div>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} destinations={destinations} />
       <OnboardingModal />
+      <LegacyAccessGuard />
+      {/* La operación de estrategia, montada POR ENCIMA de las rutas (2026-08-25):
+          navegar con ella abierta no la mata — es el punto del anclaje. */}
+      <EarnOperationHost />
       {/* The signature ceremony is INLINE now (founder 2026-08-08: the
           full-screen blur takeover felt bolted-on) — SignedMark plays inside
           each operation's own progress view: SettlementIndicator (EVM/Flare)
           and XamanQRModal's signed cover (XRPL). Nothing shell-level left. */}
 
-      <AnimatePresence>
-        {crossing && (
-          <AuthorityCrossing
-            key={crossing.key}
-            direction={crossing.direction}
-            label={crossing.label}
-            quorum={crossing.quorum}
-            quorumMet={crossing.quorumMet}
-            members={crossing.members}
-            onDone={() => setCrossing(null)}
-          />
-        )}
-      </AnimatePresence>
+      {/* SIN <AnimatePresence>: la travesía se funde sola (ver su cabecera).
+          Como hijo directo de una frontera de presencia no se desmontaba
+          nunca — el mismo defecto que congelaba la página tras firmar
+          (LegalAcceptGate). */}
+      {crossing && (
+        <AuthorityCrossing
+          key={crossing.key}
+          direction={crossing.direction}
+          label={crossing.label}
+          quorum={crossing.quorum}
+          quorumMet={crossing.quorumMet}
+          members={crossing.members}
+          onDone={() => setCrossing(null)}
+        />
+      )}
     </div>
   );
 }
@@ -447,9 +629,46 @@ function MobileBar({
   );
 }
 
+/** Los hechos vivos del raíl colapsado: firmas que esperan (badge con
+ *  contador → /app/intents) y operaciones liquidándose (pulso). Leen las
+ *  MISMAS fuentes que las tarjetas grandes — jamás una segunda verdad. */
+function RailLiveIndicators({ waiting, t }: { waiting: number; t: (s: string) => string }) {
+  const { resumed } = useResumePendingSettlements();
+  const inFlight = resumed.filter((r) => r.state.status === 'pending' || r.state.status === 'stalled').length;
+  if (waiting <= 0 && inFlight <= 0) return null;
+  return (
+    <div className="mb-1 flex flex-col items-center gap-1">
+      {waiting > 0 && (
+        <Link
+          href="/app/intents"
+          title={`${waiting} ${t('waiting for your signature')}`}
+          className="relative grid h-10 w-10 place-items-center rounded-xl text-volt bg-volt/10 border border-volt/25 hover:bg-volt/20 transition-colors"
+        >
+          <Clock className="h-[18px] w-[18px]" strokeWidth={1.7} />
+          <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-volt px-1 font-mono text-[9px] font-semibold text-volt-ink">
+            {waiting}
+          </span>
+        </Link>
+      )}
+      {inFlight > 0 && (
+        <span
+          title={`${inFlight} ${t('operations settling on-chain')}`}
+          className="grid h-10 w-10 place-items-center rounded-xl border border-ink/10 bg-ink/[0.03] text-volt"
+        >
+          <Loader2 className="h-[16px] w-[16px] animate-spin" strokeWidth={1.7} />
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Sidebar({
   pathname,
   nav,
+  hubNav = [],
+  collapsed = false,
+  collapsible = false,
+  onToggleCollapsed,
   mobileOpen,
   onClose,
   onOpenPalette,
@@ -457,10 +676,20 @@ function Sidebar({
   refreshIntents,
   vaultClaims,
   refreshClaims,
+  vaultClaimsUnreadable = [],
+  managedTickets,
+  refreshManagedTickets,
 }: {
   pathname: string;
+  /** Anclaje (dockStore): el raíl se encoge a solo-iconos con transición. */
+  collapsed?: boolean;
+  /** Hay algo anclado: se ofrece el botón de plegar/desplegar (2026-09-10). */
+  collapsible?: boolean;
+  onToggleCollapsed?: () => void;
   /** Primary rows for the CURRENT product mode (Wallets↔Legacy swap). */
   nav: NavLeaf[];
+  /** El hub del hackathon (HACKATHON_NAV) — vacío cuando está cerrado. */
+  hubNav?: NavLeaf[];
   mobileOpen: boolean;
   onClose: () => void;
   onOpenPalette: () => void;
@@ -470,6 +699,11 @@ function Sidebar({
   /** Money in flight — queued vault exits of the active authority. */
   vaultClaims: VaultClaimEntry[];
   refreshClaims: () => void;
+  /** it. 31 — owners whose queue the watcher could not read on its last tick (the tray says so, never «nothing»). */
+  vaultClaimsUnreadable?: VaultClaimsUnreadable[];
+  /** Tickets de salida pendientes de managed vaults — «pending to withdraw». */
+  managedTickets: ManagedTicket[];
+  refreshManagedTickets: () => void;
 }) {
   const { t } = useT();
   // The brand dresses for the product (founder 2026-08-08): blue lockup in Legacy.
@@ -481,9 +715,11 @@ function Sidebar({
         <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} />
       ) : null}
       <aside
-        className={`fixed top-0 left-0 z-50 h-screen w-64 flex flex-col border-r border-ink/[0.06] bg-[var(--shell-panel)] backdrop-blur-xl transform transition-transform duration-200 lg:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        // overflow-hidden: mientras el ancho anima, las etiquetas del menú
+        // completo no se asoman por fuera del raíl. En Mínimo, sin transición.
+        className={`app-sidebar fixed top-0 left-0 z-50 h-screen flex flex-col overflow-hidden border-r border-ink/[0.06] bg-[var(--shell-panel)] backdrop-blur-xl transform transition-[transform,width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] [html[data-motion=minimal]_&]:transition-none lg:translate-x-0 ${
+          collapsed ? 'w-[72px]' : 'w-64'
+        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* soft seam down the right edge — gold in the warm shell, steel/indigo
             when operating a governed account (data-authority theme). */}
@@ -493,27 +729,123 @@ function Sidebar({
           aria-hidden
         />
 
-        {/* ONE brand card: the Astryum lockup with the product toggle inside
-            (founder 2026-07-18) — it reads as "Astryum Personal" / "Astryum
-            Legacy", the brand naming both products. Took the slot of the old
-            Overview switcher (AuthoritySwitcher, preserved); the dashboard's
-            color says the rest. */}
-        <div className="relative px-3 pt-4 pb-3">
-          <div className="rounded-2xl border border-ink/[0.07] bg-ink/[0.03] p-3">
-            <Link href="/app" className="block group" aria-label="Astryum">
+        {collapsed ? (
+          /* ── EL RAÍL COMPACTO (anclaje 2026-08-25): solo los iconos — la
+             operación anclada manda y el menú se aparta sin desaparecer.
+             Deliberadamente NO intenta encoger las tarjetas (To sign,
+             settlements, cuenta): a 72px serían ruido; vuelven al soltar. ── */
+          <div className="shell-reveal flex h-full flex-col items-center gap-1 py-4">
+            <span className="mb-2 grid h-9 w-9 place-items-center" aria-hidden>
+              {/* El asteroide REAL de la marca (fundador 2026-08-25: «no te
+                  inventes el logo — pon el asteroide que lo tienes en png»);
+                  el mismo juego oro/índigo que el lockup del sidebar. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={brandLogo}
-                alt="Astryum"
-                className="w-full h-auto max-h-16 object-contain transition-transform group-hover:scale-[1.02]"
+                src={brandLogo === BRAND_LOGO_LEGACY ? '/astryum-mark-azul-transparente.png' : '/astryum-mark-gold-glow.png'}
+                alt=""
+                className="h-7 w-7 object-contain"
               />
+            </span>
+            {/* Desplegar el menú completo al lado de la operación anclada —
+                la preferencia se recuerda (fundador 2026-09-10). */}
+            {collapsible && onToggleCollapsed && (
+              <button
+                onClick={onToggleCollapsed}
+                title={t('Expand sidebar')}
+                aria-label={t('Expand sidebar')}
+                className="mb-1 grid h-8 w-8 place-items-center rounded-lg text-ink/35 transition-colors hover:bg-ink/5 hover:text-ink"
+              >
+                <PanelLeftOpen className="h-4 w-4" strokeWidth={1.7} />
+              </button>
+            )}
+            <nav className="flex flex-1 flex-col items-center gap-1">
+              {nav.map((n) => {
+                const Active = isActive(pathname, n.href);
+                const Icon = n.icon;
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    title={t(n.label)}
+                    className={`grid h-10 w-10 place-items-center rounded-xl transition-colors ${
+                      Active ? 'bg-volt/15 text-volt' : 'text-ink/45 hover:bg-ink/5 hover:text-ink'
+                    }`}
+                  >
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} />
+                  </Link>
+                );
+              })}
+              {hubNav.length > 0 && (
+                <>
+                  {/* el hub del hackathon, separado por un filete y en dorado tenue */}
+                  <span aria-hidden className="my-1 h-px w-6 bg-volt/20" />
+                  {hubNav.map((n) => {
+                    const Active = isActive(pathname, n.href);
+                    const Icon = n.icon;
+                    return (
+                      <Link
+                        key={n.href}
+                        href={n.href}
+                        title={`${t(HACKATHON_HUB_LABEL)} · ${t(n.label)}`}
+                        className={`grid h-10 w-10 place-items-center rounded-xl transition-colors ${
+                          Active ? 'bg-volt/15 text-volt' : 'text-volt/60 hover:bg-volt/10 hover:text-volt'
+                        }`}
+                      >
+                        <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} />
+                      </Link>
+                    );
+                  })}
+                </>
+              )}
+            </nav>
+            {/* Lo importante NO se calla al colapsar (fundador 2026-08-26:
+                «si hay una operación en marcha quiero que se vea, o una firma
+                pendiente») — las tarjetas grandes no caben a 72px, pero sus
+                HECHOS sí: el contador de firmas (va a /app/intents, la página
+                completa de siempre) y el pulso de operaciones en vuelo. */}
+            <RailLiveIndicators waiting={waitingIntents.length} t={t} />
+            <button
+              onClick={openProductAssistant}
+              title={t('Co-pilot')}
+              className="grid h-10 w-10 place-items-center rounded-xl bg-volt text-volt-ink shadow-[0_6px_18px_-6px_hsl(var(--volt)/0.55)] hover:brightness-105 transition-all"
+            >
+              <MessageCircleQuestion className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </button>
+            <Link
+              href={SETTINGS_NAV.href}
+              title={t(SETTINGS_NAV.label)}
+              className={`mt-1 grid h-10 w-10 place-items-center rounded-xl transition-colors ${
+                isActive(pathname, SETTINGS_NAV.href) ? 'bg-volt/15 text-volt' : 'text-ink/45 hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <SettingsIcon className="h-[18px] w-[18px]" strokeWidth={1.7} />
             </Link>
-            {/* data-tour anchor: the tour's "who am I operating as" step now
-                points at the product toggle (the switcher slot it replaced). */}
-            <div className="mt-2.5" data-tour="switcher">
-              <ProductToggle />
-            </div>
           </div>
+        ) : (
+          <div className="shell-reveal flex h-full flex-col">
+
+        {/* The brand mark, unboxed (founder 2026-08-16: with the ProductToggle
+            gone the bordered card read as an empty frame — and the global
+            gold :focus-visible outline drew a second rectangle inside it
+            after a click). The lockup now breathes on the panel itself; the
+            link is rounded so the rare keyboard-focus ring follows its shape
+            instead of boxing the logo. It links to /app/home — the switcher
+            surface (a personal wallet turns the shell gold, a Legacy card
+            indigo; ProductToggle preserved at components/authority/, its
+            access walk-back lives on as LegacyAccessGuard). */}
+        <div className="relative px-4 pt-5 pb-2">
+          <Link
+            href="/app/home"
+            className="block group rounded-xl focus-visible:outline-offset-4"
+            aria-label="Astryum"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={brandLogo}
+              alt="Astryum"
+              className="w-full h-auto max-h-14 object-contain transition-transform group-hover:scale-[1.02]"
+            />
+          </Link>
           <button
             onClick={onClose}
             className="lg:hidden absolute top-3 right-2 text-ink/60 hover:text-ink"
@@ -521,6 +853,17 @@ function Sidebar({
           >
             <X className="w-5 h-5" />
           </button>
+          {/* Volver al raíl con la operación anclada (fundador 2026-09-10). */}
+          {collapsible && onToggleCollapsed && (
+            <button
+              onClick={onToggleCollapsed}
+              title={t('Collapse sidebar')}
+              aria-label={t('Collapse sidebar')}
+              className="hidden lg:grid absolute top-3 right-2 h-8 w-8 place-items-center rounded-lg text-ink/35 transition-colors hover:bg-ink/5 hover:text-ink"
+            >
+              <PanelLeftClose className="h-4 w-4" strokeWidth={1.7} />
+            </button>
+          )}
         </div>
 
         {/* No search row (founder 2026-08-08: "quita el boton de buscar, que no
@@ -540,12 +883,42 @@ function Sidebar({
             ))}
           </ul>
 
+          {/* EL HUB DEL HACKATHON (fundador 2026-09-12): las puertas de la
+              entrega de XRPL Commons, separadas del menú de siempre por un
+              filete y una cabecera propia, para que un juez las vea al
+              entrar. Temporal: lib/nav/hackathonHub.ts. */}
+          {hubNav.length > 0 && (
+            <div className="mt-3 border-t border-volt/15 pt-3" data-tour="hackathon-hub">
+              <div className="mb-1 flex items-center gap-1.5 px-3">
+                <Sparkles className="h-3 w-3 shrink-0 text-volt/70" strokeWidth={1.8} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-volt/70">
+                  {t(HACKATHON_HUB_LABEL)}
+                </span>
+                <span className="ml-auto rounded-full border border-volt/25 bg-volt/[0.08] px-1.5 py-px font-mono text-[8.5px] uppercase tracking-[0.12em] text-volt/80">
+                  XRPL
+                </span>
+              </div>
+              <ul className="space-y-0.5">
+                {hubNav.map((n) => (
+                  <NavRow key={n.href} item={n} active={isActive(pathname, n.href)} onClick={onClose} />
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* LA ZONA DE NOTIFICACIONES (fundador 2026-09-11): en reposo, un
+              marcador mudo («Notifications»); con algo que firmar, la tarjeta
+              con su punto que respira; con una operación liquidándose, la de
+              SidebarSettlements. Un solo sitio, una sola cosa a la vez. */}
           <div className="mt-3 pt-3 border-t border-ink/[0.06]">
             <SidebarIntentsCard
               waiting={waitingIntents}
               refresh={refreshIntents}
               claims={vaultClaims}
               refreshClaims={refreshClaims}
+              claimsUnreadable={vaultClaimsUnreadable}
+              managedTickets={managedTickets}
+              refreshManagedTickets={refreshManagedTickets}
               onBeforeOpen={onClose}
             />
             {/* In-flight operations live right under "To sign" (founder
@@ -584,6 +957,9 @@ function Sidebar({
           </ul>
           <AccountCard />
         </div>
+
+          </div>
+        )}
       </aside>
     </>
   );
@@ -601,7 +977,7 @@ function NavRow({
   /** Small waiting-count badge (F3-entrega) — only the "Intents" row passes this today. Omitted/0 renders nothing. */
   badge?: number;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const Icon = item.icon;
   return (
     <li className="relative">
@@ -610,7 +986,7 @@ function NavRow({
         onClick={onClick}
         data-tour={`nav-${item.href === '/app' ? 'summary' : item.href.split('/').pop()}`}
         aria-current={active ? 'page' : undefined}
-        className={`group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-200 ${
+        className={`app-nav-row group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-200 ${
           active ? 'bg-volt/[0.10] text-ink' : 'text-ink/60 hover:text-ink hover:bg-ink/[0.04]'
         }`}
       >
@@ -618,7 +994,7 @@ function NavRow({
         {active ? (
           <motion.span
             layoutId="nav-active-rail"
-            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-volt"
+            className="app-nav-rail absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-volt"
             transition={{ type: 'spring', stiffness: 420, damping: 34 }}
           />
         ) : null}
@@ -628,7 +1004,7 @@ function NavRow({
           }`}
           strokeWidth={1.6}
         />
-        <span className="flex-1 transition-transform duration-200 group-hover:translate-x-0.5">{t(item.label)}</span>
+        <span className="flex-1 transition-transform duration-200 group-hover:translate-x-0.5">{leafLabel(item, lang, t)}</span>
         {badge ? (
           <span
             className="shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none shadow-[0_0_10px_rgba(239,68,68,0.45)]"
@@ -739,7 +1115,7 @@ function CommandPalette({
   destinations: Destination[];
 }) {
   const router = useRouter();
-  const { t: tr } = useT();
+  const { t: tr, lang } = useT();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -748,9 +1124,12 @@ function CommandPalette({
     const query = q.trim().toLowerCase();
     if (!query) return destinations;
     return destinations.filter((n) =>
-      [n.label, tr(n.label), String(n.groupLabel), tr(String(n.groupLabel))].some((s) =>
-        s.toLowerCase().includes(query),
-      ),
+      // `labelEs` joins the haystack or the capital-at-work row would be
+      // unreachable by its Spanish name — the one row whose translation does
+      // not live in dict.ts, so `tr(n.label)` cannot find it.
+      [n.label, n.labelEs ?? '', tr(n.label), String(n.groupLabel), tr(String(n.groupLabel))]
+        .filter(Boolean)
+        .some((s) => s.toLowerCase().includes(query)),
     );
   }, [q, tr, destinations]);
 
@@ -838,7 +1217,7 @@ function CommandPalette({
                         }`}
                       >
                         <Icon className={`w-4 h-4 shrink-0 ${on ? 'text-volt' : 'text-ink/45'}`} strokeWidth={1.5} />
-                        <span className="flex-1 text-sm">{tr(r.label)}</span>
+                        <span className="flex-1 text-sm">{leafLabel(r, lang, tr)}</span>
                         <span className="text-[10px] uppercase tracking-widest text-ink/30">{tr(String(r.groupLabel))}</span>
                       </button>
                     </li>

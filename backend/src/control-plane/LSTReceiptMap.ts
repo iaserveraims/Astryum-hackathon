@@ -41,6 +41,9 @@ export interface DeduplicatablePosition {
   asset: string;   // token symbol or address
   amountUSD: number;
   kind: string;    // 'STAKE' | 'SUPPLY' | 'FREE' | ...
+  /** Cantidad en unidades humanas. Una fila recortada aquí deja de
+   *  corresponder a un saldo real, así que se anula — ver más abajo. */
+  qty?: string | null;
   protocolId?: string;
   /** `external: true` marks a row from an indexer (CoinStats/DeBank/on-chain
    *  multichain reader). Only those can be the double-count this file exists
@@ -105,9 +108,14 @@ export function deduplicateLSTPositions<T extends DeduplicatablePosition>(
         receiptCoverage[sym] -= p.amountUSD;
         continue;
       }
-      // Partially covered — reduce amount to the uncovered portion
+      // Partially covered — reduce amount to the uncovered portion.
+      // La CANTIDAD se anula junto al valor (14-sep-2026): el resto en dólares
+      // ya no se corresponde con el saldo que reportó el indexador, y dejar la
+      // cantidad entera al lado de un valor recortado hace que la fila no
+      // cuadre. Sin `qty`, la pantalla la deriva de valor ÷ precio — que es
+      // exactamente la porción no cubierta.
       receiptCoverage[sym] = 0;
-      result.push({ ...p, amountUSD: p.amountUSD - covered });
+      result.push({ ...p, amountUSD: p.amountUSD - covered, qty: null });
     } else {
       result.push(p);
     }

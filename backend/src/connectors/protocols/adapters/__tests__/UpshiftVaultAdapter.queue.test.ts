@@ -19,10 +19,17 @@ const EARNXRP_TOKEN = '0xE533E447fD7720b2F8654da2B1953Efa06b60bfA';
 const WALLET = '0x000000000000000000000000000000000000abcd';
 
 /** Epoch the vault is serving, and the shares queued per epoch day (ISO). */
-const state: { lpBalance: bigint; served: [number, number, number]; queued: Record<string, bigint> } = {
+const state: {
+  lpBalance: bigint;
+  served: [number, number, number];
+  queued: Record<string, bigint>;
+  /** it. 31 — epoch days whose `getBurnableAmountByReceiver` answers 429. */
+  down: Set<string>;
+} = {
   lpBalance: 0n,
   served: [2026, 8, 1],
   queued: {},
+  down: new Set(),
 };
 
 jest.mock('ethers', () => {
@@ -44,8 +51,10 @@ jest.mock('ethers', () => {
         0n,
       ];
       this.lagDuration = async () => 86_400n; // earnXRP: 1 day
-      this.getBurnableAmountByReceiver = async (y: bigint, m: bigint, d: bigint) =>
-        state.queued[iso(y, m, d)] ?? 0n;
+      this.getBurnableAmountByReceiver = async (y: bigint, m: bigint, d: bigint) => {
+        if (state.down.has(iso(y, m, d))) throw new Error('could not coalesce error (eth_call: 429 Too Many Requests)');
+        return state.queued[iso(y, m, d)] ?? 0n;
+      };
     }
   }
   return { ...actual, ethers: { ...actual.ethers, Contract: FakeContract } };
@@ -66,6 +75,7 @@ beforeEach(() => {
   state.lpBalance = 0n;
   state.served = [2026, 8, 1];
   state.queued = {};
+  state.down = new Set();
 });
 
 describe('UpshiftVaultAdapter — epoch withdrawal queue', () => {
@@ -111,5 +121,28 @@ describe('UpshiftVaultAdapter — epoch withdrawal queue', () => {
 
   it('nothing held and nothing queued → no positions', async () => {
     expect(await new UpshiftVaultAdapter().discoverPositions(WALLET)).toEqual([]);
+  });
+
+  /**
+   * it. 31 — the `.catch(() => 0n)` on `getBurnableAmountByReceiver` sat in the
+   * same function where it. 29 removed the one on `lagDuration`. A 429 on the
+   * day that HELD the queued exit read as «nothing queued that day»: the row
+   * vanished and the LP balance next to it looked complete. An unread day now
+   * rises; the engine drops the adapter from THIS sweep and names it.
+   */
+  it('a 429 on the epoch day that holds the queued exit RISES — never «nothing queued that day»', async () => {
+    state.lpBalance = 40_000_000n;
+    state.queued['2026-08-02'] = 100_000_000n;
+    state.down.add('2026-08-02');
+
+    // Before it. 31: resolved to [SUPPLY] only — the 100 shares in flight gone.
+    await expect(new UpshiftVaultAdapter().discoverPositions(WALLET)).rejects.toThrow(/UPSHIFT_QUEUE_UNREADABLE/);
+  });
+
+  it('CONTROL — with every day answering, the same fixture lists SUPPLY and CLAIM', async () => {
+    state.lpBalance = 40_000_000n;
+    state.queued['2026-08-02'] = 100_000_000n;
+    const kinds = (await new UpshiftVaultAdapter().discoverPositions(WALLET)).map((p) => p.kind);
+    expect(kinds).toEqual(['SUPPLY', 'CLAIM']);
   });
 });

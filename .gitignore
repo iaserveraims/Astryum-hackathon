@@ -64,3 +64,6 @@ contracts/broadcast/
 # dispositivo, marca/modelo y fecha). Las versiones servidas viven ya
 # despojadas en frontend/public/founders/ — los originales NUNCA entran en git.
 assets/
+
+# env backups (predeploy snapshots) — secretos, jamas al repo
+.env.bak*

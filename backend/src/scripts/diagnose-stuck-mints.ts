@@ -34,7 +34,7 @@ import {
   getNonce,
 } from '../connectors/protocols/flare/FlareSmartAccountService';
 
-const EXECUTOR = '0xD8767C3C4dC0A1E13F23368B172a5ff78B54CecE';
+const EXECUTOR = process.env.FLARE_EXECUTOR_ADDRESS ?? '0xBC439340cEB361F55F81d65a0C6cDfb1E7672821';
 const REGISTRY = '0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019';
 
 const XRP_PAYMENT_RESPONSE_TUPLE =

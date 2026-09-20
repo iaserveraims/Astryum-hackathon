@@ -30,6 +30,8 @@ function keyOf(addresses: string[]): string {
 }
 
 // Dedup concurrent loads of the same wallet set (several surfaces mount at once).
+// Belongs to THIS holder only: a run here writes the authority slot and nothing
+// else. The network itself is shared one level down (loadAggregatedPortfolio).
 const inflight = new Map<string, Promise<void>>();
 
 interface PortfolioState {
@@ -105,9 +107,94 @@ export const usePortfolioStore = create<PortfolioState>()((set, get) => ({
   clear: () => set({ key: null, data: null, loading: false, refreshing: false, error: null, fetchedAt: 0 }),
 }));
 
+/* ------------------------------------------------------------------------ */
+/* Per-set entries — aggregates for ARBITRARY wallet sets (fleet scopes).    */
+/*                                                                          */
+/* The slot above holds the ACTIVE AUTHORITY's aggregate and is refreshed   */
+/* by the shell's 90s poller — pointing it at a different set would get     */
+/* clobbered on the next tick (the bug the Summary's fleet-scope selector   */
+/* would have shipped with). These entries live BESIDE the slot: keyed by   */
+/* wallet set, same loader, their OWN inflight dedupe, never touched by the */
+/* poller. Read through useAggregatedFor().                                 */
+/* ------------------------------------------------------------------------ */
+
+// Su PROPIO mapa, no el del hueco de la autoridad (fundador 19-sep: «entro en
+// Home, tarda mucho y no carga; voy a Portfolio, vuelvo y aparece todo»). En
+// vista general los dos holders piden la MISMA flota, así que la misma clave;
+// con un mapa compartido, el que llegaba segundo devolvía la promesa del
+// primero sin escribir nada en su propio estado. En Home llega primero el
+// PortfolioSyncBadge (hijo: sus efectos corren antes que los del padre), así
+// que la entrada de la flota se quedaba vacía para siempre — el efecto de
+// useAggregatedFor no se re-dispara con la clave y needsLoad iguales. La red
+// no se duplica por separarlos: loadAggregatedPortfolio ya comparte el vuelo.
+const entryInflight = new Map<string, Promise<void>>();
+
+export interface PortfolioEntry {
+  data: AggregatedPortfolio | null;
+  loading: boolean;
+  error: string | null;
+  fetchedAt: number;
+}
+
+interface PortfolioEntriesState {
+  entries: Record<string, PortfolioEntry>;
+  loadFor: (addresses: string[], opts?: { force?: boolean }) => Promise<void>;
+  dropEntries: () => void;
+}
+
+export const usePortfolioEntries = create<PortfolioEntriesState>()((set, get) => ({
+  entries: {},
+
+  loadFor: async (addresses, opts = {}) => {
+    if (addresses.length === 0) return;
+    const key = keyOf(addresses);
+    const st = get().entries[key];
+    const fresh = st?.data != null && Date.now() - st.fetchedAt < FRESH_MS;
+    if (fresh && !opts.force) return;
+    const existing = entryInflight.get(key);
+    if (existing && !opts.force) return existing;
+
+    const patch = (p: Partial<PortfolioEntry>) =>
+      set((s) => {
+        const base: PortfolioEntry = s.entries[key] ?? { data: null, loading: false, error: null, fetchedAt: 0 };
+        return { entries: { ...s.entries, [key]: { ...base, ...p } } };
+      });
+
+    const cold = st?.data == null;
+    patch(cold ? { loading: true, error: null } : { error: null });
+
+    const run = (async () => {
+      try {
+        const result = await loadAggregatedPortfolio(
+          addresses,
+          cold ? (partial: AggregatedPortfolio) => patch({ data: partial }) : undefined,
+        );
+        patch({ data: result, fetchedAt: Date.now(), loading: false, error: null });
+      } catch (e) {
+        patch({ loading: false, error: e instanceof Error ? e.message : String(e) });
+      } finally {
+        entryInflight.delete(key);
+      }
+    })();
+
+    entryInflight.set(key, run);
+    return run;
+  },
+
+  dropEntries: () => set({ entries: {} }),
+}));
+
+/** The store key for a wallet set — exported so hooks subscribe per-set. */
+export function portfolioKeyOf(addresses: string[]): string {
+  return keyOf(addresses);
+}
+
 // After a position-changing action (open/close/withdraw), force a fresh scan of
 // the current wallet set so the dashboard reflects the new state immediately.
+// Scoped entries are dropped (not re-fetched) — the next mounted reader
+// reloads its own set, so we never fan out N loads for sets nobody is viewing.
 setPortfolioInvalidateHandler(() => {
   const { key, load } = usePortfolioStore.getState();
   if (key) void load(key.split(','), { force: true });
+  usePortfolioEntries.getState().dropEntries();
 });

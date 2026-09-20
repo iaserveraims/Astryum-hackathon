@@ -89,8 +89,41 @@ const tx = {
 /** Active tx-bindings, so DELETE /mine/:id can be asserted on. */
 const bindingRows: { id: string; userId: string; address: string; isActive: boolean }[] = [];
 
+/**
+ * The live session /connect now proves INSIDE its own transaction (productizer
+ * it. 16, 4.1). Flip `live` to simulate a takeover that commits while the
+ * request is in flight — `TrialCapService` alone is a pricing round-trip.
+ */
+const live = {
+  userRows: 1,
+  user: null as unknown,
+  session: null as unknown,
+};
+function resetLiveSession() {
+  live.userRows = 1;
+  live.user = { isActive: true, preferences: null };
+  live.session = {
+    id: 's1',
+    userId: 'u1',
+    isActive: true,
+    createdAt: new Date(Date.now() - 60_000),
+    expiresAt: new Date(Date.now() + 3_600_000),
+  };
+}
+resetLiveSession();
+
+const liveSessionModels = {
+  user: {
+    updateMany: async () => ({ count: live.userRows }),
+    findUnique: async () => live.user,
+  },
+  session: { findUnique: async () => live.session },
+};
+Object.assign(tx, liveSessionModels);
+
 const prismaFake = {
   $transaction: async (fn: (t: typeof tx) => unknown) => fn(tx),
+  ...liveSessionModels,
   wallet: {
     // PATCH and DELETE /mine/:id read the row outside the transaction.
     findFirst: async ({ where }: any) => {
@@ -157,6 +190,7 @@ beforeEach(() => {
   rows.length = 0;
   bindingRows.length = 0;
   seq = 0;
+  resetLiveSession();
 });
 
 describe('POST /api/wallets/connect — one primary per ecosystem', () => {
@@ -245,6 +279,39 @@ describe('POST /api/wallets/connect — the ecosystem must match the address', (
     });
     expect(evm.status).toBe(200);
     expect(rows).toHaveLength(2);
+  });
+});
+
+/**
+ * productizer it. 16 (4.1) — a wallet row is a DESTINATION: the send modal
+ * pre-fills the primary of an ecosystem and the router picks it to sign with. A
+ * request that passed requireSiweAuth before an account takeover would otherwise
+ * land after it and make the intruder's address the owner's primary wallet,
+ * without a single signature from them.
+ */
+describe('POST /api/wallets/connect — a takeover in flight plants nothing', () => {
+  it.each([
+    ['the session was revoked', () => { (live.session as { isActive: boolean }).isActive = false; }],
+    ['the account is disabled (a quarantine row)', () => { live.user = { isActive: false, preferences: null }; }],
+    ['the user row is gone', () => { live.userRows = 0; }],
+    ['the session predates the credential epoch', () => {
+      const epoch = new Date().toISOString();
+      live.user = { isActive: true, preferences: { security: { credentialsEpoch: epoch, takeoverAt: epoch } } };
+      (live.session as { createdAt: Date }).createdAt = new Date(Date.now() - 3_600_000);
+    }],
+  ])('%s → 401 session_revoked and NO wallet row', async (_label, kill) => {
+    kill();
+    const res = await connectXrpl(XRPL_1);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('session_revoked');
+    // A readable English sentence, never a raw error chain (it. 16, 5.6).
+    expect(res.body.detail).toMatch(/session is no longer valid/i);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('a live session still connects (the guard is not a wall)', async () => {
+    expect((await connectXrpl(XRPL_1)).status).toBe(200);
+    expect(rows).toHaveLength(1);
   });
 });
 

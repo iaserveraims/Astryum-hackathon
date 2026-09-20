@@ -138,10 +138,16 @@ export function buildCagePositions(
 export async function cageStateFor(
   account: string,
 ): Promise<import('./LegacyVaultStateService').LegacyVaultState | null> {
+  // The resolver answers "no cage" instead of throwing, by contract (its own
+  // suite pins that for an unset stack and an unreadable bridge), so this read
+  // needs no guard of its own — and a failure inside it can no longer be
+  // mistaken here for "this council has nothing".
+  const { cageForCouncil } = await import('./LegacyCageResolver');
+  const cage = await cageForCouncil(account);
+  // Not this account's cage to read — the ordinary answer for every wallet
+  // that is not a council. Not an error, so nothing is said.
+  if (!cage) return null;
   try {
-    const { cageForCouncil } = await import('./LegacyCageResolver');
-    const cage = await cageForCouncil(account);
-    if (!cage) return null;
     const cached = vaultStateCache.get(cage.vault.toLowerCase());
     if (cached && Date.now() - cached.at < VAULT_STATE_TTL_MS) return cached.state;
     const { readVaultState } = await import('./LegacyVaultStateService');
@@ -149,9 +155,27 @@ export async function cageStateFor(
     const state = await readVaultState(cage.vault);
     vaultStateCache.set(cage.vault.toLowerCase(), { at: Date.now(), state });
     return state;
-  } catch {
+  } catch (e) {
+    // A cage we KNOW exists and could not read is not "no capital": returning
+    // null here removes real principal from net worth, the earning ring and My
+    // Assets, silently. The scan still survives it (a dashboard must not die
+    // because one RPC blinked) — but it stops being invisible.
+    warnUnreadableCage(account, cage.vault, (e as Error)?.message ?? String(e));
     return null;
   }
+}
+
+/** One line per cage that went unreadable, not one per portfolio scan. */
+const warnedUnreadable = new Set<string>();
+
+function warnUnreadableCage(account: string, vault: string, reason: string): void {
+  if (warnedUnreadable.has(vault.toLowerCase())) return;
+  warnedUnreadable.add(vault.toLowerCase());
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[LegacyCagePositions] cage ${vault} of council ${account} could not be read — its principal is MISSING ` +
+      `from this account's portfolio (not zero: unknown). Reason: ${reason}`,
+  );
 }
 
 /**

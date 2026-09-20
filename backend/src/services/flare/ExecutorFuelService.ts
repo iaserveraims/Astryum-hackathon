@@ -31,7 +31,7 @@ import { ethers } from 'ethers';
 import { ALLOWLIST } from '../../config/allowlist.config';
 import { resolveFxrpToken } from '../../connectors/protocols/flare/FlareDirectMintService';
 import { opsAlert, type AlertLevel } from '../OpsAlertService';
-import { kvGet, kvUpsert } from '../persistence/backgroundJobKv';
+import { kvGetStrict, kvUpsert } from '../persistence/backgroundJobKv';
 
 export type Log = (msg: string) => void;
 const noop: Log = (m) => console.log(m);
@@ -105,6 +105,15 @@ export async function executorAlert(
 /** Superado el presupuesto: reintentable cuando la ventana ruede — jamás permanent. */
 export class FeeBudgetExceeded extends Error {}
 
+/**
+ * it. 29 — EL LIBRO DE FEES DE HOY NO SE PUDO LEER. Subclase de
+ * FeeBudgetExceeded a propósito: para quien lo atrapa es lo mismo (DIFERIR,
+ * no aparcar, no contar), y se cura solo en cuanto la BD conteste. Lo que NO
+ * es, es un presupuesto entero: «no sé cuánto llevo gastado hoy» no restaura
+ * 120 FLR, los retiene.
+ */
+export class FeeLedgerUnreadable extends FeeBudgetExceeded {}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const feeLedger = { windowStart: 0, spentWei: 0n, alerted: false, warnedNearCap: false };
 
@@ -138,6 +147,12 @@ function rollWindow(now: number): void {
 // feeLedger.spentWei (ahora el gasto REAL del día, no el de este proceso).
 const FEE_LEDGER_JOB_TYPE = 'fee-ledger';
 let feeLedgerLoaded = false;
+/**
+ * it. 29 — true = la lectura del libro en el arranque FALLÓ (Postgres no
+ * contestó). Hasta que un reintento la complete, el presupuesto se trata
+ * como AGOTADO: un gasto que no pudimos leer no es un gasto de cero.
+ */
+let feeLedgerUnread = false;
 
 function persistFeeLedger(): void {
   // fire-and-forget: recordFeeSpend queda sync; bg-kv es best-effort (sin DB ⇒ no-op).
@@ -152,11 +167,45 @@ function persistFeeLedger(): void {
  * Restaura el gasto de fees acumulado desde la DB al arrancar (llamar UNA vez, antes de
  * que el executor pague ninguna attestation). Si la ventana persistida ya está caduca
  * (>24h) rollWindow la resetea. Idempotente. Sin DB ⇒ no-op (arranca limpio como antes).
+ *
+ * it. 29 — SE MARCA CARGADO DESPUÉS DE LEER, NO ANTES. La versión anterior
+ * ponía `feeLedgerLoaded = true` antes del `await`, y leía con `kvGet`, que
+ * devuelve `null` tanto si no hay fila como si Postgres falló. Un parpadeo de
+ * la BD en el arranque = `spentWei` a 0 y el tope de 120 FLR/día restaurado
+ * ENTERO para toda la vida del proceso, sin reintento y sin log — el mismo
+ * agujero del incidente de los 244 re-pagos, por otra puerta. Ahora:
+ *   · `kvGetStrict`: `null` significa sólo «la BD contestó y no hay fila».
+ *   · Un fallo de BD deja `feeLedgerLoaded = false` y levanta
+ *     `feeLedgerUnread`: `assertDailyFeeBudget` DIFIERE todo pago
+ *     (FeeLedgerUnreadable) y reintenta la carga en segundo plano, así que el
+ *     tope no se restaura y el proceso se cura solo cuando la BD vuelva.
  */
 export async function loadFeeLedger(now: number = Date.now()): Promise<void> {
   if (feeLedgerLoaded) return;
+  let p: Record<string, unknown> | null;
+  try {
+    p = await kvGetStrict(FEE_LEDGER_JOB_TYPE, 'id', 'global');
+  } catch (e) {
+    const first = !feeLedgerUnread;
+    feeLedgerUnread = true;
+    console.error(`[fee-ledger] no se pudo leer el libro de fees de hoy: ${(e as Error).message}`);
+    if (first) {
+      void executorAlert(
+        'critical',
+        'El libro de fees FDC de hoy NO se pudo leer de la BD al arrancar: hasta que la lectura conteste no se paga ' +
+          'ninguna attestation (el tope NO se restaura a ciegas). Se reintenta en cada intento de pago.',
+        {
+          key: 'fee-budget:ledger-unread',
+          runbook:
+            'Comprueba Postgres (Railway → base de producción). En cuanto responda, el siguiente 0xFE recarga el libro solo; ' +
+            'si la BD está bien y esto persiste, revisa DATABASE_URL del backend.',
+        },
+      );
+    }
+    return;
+  }
   feeLedgerLoaded = true;
-  const p = await kvGet(FEE_LEDGER_JOB_TYPE, 'id', 'global');
+  feeLedgerUnread = false;
   if (p && typeof p.windowStart === 'number' && typeof p.spentWei === 'string') {
     feeLedger.windowStart = p.windowStart;
     try {
@@ -198,6 +247,16 @@ export function assertDailyFeeBudget(
   now: number = Date.now(),
   reserveForOthersWei: bigint = 0n,
 ): void {
+  // it. 29 — un libro que no pudimos leer NO es un libro en blanco. Se
+  // difiere (misma familia que agotar el tope: reintentable, nada firmado) y
+  // se reintenta la carga sin bloquear a nadie; en cuanto la BD conteste,
+  // `feeLedgerUnread` cae y este guard vuelve a la aritmética normal.
+  if (feeLedgerUnread && !feeLedgerLoaded) {
+    void loadFeeLedger(now);
+    throw new FeeLedgerUnreadable(
+      'el libro de fees FDC de hoy no se pudo leer de la BD — no se paga hasta que la lectura conteste (el tope no se restaura a ciegas); se reintenta',
+    );
+  }
   rollWindow(now);
   const budgetWei = ethers.parseEther(String(budgetFlr()));
   const effectiveWei = budgetWei > reserveForOthersWei ? budgetWei - reserveForOthersWei : 0n;
@@ -297,6 +356,7 @@ export function _resetFeeLedgerForTests(): void {
   feeLedger.spentWei = 0n;
   feeLedger.alerted = false;
   feeLedgerLoaded = false;
+  feeLedgerUnread = false;
   marginState.warnedAt = 0;
 }
 

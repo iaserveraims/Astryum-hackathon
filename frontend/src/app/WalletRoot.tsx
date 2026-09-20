@@ -18,12 +18,25 @@ export default function WalletRoot({ children }: { children: React.ReactNode }) 
           </main>
           <Toaster
             position="top-right"
+            // Por encima de TODO el sistema de operaciones (overlay flotante
+            // z-50, píldoras z-60): el aviso de «ya hay tres» nace justamente
+            // con una card abierta delante (fundador 2026-08-28).
+            style={{ zIndex: 2147483000 }}
             toastOptions={{
               duration: 4000,
               style: {
-                background: 'var(--background)',
-                color: 'var(--foreground)',
-                border: '1px solid var(--border)',
+                // Los tokens de la casa son tripletas HSL crudas — a pelo
+                // (`var(--background)`) eran CSS inválido y el toast quedaba
+                // TRANSPARENTE, fundiéndose con lo que tuviera detrás.
+                background: 'hsl(var(--surface-2))',
+                color: 'hsl(var(--ink))',
+                border: '1px solid hsl(var(--ink) / 0.18)',
+                borderRadius: '12px',
+                boxShadow: '0 18px 50px -12px rgba(0, 0, 0, 0.55)',
+              },
+              classNames: {
+                title: 'text-[13px] font-semibold',
+                description: '!text-ink/65',
               },
             }}
           />

@@ -5,6 +5,7 @@ import { useWalletStore } from '../../stores/walletStore';
 import { walletService } from '../../services/walletService';
 import { WalletType, InjectedEthereumProvider } from '../../lib/types/wallet';
 import { XamanQRModal } from '../wallet/XamanQRModal';
+import { QuorumCeremonyModal } from '../wallet/QuorumCeremonyModal';
 
 // Circuit breaker to prevent infinite update loops
 let reconnectAttempts = 0;
@@ -199,6 +200,11 @@ function WalletProviderInner({ children }: WalletProviderProps) {
       {children}
       {/* Global Xaman QR — appears whenever a sign-in payload is created. */}
       <XamanQRModal />
+      {/* Su hermana para las cuentas que firman POR QUÓRUM: un QR por llave,
+          todos a la vez. Montada aquí y no en cada pantalla porque hay
+          diecisiete llamadas a `sendIntent` y una copia en cada una es cómo se
+          desincronizan (fundador 22-ago-2026). */}
+      <QuorumCeremonyModal />
     </WalletContext.Provider>
   );
 }

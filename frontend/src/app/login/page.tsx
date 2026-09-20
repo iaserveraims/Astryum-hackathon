@@ -28,14 +28,15 @@
  * gold seal. Reduced motion collapses all of it to plain status text.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import dynamic from 'next/dynamic';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 import { useAuthStore } from '../../stores/authStore';
 import { EASE, GOLD } from '../../components/landing/interactions';
 import TurnstileWidget, { turnstileEnabled } from '../../components/security/TurnstileWidget';
+import { LegalSignCeremony } from '../../components/legal/LegalSignCeremony';
 import {
   appleOAuthEnabled,
   appleSignIn,
@@ -43,24 +44,45 @@ import {
   googleOAuthEnabled,
   renderGoogleButton,
 } from '../../lib/oauth';
-import { beginXrplIdentityLogin, fetchXrplIdentityConfig } from '../../lib/xrplIdentity/login';
+import {
+  beginXrplIdentityLogin,
+  fetchXrplIdentityConfig,
+  openXrplIdentityPopup,
+  runXrplIdentityPopupLogin,
+  xrplIdentityRedirectUri,
+  type PopupLoginResult,
+  type XrplIdentityConfig,
+} from '../../lib/xrplIdentity/login';
+import { legacyDoorsVisible, xrplIdentityDoorVisible } from '../../lib/authDoors';
+// EL RITUAL vive en components/auth/AccessRitual desde 2026-08-23: la puerta
+// única sale con un redirect de página completa, así que la ceremonia tuvo que
+// mudarse a donde de verdad se verifican las credenciales (la vuelta del
+// proveedor). Esta pantalla y esa comparten UNA sola copia — dos ceremonias
+// serían dos verdades.
+import {
+  AsteroidGlyph,
+  DeckBackdrop,
+  DecodeText,
+  DecodingManifest,
+  FingerprintIcon,
+  GOLD_SOFT,
+  SIGN_STROKE,
+  T,
+  hasSeenLoginShow,
+  markLoginShowSeen,
+  maskIdentifier,
+  signalIdentity,
+  useLang,
+  utcStamp,
+  type DecodePayload,
+  type Lang,
+} from '../../components/auth/AccessRitual';
 
-const StarfieldCanvas = dynamic(() => import('../../components/landing/StarfieldCanvas'), { ssr: false });
-
-const GOLD_SOFT = '#E8C25A';
 const LOGO_MARK = '/astryum-asteroid.png';
 
 const EMAIL_AUTH = process.env.NEXT_PUBLIC_EMAIL_AUTH_ENABLED !== 'false';
 const PASSKEY_AUTH = process.env.NEXT_PUBLIC_PASSKEY_ENABLED === 'true';
 
-// The user's quick stroke — deliberately NOT the Astryum autograph: on this
-// card it's YOU who signs. Drawn in the sign-here stub and countersigned into
-// the manifest once the session is granted.
-const SIGN_STROKE =
-  'M 6 27 C 13 10, 21 7, 23.5 13.5 C 25.5 19, 18.5 26, 25 26 C 33 26, 36.5 13.5, 44 14.5 C 50 15.3, 47.5 24, 55 22.5 C 64 20.7, 68 13, 77 12 C 85 11.2, 92 12.5, 98 10.5';
-
-type Lang = 'es' | 'en';
-const T = (es: string, en: string, lang: Lang) => (lang === 'es' ? es : en);
 
 // Backend answers with machine codes — translate the ones a person can act on.
 function errorToCopy(code: string, lang: Lang): string {
@@ -78,6 +100,21 @@ function errorToCopy(code: string, lang: Lang): string {
       return T('Verificación anti-bot no disponible ahora mismo.', 'Anti-bot check unavailable right now.', lang);
     case 'account_disabled':
       return T('Esta cuenta está deshabilitada.', 'This account is disabled.', lang);
+    // Passkey login 401s (productizer it. 14, R5 1.5): the credential lock refused
+    // the session because the account's credentials moved while the passkey was
+    // being verified. Said so a person can act on it — never the raw code.
+    case 'credentials_changed':
+      return T(
+        'Los métodos de acceso de tu cuenta acaban de cambiar — vuelve a entrar.',
+        "Your account's sign-in methods just changed — sign in again.",
+        lang,
+      );
+    case 'credential_revoked':
+      return T(
+        'Esta passkey ya no es válida para esta cuenta. Entra de otra forma y registra una passkey nueva.',
+        'This passkey is no longer valid for this account. Sign in another way and register a new passkey.',
+        lang,
+      );
     case 'oauth_email_unverified':
       return T('Ese proveedor no verifica tu email — usa email y contraseña.', 'That provider does not verify your email — use email + password.', lang);
     case 'not_invited':
@@ -91,168 +128,27 @@ function errorToCopy(code: string, lang: Lang): string {
   }
 }
 
-// ─── Persistent language (same key the landing uses) ────────────────────────────────
-function useLang(): [Lang, (l: Lang) => void] {
-  const [lang, setLang] = useState<Lang>('en');
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem('astryum:lang');
-      if (s === 'en' || s === 'es') {
-        setLang(s);
-        return;
-      }
-      const nav = (navigator.language || navigator.languages?.[0] || '').toLowerCase();
-      if (nav.startsWith('es')) setLang('es');
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  const set = useCallback((l: Lang) => {
-    setLang(l);
-    try {
-      localStorage.setItem('astryum:lang', l);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  return [lang, set];
-}
-
-// ─── Identity play — mirrors the early-access manifest (FNV-1a → call-sign) ─────────
-function signalIdentity(id: string) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
+/**
+ * What a failed passkey entry says (productizer it. 14, R5 1.5).
+ *
+ * The card used to answer every passkey failure with «La passkey no se pudo
+ * verificar.», so the three 401s that a person can actually ACT on — their
+ * credentials changed, the passkey was revoked, the account is disabled — arrived
+ * as one dead end. The codes that carry an action are translated; everything else
+ * (a cancelled WebAuthn prompt, a 422, a dead channel) keeps the generic sentence.
+ * The raw code is never printed.
+ */
+function passkeyErrorToCopy(err: unknown, lang: Lang): string {
+  const code = err instanceof Error ? err.message : '';
+  switch (code) {
+    case 'credentials_changed':
+    case 'credential_revoked':
+    case 'account_disabled':
+    case 'rate_limited':
+      return errorToCopy(code, lang);
+    default:
+      return T('La passkey no se pudo verificar.', 'The passkey could not be verified.', lang);
   }
-  return `AST-${(h % 0x10000).toString(16).toUpperCase().padStart(4, '0')}`;
-}
-
-function maskIdentifier(id: string): string {
-  const [user, domain] = id.split('@');
-  if (!domain) return id;
-  const head = user.slice(0, Math.min(2, user.length));
-  return `${head}${'*'.repeat(Math.max(1, user.length - 2))}@${domain}`;
-}
-
-function utcStamp(): string {
-  const iso = new Date().toISOString();
-  return `${iso.slice(0, 10)} · ${iso.slice(11, 19)} UTC`;
-}
-
-// ─── DecodeText — resolves left→right out of cipher noise ("hacker letters") ─────────
-const CIPHER = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#$%&@§Ø◆·';
-
-function DecodeText({
-  text,
-  delay = 0,
-  duration = 900,
-  className,
-  style,
-}: {
-  text: string;
-  delay?: number;
-  duration?: number;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  const reduce = useReducedMotion();
-  const [out, setOut] = useState(() => (reduce ? text : ''));
-  useEffect(() => {
-    if (reduce) {
-      setOut(text);
-      return undefined;
-    }
-    let raf = 0;
-    let start: number | null = null;
-    const tick = (t: number) => {
-      if (start === null) start = t;
-      const el = t - start - delay;
-      if (el < 0) {
-        raf = requestAnimationFrame(tick);
-        return;
-      }
-      const p = Math.min(1, el / duration);
-      const solved = Math.floor(p * text.length);
-      let s = text.slice(0, solved);
-      for (let i = solved; i < text.length; i++) {
-        s += text[i] === ' ' ? ' ' : CIPHER[(Math.random() * CIPHER.length) | 0];
-      }
-      setOut(s);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [text, delay, duration, reduce]);
-  // Reserve the final width so the card doesn't breathe while noise resolves.
-  return (
-    <span className={`relative inline-block ${className ?? ''}`} style={style}>
-      <span className="invisible">{text}</span>
-      <span className="absolute inset-0">{out}</span>
-    </span>
-  );
-}
-
-// ─── LiveUTC — decodes the submit timestamp, then keeps ticking for real ─────────────
-function LiveUTC({ initial }: { initial: string }) {
-  const reduce = useReducedMotion();
-  const [live, setLive] = useState(false);
-  const [now, setNow] = useState(initial);
-  useEffect(() => {
-    const flip = setTimeout(() => setLive(true), reduce ? 0 : 2000);
-    return () => clearTimeout(flip);
-  }, [reduce]);
-  useEffect(() => {
-    if (!live) return undefined;
-    const id = setInterval(() => setNow(utcStamp()), 1000);
-    return () => clearInterval(id);
-  }, [live]);
-  return live ? <span>{now}</span> : <DecodeText text={initial} delay={680} duration={1100} />;
-}
-
-// ─── Space backdrop (login-weight: gradient + stars + one aura + grain) ──────────────
-function DeckBackdrop() {
-  return (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden>
-      <div
-        className="absolute inset-0"
-        style={{ background: 'radial-gradient(130% 90% at 50% -15%, #1a150b 0%, #100d08 38%, #080807 100%)' }}
-      />
-      <div
-        className="absolute inset-x-0 top-0 h-[50vh]"
-        style={{ background: 'radial-gradient(70% 100% at 50% 0%, rgba(201,162,39,0.14), transparent 70%)' }}
-      />
-      <StarfieldCanvas />
-      <div
-        className="absolute -bottom-40 left-1/2 -translate-x-1/2 w-[760px] h-[520px] rounded-full"
-        style={{ background: 'radial-gradient(circle, rgba(201,162,39,0.1), transparent 68%)', filter: 'blur(50px)' }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          opacity: 0.045,
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-          backgroundSize: '160px 160px',
-        }}
-      />
-    </div>
-  );
-}
-
-function AsteroidGlyph({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 3.5c2.2-.3 4.4.6 5.9 2.3 1.7 1.9 2.2 4.6 1.2 7-.8 1.9-2.5 3.4-4.5 3.9-2.5.7-5.2-.1-6.9-2-1.6-1.7-2.2-4.2-1.4-6.4.8-2.3 3-4.4 5.7-4.8z"
-        fill="#0a0a0a"
-        stroke={GOLD}
-        strokeWidth="1.4"
-      />
-      <circle cx="10" cy="9.5" r="1.5" fill={GOLD} opacity="0.7" />
-      <circle cx="14.5" cy="13" r="1" fill={GOLD} opacity="0.5" />
-    </svg>
-  );
 }
 
 function GoogleIcon({ size = 16 }: { size?: number }) {
@@ -283,6 +179,10 @@ function AppleIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+// XRP Identity's mark is a fingerprint. Drawn here as a generic one rather than
+// shipping their logo file: a trademark we do not own has no business being
+// vendored into our bundle, and the meaning survives the difference — the ridges
+// read as identity at 18px, which is the whole job.
 // ─── Google button slot — our shell, Google's click ──────────────────────────────────
 // The card keeps ITS OWN button (same skin as Apple's — founder 2026-07-24:
 // the stock GIS widget broke the deck's look), but the element that actually
@@ -342,256 +242,27 @@ function GoogleButtonSlot({ onCredential }: { onCredential: (idToken: string) =>
 }
 
 // ─── Manifest readout shown while credentials verify ─────────────────────────────────
-type DecodePayload = {
-  operator: string;
-  callsign: string;
-  utc: string;
-  clearance: string;
-  mode: 'signin' | 'create';
-};
-
-function DecodingManifest({
-  lang,
-  payload,
-  granted,
-  denied,
-}: {
-  lang: Lang;
-  payload: DecodePayload;
-  granted: boolean;
-  denied: boolean;
-}) {
-  const reduce = useReducedMotion();
-
-  // Terminal log — one line per beat; the last line stays "working" until the
-  // channel answers, then collects its OK / ✗.
-  const logLines = useMemo(
-    () => [
-      T('enlace con relé 14 · flare', 'link to relay 14 · flare', lang),
-      T('cifrando canal', 'encrypting channel', lang),
-      payload.mode === 'create'
-        ? T('registrando operador', 'registering operator', lang)
-        : T('verificando credenciales', 'verifying credentials', lang),
-    ],
-    [lang, payload.mode],
-  );
-  const [logStep, setLogStep] = useState(0);
-  useEffect(() => {
-    if (reduce) {
-      setLogStep(logLines.length - 1);
-      return undefined;
-    }
-    const id = setInterval(() => setLogStep((s) => Math.min(s + 1, logLines.length - 1)), 760);
-    return () => clearInterval(id);
-  }, [logLines, reduce]);
-
-  const fields = [
-    { k: T('Operador', 'Operator', lang), v: payload.operator, d: 150 },
-    { k: 'Call-sign', v: payload.callsign, d: 420, gold: true },
-    { k: T('Autorización', 'Clearance', lang), v: payload.clearance, d: 940 },
-  ];
-
-  const settled = granted || denied;
-
-  return (
-    <motion.div
-      key="decode"
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.985 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.99 }}
-      transition={{ duration: 0.4, ease: EASE }}
-      role="status"
-      aria-live="polite"
-    >
-      {/* scanline sweep — the reader passing over the card */}
-      {!reduce && !settled && (
-        <motion.div
-          className="absolute inset-x-0 pointer-events-none"
-          style={{ height: 52, background: 'linear-gradient(180deg, transparent, rgba(232,194,90,0.08), transparent)' }}
-          initial={{ top: '-14%' }}
-          animate={{ top: ['-14%', '108%'] }}
-          transition={{ duration: 2.3, repeat: Infinity, ease: 'linear' }}
-          aria-hidden
-        />
-      )}
-
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em]" style={{ color: GOLD_SOFT }}>
-          <AsteroidGlyph size={14} />
-          {T('Astryum · Canal seguro', 'Astryum · Secure channel', lang)}
-        </span>
-        <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.16em] text-white/30">
-          {!denied && (
-            <motion.span
-              className="w-[6px] h-[6px] rounded-full"
-              style={{ background: '#4ade80', boxShadow: '0 0 8px rgba(74,222,128,0.7)' }}
-              animate={reduce ? undefined : { opacity: [1, 0.35, 1] }}
-              transition={reduce ? undefined : { duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-              aria-hidden
-            />
-          )}
-          {denied ? T('Rechazado', 'Rejected', lang) : T('En vivo', 'Live', lang)}
-        </span>
-      </div>
-
-      <h2 className="mt-6 text-2xl font-bold text-white" style={{ letterSpacing: '-0.025em' }}>
-        {granted
-          ? T('Acceso concedido.', 'Access granted.', lang)
-          : denied
-            ? T('Señal rechazada.', 'Signal rejected.', lang)
-            : T('Descodificando…', 'Decoding…', lang)}
-      </h2>
-
-      {/* identity fields — scrambled noise resolving into the manifest */}
-      <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        {fields.map((f) => (
-          <div key={f.k}>
-            <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/40">{f.k}</div>
-            <div className="mt-1.5 font-mono text-[13px] font-semibold" style={{ color: f.gold ? GOLD_SOFT : 'rgba(255,255,255,0.85)' }}>
-              <DecodeText text={f.v} delay={f.d} duration={1100} />
-            </div>
-          </div>
-        ))}
-        <div>
-          <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/40">UTC</div>
-          <div className="mt-1.5 font-mono text-[13px] font-semibold text-white/85 tabular-nums">
-            <LiveUTC initial={payload.utc} />
-          </div>
-        </div>
-      </div>
-
-      {/* terminal log — each beat decodes in, collects its OK, the last one waits
-          for the channel's answer */}
-      <div className="mt-6 space-y-1.5 font-mono text-[11px] leading-relaxed" aria-hidden={false}>
-        {logLines.slice(0, logStep + 1).map((line, i) => {
-          const done = i < logStep || granted;
-          const failedHere = denied && i === logStep;
-          return (
-            <div key={line} className="flex items-baseline gap-2 text-white/55">
-              <span className="text-white/25 shrink-0">&gt;</span>
-              <span className="min-w-0">
-                <DecodeText text={line} duration={420} />
-                {done && !failedHere && <span style={{ color: GOLD_SOFT }}> ·· OK</span>}
-                {failedHere && <span style={{ color: '#f87171' }}> ·· ✗</span>}
-                {!done && !failedHere && !reduce && (
-                  <motion.span
-                    className="inline-block"
-                    animate={{ opacity: [1, 0.2, 1] }}
-                    transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    {' '}…
-                  </motion.span>
-                )}
-              </span>
-            </div>
-          );
-        })}
-        {granted && (
-          <div className="flex items-baseline gap-2" style={{ color: GOLD_SOFT }}>
-            <span className="shrink-0 text-white/25">&gt;</span>
-            <DecodeText text={T('sesión firmada — bienvenido a bordo', 'session signed — welcome aboard', lang)} duration={520} />
-          </div>
-        )}
-        {denied && (
-          <div className="flex items-baseline gap-2" style={{ color: '#f87171' }}>
-            <span className="shrink-0 text-white/25">&gt;</span>
-            <span>{T('firma rechazada — canal cerrado', 'signature rejected — channel closed', lang)}</span>
-          </div>
-        )}
-      </div>
-
-      {/* progress rail */}
-      <div className="mt-5 h-px overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-        <motion.div
-          className="h-full origin-left"
-          style={{ background: denied ? '#f87171' : `linear-gradient(90deg, ${GOLD}, ${GOLD_SOFT})` }}
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: settled ? 1 : 0.82 }}
-          transition={{ duration: settled ? 0.3 : reduce ? 0 : 2.7, ease: granted ? 'easeOut' : 'linear' }}
-        />
-      </div>
-
-      {/* on grant: the session countersigned with YOUR stroke + the seal */}
-      <AnimatePresence>
-        {granted && (
-          <motion.div
-            className="mt-6 flex items-end justify-between gap-6"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
-          >
-            <div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.18em]" style={{ color: GOLD_SOFT }}>
-                {T('Sesión firmada', 'Session signed', lang)}
-              </div>
-              <svg viewBox="0 0 104 40" className="mt-1 w-[180px]" fill="none" aria-hidden>
-                <motion.path
-                  d={SIGN_STROKE}
-                  stroke={GOLD_SOFT}
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  initial={reduce ? undefined : { pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: reduce ? 0 : 0.7, ease: 'easeInOut', delay: 0.15 }}
-                />
-                <line x1="4" y1="33" x2="100" y2="33" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
-              </svg>
-              <p className="mt-1.5 text-[10.5px] text-white/40">
-                {T('La única firma aquí es la tuya.', 'The only signature here is yours.', lang)}
-              </p>
-            </div>
-            <motion.div
-              initial={reduce ? { opacity: 0 } : { scale: 1.6, opacity: 0, rotate: -16 }}
-              animate={{ scale: 1, opacity: 1, rotate: -8 }}
-              transition={{ duration: reduce ? 0.1 : 0.4, ease: EASE, delay: 0.3 }}
-              aria-hidden
-            >
-              <svg viewBox="0 0 100 100" fill="none" style={{ width: 72, height: 72 }}>
-                <circle cx="50" cy="50" r="47" stroke="rgba(201,162,39,0.55)" strokeWidth="1.6" />
-                <circle cx="50" cy="50" r="30" stroke="rgba(201,162,39,0.35)" strokeWidth="1" />
-                <path d="M38 51l8 8 16-17" stroke={GOLD} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
 // ─── The page ────────────────────────────────────────────────────────────────────────
 type Phase = 'form' | 'decode' | 'granted' | 'denied';
 type Mode = 'signin' | 'create';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-// ─── Cap the theater (de-AI pass 2026-07-21) ─────────────────────────────────────────
-// The decode/grant sequence is real artwork, not stalling — but the ~5s of artificial
-// waits (sign 560 + minShow 3000 + granted 1500) taxed EVERY login, forever. The full
-// cinematic now plays once per device (first login ever); every login after that keeps
-// the same beats at a fraction of the wait. prefers-reduced-motion still overrides both
-// tiers, unchanged. Auth/credential logic itself is untouched — only these delays.
-const LOGIN_SHOW_SEEN_KEY = 'astryum:loginShowSeen';
-function hasSeenLoginShow(): boolean {
-  try {
-    return localStorage.getItem(LOGIN_SHOW_SEEN_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-function markLoginShowSeen(): void {
-  try {
-    localStorage.setItem(LOGIN_SHOW_SEEN_KEY, '1');
-  } catch {
-    /* ignore */
-  }
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const reduce = useReducedMotion();
   const [lang, setLang] = useLang();
-  const { loginWithEmail, registerWithEmail, loginWithPasskey, loginWithOAuth, isAuthenticated, clearError } = useAuthStore();
+  const { loginWithEmail, registerWithEmail, loginWithPasskey, loginWithOAuth, loginWithXrplIdentity, isAuthenticated, clearError } = useAuthStore();
+
+  // A popup is in flight. Not state: a second click must be swallowed without a
+  // re-render, or it would overwrite the PKCE material the first one is waiting
+  // on and turn its answer into a state_mismatch.
+  const xrplidPending = useRef(false);
+  // La huella encendida: el clic de la puerta única no tenía acuse ninguno
+  // —el redirect de página completa se lleva la pestaña— así que se quedaba
+  // muerto hasta que el navegador se iba. Ahora escanea mientras se hace el
+  // trabajo real (pedir configuración, componer el reto PKCE).
+  const [xrplScanning, setXrplScanning] = useState(false);
 
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<Mode>('signin');
@@ -610,12 +281,29 @@ export default function LoginPage() {
   const [stubHover, setStubHover] = useState(false);
   const [signing, setSigning] = useState(false);
   // XRP Identity door: hidden until the backend confirms a client id is
-  // registered. Starts false so the card never flashes a door that isn't there.
-  const [xrplIdReady, setXrplIdReady] = useState(false);
+  // registered AND that this origin's callback is one it will return to.
+  // Starts null so the card never flashes a door that isn't there.
+  const [xrplIdConfig, setXrplIdConfig] = useState<XrplIdentityConfig | null>(null);
+  const [doorsResolved, setDoorsResolved] = useState(false);
+  const xrplIdReady = xrplIdentityDoorVisible({ config: xrplIdConfig, resolved: doorsResolved });
+  // Email / Google / Apple / passkey. In production they are hidden behind the
+  // single door; on a preview or on localhost — where XRP Identity physically
+  // cannot complete — they are the only way in. See lib/authDoors.
+  const legacyDoors = legacyDoorsVisible({ config: xrplIdConfig, resolved: doorsResolved });
   // Anti-bot: one Turnstile token per submit (single-use — resetSignal mints
   // a fresh one after every failed attempt).
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
+  // LA FIRMA DE LOS DOCUMENTOS (fundador 2026-09-13): crear cuenta ya no es
+  // aceptación por conducta bajo una línea de letra pequeña — hay que leer las
+  // condiciones y el aviso hasta el final y FIRMAR deslizando, como en Xaman.
+  // La ceremonia se abre DESPUÉS de validar el formulario: nadie lee cinco
+  // minutos para descubrir luego que la contraseña era corta. El ref es lo que
+  // mira el envío (el estado aún no habría llegado en el mismo tick); el
+  // estado solo pinta el recibo en la tarjeta.
+  const [showLegal, setShowLegal] = useState(false);
+  const [legalSigned, setLegalSigned] = useState(false);
+  const legalSignedRef = useRef(false);
   // Demo-risk acceptance (founder 2026-07-26, revised same day): NO modal —
   // fear-free signup. The risks live as PUBLIC reviewable documentation
   // (/demo-terms) and the create button carries the standard notice line
@@ -638,9 +326,12 @@ export default function LoginPage() {
 
   // Ask the backend whether the XRP Identity door exists yet. It answers 503
   // (→ null) until its client id is registered, and the button stays hidden.
+  // The same answer decides whether the old doors show: see lib/authDoors.
   useEffect(() => {
     void fetchXrplIdentityConfig().then((config) => {
-      if (alive.current) setXrplIdReady(Boolean(config));
+      if (!alive.current) return;
+      setXrplIdConfig(config);
+      setDoorsResolved(true);
     });
   }, []);
 
@@ -711,6 +402,12 @@ export default function LoginPage() {
       return;
     }
 
+    // Sin firma no hay cuenta. Se pide aquí, con el formulario ya válido.
+    if (mode === 'create' && !legalSignedRef.current) {
+      setShowLegal(true);
+      return;
+    }
+
     // Ink the signature before the card is submitted — you sign, then it flies.
     // Full cinematic once per device; every login after that keeps the same
     // beats, capped (reduced motion still overrides both tiers).
@@ -739,10 +436,14 @@ export default function LoginPage() {
               username: username.trim(),
               firstName: firstName.trim(),
               lastName: lastName.trim(),
-              // Acceptance-by-conduct: the create button sits under the notice
-              // line linking /demo-terms — the backend requires this literal
-              // and stamps version + timestamp on the account.
+              // La firma ya está dada (LegalSignCeremony, arriba): documentos
+              // leídos hasta el final y flecha deslizada. Este literal es lo
+              // que el backend exige para sellar versión + fecha en la cuenta.
               demoTermsAccepted: true,
+              // …y el aviso de privacidad, leído hasta el final en la misma
+              // ceremonia: el servidor escribe el registro unificado al nacer
+              // la cuenta y la puerta del panel no vuelve a pedir lo mismo.
+              privacyRead: true,
             },
             captchaToken,
           ),
@@ -824,16 +525,93 @@ export default function LoginPage() {
     }
   };
 
-  // XRP Identity — the ecosystem's own door, and Astryum's main one. Unlike
-  // Google/Apple there is no popup and no token in the browser: we leave for
-  // the provider with a PKCE challenge and come back to /auth/xrpl-identity/
-  // callback with a one-time code the backend redeems.
-  const onXrplIdentity = async () => {
-    if (phase !== 'form' || signing) return;
+  // INERT since 2026-08-19 — the landing half of the popup journey, kept whole.
+  //
+  // Nothing calls it while the door uses the full-page redirect (the callback
+  // page does this job there instead). It stays because the popup was built and
+  // tested, and reviving it is a matter of replacing ONE thing: the handoff must
+  // stop depending on `window.opener`, which privacy modes sever. See the note
+  // on onXrplIdentity below.
+  const completeXrplIdentity = async (handed: PopupLoginResult) => {
+    const showFull = firstShowRef.current && !reduce;
+    if (firstShowRef.current) {
+      firstShowRef.current = false;
+      markLoginShowSeen();
+    }
+    beginDecode('xrp identity', 'signin');
+    const minShow = reduce ? sleep(400) : sleep(showFull ? 2400 : 600);
+    try {
+      await Promise.all([
+        loginWithXrplIdentity(handed.code, handed.codeVerifier, xrplIdentityRedirectUri()),
+        minShow,
+      ]);
+      if (!alive.current) return;
+      setPhase('granted');
+      await sleep(reduce ? 250 : showFull ? 1500 : 400);
+      if (!alive.current) return;
+      router.replace(handed.returnTo);
+    } catch (err) {
+      await minShow.catch(() => undefined);
+      if (!alive.current) return;
+      setPhase('denied');
+      await sleep(reduce ? 250 : 950);
+      if (!alive.current) return;
+      setFormError(
+        err instanceof Error && err.message && !err.message.startsWith('http_')
+          ? errorToCopy(err.message, lang)
+          : T('El canal no respondió. Prueba de nuevo.', 'The channel did not answer. Try again.', lang),
+      );
+      setPhase('form');
+    }
+  };
+
+  // XRP Identity — the ecosystem's own door, and Astryum's main one. No token
+  // ever reaches this browser: the popup brings back a one-time code and the
+  // backend is the one that redeems it against the provider.
+  //
+  // `forceAccountChoice` adds `prompt=login` so the provider asks again instead
+  // of riding its own SSO cookie. It is the explicit "another account" path;
+  // logout arms the same behaviour for the next entry (authStore.logout).
+  //
+  // FULL-PAGE REDIRECT. We leave, they authenticate, we come back.
+  //
+  // It was a popup for one day (2026-08-18) and that is retired, not paused.
+  // The popup depended on the window being able to hand the code back to the
+  // tab that opened it, and that channel is exactly what privacy modes cut:
+  // in Edge InPrivate the opener was already severed by the time the window
+  // came home, so it showed an orphan notice and — when the user pressed
+  // "try again" — logged them in INSIDE the little window. Neither provider
+  // sends `Cross-Origin-Opener-Policy`; the browser severs it on its own, so
+  // there is nothing to negotiate and no header to fix.
+  //
+  // The popup helpers stay built and tested in lib/xrplIdentity/login.ts. If
+  // the polish is ever wanted back, the handoff has to stop depending on
+  // `window.opener` — localStorage plus a `storage` event survives what
+  // postMessage does not. Until that exists, the door that always works wins:
+  // this one is the single entrance to production, and reliability outranks
+  // never unloading the page.
+  const onXrplIdentity = async (forceAccountChoice = false) => {
+    if (phase !== 'form' || signing || xrplidPending.current) return;
     setFormError('');
     setNotice('');
+    clearError();
+
+    xrplidPending.current = true;
+    setXrplScanning(true);
+
     try {
-      await beginXrplIdentityLogin('/app');
+      // `/app/home` SI existe en esta rama (frontend/src/app/app/home/page.tsx),
+      // que es lo que main no podia asumir: alli el hub aun no estaba publicado y
+      // por eso su comentario apuntaba la puerta unica a `/app` para no aterrizar
+      // en un 404 que solo sufriria el camino nuevo. Al liberar la ventana el hub
+      // viaja con ella, asi que aqui el destino correcto vuelve a ser el hub.
+      // El escaneo corre EN PARALELO con la salida, no delante: el suelo solo
+      // garantiza que se llegue a leer si la red contesta antes de tiempo.
+      // Bajo prefers-reduced-motion no hay suelo — no hay nada que mirar.
+      await Promise.all([
+        beginXrplIdentityLogin('/app', { forceAccountChoice }),
+        reduce ? Promise.resolve() : sleep(760),
+      ]);
     } catch (err) {
       const code = err instanceof Error ? err.message : '';
       setNotice(
@@ -843,12 +621,23 @@ export default function LoginPage() {
               'This origin is not registered with XRP Identity yet.',
               lang,
             )
-          : T(
-              'Canal XRP Identity aún no operativo — entra con email de momento.',
-              'XRP Identity channel not open yet — use email for now.',
-              lang,
-            ),
+          : code === 'state_mismatch'
+            ? T(
+                'La respuesta no coincide con la petición que salió de este navegador. Prueba otra vez.',
+                'The answer does not match the request that left this browser. Try again.',
+                lang,
+              )
+            : code === 'access_denied'
+              ? T('Entrada cancelada en XRP Identity.', 'Sign-in cancelled at XRP Identity.', lang)
+              : T(
+                  'Canal XRP Identity aún no operativo — entra con email de momento.',
+                  'XRP Identity channel not open yet — use email for now.',
+                  lang,
+                ),
       );
+    } finally {
+      xrplidPending.current = false;
+      if (alive.current) setXrplScanning(false);
     }
   };
 
@@ -886,13 +675,13 @@ export default function LoginPage() {
       await sleep(reduce ? 250 : showFull ? 1500 : 400);
       if (!alive.current) return;
       router.replace('/app');
-    } catch {
+    } catch (err) {
       await minShow.catch(() => undefined);
       if (!alive.current) return;
       setPhase('denied');
       await sleep(reduce ? 250 : 950);
       if (!alive.current) return;
-      setFormError(T('La passkey no se pudo verificar.', 'The passkey could not be verified.', lang));
+      setFormError(passkeyErrorToCopy(err, lang));
       setPhase('form');
     }
   };
@@ -958,7 +747,14 @@ export default function LoginPage() {
             >
               <AnimatePresence mode="wait" initial={false}>
                 {busy && payload ? (
-                  <DecodingManifest lang={lang} payload={payload} granted={phase === 'granted'} denied={phase === 'denied'} />
+                  // El hijo directo de la frontera DEBE ser motion.* o el
+                  // intercambio se queda a medias: con `mode="wait"` el que
+                  // entra espera a que salga el anterior, y un componente que
+                  // no es motion.* no avisa nunca de que terminó — el
+                  // formulario no volvía. Ver LegalAcceptGate/ModalPortal.
+                  <motion.div key="decoding" exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+                    <DecodingManifest lang={lang} payload={payload} granted={phase === 'granted'} denied={phase === 'denied'} />
+                  </motion.div>
                 ) : (
                   <motion.div
                     key="form"
@@ -986,7 +782,11 @@ export default function LoginPage() {
                       )}
                     </p>
 
-                    {/* mode switch — the card's two print runs */}
+                    {/* mode switch — the card's two print runs. It only steers
+                        the email form, so behind the single door it would be a
+                        pair of tabs governing nothing: it goes with them.
+                        Creating an account then happens at XRP Identity. */}
+                    {EMAIL_AUTH && legacyDoors && (
                     <div
                       role="tablist"
                       aria-label={T('Modo de acceso', 'Access mode', lang)}
@@ -1015,6 +815,7 @@ export default function LoginPage() {
                         </button>
                       ))}
                     </div>
+                    )}
 
                     {(formError || notice) && (
                       <motion.div
@@ -1048,25 +849,56 @@ export default function LoginPage() {
                       <>
                         <button
                           onClick={() => void onXrplIdentity()}
-                          disabled={busy || signing}
-                          className="mt-6 w-full inline-flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-[13.5px] font-semibold transition-colors disabled:opacity-50"
+                          disabled={busy || signing || xrplScanning}
+                          className="mt-6 w-full inline-flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-[13.5px] font-semibold transition-colors disabled:opacity-100"
                           style={{
                             border: `1px solid ${GOLD}`,
-                            background: 'rgba(232,194,90,0.10)',
+                            background: xrplScanning ? 'rgba(232,194,90,0.18)' : 'rgba(232,194,90,0.10)',
                             color: GOLD,
                           }}
                         >
-                          {T('Entrar con XRP Identity', 'Continue with XRP Identity', lang)}
+                          <FingerprintIcon scanning={xrplScanning} />
+                          {/* Untranslated on purpose, like Google's and Apple's:
+                              it is the provider's own name for its door, and a
+                              user who sees it here must recognise it there.
+                              Y NO cambia al pulsar (fundador 2026-08-23): el
+                              rótulo se sustituía por «Abriendo canal…», que es
+                              más corto, así que el contenido del botón saltaba
+                              — y las letras cifradas de DecodeText, medidas en
+                              una tipografía proporcional, se salían de la caja
+                              que reservaban. El acuse vive en la línea de
+                              abajo, que sí tiene sitio para cambiar. */}
+                          Sign in with XRP Identity
                         </button>
-                        <p className="mt-2 text-center font-mono text-[10px] leading-relaxed text-white/35">
-                          {T(
-                            'Tu identidad del ecosistema XRPL. Para operar, firmarás con tu wallet.',
-                            'Your XRPL ecosystem identity. To operate, you will sign with your wallet.',
-                            lang,
+                        {/* Alto reservado: esta línea cambia de texto mientras
+                            se abre el canal, y sin el suelo lo de abajo daría
+                            un salto al pasar de dos líneas a una. */}
+                        <p className="mt-2 min-h-[2.4em] text-center font-mono text-[10px] leading-relaxed text-white/35">
+                          {xrplScanning ? (
+                            <span style={{ color: GOLD_SOFT }}>
+                              <DecodeText text={T('Abriendo canal seguro…', 'Opening secure channel…', lang)} duration={520} />
+                            </span>
+                          ) : (
+                            T(
+                              'Tu identidad del ecosistema XRPL. Para operar, firmarás con tu wallet.',
+                              'Your XRPL ecosystem identity. To operate, you will sign with your wallet.',
+                              lang,
+                            )
                           )}
                         </p>
+                        {/* The escape hatch from someone else's SSO cookie: a
+                            shared laptop, or two identities of the same person.
+                            Without it the only way out is signing out at
+                            account.xrpl.in, which nobody finds. */}
+                        <button
+                          onClick={() => void onXrplIdentity(true)}
+                          disabled={busy || signing}
+                          className="mt-2 w-full text-center font-mono text-[10px] underline underline-offset-2 text-white/35 hover:text-white/60 transition-colors disabled:opacity-50"
+                        >
+                          {T('Entrar con otra cuenta', 'Use a different account', lang)}
+                        </button>
 
-                        {EMAIL_AUTH && (
+                        {EMAIL_AUTH && legacyDoors && (
                           <div className="my-5 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.18em] text-white/30">
                             <span className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
                             {T('o con tu email', 'or with your email', lang)}
@@ -1076,7 +908,7 @@ export default function LoginPage() {
                       </>
                     )}
 
-                    {EMAIL_AUTH && (
+                    {EMAIL_AUTH && legacyDoors && (
                       <form onSubmit={submit} className="mt-6">
                         {/* the card's fields — filled in like a printed form */}
                         <div className="space-y-5">
@@ -1259,13 +1091,26 @@ export default function LoginPage() {
                           </span>
                         </button>
 
-                        {/* Acceptance-by-conduct notice (founder 2026-07-26):
-                            no modal, no fear — the risks are PUBLIC reviewable
-                            documentation, and creating the account under this
-                            line is the acceptance the backend records. */}
-                        {mode === 'create' && (
+                        {/* La línea de siempre (2026-07-26) dice ahora lo que
+                            de verdad pasa (13-sep): los documentos se leen y se
+                            FIRMAN en el paso siguiente, no se aceptan por
+                            pulsar un botón debajo de una línea. Firmada la
+                            ceremonia, la línea se convierte en su recibo. */}
+                        {mode === 'create' && legalSigned && (
+                          <p className="mt-3 flex items-center justify-center gap-1.5 text-center font-mono text-[10px] leading-relaxed text-emerald-400/80">
+                            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden>
+                              <path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            {T(
+                              'Condiciones y aviso de privacidad leídos y firmados.',
+                              'Terms and privacy notice read and signed.',
+                              lang,
+                            )}
+                          </p>
+                        )}
+                        {mode === 'create' && !legalSigned && (
                           <p className="mt-3 text-center font-mono text-[10px] leading-relaxed text-white/35">
-                            {T('Al crear tu cuenta aceptas el ', 'By creating your account you accept the ', lang)}
+                            {T('Antes de crear la cuenta tendrás que leer y firmar el ', 'Before the account is created you will read and sign the ', lang)}
                             <a
                               href="/demo-terms"
                               target="_blank"
@@ -1275,7 +1120,7 @@ export default function LoginPage() {
                             >
                               {T('aviso de riesgos de la demo', 'demo risk notice', lang)}
                             </a>
-                            {T(' — demo experimental con XRP real, bajo topes — y declaras ser mayor de 18 años. Tus datos, en el ', ' — an experimental demo with real XRP, under caps — and you declare you are 18 or older. Your data, in the ', lang)}
+                            {T(' — demo experimental con XRP real, bajo topes — y el ', ' — an experimental demo with real XRP, under caps — and the ', lang)}
                             <a
                               href="/privacy"
                               target="_blank"
@@ -1285,12 +1130,18 @@ export default function LoginPage() {
                             >
                               {T('aviso de privacidad', 'privacy notice', lang)}
                             </a>
-                            {T('.', '.', lang)}
+                            {T('. También puedes leerlos aquí antes.', '. You can also read them here first.', lang)}
                           </p>
                         )}
                       </form>
                     )}
 
+                    {/* Google / Apple. NOT the same door with another icon:
+                        these create Astryum-native accounts on their own rail,
+                        so under the single-door decision they are hidden, never
+                        re-pointed at XRP Identity — same look, other meaning. */}
+                    {legacyDoors && (
+                    <>
                     <div className="my-5 flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.18em] text-white/30">
                       <span className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
                       {T('o continúa con', 'or continue with', lang)}
@@ -1330,11 +1181,17 @@ export default function LoginPage() {
                         {T('Entrar con passkey', 'Sign in with passkey', lang)}
                       </button>
                     )}
+                    </>
+                    )}
 
                     <div className="mt-6 flex items-center justify-between font-mono text-[10.5px] text-white/35">
-                      <Link href="/forgot-password" className="hover:text-white/70 transition-colors">
-                        {T('¿Contraseña olvidada?', 'Forgot password?', lang)}
-                      </Link>
+                      {legacyDoors && EMAIL_AUTH ? (
+                        <Link href="/forgot-password" className="hover:text-white/70 transition-colors">
+                          {T('¿Contraseña olvidada?', 'Forgot password?', lang)}
+                        </Link>
+                      ) : (
+                        <span />
+                      )}
                       <Link href="/" className="hover:text-white/70 transition-colors">
                         ← {T('Volver', 'Back', lang)}
                       </Link>
@@ -1353,6 +1210,35 @@ export default function LoginPage() {
           </p>
         </footer>
       </div>
+
+      {/* LEER Y FIRMAR (13-sep). Se abre con el formulario ya válido; al
+          deslizar la flecha, la cuenta se crea de verdad. Cerrarla no firma
+          nada y deja la tarjeta como estaba: firmar es un acto, cerrar no. */}
+      {/* SIN <AnimatePresence> (fundador 2026-09-14: «cuando desaparece el
+          popup se queda la página sin poder usarse hasta que recargas»).
+          Reproducido en navegador: con la ceremonia como hijo DIRECTO de un
+          AnimatePresence, la animación de salida corre —el overlay llega a
+          opacity 0— pero el nodo NO se desmonta nunca, y ese `fixed inset-0`
+          invisible con pointer-events:auto se queda comiéndose todos los
+          clics hasta que se recarga. La regla ya estaba escrita en
+          ui/ModalPortal.tsx: «insertar un componente que no es motion.* entre
+          la frontera de presencia y el elemento animado» rompe la salida. Un
+          `key` NO lo arregla (probado); montar y desmontar a secas, sí. Se
+          pierde el fundido de salida de 0,2 s. La entrada no cambia: la lleva
+          el propio motion.div de la ceremonia. */}
+      {showLegal && (
+        <LegalSignCeremony
+          lang={lang}
+          signLabel={T('Desliza para firmar y crear tu cuenta', 'Slide to sign and create your account', lang)}
+          onCancel={() => setShowLegal(false)}
+          onSigned={() => {
+            legalSignedRef.current = true;
+            setLegalSigned(true);
+            setShowLegal(false);
+            void attemptSubmit();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,10 @@
  * A.1 — rules are chain-agnostic: an XRPL wallet can create/list rules.
  * The old EVM-only address schema 400'd every XRPL rule BEFORE the wallet
  * lookup — the same failure class as Flare's F1 (registered wallet, 404 rule).
+ *
+ * The router is mounted behind requireSiweAuth in production; here a tiny
+ * middleware sets the session to the wallet's OWNER (u1). The non-owner
+ * paths live in rules.ownership.test.ts.
  */
 const mockWalletFindFirst = jest.fn();
 const mockWalletFindMany = jest.fn();
@@ -9,8 +13,8 @@ const mockProtocolFindFirst = jest.fn();
 const mockRuleCreate = jest.fn();
 const mockRuleFindMany = jest.fn();
 
-jest.mock('../../database/prismaClient', () => ({
-  prisma: {
+jest.mock('../../database/prismaClient', () => {
+  const client: Record<string, unknown> = {
     wallet: {
       findFirst: (...a: unknown[]) => mockWalletFindFirst(...a),
       findMany: (...a: unknown[]) => mockWalletFindMany(...a),
@@ -20,8 +24,20 @@ jest.mock('../../database/prismaClient', () => ({
       create: (...a: unknown[]) => mockRuleCreate(...a),
       findMany: (...a: unknown[]) => mockRuleFindMany(...a),
     },
-  },
-}));
+    // The live-session re-check the create runs inside its transaction
+    // (services/identity/liveSession) — alive here; the refusal paths live in
+    // rules.ownership.test.ts.
+    user: {
+      updateMany: async () => ({ count: 1 }),
+      findUnique: async () => ({ isActive: true, preferences: null }),
+    },
+    session: {
+      findUnique: async () => ({ id: 's1', userId: 'u1', isActive: true, createdAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000) }),
+    },
+  };
+  client.$transaction = async (fn: (tx: unknown) => unknown) => fn(client);
+  return { prisma: client };
+});
 
 import express from 'express';
 import request from 'supertest';
@@ -29,6 +45,10 @@ import rulesRouter from '../rules';
 
 const app = express();
 app.use(express.json());
+app.use((req, _res, next) => {
+  (req as express.Request & { siwe: unknown }).siwe = { userId: 'u1', sessionId: 's1', walletAddress: '0x0' };
+  next();
+});
 app.use('/api/rules', rulesRouter);
 
 const XRPL_WALLET = 'rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh';
@@ -57,6 +77,11 @@ describe('POST /api/rules — XRPL savings-escrow rule (A.1 + B.1)', () => {
     expect(mockRuleCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ walletId: 'w-xrpl-1' }) }),
     );
+    // Both lookups are scoped to the session user's own rows.
+    expect(mockWalletFindFirst).toHaveBeenCalledTimes(2);
+    for (const [arg] of mockWalletFindFirst.mock.calls) {
+      expect(arg.where.userId).toBe('u1');
+    }
   });
 
   it('unregistered XRPL wallet → 404 wallet_not_registered (not 400 invalid_body)', async () => {
@@ -89,5 +114,6 @@ describe('GET /api/rules — XRPL address accepted', () => {
     const res = await request(app).get('/api/rules').query({ address: XRPL_WALLET });
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(1);
+    expect(mockWalletFindMany.mock.calls[0][0].where.userId).toBe('u1');
   });
 });

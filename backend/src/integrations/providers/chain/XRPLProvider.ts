@@ -374,6 +374,22 @@ export class XRPLProvider implements IProvider {
   }
 
   /**
+   * Returns the account's `Domain` field exactly as stored on-ledger (hex), or
+   * null when unset. Half of the two-way domain binding (xrp-ledger.toml):
+   * the account claims the domain here; the domain claims the account back by
+   * serving the toml. Read-only, like everything in this provider.
+   */
+  async getAccountDomain(address: string): Promise<string | null> {
+    const result = await this._request<{ account_data: { Domain?: string } }>({
+      command: 'account_info',
+      account: address,
+      ledger_index: 'validated',
+    });
+    const d = result.account_data?.Domain;
+    return typeof d === 'string' && d.length > 0 ? d : null;
+  }
+
+  /**
    * Returns all trust lines (IOU balances) for an account.
    * Filters out zero-balance lines.
    */
@@ -567,6 +583,69 @@ export class XRPLProvider implements IProvider {
       if (code === 'entryNotFound' || code === 'actNotFound') return null;
       throw err;
     }
+  }
+
+  /**
+   * The XLS-70 Credential objects an account holds (read-only, I2).
+   * `account_objects` with type 'credential' returns the ones where this
+   * account is the SUBJECT or the ISSUER — the verifier classifies them.
+   * An account with none (or a node that has never seen the amendment)
+   * answers [] rather than throwing: "no credentials" is an answer.
+   */
+  async getCredentialObjects(address: string): Promise<Array<Record<string, unknown>>> {
+    try {
+      const res = await this._request<{ account_objects?: Array<Record<string, unknown>> }>({
+        command: 'account_objects',
+        account: address,
+        type: 'credential',
+        ledger_index: 'validated',
+        limit: 200,
+      });
+      return (res?.account_objects ?? []).filter((o) => o?.LedgerEntryType === 'Credential');
+    } catch (err) {
+      const code = (err as { data?: { error?: string } })?.data?.error;
+      if (code === 'actNotFound' || code === 'invalidParams') return [];
+      throw err;
+    }
+  }
+
+  /**
+   * `account_objects` with type 'deposit_preauth': the anchor's door as the
+   * ledger holds it — one entry per authorized account (`Authorize`) or per
+   * authorized credential SET (`AuthorizeCredentials`). An account with none
+   * answers [] ("no door" is an answer); a node without the amendment too.
+   */
+  async getDepositPreauthObjects(address: string): Promise<Array<Record<string, unknown>>> {
+    try {
+      const res = await this._request<{ account_objects?: Array<Record<string, unknown>> }>({
+        command: 'account_objects',
+        account: address,
+        type: 'deposit_preauth',
+        ledger_index: 'validated',
+        limit: 200,
+      });
+      return (res?.account_objects ?? []).filter((o) => o?.LedgerEntryType === 'DepositPreauth');
+    } catch (err) {
+      const code = (err as { data?: { error?: string } })?.data?.error;
+      if (code === 'actNotFound' || code === 'invalidParams') return [];
+      throw err;
+    }
+  }
+
+  /**
+   * The AccountRoot `Flags` bitmask on the validated ledger (lsfDepositAuth is
+   * 0x01000000, lsfDisableMaster 0x00100000…). Throws when the account does not
+   * exist: a door on an account that is not there is not "closed", it is unknown.
+   */
+  async getAccountFlags(address: string): Promise<number> {
+    const res = await this._request<{ account_data?: { Flags?: number } }>({
+      command: 'account_info',
+      account: address,
+      ledger_index: 'validated',
+    });
+    const flags = res?.account_data?.Flags;
+    if (typeof flags !== 'number') throw new Error(`No AccountRoot for ${address} — is the account funded?`);
+    return flags;
   }
 
   /**

@@ -44,8 +44,11 @@ export interface ChainCapability {
  * matrix is vocabulary-level, not per-adapter feature detection.
  *
  * Triggers: only the evaluators TriggerEvaluator actually implements.
- * PRICE_DROP_PCT and TIME_TRIGGER are stubs (always fired:false) → 'price'
- * and 'time' are EXCLUDED until those evaluators exist (honest matrix, F1).
+ * TIME_TRIGGER is REAL (5-field cron subset, UTC) and PRICE_DROP_PCT is REAL
+ * since M3 (2026-08-16: live FTSO price vs the rule's own baselineUsd) →
+ * 'time' and 'price' are both included below; the notes carry the fine
+ * print. [This header once claimed both were excluded — it had gone stale
+ * against line 57 and its own notes (plan 14-ago §10.3); kept fixed.]
  */
 export const FLARE_EVM_CAPABILITY: ChainCapability = {
   chain: 'eip155:14',
@@ -54,30 +57,33 @@ export const FLARE_EVM_CAPABILITY: ChainCapability = {
     'supply', 'withdraw', 'borrow', 'repay', 'swap',
     'provide-liquidity', 'remove-liquidity', 'stake', 'unstake', 'claim-rewards',
   ],
-  triggers: ['health-factor', 'ltv', 'reward', 'idle-balance', 'time'],
+  triggers: ['health-factor', 'ltv', 'reward', 'idle-balance', 'time', 'price'],
   amountTypes: ['absolute'],
   notes: [
     'health-factor supports comparator "below" only (HF_BELOW); re-leverage on "above" needs an HF_ABOVE evaluator (post-F1).',
-    '"time" runs on the TIME_TRIGGER cron evaluator (5-field subset: * */n lists ranges, UTC). "price" is still a stub — excluded until implemented.',
+    '"time" runs on the TIME_TRIGGER cron evaluator (5-field subset: * */n lists ranges, UTC). "price" runs on PRICE_DROP_PCT (M3): live FTSO price vs the rule\'s own baselineUsd — drop-from-baseline, not a rolling window; no baseline or no live read ⇒ never fires.',
     'transfer/bridge are not AutomationRule actions on EVM; cross-ecosystem moves are the C.2 primitive (post-F1).',
     'session keys (4337/7702) = V1.1 MiCA-gated; until then every trigger ends in a user signature (N1).',
   ],
 };
 
 /**
- * XRPL — ∅ until the native builders land (X1 arrives AFTER them; plan
- * Astryum_Plan_Builders_XRPL_Nativo_2026-07-08). Declared now so the
- * capability lookup and its degradation errors are already multichain.
+ * XRPL — NON-EMPTY since M4 (2026-08-16): the CanonicalXrplTranslator
+ * compiles to the rule vocabulary this window built (M1 scheduledPayment ·
+ * B.1 escrow · councilPayment · M3 real price evaluator). Honest matrix:
+ * only what a live rail serves is listed.
  */
 export const XRPL_CAPABILITY: ChainCapability = {
   chain: 'xrpl:0',
   mode: 'sign-at-trigger',
-  verbs: [],
-  triggers: [],
-  amountTypes: [],
+  verbs: ['transfer', 'supply'],
+  triggers: ['time', 'idle-balance', 'price'],
+  amountTypes: ['absolute'],
   notes: [
-    'XRPL verbs arrive with the native builders (EscrowCreate → OfferCreate → AMM) and the CanonicalXrplTranslator (X1).',
-    'native-conditional (Smart Escrows XLS-100) stays roadmap until the amendment reaches mainnet — the amendment watch re-checks it.',
+    '"transfer" = an XRPL Payment: personal → scheduledPayment (the tick nudges; the Payment is composed FRESH at the signing door, Account pinned, signed in Xaman) · governed → councilPayment (the trigger composes a proposal; the QUORUM signs).',
+    '"supply" = the B.1 savings escrow (venue.params.lockDays): the trigger nudges; the EscrowCreate is composed fresh in the Savings surface — FinishAfter is relative to signing time. Personal-only: the governed programmed transfer is a council ceremony, not a rule.',
+    'Native XRP only in v1 — IOU rails (RLUSD on XRPL…) are post. "price" floors convert to the drop-from-baseline evaluator AT TRANSLATION TIME with a live FTSO read; no read ⇒ readable error, never a guessed baseline.',
+    'AMM/DEX/Offer builders exist but stay OUT of the capability until their rule rails do (X1); Smart Escrows (XLS-100) stays roadmap until the amendment reaches mainnet.',
   ],
 };
 

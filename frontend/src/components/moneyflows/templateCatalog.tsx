@@ -16,7 +16,7 @@
 import React from 'react';
 import { ShieldCheck, Sprout } from 'lucide-react';
 
-export type TemplateKind = 'PROTECT' | 'HARVEST';
+export type TemplateKind = 'PROTECT' | 'HARVEST' | 'PROTECT_EM';
 
 /** USDT0 base-unit decimals (the borrowed asset the PROTECT repay targets). */
 export const USDT0_DECIMALS = 6;
@@ -85,6 +85,33 @@ export const TEMPLATES: Record<TemplateKind, TemplateDef> = {
           v.restore === 'true'
             ? { mode: 'restore', targetHF: parseFloat(v.hf) }
             : { mode: 'fixed', amount: String(BigInt(Math.round((parseFloat(v.repay) || 0) * 10 ** USDT0_DECIMALS))) },
+      },
+      cooldownMinutes: Math.round(parseFloat(v.cooldown) || 0),
+    }),
+  },
+  // W5/B7 — the Ethereum twin of PROTECT, for the FXRP/RLUSD Morpho position.
+  // M1 pattern end to end: the rule only VALIDATES + NUDGES at fire time; the
+  // repay legs are composed FRESH by /eth-morpho/prepare when the owner opens
+  // the door (debt grows with interest; repay-full needs LIVE borrowShares).
+  // Binding adjustment #3 (the ammo) lives in the blurb: the repay spends
+  // RLUSD ON ETHEREUM — the Sentora lend-only leg redeems on the same chain.
+  PROTECT_EM: {
+    label: 'Protect (Ethereum)',
+    icon: <ShieldCheck className="w-5 h-5" />,
+    accent: 'text-sky-300 border-sky-400/30 bg-sky-400/10',
+    blurb: 'Defends your FXRP/RLUSD position on Ethereum: if your cushion (health factor) drops below your threshold, Astryum nudges you and prepares the RLUSD repayment fresh when you open it — you sign on Ethereum. Keep RLUSD reachable there: the Sentora lend-only position redeems on the same chain.',
+    fields: [
+      { key: 'hf', label: 'Alert me when my cushion (health factor) drops below', type: 'number', default: '1.10', step: 0.05, min: 1.01, hint: '1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.' },
+      { key: 'full', label: 'Close the whole debt when it fires', type: 'toggle', default: 'false', hint: 'On: the door prepares a full repay against the LIVE debt (zero dust). Off: you choose the amount at the door, with the live numbers in front of you.' },
+      { key: 'cooldown', label: 'Minimum wait between alerts', type: 'number', default: '60', step: 5, min: 0, unit: 'min', hint: 'The minimum time between two alerts.' },
+    ],
+    build: (v, target) => ({
+      trigger: { type: 'HF_BELOW', threshold: parseFloat(v.hf) },
+      action: {
+        kind: 'emRepay',
+        protocolId: target.protocolId,
+        positionId: target.positionId,
+        params: { mode: v.full === 'true' ? 'full' : 'partial' },
       },
       cooldownMinutes: Math.round(parseFloat(v.cooldown) || 0),
     }),

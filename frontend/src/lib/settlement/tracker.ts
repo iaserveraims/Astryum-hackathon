@@ -9,28 +9,40 @@
 
 import {
   type CallsStatusLike,
+  type ReceiptLike,
   type SettlementRail,
   type SettlementState,
   clearPending,
+  compoundFailureIn,
   evaluate5792,
   explorerUrlFor,
   isPastCeiling,
   isReceiptSuccess,
+  noEffectReason,
   savePending,
+  startPending,
   toFailed,
   toSettled,
   toStalled,
 } from './settlement';
+import type { XrplTxVerdict } from '../xrpl/txResult';
 
 export interface TrackerDeps {
   /** wallet_getCallsStatus for a 5792 bundle id — throws when the wallet does not expose it (§1.2). */
   getCallsStatus(id: string): Promise<CallsStatusLike>;
-  /** EVM receipt by tx hash — null while not yet mined / node unreachable. */
-  getTxReceipt(hash: string): Promise<{ status: unknown } | null>;
+  /** EVM receipt by tx hash — null while not yet mined / node unreachable.
+   *  it. 34: WITH its `logs` — a Compound `Failure` inside a status-1 receipt is
+   *  a transaction mined without effect (see `receiptVerdict`). */
+  getTxReceipt(hash: string, chainId?: number): Promise<ReceiptLike | null>;
   /** GET /flare-demo/mint-status — executed flag, or null when the read failed (red caída ≠ pendiente). */
   getMintStatus(xrplHash: string): Promise<boolean | null>;
-  /** Plain XRPL Payment: validated-in-ledger flag, or null when the read failed. */
-  getXrplTxValidated(xrplHash: string): Promise<boolean | null>;
+  /**
+   * Plain XRPL Payment. NOT a boolean any more (incidente 22-ago-2026): «está
+   * validada» y «ha funcionado» son cosas distintas —un `tec*` está validado,
+   * cobró fee y NO hizo el pago— y «no la encuentro» y «no he podido leer» son
+   * opuestas por dentro aunque se parezcan en pantalla.
+   */
+  getXrplTxVerdict(xrplHash: string): Promise<XrplTxVerdict>;
   /** Council order: LegacyBridge.consumedTxId via the status endpoint, or null on a failed read. */
   getCouncilOrderExecuted(xrplHash: string): Promise<boolean | null>;
   now(): number;
@@ -51,16 +63,44 @@ export const POLL_MS: Record<SettlementRail, number> = {
 export const UNSUPPORTED_5792_PROBES = 3;
 
 /**
+ * it. 34 — THE VERDICT OF ONE EVM RECEIPT. `status: 1` used to be the whole
+ * test, and Kinetic (Compound v2) mines a refused redeem with status 1: it
+ * returns a code, emits `Failure(error, info, detail)`, charges gas and moves
+ * nothing. The receipt of «Convert to XRP» / «Withdraw» over an oversized
+ * amount then read «Done. The funds are back in your account.» Now: reverted →
+ * REVERTED; status 1 with a `Failure` → MINED_NO_EFFECT with the code; status 1
+ * and clean logs → settled.
+ */
+export function receiptVerdict(receipt: ReceiptLike): { settled: true } | { settled: false; reason: string } {
+  if (!isReceiptSuccess(receipt.status)) return { settled: false, reason: 'REVERTED' };
+  const f = compoundFailureIn(receipt.logs);
+  if (f) return { settled: false, reason: noEffectReason(f) };
+  return { settled: true };
+}
+
+/**
  * Track ONE pending settlement until it resolves. Emits the initial state
  * synchronously, then every CHANGE (deduped). Returns a cancel function.
- * A handle that arrives already final (single/sequential EVM rails await the
- * real receipt inside sendIntentCalls) is emitted as-is and never polled.
+ * A handle that arrives already FAILED is emitted as-is and never polled.
+ *
+ * it. 34 — a handle that arrives already SETTLED on the `evm` rail is NOT
+ * emitted as-is any more. The single/sequential rails of sendIntentCalls settle
+ * it on `receipt.status === 'success'` alone, and that is exactly the receipt a
+ * Kinetic code produces (mined, no effect). So it re-enters as pending and the
+ * ordinary receipt poll below — which now reads the logs — gives the verdict:
+ * one read on a mined transaction, settled or MINED_NO_EFFECT. The other rails
+ * (5792 bundle, XRPL) never arrive settled; a settled handle on them keeps the
+ * old pass-through.
  */
 export function trackSettlement(
-  initial: SettlementState,
+  handle: SettlementState,
   deps: TrackerDeps,
-  opts: { onUpdate(s: SettlementState): void; startedAt?: number },
+  opts: { onUpdate(s: SettlementState): void; startedAt?: number; opKey?: string },
 ): () => void {
+  const initial =
+    handle.status === 'settled' && handle.rail === 'evm'
+      ? startPending(handle.rail, handle.ref, handle.explorerUrl, handle.chainId)
+      : handle;
   let current = initial;
   let cancelled = false;
   let timer: unknown = null;
@@ -73,7 +113,10 @@ export function trackSettlement(
     return () => {};
   }
 
-  savePending({ rail: initial.rail, ref: initial.ref, explorerUrl: initial.explorerUrl, startedAt });
+  savePending({
+    rail: initial.rail, ref: initial.ref, explorerUrl: initial.explorerUrl,
+    chainId: initial.chainId, startedAt, opKey: opts.opKey,
+  });
   opts.onUpdate(initial);
 
   const emit = (next: SettlementState) => {
@@ -113,20 +156,28 @@ export function trackSettlement(
             const receipts = result.receipts ?? [];
             const raw = receipts[receipts.length - 1]?.transactionHash;
             const tx = typeof raw === 'string' && raw.startsWith('0x') ? raw : undefined;
-            return finish(toSettled(current, tx ? { ref: tx, explorerUrl: explorerUrlFor('evm', tx) } : undefined));
+            return finish(toSettled(current, tx ? { ref: tx, explorerUrl: explorerUrlFor('evm', tx, initial.chainId) } : undefined));
           }
         } else if (failedProbes >= UNSUPPORTED_5792_PROBES) {
           emit(toStalled(current, 'NO_AUTOCONFIRM'));
         }
       } else if (initial.rail === 'evm') {
-        const receipt = await deps.getTxReceipt(initial.ref).catch(() => null);
+        const receipt = await deps.getTxReceipt(initial.ref, initial.chainId).catch(() => null);
         if (receipt) {
-          if (isReceiptSuccess(receipt.status)) return finish(toSettled(current));
-          return finish(toFailed(current, 'REVERTED'));
+          // it. 34 — the receipt's verdict, logs included (receiptVerdict).
+          const v = receiptVerdict(receipt);
+          if (v.settled) return finish(toSettled(current));
+          return finish(toFailed(current, v.reason));
         }
       } else if (initial.rail === 'xrpl-tx') {
-        const validated = await deps.getXrplTxValidated(initial.ref).catch(() => null);
-        if (validated === true) return finish(toSettled(current));
+        // El ledger dicta las dos direcciones: asienta, o falla de forma
+        // TERMINAL. Antes sólo se sabía asentar, así que una tx rechazada se
+        // vigilaba para siempre y el recibo mentía diciendo «en curso».
+        const verdict = await deps
+          .getXrplTxVerdict(initial.ref)
+          .catch(() => ({ kind: 'unreadable' }) as XrplTxVerdict);
+        if (verdict.kind === 'settled') return finish(toSettled(current));
+        if (verdict.kind === 'failed') return finish(toFailed(current, verdict.code));
       } else if (initial.rail === 'council-order') {
         const executed = await deps.getCouncilOrderExecuted(initial.ref).catch(() => null);
         if (executed === true) return finish(toSettled(current));
@@ -134,7 +185,7 @@ export function trackSettlement(
         const executed = await deps.getMintStatus(initial.ref).catch(() => null);
         if (executed === true) return finish(toSettled(current));
       }
-      if (current.status === 'pending' && isPastCeiling(initial.rail, startedAt, deps.now())) {
+      if (current.status === 'pending' && isPastCeiling(initial.rail, startedAt, deps.now(), initial.chainId)) {
         emit(toStalled(current, 'STALLED_SLOW'));
       }
     } finally {

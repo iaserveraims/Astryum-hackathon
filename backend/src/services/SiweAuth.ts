@@ -1,8 +1,11 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ethers } from 'ethers';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../database/prismaClient';
 import { assertSignupAllowed } from '../config/betaGate';
+import { credentialsEpochOf, sessionPredatesEpoch, tokenPredatesEpoch } from './identity/credentialsEpoch';
+import { sessionAddressClaim } from './identity/provenAddresses';
 
 const NONCE_TTL_MS = 5 * 60 * 1000;     // 5 min to use a nonce
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24h session
@@ -215,16 +218,30 @@ export interface IssuedSession {
  * passkey, and email/password logins so the session shape never drifts.
  * `walletAddress` is empty for wallet-less accounts (email / passkey only) — the
  * JWT still carries an `addr` claim (empty string) so middleware stays uniform.
+ *
+ * `db`: pass the transaction client when the session must be born under a lock
+ * (passkey login issues it inside lockCredentialState, so an account takeover
+ * that commits first leaves nothing behind — see PasskeyService.verifyAuthentication).
+ *
+ * THE CLAIM IS NOT LOWERCASED BLINDLY (productizer it. 18, 3.1). This used to be
+ * `(walletAddress ?? '').toLowerCase()`, which is right for an EVM address and
+ * DESTRUCTIVE for every other form: an XRPL classic address is base58 and its
+ * case IS the address, so a lowercased r-address can never match a real one
+ * again. That silently broke the one mitigation `provenAddresses` relies on —
+ * «whatever else fails, the wallet you signed in with still proves itself» — for
+ * every session minted here, and with it the user's last key out when the proof
+ * store could not be read. `sessionAddressClaim` lowercases EVM and nothing else.
  */
 export async function issueSessionForUser(
   userId: string,
   walletAddress: string | null | undefined,
-  opts: { ipAddress?: string; userAgent?: string } = {}
+  opts: { ipAddress?: string; userAgent?: string } = {},
+  db: Prisma.TransactionClient = prisma,
 ): Promise<IssuedSession> {
-  const addr = (walletAddress ?? '').toLowerCase();
+  const addr = sessionAddressClaim(walletAddress);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  const session = await prisma.session.create({
+  const session = await db.session.create({
     data: {
       userId,
       token: sessionToken,
@@ -232,6 +249,8 @@ export async function issueSessionForUser(
       userAgent: opts.userAgent,
       isActive: true,
       lastActivity: new Date(),
+      // App clock, same clock that stamps the credential epoch.
+      createdAt: new Date(),
       expiresAt,
     },
     // select only id to avoid P2022 if refreshToken column isn't yet in the DB
@@ -245,7 +264,7 @@ export async function issueSessionForUser(
     { expiresIn: JWT_TTL }
   );
 
-  const linkedWallets = await getLinkedWallets(userId);
+  const linkedWallets = await getLinkedWallets(userId, db);
 
   return { token, sessionId: session.id, walletAddress: addr, expiresAt, linkedWallets };
 }
@@ -261,16 +280,45 @@ export interface VerifiedToken {
  * Throws Error with code: token_invalid | token_expired | session_not_found |
  *   session_revoked | session_expired
  */
-export async function verifyToken(jwtToken: string): Promise<VerifiedToken> {
-  let payload: any;
+/**
+ * Signature check of a JWT we issued. `allowExpired` is for LOGOUT only: an
+ * expired access token is still authentic, and its session (a 30-day refresh
+ * session outlives the 24h JWT) must stay revocable. A forged or tampered token
+ * throws `token_invalid` either way.
+ */
+export function verifyJwtSignature(jwtToken: string, opts: { allowExpired?: boolean } = {}): any {
   try {
-    payload = jwt.verify(jwtToken, JWT_SECRET);
+    return jwt.verify(jwtToken, JWT_SECRET, { ignoreExpiration: Boolean(opts.allowExpired) });
   } catch (err: any) {
     if (err?.name === 'TokenExpiredError') {
       throw Object.assign(new Error('token_expired'), { code: 'token_expired' });
     }
     throw Object.assign(new Error('token_invalid'), { code: 'token_invalid' });
   }
+}
+
+/**
+ * Logout: revoke the session a token names — only after its signature verifies.
+ * `jwt.decode` alone let anyone who knew (or guessed) a session id log that
+ * session out with a hand-made token. Throws `token_invalid` on a forged token
+ * and revokes nothing; an already-gone session is not an error.
+ */
+export async function revokeSessionForToken(jwtToken: string): Promise<{ revoked: boolean }> {
+  const payload = verifyJwtSignature(jwtToken, { allowExpired: true });
+  const sid = payload?.sid;
+  if (typeof sid !== 'string' || !sid) {
+    throw Object.assign(new Error('token_invalid'), { code: 'token_invalid' });
+  }
+  try {
+    await revokeSession(sid);
+    return { revoked: true };
+  } catch {
+    return { revoked: false };
+  }
+}
+
+export async function verifyToken(jwtToken: string): Promise<VerifiedToken> {
+  const payload: any = verifyJwtSignature(jwtToken);
   const sid = payload?.sid;
   const sub = payload?.sub;
   // addr is empty for wallet-less accounts (email / passkey logins) — allowed.
@@ -278,7 +326,10 @@ export async function verifyToken(jwtToken: string): Promise<VerifiedToken> {
   if (!sid || !sub || addr === undefined || addr === null) {
     throw Object.assign(new Error('token_invalid'), { code: 'token_invalid' });
   }
-  const session = await prisma.session.findUnique({ where: { id: sid } });
+  const [session, user] = await Promise.all([
+    prisma.session.findUnique({ where: { id: sid } }),
+    prisma.user.findUnique({ where: { id: sub }, select: { preferences: true, isActive: true } }),
+  ]);
   if (!session) {
     throw Object.assign(new Error('session_not_found'), { code: 'session_not_found' });
   }
@@ -287,6 +338,29 @@ export async function verifyToken(jwtToken: string): Promise<VerifiedToken> {
   }
   if (session.expiresAt < new Date()) {
     throw Object.assign(new Error('session_expired'), { code: 'session_expired' });
+  }
+  // THE ACCOUNT MUST BE ACTIVE (productizer it. 16, 4.5). Without this there is
+  // no such thing as suspending an account: `isActive:false` is set on the
+  // quarantine row a takeover creates, and would be set by any future suspension
+  // — and every session already minted would keep working regardless. Disabling
+  // an account kills its live sessions on their very next request, which is the
+  // point.
+  if (!user || user.isActive === false) {
+    throw Object.assign(new Error('account_disabled'), { code: 'account_disabled' });
+  }
+  // The token's `sub` must be the session's own user. They are minted together,
+  // so a mismatch is a forged or stitched pair — a session id lifted from one
+  // account and pasted into a token for another. Every `req.siwe.userId` reader
+  // downstream trusts `sub`, and `lockAndAssertLiveSession` is the only place
+  // that checks the two agree; here it stops at the door.
+  if (session.userId !== sub) {
+    throw Object.assign(new Error('token_invalid'), { code: 'token_invalid' });
+  }
+  // Credential epoch (account takeover): a session or token from before it is
+  // dead even if its row escaped the revocation sweep.
+  const epoch = credentialsEpochOf(user?.preferences);
+  if (sessionPredatesEpoch(session.createdAt, epoch) || tokenPredatesEpoch(payload?.iat, epoch)) {
+    throw Object.assign(new Error('session_revoked'), { code: 'session_revoked' });
   }
   // touch lastActivity (best-effort)
   prisma.session
@@ -310,8 +384,11 @@ export async function revokeSession(sessionId: string): Promise<void> {
  * Return all active WalletBindings for a user — used to surface linked wallets
  * on login and /me without re-querying everywhere.
  */
-export async function getLinkedWallets(userId: string): Promise<LinkedWallet[]> {
-  return prisma.walletBinding.findMany({
+export async function getLinkedWallets(
+  userId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<LinkedWallet[]> {
+  return db.walletBinding.findMany({
     where: { userId, isActive: true },
     orderBy: { linkedAt: 'asc' },
     select: { id: true, address: true, chainType: true, label: true, mode: true, linkedAt: true },
@@ -373,7 +450,7 @@ export async function verifyXamanPayload(
   opts: { ipAddress?: string; userAgent?: string } = {}
 ): Promise<XamanVerifyResult> {
   const apiKey    = process.env.XAMAN_API_KEY    ?? process.env.NEXT_PUBLIC_XAMAN_API_KEY;
-  const apiSecret = process.env.XAMAN_API_SECRET ?? process.env.NEXT_PUBLIC_XAMAN_API_SECRET;
+  const apiSecret = process.env.XAMAN_API_SECRET; // never NEXT_PUBLIC_* — a secret is server-only
   if (!apiKey || !apiSecret) {
     throw Object.assign(new Error('xaman_not_configured'), { code: 'xaman_not_configured' });
   }
@@ -437,6 +514,7 @@ export async function verifyXamanPayload(
       userAgent: opts.userAgent,
       isActive:  true,
       lastActivity: new Date(),
+      createdAt: new Date(),
       expiresAt,
     },
     select: { id: true },

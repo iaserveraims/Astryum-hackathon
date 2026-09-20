@@ -15,12 +15,15 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 import { useRouter } from 'next/navigation';
 import { X, Send, Loader2, ArrowRight } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
-import { TypewriterText } from '../ui/motion';
+import { genieMotion, TypewriterText } from '../ui/motion';
 import { getApiBase } from '../../lib/env';
 import { useAuthorityStore } from '../../stores/authorityStore';
+import { useDockStore } from '../../stores/dockStore';
 import { useLegacyJourney } from '../../lib/legacy/guideContext';
 // The Guía's starters — the embedded Legacy chat is unmounted (2026-08-04);
 // this co-pilot IS the Guía whenever the product toggle sits on Legacy.
@@ -238,6 +241,14 @@ export default function ProductAssistant() {
     [messages, streaming, legacyMode, journey, t],
   );
 
+  // El raíl plegado, con la MISMA fórmula que el shell (AppShell): una
+  // operación anclada y no minimizada pliega el raíl a 72px. El popup se cuelga
+  // de esa verdad en vez de asumir el raíl ancho.
+  const dockDocked = useDockStore((st) => st.docked);
+  const dockMinimized = useDockStore((st) => st.minimized);
+  const railCollapsed = dockDocked && !dockMinimized;
+  const reduce = useReducedMotion();
+
   // Same order as CommandPalette's go() (components/ui/AppShell.tsx): close
   // the panel first, then navigate — the co-pilot only ever opens a screen for
   // the user to act on, it never acts itself (invariant: navigate, don't execute).
@@ -253,9 +264,23 @@ export default function ProductAssistant() {
     <>
       {/* Chat panel — rises from the sidebar's guide button (bottom-left on
           desktop), so it reads as part of the shell instead of covering the
-          page's own content in the corner. */}
+          page's own content in the corner.
+
+          LA IZQUIERDA SIGUE AL RAÍL (fundador 2026-08-27: «cuando la barra está
+          colapsada se sigue cargando a la distancia como si estuviera
+          desplegada»). El 268px estaba clavado para el raíl de 256px; con una
+          operación anclada el raíl se pliega a 72px y el popup quedaba flotando
+          a 20 rem de su propio botón. Misma fórmula que el shell: colapsado =
+          docked && !minimized.
+
+          Y EL GENIO al abrir: el panel SALE del botón del pie del raíl —
+          transform-origin abajo-izquierda, receta compartida (genieMotion). */}
+      <AnimatePresence>
       {open && (
-        <div className="fixed bottom-4 left-4 lg:left-[268px] right-4 sm:right-auto z-40 sm:w-[min(92vw,380px)] h-[min(72vh,540px)] flex flex-col bg-surface-1 border border-ink/10 rounded-2xl shadow-2xl overflow-hidden">
+        <motion.div
+          {...genieMotion(reduce, 'bottom-left')}
+          className={`fixed bottom-4 left-4 ${railCollapsed ? 'lg:left-[88px]' : 'lg:left-[268px]'} right-4 sm:right-auto z-40 sm:w-[min(92vw,380px)] h-[min(72vh,540px)] flex flex-col bg-surface-1 border border-ink/10 rounded-2xl shadow-2xl overflow-hidden`}
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink/5">
             <div className="flex items-center gap-2">
@@ -400,8 +425,9 @@ export default function ProductAssistant() {
                   : t('This guide only explains the app. It never sees your balance or positions, and gives no financial advice.')}
             </p>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </>
   );
 }

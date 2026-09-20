@@ -34,7 +34,7 @@ import {
   bitcoin,
   type AppKitNetwork,
 } from '@reown/appkit/networks';
-import { cookieStorage, createStorage } from 'wagmi';
+import { cookieStorage, createStorage, http } from 'wagmi';
 
 export const WALLET_CONNECT_PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'defibro-dev-placeholder';
@@ -78,15 +78,18 @@ export const EVM_NETWORKS_ALL = [
 ] as [AppKitNetwork, ...AppKitNetwork[]];
 
 /**
- * EVM chains exposed to wagmi — Flare Mainnet (14) and nothing else.
+ * EVM chains registered with wagmi — Flare Mainnet (14) + Ethereum (1).
  *
- * The app has been Flare-only at the surface for a while (NetworkSwitcher is
- * the "V1 Flare-only enforcer", SIWE pins Chain ID 14). Keeping seven other
- * chains inside wagmi meant a wallet connected on Ethereum was still a valid
- * wagmi session, and its address got filed as an Ethereum row. One chain in the
- * config makes the rule structural instead of cosmetic.
+ * Flare is the CONNECT rail (SIWE pins Chain ID 14; the connect modal offers
+ * Flare alone — see APPKIT_NETWORKS). Ethereum is a SIGNING chain only: the
+ * eth-morpho vault flow (W3, plan §13 / BuildSpec B5-UI paso 1) switches the
+ * wallet to chain 1 at sign time via sendIntentCalls → switchChainAsync, and
+ * wagmi throws ChainNotConfiguredError unless the chain is registered here.
+ * The previous single-chain list was the structural "Flare-only enforcer";
+ * widening it to {14, 1} is the founder's Ethereum-vault decision, not drift —
+ * connecting/linking on Ethereum stays refused (see APPKIT_NETWORKS + SIWE).
  */
-export const EVM_NETWORKS = [flare] as [AppKitNetwork, ...AppKitNetwork[]];
+export const EVM_NETWORKS = [flare, mainnet] as [AppKitNetwork, ...AppKitNetwork[]];
 
 /**
  * Solana mainnet network. Single-chain VM. Routed by AppKit through the
@@ -99,14 +102,17 @@ export const BITCOIN_NETWORKS = [bitcoin] as [AppKitNetwork, ...AppKitNetwork[]]
 
 /**
  * Networks offered by the connect modal. Flare only: the picker can't hand back
- * a session on a chain this beta refuses to link. Solana/Bitcoin are appended
+ * a session on a chain this beta refuses to link (connect rail = MetaMask@Flare
+ * + Xaman, founder 2026-08-04 — unchanged). Ethereum is deliberately NOT here
+ * even though wagmi registers it: it is a signing-time switch inside the
+ * eth-morpho flow, never a connect/link surface. Solana/Bitcoin are appended
  * only when the multi-VM rail is switched back on — their adapters stay built
  * either way (see appkit.ts).
  */
 export const APPKIT_NETWORKS = (
   MULTI_VM_CONNECT_ENABLED
     ? [...EVM_NETWORKS_ALL, ...SOLANA_NETWORKS, ...BITCOIN_NETWORKS]
-    : [...EVM_NETWORKS]
+    : [flare]
 ) as [AppKitNetwork, ...AppKitNetwork[]];
 
 /** App metadata shown by wallet partners during the connection handshake. */
@@ -131,11 +137,40 @@ export const APP_METADATA = {
  * Note: only EVM networks are passed to wagmi. AppKit handles the Solana side
  * via the separate SolanaAdapter — wagmi has no concept of non-EVM chains.
  */
+/**
+ * EL RPC QUE LEE LOS RECIBOS. Sin esto, wagmi cae al endpoint público que viem
+ * trae por defecto para cada cadena — y ahí es donde muerde.
+ *
+ * El carril de Ethereum firma en dos o tres patas, y entre pata y pata se
+ * espera un recibo REAL antes de mandar la siguiente. Un 429 o un timeout en
+ * esa lectura no rompe la transacción (ya salió), pero corta la secuencia y
+ * obliga a decir «EN VUELO». `ETHEREUM_RPC_URL` en Railway NO cubre esto: es
+ * del backend. Esta lectura la hace el navegador.
+ *
+ * ⚠ Sobre `NEXT_PUBLIC_` (invariante #2): esta URL es visible para cualquiera
+ * por construcción — la usa el navegador. Por eso **no puede ser la misma clave
+ * que el backend**: usa una clave APARTE, de sólo lectura y restringida por
+ * dominio (Alchemy/Infura permiten allowlist de referrer). Una clave así no es
+ * un secreto: es una cuota con tu nombre, que es justo lo que hace falta para
+ * no depender de la IP compartida. Si no se pone, se cae al nodo público, que
+ * funciona para leer pero es exactamente el riesgo descrito arriba.
+ */
+const ETHEREUM_HTTP =
+  process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || 'https://ethereum-rpc.publicnode.com';
+const FLARE_HTTP =
+  process.env.NEXT_PUBLIC_FLARE_RPC_URL || 'https://flare-api.flare.network/ext/C/rpc';
+
 export const wagmiAdapter = new WagmiAdapter({
   networks: EVM_NETWORKS,
   projectId: WALLET_CONNECT_PROJECT_ID,
   ssr: true,
   storage: createStorage({ storage: cookieStorage }),
+  // Explícito por cadena: el defecto de viem es un nodo público compartido y
+  // sin cuota propia, justo lo que no se quiere debajo de una firma.
+  transports: {
+    [mainnet.id as number]: http(ETHEREUM_HTTP),
+    [flare.id as number]: http(FLARE_HTTP),
+  },
 });
 
 export const wagmiConfig = wagmiAdapter.wagmiConfig;

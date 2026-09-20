@@ -12,6 +12,7 @@
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { useT } from '../../i18n/LanguageProvider';
 import type { PreflightInfo } from '../../lib/preflight';
+import { emPreflightMessage } from '../../lib/earn/emPreflightCodes';
 import { translateError } from '../../lib/errors/translateError';
 
 export function PreflightNotice({ preflight }: { preflight?: PreflightInfo | null }) {
@@ -33,8 +34,16 @@ export function PreflightNotice({ preflight }: { preflight?: PreflightInfo | nul
         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
         <span>
           <span className="font-medium">{t('We tested this operation without signing it — it would FAIL:')}</span>{' '}
-          {/* The chain's reason is a tec-code or revert string — translate it. */}
-          {preflight.reason ? translateError(preflight.reason, t).message : t('the simulation reported a failure')}
+          {/* El CÓDIGO manda, la prosa del servidor es el respaldo. El backend
+              redacta sus pre-flights en inglés, así que sin esto el bloqueo de
+              la única salida del lend-only salía en inglés dentro de un
+              recuadro por lo demás en castellano — justo la frase que explica
+              por qué no puedes sacar tu dinero. Un código desconocido degrada a
+              la frase inglesa del servidor, nunca a un identificador. */}
+          {emPreflightMessage(preflight.code, t)
+            ?? (preflight.reason
+              ? translateError(preflight.reason, t).message
+              : t('the simulation reported a failure'))}
         </span>
       </div>
     );

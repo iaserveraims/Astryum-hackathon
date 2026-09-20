@@ -33,19 +33,45 @@ import {
   Pencil,
   Workflow,
   RefreshCw,
+  HelpCircle,
 } from 'lucide-react';
-import { Card, EmptyState, MicroLabel, PageHeader, Pill, SectionTitle } from '../ui/primitives';
+import { Card, EmptyState, GhostButton, MicroLabel, PageHeader, Pill, SectionTitle } from '../ui/primitives';
 import { TokenLogo } from '../ui/TokenLogo';
 import { formatMoney } from '../../lib/formatMoney';
+// La cantidad en unidades humanas vive en lib para poder testearse: importar
+// este componente arrastra AppKit y medio grafo, así que la lógica que decide
+// QUÉ NÚMERO VE EL USUARIO era intesteable por vecindad.
+import { qtyDisplay } from '../../lib/positionQty';
+import { matchesAutoAction, type BoardAutoAction } from '../../lib/positionAutoAction';
+import {
+  chainIdOf,
+  positionsBlocksOf,
+  protocolWord,
+  reduceFlareScan,
+  shortAddr,
+  type FlareProtocolUnread,
+  type UnreadableAddr,
+} from '../../lib/positionsReadState';
+import { SceneDoor } from '@/components/ui/SceneDoor';
+import { Arrive } from '@/components/ui/motion';
+import { SignalBeacon } from '@/components/ui/scenes';
+import { SignetMark } from '@/components/ui/skin/marks';
 import { useT } from '../../i18n/LanguageProvider';
 import { useAuthStore } from '../../stores/authStore';
 import { positions as positionsApi, rules as rulesApi, type AutomationRule } from '../../services/v1Api';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
 import { useWalletPartner } from '../../lib/wallet/useWalletPartner';
 import { useMyWallets } from '../../hooks/useMyWallets';
-import { invalidatePortfolioCache } from '../../lib/portfolioMerge';
+import { invalidatePortfolioCache, setEthRailLive } from '../../lib/portfolioMerge';
 import { getApiBase } from '../../lib/env';
 import { getUserRegion } from '../../lib/region';
+import { toRows, scanEthMorpho, anyVaultLegUnread } from '../../lib/earn/ethMorphoPosition';
+import {
+  boardShowsEmpty,
+  isTransientStatus,
+  positionReadFailureKind,
+  positionWalletOf,
+} from '../../lib/earn/exitReadState';
 import {
   hydrateRulePrefillsFromServer,
   readRulePrefill,
@@ -57,10 +83,21 @@ import { canonicalizeSymbol } from '../../lib/canonicalizeSymbol';
 import { SettlementIndicator } from '../settlement/SettlementIndicator';
 import { hfWord } from '../../lib/healthScore';
 import { translateError } from '../../lib/errors/translateError';
+import { applySignFailure, type UnconfirmedSignature } from '../../lib/wallet/signOutcome';
+import { UnconfirmedSignatureNotice } from '../settlement/UnconfirmedSignatureNotice';
 import { describeRule } from '../../lib/rules/describeRule';
+import {
+  RULE_PILL_TONE,
+  loadRunReadings,
+  rulePillState,
+  type RuleRunReading,
+} from '../../lib/rules/runHealth';
 import { preflightSaysFail, type PreflightInfo } from '../../lib/preflight';
 import { PreflightNotice } from '../preflight/PreflightNotice';
-import { PaActionsModal, type PaActionKind, type PaHolder, type PaLegs } from './PaActionsModal';
+import { type PaActionKind, type PaHolder, type PaLegs } from './PaActionsModal';
+import { EmRepayModal } from './EmRepayModal';
+import { EmExitModal, type EmExitMode } from './EmExitModal';
+import { EmCloseModal } from './EmCloseModal';
 import { VaultWithdrawModal, type VaultPositionRef } from './VaultWithdrawModal';
 import { FtsoExitModal, type FtsoPositionRef } from './FtsoExitModal';
 import { VaultClaimModal } from './VaultClaimModal';
@@ -68,6 +105,8 @@ import { TEMPLATES, type TemplateKind } from '../moneyflows/templateCatalog';
 import { RuleEditModal } from '../moneyflows/RuleEditModal';
 import { ProtectRuleCard } from '../moneyflows/ProtectRuleCard';
 import { ModalOverlay, modalsOpen, useModalsOpen } from '@/components/ui/ModalPortal';
+import { walletNameResolver } from '../../lib/walletIdentity';
+import { useOperationStore } from '../../stores/operationStore';
 
 const API_BASE = getApiBase();
 
@@ -135,6 +174,16 @@ function claimLabelFor(p: { raw?: unknown; [extra: string]: unknown }): 'Claimab
   return raw.claimable === true ? 'Claimable' : 'Leaving';
 }
 
+/** El color del TIPO, para pintar la ficha y el filo de cada fila. Es el mismo
+ *  criterio que `kindTone` — una sola regla — traducido a clases. */
+const KIND_SKIN: Record<string, { tile: string; edge: string }> = {
+  success: { tile: 'border-tone-success/30 bg-tone-success/10 text-tone-success', edge: 'bg-tone-success/50' },
+  danger: { tile: 'border-tone-danger/30 bg-tone-danger/10 text-tone-danger', edge: 'bg-tone-danger/50' },
+  info: { tile: 'border-volt/30 bg-volt/10 text-volt', edge: 'bg-volt/50' },
+  warning: { tile: 'border-tone-warning/30 bg-tone-warning/10 text-tone-warning', edge: 'bg-tone-warning/50' },
+  neutral: { tile: 'border-ink/10 bg-ink/5 text-ink/70', edge: 'bg-ink/15' },
+};
+
 function kindTone(kind: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
   const k = kind.toUpperCase();
   if (k === 'COLLATERAL' || k === 'SUPPLY' || k === 'LEND') return 'success';
@@ -145,9 +194,18 @@ function kindTone(kind: string): 'success' | 'warning' | 'danger' | 'info' | 'ne
 }
 
 /** Which automation templates apply to a position (the demo's two automations). */
-function templatesFor(protocolId: string, kindUpper: string): TemplateKind[] {
+function templatesFor(protocolId: string, kindUpper: string, chainId?: number): TemplateKind[] {
   const out: TemplateKind[] = [];
   const proto = protocolId.toLowerCase();
+  // W5/B7 — the Ethereum FXRP/RLUSD position gets its OWN protect twin
+  // (emRepay, M1 pattern) and never the Kinetic one; chainId gates it so the
+  // Base cbXRP rows (same 'morpho-blue' slug, watch-only) stay template-free.
+  if (proto === 'morpho-blue') {
+    if (chainId === 1 && ['DEBT', 'BORROW', 'COLLATERAL'].includes(kindUpper)) {
+      out.push('PROTECT_EM');
+    }
+    return out;
+  }
   // PROTECT defends a leveraged/borrow position (A1 = Kinetic HF→repay).
   if (proto === 'kinetic' || kindUpper === 'DEBT' || kindUpper === 'BORROW') out.push('PROTECT');
   // HARVEST compounds yield/rewards (A2 = FTSO rewards→claim/compound).
@@ -231,34 +289,21 @@ function vaultHoldersFor(all: DefiPosition[], p: DefiPosition): VaultPositionRef
     .filter((r): r is VaultPositionRef => !!r && r.vault === me.vault);
 }
 
-/** Deep-link request from the Estrategias hub: open THIS position's action. */
-export interface BoardAutoAction {
-  action: 'withdraw' | 'harvest' | 'repay';
-  protocolId: string;
-  /** Vault/receipt name (earnXRP, MXRPY, stXRP…) when the hub row was a vault. */
-  name?: string;
-  /** Holding wallet, when the hub knew it. */
-  owner?: string;
-}
+/* BoardAutoAction + matchesAutoAction viven en lib/positionAutoAction:
+ * la regla que decide QUE PUERTA abre un aviso no puede estar sin tests, y
+ * aqui dentro era intesteable (importar este componente arrastra AppKit). */
+export type { BoardAutoAction };
 
-function matchesAutoAction(a: BoardAutoAction, p: DefiPosition): boolean {
-  if (a.protocolId.toLowerCase() !== p.protocolId.toLowerCase()) return false;
-  if (a.owner && a.owner.toLowerCase() !== p.owner.toLowerCase()) return false;
-  if (a.name) {
-    const raw = (p.raw ?? {}) as { token?: string; vaultName?: string };
-    const names = [raw.token, raw.vaultName, p.asset, assetDisplay(p)]
-      .filter(Boolean)
-      .map((s) => String(s).toLowerCase());
-    if (!names.some((n) => n === a.name!.toLowerCase())) return false;
-  }
-  return true;
-}
-
+/**
+ * The board's rows out of one `/positions/:wallet` body. Reads ONLY the rows;
+ * what a block could not read (`error`, `unreadable`) is `unreadBlocksOf`'s
+ * job — both read the body through `positionsBlocksOf` (lib/positionsReadState).
+ * Body kept plain JS so the tests run THIS function, not a copy.
+ */
 function flattenPositions(data: unknown, owner: string): DefiPosition[] {
-  const results = (data as { results?: Array<{ protocolId: string; positions?: RawDefiPosition[] }> })?.results ?? [];
   const out: DefiPosition[] = [];
-  for (const block of results) {
-    for (const p of block.positions ?? []) {
+  for (const block of positionsBlocksOf(data)) {
+    for (const p of block.positions) {
       const kindUpper = String(p.kind ?? '').toUpperCase();
       if (!DEFI_KINDS.has(kindUpper)) continue;
       const positionId = `${block.protocolId}:${p.asset}:${p.kind}`;
@@ -269,7 +314,7 @@ function flattenPositions(data: unknown, owner: string): DefiPosition[] {
         owner,
         kindUpper,
         label: kindUpper === 'CLAIM' ? claimLabelFor(p) : (KIND_LABEL[kindUpper] ?? p.kind),
-        templates: templatesFor(block.protocolId, kindUpper),
+        templates: templatesFor(block.protocolId, kindUpper, chainIdOf(p)),
       });
     }
   }
@@ -277,9 +322,93 @@ function flattenPositions(data: unknown, owner: string): DefiPosition[] {
 }
 
 /**
+ * H1 — the Ethereum FXRP/RLUSD position, as board rows.
+ *
+ * Fail-closed by the rail's OWN gate: `/status` says whether the module is
+ * on, and a `false` (or an unreachable backend) yields NO rows — never a
+ * half-painted position. Best-effort per address: one wallet failing must not
+ * cost the others, and nothing here can blank the Flare board.
+ */
+async function fetchEthMorphoRows(
+  addrs: string[],
+): Promise<{ rows: DefiPosition[]; unreadable: UnreadableAddr[]; vaultLegUnread: boolean }> {
+  // Revisión 14-sep: el lector compartido sólo devuelve QUÉ direcciones no se
+  // pudieron leer; el PORQUÉ (451 región ≠ 502 «un momento») se captura aquí,
+  // envolviendo su fetch, sin tocar el lector.
+  const failures = new Map<string, number | null>();
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+    const w = positionWalletOf(url);
+    try {
+      const r = await fetch(input, init);
+      if (w && !r.ok) failures.set(w.toLowerCase(), r.status);
+      return r;
+    } catch (e) {
+      if (w) failures.set(w.toLowerCase(), null);
+      throw e;
+    }
+  };
+  // H10 — el tablero sigue el interruptor CALIENTE del carril, no el valor
+  // incrustado en el build: `scanEthMorpho` lo publica al leer `/status`.
+  const scan = await scanEthMorpho(addrs, {
+    apiBase: API_BASE,
+    headers: authHeaders,
+    region: getUserRegion() ?? null,
+    onRailStatus: setEthRailLive,
+    fetchImpl,
+  });
+  const rows: DefiPosition[] = [];
+  for (const read of scan.reads) {
+    for (const row of toRows(read)) {
+      const kindUpper = row.kind;
+      rows.push({
+        ...row,
+        positionId: `${row.protocolId}:${row.asset}:${row.kind}`,
+        owner: row.owner,
+        kindUpper,
+        label: KIND_LABEL[kindUpper] ?? row.kind,
+        templates: templatesFor(row.protocolId, kindUpper, row.chainId),
+      });
+    }
+  }
+  // Una dirección que no se pudo leer NO es una dirección sin posición: se
+  // devuelve para decirlo. Antes se tragaba el fallo y la posición —con su
+  // botón de repago— desaparecía del tablero justo cuando podía hacer falta.
+  //
+  // Y la pata de la bóveda se lee aparte dentro de /position, así que puede
+  // fallar ella sola: un cero silencioso ahí es indistinguible de un depósito
+  // perdido, y también se dice.
+  return {
+    rows,
+    unreadable: scan.unreadable.map((addr) => ({ addr, status: failures.get(addr.toLowerCase()) ?? null })),
+    vaultLegUnread: anyVaultLegUnread(scan.reads),
+  };
+}
+
+/**
  * The Kinetic ISO legs of one Personal Account, classified by the kToken
  * symbol carried in the raw scan (`kFXRP…`/`kUSDT0…`). Base units throughout.
  */
+/**
+ * Deuda RLUSD viva del dueño en el mercado de Ethereum, en base units.
+ *
+ * Es lo que distingue un carry ENTERO de uno a medio abrir. El colateral en
+ * Morpho Blue no cobra supply rate, así que colateral aportado y deuda 0 es
+ * capital parado — y hasta ahora esa posición no tenía puerta para terminarse:
+ * la acción `borrow` existía y estaba testeada en el backend, y ningún botón
+ * la llamaba.
+ */
+function emDebtFor(all: DefiPosition[], owner: string): string {
+  for (const p of all) {
+    if (p.protocolId.toLowerCase() !== 'morpho-blue') continue;
+    if ((p as { chainId?: number }).chainId !== 1) continue;
+    if (p.owner.toLowerCase() !== owner.toLowerCase()) continue;
+    if (p.kindUpper === 'DEBT') return String(p.amount);
+  }
+  return '0';
+}
+
 function kineticLegsFor(all: DefiPosition[], owner: string): PaLegs {
   const legs: PaLegs = {};
   for (const p of all) {
@@ -441,7 +570,11 @@ function MoneyFlowTemplateModal({
       const { trigger, action, cooldownMinutes } = tpl.build(vals, position);
       await rulesApi.create({
         walletAddress,
-        chainId: 14,
+        // Chain scope follows the POSITION, not the connection (the b207fff
+        // lesson): PROTECT_EM guards the Ethereum market, everything else is
+        // Flare. A rule scoped to the wrong chain scans the wrong chain and
+        // silently never fires.
+        chainId: template === 'PROTECT_EM' ? 1 : 14,
         name: `${tpl.label} · ${position.asset}`,
         trigger,
         action,
@@ -608,16 +741,124 @@ function MoneyFlowTemplateModal({
 /* INLINE STRATEGY PANEL — position + its MoneyFlows                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * G4-residuos (auditoria 2026-08-17 §G4) — the «watching» that watches nothing.
+ *
+ * WHAT WAS FAILING IN SILENCE HERE: this board was the ONLY consumer of
+ * GET /rules/:id/runs — and it threw away the two things that matter. It kept
+ * `count`/`lastAt`/`lastStatus` and DROPPED `notes`, so the reason an armed
+ * automation produced nothing (`NoCageForLegacy`, `council_compose_failed`,
+ * `scheduled_payment_invalid`, a failed prepare) never reached the owner. Worse,
+ * a run whose `status` is `error` looked exactly like a healthy one: the pill
+ * stayed green on `r.enabled` alone, and the status only appeared as a raw
+ * machine word in parentheses at the end of a grey line.
+ *
+ * And the read itself failed SILENTLY: a non-2xx `continue`d and a throw hit
+ * `/* history is best-effort *\/`, leaving NO entry — which the row printed as
+ * «No triggers yet», a fact we had never established. «I could not read it» is
+ * not «it never fired», and neither of them is «it is fine».
+ *
+ * Same reducer and same sentences as MoneyFlowsPanel and LegacyActivityFeed —
+ * the surfaces must never disagree about the same rule. G4-strategies (round
+ * 2): that reducer no longer lives here as a third literal copy — it is
+ * lib/rules/runHealth.ts, imported above.
+ *
+ * REUSE (auditoría 2026-08-18): nor does the READ. This was the only one of the
+ * six surfaces still calling GET /rules/:id/runs by hand, with its own headers
+ * and its own wording for a failed read, on the excuse that it also needs
+ * `count` / `lastAt` / `lastStatus` for the history line. The shared module
+ * learned those three facts (`loadRunReadings`) and this surface now asks it,
+ * through the same `rulesApi.runs` the other five use — which also means a 401
+ * here finally behaves like a 401 everywhere else (v1Api handles it) instead of
+ * being reported to the family as «could not read this rule's run history».
+ *
+ * Read on mount AND on refresh: see `runsRevision` below.
+ */
+
+/**
+ * The history line under a rule's name. Four different sentences for four
+ * different facts, where there used to be two: «N triggers · last …» (whatever
+ * the status was) and «No triggers yet» (including when the read had failed).
+ *
+ * G4-pildoras (round 3) — `enabled` arrived because this line never looked at
+ * it: a PAUSED rule with an old failed run claimed «this rule is armed» next to
+ * its Resume button. The failure still shows (it happened); the tense follows
+ * the rule's actual state.
+ */
+function RunHistoryLine({
+  health,
+  enabled,
+  t,
+}: {
+  health: RuleRunReading | undefined;
+  enabled: boolean;
+  t: (s: string) => string;
+}) {
+  // Not read yet — the effect is still in flight.
+  if (!health) {
+    return <div className="text-[10px] text-ink/30 truncate">{t('Reading its run history…')}</div>;
+  }
+  const { verdict } = health;
+  if (verdict.state === 'unreadable') {
+    return (
+      <div className="text-[10px] text-tone-warning" title={verdict.detail}>
+        {t('Could not read this rule’s run history — we cannot tell you whether its last fire worked.')}
+      </div>
+    );
+  }
+  const when = health.lastAt ? new Date(health.lastAt).toLocaleString() : '—';
+  if (verdict.state === 'failed') {
+    return (
+      <div className="text-[10px] text-tone-danger">
+        <span className="inline-flex items-start gap-1">
+          <AlertTriangle className="w-3 h-3 mt-px shrink-0" />
+          <span>
+            {enabled
+              ? t('Its last run FAILED — this rule is armed but it produced nothing to sign.')
+              : t('Its last run FAILED before it was paused — it produced nothing to sign.')}
+          </span>
+        </span>
+        <span className="block text-tone-danger/70">
+          {when}
+          {verdict.note ? ` · ${verdict.note}` : ` · ${t('the engine recorded no reason')}`}
+          {verdict.consecutive > 1 ? ` · ${t('Consecutive failed runs:')} ${verdict.consecutive}` : ''}
+        </span>
+      </div>
+    );
+  }
+  if (health.count === 0) {
+    return <div className="text-[10px] text-ink/30 truncate">{t('No triggers yet')}</div>;
+  }
+  return (
+    <div className="text-[10px] text-ink/30 truncate">
+      {health.count} {t('triggers')} · {t('last')} {when}
+      {health.lastStatus ? ` (${health.lastStatus})` : ''}
+    </div>
+  );
+}
+
 function StrategyPanel({
   position,
   rules,
   autoTemplate = null,
+  runsRevision = 0,
   onChanged,
 }: {
   position: DefiPosition;
   rules: AutomationRule[];
   /** Opens this template's modal on mount (hub deep-link, e.g. Harvest). */
   autoTemplate?: TemplateKind | null;
+  /**
+   * G4-strategies — bumped by the board every time it finishes re-reading the
+   * rules (mount, manual Refresh, focus return, `onChanged` after a pause /
+   * edit / delete, the 60s visible poll). WHAT WAS FAILING IN SILENCE: the
+   * effect below depended on `[ruleIdsKey]` alone, so with the card OPEN the
+   * verdict was frozen at mount — a rule that started failing kept its green
+   * «active» pill until the card was collapsed, and an `onChanged()` that
+   * returned the SAME rule ids re-read nothing at all. The brief asked for
+   * mount AND refresh; this is the refresh.
+   */
+  runsRevision?: number;
   onChanged: () => void;
 }) {
   const { t } = useT();
@@ -629,9 +870,10 @@ function StrategyPanel({
     if (autoTemplate) setPicking(autoTemplate);
   }, [autoTemplate]);
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Trigger history per rule (GET /rules/:id/runs) — when it fired and what
-  // happened, so an armed rule isn't a black box.
-  const [runsByRule, setRunsByRule] = useState<Record<string, { count: number; lastAt?: string; lastStatus?: string }>>({});
+  // Trigger history per rule (GET /rules/:id/runs) — when it fired, what
+  // happened AND why, so an armed rule isn't a black box. G4-residuos: the
+  // verdict (and the engine's own `notes`) now travel with the counters.
+  const [runsByRule, setRunsByRule] = useState<Record<string, RuleRunReading>>({});
 
   const myRules = rulesForPosition(rules, position);
   const ruleIdsKey = myRules.map((r) => r.id).join(',');
@@ -639,27 +881,27 @@ function StrategyPanel({
   useEffect(() => {
     let alive = true;
     (async () => {
-      const out: Record<string, { count: number; lastAt?: string; lastStatus?: string }> = {};
-      for (const id of ruleIdsKey.split(',').filter(Boolean)) {
-        try {
-          const r = await fetch(`${API_BASE}/rules/${id}/runs`, { headers: authHeaders(), credentials: 'include' });
-          if (!r.ok) continue;
-          const b = (await r.json()) as { count?: number; runs?: Array<{ triggeredAt?: string; status?: string }> };
-          out[id] = {
-            count: b.count ?? b.runs?.length ?? 0,
-            lastAt: b.runs?.[0]?.triggeredAt,
-            lastStatus: b.runs?.[0]?.status,
-          };
-        } catch {
-          /* history is best-effort */
-        }
-      }
+      // REUSE (auditoría 2026-08-18) — the shared loader, same as the other five
+      // surfaces. It fans the reads out in parallel (this loop used to await
+      // them one by one) and, crucially, gives EVERY id an entry including the
+      // ones whose read failed: an absent entry is indistinguishable from
+      // «healthy», which is the bug the module exists to close. G4-residuos'
+      // two guards live inside it now — a failed read is `unreadable`, never an
+      // empty history, and `notes` travels with the verdict.
+      const out = await loadRunReadings(ruleIdsKey.split(',').filter(Boolean), (id) => rulesApi.runs(id));
+      // Cancellation stays HERE, not in the loader: the effect knows whether
+      // this card is still the one on screen; the reader does not.
       if (alive) setRunsByRule(out);
     })();
     return () => {
       alive = false;
     };
-  }, [ruleIdsKey]);
+    // G4-strategies — `runsRevision` is the second dependency the round-1 fix
+    // was missing: mount AND refresh. Without it the row froze on the verdict
+    // it read when the card opened. This adds NO timer of its own — it rides
+    // the board's existing reading cadence, and only for the rules of the ONE
+    // expanded card.
+  }, [ruleIdsKey, runsRevision]);
 
   async function toggle(rule: AutomationRule) {
     setBusyId(rule.id);
@@ -710,6 +952,14 @@ function StrategyPanel({
         <div className="space-y-2">
           {myRules.map((r) => {
             const tk = templateOfRule(r);
+            // G4-residuos — an enabled automation whose LAST fire errored is not
+            // «active»: it is armed and preparing nothing. The green pill on
+            // `r.enabled` alone was the reassurance that hid it.
+            // G4-pildoras (round 3) — nor is one whose runs we have NOT READ:
+            // `state === 'failed'` alone left `unread` and `unreadable` in the
+            // green arm, so the first paint claimed «active» before a single
+            // run was read and a broken /runs returned a FAILING rule to green.
+            const pill = rulePillState(r.enabled, runsByRule[r.id]?.verdict);
             return (
               <div
                 key={r.id}
@@ -731,17 +981,21 @@ function StrategyPanel({
                   <div className="min-w-0">
                     <div className="text-xs text-ink/85 font-medium truncate">{r.name}</div>
                     <div className="text-[10px] text-ink/40 truncate">{describeRuleText(r, t)}</div>
-                    <div className="text-[10px] text-ink/30 truncate">
-                      {runsByRule[r.id]?.count
-                        ? `${runsByRule[r.id].count} ${t('triggers')} · ${t('last')} ${
-                            runsByRule[r.id].lastAt ? new Date(runsByRule[r.id].lastAt!).toLocaleString() : '—'
-                          }${runsByRule[r.id].lastStatus ? ` (${runsByRule[r.id].lastStatus})` : ''}`
-                        : t('No triggers yet')}
-                    </div>
+                    <RunHistoryLine health={runsByRule[r.id]} enabled={r.enabled} t={t} />
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <Pill tone={r.enabled ? 'success' : 'neutral'}>{r.enabled ? t('active') : t('paused')}</Pill>
+                  <Pill tone={RULE_PILL_TONE[pill]}>
+                    {pill === 'paused'
+                      ? t('paused')
+                      : pill === 'failing'
+                        ? t('failing')
+                        : pill === 'unreadable'
+                          ? t('unknown')
+                          : pill === 'unread'
+                            ? t('checking…')
+                            : t('active')}
+                  </Pill>
                   <button
                     onClick={() => setEditRule(r)}
                     disabled={busyId === r.id}
@@ -814,13 +1068,18 @@ function CompleteBorrowModal({
   onChanged: () => void;
 }) {
   const { t } = useT();
+  // Nombre canónico de la dueña para la cabecera (2026-08-22).
+  const { wallets: borrowWallets } = useMyWallets();
+  const walletNameOf = useMemo(() => walletNameResolver(borrowWallets, t), [borrowWallets, t]);
   const evm = useWalletPartner();
   const settlement = useSettlement();
   const [ratio, setRatio] = useState('0.30');
   const [targetHF, setTargetHF] = useState('1.10');
-  const [phase, setPhase] = useState<'form' | 'preparing' | 'review' | 'signing' | 'done'>('form');
+  const [phase, setPhase] = useState<'form' | 'preparing' | 'review' | 'signing' | 'done' | 'unconfirmed'>('form');
   const [prepared, setPrepared] = useState<E1BorrowPrepared | null>(null);
   const [error, setError] = useState('');
+  // A borrow we could not follow (e.g. RECEIPT_UNREAD): never back to the sign button.
+  const [unconfirmed, setUnconfirmed] = useState<UnconfirmedSignature | null>(null);
 
   async function prepare() {
     setError('');
@@ -850,11 +1109,14 @@ function CompleteBorrowModal({
   async function sign() {
     if (!prepared) return;
     setError('');
+    setUnconfirmed(null);
     setPhase('signing');
+    let handedToPartner = false;
     try {
       if (!evm.isConnected || evm.address?.toLowerCase() !== owner.toLowerCase()) {
         throw new Error(t('Connect the Flare wallet that holds this position to sign.'));
       }
+      handedToPartner = true;
       const { handle } = await evm.sendIntentCalls(
         prepared.calls.map((c) => ({ to: c.to, data: c.data, value: c.value, chainId: c.chainId })),
       );
@@ -863,8 +1125,14 @@ function CompleteBorrowModal({
       // onChanged() dropped the row while the op was still live).
       setPhase('done');
     } catch (e) {
-      setError(translateError(e, t).message);
-      setPhase('review');
+      // A borrow that may be on-chain must never be offered again: a second
+      // signature is a second debt against the same collateral.
+      applySignFailure(e, handedToPartner, t, {
+        setError,
+        setUnconfirmed,
+        setPhase,
+        clearPrepared: () => setPrepared(null),
+      });
     }
   }
 
@@ -875,7 +1143,12 @@ function CompleteBorrowModal({
         <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div>
             <h2 className="text-base font-semibold text-ink">{t('Complete the borrow')}</h2>
-            <p className="text-xs text-ink/40 mt-0.5 font-mono">{owner.slice(0, 10)}…{owner.slice(-6)}</p>
+            {/* Nombre primero, dirección como dato (2026-08-22: el código
+                nunca es el nombre). */}
+            <p className="text-xs text-ink/40 mt-0.5">
+              {walletNameOf(owner)}{' '}
+              <span className="font-mono text-ink/30">{owner.slice(0, 10)}…{owner.slice(-6)}</span>
+            </p>
           </div>
           <button onClick={onClose} className="text-ink/40 hover:text-ink transition-colors">
             <X className="w-5 h-5" />
@@ -973,11 +1246,19 @@ function CompleteBorrowModal({
               <p className="text-sm text-ink/60">{t('Confirm in your wallet…')}</p>
             </div>
           )}
+          {phase === 'unconfirmed' && unconfirmed && (
+            <UnconfirmedSignatureNotice
+              rail="evm"
+              chainId={prepared?.chainId ?? 14}
+              unconfirmed={unconfirmed}
+              onClose={onClose}
+            />
+          )}
           {phase === 'done' && settlement.state && (
             <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
               <SettlementIndicator
                 state={settlement.state}
-                settledText={t('Borrow settled — the carry is complete.')}
+                settledText={t('Borrowed — the RLUSD is in your wallet.')}
               />
               <button
                 onClick={onClose}
@@ -1101,20 +1382,36 @@ function FirelightClaimAction({
 
 function PositionCard({
   position,
+  pair,
   rules,
   legs,
+  emDebtBase,
   vaultHolders,
   paHolders,
   expanded,
   initialAction = null,
   showStrategyPanel = true,
+  runsRevision = 0,
   onToggle,
   onChanged,
 }: {
   position: DefiPosition;
+  /** La OTRA pata de la misma estrategia (fundador 2026-08-24: «lend y borrow
+   *  vienen de la misma estrategia, tienen que ser la misma card» — dos
+   *  tarjetas para un carry hacían elegir a ciegas cuál cerrar). Con ella, la
+   *  tarjeta pinta las dos piernas y UNA sola puerta de cierre. */
+  pair?: DefiPosition;
   rules: AutomationRule[];
   /** Kinetic ISO legs of this position's account (enables the PA actions). */
   legs: PaLegs | null;
+  /**
+   * Deuda RLUSD viva del MISMO dueño en el mercado de Ethereum, en base units.
+   * Distingue un carry entero de uno a medio abrir: colateral aportado y
+   * deuda 0 es una posición que no renta nada y que hasta ahora no tenía
+   * puerta para terminarse (el mismo hueco que el lend-without-borrow de
+   * julio, ahora en la cadena donde el gas cuesta dinero de verdad).
+   */
+  emDebtBase?: string;
   /** Every wallet holding this same vault (feeds the modal's selector). */
   vaultHolders?: VaultPositionRef[];
   /** Every account with an ISO position (feeds the PA modal's selector). */
@@ -1125,18 +1422,60 @@ function PositionCard({
   /** When false, the embedded MoneyFlows panel is hidden — automations live in
    *  the separate Strategy apartado (My strategies split, founder 2026-07-20). */
   showStrategyPanel?: boolean;
+  /** G4-strategies — bumped on every completed rules read; see StrategyPanel. */
+  runsRevision?: number;
   onToggle: () => void;
   onChanged: () => void;
 }) {
   const { t } = useT();
   const evm = useWalletPartner();
-  const activeCount = rulesForPosition(rules, position).filter((r) => r.enabled).length;
+  const activeCount =
+    rulesForPosition(rules, position).filter((r) => r.enabled).length +
+    (pair ? rulesForPosition(rules, pair).filter((r) => r.enabled).length : 0);
   const rows = infoRows(position, t);
+  const pairRows = pair ? infoRows(pair, t) : [];
   const vaultRef = vaultRefFor(position);
   const claimRef = firelightClaimFor(position);
   const ftsoRef = ftsoRefFor(position);
   // Which PA action modal is open (re-supply / withdraw / repay / derisk).
-  const [paAction, setPaAction] = useState<PaActionKind | null>(null);
+  // La operación vive en el HOST GLOBAL (operationStore, 2026-08-26):
+  // navegar con ella anclada ya no la mata. `setPaAction` conserva su firma
+  // — las diez puertas de la tarjeta no se tocan — pero ahora ESCRIBE la
+  // intención al store en vez de montar un modal local. Sin piernas aún
+  // cargadas no abre nada, como el guard del mount viejo.
+  const openPaOp = useOperationStore((st) => st.openPaOp);
+  const setPaAction = (kind: PaActionKind | null) => {
+    if (!kind || !legs) return;
+    openPaOp({ owner: position.owner, legs, holders: paHolders, action: kind, onChanged });
+  };
+  // W5/B7 — the Ethereum FXRP/RLUSD position's repay door (M1 pattern: the
+  // nudge points here; the legs are prepared FRESH inside).
+  const [emRepay, setEmRepay] = useState(false);
+  // H2 — la puerta de salida (colateral FXRP fuera del mercado).
+  const [emExit, setEmExit] = useState<EmExitMode | null>(null);
+  // La puerta que faltaba: cancelar la posición ENTERA en una firma. El backend
+  // ya sabía hacerlo (`/close/prepare`) y no había botón — el capital entraba y
+  // salir era encadenar tres modales a mano.
+  const [emClose, setEmClose] = useState(false);
+  const isEmPosition =
+    position.protocolId.toLowerCase() === 'morpho-blue' &&
+    (position as { chainId?: number }).chainId === 1;
+  /** La pata lend-only: prestar no se liquida y no se repaga — solo se retira. */
+  const isEmLend = isEmPosition && position.kindUpper === 'LEND';
+  const ownerIsSigner =
+    !!evm.address && evm.address.toLowerCase() === position.owner.toLowerCase();
+  /**
+   * Carry a medio abrir en Ethereum: el colateral entró y el borrow no. Sin
+   * este botón, la única salida era firmar OTRO `open_carry` —aportando MÁS
+   * FXRP y pagando approve+supply otra vez en L1— o sacar el colateral y
+   * empezar de cero. La acción `borrow` estaba construida y testeada en el
+   * backend, y era inalcanzable desde la interfaz.
+   */
+  const emCanFinishCarry =
+    isEmPosition &&
+    position.kindUpper === 'COLLATERAL' &&
+    BigInt(emDebtBase || '0') === BigInt(0) &&
+    ownerIsSigner;
   const [vaultWithdraw, setVaultWithdraw] = useState(false);
   const [ftsoExit, setFtsoExit] = useState(false);
   const [completeBorrow, setCompleteBorrow] = useState(false);
@@ -1157,11 +1496,19 @@ function PositionCard({
     if (initialAction === 'repay') {
       // The PA-repay nudge (pieza 2): the trigger only points here; the
       // payload is prepared fresh inside the modal and signed by the user.
+      // Same contract for the Ethereum position (emRepay nudge, W5/B7).
       if (legs) setPaAction('repay');
+      // Cinturón además del tirante de `matchesAutoAction`: sobre la pata
+      // lend-only no hay deuda que repagar, y abrir ahí el modal de repago
+      // sería enseñar una puerta que contesta 400.
+      else if (isEmPosition && !isEmLend) setEmRepay(true);
       return;
     }
     if (initialAction !== 'withdraw') return;
     if (legs) setPaAction('withdraw');
+    // La bóveda tiene su propia salida: el modal de vault genérico no la
+    // conoce, y `vaultRef` es null para morpho-blue.
+    else if (isEmLend) setEmExit('vault');
     else if (vaultRef) setVaultWithdraw(true);
     else setNoRailInfo(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1175,8 +1522,13 @@ function PositionCard({
               an FXRP position must LOOK like FXRP, not like a stack of layers.
               `assetDisplay` falls back to a shortened address when a receipt
               token has no symbol; there is nothing to badge in that case. */}
+          {/* LA FICHA LLEVA EL COLOR DE SU TIPO (2026-08-24). Antes todas las
+              posiciones vestían el mismo cuadrado gris con el mismo icono, así
+              que una lista de seis era una pared: había que LEER cada fila para
+              saber cuál era colateral y cuál deuda. El color no va solo — la
+              píldora con la palabra sigue al lado, como manda la casa. */}
           <div className="relative shrink-0">
-            <div className="w-11 h-11 rounded-xl grid place-items-center border border-ink/10 bg-ink/5 text-ink/70">
+            <div className={`w-11 h-11 rounded-xl grid place-items-center border ${KIND_SKIN[kindTone(position.kind)].tile}`}>
               <Layers className="w-5 h-5" />
             </div>
             {!assetDisplay(position).includes('…') && (
@@ -1189,16 +1541,56 @@ function PositionCard({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-ink truncate">{assetDisplay(position)}</span>
-              <Pill tone={kindTone(position.kind)}>{position.label}</Pill>
+              <span className="text-base font-semibold text-ink truncate">
+                {pair ? `${assetDisplay(position)} + ${assetDisplay(pair)}` : assetDisplay(position)}
+              </span>
+              {pair ? (
+                <Pill tone="warning">{t('Carry')}</Pill>
+              ) : (
+                <Pill tone={kindTone(position.kind)}>{position.label}</Pill>
+              )}
             </div>
-            <div className="text-xs text-ink/45 mt-0.5">
-              {position.protocolId} · {String(position.amount)}
-            </div>
+            {pair ? (
+              // Las dos piernas, cada una con su palabra y su cantidad — una
+              // estrategia, una tarjeta, una puerta (fundador 2026-08-24).
+              <div className="text-xs text-ink/45 mt-0.5 flex items-center gap-x-2 flex-wrap">
+                <span>{position.protocolId}</span>
+                <span className="text-tone-success/80">
+                  {t('Lend')} · {qtyDisplay(position)}
+                </span>
+                <span className="text-tone-danger/80">
+                  {t('Borrow')} · {qtyDisplay(pair)}
+                </span>
+              </div>
+            ) : (
+              <div className="text-xs text-ink/45 mt-0.5">
+                {position.protocolId} · {qtyDisplay(position)}
+              </div>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {activeCount > 0 && <Pill tone="success">{activeCount} ⚡</Pill>}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* El valor, cuando el adapter lo da. Si no lo da no se enseña nada:
+              esta pantalla lee `/positions`, y no todos los carriles devuelven
+              precio — poner un 0 donde no hay lectura es peor que un hueco. */}
+          {typeof position.amountUSD === 'number' && Number.isFinite(position.amountUSD) && (
+            <span className="font-mono text-sm tabular-nums text-ink/85">
+              {formatMoney(Math.abs(position.amountUSD as number))}
+            </span>
+          )}
+          {/* G4-strategies — this counter is the ONE automation signal the
+              collapsed card shows, and on /app/strategies (showStrategyPanel
+              false) it is the only one the position row shows AT ALL. It was
+              painted `success` (green) from `enabled` alone: three rules
+              failing every fire read as «3 ⚡» in green. The count is a fact
+              (three rules armed); their health is NOT — it lives in the run
+              history, which this header never reads. So the count stays and
+              the health claim goes. */}
+          {activeCount > 0 && (
+            <span title={t('Armed automations. This count does not say whether their last run worked.')}>
+              <Pill tone="neutral">{activeCount} ⚡</Pill>
+            </span>
+          )}
           <ChevronDown className={`w-4 h-4 text-ink/40 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </div>
       </button>
@@ -1237,12 +1629,103 @@ function PositionCard({
               {t('Convert to XRP')}
             </button>
           )}
+          {/* Las dos puertas quirúrgicas del carry (fundador 2026-08-24,
+              segunda pasada): pagar SOLO el préstamo, o retirar colateral si
+              el precio sube — sin desmontar la estrategia entera. Solo en la
+              tarjeta fusionada: en una pierna suelta la puerta única basta.
+              El color es la flecha (2026-07-30): repay viste volt (urgencia),
+              retirar viste rosa (se queda en Flare). */}
+          {pair && hasDebt && (
+            <button
+              onClick={() => setPaAction('repay')}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-volt/40 bg-volt/10 text-volt hover:brightness-110 transition-colors"
+              title={t('Deposit the borrowed dollars back and close the loan — your collateral stays put.')}
+            >
+              {t('Pay off the loan')}
+            </button>
+          )}
+          {pair && (
+            <button
+              onClick={() => setPaAction('withdraw')}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-300 hover:brightness-110 transition-colors"
+              title={t('Take part of your collateral out — mind the health factor: less backing means closer to liquidation.')}
+            >
+              {t('Withdraw collateral')}
+            </button>
+          )}
+          {/* El interrogante del novato (fundador 2026-08-24): una frase que
+              quita el miedo a «¿cuál cierro primero?» — el paso a paso ya
+              ordena las piernas solo. */}
+          {pair && (
+            <span
+              className="inline-flex items-center gap-1.5 text-[11px] text-ink/45 mr-1"
+              title={t('One strategy, two legs: what you lent backs what you borrowed. Closing runs in the safe order — the loan first, then your collateral — and the step-by-step does the ordering for you.')}
+            >
+              <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+              {t('Two legs, one close')}
+            </span>
+          )}
           <button
             onClick={() => setPaAction('derisk')}
             className="text-[11px] px-2.5 py-1.5 rounded-lg border border-tone-warning/30 bg-tone-warning/10 text-tone-warning hover:brightness-110 transition-colors"
           >
             {t('Close the position, step by step')}
           </button>
+        </div>
+      )}
+
+      {/* W5/B7 — the Ethereum position's own exit door, always visible like
+          the Kinetic ones: the exit never hides behind the expand. */}
+      {isEmPosition && !expanded && (
+        <div className="mt-3 flex gap-1.5 flex-wrap">
+          {/* La pata lend-only NO se repaga ni tiene colateral: su única puerta
+              es retirar. Ofrecerle «Repay now» sería enseñar botones que llevan
+              a un 400. */}
+          {isEmLend ? (
+            <button
+              onClick={() => setEmExit('vault')}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/[0.04] text-ink/70 hover:bg-ink/[0.08] transition-colors"
+            >
+              {t('Withdraw your RLUSD')}
+            </button>
+          ) : (
+            <>
+              {/* Cerrar del todo: una firma, y el interés lo paga el propio
+                  colateral sobrante. Va primero porque es lo que la gente
+                  quiere hacer — repagar a medias es el caso raro. */}
+              <button
+                onClick={() => setEmClose(true)}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg border border-volt/40 bg-volt/10 text-volt hover:brightness-110 transition-colors"
+              >
+                {t('Close it all')}
+              </button>
+              <button
+                onClick={() => setEmRepay(true)}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/[0.04] text-ink/70 hover:bg-ink/[0.08] transition-colors"
+              >
+                {t('Repay now')}
+              </button>
+              {/* H2 — la salida existía en el backend y no tenía botón: sin esto
+                  el capital entra al carril y no hay puerta para sacarlo. */}
+              <button
+                onClick={() => setEmExit('collateral')}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink/15 bg-ink/[0.04] text-ink/70 hover:bg-ink/[0.08] transition-colors"
+              >
+                {t('Take collateral out')}
+              </button>
+              {/* El carry a medio abrir: colateral dentro, deuda 0. Rinde CERO
+                  (el colateral en Morpho Blue no cobra supply rate) y hasta
+                  ahora no había forma de terminarlo sin aportar más FXRP. */}
+              {emCanFinishCarry && (
+                <button
+                  onClick={() => setEmExit('finish-carry')}
+                  className="text-[11px] px-2.5 py-1.5 rounded-lg border border-sky-400/40 bg-sky-400/10 text-sky-300 hover:brightness-110 transition-colors"
+                >
+                  {t('Borrow RLUSD against it')}
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -1253,6 +1736,14 @@ function PositionCard({
               {rows.map(({ k, v }) => (
                 <div key={k} className="flex flex-col">
                   <span className="text-[11px] text-ink/40">{k}</span>
+                  <span className="text-ink/80 font-mono break-all">{v}</span>
+                </div>
+              ))}
+              {/* La otra pierna de la misma estrategia, en la misma rejilla —
+                  prefijada para que nunca se confundan las columnas. */}
+              {pairRows.map(({ k, v }) => (
+                <div key={`pair:${k}`} className="flex flex-col">
+                  <span className="text-[11px] text-tone-danger/60">{pair!.label} · {k}</span>
                   <span className="text-ink/80 font-mono break-all">{v}</span>
                 </div>
               ))}
@@ -1345,6 +1836,7 @@ function PositionCard({
               position={position}
               rules={rules}
               autoTemplate={initialAction === 'harvest' && position.templates.includes('HARVEST') ? 'HARVEST' : null}
+              runsRevision={runsRevision}
               onChanged={onChanged}
             />
           )}
@@ -1403,13 +1895,30 @@ function PositionCard({
       {/* El modal de acciones PA vive a nivel de Card (no dentro de expanded):
           la tira de acciones rápidas de la card COLAPSADA también lo abre
           (founder 2026-07-26 — repagar/retirar sin expandir). */}
-      {paAction && legs && (
-        <PaActionsModal
+      {/* PaActionsModal vive en EarnOperationHost (AppShell) — montarlo aquí
+          también sería una segunda copia que muere al navegar. */}
+
+      {emRepay && (
+        <EmRepayModal
           owner={position.owner}
-          legs={legs}
-          holders={paHolders}
-          action={paAction}
-          onClose={() => setPaAction(null)}
+          onClose={() => setEmRepay(false)}
+          onChanged={onChanged}
+        />
+      )}
+
+      {emClose && (
+        <EmCloseModal
+          owner={position.owner}
+          onClose={() => setEmClose(false)}
+          onChanged={onChanged}
+        />
+      )}
+
+      {emExit && (
+        <EmExitModal
+          owner={position.owner}
+          mode={emExit}
+          onClose={() => setEmExit(null)}
           onChanged={onChanged}
         />
       )}
@@ -1425,8 +1934,15 @@ export default function DefiPositionsBoard({
   autoAction = null,
   showStrategyPanel = true,
   embedded = false,
+  scopeAddresses,
 }: {
   autoAction?: BoardAutoAction | null;
+  /** ACOTAR el barrido a estas direcciones (Portfolio 2026-09-07: con un
+   *  filtro de wallet activo, el tablero seguía escaneando TODA la flota y el
+   *  total quedaba mal etiquetado bajo «Wallet: X»). undefined = toda la
+   *  flota, como siempre. Se acota el ESCANEO, no el render: un cero aquí es
+   *  «esta wallet no tiene posiciones», no «no se pudo leer». */
+  scopeAddresses?: string[];
   /** Hide each card's embedded MoneyFlows (they live in the Strategy apartado). */
   showStrategyPanel?: boolean;
   /** Mounted inside another page's own header (Portfolio's Positions tab,
@@ -1445,6 +1961,7 @@ export default function DefiPositionsBoard({
   // (which reads /wallets/mine) still showed them. Same list ⇒ same truth.
   const { wallets: myWallets } = useMyWallets();
   const myWalletsKey = myWallets.map((w) => w.address).join(',');
+  const scopeKey = (scopeAddresses ?? []).join(',').toLowerCase();
 
   const [positions, setPositions] = useState<DefiPosition[]>([]);
   const [allRules, setAllRules] = useState<AutomationRule[]>([]);
@@ -1457,6 +1974,26 @@ export default function DefiPositionsBoard({
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Direcciones cuya posición de Ethereum no se pudo leer en este barrido. */
+  const [emUnreadable, setEmUnreadable] = useState<UnreadableAddr[]>([]);
+  /** Direcciones cuya lectura de posiciones de FLARE falló, con su código. */
+  const [flareUnreadable, setFlareUnreadable] = useState<UnreadableAddr[]>([]);
+  /**
+   * Ola 0 (15-sep) — protocolos que contestaron DENTRO de un HTTP 200 con un
+   * `error` (adapter caído) o con `unreadable[]` (mercados/periodos sin leer).
+   * Antes `flattenPositions` solo leía `positions` y esto no existía: un 429
+   * en una sonda de Kinetic dejaba el carry —y su «Repay»— fuera del tablero
+   * sin una frase.
+   */
+  const [flareProtocolUnread, setFlareProtocolUnread] = useState<FlareProtocolUnread[]>([]);
+  /**
+   * Una puerta de salida abierta desde el aviso de «no pude leer». Las puertas
+   * de Ethereum sólo necesitan al dueño —preparan desde la cadena—, así que un
+   * /position caído no puede dejar la salida sin botón (la salida jamás se gatea).
+   */
+  const [emDoor, setEmDoor] = useState<{ owner: string; kind: 'repay' | 'close' | 'collateral' | 'vault' } | null>(null);
+  /** La pata de la boveda no contesto: un cero ahi seria indistinguible de un deposito perdido. */
+  const [vaultLegUnread, setVaultLegUnread] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Hub deep-link: once positions land, expand the matching card and open its
   // action. Consumed exactly once so later polls don't re-open closed modals.
@@ -1515,9 +2052,23 @@ export default function DefiPositionsBoard({
         /* PA resolution is best-effort; EVM positions still render */
       }
     }
-    return [...addrs.values()];
+    const all = [...addrs.values()];
+    if (!scopeAddresses || scopeAddresses.length === 0) return all;
+    // El alcance manda. La Smart Account de la cuenta elegida entra también:
+    // es el lado Flare de ESA misma cuenta, y esconderla ocultaría dinero
+    // suyo (mismo criterio que el paFold del Portfolio).
+    const want = new Set(scopeAddresses.map((a) => a.toLowerCase()));
+    const narrowed = all.filter((a) => want.has(a.toLowerCase()));
+    return narrowed;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet, xrpl.address, myWalletsKey]);
+  }, [wallet, xrpl.address, myWalletsKey, scopeKey]);
+
+  // G4-strategies — every completed rules read bumps this, and the expanded
+  // card's StrategyPanel re-reads GET /rules/:id/runs on it. Before, the run
+  // verdict was frozen at the card's mount: a rule that started failing kept a
+  // green pill until the card was collapsed. No new timer — this rides the
+  // board's existing cadence (mount, focus, manual Refresh, onChanged, poll).
+  const [runsRevision, setRunsRevision] = useState(0);
 
   const loadRules = useCallback(async (addrs: string[]) => {
     // Parallel fan-out (app/page.tsx pattern): awaiting each address in
@@ -1531,6 +2082,7 @@ export default function DefiPositionsBoard({
     }
     // De-dup by id (an address could appear once, but be safe).
     setAllRules([...new Map(collected.map((r) => [r.id, r])).values()]);
+    setRunsRevision((n) => n + 1);
   }, []);
 
   // Freshness guard for the focus handler below: a tab flip seconds after a
@@ -1579,11 +2131,29 @@ export default function DefiPositionsBoard({
       // failing must not blank the whole board.
       const positionsScan = Promise.allSettled(
         addrs.map((addr) => positionsApi.byWallet(addr)),
-      ).then((results) => {
-        const all: DefiPosition[] = [];
-        results.forEach((res, i) => {
-          if (res.status === 'fulfilled') all.push(...flattenPositions(res.value, addrs[i]));
-        });
+      ).then(async (results) => {
+        // Una dirección que FALLA no es una dirección sin posiciones: se cuenta
+        // con su código y el tablero lo dice (revisión 14-sep). Antes se
+        // tragaba y un tablero vacío se leía como «no tengo nada».
+        //
+        // Ola 0 (15-sep) — y un bloque que llega en un HTTP 200 con `error`
+        // o `unreadable[]` tampoco es «sin posiciones»: `reduceFlareScan`
+        // (lib/positionsReadState) reparte filas, fallos HTTP y bloques
+        // ilegibles; los tres se pintan.
+        const scan = reduceFlareScan(results, addrs, flattenPositions);
+        const all: DefiPosition[] = [...scan.rows];
+        setFlareUnreadable(scan.failed);
+        setFlareProtocolUnread(scan.unread);
+        // H1 — the Ethereum FXRP/RLUSD position joins the board as a REAL row.
+        // `/api/positions/:wallet` is Flare-only by construction, so without
+        // this the chain-1 position had no row: no "Repay now" button, no
+        // PROTECT_EM template — the repay door and its MoneyFlow were built
+        // and unreachable. Fail-closed and best-effort: the rail's own gate
+        // decides, and a failure here never blanks the Flare board.
+        const em = await fetchEthMorphoRows(addrs);
+        all.push(...em.rows);
+        setEmUnreadable(em.unreadable);
+        setVaultLegUnread(em.vaultLegUnread);
         setPositions(all);
       });
       // Rules only need the addresses, not the positions — run them alongside.
@@ -1661,7 +2231,18 @@ export default function DefiPositionsBoard({
         ) : (
           <PageHeader eyebrow="Positions" title={t('Open DeFi positions')} subtitle={subtitle} />
         )}
-        <EmptyState icon={<Layers className="w-8 h-8" strokeWidth={1.5} />} title={t('Connect a wallet to view your positions')} />
+        {/* Finished-page empty state (founder 2026-08-22): the beacon scene
+            and a real door, not a bare grey box. */}
+        <SceneDoor
+          scene={<SignalBeacon width={190} height={160} />}
+          engraving={<SignetMark size={140} />}
+          tone="gold"
+          eyebrow={t('Positions')}
+          title={t('Connect a wallet to view your positions')}
+          desc={t('Link MetaMask on Flare Mainnet or Xaman on XRPL — your open positions load here, read-only until you sign.')}
+          cta={t('Connect a wallet')}
+          href="/app/wallets"
+        />
       </div>
     );
   }
@@ -1700,10 +2281,142 @@ export default function DefiPositionsBoard({
       {loading && positions.length === 0 && <EmptyState variant="loading" title={t('Loading positions…')} />}
 
       {error && !loading && (
-        <EmptyState variant="error" title={t('Could not load positions')} hint={error} />
+        <EmptyState
+          variant="error"
+          title={t('Could not load positions')}
+          hint={error}
+          action={
+            <GhostButton onClick={() => void load()}>
+              <RefreshCw className="w-3.5 h-3.5" />
+              {t('Try again')}
+            </GhostButton>
+          }
+        />
       )}
 
-      {!loading && !error && positions.length === 0 && (
+      {/* Una posición que no se pudo leer NO se calla: sin este aviso el
+          tablero se pinta vacío y se lee como «no tengo nada» — y con la fila
+          desaparece también su puerta de repago. Revisión 14-sep: con su razón
+          REAL (un 451 de región no es «reintenta en un momento») y con las
+          puertas de salida a mano, que no necesitan la fila. */}
+      {!loading && emUnreadable.length > 0 && (
+        <Card className="p-3.5 mb-4 border-tone-warning/30 bg-tone-warning/5">
+          <div className="space-y-3">
+            {emUnreadable.map(({ addr, status }) => {
+              const kind = positionReadFailureKind(status);
+              const doorBtn =
+                'text-[11px] px-2.5 py-1 rounded-lg border border-ink/15 bg-ink/5 text-ink/75 hover:bg-ink/10 transition-colors';
+              return (
+                <div key={addr} className="space-y-2">
+                  <p className="text-sm text-ink/75">
+                    {kind === 'region'
+                      ? t("Your Ethereum position couldn't be read from your region, so it isn't drawn on this board. If you have one open, it is still open on-chain — and leaving it is never blocked: the exit doors below prepare straight from the chain.")
+                      : kind === 'auth'
+                        ? t("Your session couldn't read your Ethereum position, so it isn't on this board. If you have one open, it's still open — sign in again to see it here.")
+                        : kind === 'transient'
+                          ? t("Couldn't read your Ethereum position right now, so it isn't on this board. If you have one open, it's still open — retry in a moment.")
+                          : t("Couldn't read your Ethereum position, so it isn't on this board. If you have one open, it's still open.")}
+                  </p>
+                  <p className="text-[11px] font-mono text-ink/45">
+                    {addr.slice(0, 8)}…{addr.slice(-4)} · {status != null ? `HTTP ${status}` : t('no answer')}
+                  </p>
+                  {kind !== 'auth' && (
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className={doorBtn} onClick={() => setEmDoor({ owner: addr, kind: 'close' })}>
+                        {t('Close the whole position')}
+                      </button>
+                      <button type="button" className={doorBtn} onClick={() => setEmDoor({ owner: addr, kind: 'repay' })}>
+                        {t('Repay RLUSD (Ethereum)')}
+                      </button>
+                      <button type="button" className={doorBtn} onClick={() => setEmDoor({ owner: addr, kind: 'collateral' })}>
+                        {t('Take FXRP collateral out')}
+                      </button>
+                      <button type="button" className={doorBtn} onClick={() => setEmDoor({ owner: addr, kind: 'vault' })}>
+                        {t('Withdraw RLUSD from the vault')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {emUnreadable.some((u) => isTransientStatus(u.status)) && (
+              <GhostButton onClick={() => void load()} disabled={loading}>
+                <RefreshCw className="w-3.5 h-3.5" />
+                {t('Try again')}
+              </GhostButton>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Las posiciones de FLARE de una dirección que no contestó: igual de
+          «no lo sé», nunca «no tienes nada». */}
+      {!loading && flareUnreadable.length > 0 && (
+        <Card className="p-3.5 mb-4 border-tone-warning/30 bg-tone-warning/5">
+          <p className="text-sm text-ink/75">
+            {t("Couldn't read the Flare positions of some of your wallets, so they may be missing from this board. That is not the same as having none.")}
+          </p>
+          <p className="mt-1 text-[11px] font-mono text-ink/45">
+            {flareUnreadable
+              .map((u) => `${u.addr.slice(0, 8)}…${u.addr.slice(-4)} · ${u.status != null ? `HTTP ${u.status}` : t('no answer')}`)
+              .join('   ')}
+          </p>
+          <GhostButton onClick={() => void load()} disabled={loading} className="mt-2">
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t('Try again')}
+          </GhostButton>
+        </Card>
+      )}
+
+      {/* Ola 0 (15-sep) — un protocolo que el backend no pudo leer (entero,
+          o un mercado/periodo suyo) dentro de un HTTP 200. Misma tarjeta
+          ámbar: «no lo sé», nunca «no tienes nada». Las filas que SÍ se
+          leyeron están abajo; las que faltan se nombran aquí. */}
+      {!loading && flareProtocolUnread.length > 0 && (
+        <Card className="p-3.5 mb-4 border-tone-warning/30 bg-tone-warning/5">
+          <div className="space-y-2">
+            {flareProtocolUnread.map((u) => (
+              <div key={`${u.addr}:${u.protocolId}`}>
+                <p className="text-sm text-ink/75">
+                  {u.whole
+                    ? t("Couldn't read your {protocol} positions for one of your wallets, so they aren't on this board. That is not the same as having none — if you have one open, it is still open on-chain.").replace('{protocol}', protocolWord(u.protocolId))
+                    : t("Couldn't read part of your {protocol} positions for one of your wallets: the rows below are what could be read, and one or more markets are missing. That is not the same as having none there.").replace('{protocol}', protocolWord(u.protocolId))}
+                </p>
+                <p className="mt-1 text-[11px] font-mono text-ink/45 break-all">
+                  {u.addr.slice(0, 8)}…{u.addr.slice(-4)} · {protocolWord(u.protocolId)} ·{' '}
+                  {u.whole
+                    ? u.reason
+                    : u.reads.map((r) => (r.market ? `${r.what.replace(r.market, shortAddr(r.market))}` : r.what)).join(' · ')}
+                </p>
+              </div>
+            ))}
+            <GhostButton onClick={() => void load()} disabled={loading}>
+              <RefreshCw className="w-3.5 h-3.5" />
+              {t('Try again')}
+            </GhostButton>
+          </div>
+        </Card>
+      )}
+
+      {!loading && vaultLegUnread && (
+        <Card className="p-3.5 mb-4 border-tone-warning/30 bg-tone-warning/5">
+          <p className="text-sm text-ink/75">
+            {t("Couldn't read your lend-only position in the Sentora vault just now. If you have RLUSD lent, it's still lent — retry in a moment.")}
+          </p>
+          <GhostButton onClick={() => void load()} disabled={loading} className="mt-2">
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t('Try again')}
+          </GhostButton>
+        </Card>
+      )}
+
+      {boardShowsEmpty({
+        loading,
+        error,
+        positionsCount: positions.length,
+        unreadableCount: emUnreadable.length + flareUnreadable.length + flareProtocolUnread.length,
+        vaultLegUnread,
+      }) && (
         <EmptyState
           icon={<Sprout className="w-8 h-8" strokeWidth={1.5} />}
           title={t('No open DeFi positions yet')}
@@ -1713,17 +2426,87 @@ export default function DefiPositionsBoard({
 
       {positions.length > 0 && (
         <div className="space-y-4">
-          {positions.map((p) => (
+          {(() => {
+            /** UNA estrategia = UNA tarjeta (fundador 2026-08-24: el lend y el
+             *  borrow del mismo carry en tarjetas separadas hacían elegir a
+             *  ciegas cuál cerrar). Se emparejan SOLO los pares que sabemos
+             *  hermanos: las piernas ISO de Kinetic del mismo dueño, y el
+             *  colateral+deuda de morpho-blue (Ethereum) del mismo dueño. La
+             *  pierna lend-only de Ethereum es su propio producto y no se toca.
+             */
+            const isSupplyKind = (p: DefiPosition) => ['SUPPLY', 'COLLATERAL', 'LEND'].includes(p.kindUpper);
+            const isDebtKind = (p: DefiPosition) => ['BORROW', 'DEBT'].includes(p.kindUpper);
+            const isIso = (p: DefiPosition) => (p.raw as { iso?: boolean } | undefined)?.iso === true;
+            const pairableWith = (a: DefiPosition, b: DefiPosition): boolean => {
+              if (a.owner !== b.owner) return false;
+              const proto = a.protocolId.toLowerCase();
+              if (proto !== b.protocolId.toLowerCase()) return false;
+              if (proto === 'kinetic') return isIso(a) && isIso(b);
+              if (proto === 'morpho-blue') {
+                return (
+                  (a as { chainId?: number }).chainId === 1 &&
+                  (b as { chainId?: number }).chainId === 1 &&
+                  a.kindUpper !== 'LEND' &&
+                  b.kindUpper !== 'LEND'
+                );
+              }
+              return false;
+            };
+            const idOf = (p: DefiPosition) => `${p.owner}:${p.positionId}`;
+            const consumed = new Set<string>();
+            const entries: Array<{ primary: DefiPosition; pairLeg?: DefiPosition }> = [];
+            for (const p of positions) {
+              if (consumed.has(idOf(p))) continue;
+              if (isSupplyKind(p)) {
+                const debt = positions.find(
+                  (q) => q !== p && !consumed.has(idOf(q)) && isDebtKind(q) && pairableWith(p, q),
+                );
+                if (debt) {
+                  consumed.add(idOf(debt));
+                  entries.push({ primary: p, pairLeg: debt });
+                  continue;
+                }
+              } else if (isDebtKind(p)) {
+                const sup = positions.find(
+                  (q) => q !== p && !consumed.has(idOf(q)) && isSupplyKind(q) && pairableWith(q, p),
+                );
+                if (sup) {
+                  consumed.add(idOf(sup));
+                  entries.push({ primary: sup, pairLeg: p });
+                  continue;
+                }
+              }
+              entries.push({ primary: p });
+            }
+            return entries;
+          })().map(({ primary: p, pairLeg }, cardIdx) => (
+            /* Las tarjetas LLEGAN escalonadas con el dato (Arrive, 2026-08-25)
+               — antes el tablero entero se enchufaba de golpe en una página ya
+               visible, que era el pop que el fundador señaló. */
+            <Arrive key={`${p.owner}:${p.positionId}`} index={cardIdx}>
             <PositionCard
-              key={`${p.owner}:${p.positionId}`}
               position={p}
+              pair={pairLeg}
               rules={allRules}
               legs={p.protocolId.toLowerCase() === 'kinetic' ? kineticLegsFor(positions, p.owner) : null}
+              emDebtBase={emDebtFor(positions, p.owner)}
               vaultHolders={vaultHoldersFor(positions, p)}
               paHolders={p.protocolId.toLowerCase() === 'kinetic' ? kineticHoldersFor(positions) : undefined}
-              expanded={expandedId === `${p.owner}:${p.positionId}`}
-              initialAction={autoOpenFor?.key === `${p.owner}:${p.positionId}` ? autoOpenFor.action : null}
+              // Los deep-links (nudge de repay, expandir) pueden apuntar a
+              // CUALQUIERA de las dos patas — la tarjeta fusionada responde
+              // por ambas, o el aviso del guardián moriría en un id fantasma.
+              expanded={
+                expandedId === `${p.owner}:${p.positionId}` ||
+                (!!pairLeg && expandedId === `${pairLeg.owner}:${pairLeg.positionId}`)
+              }
+              initialAction={
+                autoOpenFor?.key === `${p.owner}:${p.positionId}` ||
+                (!!pairLeg && autoOpenFor?.key === `${pairLeg.owner}:${pairLeg.positionId}`)
+                  ? autoOpenFor!.action
+                  : null
+              }
               showStrategyPanel={showStrategyPanel}
+              runsRevision={runsRevision}
               onToggle={() => setExpandedId((id) => (id === `${p.owner}:${p.positionId}` ? null : `${p.owner}:${p.positionId}`))}
               onChanged={() => {
                 // A position changed on-chain: the hub's cached portfolio is
@@ -1732,6 +2515,7 @@ export default function DefiPositionsBoard({
                 void load();
               }}
             />
+            </Arrive>
           ))}
         </div>
       )}
@@ -1779,6 +2563,39 @@ export default function DefiPositionsBoard({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Las puertas de salida abiertas desde el aviso de «no pude leer». */}
+      {emDoor?.kind === 'repay' && (
+        <EmRepayModal
+          owner={emDoor.owner}
+          onClose={() => setEmDoor(null)}
+          onChanged={() => {
+            invalidatePortfolioCache();
+            void load();
+          }}
+        />
+      )}
+      {emDoor?.kind === 'close' && (
+        <EmCloseModal
+          owner={emDoor.owner}
+          onClose={() => setEmDoor(null)}
+          onChanged={() => {
+            invalidatePortfolioCache();
+            void load();
+          }}
+        />
+      )}
+      {emDoor && (emDoor.kind === 'collateral' || emDoor.kind === 'vault') && (
+        <EmExitModal
+          owner={emDoor.owner}
+          mode={emDoor.kind === 'vault' ? 'vault' : 'collateral'}
+          onClose={() => setEmDoor(null)}
+          onChanged={() => {
+            invalidatePortfolioCache();
+            void load();
+          }}
+        />
       )}
     </div>
   );

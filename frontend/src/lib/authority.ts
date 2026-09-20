@@ -39,6 +39,12 @@ export interface SingleAuthority {
   id: string;
   kind: 'single';
   wallet: WalletRecord;
+  /** E2 third state (2026-08-16): a PERSONAL wallet whose keys are a quorum —
+   *  a SignerList on a simple account (the reinforced account), marked so by
+   *  its owner (personalQuorum). Read fresh from the ledger; undefined =
+   *  single-key, unmarked, or not yet read. It never makes the wallet a
+   *  Legacy — that is the whole point of the third state. */
+  hardenedQuorum?: GovernedLedgerRead;
 }
 
 /** The ledger's read of a governed account — never stored, always fresh. */
@@ -66,6 +72,23 @@ export interface GovernedAuthority extends GovernedLedgerRead {
   /** Proposals waiting for THIS user's signature (wired by the proposal inbox;
    *  undefined until that read exists — never fabricated). */
   pendingSignatures?: number;
+  /** Proposals still in flight on this account (collecting | ready) — the
+   *  council's decisions mid-air, whoever's turn it is. Same read as
+   *  pendingSignatures; undefined until it exists — never fabricated. */
+  liveProposals?: number;
+  /**
+   * productizer it. 27 (6) — LA AUSENCIA POR ILEGIBLE SE VEÍA IGUAL QUE EL CERO.
+   *
+   * `useAuthorities` deja los dos contadores en `undefined` cuando la lectura se
+   * rechazó o vino a medias (it. 25: filas `unreadable[]` ⇒ ningún recuento),
+   * que es lo único honesto. Pero una insignia que solo se pinta con un número
+   * positivo convierte «no lo pude leer» en «no hay nada»: un Legacy con dos
+   * firmas pendientes que nadie consiguió leer se veía EXACTAMENTE igual que uno
+   * sin nada pendiente. Esta bandera distingue las dos ausencias — todavía no
+   * leído (false: la insignia calla) de leído y fallado (true: lo dice) — sin
+   * fabricar jamás un número.
+   */
+  proposalsUnread?: boolean;
 }
 
 export type Authority = OverviewAuthority | SingleAuthority | GovernedAuthority;

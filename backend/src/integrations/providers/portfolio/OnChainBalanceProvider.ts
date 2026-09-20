@@ -235,6 +235,133 @@ async function readChainBalances(
   return results;
 }
 
+// ── Managed pote shares (Astryum vaults) valorados por su FXRP subyacente ──────
+// El pote ES ERC-4626: `convertToAssets(shares)` da el FXRP que representan, y se
+// precia con la MISMA clave que el FXRP suelto (flare:0xad55…c5be). Enumerar los
+// potes se cachea 60s (son pocos y no cambian entre refrescos del portfolio).
+
+const FXRP_FLARE = '0xad552a648c74d49e10027ab8a618a3ad4901c5be';
+const POTE_SHARE_ABI = [
+  'function balanceOf(address) view returns (uint256)',
+  'function convertToAssets(uint256) view returns (uint256)',
+  'function symbol() view returns (string)',
+];
+
+let potesCache: { at: number; addresses: string[] } | null = null;
+async function managedPoteAddresses(provider: ethers.JsonRpcProvider): Promise<string[]> {
+  if (potesCache && Date.now() - potesCache.at < 60_000) return potesCache.addresses;
+  const out: string[] = [];
+  // Paralelo (no en serie): con batchMaxCount el provider agrupa las lecturas de
+  // índice en 1-2 round-trips en vez de una por vault/cage/pote. La lentitud de
+  // Home venía de recorrerlas con `await` en bucle, por cada wallet.
+  const v1 = (process.env.ASTRYUM_FACTORY_ADDRESS ?? '').trim();
+  if (ethers.isAddress(v1)) {
+    try {
+      const f = new ethers.Contract(v1, ['function vaultCount() view returns (uint256)', 'function allVaults(uint256) view returns (address)'], provider);
+      const n = Number(await f.vaultCount());
+      const addrs = await Promise.all(Array.from({ length: n }, (_, i) => f.allVaults(i)));
+      for (const a of addrs) out.push(ethers.getAddress(a));
+    } catch { /* v1 opcional */ }
+  }
+  const v2 = (process.env.ASTRYUM_CAGE_FACTORY_ADDRESS ?? '').trim();
+  if (ethers.isAddress(v2)) {
+    try {
+      const cf = new ethers.Contract(v2, ['function cageCount() view returns (uint256)', 'function allCages(uint256) view returns (address)'], provider);
+      const cn = Number(await cf.cageCount());
+      const cages = (await Promise.all(Array.from({ length: cn }, (_, i) => cf.allCages(i)))).map((a) => ethers.getAddress(a));
+      const perCage = await Promise.all(
+        cages.map(async (cage) => {
+          try {
+            const c = new ethers.Contract(cage, ['function poteCount() view returns (uint256)', 'function potes(uint256) view returns (address)'], provider);
+            const pn = Number(await c.poteCount());
+            const ps = await Promise.all(Array.from({ length: pn }, (_, j) => c.potes(j)));
+            return ps.map((a) => ethers.getAddress(a));
+          } catch { return [] as string[]; }
+        }),
+      );
+      for (const list of perCage) out.push(...list);
+    } catch { /* v2 opcional */ }
+  }
+  potesCache = { at: Date.now(), addresses: out };
+  return out;
+}
+
+/**
+ * Las posiciones en managed vaults (shares ERC-4626) de una wallet en Flare,
+ * valoradas por su FXRP subyacente (convertToAssets) y preciadas como FXRP.
+ *
+ * SIEMPRE se ejecuta para chain 14 desde el PortfolioEngine (no en el barrido
+ * externo, que la demo apaga con PORTFOLIO_EXTERNAL_SCAN=off) — por eso vive
+ * como función suelta y no dentro de readChainBalances. Como la Personal Account
+ * está registrada como watch wallet, sus shares entran en Home y en la wallet.
+ * Best-effort: un pote ilegible se omite; nunca un valor inventado.
+ */
+export async function readManagedPotePositions(wallet: string, traceId = 'managed-potes'): Promise<CanonicalPosition[]> {
+  const cfg = CHAIN_CONFIG[14];
+  const rpcUrl = process.env.ONCHAIN_RPC_14 ?? cfg.rpc;
+  const provider = new ethers.JsonRpcProvider(rpcUrl, 14, { staticNetwork: true, batchMaxCount: 50 });
+  const potes = await managedPoteAddresses(provider);
+  if (potes.length === 0) return [];
+
+  // Cada pote en paralelo (antes en serie: 3 lecturas × N potes con await en
+  // bucle, y esto se llama POR wallet). Con batchMaxCount el provider agrupa.
+  const raws: RawBalance[] = (
+    await Promise.all(
+      potes.map(async (pote) => {
+        try {
+          const c = new ethers.Contract(pote, POTE_SHARE_ABI, provider);
+          const shares = (await c.balanceOf(wallet)) as bigint;
+          if (shares <= 0n) return null;
+          const [assets, sym] = await Promise.all([
+            c.convertToAssets(shares) as Promise<bigint>, // FXRP base units (6)
+            (c.symbol() as Promise<string>).catch(() => 'Managed vault'),
+          ]);
+          if (assets <= 0n) return null;
+          return { symbol: String(sym), address: pote.toLowerCase(), decimals: 6, raw: assets, chainId: 14, llamaKey: `flare:${FXRP_FLARE}` } as RawBalance;
+        } catch {
+          return null; // pote ilegible: se omite
+        }
+      }),
+    )
+  ).filter((r): r is RawBalance => r !== null);
+  if (raws.length === 0) return [];
+
+  const prices = await fetchPricesFromLlama([`flare:${FXRP_FLARE}`]);
+  const priceUSD = prices[`flare:${FXRP_FLARE}`] ?? 0;
+  const source = {
+    providerId: 'onchain-balance',
+    providerType: 'data' as const,
+    trustLevel: 'onchain_verified' as const,
+    fetchedAt: new Date().toISOString(),
+    traceId,
+  };
+  const out: CanonicalPosition[] = [];
+  for (const bal of raws) {
+    const amount = Number(bal.raw) / Math.pow(10, bal.decimals);
+    const amountUSD = amount * priceUSD;
+    if (amountUSD < 1) continue; // mismo umbral de polvo que el resto
+    out.push({
+      id: `managed:${bal.chainId}:${bal.address}:${wallet.toLowerCase()}`,
+      wallet,
+      chainId: bal.chainId,
+      protocol: 'managed-vault',
+      // 'staking' (PositionKind válido Y earning-kind del clasificador) → cuenta
+      // como capital TRABAJANDO, no como saldo ocioso: tu capital está
+      // comprometido en un vault gestionado, no líquido en tu wallet. Que el
+      // gestor lo tenga ya en un venue o en el colchón es asunto del pote; para
+      // ti es capital al trabajo bajo gestión.
+      kind: 'staking',
+      assets: [{
+        asset: { symbol: bal.symbol, address: bal.address, chainId: bal.chainId, decimals: bal.decimals, priceUSD, source },
+        amount: amount.toString(),
+        amountUSD,
+      }],
+      source,
+    });
+  }
+  return out;
+}
+
 // ── Main provider class ───────────────────────────────────────────────────────
 
 const CAPS: ReadonlyArray<Capability> = [

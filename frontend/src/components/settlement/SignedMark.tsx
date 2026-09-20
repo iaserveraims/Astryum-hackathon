@@ -1,46 +1,40 @@
 'use client';
 
 /**
- * SignedMark — the signature ceremony, INLINE (founder 2026-08-08: the
- * full-screen SignedCelebration overlay "aparece de golpe y se pone todo el
- * fondo borroso" — the ceremony now lives inside each operation's own
- * progress view instead of taking over the shell).
+ * SignedMark — LA ceremonia de firma. Una sola, y donde el proceso continúa.
  *
- * Same vocabulary as the retired overlay (and the login manifest before it):
- * the user's quick stroke drawing itself, the circular seal stamping down,
- * four-point star sparks, the house ease. It plays ONCE on mount and then
- * RESTS as the drawn autograph — no exit, no unmount: the mark stays put as
- * the operation's "signed" emblem while settlement continues around it.
+ * Historia en dos actos, para que nadie la duplique otra vez:
+ *  · 2026-08-08 — la SignedCelebration a pantalla completa se retira («aparece
+ *    de golpe y se pone todo el fondo borroso») y la ceremonia pasa a vivir
+ *    dentro de la vista de cada operación.
+ *  · 2026-08-26 — el fundador caza que sonaba DOS VECES por firma: una tapando
+ *    el QR gastado y otra en el bloque de settlement al cerrarse aquél («quiero
+ *    que haya una, solo la segunda»). El QR ahora solo tacha su código con un
+ *    check quieto; la ceremonia suena UNA vez, aquí, montada por
+ *    SettlementIndicator — la vista que se queda en pantalla mientras la
+ *    operación llega a la cadena.
  *
- * Colours ride currentColor from a `text-volt` wrapper, so it is gold under
- * Personal and indigo under Legacy, and readable over the light QR panel too.
- * Reduced motion renders the finished mark statically.
+ * La versión profesional (mismo encargo): el trazo se firma SOBRE SU LÍNEA —la
+ * gramática de un documento: primero se dibuja la línea de firma, después el
+ * autógrafo encima— y el sello cae una vez, con un único pulso de tinta que se
+ * disipa. Las cuatro estrellas de la versión anterior se retiran: eran confeti,
+ * y una firma no celebra — certifica.
  *
- * Mounted from SettlementIndicator (every EVM/Flare operation's progress
- * block) and XamanQRModal's signed cover (every XRPL signature) — together,
- * every operation plays it exactly where its process is shown.
+ * Suena UNA vez al montarse y luego DESCANSA como emblema — sin exit, sin
+ * remount: mantenerla en un slot ESTABLE para que los re-renders de estado no
+ * la relancen. Colores por currentColor desde un envoltorio `text-volt`: oro en
+ * Personal, índigo bajo Legacy. Reduced motion pinta el emblema terminado.
  */
 
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../../stores/motionStore';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
-const DURATION_S = 1.35;
+const DURATION_S = 1.5;
 
 // The user's quick stroke — the same autograph the login manifest countersigns.
 const SIGN_STROKE =
   'M 6 27 C 13 10, 21 7, 23.5 13.5 C 25.5 19, 18.5 26, 25 26 C 33 26, 36.5 13.5, 44 14.5 C 50 15.3, 47.5 24, 55 22.5 C 64 20.7, 68 13, 77 12 C 85 11.2, 92 12.5, 98 10.5';
-
-/** Four-point star (AuthorityCrossing vocabulary), centred on (0,0). */
-const star = (r: number) =>
-  `M 0 ${-r} L ${r * 0.22} ${-r * 0.22} L ${r} 0 L ${r * 0.22} ${r * 0.22} L 0 ${r} L ${-r * 0.22} ${r * 0.22} L ${-r} 0 L ${-r * 0.22} ${-r * 0.22} Z`;
-
-// Tighter constellation than the overlay's — this mark lives inside a card.
-const SPARKS: Array<{ x: number; y: number; r: number; at: number }> = [
-  { x: -58, y: -22, r: 4, at: 0.38 },
-  { x: 62, y: -30, r: 3.2, at: 0.5 },
-  { x: 48, y: 24, r: 2.8, at: 0.6 },
-  { x: -44, y: 28, r: 2.4, at: 0.54 },
-];
 
 function Seal({ animated, size }: { animated: boolean; size: number }) {
   const svg = (
@@ -52,55 +46,65 @@ function Seal({ animated, size }: { animated: boolean; size: number }) {
   );
   if (!animated) return <div className="-rotate-[8deg]">{svg}</div>;
   return (
-    <motion.div
-      // Stamp: hovers in large, drops onto the stroke as it finishes drawing.
-      animate={{ scale: [1.5, 1.5, 1, 1], rotate: [-16, -16, -8, -8], opacity: [0, 0, 1, 1] }}
-      transition={{ duration: DURATION_S, times: [0, 0.4, 0.58, 1], ease: EASE }}
-    >
-      {svg}
-    </motion.div>
+    <div className="relative">
+      {/* El pulso de tinta: UN anillo que nace bajo el sello al aterrizar y se
+          disipa — la presión del tampón, no unos fuegos artificiales. */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 rounded-full border-2 border-current"
+        initial={{ opacity: 0, scale: 0.7 }}
+        animate={{ opacity: [0, 0, 0.45, 0], scale: [0.7, 0.7, 1, 1.45] }}
+        transition={{ duration: DURATION_S, times: [0, 0.62, 0.7, 1], ease: 'easeOut' }}
+        aria-hidden
+      />
+      <motion.div
+        // El tampón: llega grande y en el aire, CAE sobre el trazo cuando éste
+        // termina de dibujarse, y asienta con un mínimo rebote de presión.
+        animate={{
+          scale: [1.45, 1.45, 0.96, 1.02, 1],
+          rotate: [-15, -15, -8, -8, -8],
+          opacity: [0, 0, 1, 1, 1],
+        }}
+        transition={{ duration: DURATION_S, times: [0, 0.5, 0.66, 0.78, 1], ease: EASE }}
+      >
+        {svg}
+      </motion.div>
+    </div>
   );
 }
 
 /**
- * The inline ceremony. `compact` fits the QR-sized cover (Xaman); default
- * fits the settlement indicator block. It never unmounts itself — keep it
- * mounted in a STABLE slot so status re-renders don't replay it.
+ * The inline ceremony. It never unmounts itself — keep it mounted in a STABLE
+ * slot so status re-renders don't replay it. One consumer by design
+ * (SettlementIndicator): a second mount is a second ceremony, and that bug is
+ * already paid for.
  */
-export function SignedMark({ compact = false, className = '' }: { compact?: boolean; className?: string }) {
+export function SignedMark({ className = '' }: { className?: string }) {
   const reduced = useReducedMotion() ?? false;
-  const strokeW = compact ? 108 : 148;
-  const strokeH = compact ? 36 : 50;
-  const sealSize = compact ? 40 : 52;
 
   return (
     <div className={`relative inline-flex items-center justify-center text-volt ${className}`} aria-hidden>
-      {/* star sparks — ignite around the stroke, each on its own window */}
-      <svg
-        className="pointer-events-none absolute -inset-8 h-[calc(100%+4rem)] w-[calc(100%+4rem)]"
-        viewBox="-78 -46 156 92"
-        aria-hidden
-      >
-        {SPARKS.map((s, i) =>
-          reduced ? (
-            <path key={i} d={star(s.r)} transform={`translate(${s.x} ${s.y})`} fill="currentColor" opacity={0.45} />
+      <div className="relative px-2 pb-1.5 pt-2">
+        <svg width={148} height={54} viewBox="0 0 104 38" fill="none" aria-hidden>
+          {/* La línea de firma — el documento espera la rúbrica. Se dibuja
+              primero, rápida y recta, y el autógrafo cae sobre ella. */}
+          {reduced ? (
+            <line x1="4" y1="33" x2="100" y2="33" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
           ) : (
-            <motion.path
-              key={i}
-              d={star(s.r)}
-              transform={`translate(${s.x} ${s.y})`}
-              fill="currentColor"
-              animate={{ opacity: [0, 0, 0.8, 0.35], scale: [0.4, 0.4, 1, 1] }}
-              transition={{ duration: DURATION_S, times: [0, s.at, s.at + 0.12, 1], ease: EASE }}
+            <motion.line
+              x1="4"
+              y1="33"
+              x2="100"
+              y2="33"
+              stroke="currentColor"
+              strokeOpacity="0.3"
+              strokeWidth="1"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: [0, 1, 1] }}
+              transition={{ duration: DURATION_S, times: [0, 0.14, 1], ease: 'easeOut' }}
             />
-          ),
-        )}
-      </svg>
-
-      <div className="relative">
-        <svg width={strokeW} height={strokeH} viewBox="0 0 104 34" fill="none" aria-hidden>
+          )}
           {/* resting hint under the live stroke — SignatureScene grammar */}
-          <path d={SIGN_STROKE} stroke="currentColor" strokeOpacity="0.14" strokeWidth="1.7" strokeLinecap="round" />
+          <path d={SIGN_STROKE} stroke="currentColor" strokeOpacity="0.12" strokeWidth="1.7" strokeLinecap="round" />
           {reduced ? (
             <path d={SIGN_STROKE} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
           ) : (
@@ -111,12 +115,12 @@ export function SignedMark({ compact = false, className = '' }: { compact?: bool
               strokeLinecap="round"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: [0, 0, 1, 1] }}
-              transition={{ duration: DURATION_S, times: [0, 0.08, 0.52, 1], ease: 'easeInOut' }}
+              transition={{ duration: DURATION_S, times: [0, 0.12, 0.56, 1], ease: 'easeInOut' }}
             />
           )}
         </svg>
-        <div className={`absolute ${compact ? '-right-6 -top-5' : '-right-8 -top-6'}`}>
-          <Seal animated={!reduced} size={sealSize} />
+        <div className="absolute -right-7 -top-4">
+          <Seal animated={!reduced} size={52} />
         </div>
       </div>
     </div>

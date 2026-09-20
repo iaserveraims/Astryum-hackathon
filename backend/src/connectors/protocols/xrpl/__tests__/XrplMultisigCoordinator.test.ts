@@ -102,4 +102,54 @@ describe('prepareCouncilMultisig', () => {
     });
     expect(out.multisigTx.Fee).toBe('60'); // 12 x (1 + 4)
   });
+
+  /**
+   * productizer it. 19 (finding 2.2) — THE CONTESTED SEAT, TAKEN ON PURPOSE.
+   *
+   * it. 17 told a family «the exit takes the seat» while this function pinned whatever
+   * `account_info` answered — the rival's number only by luck of timing. The caller
+   * may now ask for the exact seat, and the answer says which one was taken and why.
+   * What it never does is pin a seat the ledger has moved past: that composes a
+   * payload that is tefPAST_SEQ from birth, which is the one way to kill an exit.
+   */
+  describe('pinSequence — an exit may take the seat another payload is holding', () => {
+    it('pins the requested seat when it IS the ledger’s next unused Sequence', async () => {
+      const out = await prepareCouncilMultisig(readerWith(3, { sequence: 42 }), {
+        account: ACCOUNT,
+        xrplTx: escrowTx,
+        pinSequence: 42,
+      });
+      expect(out.multisigTx.Sequence).toBe(42);
+      expect(out.sequence).toEqual({ pinned: 42, ledgerNext: 42, requested: 42, source: 'contested-seat' });
+    });
+
+    it('IGNORES a seat the ledger has already moved past, and says it was consumed', async () => {
+      const out = await prepareCouncilMultisig(readerWith(3, { sequence: 45 }), {
+        account: ACCOUNT,
+        xrplTx: escrowTx,
+        pinSequence: 42,
+      });
+      expect(out.multisigTx.Sequence).toBe(45);
+      expect(out.sequence).toMatchObject({ pinned: 45, source: 'ledger', requestedSeatConsumed: true });
+    });
+
+    it('never composes a gap: a seat AHEAD of the ledger is ignored too', async () => {
+      const out = await prepareCouncilMultisig(readerWith(3, { sequence: 45 }), {
+        account: ACCOUNT,
+        xrplTx: escrowTx,
+        pinSequence: 60,
+      });
+      expect(out.multisigTx.Sequence).toBe(45);
+      expect(out.sequence).toMatchObject({ pinned: 45, source: 'ledger' });
+      expect(out.sequence.requestedSeatConsumed).toBeUndefined();
+    });
+
+    it('without a request it reads the ledger exactly as before', async () => {
+      const out = await prepareCouncilMultisig(readerWith(3, { sequence: 105597274 }), {
+        account: ACCOUNT,
+        xrplTx: escrowTx,
+      });
+      expect(out.sequence).toEqual({ pinned: 105597274, ledgerNext: 105597274, source: 'ledger' });
+    });
+  });
 });

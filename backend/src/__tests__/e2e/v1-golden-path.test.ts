@@ -114,6 +114,15 @@ jest.mock('../../connectors/protocols/adapters/KineticAdapter', () => {
         },
       ];
     }
+    // it. 34 — the engine now reads adapters through `discoverWithUnreadable`,
+    // which PREFERS `discoverPositionsPartial` (degrade per read, not per
+    // protocol). A double that only overrides the legacy all-or-nothing method
+    // would inherit the REAL partial reader, which runs against no node here
+    // and answers «unreadable» — and this step would assert on an empty
+    // portfolio. Same rows, no unreadable reads: the golden path is a clean read.
+    async discoverPositionsPartial(w: string) {
+      return { positions: await this.discoverPositions(w), unreadable: [] };
+    }
     async getMetrics(position: any) {
       // Synthesised HF/LTV consistent with collateral 1000 USD, debt 500 USD, CF 0.7
       // HF = (1000*0.7)/500 = 1.4, LTV = 0.5

@@ -32,10 +32,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StepShot } from '../ui/StepShot';
 import {
   AlertTriangle,
   ArrowRight,
-  Camera,
+  ArrowLeft,
+  BookOpen,
   Check,
   ChevronDown,
   Copy,
@@ -44,7 +46,10 @@ import {
   RefreshCw,
   Smartphone,
   Users,
+  X,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ModalOverlay } from '../ui/ModalPortal';
 import { isValidClassicAddress } from 'xrpl';
 import { Card, GhostButton, MicroLabel, Pill, PrimaryButton, SectionTitle } from '../ui/primitives';
 import { CouncilScene } from '../ui/scenes';
@@ -66,7 +71,7 @@ export const XAMAN_MULTISIGN_XAPP = 'https://xumm.app/detect/xapp:xumm.multisign
 const XRPL_SERVICES_TOOLS = 'https://xrpl.services/tools';
 
 const inputCls =
-  'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm outline-none focus:border-ink/25';
+  'mt-1 w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-sm text-ink caret-ink placeholder:text-ink/30 outline-none focus:border-ink/25';
 
 /** Copy-to-clipboard button that says so for two seconds. */
 function CopyButton({ value, label }: { value: string; label?: string }) {
@@ -181,37 +186,6 @@ function Hint({ children }: { children: React.ReactNode }) {
  * file is not there yet, the frame stays visible as a labelled placeholder —
  * the slot is part of the tutorial, with or without the image.
  */
-function StepShot({ src, caption }: { src: string; caption: string }) {
-  const [missing, setMissing] = useState(false);
-  return (
-    <figure className="mt-1.5 w-fit max-w-full overflow-hidden rounded-xl border border-ink/10 bg-black/25">
-      {missing ? (
-        <div className="flex h-28 w-64 max-w-full flex-col items-center justify-center gap-1 px-3 text-center text-ink/30">
-          <Camera size={16} aria-hidden />
-          <span className="text-[10px] leading-snug">{caption}</span>
-          <span className="font-mono text-[9px] text-ink/20">{src}</span>
-        </div>
-      ) : (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- static tutorial capture, no optimization needed */}
-          <img
-            src={src}
-            alt={caption}
-            loading="lazy"
-            onError={() => setMissing(true)}
-            className="max-h-80 w-auto max-w-full"
-          />
-          {/* w-0 + min-w-full: the caption takes the image's width instead of
-              dictating the figure's — a long caption WRAPS under the shot,
-              it never widens the frame past the image (founder 2026-08-05). */}
-          <figcaption className="w-0 min-w-full border-t border-ink/5 px-3 py-1.5 text-[10px] leading-relaxed text-ink/40">
-            {caption}
-          </figcaption>
-        </>
-      )}
-    </figure>
-  );
-}
 
 export default function CouncilInXaman({
   account,
@@ -246,6 +220,9 @@ export default function CouncilInXaman({
   unsignedSlot?: React.ReactNode;
 }) {
   const { t } = useT();
+  // El tutorial paginado (Know how, 2026-08-25).
+  const [knowHowOpen, setKnowHowOpen] = useState(false);
+  const [knowHowPage, setKnowHowPage] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   // The plan form is OPTIONAL and folded (founder 2026-08-05): the council is
   // created in Xaman, so the tutorial is the protagonist. The fold opens
@@ -391,97 +368,28 @@ export default function CouncilInXaman({
           )}
         </p>
 
-        <ol className="space-y-3.5">
-          <Step n={1} title={t('Open Xaman on the phone that holds this account’s key.')}>
-            <Hint>
-              {t(
-                'Check the account shown at the top: it must be exactly the account you are constituting. If you hold several, switch to it now — a signer list created on the wrong account governs the wrong account, and you would only find out later.',
-              )}
-            </Hint>
-            {account && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="break-all font-mono text-[12px] text-ink/75">{account}</span>
-                <CopyButton value={account} label={t('Copy address')} />
-              </div>
-            )}
-          </Step>
+        {/* KNOW HOW (fundador 2026-08-25: «un botón grande que ponga know
+            how y aparece el popup del tutorial con páginas») — los ocho pasos
+            dejan de ser una pared inline: uno por página, con su captura
+            grande, al ritmo del que aprende. El aviso rojo de abajo se queda
+            AQUÍ, a la vista siempre: la seguridad no se pagina. */}
+        <button
+          onClick={() => {
+            setKnowHowPage(0);
+            setKnowHowOpen(true);
+          }}
+          className="w-full flex items-center justify-center gap-2.5 rounded-xl border px-4 py-3.5 text-sm font-semibold transition-colors"
+          style={{
+            borderColor: 'hsl(var(--product-legacy) / 0.4)',
+            background: 'hsl(var(--product-legacy) / 0.1)',
+            color: 'hsl(var(--product-legacy))',
+          }}
+        >
+          <BookOpen className="h-4.5 w-4.5" size={18} />
+          {t('Know how — the 8 steps, illustrated')}
+          <ArrowRight size={15} />
+        </button>
 
-          <Step n={2} title={t('Open the Multisign xApp.')}>
-            <Hint>
-              {t(
-                'In Xaman: the xApps tab → search for “Multisign” → open it. Or open this link on the phone (it only works on a device that has Xaman installed):',
-              )}
-            </Hint>
-            <div className="flex flex-wrap items-center gap-2">
-              <a href={XAMAN_MULTISIGN_XAPP} target="_blank" rel="noreferrer">
-                <GhostButton>
-                  <ExternalLink size={13} /> {t('Open the Multisign xApp')}
-                </GhostButton>
-              </a>
-              <CopyButton value={XAMAN_MULTISIGN_XAPP} label={t('Copy the link for the phone')} />
-            </div>
-            <StepShot src="/legacy/xaman/multisign-step-1.png" caption={t('Xaman → xApps → search “Multisign”')} />
-          </Step>
-
-          <Step n={3} title={t('Choose to create the signer list of this account.')}>
-            <Hint>
-              {t(
-                'The xApp does two different jobs: define WHO signs for an account (this, the signer list) and collect signatures for a transaction that already exists (that one you will not need — Astryum gathers the council’s signatures itself, later). Pick the first.',
-              )}
-            </Hint>
-            <StepShot src="/legacy/xaman/multisign-step-2.png" caption={t('The Setup screen, empty — Add Signer starts the list')} />
-          </Step>
-
-          <Step n={4} title={t('Add the members, one by one.')}>
-            <Hint>
-              {t(
-                'Paste each address as its owner sent it to you — never retype it by hand — and set its weight to 1 unless you deliberately want someone to weigh more. Add all of them before continuing: the list you send REPLACES anything that was there; it is not added to it.',
-              )}
-            </Hint>
-          </Step>
-
-          <Step n={5} title={t('Set the quorum.')}>
-            <Hint>
-              {planReady
-                ? `${t('That is how many votes any decision needs, out of the total on the list. What is left over is the margin: the votes you can lose before the council can no longer decide anything.')} (${plan.quorum}/${plan.totalWeight} · ${t('margin')} ${plan.margin})`
-                : t('That is how many votes any decision needs, out of the total on the list. Five signers with a quorum of three is the recommended family setup — never 2-of-2 nor 2-of-3.')}
-            </Hint>
-            <StepShot src="/legacy/xaman/multisign-step-3.png" caption={t('All members added, weight 1 each, quorum set — then Submit')} />
-          </Step>
-
-          <Step n={6} title={t('Compare the review screen, line by line.')}>
-            <Hint>
-              {t(
-                'This is the last cheap moment. One wrong character in one address is a member who can never sign — and once the master key is disabled, a council short of quorum cannot be repaired by anyone, ever. If anything differs, cancel and start the screen again.',
-              )}
-            </Hint>
-            <StepShot src="/legacy/xaman/multisign-step-4.png" caption={t('The review — type Set Signer List: every member, every weight, the quorum')} />
-          </Step>
-
-          <Step n={7} title={t('Accept Xaman’s warning and slide to sign.')}>
-            <Hint>
-              {t(
-                'Xaman shows a red warning before this signature. It is expected, and it is literally true — this is the transaction that hands the account to the council. Its exact words:',
-              )}
-            </Hint>
-            <p className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 font-mono text-[11px] leading-relaxed text-tone-warning">
-              “YOU HAVE BEEN WARNED BY XAMAN… YOU ARE GIVING AWAY CONTROL OF YOUR ACCOUNT”
-            </p>
-            <Hint>
-              {t(
-                'You are signing with the account’s master key — the council does not exist yet, so it cannot sign its own creation. The master key stays ACTIVE after this: it is your safety net until the rehearsal proves every member can sign.',
-              )}
-            </Hint>
-          </Step>
-
-          <Step n={8} title={t('Wait until the ledger validates it.')}>
-            <Hint>
-              {t(
-                'A few seconds. If it fails with tecINSUFFICIENT_RESERVE, the account is short of XRP: top it up and repeat the screen — the failed attempt only cost its fee.',
-              )}
-            </Hint>
-          </Step>
-        </ol>
 
         <div className="flex items-start gap-2 rounded-lg border border-red-500/25 bg-red-500/[0.06] p-2.5 text-[12px] leading-relaxed text-tone-danger">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -622,6 +530,201 @@ export default function CouncilInXaman({
           </div>
         )}
       </section>
+
+      {/* ── KNOW HOW — el tutorial, una página por paso ─────────────────── */}
+      {knowHowOpen && (() => {
+        const pages = [
+(
+<ol className="space-y-3.5">          <Step n={1} title={t('Open Xaman on the phone that holds this account’s key.')}>
+            <Hint>
+              {t(
+                'Check the account shown at the top: it must be exactly the account you are constituting. If you hold several, switch to it now — a signer list created on the wrong account governs the wrong account, and you would only find out later.',
+              )}
+            </Hint>
+            {account && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="break-all font-mono text-[12px] text-ink/75">{account}</span>
+                <CopyButton value={account} label={t('Copy address')} />
+              </div>
+            )}
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={2} title={t('Open the Multisign xApp.')}>
+            <Hint>
+              {t(
+                'In Xaman: the xApps tab → search for “Multisign” → open it. Or open this link on the phone (it only works on a device that has Xaman installed):',
+              )}
+            </Hint>
+            <div className="flex flex-wrap items-center gap-2">
+              <a href={XAMAN_MULTISIGN_XAPP} target="_blank" rel="noreferrer">
+                <GhostButton>
+                  <ExternalLink size={13} /> {t('Open the Multisign xApp')}
+                </GhostButton>
+              </a>
+              <CopyButton value={XAMAN_MULTISIGN_XAPP} label={t('Copy the link for the phone')} />
+            </div>
+            <StepShot src="/legacy/xaman/multisign-step-1.png" caption={t('Xaman → xApps → search “Multisign”')} />
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={3} title={t('Choose to create the signer list of this account.')}>
+            <Hint>
+              {t(
+                'The xApp does two different jobs: define WHO signs for an account (this, the signer list) and collect signatures for a transaction that already exists (that one you will not need — Astryum gathers the council’s signatures itself, later). Pick the first.',
+              )}
+            </Hint>
+            <StepShot src="/legacy/xaman/multisign-step-2.png" caption={t('The Setup screen, empty — Add Signer starts the list')} />
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={4} title={t('Add the members, one by one.')}>
+            <Hint>
+              {t(
+                'Paste each address as its owner sent it to you — never retype it by hand — and set its weight to 1 unless you deliberately want someone to weigh more. Add all of them before continuing: the list you send REPLACES anything that was there; it is not added to it.',
+              )}
+            </Hint>
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={5} title={t('Set the quorum.')}>
+            <Hint>
+              {planReady
+                ? `${t('That is how many votes any decision needs, out of the total on the list. What is left over is the margin: the votes you can lose before the council can no longer decide anything.')} (${plan.quorum}/${plan.totalWeight} · ${t('margin')} ${plan.margin})`
+                : t('That is how many votes any decision needs, out of the total on the list. Five signers with a quorum of three is the recommended family setup — never 2-of-2 nor 2-of-3.')}
+            </Hint>
+            <StepShot src="/legacy/xaman/multisign-step-3.png" caption={t('All members added, weight 1 each, quorum set — then Submit')} />
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={6} title={t('Compare the review screen, line by line.')}>
+            <Hint>
+              {t(
+                'This is the last cheap moment. One wrong character in one address is a member who can never sign — and once the master key is disabled, a council short of quorum cannot be repaired by anyone, ever. If anything differs, cancel and start the screen again.',
+              )}
+            </Hint>
+            <StepShot src="/legacy/xaman/multisign-step-4.png" caption={t('The review — type Set Signer List: every member, every weight, the quorum')} />
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={7} title={t('Accept Xaman’s warning and slide to sign.')}>
+            <Hint>
+              {t(
+                'Xaman shows a red warning before this signature. It is expected, and it is literally true — this is the transaction that hands the account to the council. Its exact words:',
+              )}
+            </Hint>
+            <p className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 font-mono text-[11px] leading-relaxed text-tone-warning">
+              “YOU HAVE BEEN WARNED BY XAMAN… YOU ARE GIVING AWAY CONTROL OF YOUR ACCOUNT”
+            </p>
+            <Hint>
+              {t(
+                'You are signing with the account’s master key — the council does not exist yet, so it cannot sign its own creation. The master key stays ACTIVE after this: it is your safety net until the rehearsal proves every member can sign.',
+              )}
+            </Hint>
+          </Step></ol>
+),
+(
+<ol className="space-y-3.5">          <Step n={8} title={t('Wait until the ledger validates it.')}>
+            <Hint>
+              {t(
+                'A few seconds. If it fails with tecINSUFFICIENT_RESERVE, the account is short of XRP: top it up and repeat the screen — the failed attempt only cost its fee.',
+              )}
+            </Hint>
+          </Step>
+</ol>
+)
+        ];
+        const last = pages.length - 1;
+        const page = Math.min(knowHowPage, last);
+        return (
+          <ModalOverlay
+            className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm"
+            onEscape={() => setKnowHowOpen(false)}
+          >
+            <div className="flex min-h-full justify-center p-4" onClick={() => setKnowHowOpen(false)}>
+              <div
+                className="relative my-auto w-full max-w-xl rounded-2xl border bg-surface-1 p-5 shadow-2xl"
+                style={{ borderColor: 'hsl(var(--product-legacy) / 0.25)' }}
+                role="dialog"
+                aria-modal="true"
+                aria-label={t('Know how — the 8 steps, illustrated')}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="grid h-8 w-8 place-items-center rounded-lg border"
+                      style={{
+                        borderColor: 'hsl(var(--product-legacy) / 0.4)',
+                        background: 'hsl(var(--product-legacy) / 0.1)',
+                        color: 'hsl(var(--product-legacy))',
+                      }}
+                    >
+                      <BookOpen size={15} />
+                    </span>
+                    <span className="text-sm font-semibold text-ink">{t('The steps in Xaman, illustrated')}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-ink/40">{page + 1} / {pages.length}</span>
+                    <button
+                      onClick={() => setKnowHowOpen(false)}
+                      className="rounded-lg p-1.5 text-ink/45 transition-colors hover:bg-ink/5 hover:text-ink"
+                      aria-label={t('Close')}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="min-h-[16rem]">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={page}
+                      initial={{ opacity: 0, x: 18 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -14 }}
+                      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      {pages[page]}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between gap-3 border-t border-ink/5 pt-4">
+                  <GhostButton onClick={() => setKnowHowPage(Math.max(0, page - 1))} disabled={page === 0}>
+                    <ArrowLeft size={14} /> {t('Previous')}
+                  </GhostButton>
+                  <div className="flex items-center gap-1.5" aria-hidden>
+                    {pages.map((_, d) => (
+                      <button
+                        key={d}
+                        onClick={() => setKnowHowPage(d)}
+                        className="h-1.5 rounded-full transition-all"
+                        style={{
+                          width: d === page ? 18 : 6,
+                          background:
+                            d === page
+                              ? 'hsl(var(--product-legacy))'
+                              : 'hsl(var(--product-legacy) / 0.25)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {page < last ? (
+                    <PrimaryButton onClick={() => setKnowHowPage(page + 1)}>
+                      {t('Next')} <ArrowRight size={14} />
+                    </PrimaryButton>
+                  ) : (
+                    <PrimaryButton onClick={() => setKnowHowOpen(false)}>
+                      {t('Done')} <Check size={14} />
+                    </PrimaryButton>
+                  )}
+                </div>
+              </div>
+            </div>
+          </ModalOverlay>
+        );
+      })()}
     </div>
   );
 }
@@ -710,6 +813,7 @@ export function CouncilPlanCheck({ account, council }: { account: string; counci
         <GhostButton onClick={confirm}>{t('The council is correct — stop comparing')}</GhostButton>
       </div>
     </div>
+
   );
 }
 

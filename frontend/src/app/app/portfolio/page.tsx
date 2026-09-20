@@ -7,24 +7,32 @@ import {
   ExternalLink, Search, X, Filter,
 } from 'lucide-react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../../../stores/motionStore';
 import {
   portfolioV1,
   type PortfolioSnapshot,
   type RiskSnapshot,
 } from '../../../services/v1Api';
 import { useAuthStore } from '../../../stores/authStore';
+import { PortfolioSyncBadge } from '../../../components/dashboard/PortfolioSyncBadge';
+import { PortfolioUnreadableNotice } from '../../../components/dashboard/PortfolioUnreadableNotice';
 import { Card, MicroLabel, PageHeader, Pill, EmptyState, HairlineGroup, SegmentedControl } from '../../../components/ui/primitives';
-import { CountUp, PulseDot, RevealGroup, RevealItem, Spotlight } from '../../../components/ui/motion';
+import { Arrive, arriveMotion, CountUp, PulseDot, RevealGroup, RevealItem, Spotlight } from '../../../components/ui/motion';
 import { formatMoney, formatMoneyCompact } from '../../../lib/formatMoney';
+import { fmtQtyActive } from '../../../lib/format';
+import { snapshotQty } from '../../../lib/positionQty';
 import { hfTone } from '../../../lib/healthScore';
 import { TokenLogo } from '../../../components/ui/TokenLogo';
 import { AllocationDonut, AllocationLegend, OrbitDial, PerfLine, chartColorsFor } from '../../../components/ui/charts';
 import { SceneDoor } from '../../../components/ui/SceneDoor';
 import { CapitalField } from '../../../components/ui/scenes';
+import { MeridianMark } from '../../../components/ui/skin/marks';
+import { useEngraved, useResolvedTheme } from '../../../stores/themeStore';
 import { OrbitScene } from '../../../components/earn/icons';
 import { useBalanceVisibility } from '../../../stores/balanceVisibilityStore';
 import { AuthRequired, FriendlyError, hasAuthToken, isAuthError } from '../../../lib/authError';
+import { useEthMorphoHealth, type EthMorphoHealth } from '@/lib/earn/useEthMorphoHealth';
 import { useT } from '../../../i18n/LanguageProvider';
 import CapitalMapPanel from '../../../components/portfolio/CapitalMapPanel';
 import DefiPositionsBoard from '../../../components/positions/DefiPositionsBoard';
@@ -38,9 +46,15 @@ import {
 } from '../../../lib/portfolioMerge';
 import { useAuthorityWallets } from '../../../hooks/useAuthorityWallets';
 import { useAuthorities } from '../../../hooks/useAuthorities';
-import { walletColor, walletDisplayName, walletIcon } from '../../../lib/walletIdentity';
+import { DonutCard, earningRing, assetQuantities } from '../../../components/dashboard/DonutCard';
+import { walletColor, walletDisplayName, walletIcon, walletWash } from '../../../lib/walletIdentity';
+import { ScopeSelect, type ScopeOption } from '../../../components/ui/ScopeSelect';
+import { WalletFace } from '../../../components/wallet/WalletSelect';
+import { useWalletLabeler } from '../../../lib/wallet/useWalletLabeler';
+import { usePaFold, foldKey } from '../../../lib/wallet/paFold';
 import WalletGlyphIcon from '../../../components/wallet/WalletGlyphIcon';
 import { ModalOverlay } from '@/components/ui/ModalPortal';
+import { CAPITAL_SECTION_HREF } from '@/lib/nav/capitalSection';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +80,10 @@ const CHAIN_NAMES: Record<number, string> = {
   // position reads "Chain 1440002" instead of its network.
   1440002: 'XRPL',
 };
+
+/** Una dirección con la que se puede pedir un snapshot — r… (XRPL) o 0x…
+ *  (EVM). Solo la usa el alcance, para no caer a «cárgalo todo». */
+const SCOPE_ADDRESS_RE = /^(r[1-9A-HJ-NP-Za-km-z]{24,34}|0x[a-fA-F0-9]{40})$/;
 
 function chainLabel(chainId: number): string {
   return CHAIN_NAMES[chainId] ?? `Chain ${chainId}`;
@@ -124,13 +142,14 @@ function kindLabel(kind: string | undefined | null): string {
   return KIND_LABEL[k] ?? k.charAt(0).toUpperCase() + k.slice(1);
 }
 
-// Real token amount for a position row (USD / live price). No price → no
-// amount; we never invent a quantity.
-function positionQty(p: { amountUSD?: number; priceUSD?: number }): number | null {
-  const usd = typeof p.amountUSD === 'number' ? p.amountUSD : 0;
-  const price = typeof p.priceUSD === 'number' ? p.priceUSD : 0;
-  if (usd === 0 || price <= 0) return null;
-  return Math.abs(usd) / price;
+// La cantidad real de una fila vive en lib/positionQty (`snapshotQty`): el
+// campo `amount` del snapshot son unidades BASE en las lecturas on-chain y un
+// «0» en las externas, así que ninguna pantalla lo lee directamente.
+
+/** Precio UNITARIO (no un importe): 2 decimales desde $100, 4 por debajo —
+ *  el mismo criterio que ya usaba la ficha del activo y PositionHealthMeter. */
+function unitPrice(v: number): string {
+  return `$${v >= 100 ? v.toFixed(2) : v.toFixed(4)}`;
 }
 
 function fmtQty(v: number): string {
@@ -197,6 +216,23 @@ function walletLabel(wallets: WalletRecord[], addr: string | undefined | null): 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TIME_RANGES: TimeRange[] = ['24h', '7d', '30d', '90d', '1y'];
+const RANGE_DAYS: Record<TimeRange, number> = { '24h': 1, '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+
+/**
+ * La etiqueta del eje del tiempo SIGUE AL FILTRO (fundador 2026-08-25: «no
+ * interactúa bien con el filtro de fechas»). Con un formato de fecha fijo,
+ * las 24h pintaban la MISMA etiqueta repetida —todos los puntos son del mismo
+ * día— así que el eje dejaba de informar justo en el rango donde más detalle
+ * hace falta. Cada ventana pide su unidad: horas en un día, día de la semana
+ * en una semana, fecha a partir de ahí.
+ */
+function axisLabelFor(range: TimeRange, iso: string): string {
+  const d = new Date(iso);
+  if (range === '24h') return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  if (range === '7d') return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  if (range === '1y') return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 // ─── Client-side filtering ──────────────────────────────────────────────────
 // Everything in a snapshot derives from `positions` (each carries chainId,
@@ -302,166 +338,190 @@ function shortAddr(addr: string): string {
 // ─── Filter bar ─────────────────────────────────────────────────────────────
 // One interactive control strip: wallet · network · time range · search · dust.
 
-function FilterBar({
+/** The chip recipe shared by the scope row and the token filters — one
+ *  species, on or off. */
+function filterChip(on: boolean): string {
+  return `flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all border ${
+    on
+      ? 'bg-volt/15 text-volt border-volt/30'
+      : 'text-ink/45 border-ink/10 hover:text-ink/70 hover:border-ink/20'
+  }`;
+}
+
+/**
+ * ScopeRow — WHOSE capital and WHERE it lives (face wash 2026-08-19: the old
+ * FilterBar stacked every control of every lens into one boxed toolbar —
+ * "está como mal organizado"). Scope is not a filter: wallets and networks
+ * apply to EVERY lens, so they get their own quiet unboxed row under the
+ * tabs; the per-lens controls moved to the lens they act on (time range →
+ * the Overview chart, search/dust → Tokens). Balances eye stays here: it is
+ * global too.
+ */
+/**
+ * ScopeRow — el alcance en DOS SELECTORES, no en una fila de chips (fundador
+ * 2026-09-07). La fila abierta crecía con cada wallet enlazada y se comía un
+ * renglón en TODAS las lentes; ahora son dos botones etiquetados —«Wallet: …»
+ * y «Network: …»— que se abren al pasar el ratón y al pulsar, y viven ARRIBA,
+ * al lado de las pestañas, porque el alcance manda sobre la pestaña elegida,
+ * no al revés.
+ *
+ * La cara de cada wallet sigue siendo la de siempre (WalletFace, la misma que
+ * la tarjeta de Wallets y los selectores de firma): el color y el glifo son
+ * cómo se reconoce la tuya.
+ */
+function ScopeRow({
   wallets,
   activeWallet,
   onWalletChange,
-  timeRange,
-  onTimeRangeChange,
   networks,
   network,
   onNetworkChange,
-  query,
-  onQueryChange,
-  hideDust,
-  onHideDustToggle,
   balanceVisible,
   onBalanceToggle,
-  filtersActive,
-  onClearFilters,
-  resultCount,
 }: {
   wallets: WalletRecord[];
   activeWallet: string;
   onWalletChange: (a: string) => void;
-  timeRange: TimeRange;
-  onTimeRangeChange: (t: TimeRange) => void;
   networks: number[];
   network: number | null;
   onNetworkChange: (n: number | null) => void;
+  balanceVisible: boolean;
+  onBalanceToggle: () => void;
+}) {
+  const { t } = useT();
+  const selectedWallet = wallets.find((w) => w.address === activeWallet) ?? null;
+
+  const walletOptions: ScopeOption[] = [
+    {
+      key: 'all',
+      label: t('All wallets'),
+      mark: <Wallet2 className="h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.5} />,
+      detail: `${wallets.length} ${wallets.length === 1 ? t('wallet') : t('wallets')}`,
+    },
+    ...wallets.map((w) => ({
+      key: w.address,
+      label: walletDisplayName(w, t),
+      mark: <WalletFace record={w} size={20} />,
+      detail: `${w.address.slice(0, 6)}…${w.address.slice(-4)}`,
+    })),
+  ];
+
+  const networkOptions: ScopeOption[] = [
+    { key: 'all', label: t('All networks'), detail: networks.map(chainLabel).join(' · ') },
+    ...networks.map((c) => ({
+      key: String(c),
+      label: chainLabel(c),
+      mark: <span className="h-2 w-2 shrink-0 rounded-full bg-ink/25" aria-hidden />,
+    })),
+  ];
+
+  return (
+    <div className="flex items-center gap-2">
+      <ScopeSelect
+        label={t('Wallet')}
+        options={walletOptions}
+        value={activeWallet}
+        onChange={onWalletChange}
+        active={activeWallet !== 'all'}
+        accent={selectedWallet ? walletColor(selectedWallet) : undefined}
+        align="right"
+      />
+      {networks.length > 1 && (
+        <ScopeSelect
+          label={t('Network')}
+          options={networkOptions}
+          value={network == null ? 'all' : String(network)}
+          onChange={(k) => onNetworkChange(k === 'all' ? null : Number(k))}
+          active={network != null}
+          align="right"
+        />
+      )}
+      <button
+        onClick={onBalanceToggle}
+        title={balanceVisible ? t('Hide balances') : t('Show balances')}
+        aria-label={balanceVisible ? t('Hide balances') : t('Show balances')}
+        className={`shrink-0 rounded-full p-2 transition-all ${
+          balanceVisible ? 'text-ink/30 hover:text-ink/60' : 'bg-volt/15 text-volt'
+        }`}
+      >
+        {balanceVisible ? (
+          <Eye className="h-4 w-4" strokeWidth={1.5} />
+        ) : (
+          <EyeOff className="h-4 w-4" strokeWidth={1.5} />
+        )}
+      </button>
+    </div>
+  );
+}
+
+// PortfolioRail (v1 of the left command rail) was BUILT AND RETIRED the
+// same day (founder 2026-08-22: "roba mucho espacio, se ve menos contenido
+// que antes") — the horizontal spine below is the layout that works. Do not
+// re-introduce a persistent side rail on this page.
+
+/** TokenFilterRow — the controls that only act on the token/DeFi listings
+ *  (search, dust, result count + clear), living INSIDE the lens they filter. */
+function TokenFilterRow({
+  query,
+  onQueryChange,
+  hideDust,
+  onHideDustToggle,
+  filtersActive,
+  onClearFilters,
+  resultCount,
+}: {
   query: string;
   onQueryChange: (q: string) => void;
   hideDust: boolean;
   onHideDustToggle: () => void;
-  balanceVisible: boolean;
-  onBalanceToggle: () => void;
   filtersActive: boolean;
   onClearFilters: () => void;
   resultCount: number;
 }) {
   const { t } = useT();
-  // The filter bar's ONE content-filter species: a rounded-full chip, on or
-  // off. Network and dust both use it; Range is the other species (a compact
-  // SegmentedControl) — two species max, no hand-drawn checkboxes.
-  const chip = (on: boolean) =>
-    `flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all border ${
-      on
-        ? 'bg-volt/15 text-volt border-volt/30'
-        : 'text-ink/45 border-ink/10 hover:text-ink/70 hover:border-ink/20'
-    }`;
-
   return (
-    <div className="px-5 py-3.5 flex flex-col gap-3">
-      {/* Row 1 — wallets + search */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-          <button onClick={() => onWalletChange('all')} className={chip(activeWallet === 'all')}>
-            <Wallet2 className="w-3 h-3" strokeWidth={1.5} />
-            {t('All wallets')}
-          </button>
-          {wallets.map((w) => {
-            const glyph = walletIcon(w);
-            return (
-              <button
-                key={w.address}
-                onClick={() => onWalletChange(w.address)}
-                className={chip(activeWallet === w.address)}
-              >
-                {/* The wallet's personal colour/glyph (walletIdentity) — same
-                    identity as in Wallets and the Summary rows. */}
-                {glyph ? (
-                  <WalletGlyphIcon icon={glyph} size={12} color={walletColor(w)} className="shrink-0" />
-                ) : (
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0 ring-1 ring-ink/20"
-                    style={{ background: walletColor(w) }}
-                  />
-                )}
-                {walletDisplayName(w, t)}
-              </button>
-            );
-          })}
-        </div>
-        <div className="relative shrink-0">
-          <Search
-            className="w-3.5 h-3.5 text-ink/30 absolute left-2.5 top-1/2 -translate-y-1/2"
-            strokeWidth={2}
-          />
-          <input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder={t('Search asset or protocol…')}
-            className="w-40 sm:w-56 pl-8 pr-7 py-1.5 rounded-full bg-ink/[0.04] border border-ink/10 text-xs text-ink placeholder-ink/30 focus:outline-none focus:border-volt/40 transition-colors"
-          />
-          {query && (
-            <button
-              onClick={() => onQueryChange('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70"
-              aria-label={t('Clear search')}
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Row 2 — network · range · dust · clear */}
-      <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button onClick={() => onNetworkChange(null)} className={chip(network === null)}>
-            {t('All')}
-          </button>
-          {networks.map((c) => (
-            <button key={c} onClick={() => onNetworkChange(c)} className={chip(network === c)}>
-              {chainLabel(c)}
-            </button>
-          ))}
-        </div>
-
-        <SegmentedControl<TimeRange>
-          layoutId="portfolio-range-pill"
-          value={timeRange}
-          onChange={onTimeRangeChange}
-          options={TIME_RANGES.map((r) => ({ key: r, label: r.toUpperCase() }))}
+    <div className="mb-4 flex items-center gap-3 flex-wrap">
+      <div className="relative">
+        <Search
+          className="w-3.5 h-3.5 text-ink/30 absolute left-2.5 top-1/2 -translate-y-1/2"
+          strokeWidth={2}
         />
-
-        <button onClick={onHideDustToggle} className={chip(hideDust)}>
-          {t('Hide dust (<$1)')}
-        </button>
-
-        <button
-          onClick={onBalanceToggle}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-            balanceVisible ? 'text-ink/30 hover:text-ink/60' : 'bg-volt/15 text-volt'
-          }`}
-        >
-          {balanceVisible ? (
-            <Eye className="w-3 h-3" strokeWidth={1.5} />
-          ) : (
-            <EyeOff className="w-3 h-3" strokeWidth={1.5} />
-          )}
-          {balanceVisible ? t('Hide balances') : t('Show balances')}
-        </button>
-
-        <div className="flex-1" />
-
-        {filtersActive && (
+        <input
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder={t('Search asset or protocol…')}
+          className="w-44 sm:w-64 pl-8 pr-7 py-1.5 rounded-full bg-ink/[0.04] border border-ink/10 text-xs text-ink placeholder-ink/30 focus:outline-none focus:border-volt/40 transition-colors"
+        />
+        {query && (
           <button
-            onClick={onClearFilters}
-            className="flex items-center gap-1.5 text-[10px] text-ink/40 hover:text-ink/75 transition-colors"
+            onClick={() => onQueryChange('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-ink/30 hover:text-ink/70"
+            aria-label={t('Clear search')}
           >
-            <Filter className="w-3 h-3" />
-            <span className="font-mono">{resultCount}</span> {t('shown')}
-            <span className="text-ink/20">·</span>
-            <X className="w-3 h-3" /> {t('Clear filters')}
+            <X className="w-3 h-3" />
           </button>
         )}
       </div>
+      <button onClick={onHideDustToggle} className={filterChip(hideDust)}>
+        {t('Hide dust (<$1)')}
+      </button>
+      <div className="flex-1" />
+      {filtersActive && (
+        <button
+          onClick={onClearFilters}
+          className="flex items-center gap-1.5 text-[10px] text-ink/40 hover:text-ink/75 transition-colors"
+        >
+          <Filter className="w-3 h-3" />
+          <span className="font-mono">{resultCount}</span> {t('shown')}
+          <span className="text-ink/20">·</span>
+          <X className="w-3 h-3" /> {t('Clear filters')}
+        </button>
+      )}
     </div>
   );
 }
 
-// ─── Stat cards ───────────────────────────────────────────────────────────────
+// ─── Stat cards// ─── Stat cards ───────────────────────────────────────────────────────────────
 
 function StatCard({
   label, value, visible, hint, tone,
@@ -491,9 +551,14 @@ function StatCard({
   );
 }
 
-function HFCard({ riskSnap }: { riskSnap: RiskSnapshot | null }) {
+function HFCard({ riskSnap, emHealth }: { riskSnap: RiskSnapshot | null; emHealth: EthMorphoHealth }) {
   const { t } = useT();
-  const hf = riskSnap?.healthFactor;
+  // El PEOR de los dos mundos manda, nunca el mas bonito.
+  const snapHf = riskSnap?.healthFactor ?? null;
+  const hf =
+    snapHf != null && emHealth.healthFactor != null
+      ? Math.min(snapHf, emHealth.healthFactor)
+      : (snapHf ?? emHealth.healthFactor ?? undefined);
   // The protection buffer as an orbit: how far the price can fall before this
   // capital is liquidated (dropPct = 1 − 1/HF). The dial only DRAWS — the HF
   // value and its tone thresholds (hfColor / riskBadgeClass) are unchanged.
@@ -518,7 +583,13 @@ function HFCard({ riskSnap }: { riskSnap: RiskSnapshot | null }) {
             {formatMoney(riskSnap.liquidationDistanceUSD)} {t('from liquidation')}
           </p>
         ) : (
-          <p className="text-[10px] text-ink/30 mt-1.5">{t('No lending positions')}</p>
+          <p className="text-[10px] text-ink/30 mt-1.5">
+            {hf != null
+              ? t('Live on Ethereum — liquidation distance not available here')
+              : emHealth.loading || emHealth.unknown
+                ? t('No lending positions on the chains we could read')
+                : t('No lending positions')}
+          </p>
         )}
       </div>
       <div className="shrink-0 hidden sm:flex flex-col items-center">
@@ -539,6 +610,9 @@ function HFCard({ riskSnap }: { riskSnap: RiskSnapshot | null }) {
 
 function PositionsHealthPanel({ snap, wallets }: { snap: PortfolioSnapshot; wallets: WalletRecord[] }) {
   const { t } = useT();
+  // Owner-aware (2026-08-22): una posición sostenida por una Smart Account se
+  // atribuye a «Smart Account · <apodo de su Xaman>», no a una 0x anónima.
+  const { nameOf } = useWalletLabeler(wallets, t);
   const groups = useMemo(() => groupPositionHealth(snap.positions), [snap.positions]);
   // Whether the user ARRIVED here through the home HealthCard's deep link —
   // if so, never land them on nothing: show the honest empty state instead.
@@ -604,7 +678,10 @@ function PositionsHealthPanel({ snap, wallets }: { snap: PortfolioSnapshot; wall
                 <div className="text-[10px] text-ink/30 mt-0.5">
                   {/* Single-wallet snapshots aren't re-stamped by mergeSnaps — fall
                       back to the snapshot's own wallet so the row never reads "—". */}
-                  {walletLabel(wallets, g.wallet ?? (snap.wallet !== 'all' ? snap.wallet : undefined))}
+                  {(() => {
+                    const a = g.wallet ?? (snap.wallet !== 'all' ? snap.wallet : undefined);
+                    return a && a !== 'all' ? nameOf(a) : '—';
+                  })()}
                   {g.chainId != null && <span> · {chainFullLabel(g.chainId)}</span>}
                 </div>
               </div>
@@ -629,8 +706,11 @@ function MiniBreakdown({ title, data }: { title: string; data: Record<string, nu
     .filter(([, v]) => v > 0.01)
     .sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((s, [, v]) => s + v, 0);
-  // Entity-locked colours (XRP blue / FLR pink) — same helper the donut uses.
-  const colors = chartColorsFor(entries.map(([k]) => k));
+  // Entity-locked colours (XRP blue / FLR pink) — same helper the donut uses,
+  // con el mismo tema y la misma cara, para que salgan iguales que el anillo.
+  const engraved = useEngraved();
+  const light = useResolvedTheme() === 'light';
+  const colors = chartColorsFor(entries.map(([k]) => k), { engraved, light });
   // Rendered as a hairline cell inside the breakdown strip.
   return (
     <div className="bg-surface-1 p-5">
@@ -664,7 +744,8 @@ function MiniBreakdown({ title, data }: { title: string; data: Record<string, nu
 // ─── Section: Overview ────────────────────────────────────────────────────────
 
 function OverviewSection({
-  snap, riskSnap, historyPoints, visible, pnl24h, onRefresh, refreshing, wallets,
+  snap, riskSnap, historyPoints, visible, pnl24h, onRefresh, refreshing, wallets, timeRange, onTimeRangeChange,
+  windowIsEmpty,
 }: {
   snap: PortfolioSnapshot;
   riskSnap: RiskSnapshot | null;
@@ -674,49 +755,92 @@ function OverviewSection({
   onRefresh: () => void;
   refreshing: boolean;
   wallets: WalletRecord[];
+  /** The chart's window — the control lives HERE, next to what it controls
+   *  (face wash 2026-08-19; it used to sit in the global filter bar). */
+  timeRange: TimeRange;
+  onTimeRangeChange: (r: TimeRange) => void;
+  /** La ventana elegida no contiene ni una lectura: lo dice un aviso, no un
+   *  gráfico en blanco. */
+  windowIsEmpty: boolean;
 }) {
   const { t } = useT();
-  // Asset drill-down: clicking an asset opens its detail (where every unit of
-  // it lives — wallet, chain, protocol, amounts).
-  const [assetDetail, setAssetDetail] = useState<string | null>(null);
-  // Per-asset USD deployed OUTSIDE the wallet (working/earning legs, debt
-  // excluded) — shown small under "In Wallet" rows so idle vs deployed reads
-  // at a glance.
-  const deployedUSD: Record<string, number> = {};
-  for (const p of snap.positions) {
-    const li = locationInfo(p);
-    if (li.label === 'In Wallet') continue;
-    if (['debt', 'borrow'].includes(String(p.kind ?? '').toLowerCase())) continue;
-    const sym = String(p.asset ?? '—');
-    deployedUSD[sym] = (deployedUSD[sym] ?? 0) + Math.abs(p.amountUSD ?? 0);
-  }
-  const fmtUSD = (v: number) => formatMoney(v, { masked: !visible });
+  // La cartera agregada NO tiene adapter para morpho-blue: la deuda de Ethereum
+  // nunca entra en snap.debtUSD ni en riskSnap. Sin esto, esta pantalla decia
+  // «No active debt» y «No lending positions» con un carry apalancado VIVO.
+  const emAddrs = useMemo(
+    () => [...new Set(wallets.map((w) => w.address).filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a ?? '')))],
+    [wallets],
+  );
+  const emHealth = useEthMorphoHealth(emAddrs);
+  const emHasDebt = emHealth.healthFactor != null;
+  // (assetDetail/deployedUSD se fueron con la tabla de posiciones, 2026-08-24.)
+
+  // SCRUB (fundador 2026-09-07, el gráfico «se ve un poco cutre»): al
+  // recorrer la curva, la cifra grande y su diferencia siguen al cursor —
+  // fecha, valor de ese día y cuánto más o menos que al ARRANQUE de la
+  // ventana. Al salir, vuelve el total vivo y su 24h. Es el gesto de las
+  // apps de bolsa, y convierte el gráfico de ilustración en instrumento.
+  const [scrub, setScrub] = useState<HistoryPoint | null>(null);
+  const windowStart = historyPoints.length > 1 ? historyPoints[0].value : null;
+  const scrubDelta = scrub && windowStart != null ? scrub.value - windowStart : null;
+  const scrubPct = scrubDelta != null && windowStart ? (scrubDelta / windowStart) * 100 : null;
 
   return (
     <motion.div
       key="overview"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
+      // SIN OPACIDAD, y sin `exit` (2026-08-25). Estas lentes nunca estuvieron
+      // dentro de un <AnimatePresence> —está importado pero no se usa— así que
+      // el `exit` no llegaba a ejecutarse nunca, y el fundido de entrada se
+      // sumaba al de la página al cargar: shell + lente + tarjetas, tres
+      // apariciones encima de la misma. Queda el desplazamiento, que es lo que
+      // distingue un cambio de lente de una carga.
+      initial={{ y: 8 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       className="py-2"
     >
       <RevealGroup className="space-y-6">
-      {/* ── Balance card + Allocation ── */}
-      <RevealItem className="grid lg:grid-cols-3 gap-4">
-
-        {/* Balance + chart */}
-        <Card spotlight padded={false} className="lg:col-span-2 p-5">
+      {/* ── Balance + chart — FULL operative width (founder 2026-08-24:
+          «el gráfico que aparece primero ocupe todo el ancho operativo»).
+          The My Assets donut moved down to the ring strip below. ── */}
+      <RevealItem>
+        <Card spotlight padded={false} className="p-5">
+          {/* LA CABECERA NO CAMBIA DE ALTURA AL RECORRER LA CURVA (fundador
+              2026-09-10: «se mueve toda la UI un pelín para abajo cuando
+              pasas»). Al entrar el scrub desaparecía la insignia de sincro
+              (más alta que la etiqueta) y aparecía la línea «vs start» donde
+              antes no había nada si no hay 24h — dos saltos de layout que
+              empujaban el gráfico. Cada fila reserva su alto: la etiqueta el
+              de la insignia, la cifra el de su píldora, y la línea de abajo
+              existe siempre, aunque esté vacía. */}
           <div className="flex items-start justify-between mb-5">
             <div>
-              <div className="mb-2.5">
-                <MicroLabel>{t('Total balance')}</MicroLabel>
+              <div className="mb-2.5 flex min-h-[21px] flex-wrap items-center gap-2">
+                <MicroLabel>{scrub ? scrub.t : t('Total balance')}</MicroLabel>
+                {/* La cifra parcial se declara parcial (2026-09-07). */}
+                {!scrub && <PortfolioSyncBadge />}
               </div>
-              <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex min-h-9 items-center gap-2.5 flex-wrap">
                 <span className="text-4xl font-semibold font-mono tabular-nums text-ink tracking-tight leading-none">
-                  {visible ? <CountUp value={snap.totalUSD} format={formatMoneyCompact} /> : formatMoneyCompact(null, { masked: true })}
+                  {!visible
+                    ? formatMoneyCompact(null, { masked: true })
+                    : scrub
+                      ? formatMoneyCompact(scrub.value)
+                      : <CountUp value={snap.totalUSD} format={formatMoneyCompact} />}
                 </span>
-                {pnl24h && (
+                {scrub && scrubDelta != null && visible && (
+                  <span
+                    className={`inline-flex items-center gap-1 text-sm font-semibold px-2.5 py-1 rounded-full border tabular-nums ${
+                      scrubDelta >= 0
+                        ? 'bg-tone-success/15 text-tone-success border-tone-success/20'
+                        : 'bg-tone-danger/15 text-tone-danger border-tone-danger/20'
+                    }`}
+                  >
+                    {scrubDelta >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                    {scrubPct != null ? `${scrubPct >= 0 ? '+' : ''}${scrubPct.toFixed(2)}%` : ''}
+                  </span>
+                )}
+                {!scrub && pnl24h && (
                   <span
                     className={`inline-flex items-center gap-1 text-sm font-semibold px-2.5 py-1 rounded-full border tabular-nums ${
                       pnl24h.delta >= 0
@@ -731,25 +855,55 @@ function OverviewSection({
                   </span>
                 )}
               </div>
-              {pnl24h && visible && (
-                <p className="text-sm text-ink/30 mt-1.5 font-mono tabular-nums">
-                  {pnl24h.delta >= 0 ? '+' : ''}{formatMoney(Math.abs(pnl24h.delta))} {t('today')}
-                </p>
-              )}
+              <p className="mt-1.5 min-h-5 text-sm text-ink/30 font-mono tabular-nums">
+                {scrub && scrubDelta != null && visible ? (
+                  <>{scrubDelta >= 0 ? '+' : '−'}{formatMoney(Math.abs(scrubDelta))} {t('vs start')}</>
+                ) : pnl24h && visible ? (
+                  <>{pnl24h.delta >= 0 ? '+' : ''}{formatMoney(Math.abs(pnl24h.delta))} {t('today')}</>
+                ) : (
+                  '\u00a0'
+                )}
+              </p>
             </div>
-            <button
-              onClick={onRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 text-xs text-ink/30 hover:text-ink/65 py-1.5 px-3 rounded-lg border border-ink/10 hover:border-ink/20 transition-all disabled:opacity-40 shrink-0"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={1.5} />
-              {refreshing ? t('Refreshing…') : t('Refresh')}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <SegmentedControl<TimeRange>
+                layoutId="portfolio-range-pill"
+                value={timeRange}
+                onChange={onTimeRangeChange}
+                options={TIME_RANGES.map((r) => ({ key: r, label: r.toUpperCase() }))}
+              />
+              <button
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 text-xs text-ink/30 hover:text-ink/65 py-1.5 px-3 rounded-lg border border-ink/10 hover:border-ink/20 transition-all disabled:opacity-40 shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={1.5} />
+                {refreshing ? t('Refreshing…') : t('Refresh')}
+              </button>
+            </div>
           </div>
           {historyPoints.length > 1 ? (
-            <Spotlight className="rounded-lg">
-              <PerfLine points={historyPoints} height={175} />
-            </Spotlight>
+            <Arrive>
+              <Spotlight className="rounded-lg">
+                {/* `animationKey` = la ventana: al cambiar de rango la curva se
+                    redibuja y el eje de abajo entra con ella. */}
+                <PerfLine
+                  points={historyPoints}
+                  height={240}
+                  animationKey={timeRange}
+                  formatY={(v) => formatMoneyCompact(v)}
+                  onHover={setScrub}
+                />
+              </Spotlight>
+              {/* El aviso que sustituye al vacío: si en la ventana elegida no
+                  hay ni una lectura, se dice ESO —y se sigue enseñando la
+                  última conocida— en vez de afirmar que no hay histórico. */}
+              {windowIsEmpty && (
+                <p className="mt-2 text-center text-[11px] text-ink/40">
+                  {t('No readings inside this window — showing the last one on record.')}
+                </p>
+              )}
+            </Arrive>
           ) : (
             <div className="h-[175px] rounded-lg bg-ink/[0.04] border border-ink/5 flex flex-col items-center justify-center gap-2 text-ink/20">
               <TrendingUp className="w-8 h-8 opacity-30" strokeWidth={1} />
@@ -758,32 +912,49 @@ function OverviewSection({
           )}
         </Card>
 
-        {/* Allocation donut — the same small orbital system as the Summary */}
-        <Card spotlight padded={false} className="group p-5">
-          <div className="flex items-center justify-between mb-4">
-            <MicroLabel>{t('Allocation')}</MicroLabel>
-          </div>
-          {Object.keys(snap.breakdown.byAsset).length > 0 ? (
-            <>
-              <div className="relative w-[164px] h-[164px] mx-auto">
-                <div className="donut-orbit absolute -inset-2 rounded-full border border-dashed border-volt/20" aria-hidden>
-                  <span
-                    className="absolute w-[4px] h-[4px] rounded-full bg-volt-soft"
-                    style={{ top: '3%', left: '50%', boxShadow: '0 0 7px hsl(var(--volt-soft) / 0.9), 0 0 16px hsl(var(--volt) / 0.5)' }}
-                  />
-                </div>
-                <AllocationDonut data={snap.breakdown.byAsset} fill />
-              </div>
-              <div className="mt-4">
-                <AllocationLegend data={snap.breakdown.byAsset} />
-              </div>
-            </>
-          ) : (
-            <div className="h-[148px] flex items-center justify-center text-ink/20 text-sm">
-              {t('No assets')}
-            </div>
-          )}
-        </Card>
+      </RevealItem>
+
+      {/* ── The ring strip (founder 2026-08-24: «en la franja de abajo los
+          quesitos, añade varios») — FOUR lenses of the same capital, one
+          row: what you hold, what earns, where it works, how it sits. The
+          old MiniBreakdown bar row died here — same data, better face. ── */}
+      <RevealItem className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <DonutCard
+          title={t('My Assets')}
+          data={snap.breakdown.byAsset}
+          qty={snap.positions.length > 0 ? assetQuantities(snap.positions) : undefined}
+          href="/app/portfolio?tab=tokens"
+          loading={false}
+        />
+        {(() => {
+          const ring = earningRing(snap, t('On the way'));
+          return (
+            <DonutCard
+              title={t('Assets Earning')}
+              data={ring.donut}
+              qty={Object.keys(ring.workingQty).length > 0 ? ring.workingQty : undefined}
+              split={
+                ring.workingUSD + ring.idleUSD + ring.inflightUSD > 0.01
+                  ? { working: ring.workingUSD, idle: ring.idleUSD, inflight: ring.inflightUSD, arrivesAt: ring.inflightArrival }
+                  : undefined
+              }
+              href={CAPITAL_SECTION_HREF}
+              loading={false}
+            />
+          );
+        })()}
+        <DonutCard
+          title={t('By Protocol')}
+          data={prettifyKeys(snap.breakdown.byProtocol, prettyProtocol)}
+          href="/app/portfolio?tab=defi"
+          loading={false}
+        />
+        <DonutCard
+          title={t('By Kind')}
+          data={prettifyKeys(snap.breakdown.byKind, kindLabel)}
+          href="/app/portfolio?tab=positions"
+          loading={false}
+        />
       </RevealItem>
 
       {/* ── Stats + Health Factor — the numeric trio as one hairline panel
@@ -807,12 +978,18 @@ function OverviewSection({
             label="Debt"
             value={snap.debtUSD}
             visible={visible}
-            tone={snap.debtUSD > 0 ? 'warning' : undefined}
-            hint={snap.debtUSD > 0 ? 'Outstanding borrows' : 'No active debt'}
+            tone={snap.debtUSD > 0 || emHasDebt ? 'warning' : undefined}
+            hint={
+              snap.debtUSD > 0 || emHasDebt
+                ? 'Outstanding borrows'
+                : emHealth.loading || emHealth.unknown
+                  ? 'No active debt on the chains we could read'
+                  : 'No active debt'
+            }
           />
         </HairlineGroup>
         {/* StatCard label/hint auto-translate via its own useT */}
-        <HFCard riskSnap={riskSnap} />
+        <HFCard riskSnap={riskSnap} emHealth={emHealth} />
       </RevealItem>
 
       {/* ── Per-position health — where the home HealthCard lands ── */}
@@ -820,124 +997,16 @@ function OverviewSection({
         <PositionsHealthPanel snap={snap} wallets={wallets} />
       </RevealItem>
 
-      {/* ── Positions table ── */}
-      <RevealItem>
-      <Card spotlight padded={false} className="overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between border-b border-ink/5">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-ink">{t('Positions')}</h3>
-            <span className="text-[10px] text-ink/25 font-mono bg-ink/5 px-1.5 py-0.5 rounded">
-              {snap.positions.length} {t('active')}
-            </span>
-          </div>
-          <span className="text-[10px] text-ink/20 font-mono">
-            {t('FTSO prices · cached 30s')}
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-ink/40 bg-ink/[0.045]">
-              <tr>
-                <th className="text-left py-3 px-5 font-medium">{t('Asset')}</th>
-                <th className="text-right py-3 px-4 font-medium">{t('Amount')}</th>
-                <th className="text-right py-3 px-4 font-medium">{t('Price')}</th>
-                <th className="text-right py-3 px-4 font-medium">{t('Value')}</th>
-                <th className="text-left py-3 px-4 font-medium">{t('Wallet')}</th>
-                <th className="text-left py-3 px-4 font-medium">{t('Chain')}</th>
-                <th className="text-left py-3 px-4 font-medium">{t('Location')}</th>
-                <th className="text-right py-3 px-5 font-medium">{t('Portfolio %')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink/[0.04]">
-              {snap.positions.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-ink/20 text-sm">
-                    <Network className="w-8 h-8 mx-auto mb-2 opacity-20" strokeWidth={1} />
-                    {t('No positions detected — connect a wallet and wait for the engine to scan')}
-                  </td>
-                </tr>
-              ) : (
-                snap.positions.map((p, i) => {
-                  const assetSymbol = p.asset && !p.asset.startsWith('0x')
-                    ? p.asset
-                    : p.asset?.slice(0, 6) ?? '??';
-                  const qty = positionQty(p);
-                  const price = typeof p.priceUSD === 'number' && p.priceUSD > 0 ? p.priceUSD : null;
-                  const loc = locationInfo(p);
-                  const outUSD = loc.label === 'In Wallet' ? deployedUSD[String(p.asset ?? '—')] ?? 0 : 0;
-                  const owner = p.wallet ?? (snap.wallet !== 'all' ? snap.wallet : undefined);
-                  return (
-                  <tr key={i} className="hover:bg-ink/[0.04] transition-colors">
-                    <td className="py-3.5 px-5">
-                      <button
-                        onClick={() => setAssetDetail(String(p.asset ?? assetSymbol))}
-                        className="flex items-center gap-2.5 group/asset"
-                        title={t('See where this asset lives')}
-                      >
-                        <TokenLogo symbol={assetSymbol} size="sm" />
-                        <span className="font-mono text-xs text-ink/70 font-medium group-hover/asset:text-volt transition-colors">
-                          {assetSymbol}
-                        </span>
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-4 text-right text-ink/70 font-mono text-xs tabular-nums">
-                      {qty != null && visible ? fmtQty(qty) : qty != null ? '••••' : '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right text-ink/50 font-mono text-xs tabular-nums">
-                      {price != null ? `$${price >= 100 ? price.toFixed(2) : price.toFixed(4)}` : '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right text-ink font-mono text-xs tabular-nums">
-                      {fmtUSD(p.amountUSD ?? 0)}
-                    </td>
-                    <td className="py-3.5 px-4 text-ink/65 text-xs">{walletLabel(wallets, owner)}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-ink/5 text-ink/35 border border-ink/8">
-                        {chainFullLabel(p.chainId ?? 14)}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <Pill tone={loc.tone}>{t(loc.label)}</Pill>
-                      {loc.sub && <div className="text-[10px] text-ink/35 mt-1">{loc.sub}</div>}
-                      {outUSD > 0.01 && (
-                        <div className="text-[10px] text-ink/35 mt-1 tabular-nums">
-                          {fmtUSD(outUSD)} {t('also working')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <span className="text-ink/30 text-xs font-mono tabular-nums">
-                        {pctOf(p.amountUSD ?? 0, snap.totalUSD)}
-                      </span>
-                    </td>
-                  </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-      </RevealItem>
-
-      {/* ── Breakdown row — three lenses of the same panel ── */}
-      <RevealItem>
-        <HairlineGroup columns="md:grid-cols-3">
-          <MiniBreakdown title="By Protocol" data={prettifyKeys(snap.breakdown.byProtocol, prettyProtocol)} />
-          <MiniBreakdown title="By Asset"    data={snap.breakdown.byAsset} />
-          <MiniBreakdown title="By Kind"     data={prettifyKeys(snap.breakdown.byKind, kindLabel)} />
-        </HairlineGroup>
-      </RevealItem>
+      {/* La tabla de posiciones DEJÓ el Overview (fundador 2026-08-24: «las
+          positions sobran, hay una tab específica») — vive entera en su tab.
+          Con ella se fue su puerta al AssetDetailModal, que queda preservado
+          sin montar más abajo. */}
       </RevealGroup>
 
-      {assetDetail && (
-        <AssetDetailModal
-          symbol={assetDetail}
-          snap={snap}
-          wallets={wallets}
-          visible={visible}
-          onClose={() => setAssetDetail(null)}
-        />
-      )}
+      {/* AssetDetailModal queda PRESERVADO SIN MONTAR (2026-08-24): su única
+          puerta era el clic de activo de la tabla de posiciones que dejó esta
+          pantalla. El drill de los quesitos navega a las tabs; si algún día
+          vuelve el detalle in situ, el modal está entero más abajo. */}
     </motion.div>
   );
 }
@@ -959,11 +1028,17 @@ function AssetDetailModal({
   onClose: () => void;
 }) {
   const { t } = useT();
+  // Owner-aware (2026-08-22): las Smart Accounts se nombran por su dueña.
+  const { nameOf } = useWalletLabeler(wallets, t);
   const positions = snap.positions.filter((p) => String(p.asset ?? '') === symbol);
   const displaySymbol = symbol && !symbol.startsWith('0x') ? symbol : symbol.slice(0, 6);
   const totalUSD = positions.reduce((s, p) => s + (p.amountUSD ?? 0), 0);
   const price = positions.map((p) => (typeof p.priceUSD === 'number' ? p.priceUSD : 0)).find((v) => v > 0) ?? null;
-  const totalQty = price ? positions.reduce((s, p) => s + Math.abs(p.amountUSD ?? 0), 0) / price : null;
+  // Suma de las cantidades REALES fila a fila (14-sep): dividir el total en
+  // USD por el precio de una fila daba de menos en cuanto una de ellas no
+  // tenía precio — su valor era 0 y su cantidad desaparecía del total.
+  const qtys = positions.map(snapshotQty).filter((q): q is number => q != null);
+  const totalQty = qtys.length > 0 ? qtys.reduce((a, b) => a + b, 0) : null;
   const fmtUSD = (v: number) => formatMoney(v, { masked: !visible });
 
   return (
@@ -1007,7 +1082,7 @@ function AssetDetailModal({
           <ul className="divide-y divide-ink/[0.05] max-h-[46vh] overflow-y-auto scrollbar-thin">
             {positions.map((p, i) => {
               const loc = locationInfo(p);
-              const qty = positionQty(p);
+              const qty = snapshotQty(p);
               const owner = p.wallet ?? (snap.wallet !== 'all' ? snap.wallet : undefined);
               return (
                 <li key={i} className="px-6 py-3.5 flex items-center gap-4">
@@ -1017,7 +1092,7 @@ function AssetDetailModal({
                       {loc.sub && <span className="text-[11px] text-ink/40">{loc.sub}</span>}
                     </div>
                     <div className="text-[11px] text-ink/40 mt-1.5">
-                      {walletLabel(wallets, owner)} · {chainFullLabel(p.chainId ?? 14)}
+                      {owner && owner !== 'all' ? nameOf(owner) : '—'} · {chainFullLabel(p.chainId ?? 14)}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -1044,6 +1119,7 @@ function AssetDetailModal({
 
 function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: boolean }) {
   const { t } = useT();
+  const reduced = useReducedMotion();
   const fmtUSD = (v: number) => formatMoney(v, { masked: !visible });
   const tokens = snap.positions.filter((p) =>
     ['free', 'supply', 'rewards', 'staking', 'reward', 'stake'].includes(
@@ -1055,10 +1131,15 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
   return (
     <motion.div
       key="tokens"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
+      // SIN OPACIDAD, y sin `exit` (2026-08-25). Estas lentes nunca estuvieron
+      // dentro de un <AnimatePresence> —está importado pero no se usa— así que
+      // el `exit` no llegaba a ejecutarse nunca, y el fundido de entrada se
+      // sumaba al de la página al cargar: shell + lente + tarjetas, tres
+      // apariciones encima de la misma. Queda el desplazamiento, que es lo que
+      // distingue un cambio de lente de una carga.
+      initial={{ y: 8 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       className="py-2"
     >
       <div className="flex items-center gap-3 mb-5">
@@ -1069,11 +1150,23 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
           </span>
         )}
       </div>
+      {/* TODOS los detalles otra vez (fundador 2026-08-30: «tiene que
+          mostrar más información, como el recuadro que había antes en
+          overview — la chain y demás»): chain, wallet, cantidad y precio
+          vuelven a la fila. La tabla ancha scrollea en su propio carril
+          (overflow-x-auto), nunca el body — regla de la casa. El precio no
+          se enmascara: es dato público del protocolo; lo privado son la
+          cantidad y el valor. */}
       <Card spotlight padded={false} className="overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs text-ink/40 bg-ink/[0.045]">
             <tr>
               <th className="text-left py-3 px-5 font-medium">{t('Token / Address')}</th>
+              <th className="text-left py-3 px-4 font-medium">{t('Chain')}</th>
+              <th className="text-left py-3 px-4 font-medium">{t('Wallet')}</th>
+              <th className="text-right py-3 px-4 font-medium">{t('Quantity')}</th>
+              <th className="text-right py-3 px-4 font-medium">{t('Price')}</th>
               <th className="text-left py-3 px-4 font-medium">{t('Protocol')}</th>
               <th className="text-left py-3 px-4 font-medium">{t('Kind')}</th>
               <th className="text-right py-3 px-5 font-medium">{t('Value (USD)')}</th>
@@ -1082,18 +1175,40 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
           <tbody className="divide-y divide-ink/[0.04]">
             {tokens.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-10 text-center text-ink/20 text-sm">
+                <td colSpan={8} className="py-10 text-center text-ink/20 text-sm">
                   {t('No free / supply / rewards tokens')}
                 </td>
               </tr>
             ) : (
-              tokens.map((p, i) => (
-                <tr key={i} className="hover:bg-ink/[0.04] transition-colors">
+              tokens.map((p, i) => {
+                const qty = snapshotQty(p);
+                return (
+                /* Las filas LLEGAN escalonadas cuando el dato contesta
+                   (arriveMotion, 2026-08-25) — antes la tabla entera se
+                   enchufaba de golpe en una página ya visible. */
+                <motion.tr key={i} className="hover:bg-ink/[0.04] transition-colors" {...arriveMotion(i, reduced)}>
                   <td className="py-3.5 px-5">
                     <div className="flex items-center gap-2">
                       <TokenLogo symbol={p.asset && !p.asset.startsWith('0x') ? p.asset : p.asset?.slice(0, 6) ?? '?'} size="sm" />
                       <span className="font-mono text-xs text-ink/45 truncate max-w-[160px]">{p.asset}</span>
                     </div>
+                  </td>
+                  <td className="py-3.5 px-4 text-ink/55 text-xs whitespace-nowrap">
+                    {p.chainId != null ? (CHAIN_NAMES[p.chainId] ?? `Chain ${p.chainId}`) : '—'}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono text-[11px] text-ink/45 whitespace-nowrap">
+                    {p.wallet ? `${p.wallet.slice(0, 6)}…${p.wallet.slice(-4)}` : '—'}
+                  </td>
+                  <td className="py-3.5 px-4 text-right font-mono text-xs tabular-nums text-ink/70 whitespace-nowrap">
+                    {visible ? (qty != null && Number.isFinite(qty) ? fmtQtyActive(qty, 4) : '—') : formatMoney(null, { masked: true })}
+                  </td>
+                  {/* Precio unitario, no un total: `formatMoney` fija dos
+                      decimales y un FLR a $0,0065 salía como «$0.01», con lo
+                      que la fila dejaba de cuadrar (400,55 × $0,01 ≠ $2,59).
+                      Mismo criterio que la ficha del activo: 4 decimales por
+                      debajo de $100. */}
+                  <td className="py-3.5 px-4 text-right font-mono text-xs tabular-nums text-ink/55 whitespace-nowrap">
+                    {p.priceUSD != null ? unitPrice(p.priceUSD) : '—'}
                   </td>
                   <td className="py-3.5 px-4 text-ink/55 text-xs">{prettyProtocol(p.protocolId)}</td>
                   <td className="py-3.5 px-4">
@@ -1102,11 +1217,13 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
                   <td className="py-3.5 px-5 text-right text-ink font-mono text-xs tabular-nums">
                     {fmtUSD(p.amountUSD ?? 0)}
                   </td>
-                </tr>
-              ))
+                </motion.tr>
+                );
+              })
             )}
           </tbody>
         </table>
+        </div>
       </Card>
     </motion.div>
   );
@@ -1132,10 +1249,15 @@ function DeFiSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bool
   return (
     <motion.div
       key="defi"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
+      // SIN OPACIDAD, y sin `exit` (2026-08-25). Estas lentes nunca estuvieron
+      // dentro de un <AnimatePresence> —está importado pero no se usa— así que
+      // el `exit` no llegaba a ejecutarse nunca, y el fundido de entrada se
+      // sumaba al de la página al cargar: shell + lente + tarjetas, tres
+      // apariciones encima de la misma. Queda el desplazamiento, que es lo que
+      // distingue un cambio de lente de una carga.
+      initial={{ y: 8 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       className="py-2 space-y-4"
     >
       <div className="flex items-center justify-between">
@@ -1355,15 +1477,42 @@ export default function PortfolioPage() {
   // respects the includeInPortfolio toggle, which the old direct fetch here
   // did not).
   const { wallets: loadableWallets, loading: loadingWallets } = useAuthorityWallets();
+  // The visual fold (paFold, 2026-08-17): absorbed Smart Accounts leave the
+  // wallet FILTER BAR (their owner represents them), and picking the owner
+  // loads BOTH addresses so the folded positions never vanish from the view.
+  // The positions tables keep the PA's honest attribution — detail level.
+  const paFold = usePaFold(loadableWallets.map((w) => w.address));
+  const filterWallets = useMemo(() => {
+    const keys = new Set(loadableWallets.map((w) => foldKey(w.address)));
+    return loadableWallets.filter((w) => {
+      const owner = paFold.ownerByPa.get(foldKey(w.address));
+      return !(owner && keys.has(foldKey(owner)));
+    });
+  }, [loadableWallets, paFold]);
 
   // Which addresses feed the current view: every wallet ("All wallets") or the
   // single one the user selected in the wallet bar.
   const targetAddresses = useMemo<string[]>(() => {
     if (activeWallet === 'all') return loadableWallets.map((w) => w.address);
-    return loadableWallets.some((w) => w.address === activeWallet)
-      ? [activeWallet]
-      : loadableWallets.map((w) => w.address);
-  }, [activeWallet, loadableWallets]);
+    if (!loadableWallets.some((w) => w.address === activeWallet)) {
+      // LA DIRECCIÓN ELEGIDA MANDA, aunque la lista aún no la tenga
+      // (revisión 2026-09-07). Antes esto caía a «cárgalo TODO» mientras el
+      // botón seguía diciendo el nombre de UNA cuenta: la suma de toda la
+      // flota bajo la etiqueta de una sola — el peor error posible en una
+      // pantalla de dinero. Pasa de verdad: la lectura del ledger que
+      // confirma un consejo es asíncrona (~1s) y la selección se restaura
+      // antes desde sessionStorage. Se carga lo elegido y punto; si la
+      // dirección no fuera válida, la vista se queda vacía, que es honesto.
+      return SCOPE_ADDRESS_RE.test(activeWallet)
+        ? [activeWallet]
+        : loadableWallets.map((w) => w.address);
+    }
+    // paFold: the owner speaks for its absorbed Smart Account — selecting it
+    // must load the PA's positions too, or the fold would HIDE value.
+    const pa = paFold.paByOwner.get(foldKey(activeWallet));
+    const paListed = pa && loadableWallets.some((w) => foldKey(w.address) === foldKey(pa));
+    return paListed ? [activeWallet, pa] : [activeWallet];
+  }, [activeWallet, loadableWallets, paFold]);
   const targetKey = targetAddresses.join(',').toLowerCase();
 
   // Monotonic id so a slow response from a previous wallet selection can never
@@ -1402,21 +1551,34 @@ export default function PortfolioPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKey, loadData]);
 
-  // The range selector actually drives the chart: only snapshots inside the
-  // selected window are plotted (before, timeRange was read by nothing).
-  const RANGE_DAYS: Record<TimeRange, number> = { '24h': 1, '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+  // El selector de rango manda sobre el gráfico: solo se pintan las lecturas
+  // dentro de la ventana… MÁS UN ANCLA.
+  //
+  // El ancla es el arreglo de fondo (fundador 2026-08-25: «no interactúa bien
+  // con el filtro de fechas»). Sin ella, elegir 24h en una cuenta cuya última
+  // lectura es de anteayer dejaba la ventana con 0 o 1 puntos, el gráfico
+  // DESAPARECÍA entero y en su lugar salía «el histórico se acumula según
+  // corren las instantáneas» — que además es mentira: histórico hay, solo que
+  // fuera de la ventana. Ahora se arrastra la última lectura ANTERIOR al corte
+  // como punto de partida, que es lo que hace cualquier gráfico de ventana
+  // temporal: la línea empieza en el último valor conocido en vez de en nada.
   const historyPoints = useMemo<HistoryPoint[]>(() => {
     const cutoff = Date.now() - RANGE_DAYS[timeRange] * 86_400_000;
-    return rawHistory
-      .filter((p) => new Date(p.takenAt).getTime() >= cutoff)
-      .map((p) => ({
-        t: new Date(p.takenAt).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-        }),
-        value: p.totalUSD,
-      }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const inWindow = rawHistory.filter((p) => new Date(p.takenAt).getTime() >= cutoff);
+    const anchorIdx = rawHistory.findIndex((p) => new Date(p.takenAt).getTime() >= cutoff) - 1;
+    const anchored =
+      inWindow.length > 0 && anchorIdx >= 0 ? [rawHistory[anchorIdx], ...inWindow]
+      : inWindow.length > 0 ? inWindow
+      // Ni un punto dentro: se enseña la última lectura conocida para que la
+      // tarjeta no se quede en blanco, y el aviso de debajo dice desde cuándo.
+      : rawHistory.slice(-2);
+    return anchored.map((p) => ({ t: axisLabelFor(timeRange, p.takenAt), value: p.totalUSD }));
+  }, [rawHistory, timeRange]);
+
+  /** ¿La ventana elegida está vacía de verdad? Lo dice el aviso, no el vacío. */
+  const windowIsEmpty = useMemo(() => {
+    const cutoff = Date.now() - RANGE_DAYS[timeRange] * 86_400_000;
+    return rawHistory.length > 0 && !rawHistory.some((p) => new Date(p.takenAt).getTime() >= cutoff);
   }, [rawHistory, timeRange]);
 
   const pnl24h = useMemo(() => {
@@ -1469,6 +1631,7 @@ export default function PortfolioPage() {
     return (
       <SceneDoor
         scene={<CapitalField />}
+        engraving={<MeridianMark size={140} />}
         tone="gold"
         eyebrow={t('Portfolio')}
         title={t('Connect a wallet to view your portfolio')}
@@ -1519,48 +1682,41 @@ export default function PortfolioPage() {
 
       {/* ── Section tabs — the page's spine, out in the open, one focused
           view at a time. The active pill glides between destinations. ── */}
+      {/* ── La espina de la página Y su alcance, EN LA MISMA LÍNEA (fundador
+          2026-09-07: «casi que al lado del menú de arriba... ya que en cada
+          pantalla hay wallets y se interactúa con ellas»). El alcance manda
+          sobre la pestaña elegida, no al revés: verlo al lado lo dice sin
+          explicarlo, y devuelve al contenido el renglón que se comía la fila
+          de chips. En pantalla estrecha bajan a su propia línea. ── */}
       {fSnap && (
-        <SegmentedControl<Exclude<Section, 'map' | 'defi'>>
-          layoutId="portfolio-tab-pill"
-          className="mb-4 overflow-x-auto scrollbar-hide"
-          value={section as Exclude<Section, 'map' | 'defi'>}
-          onChange={setSection}
-          options={[
-            { key: 'overview', label: t('Overview') },
-            { key: 'tokens', label: t('Tokens') },
-            // 'defi' hidden (founder 2026-07-25): redundant with Positions.
-            // Still reachable via ?tab=defi — restore by re-adding the row.
-            { key: 'positions', label: t('Positions') },
-            { key: 'activity', label: t('Activity') },
-          ]}
-        />
-      )}
-
-      {/* ── Filters — one slim strip, present on EVERY lens so the selection
-          persists visibly across tabs. Overview/Tokens/DeFi/Map read the
-          filtered snapshot; Activity scopes to the selected wallet. ── */}
-      {snap && (
-        <Card padded={false} className="mb-5 overflow-hidden">
-          <FilterBar
-            wallets={loadableWallets}
-            activeWallet={activeWallet}
-            onWalletChange={setActiveWallet}
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-            networks={availableNetworks}
-            network={network}
-            onNetworkChange={setNetwork}
-            query={query}
-            onQueryChange={setQuery}
-            hideDust={hideDust}
-            onHideDustToggle={() => setHideDust((v) => !v)}
-            balanceVisible={balanceVisible}
-            onBalanceToggle={toggleBalances}
-            filtersActive={filtersActive}
-            onClearFilters={() => { setNetwork(null); setQuery(''); setHideDust(false); }}
-            resultCount={fSnap?.positions.length ?? 0}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <SegmentedControl<Exclude<Section, 'map' | 'defi'>>
+            layoutId="portfolio-tab-pill"
+            className="overflow-x-auto scrollbar-hide"
+            value={section as Exclude<Section, 'map' | 'defi'>}
+            onChange={setSection}
+            options={[
+              { key: 'overview', label: t('Overview') },
+              { key: 'tokens', label: t('Tokens') },
+              // 'defi' hidden (founder 2026-07-25): redundant with Positions.
+              // Still reachable via ?tab=defi — restore by re-adding the row.
+              { key: 'positions', label: t('Positions') },
+              { key: 'activity', label: t('Activity') },
+            ]}
           />
-        </Card>
+          {snap && (
+            <ScopeRow
+              wallets={filterWallets}
+              activeWallet={activeWallet}
+              onWalletChange={setActiveWallet}
+              networks={availableNetworks}
+              network={network}
+              onNetworkChange={setNetwork}
+              balanceVisible={balanceVisible}
+              onBalanceToggle={toggleBalances}
+            />
+          )}
+        </div>
       )}
 
       {/* ── Section content ── */}
@@ -1568,6 +1724,7 @@ export default function PortfolioPage() {
           {!fSnap ? (
             <SceneDoor
               scene={<CapitalField />}
+              engraving={<MeridianMark size={140} />}
               tone="violet"
               eyebrow={t('Portfolio')}
               title={t('No portfolio snapshot yet')}
@@ -1577,6 +1734,10 @@ export default function PortfolioPage() {
             />
           ) : (
             <div className="pb-6">
+              {/* Ola 0 (15-sep) — el lector de `snapshot.unreadable` en el
+                  Portfolio: lo que el barrido no pudo leer se dice arriba de
+                  cualquier lente, con el refresco de la página como reintento. */}
+              <PortfolioUnreadableNotice snap={fSnap} onRetry={handleRefresh} className="mb-4" />
               {section === 'overview' && (
                 <OverviewSection
                   snap={fSnap}
@@ -1587,6 +1748,9 @@ export default function PortfolioPage() {
                   onRefresh={handleRefresh}
                   refreshing={refreshing}
                   wallets={loadableWallets}
+                  timeRange={timeRange}
+                  windowIsEmpty={windowIsEmpty}
+                  onTimeRangeChange={setTimeRange}
                 />
               )}
 
@@ -1604,6 +1768,17 @@ export default function PortfolioPage() {
                 </div>
               ) : (
                 <>
+                  {(section === 'tokens' || section === 'defi') && (
+                    <TokenFilterRow
+                      query={query}
+                      onQueryChange={setQuery}
+                      hideDust={hideDust}
+                      onHideDustToggle={() => setHideDust((v) => !v)}
+                      filtersActive={filtersActive}
+                      onClearFilters={() => { setNetwork(null); setQuery(''); setHideDust(false); }}
+                      resultCount={fSnap?.positions.length ?? 0}
+                    />
+                  )}
                   {section === 'tokens' && <TokensSection snap={fSnap} visible={balanceVisible} />}
                   {section === 'defi' && <DeFiSection snap={fSnap} visible={balanceVisible} />}
                 </>
@@ -1611,7 +1786,12 @@ export default function PortfolioPage() {
 
               {section === 'positions' && (
                 <div className="pt-2">
-                  <DefiPositionsBoard embedded />
+                  {/* La lente honra el alcance (2026-09-07): sin esto,
+                      «Wallet: X» presidía un total de TODA la flota. */}
+                  <DefiPositionsBoard
+                    embedded
+                    scopeAddresses={activeWallet === 'all' ? undefined : targetAddresses}
+                  />
                 </div>
               )}
 
@@ -1633,6 +1813,12 @@ export default function PortfolioPage() {
             </div>
           )}
       </div>
+
+      {/* StructuresBand YA NO SE MONTA AQUÍ (fundador 2026-09-07: «se pueden
+          seleccionar ya en el selector de wallets, creo que no aportan
+          mucho»). Desde que una estructura es un alcance más del selector
+          «Wallet», la banda repetía la lista un renglón más abajo. El
+          componente sigue en el árbol, inerte (norma de la casa). */}
     </div>
   );
 }

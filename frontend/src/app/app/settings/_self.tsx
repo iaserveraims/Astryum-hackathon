@@ -1,9 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronRight, LogOut, Network, Sliders, ShieldCheck, Globe } from 'lucide-react';
+import { Briefcase, ChevronRight, LogOut, Network, Sliders, ShieldCheck, Globe } from 'lucide-react';
+import Link from 'next/link';
+import {
+  LEGAL_RECORD_UNREADABLE_EN,
+  LEGAL_RECORD_UNREADABLE_ES,
+  LEGAL_RECORD_UNREADABLE_TITLE_EN,
+  LEGAL_RECORD_UNREADABLE_TITLE_ES,
+} from '@/lib/legal/legalGateMode';
 import { useAuthStore } from '../../../stores/authStore';
-import { useThemeStore } from '../../../stores/themeStore';
 import { getApiBase } from '../../../lib/env';
 import { getUserRegion, setUserRegion } from '../../../lib/region';
 import { useOnboardingStore } from '../../../stores/onboardingStore';
@@ -21,10 +27,16 @@ import {
 import StepUpSettings from '../../../components/security/StepUpSettings';
 import { Reveal, RevealGroup, RevealItem, PulseDot } from '../../../components/ui/motion';
 import { ConsoleDials, SignatureScene } from '../../../components/ui/scenes';
+import { RegisterMark } from '../../../components/ui/skin/marks';
+import { useEngraved } from '../../../stores/themeStore';
 import PasskeySettings from '../../../components/security/PasskeySettings';
 // Demo: the Supported-chains table is hidden (component preserved intact).
 // import { ChainCapabilitiesPanel } from '../../../components/chains/ChainCapabilitiesPanel';
 import ProfileCard from '../../../components/settings/ProfileCard';
+import MotionSettings from '../../../components/settings/MotionSettings';
+import AppearanceSettings from '../../../components/settings/AppearanceSettings';
+import { useIsManager, useManagerStore } from '../../../stores/managerStore';
+import { ManagerCertificationCard } from '../../../components/managed/ManagerCertificationCard';
 
 // Common region codes surfaced directly in the picker; anything else goes
 // through "Other…" as free text (still validated as a 2–3 letter code).
@@ -49,8 +61,13 @@ export default function SettingsPage() {
   const es = lang === 'es';
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const theme = useThemeStore((s) => s.theme);
-  const setTheme = useThemeStore((s) => s.setTheme);
+  // Perfil profesional (fundador 2026-08-29): el onboarding es saltable, así
+  // que el interruptor de gestor vive TAMBIÉN aquí — y con él, el KYC.
+  const isManager = useIsManager();
+  const setManager = useManagerStore((s) => s.setManager);
+  // El flag viaja a la CUENTA (2026-08-30); si el servidor no lo acepta, el
+  // toggle revierte y esta línea lo cuenta — un guardado a medias es el bug.
+  const [managerSaveFailed, setManagerSaveFailed] = useState(false);
 
   const [apiBase] = useState(getApiBase());
   const useV1 =
@@ -164,44 +181,28 @@ export default function SettingsPage() {
         <RevealItem className="md:col-span-2">
           <Band label={es ? 'Sesión y seguridad' : 'Session & security'} />
         </RevealItem>
-        <RevealItem className="md:col-span-2">
+        {/* `steady`: este bloque contiene el selector de tema y no vuelve a
+            imprimirse al cambiarlo — el botón que acabas de pulsar no puede
+            quedar bajo el recorte (ui/motion.tsx RevealItem). */}
+        <RevealItem className="md:col-span-2" steady>
           <Card spotlight>
             <SectionTitle>
               <span className="inline-flex items-center gap-2">
                 <Sliders className="w-4 h-4" strokeWidth={1.5} /> {t('Preferences')}
               </span>
             </SectionTitle>
-            {/* Theme — dark space / light paper, persisted (stores/themeStore.ts). */}
-            <div className="flex items-center justify-between gap-4 py-2 border-b border-ink/5">
-              <div>
-                <div className="text-sm text-ink/90">{t('Theme')}</div>
-                <div className="text-xs text-ink/40 mt-0.5">{t('Dark space or light paper.')}</div>
-              </div>
-              <div className="flex items-center gap-2.5 shrink-0">
-                <span className={`text-xs font-medium transition-colors ${theme === 'dark' ? 'text-ink/80' : 'text-ink/35'}`}>
-                  {t('Dark')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  role="switch"
-                  aria-checked={theme === 'light'}
-                  aria-label={t('Theme')}
-                  className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${theme === 'light' ? 'bg-volt' : 'bg-ink/10'}`}
-                >
-                  {/* left-0.5 is load-bearing: without an explicit left, an
-                      absolute knob takes its STATIC position — and buttons
-                      center content by default, so it started mid-track and
-                      slid clean out of the pill. */}
-                  <span
-                    className={`absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${theme === 'light' ? 'translate-x-5' : 'translate-x-0'}`}
-                  />
-                </button>
-                <span className={`text-xs font-medium transition-colors ${theme === 'light' ? 'text-ink/80' : 'text-ink/35'}`}>
-                  {t('Light')}
-                </span>
-              </div>
-            </div>
+            {/* APARIENCIA (fundador 2026-09-13) — dos filas, dos ejes: el TEMA
+                (de qué material está hecho el panel: Astryum o Institucional,
+                con sus dos probetas en vivo) y la LUZ (claro, oscuro o el
+                dispositivo). Hasta hoy esta fila se llamaba «Tema» y solo
+                elegía la luz. Ver components/settings/AppearanceSettings.tsx
+                y lib/theme/appearance.ts. */}
+            <AppearanceSettings />
+            {/* Movimiento (fundador 2026-09-10): cuánto se mueve la interfaz —
+                completo, sereno o mínimo — o que decida el dispositivo. Un
+                ajuste para toda la web; las probetas de abajo lo enseñan en
+                vivo. Persistido (stores/motionStore). */}
+            <MotionSettings />
             {/* Language — moved here from the sidebar (founder 2026-08-08:
                 "escondido en settings"): same ES/EN pair, now living with the
                 other preferences instead of taking a sidebar slot. */}
@@ -246,6 +247,86 @@ export default function SettingsPage() {
             </div>
           </Card>
         </RevealItem>
+
+        {/* ── Legal: qué firmaste y cuándo (13-sep). El recibo de la ceremonia
+            de firma, siempre a mano, con los textos públicos enlazados. ── */}
+        <RevealItem className="md:col-span-2">
+          <LegalRecordCard />
+        </RevealItem>
+
+        {/* ── Professional profile — the manager switch + certification ──
+            El flag decide DESCUBRIMIENTO (la fila «Manager desk» del sidebar),
+            no permisos: la chain y el raíl de KYC mandan. Mismo interruptor
+            que la pregunta sutil del onboarding. */}
+        <RevealItem className="md:col-span-2">
+          <Band label={es ? 'Perfil profesional' : 'Professional profile'} />
+        </RevealItem>
+        <RevealItem className="md:col-span-2">
+          <Card spotlight>
+            <SectionTitle>
+              <span className="inline-flex items-center gap-2">
+                <Briefcase className="w-4 h-4" strokeWidth={1.5} /> {t('Vault manager')}
+              </span>
+            </SectionTitle>
+            <div className="flex items-center justify-between gap-4 py-2">
+              <div>
+                <div className="text-sm text-ink/90">{t('I manage third-party capital')}</div>
+                <div className="text-xs text-ink/40 mt-0.5">
+                  {t('Opens your Manager desk from Earn → Managed vaults: the vaults you run and your certification. Off any time.')}
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isManager}
+                onClick={() => {
+                  setManagerSaveFailed(false);
+                  void setManager(!isManager).then((ok) => setManagerSaveFailed(!ok));
+                }}
+                className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                  isManager
+                    ? 'border-volt/40 bg-volt/[0.1] text-volt'
+                    : 'border-ink/10 text-ink/50 hover:text-ink hover:border-ink/20'
+                }`}
+              >
+                {isManager ? t('Manager: on') : t('Manager: off')}
+              </button>
+            </div>
+            {managerSaveFailed && (
+              <p className="pb-2 text-[11px] leading-relaxed text-tone-warning">
+                {t('The change did not reach your account — it was undone. Try again in a moment; without it, other browsers would not see it.')}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-ink/5">
+              {isManager && (
+                <Link
+                  href="/app/manager"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-volt hover:underline"
+                >
+                  {t('Open Manager desk')} <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
+              {/* La comunidad (8-sep): quién lleva bóvedas, personas y agentes,
+                  con sus apoyos. No vive en el sidebar — se llega desde aquí,
+                  desde el catálogo y desde cualquier perfil. */}
+              <Link
+                href="/app/community"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-volt hover:underline"
+              >
+                {t('Community of managers')} <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </Card>
+        </RevealItem>
+        {/* La certificación como REFERRAL (fundador 2026-08-30: ni creación
+            ni custodia de documentos) — la MISMA tarjeta que en la mesa, una
+            pieza y dos montajes: la explicación del circuito y la puerta
+            hacia la certificadora (por env; apagada mientras no haya empresa). */}
+        {isManager && (
+          <RevealItem className="md:col-span-2">
+            <ManagerCertificationCard />
+          </RevealItem>
+        )}
 
         {/* Supported-chains table hidden for the demo — ChainCapabilitiesPanel
             remains intact under components/chains/. */}
@@ -301,8 +382,101 @@ export default function SettingsPage() {
 
 // Region — feeds JurisdictionService's fail-closed geofence (CLAUDE.md invariant #5).
 // Purely device-local (see lib/region.ts) and purely explicit: no IP/language guess.
+/**
+ * LegalRecordCard — lo que esta cuenta tiene firmado (fundador 2026-09-13,
+ * «que esté mejor hecho todo el proceso»): las condiciones aceptadas y el
+ * aviso leído, con versión y fecha, y el enlace a cada texto para releerlo.
+ * Sale de /auth/me (`legal.accepted`); si falta la firma, lo dice y remite a
+ * la puerta del panel. Nada se firma desde aquí: firmar es la ceremonia.
+ */
+function LegalRecordCard() {
+  const { t, lang } = useT();
+  const legal = useAuthStore((s) => s.legalGate);
+  const acc = legal?.accepted ?? null;
+  // TERCER ESTADO (it. 25): la puerta legal ya no dice «no has firmado»
+  // cuando lo que ocurrio es que no pudimos leer la ficha. Esta tarjeta
+  // leia lo mismo a traves de `accepted: null` y seguia acusando. Las
+  // frases viven en lib/legal/legalGateMode: una sola redaccion para la
+  // nota de la puerta y para esta tarjeta, y en los dos idiomas sin tocar
+  // dict.ts (regla del fundador).
+  const recordUnreadable = legal?.unreadable === true;
+  const unreadableTitle = lang === 'es' ? LEGAL_RECORD_UNREADABLE_TITLE_ES : LEGAL_RECORD_UNREADABLE_TITLE_EN;
+  const unreadableBody = lang === 'es' ? LEGAL_RECORD_UNREADABLE_ES : LEGAL_RECORD_UNREADABLE_EN;
+  const when = (() => {
+    if (!acc?.acceptedAt) return null;
+    const d = new Date(acc.acceptedAt);
+    if (Number.isNaN(d.getTime())) return null;
+    try {
+      return d.toLocaleString(lang === 'es' ? 'es-ES' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch {
+      return acc.acceptedAt;
+    }
+  })();
+  const rows: Array<{ label: string; verb: string; href: string; version: string | null; current: string | null }> = [
+    { label: t('Terms of use'), verb: t('accepted'), href: '/demo-terms', version: acc?.termsVersion ?? null, current: legal?.termsVersion || null },
+    { label: t('Privacy notice'), verb: t('read'), href: '/privacy', version: acc?.privacyVersion ?? null, current: legal?.privacyVersion || null },
+  ];
+  return (
+    <Card spotlight>
+      <SectionTitle>
+        <span className="inline-flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4" strokeWidth={1.5} /> {t('Your signatures')}
+        </span>
+      </SectionTitle>
+      <p className="mt-1 text-xs text-ink/45">
+        {t('What you accepted and read, with the version and the date. The texts are public pages; if one changes materially you will be asked to read and sign it again.')}
+      </p>
+      {recordUnreadable ? (
+        <p className="mt-3 text-[12px] leading-relaxed text-ink/60">{unreadableBody}</p>
+      ) : legal?.required ? (
+        <p className="mt-3 text-[12px] leading-relaxed text-tone-warning/90">
+          {t('Pending — the dashboard will ask you to read and sign before continuing.')}
+        </p>
+      ) : null}
+      <div className="mt-3 divide-y divide-ink/5">
+        {rows.map((r) => {
+          const upToDate = !!r.version && !!r.current && r.version === r.current;
+          return (
+            <div key={r.href} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
+              <div className="min-w-0">
+                <div className="text-sm text-ink/90">{r.label}</div>
+                <div className="mt-0.5 font-mono text-[11px] text-ink/45">
+                  {r.version
+                    ? `${r.verb} · ${t('version')} ${r.version}${when ? ` · ${when}` : ''}`
+                    : recordUnreadable
+                      ? unreadableTitle
+                      : t('not signed yet')}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {r.version ? (
+                  <Pill tone={upToDate ? 'success' : 'warning'}>
+                    {upToDate ? t('up to date') : t('newer version pending')}
+                  </Pill>
+                ) : null}
+                <Link
+                  href={r.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-volt hover:underline"
+                >
+                  {t('Read it again')} <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function RegionSettings() {
   const { t } = useT();
+  // En la lámina, la consola de diales cede el sitio al registro reglado: la
+  // jurisdicción es un asiento, no un dial. (La firma que se escribe sola de
+  // la promesa se queda en los dos temas: en bronce ES una rúbrica.)
+  const engraved = useEngraved();
   const [region, setRegion] = useState<string | null>(null);
   const [otherMode, setOtherMode] = useState(false);
   const [otherInput, setOtherInput] = useState('');
@@ -355,7 +529,7 @@ function RegionSettings() {
       {/* the tuning console — the jurisdiction dial. Decorative, pointer-events
           -none, tucked in the top-right corner so it never covers the select. */}
       <div className="pointer-events-none absolute -right-4 -top-6 hidden md:block opacity-[0.22] group-hover:opacity-40 transition-opacity duration-700 z-0">
-        <ConsoleDials size={132} />
+        {engraved ? <RegisterMark size={132} /> : <ConsoleDials size={132} />}
       </div>
 
       <div className="relative z-[1]">

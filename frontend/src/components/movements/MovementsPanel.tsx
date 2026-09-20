@@ -55,11 +55,23 @@ import { RevealGroup, RevealItem } from '../ui/motion';
 import { useT } from '../../i18n/LanguageProvider';
 import { fmtQtyActive } from '../../lib/format';
 import { useXrplWalletPartner } from '../../lib/wallet/useXrplWalletPartner';
+import { usePaFold, foldKey, isSmartAccountType } from '../../lib/wallet/paFold';
+import { type UnconfirmedSignature } from '../../lib/wallet/signOutcome';
+import { applyXrplSignFailure, confirmOnLedger } from '../../lib/xrpl/ledgerSignOutcome';
+import { UnconfirmedSignatureNotice } from '../settlement/UnconfirmedSignatureNotice';
 import { getUserRegion } from '../../lib/region';
 import { AuthRequired, hasAuthToken } from '../../lib/authError';
 import { listMyWallets, type BackendWallet } from '../../services/walletLinkService';
 import { transferRailOf } from '../../lib/wallet/nativeBalance';
 import { WalletReceiveModal, WalletSendModal } from '../wallet/WalletTransferModals';
+import {
+  UNREAD,
+  loadRunHealth,
+  retainKnownRuns,
+  rulePillState,
+  type RunHealth,
+} from '../../lib/rules/runHealth';
+import { walletDisplayName } from '../../lib/walletIdentity';
 import {
   rules as rulesApi,
   xrplSavings,
@@ -72,6 +84,66 @@ import {
 
 const XRPSCAN_TX = 'https://xrpscan.com/tx/';
 const XRPL_PSEUDO_CHAIN_ID = 1440002;
+
+/**
+ * G4-strategies (auditoria 2026-08-17 [G4]) — the bolt that was green for
+ * a rule that nudged nobody.
+ *
+ * WHAT WAS FAILING IN SILENCE HERE: the savings-rules list coloured its
+ * lightning bolt from `rule.enabled` alone (`text-volt` vs `text-white/30`) and
+ * printed only `totalTimesTriggered`. An IDLE_BALANCE / TIME_TRIGGER rule whose
+ * fire ERRORS is stored by the engine as `status: 'error'` with the reason in
+ * `notes`, and — by design, the "exito no ganado" guard — does NOT increment
+ * that counter and sends NO push. So the surface showed a live-coloured bolt
+ * with no nudge count and no explanation: the exact reading of a rule that has
+ * never once worked, dressed as one that simply has not fired yet.
+ *
+ * Same reducer, same sentences and the same i18n keys as MoneyFlowsPanel,
+ * StrategySection, LegacyActivityFeed and DefiPositionsBoard —
+ * lib/rules/runHealth.ts. One read per mount/refresh, never a poll. If the read
+ * itself fails we SAY so; «I could not read it» is never «it works».
+ *
+ * G4-pildoras (round 3) — `enabled` arrived because this note never looked at
+ * it: a PAUSED savings rule with an old failed run claimed «this rule is armed»
+ * beside a Resume button. The failure still shows (it happened); the tense
+ * follows the rule's actual state.
+ */
+function RuleRunHealthNote({
+  health,
+  enabled,
+  t,
+}: {
+  health: RunHealth;
+  enabled: boolean;
+  t: (s: string) => string;
+}) {
+  if (health.state === 'failed') {
+    return (
+      <div className="mt-0.5 flex items-start gap-1.5 text-xs text-tone-danger">
+        <AlertTriangle size={12} className="mt-px shrink-0" />
+        <span className="min-w-0">
+          <span className="block font-medium">
+            {enabled
+              ? t('Its last run FAILED — this rule is armed but it produced nothing to sign.')
+              : t('Its last run FAILED before it was paused — it produced nothing to sign.')}
+          </span>
+          <span className="block opacity-80">
+            {health.note ?? t('the engine recorded no reason')}
+            {health.consecutive > 1 ? ` · ${t('Consecutive failed runs:')} ${health.consecutive}` : ''}
+          </span>
+        </span>
+      </div>
+    );
+  }
+  if (health.state === 'unreadable') {
+    return (
+      <div className="mt-0.5 text-xs text-tone-warning" title={health.detail}>
+        {t('Could not read this rule’s run history — we cannot tell you whether its last fire worked.')}
+      </div>
+    );
+  }
+  return null;
+}
 
 function toDrops(xrp: string): string | null {
   const n = Number(xrp);
@@ -229,8 +301,31 @@ export default function MovementsPanel({
   }, []);
   const hasTransferable = useMemo(() => wallets.some((w) => transferRailOf(w) !== null), [wallets]);
 
+  // ── La puerta de unmint, también AQUÍ (fundador 14-sep-2026) ──
+  // Vivía solo en el botón de la tarjeta abierta de la cuenta Astryum. Con la
+  // lente compacta —que es la de por defecto— esa tarjeta no está desplegada,
+  // así que la única puerta visible era Enviar… que con FXRP hacia una
+  // r-address NO redime: entrega FXRP en la cuenta Astryum del destinatario.
+  // El fundador intentó justo eso. Movimientos se alcanza desde la tarjeta y
+  // desde la fila compacta, así que la puerta vive donde ya se entra.
+  const xrplAddresses = useMemo(
+    () => wallets.map((w) => w.address).filter((a) => /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(a)),
+    [wallets],
+  );
+  const paFold = usePaFold(xrplAddresses);
+  /** La cuenta Astryum cuyo FXRP se redime: esta misma fila si ya es una, o la
+   *  de la Xaman a la que pertenece esta pantalla. Sin ninguna, no hay botón. */
+  const unmintSource = useMemo(() => {
+    if (!scopeWallet) return null;
+    if (isSmartAccountType(scopeWallet.walletType)) return scopeWallet;
+    const paAddress = paFold.paByOwner.get(foldKey(scopeWallet.address));
+    if (!paAddress) return null;
+    return wallets.find((w) => foldKey(w.address) === foldKey(paAddress)) ?? null;
+  }, [scopeWallet, paFold, wallets]);
+
   // ── the doors of this door: send / receive / set aside / trade ──
   const [sendOpen, setSendOpen] = useState(false);
+  const [unmintOpen, setUnmintOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [dexOpen, setDexOpen] = useState(false);
@@ -249,15 +344,30 @@ export default function MovementsPanel({
   const [actionError, setActionError] = useState<string | null>(null);
   const [doneHash, setDoneHash] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
+  // An escrow signature we could not follow: the amber notice replaces the
+  // review (and its sign button) — a second signature is a second lock.
+  const [escrowUnconfirmed, setEscrowUnconfirmed] = useState<UnconfirmedSignature | null>(null);
+  // Xaman returned a hash; the ledger has not validated it yet.
+  const [escrowConfirming, setEscrowConfirming] = useState(false);
 
   // ── release flow (separate feedback — it lives in the list card) ──
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [releaseError, setReleaseError] = useState<string | null>(null);
   const [releaseHash, setReleaseHash] = useState<string | null>(null);
+  // A Release / Recover whose ending we could not read: no escrow button is
+  // offered again until the notice is closed.
+  const [releaseUnconfirmed, setReleaseUnconfirmed] = useState<UnconfirmedSignature | null>(null);
 
   // ── rules (Bloque C) ──
   const [ruleRows, setRuleRows] = useState<AutomationRule[]>([]);
   const [rulesError, setRulesError] = useState<string | null>(null);
+  // G4-strategies — last run per rule id, READ from GET /rules/:id/runs.
+  // Every rule rendered gets an entry, INCLUDING the ones whose read failed:
+  // an absent entry is indistinguishable from "healthy". The seq guard drops
+  // the answer of a superseded refresh so a slow read cannot repaint a stale
+  // verdict over a fresh list.
+  const [runHealth, setRunHealth] = useState<Record<string, RunHealth>>({});
+  const runsSeq = useRef(0);
   const [ruleFormOpen, setRuleFormOpen] = useState(false);
   const [ruleTrigger, setRuleTrigger] = useState<RuleTriggerChoice>('idle');
   const [ruleThresholdUSD, setRuleThresholdUSD] = useState('50');
@@ -300,7 +410,21 @@ export default function MovementsPanel({
     setRulesError(null);
     try {
       const res = await rulesApi.list(address);
-      setRuleRows(res.rules.filter((r) => (r.action as { kind?: string })?.kind === 'escrow'));
+      const rows = res.rules.filter((r) => (r.action as { kind?: string })?.kind === 'escrow');
+      setRuleRows(rows);
+      // G4-strategies — the run history is read AFTER the rows are on
+      // screen (fire and forget): a slow /runs must never delay the rules
+      // themselves. We do NOT wipe the map first — that flashed a rule
+      // already known to be failing back to a live-coloured bolt once per
+      // refresh.
+      const ruleIds = rows.map((row) => row.id);
+      const seq = ++runsSeq.current;
+      setRunHealth((prev) => retainKnownRuns(prev, ruleIds));
+      void (async () => {
+        const health = await loadRunHealth(ruleIds, (id) => rulesApi.runs(id));
+        if (seq !== runsSeq.current) return;
+        setRunHealth(health);
+      })();
     } catch (err) {
       setRulesError(gateMessage(err, t));
     }
@@ -383,31 +507,71 @@ export default function MovementsPanel({
   }, [address, amountXrp, untilDate, spendable, t]);
 
   const sign = useCallback(async () => {
-    if (!handoff) return;
+    if (!handoff || escrowUnconfirmed) return;
     setBusy(true);
     setActionError(null);
+    let handedToPartner = false;
     try {
+      handedToPartner = true;
       const { txHash } = await sendIntent({ tx: handoff.xrplTx as never });
-      setDoneHash(txHash);
+      // Xaman's «signed and submitted» is the WALLET's word: the saving exists
+      // only once the ledger validates it with tesSUCCESS.
+      setEscrowConfirming(true);
+      const settled = await confirmOnLedger(txHash);
+      setDoneHash(settled);
       setHandoff(null);
       setAmountXrp('');
       setUntilDate('');
       refreshAfterSettlement();
     } catch (err) {
-      // Signing failed/rejected: keep the prepared payload — retry the
-      // signature, not the prepare (same posture as F22 in Earn).
-      setActionError((err as Error)?.message ?? t('Signing was cancelled.'));
+      // Only a PROVABLE «nothing left» (cancelled, expired, never connected,
+      // refused tem/tef/tel) keeps the prepared payload and its sign button. A
+      // validated tec* spent the payload: prepare again. An ending we could not
+      // read is not a failure — the escrow may already be on the ledger — so it
+      // ends amber with no way back to the signature.
+      applyXrplSignFailure(err, handedToPartner, t, {
+        setError: (m) => setActionError(m || null),
+        setUnconfirmed: setEscrowUnconfirmed,
+        setPhase: () => {},
+        clearPrepared: () => setHandoff(null),
+      });
     } finally {
+      setEscrowConfirming(false);
       setBusy(false);
     }
-  }, [handoff, sendIntent, refreshAfterSettlement, t]);
+  }, [handoff, escrowUnconfirmed, sendIntent, refreshAfterSettlement, t]);
+
+  /**
+   * The catch of Release / Recover, once. Before the hand-off it is the
+   * prepare's refusal (gate, region…). After it, the ledger rail decides:
+   * cancelled in Xaman → the button stays; validated tec* (someone released or
+   * cancelled it first — both are permissionless) → the note; unknown → amber,
+   * and no escrow button until the notice is closed.
+   */
+  const endEscrowSign = useCallback(
+    (err: unknown, handedToPartner: boolean, raceNote: string) => {
+      if (!handedToPartner) {
+        setReleaseError(`${gateMessage(err, t)} — ${raceNote}`);
+      } else {
+        const action = applyXrplSignFailure(err, handedToPartner, t, {
+          setError: (m) => setReleaseError(m || null),
+          setUnconfirmed: setReleaseUnconfirmed,
+          setPhase: () => {},
+        });
+        if (action.view === 'form') setReleaseError(`${action.message} — ${raceNote}`);
+      }
+      void refresh();
+    },
+    [refresh, t],
+  );
 
   const release = useCallback(
     async (row: XrplEscrowRow) => {
-      if (!address || !row.owner || !row.previousTxnID) return;
+      if (!address || !row.owner || !row.previousTxnID || releaseUnconfirmed) return;
       setReleasingId(row.previousTxnID);
       setReleaseError(null);
       setReleaseHash(null);
+      let handedToPartner = false;
       try {
         const h = await xrplSavings.prepareFinish({
           account: address,
@@ -415,32 +579,35 @@ export default function MovementsPanel({
           previousTxnID: row.previousTxnID,
           region: getUserRegion() ?? undefined,
         });
+        handedToPartner = true;
         const { txHash } = await sendIntent({ tx: h.xrplTx as never });
-        setReleaseHash(txHash);
+        const settled = await confirmOnLedger(txHash);
+        setReleaseHash(settled);
         refreshAfterSettlement();
       } catch (err) {
         // The Finish is permissionless: someone else may have released it
-        // first — the escrow no longer exists and the submit fails. The XRP
-        // is NOT lost either way; it always went to the destination.
-        setReleaseError(
-          `${gateMessage(err, t)} — ${t('it may already have been released (anyone can, after the unlock date); the XRP always ends at its destination.')}`,
+        // first. The XRP is NOT lost either way; it always went to the destination.
+        endEscrowSign(
+          err,
+          handedToPartner,
+          t('it may already have been released (anyone can, after the unlock date); the XRP always ends at its destination.'),
         );
-        void refresh();
       } finally {
         setReleasingId(null);
       }
     },
-    [address, sendIntent, refresh, refreshAfterSettlement, t],
+    [address, releaseUnconfirmed, sendIntent, endEscrowSign, refreshAfterSettlement, t],
   );
 
   // The recovery half of the Create disclosure's promise: after CancelAfter,
   // cancelling returns the XRP to the escrow's CREATOR — never to the sender.
   const cancelEscrow = useCallback(
     async (row: XrplEscrowRow) => {
-      if (!address || !row.owner || !row.previousTxnID) return;
+      if (!address || !row.owner || !row.previousTxnID || releaseUnconfirmed) return;
       setReleasingId(row.previousTxnID);
       setReleaseError(null);
       setReleaseHash(null);
+      let handedToPartner = false;
       try {
         const h = await xrplSavings.prepareCancel({
           account: address,
@@ -448,19 +615,22 @@ export default function MovementsPanel({
           previousTxnID: row.previousTxnID,
           region: getUserRegion() ?? undefined,
         });
+        handedToPartner = true;
         const { txHash } = await sendIntent({ tx: h.xrplTx as never });
-        setReleaseHash(txHash);
+        const settled = await confirmOnLedger(txHash);
+        setReleaseHash(settled);
         refreshAfterSettlement();
       } catch (err) {
-        setReleaseError(
-          `${gateMessage(err, t)} — ${t('it may already have been cancelled (anyone can, after the expiry date); the XRP always returns to the account that created the escrow.')}`,
+        endEscrowSign(
+          err,
+          handedToPartner,
+          t('it may already have been cancelled (anyone can, after the expiry date); the XRP always returns to the account that created the escrow.'),
         );
-        void refresh();
       } finally {
         setReleasingId(null);
       }
     },
-    [address, sendIntent, refresh, refreshAfterSettlement, t],
+    [address, releaseUnconfirmed, sendIntent, endEscrowSign, refreshAfterSettlement, t],
   );
 
   // ── Bloque C — create/manage savings rules ──
@@ -574,7 +744,9 @@ export default function MovementsPanel({
           )}
           {scopeWallet ? (
             <MicroLabel>
-              {scopeWallet.nickname || scopeWallet.walletType} · {isXrpl ? 'XRPL' : isEvm ? 'Flare' : t('Wallet')}
+              {/* La regla canónica de nombres — nickname||walletType enseñaba
+                  el tipo CRUDO ('metamask', 'xrp_identity') sin apodo. */}
+              {walletDisplayName(scopeWallet, t)} · {isXrpl ? 'XRPL' : isEvm ? 'Flare' : t('Wallet')}
             </MicroLabel>
           ) : (
             <MicroLabel>{t('Between your wallets')}</MicroLabel>
@@ -602,6 +774,16 @@ export default function MovementsPanel({
                 desc={t('To another of your wallets or an external address — cross-network rides the FAssets bridge.')}
                 onClick={() => setSendOpen(true)}
               />
+              {/* Enviar FXRP a una r-address entrega FXRP; para recibir XRP
+                  nativo hay que redimir, y esa es ESTA puerta. */}
+              {unmintSource && (
+                <ActionTile
+                  icon={<Undo2 className="w-4 h-4" />}
+                  title={t('Unmint to XRP')}
+                  desc={t('Turn the FXRP in your Astryum account back into native XRP, paid by a FAssets agent to the XRPL address you choose.')}
+                  onClick={() => setUnmintOpen(true)}
+                />
+              )}
               <ActionTile
                 icon={<QrCode className="w-4 h-4" />}
                 title={t('Receive')}
@@ -669,7 +851,18 @@ export default function MovementsPanel({
                       </span>
                     )}
                   </div>
-                  {!handoff ? (
+                  {escrowUnconfirmed ? (
+                    <UnconfirmedSignatureNotice
+                      rail="xrpl"
+                      xrplKind="transaction"
+                      unconfirmed={escrowUnconfirmed}
+                      onClose={() => {
+                        setEscrowUnconfirmed(null);
+                        setHandoff(null);
+                        refreshAfterSettlement();
+                      }}
+                    />
+                  ) : !handoff ? (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                       <label className="flex-1">
                         <span className="flex items-center justify-between gap-2">
@@ -741,6 +934,11 @@ export default function MovementsPanel({
                           {t('Back')}
                         </GhostButton>
                       </div>
+                      {escrowConfirming && (
+                        <p className="flex items-center gap-2 text-[11px] text-white/55">
+                          <Loader2 size={12} className="animate-spin" /> {t('Waiting for the ledger to validate…')}
+                        </p>
+                      )}
                     </div>
                   )}
                   <p className="text-[10px] text-white/35">
@@ -763,7 +961,7 @@ export default function MovementsPanel({
             {doneHash && (
               <div className="space-y-2">
                 <p className="text-sm text-emerald-400">
-                  {t('Signed and submitted from your wallet.')}{' '}
+                  {t('Validated on the ledger')}.{' '}
                   <a href={`${XRPSCAN_TX}${doneHash}`} target="_blank" rel="noreferrer" className="underline">
                     {t('View on XRPScan')}
                   </a>
@@ -844,7 +1042,7 @@ export default function MovementsPanel({
                           {canRelease(row) ? (
                             <PrimaryButton
                               onClick={() => void release(row)}
-                              disabled={releasingId !== null || !row.previousTxnID}
+                              disabled={releasingId !== null || !!releaseUnconfirmed || !row.previousTxnID}
                             >
                               {releasingId === row.previousTxnID ? (
                                 <Loader2 size={14} className="animate-spin" />
@@ -856,7 +1054,7 @@ export default function MovementsPanel({
                           ) : canCancel(row) ? (
                             <PrimaryButton
                               onClick={() => void cancelEscrow(row)}
-                              disabled={releasingId !== null || !row.previousTxnID}
+                              disabled={releasingId !== null || !!releaseUnconfirmed || !row.previousTxnID}
                             >
                               {releasingId === row.previousTxnID ? (
                                 <Loader2 size={14} className="animate-spin" />
@@ -878,9 +1076,20 @@ export default function MovementsPanel({
                     <AlertTriangle size={14} /> {releaseError}
                   </p>
                 )}
+                {releaseUnconfirmed && (
+                  <UnconfirmedSignatureNotice
+                    rail="xrpl"
+                    xrplKind="transaction"
+                    unconfirmed={releaseUnconfirmed}
+                    onClose={() => {
+                      setReleaseUnconfirmed(null);
+                      refreshAfterSettlement();
+                    }}
+                  />
+                )}
                 {releaseHash && (
                   <p className="text-sm text-emerald-400">
-                    {t('Release signed and submitted.')}{' '}
+                    {t('Validated on the ledger')}.{' '}
                     <a href={`${XRPSCAN_TX}${releaseHash}`} target="_blank" rel="noreferrer" className="underline">
                       {t('View on XRPScan')}
                     </a>
@@ -991,9 +1200,32 @@ export default function MovementsPanel({
                   />
                 ) : (
                   <ul className="divide-y divide-white/5">
-                    {ruleRows.map((rule) => (
+                    {ruleRows.map((rule) => {
+                      // G4-strategies — an enabled rule whose LAST fire
+                      // errored is not watching: it is armed and nudging
+                      // nobody. The live-coloured bolt on `rule.enabled` alone
+                      // was the reassurance that hid it.
+                      // G4-pildoras (round 3) — nor is a rule we have not READ:
+                      // `isFailing` is false for `unread`/`unreadable`, so both
+                      // lit the volt bolt. A /runs timeout relit a FAILING rule
+                      // as live. The bolt now follows the verdict's own tone:
+                      // dim while unknown, amber when the read itself broke.
+                      const health = runHealth[rule.id] ?? UNREAD;
+                      const pill = rulePillState(rule.enabled, health);
+                      return (
                       <li key={rule.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                        <Zap size={14} className={rule.enabled ? 'text-volt' : 'text-white/30'} />
+                        <Zap
+                          size={14}
+                          className={
+                            pill === 'failing'
+                              ? 'text-tone-danger'
+                              : pill === 'unreadable'
+                                ? 'text-tone-warning'
+                                : pill === 'active'
+                                  ? 'text-volt'
+                                  : 'text-white/30'
+                          }
+                        />
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium">{rule.name}</div>
                           <div className="text-xs text-white/45">
@@ -1002,6 +1234,7 @@ export default function MovementsPanel({
                               <span> · {rule.totalTimesTriggered} {t('nudges')}</span>
                             )}
                           </div>
+                          <RuleRunHealthNote health={health} enabled={rule.enabled} t={t} />
                         </div>
                         <span className="ml-auto flex items-center gap-2">
                           <GhostButton onClick={() => void toggleRule(rule)}>
@@ -1012,7 +1245,8 @@ export default function MovementsPanel({
                           </GhostButton>
                         </span>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </Card>
@@ -1025,6 +1259,14 @@ export default function MovementsPanel({
           Scoped modal prefills the source to this card's wallet. */}
       {sendOpen && (
         <WalletSendModal wallet={scopeWallet} wallets={wallets} onClose={() => setSendOpen(false)} />
+      )}
+      {unmintOpen && unmintSource && (
+        <WalletSendModal
+          wallet={unmintSource}
+          wallets={wallets}
+          unmint
+          onClose={() => setUnmintOpen(false)}
+        />
       )}
 
       {/* Receive — address QR, display-only */}
@@ -1075,6 +1317,11 @@ function XrplDexOrder({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneHash, setDoneHash] = useState<string | null>(null);
+  // An order signature we could not follow: a second signature is a second
+  // order on the book, so the notice replaces the review and the form.
+  const [unconfirmed, setUnconfirmed] = useState<UnconfirmedSignature | null>(null);
+  // Xaman returned a hash; the ledger has not validated it yet.
+  const [confirming, setConfirming] = useState(false);
 
   const xrp = Number(xrpAmount);
   const p = Number(price);
@@ -1113,18 +1360,34 @@ function XrplDexOrder({
   }
 
   async function sign() {
-    if (!handoff) return;
+    if (!handoff || unconfirmed) return;
     setBusy(true);
     setError(null);
+    let handedToPartner = false;
     try {
+      handedToPartner = true;
       const { txHash } = await sendIntent({ tx: handoff.xrplTx });
-      setDoneHash(txHash);
+      // «Signed and submitted» is Xaman's word; the order is on the book only
+      // once the ledger validates it with tesSUCCESS.
+      setConfirming(true);
+      const settled = await confirmOnLedger(txHash);
+      setDoneHash(settled);
       setHandoff(null);
       setXrpAmount('');
       setPrice('');
     } catch (err) {
-      setError((err as Error)?.message ?? t('Signing was cancelled.'));
+      // Cancelled / expired / refused tem-tef-tel → the review and its sign
+      // button stay. Validated tec* → the payload is spent, prepare again. An
+      // ending we could not read may already be an order on the book: amber,
+      // never «Sign in Xaman» again.
+      applyXrplSignFailure(err, handedToPartner, t, {
+        setError: (m) => setError(m || null),
+        setUnconfirmed,
+        setPhase: () => {},
+        clearPrepared: () => setHandoff(null),
+      });
     } finally {
+      setConfirming(false);
       setBusy(false);
     }
   }
@@ -1177,7 +1440,17 @@ function XrplDexOrder({
         </div>
       </div>
 
-      {!handoff ? (
+      {unconfirmed ? (
+        <UnconfirmedSignatureNotice
+          rail="xrpl"
+          xrplKind="transaction"
+          unconfirmed={unconfirmed}
+          onClose={() => {
+            setUnconfirmed(null);
+            setHandoff(null);
+          }}
+        />
+      ) : !handoff ? (
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="flex-1">
@@ -1242,6 +1515,11 @@ function XrplDexOrder({
               {t('Back')}
             </GhostButton>
           </div>
+          {confirming && (
+            <p className="flex items-center gap-2 text-[11px] text-white/55">
+              <Loader2 size={12} className="animate-spin" /> {t('Waiting for the ledger to validate…')}
+            </p>
+          )}
         </div>
       )}
 
@@ -1252,7 +1530,7 @@ function XrplDexOrder({
       )}
       {doneHash && (
         <p className="text-sm text-emerald-400">
-          {t('Order signed and submitted from your wallet.')}{' '}
+          {t('Order validated on the ledger.')}{' '}
           <a href={`${XRPSCAN_TX}${doneHash}`} target="_blank" rel="noreferrer" className="underline">
             {t('View on XRPScan')}
           </a>

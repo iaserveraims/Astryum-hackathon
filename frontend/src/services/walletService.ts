@@ -2,6 +2,7 @@ import { WalletType, WalletAccount, WalletError, WalletService, Portfolio } from
 import { WalletServiceFactory } from './wallets/WalletServiceFactory';
 import { useWalletStore } from '../stores/walletStore';
 import { walletApiService } from './api/walletApiService';
+import { registrationChain } from '../lib/wallet/registrationChain';
 
 class UnifiedWalletService {
   private walletServices = new Map<string, WalletService>();
@@ -78,10 +79,20 @@ class UnifiedWalletService {
 
       // Sync with backend
       try {
+        // The backend validates the ecosystem against the ADDRESS and refuses a
+        // mismatch. It can only DERIVE the ecosystem from `network`, and the
+        // wallet services report a generic 'mainnet' label, which derives to EVM
+        // — so a Xaman r-address was rejected with ADDRESS_ECOSYSTEM_MISMATCH and
+        // never registered. Send the ecosystem we already know from chainType,
+        // with the same labels the canonical path (useWalletLinking) writes so
+        // the two never create twin rows for one wallet.
+        const { ecosystem, network, caip2 } = registrationChain(account);
         await walletApiService.connectWallet({
           walletType: walletType as 'xaman' | 'petra' | 'metamask' | 'walletconnect',
           address: account.address,
-          network: account.network,
+          network,
+          ecosystem,
+          caip2,
           metadata: {
             walletName: account.metadata?.walletName,
             userAgent: navigator.userAgent,

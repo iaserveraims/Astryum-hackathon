@@ -2,6 +2,7 @@
 
 import { useState, type ComponentType } from 'react';
 import { useT } from '@/i18n/LanguageProvider';
+import { AstryumLoader } from './AstryumLoader';
 
 export type SectionTab = { key: string; label: string; Comp: ComponentType };
 
@@ -35,5 +36,10 @@ export default function SectionTabs({ tabs, initial = 0 }: { tabs: SectionTab[];
 }
 
 export function PanelLoading() {
-  return <div className="py-20 text-center text-sm text-ink/40">…</div>;
+  // La espera de una pestaña entera lleva el cometa (regla en AstryumLoader).
+  return (
+    <div className="flex justify-center py-20">
+      <AstryumLoader size={56} />
+    </div>
+  );
 }

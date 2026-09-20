@@ -34,7 +34,16 @@ export type ProtocolActionKind =
   // the trigger COMPOSES a council proposal (CouncilProposalService) that the
   // QUORUM signs in the inbox — never IntentEngine, never a signature.
   | 'councilPayment'
-  | 'councilOrder';
+  | 'councilOrder'
+  // Personal «domiciliación» (M1). Rule-vocabulary only: the tick validates
+  // and nudges; the Payment is composed FRESH at signing time
+  // (ScheduledPaymentService) and the OWNER signs in Xaman — never
+  // IntentEngine/adapters, which stay EVM-only.
+  | 'scheduledPayment'
+  // W5/B7 — Ethereum repay (FXRP/RLUSD Morpho). Rule-vocabulary only, M1
+  // pattern: the tick validates the LIVE position (emRepayFireCheck) and
+  // nudges; the legs are composed FRESH by /eth-morpho/prepare at the door.
+  | 'emRepay';
 
 export interface ProtocolAction {
   kind: ProtocolActionKind;

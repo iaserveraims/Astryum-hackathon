@@ -34,8 +34,10 @@
  *     fassets-redeem-amount). Burns FXRP; the FAssets agent pays XRP to the
  *     destination. Signed in the user's EVM wallet.
  *
- * Both bridge routes touch the FAssets protocol, so they sit behind the same
- * FLARE_DEFI_ENABLED flag + jurisdiction geofence as the Earn demo (#5/#8/#10).
+ * Both bridge routes touch the FAssets protocol, so both sit behind the
+ * FLARE_DEFI_ENABLED flag (#8/#10). Only the MINT (xrpl-to-flare, an entry) sits
+ * behind the jurisdiction geofence (#5): the REDEMPTION (flare-to-xrpl) is the way
+ * home, and THE EXIT IS NEVER GATED (see gateFlareBridgeExit).
  */
 import { Router, Request, Response } from 'express';
 import { ethers } from 'ethers';
@@ -45,8 +47,12 @@ import {
   computeNetMint,
   resolveAssetManagerFxrp,
   resolveFxrpToken,
+  readRedemptionFeeBips,
+  estimateRedemptionFee,
+  redemptionFeeDisclosureLine,
 } from '../connectors/protocols/flare/FlareDirectMintService';
 import { withSourceTag } from '../config/xrplSourceTag';
+import { preflightEvmCalls, type EvmPreflightCall, type PreflightResult } from '../services/flare/preparePreflight';
 
 const router = Router();
 
@@ -60,6 +66,10 @@ const DIRECT_MINTING_PREFIX = '4642505266410018';
 // FlareContractsRegistry (never hardcoded, invariant #9).
 const ASSET_MANAGER_REDEEM_ABI = [
   'function redeemAmount(uint256 _amountUBA, string _redeemerUnderlyingAddressString, address _executor) returns (uint256)',
+  // Con tag el agente paga al destino CON el número de cuenta dentro — la vía
+  // para salir hacia un exchange (verificado on-chain: redeemWithTagSupported()
+  // es true en el FXRP de mainnet).
+  'function redeemWithTag(uint256 _amountUBA, string _redeemerUnderlyingAddressString, address _executor, uint256 _destinationTag) returns (uint256)',
   'function minimumRedeemAmountUBA() view returns (uint256)',
 ];
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
@@ -80,6 +90,24 @@ function gateFlareBridge(region: string | null): { status: number; error: string
   const geo = jurisdictionService.isDefiExecutionAllowed(region);
   if (!geo.allowed) {
     return { status: 451, error: `GEOFENCE_BLOCKED: ${geo.reason ?? 'region not allowed'}` };
+  }
+  return null;
+}
+
+/**
+ * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13).
+ *
+ * FXRP → XRP (redeemAmount) burns the signer's OWN FXRP and brings the value back
+ * to XRPL — the way home the DERISK flow (PaActionsModal) and WalletTransferModals
+ * send people down. The geofence (#5) exists to stop OPENING DeFi exposure from a
+ * blocked region, never to hold capital already there: under it a holder could
+ * enter FXRP and then be refused the way out. So this direction is flag-only (#10);
+ * the flag stays (module kill-switch, pending founder decision). The mint direction
+ * (xrpl-to-flare) is an entry and keeps `gateFlareBridge(region)`.
+ */
+function gateFlareBridgeExit(): { status: number; error: string } | null {
+  if (process.env.FLARE_DEFI_ENABLED !== 'true') {
+    return { status: 503, error: 'FLARE_DEFI_DISABLED' };
   }
   return null;
 }
@@ -112,9 +140,67 @@ function parseAmount(amount: unknown, decimals: number): bigint | null {
   }
 }
 
+/* ── La nota del usuario: DestinationTag y Memo (XRPL) ──────────────────────
+ *
+ * Dos cosas DISTINTAS que el rail XRPL sabe llevar, las dos OPCIONALES y las
+ * dos palabras del usuario — se validan, jamás se inventan, y viajan a la
+ * pantalla de revisión antes de la firma (#6):
+ *
+ *   DestinationTag  el número de cuenta DENTRO del destino. Un exchange
+ *                   custodial acredita por él; sin él, el dinero llega a la
+ *                   cuenta madre y nadie sabe de quién es.
+ *   Memos           texto libre. Queda PÚBLICO en el ledger para siempre.
+ *
+ * ⚠ Ninguno de los dos existe en EVM: allí un envío nativo no tiene dónde
+ * meter texto. Por eso el rail 'evm' los RECHAZA en vez de tragárselos — que
+ * el servidor ignore en silencio una nota que el usuario escribió le haría
+ * creer que viajó (familia «éxito no ganado»).
+ */
+const MEMO_MAX_BYTES = 128;
+const XRPL_MAX_DESTINATION_TAG = 4_294_967_295; // uint32
+const MEMO_FORMAT_TEXT_HEX = Buffer.from('text/plain', 'utf8').toString('hex').toUpperCase();
+
+type ReadResult<T> = { ok: true; value?: T } | { ok: false; detail: string };
+
+/** Guardián explícito: este tsconfig no estrecha la unión por `!r.ok`. */
+function noteReadFailed<T>(r: ReadResult<T>): r is { ok: false; detail: string } {
+  return r.ok === false;
+}
+
+/** Vacío (ausente, null o '') = el usuario no puso nota; no es un error. */
+function isBlankNote(raw: unknown): boolean {
+  return raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '');
+}
+
+function readDestinationTag(raw: unknown): ReadResult<number> {
+  if (isBlankNote(raw)) return { ok: true };
+  const s = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw.trim() : '';
+  if (!/^\d+$/.test(s)) {
+    return { ok: false, detail: 'destinationTag must be a whole number with no sign, decimals or spaces.' };
+  }
+  const n = Number(s);
+  if (!Number.isSafeInteger(n) || n > XRPL_MAX_DESTINATION_TAG) {
+    return { ok: false, detail: `destinationTag must be between 0 and ${XRPL_MAX_DESTINATION_TAG}.` };
+  }
+  return { ok: true, value: n };
+}
+
+function readMemo(raw: unknown): ReadResult<string> {
+  if (isBlankNote(raw)) return { ok: true };
+  if (typeof raw !== 'string') return { ok: false, detail: 'memo must be text.' };
+  const text = raw.trim();
+  const bytes = Buffer.byteLength(text, 'utf8');
+  if (bytes > MEMO_MAX_BYTES) {
+    return { ok: false, detail: `memo is ${bytes} bytes; the maximum is ${MEMO_MAX_BYTES}.` };
+  }
+  return { ok: true, value: text };
+}
+
 /**
  * POST /api/wallet-transfer/prepare
- * Body: { rail: 'evm'|'xrpl', from, to, amount, asset? }
+ * Body: { rail: 'evm'|'xrpl', from, to, amount, asset?, destinationTag?, memo? }
+ *   destinationTag (uint32) and memo (≤128 bytes of text) ride the xrpl rail
+ *   only, both optional; on the evm rail either one is a 400.
  *   amount is in human units (FLR, FXRP or XRP). asset applies to rail 'evm'
  *   only: 'FLR' (default, native) or 'FXRP' (ERC-20 transfer on Flare — an
  *   FXRP→XRP move is NOT this route, it rides bridge/flare-to-xrpl). Returns
@@ -123,12 +209,14 @@ function parseAmount(amount: unknown, decimals: number): bigint | null {
  */
 router.post('/prepare', async (req: Request, res: Response) => {
   try {
-    const { rail, from, to, amount, asset } = (req.body ?? {}) as {
+    const { rail, from, to, amount, asset, destinationTag, memo } = (req.body ?? {}) as {
       rail?: string;
       from?: string;
       to?: string;
       amount?: string | number;
       asset?: string;
+      destinationTag?: string | number;
+      memo?: string;
     };
 
     if (rail !== 'evm' && rail !== 'xrpl') {
@@ -136,6 +224,15 @@ router.post('/prepare', async (req: Request, res: Response) => {
     }
 
     if (rail === 'evm') {
+      // Se rechaza, no se ignora: una nota escrita que no viaja es peor que
+      // no poder escribirla.
+      if (!isBlankNote(destinationTag) || !isBlankNote(memo)) {
+        return res.status(400).json({
+          error: 'NOTE_NOT_SUPPORTED_ON_EVM',
+          detail:
+            'A destination tag and a memo are XRPL fields. A native Flare transfer carries no note — send the reference to the recipient another way.',
+        });
+      }
       const evmAsset = asset === undefined || asset === 'FLR' ? 'FLR' : asset === 'FXRP' ? 'FXRP' : null;
       if (!evmAsset) {
         return res.status(400).json({ error: 'INVALID_ASSET', detail: "asset must be 'FLR' | 'FXRP' on the evm rail" });
@@ -224,8 +321,37 @@ router.post('/prepare', async (req: Request, res: Response) => {
     const drops = parseAmount(amount, 6); // 1 XRP = 1e6 drops
     if (drops == null) return res.status(400).json({ error: 'INVALID_AMOUNT' });
 
+    const tagRead = readDestinationTag(destinationTag);
+    if (noteReadFailed(tagRead)) {
+      return res.status(400).json({ error: 'INVALID_DESTINATION_TAG', detail: tagRead.detail });
+    }
+    const memoRead = readMemo(memo);
+    if (noteReadFailed(memoRead)) {
+      return res.status(400).json({ error: 'INVALID_MEMO', detail: memoRead.detail });
+    }
+    const noteFields = {
+      ...(tagRead.value !== undefined ? { DestinationTag: tagRead.value } : {}),
+      ...(memoRead.value
+        ? {
+            Memos: [
+              {
+                Memo: {
+                  MemoData: Buffer.from(memoRead.value, 'utf8').toString('hex').toUpperCase(),
+                  MemoFormat: MEMO_FORMAT_TEXT_HEX,
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
     return res.json({
       rail: 'xrpl',
+      // productizer-it17 (it16 R3 3.2) — el estado REAL del executor de Astryum,
+      // con el mismo nombre que usan las órdenes de consejo, para que la pantalla
+      // deje de dar por supuesto lo peor. Aquí, además, nada depende de él: un
+      // Payment XRP nativo firmado entra en el ledger solo.
+      serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },
       // Account is intentionally absent — the Xaman partner injects the signer.
       // Make Waves SourceTag stamped like every Astryum-composed XRPL tx
       // (config/xrplSourceTag rule); no-op while XRPL_SOURCE_TAG is unset.
@@ -233,6 +359,7 @@ router.post('/prepare', async (req: Request, res: Response) => {
         TransactionType: 'Payment' as const,
         Destination: toXrpl,
         Amount: drops.toString(),
+        ...noteFields,
       }),
       disclosure: {
         action: 'native-transfer',
@@ -241,11 +368,20 @@ router.post('/prepare', async (req: Request, res: Response) => {
         amount: Number(drops) / 1_000_000,
         from: fromXrpl,
         to: toXrpl,
+        // La nota se DEVUELVE para que la pantalla la enseñe tal cual va a
+        // firmarse: el tag mal tecleado es el error que pierde el dinero.
+        ...(tagRead.value !== undefined ? { destinationTag: tagRead.value } : {}),
+        ...(memoRead.value ? { memo: memoRead.value } : {}),
         astryumFee: 0,
         networkFee: 'XRPL network fee (~0.000012 XRP), shown in Xaman before you sign',
         disclosedToUser: true,
         astryumSigns: false,
-        note: 'Transfers XRP from your wallet to the destination. You sign in Xaman; Astryum never signs, never custodies, never broadcasts. If the destination account is new, XRPL requires the base reserve (1 XRP) to activate it.',
+        note:
+          'Transfers XRP from your wallet to the destination. You sign in Xaman; Astryum never signs, never custodies, never broadcasts. If the destination account is new, XRPL requires the base reserve (1 XRP) to activate it.' +
+          (memoRead.value ? ' The memo travels with the payment and stays public on the ledger forever.' : '') +
+          (tagRead.value !== undefined
+            ? ' The destination tag identifies the account inside the destination — check it against what the recipient gave you.'
+            : ''),
       },
     });
   } catch (e) {
@@ -312,6 +448,10 @@ router.post('/bridge/xrpl-to-flare/prepare', async (req: Request, res: Response)
 
     return res.json({
       rail: 'xrpl',
+      // productizer-it17 (it16 R3 3.2) — este SÍ lo finaliza un executor en Flare:
+      // la pantalla necesita saber si el de Astryum está corriendo en vez de
+      // avisar siempre de lo mismo. Mismo nombre que las órdenes de consejo.
+      serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },
       xrplPayment: withSourceTag({
         TransactionType: 'Payment' as const,
         Destination: params.paymentAddress, // FXRP Core Vault — resolved live
@@ -350,11 +490,21 @@ router.post('/bridge/xrpl-to-flare/prepare', async (req: Request, res: Response)
  */
 router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response) => {
   try {
-    const { evmWallet, xrplDestination, amountXrp, region = null } = (req.body ?? {}) as {
+    // `region` may still arrive in the body; it is deliberately not read — an exit.
+    const { evmWallet, xrplDestination, amountXrp, destinationTag, dependsOnPrior } = (req.body ?? {}) as {
       evmWallet?: string;
       xrplDestination?: string;
       amountXrp?: string | number;
+      destinationTag?: string | number;
       region?: string | null;
+      /**
+       * it. 34 — the caller composes this redeem AFTER another call of the same
+       * signature that puts the FXRP in the wallet (PaActionsModal «Convert to
+       * XRP»: Kinetic withdraw → redeem). Dry-run against TODAY's state the burn
+       * would revert for lack of balance — a FALSE negative. `true` marks the
+       * step 'unverified' instead (same rule as `dependsOnPrior` in flareDemo).
+       */
+      dependsOnPrior?: boolean;
     };
 
     const fromEvm = safeGetAddress(evmWallet);
@@ -363,8 +513,18 @@ router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response)
     if (!XRPL_CLASSIC_RE.test(toXrpl)) return res.status(400).json({ error: 'INVALID_TO_ADDRESS' });
     const amountUBA = parseAmount(amountXrp, 6);
     if (amountUBA == null) return res.status(400).json({ error: 'INVALID_AMOUNT' });
+    // En una redención el XRP lo paga el AGENTE, no el usuario: su pago lleva
+    // la referencia del protocolo y no admite texto libre. Lo único que cabe
+    // dentro es el tag del destino — justo lo que pide un exchange para
+    // acreditar el ingreso. Se valida AQUÍ, con el resto de la entrada, antes
+    // del interruptor y antes de tocar la cadena.
+    const tagRead = readDestinationTag(destinationTag);
+    if (noteReadFailed(tagRead)) {
+      return res.status(400).json({ error: 'INVALID_DESTINATION_TAG', detail: tagRead.detail });
+    }
 
-    const gate = gateFlareBridge(region);
+    // THE EXIT IS NEVER GATED: flag-only, no geofence (see gateFlareBridgeExit).
+    const gate = gateFlareBridgeExit();
     if (gate) return res.status(gate.status).json({ error: gate.error });
 
     const provider = flareProvider();
@@ -379,11 +539,37 @@ router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response)
       });
     }
 
-    const data = am.interface.encodeFunctionData('redeemAmount', [amountUBA, toXrpl, ZERO_ADDR]);
+    // Con tag, el agente paga al destino con el número de cuenta dentro.
+    const data =
+      tagRead.value !== undefined
+        ? am.interface.encodeFunctionData('redeemWithTag', [amountUBA, toXrpl, ZERO_ADDR, tagRead.value])
+        : am.interface.encodeFunctionData('redeemAmount', [amountUBA, toXrpl, ZERO_ADDR]);
+    // productizer-it13 §4.2 — the FAssets redemption fee as a LIVE figure on the
+    // amount this call redeems (invariants #6/#9). Unreadable → null plus a line
+    // that says so: never rendered as a 0% fee.
+    const redemptionFee = estimateRedemptionFee(amountUBA, await readRedemptionFeeBips(provider));
+
+    // Invariant #11 — dry-run BEFORE the wallet opens, `from` = the wallet that
+    // signs. it. 34: this route was the second half of «Convert to XRP» in
+    // PaActionsModal and carried no verdict at all, so the screen composed the
+    // pair with no `preflight` to show. A redeem that reverts (not enough FXRP,
+    // below the agent's lot, paused) is a CALL_EXCEPTION here — a proven
+    // failure; a node that does not answer degrades to `available: false`
+    // and never blocks the prepare. Nothing is signed, nothing is broadcast.
+    const redeemLabel = tagRead.value !== undefined ? 'redeem FXRP to XRP (with destination tag)' : 'redeem FXRP to XRP';
+    const preflight: PreflightResult = await preflightEvmCalls(provider, fromEvm, [
+      {
+        to: assetManager,
+        data,
+        label: redeemLabel,
+        dependsOnPrior: dependsOnPrior === true,
+      } satisfies EvmPreflightCall,
+    ]);
 
     return res.json({
       rail: 'evm',
       calls: [{ to: assetManager, data, value: '0', chainId: FLARE_CHAIN_ID }],
+      preflight,
       disclosure: {
         action: 'bridge-redeem-fxrp',
         asset: 'FXRP → XRP',
@@ -391,7 +577,11 @@ router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response)
         amount: Number(amountUBA) / DROPS,
         from: fromEvm,
         to: toXrpl,
+        ...(tagRead.value !== undefined ? { destinationTag: tagRead.value } : {}),
         minimumRedeemXrp: Number(minUBA) / DROPS,
+        redemptionFeeBips: redemptionFee.redemptionFeeBips,
+        redemptionFeeFxrp: redemptionFee.redemptionFeeFxrp,
+        redemptionFeeLine: redemptionFeeDisclosureLine(redemptionFee),
         astryumFee: 0,
         networkFee: 'Gas in FLR, shown by your wallet before you confirm',
         disclosedToUser: true,

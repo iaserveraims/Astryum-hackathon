@@ -15,6 +15,13 @@ import { z } from 'zod';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { prisma } from '../database/prismaClient';
+import {
+  isSessionRevoked,
+  isTransactionBusy,
+  respondBusyRetry,
+  respondSessionRevoked,
+  withLiveSession,
+} from '../services/identity/liveSession';
 
 const router = Router();
 router.use(requireSiweAuth);
@@ -69,11 +76,20 @@ router.post('/', async (req: Request, res: Response) => {
   const { label, address, chainId, ens } = parsed.data;
 
   try {
-    const entry = await prisma.addressBookEntry.create({
-      data: { userId, label, address: normalizeAddress(address), chainId, ens },
-    });
+    // Written under a live-session check (it. 14, 4.4): a contact saved by a
+    // previous account holder after a takeover would pre-fill a stranger's
+    // address in the owner's send modal, labelled as their own.
+    const entry = await withLiveSession(req.siwe!, (tx) =>
+      tx.addressBookEntry.create({
+        data: { userId, label, address: normalizeAddress(address), chainId, ens },
+      }),
+    );
     return res.status(201).json({ entry });
   } catch (err: any) {
+    if (isSessionRevoked(err)) return respondSessionRevoked(res);
+    // Contention with the takeover's long transaction is a WAIT, not a fault:
+    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    if (isTransactionBusy(err)) return respondBusyRetry(res);
     if (err?.code === 'P2002') {
       return res.status(409).json({
         error: 'ENTRY_ALREADY_EXISTS',

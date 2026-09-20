@@ -2,9 +2,9 @@
 
 **Qué es.** La vasija epocal de Astryum Legacy: el contrato donde el capital productivo de un
 Legacy vive sin poder venderse. El código enjaula el **principal** (no existe `withdrawPrincipal()`,
-ni `transferTo(arbitrary)`, ni proxy); los **frutos** los gobierna el consejo. El diseño completo y
-las decisiones del fundador (D1a-D7) viven en una nota de trabajo interna (no publicada en
-este repo).
+ni `transferTo(arbitrary)`, ni proxy); los **frutos** los gobierna el consejo. Diseño completo y
+decisiones del fundador (D1a-D7) en
+una nota interna de auditoría (no publicada en este repo).
 
 > ⚠️ **Inmutable e irreversible.** Un bug desplegado no se parchea: se migra a una vasija
 > sucesora (30 días de timelock + continuidad verificada) o se convive con él. Recomendación
@@ -94,9 +94,9 @@ validez de la tx atestiguada ES la prueba del quórum.
 `backend/src/connectors/protocols/xrpl/XrplCouncilOrderService.ts`,
 `backend/src/services/flare/LegacyOrderRelayService.ts` (+ `LegacyOrderStore.ts`),
 rutas `POST /xrpl-defi/council-order/{prepare,relay}` + `GET …/status`, y
-`frontend/src/components/legacy/CouncilOrderCard.tsx` (superficie Govern). El BuildSpec y las
-decisiones eternas del deploy gobernado viven en notas de trabajo internas (no publicadas en
-este repo).
+`frontend/src/components/legacy/CouncilOrderCard.tsx` (superficie Govern). BuildSpec y decisiones
+eternas del deploy gobernado en una nota interna de trabajo (no publicada en este repo)
+y `…_Mainnet_Deploy_Decisiones_2026-07-16.md`.
 
 ### Deploy del stack gobernado
 
@@ -138,6 +138,10 @@ que implementan.
 cd contracts
 forge build
 forge test          # 58 en total: 22 unit del vault + 18 del bridge + 15 del factory + 3 invariantes
+                    # Última corrida documentada (plan §10.7): 2026-08-16 —
+                    # «58 tests passed, 0 failed, 0 skipped» en 4 suites, 310 ms.
+                    # (Los «43» y «55» de docs fechados eran verdades de su época:
+                    # 43 = pre-factory 23-jul · 55 = intermedio 5-ago.)
 forge test -vvv     # con trazas
 ```
 
@@ -201,7 +205,7 @@ forge script script/DeployLegacyVault.s.sol --rpc-url flare --broadcast \
    hay carpeta de supervivencia: la familia debe poder LEER la jaula.
 2. Leer `feeSchedule()` y `constitutionRef()` desde el explorer y compararlos con lo esperado.
 3. **Anclar la dirección del vault en la constitución** (enmienda DIDSet v+1 firmada por el
-   quórum) y añadirla a `docs/legacy/CARPETA_SUPERVIVENCIA.md` §5.
+   quórum) y añadirla a la carpeta de supervivencia interna (no publicada en este repo).
 4. Primer capital: importe pequeño propio vía el carril 0xFE (o un `deposit` directo con FXRP).
    Primer `harvest()` cuando haya yield; comprobar el split contra la constitución.
 

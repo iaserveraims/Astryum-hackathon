@@ -1,5 +1,21 @@
 {
   "extends": [
     "next/core-web-vitals"
-  ]
+  ],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "framer-motion",
+            "importNames": [
+              "useReducedMotion"
+            ],
+            "message": "Importa useReducedMotion desde '@/stores/motionStore' (o useMotionLevel): el de framer solo escucha al SO, el de la casa escucha al ajuste de movimiento del usuario."
+          }
+        ]
+      }
+    ]
+  }
 }
