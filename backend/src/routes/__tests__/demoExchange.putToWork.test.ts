@@ -1,5 +1,5 @@
 /**
- * Productizer it. 10 — the desk put-to-work, end to end on the routes:
+ * The desk put-to-work, end to end on the routes:
  *  - prepare-put-to-work composes the 0xFE SERVER-SIDE (same composer, same
  *    inputs as the institutional prepare) and stores memo / userOpHash / LLS on
  *    the reservation atomically; a failed save frees the seat and answers 503;
@@ -9,7 +9,7 @@
  */
 import express from 'express';
 import request from 'supertest';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange
 // se prueba en clientCredentialGate.test y demoExchange.credentialGate.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 import { ethers } from 'ethers';
@@ -71,7 +71,7 @@ jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => {
     readDirectMintParams: jest.fn(async () => ({ fxrpToken: mockFxrp, paymentAddress: mockCoreVault, minFeeUBA: BigInt(0), feeBIPS: BigInt(0), executorFeeUBA: BigInt(100000), granularityUBA: BigInt(1) })),
     computeNetMint: jest.fn((gross: bigint) => ({ grossUBA: gross, mintingFeeUBA: BigInt(20000), executorFeeUBA: BigInt(100000), netToPersonalAccountUBA: gross - BigInt(120000), bufferUBA: BigInt(0), supplyUBA: gross - BigInt(120000) })),
     mintFeeDisclosure: jest.fn(() => ({ mintingFeeXrp: 0.02, executorFeeXrp: 0.1 })),
-    // it. 15: the BUILDER stamps the LastLedgerSequence (validated ledger +
+    // The BUILDER stamps the LastLedgerSequence (validated ledger +
     // `lastLedgerWindow`) on the Payment and hands it back — the seat records the
     // same one. An unreadable ledger gives null and NO LastLedgerSequence.
     buildDirectMintHandoff: jest.fn(async (_p: unknown, input: { xrplAddress: string; grossXrpDrops: bigint; lastLedgerWindow?: number }) => {
@@ -106,7 +106,7 @@ jest.mock('../../services/flare/AstryumDepositCapService', () => {
 jest.mock('../../services/dryRun/DryRunExecutor', () => ({ dryRunRigActive: jest.fn(async () => false) }));
 jest.mock('../../config/demoCap', () => ({ checkDemoCap: jest.fn(async () => null) }));
 jest.mock('../../services/flare/DirectMintHandoffStore', () => ({ releaseQueuedHandoffByMemo: jest.fn(async () => true) }));
-// it. 19 (3.5): «¿esta r-address ya es de una persona?». Solo se consulta con
+// «¿esta r-address ya es de una persona?». Solo se consulta con
 // DATABASE_URL — el resto de esta suite corre sin él, así que este mock duerme.
 jest.mock('../../database/prismaClient', () => ({
   prisma: {
@@ -206,11 +206,11 @@ describe('prepare-put-to-work: the 0xFE is composed server-side and its memo liv
     expect(persisted).toMatchObject({ memoHex: MEMO, lastLedgerSequence: 1090 });
 
     const call = M().buildDirectMintHandoff.mock.calls[0][1] as { xrplAddress: string; grossXrpDrops: bigint; action: string; innerCalls: Array<{ to: string; calldata: string }> };
-    // it. 12 (1.5): the omnibus signs it — 'operational', like its payout, never the project tag.
+    // The omnibus signs it — 'operational', like its payout, never the project tag.
     expect(call).toMatchObject({ xrplAddress: OMNIBUS, action: 'demo-exchange-desk', attribution: 'operational' });
     expect(call).toHaveProperty('preparedByUserId');
     expect(call).not.toHaveProperty('supersedeAuthorized');
-    // it. 19 (R1 1.1, REGRESIÓN): esta fila la compuso el SERVIDOR para una
+    // Esta fila la compuso el SERVIDOR para una
     // cuenta operativa. Sin esta marca el autopilot la apartaba en silencio —
     // dos Payments firmables en el mismo nonce con el XRP ya en el Core Vault.
     expect((call as unknown as { serverComposed?: boolean }).serverComposed).toBe(true);
@@ -242,7 +242,7 @@ describe('prepare-put-to-work: the 0xFE is composed server-side and its memo liv
   });
 
   /**
-   * it. 23 (1.5) — un ASIENTO QUE NO SE PUDO LEER no es un asiento ocupado.
+   * Un ASIENTO QUE NO SE PUDO LEER no es un asiento ocupado.
    * `SeatStateUnreadableError extends NonceSeatTakenError`, así que el `catch`
    * cogía las dos y contestaba 409 «hay un 0xFE anterior en vuelo»: al operador
    * se le contaba un fallo de lectura NUESTRO como un hecho, y sin reintento.
@@ -288,7 +288,7 @@ describe('prepare-put-to-work: the 0xFE is composed server-side and its memo liv
     expect(res.status).toBe(503);
     expect(res.body.error).toBe('RUN_NOT_PERSISTED');
     expect(res.body.detail).toMatch(/nothing was recorded/);
-    // it. 19: the desk's dispatch never left the backend (Astryum's seed signs it),
+    // The desk's dispatch never left the backend (Astryum's seed signs it),
 // so freeing it cannot create a twin and must not wall the omnibus for minutes.
 expect(S().releaseQueuedHandoffByMemo).toHaveBeenCalledWith(MEMO, { neverHandedOut: true });
     expect((await loadRun('run1'))!.deskPayments![0].memoHex).toBeUndefined();
@@ -314,7 +314,7 @@ expect(S().releaseQueuedHandoffByMemo).toHaveBeenCalledWith(MEMO, { neverHandedO
     expect(S().releaseQueuedHandoffByMemo).not.toHaveBeenCalled();
     mockLedger = 1101;
     expect((await release(body.deskPayment.id)).status).toBe(200);
-    // it. 20 (R1 B1): this dispatch WAS handed to Xaman (the desk signs it there with
+    // This dispatch WAS handed to Xaman (the desk signs it there with
 // the omnibus key), so it carries no shortcut — the store frees the seat on its own
 // reading of the memo's window, the same proof every other door uses.
 expect(S().releaseQueuedHandoffByMemo).toHaveBeenCalledWith(MEMO, undefined);
@@ -332,7 +332,7 @@ describe('put-to-work/record: the hash must BE this movement (RECORD_HASH_MISMAT
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('RECORD_HASH_MISMATCH');
     }
-    // it. 12 (1.4): the backend node not showing it (yet) is «not yet visible» — 503, retryable — never «not this client's»
+    // The backend node not showing it (yet) is «not yet visible» — 503, retryable — never «not this client's»
     for (const lagging of [{ found: false } as ReportedTx, reported({ validated: false })]) {
       mockTx = lagging;
       const res = await record({ deskPaymentId: id });
@@ -446,7 +446,7 @@ describe('the window of the 0xFE is the BUILDER\'s, and the desk never re-stamps
     const res = await prepare(body.deskPayment.id);
     expect(res.status).toBe(200);
     const call = M().buildDirectMintHandoff.mock.calls[0][1] as { lastLedgerWindow?: number };
-    // it. 19 (R1 1.6): 90 ledgers ≈ 6 min — la vida del payload de Xaman (5 min)
+    // 90 ledgers ≈ 6 min — la vida del payload de Xaman (5 min)
     // más un minuto de margen; antes eran 100 y el asiento del omnibus se
     // congelaba ~1,7 min después de que ya nadie pudiera firmar.
     expect(call.lastLedgerWindow).toBe(90);
@@ -457,7 +457,7 @@ describe('the window of the 0xFE is the BUILDER\'s, and the desk never re-stamps
   });
 
   /**
-   * it. 19 (encargo de D, 3.4) — el 0xFE de la mesa dice si el servidor ENTREGA
+   * El 0xFE de la mesa dice si el servidor ENTREGA
    * su instrucción. Sin este campo, el aviso de firmas en curso tenía que
    * adivinar, y un «entrega parada» permanente que nadie puede desmentir es
    * ruido. El payout de la mesa NO lo lleva: es un Payment XRP nativo, que no
@@ -496,7 +496,7 @@ describe('the window of the 0xFE is the BUILDER\'s, and the desk never re-stamps
     const res = await prepare(body.deskPayment.id);
     expect(res.status).toBe(503);
     expect(res.body.error).toBe('LEDGER_UNREADABLE');
-    // it. 19: the desk's dispatch never left the backend (Astryum's seed signs it),
+    // The desk's dispatch never left the backend (Astryum's seed signs it),
 // so freeing it cannot create a twin and must not wall the omnibus for minutes.
 expect(S().releaseQueuedHandoffByMemo).toHaveBeenCalledWith(MEMO, { neverHandedOut: true });
     expect((await loadRun('run1'))!.deskPayments![0].memoHex).toBeUndefined();
@@ -533,11 +533,11 @@ describe('the 0xFE memo of what is in flight is the exchange\'s, not the public\
   });
 });
 
-describe('the run DECLARES its omnibus, and the 0xFE seat guard is told (it. 16, R5 5.1)', () => {
+describe('The run DECLARES its omnibus, and the 0xFE seat guard is told (R5 5.1)', () => {
   /**
-   * it. 14 demanded the omnibus already be in `ASTRYUM_OPERATIONAL_XRPL_ACCOUNTS`
+   * Demanded the omnibus already be in `ASTRYUM_OPERATIONAL_XRPL_ACCOUNTS`
    * before a run could exist — a Railway variable nobody can edit from the setup
-   * wizard, so the sign-up died at its last station (it. 16, R5 5.1). The route
+   * wizard, so the sign-up died at its last station (R5 5.1). The route
    * is admin-only: the declaration IS the authorization. What the env list used
    * to buy (the 0xFE nonce-seat guard covering the account) now comes from the
    * declaration itself, registered with the builder.
@@ -604,7 +604,7 @@ describe('the run DECLARES its omnibus, and the 0xFE seat guard is told (it. 16,
   });
 
   /**
-   * it. 19 (3.5) — …NI LA CUENTA DE UNA PERSONA REAL. Las negativas de arriba
+   * …NI LA CUENTA DE UNA PERSONA REAL. Las negativas de arriba
    * miran las runs; esta mira a los usuarios. Declarar la r-address de un
    * tercero la pondría bajo la guarda del 0xFE de la mesa: sus hand-offs
    * pasarían a leerse como flujos nuestros y una salida suya sin prueba
@@ -614,7 +614,7 @@ describe('the run DECLARES its omnibus, and the 0xFE seat guard is told (it. 16,
    * estos casos la encienden alrededor de la petición: la negativa ocurre ANTES
    * del candado de las runs, de modo que el almacén no llega a tocarse.
    */
-  describe('ni la cuenta de una persona real (it. 19, 3.5)', () => {
+  describe('Ni la cuenta de una persona real (3.5)', () => {
     const P = () => jest.requireMock('../../database/prismaClient') as { prisma: { user: { findFirst: jest.Mock }; walletBinding: { findMany: jest.Mock } } };
     const withDb = async <T>(fn: () => Promise<T>): Promise<T> => {
       process.env.DATABASE_URL = 'postgres://omnibus-ownership-test';
@@ -630,7 +630,7 @@ describe('the run DECLARES its omnibus, and the 0xFE seat guard is told (it. 16,
     });
 
     /**
-     * it. 21 (3.6) — «DE ALGUIEN» NO ES «DE OTRO». La comprobación compara contra
+     * «DE ALGUIEN» NO ES «DE OTRO». La comprobación compara contra
      * una sesión OPCIONAL, así que sin sesión cualquier fila coincidente contaba
      * como de un tercero: el propio fundador declarando SU ómnibus desde un script
      * (o con la cookie de admin a secas, que no acuña `req.siwe`) recibía un 409
@@ -660,7 +660,7 @@ describe('the run DECLARES its omnibus, and the 0xFE seat guard is told (it. 16,
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('OMNIBUS_OWNER_UNKNOWN');
       expect(res.body.detail).toMatch(/no Astryum session/);
-      // it. 23 (3.3): la negativa dice QUÉ falta y que esperar no arregla nada —
+      // La negativa dice QUÉ falta y que esperar no arregla nada —
       // una sesión de admin prueba que operas el despliegue, no que la cuenta sea tuya.
       expect(res.body.needs).toBe('astryum-session');
       expect(res.body.sessionState).toBe('no-session-presented');
@@ -714,8 +714,8 @@ describe('the run store refuses to guess', () => {
   });
 
   /**
-   * it. 21 (3.2) — LA LISTA QUE NO SE PUEDE LEER TAMPOCO ES UN 500. Desde la
-   * lectura estricta de la it. 19, `listRuns` lanzaba el error crudo de Prisma y
+   * LA LISTA QUE NO SE PUEDE LEER TAMPOCO ES UN 500. Desde la
+   * lectura estricta de la, `listRuns` lanzaba el error crudo de Prisma y
    * `guarded` (que solo mapea `DemoRunStoreError`) lo convertía en un 500: un muro
    * sin reintento en las cinco rutas que listan. Ahora es de la misma familia que
    * `loadRun` — 503, `retryable`, y una frase que no dice que se intentara escribir.

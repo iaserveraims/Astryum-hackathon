@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * DepositXamanQr — el depósito de un cliente del exchange como QR de Xaman
- * (fundador 14-sep: «un código QR con el memo y todo para escanear y fondear»).
+ * DepositXamanQr — el depósito de un cliente del exchange como QR de Xaman.
  *
  * Es la MISMA tx que prepara el servidor en `/deposit-instructions`: Payment al
  * omnibus, DestinationTag = tag del cliente, Amount exacto y SourceTag; Account

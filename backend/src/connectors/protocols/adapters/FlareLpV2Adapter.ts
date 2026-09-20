@@ -42,7 +42,7 @@ const ERC20_SYMBOL_ABI = ['function symbol() view returns (string)'];
 
 const MULTICALL_CHUNK = 400;
 /**
- * LO QUE UNA WALLET TIENE (18-sep): barrer los 1917 pares de BlazeSwap por
+ * LO QUE UNA WALLET TIENE: barrer los 1917 pares de BlazeSwap por
  * wallet cada cinco minutos era la lectura más cara del Home — cinco
  * multicalls de 400 pares, por wallet, por barrido — y con trece wallets a la
  * vez cruzaba el deadline. Se memoriza QUÉ pares tiene cada wallet y, mientras
@@ -104,7 +104,7 @@ export class FlareLpV2Adapter extends BaseAdapter {
     for (let i = 0; i < calls.length; i += MULTICALL_CHUNK) {
       chunks.push(calls.slice(i, i + MULTICALL_CHUNK).map((c) => ({ target: c.target, allowFailure: true, callData: c.callData })));
     }
-    // Los trozos a la vez (18-sep): en serie eran cinco vueltas de ~0,4 s una
+    // Los trozos a la vez: en serie eran cinco vueltas de ~0,4 s una
     // detrás de otra; a la vez, una. El orden se conserva.
     const results = await Promise.all(chunks.map((chunk) => mc.aggregate3.staticCall(chunk)));
     const out: Array<{ success: boolean; returnData: string }> = [];
@@ -235,7 +235,7 @@ export class FlareLpV2Adapter extends BaseAdapter {
     if (held.length === 0) return [];
 
     const now = new Date();
-    // Cada par en paralelo (14-sep): en serie eran 2 vueltas al RPC por par,
+    // Cada par en paralelo: en serie eran 2 vueltas al RPC por par,
     // una detrás de otra. Cada par conserva su try/catch: uno raro sigue sin
     // hundir el barrido. Promise.all conserva el orden de `held`.
     const perPair = await Promise.all(held.map(async ({ pair, balance }): Promise<RawPosition | null> => {

@@ -4,14 +4,6 @@
  * Sin ella el carril era un embudo: el FXRP entraba, el colateral salía del
  * mercado… y se quedaba varado en Ethereum. El recorrido del runbook
  * («repagar → sacar colateral → puentear de vuelta») moría en el paso 3.
- *
- * Lo que estos tests fijan, y que NO es simétrico con la ida:
- *  · en Ethereum el FXRP es un OFT NATIVO → NO hay pata de approve (una
- *    firma extra que no autorizaría nada);
- *  · la comisión de entrega se paga en ETH, no en FLR — y se comprueba;
- *  · el EID de destino es el de Flare (30295, confirmado on-chain por
- *    `peers()`), y un par que no cuadre REFUTA antes de construir: un send a
- *    un EID sin par emparejado saca los tokens del origen y no llegan nunca.
  */
 import {
   prepareFxrpBridgeBack,

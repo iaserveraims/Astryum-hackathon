@@ -1,27 +1,6 @@
 /**
  * PoteCatalogRead — LA LECTURA DEL CATÁLOGO ENTERO, en un solo sitio, y el
- * CALENTADOR que la mantiene viva (2026-09-12).
- *
- * POR QUÉ. El catálogo de potes (dos generaciones: los sueltos de la factory
- * v1 y los de las jaulas v2) se leía solo cuando alguien lo pedía, y en frío
- * cuesta: escaneo de eventos para resolver el consejo de cada jaula, más
- * unas decenas de lecturas por pote. La caché de consejos vivía en memoria y
- * cada deploy de Railway la vaciaba — y cada push a la rama es un deploy.
- * Resultado (fundador, captura de Earn → Managed vaults): «The catalogue
- * could not be read right now» tras agotar el tope del cliente.
- *
- * QUÉ HACE.
- *  · `readFullPoteCatalog()` — la MISMA lectura que servía la ruta
- *    /institutional/potes, con su caché stale-while-revalidate y su fallback
- *    al RPC público; ahora reutilizable.
- *  · `startPoteCatalogWarmup()` — al arrancar, lee el catálogo en segundo
- *    plano (nadie paga el frío al abrir Earn) y lo relee cada 20 minutos para
- *    que la caché nunca caduque del todo. Con la caché de consejos ya
- *    PERSISTIDA en la BD (AstryumPoteCatalogService), el arranque en frío
- *    solo escanea los bloques nuevos desde la última vez.
- *
- * Lecturas públicas: no firma, no custodia (#1). Un fallo del calentador se
- * anota en el log y no tumba nada: la ruta sigue leyendo bajo demanda.
+ * CALENTADOR que la mantiene viva.
  */
 
 import { ethers } from 'ethers';
@@ -92,7 +71,7 @@ export async function readFullPoteCatalog(opts: { fromBlockOverride?: string } =
   if (!cfg.factoryAddress && !cfg.cageFactory) throw new Error('FACTORY_UNCONFIGURED');
   const readCatalog = async (rpc: string) => {
     const provider = flareReadProvider(rpc);
-    // El escaneo de consejos va POR DETRÁS (12-sep): el catálogo sale en
+    // El escaneo de consejos va POR DETRÁS: el catálogo sale en
     // segundos con lo que la caché ya sabe y los consejos que falten llegan
     // en la siguiente lectura (fresco 45 s), mientras el escaneo avanza a su
     // ritmo contra el rate-limit del RPC y guarda su progreso.
@@ -120,7 +99,7 @@ const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const CAGE_OF_ABI = ['function cageOf(bytes32) view returns (address)'];
 
 /**
- * LOS CONSEJOS QUE LA APP YA CONOCE (12-sep). El bridge solo guarda el hash de
+ * LOS CONSEJOS QUE LA APP YA CONOCE. El bridge solo guarda el hash de
  * la r-address, así que el nombre del consejo de una jaula solo sale de los
  * eventos… o de probar candidatos: la app tiene r-addresses de raíces (los
  * perfiles públicos de gestor y los runs del exchange), y `cageOf(keccak(r))`

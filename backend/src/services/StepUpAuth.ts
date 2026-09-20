@@ -43,8 +43,7 @@ const NONCE_TTL_MS = 5 * 60 * 1000; // 5 min to use a challenge
 const JWT_SECRET = resolveJwtSecret();
 
 /**
- * A CHALLENGE IS ONE ATTEMPT, NOT A FIVE-MINUTE WINDOW OF THEM (productizer
- * it. 22, «Menor»). The nonce used to survive a failed signature, so the same
+ * A CHALLENGE IS ONE ATTEMPT, NOT A FIVE-MINUTE WINDOW OF THEM. The nonce used to survive a failed signature, so the same
  * challenge accepted unlimited guesses until its TTL ran out, and `/challenge`
  * had no limit at all — so a stolen session could mint challenges in a loop and
  * grind each one. Two cheap bounds, both in memory, both per process:
@@ -219,7 +218,7 @@ export async function verifyChallengeAndIssueGrant(
 
   // Recover signer.
   //
-  // EVERY VERDICT ABOUT THE SIGNATURE BURNS THE NONCE (it. 22, «Menor»). Until
+  // EVERY VERDICT ABOUT THE SIGNATURE BURNS THE NONCE («Menor»). Until
   // now only SUCCESS burned it, so a single challenge accepted attempt after
   // attempt for its whole five-minute TTL - which is the one thing a nonce
   // exists to prevent. Note what does NOT burn: the binding read below, and

@@ -1,10 +1,7 @@
 'use client';
 
 /**
- * SidebarSettlements — the sidebar home of in-flight operations (founder
- * 2026-08-08: the floating bottom-right cards moved here, under "To sign",
- * so the user learns ONE place where signatures-waiting and ops-in-progress
- * live). Minimised by default — a one-line header with an honest aggregate
+ * SidebarSettlements — the sidebar home of in-flight operations. Minimised by default — a one-line header with an honest aggregate
  * icon and a count; expanding lists each op with the same machine-gated
  * truth as the modals (green only on real confirmation, honest stalled,
  * ref always shown and linked). Renders nothing when nothing is in flight.
@@ -26,7 +23,7 @@ function MiniStatusIcon({ status }: { status: SettlementState['status'] }) {
 export function SidebarSettlements() {
   const { t } = useT();
   const { resumed, dismiss } = useResumePendingSettlements();
-  // Minimised by default (founder: visible but never in the way) — the header
+  // Minimised by default — the header
   // is the whole story until the user opens it.
   const [open, setOpen] = useState(false);
   if (resumed.length === 0) return null;

@@ -3,7 +3,7 @@
 /**
  * DispatchXrpField — every 0xFE order rides an XRPL Payment ("carrier").
  *
- * v2 (founder 2026-08-17): the knob is GONE. The carrier is a protocol
+ * V2: the knob is GONE. The carrier is a protocol
  * necessity with a knowable minimum, so the app now sets it automatically
  * from live fees (lib/flare/carrier.ts — fees + margin, floored at 0.35,
  * so a fee move can never block the operation) and this component only

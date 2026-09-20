@@ -3,36 +3,10 @@
 /**
  * SigningWalletPicker — quién firma esta entrada, y por qué carril.
  *
- * EXTRAÍDO de `DemoVaultModal` el 27-ago (fundador: «la UI ya existe del modal,
- * debes extraerlo de la zona de earn choose strategy»). Vivía en línea dentro de
+ * EXTRAÍDO de `DemoVaultModal`. Vivía en línea dentro de
  * un componente de 2.300 líneas, y por eso las Bóvedas con gestor se habían
  * inventado su propio selector de carril — dos botones que hacían peor lo que
  * esto ya hacía bien.
- *
- * ── ESTE DESPLEGABLE **ES** EL PUENTE ───────────────────────────────────────
- * No hay un paso separado de «puentear». Elegir la wallet ES elegir el camino:
- *
- *   · una wallet XRPL  → pagas XRP y el Smart Account lo mintea 1:1 en FXRP
- *   · una wallet Flare → gastas tu FXRP directamente, sin mint
- *
- * Presentarlo como dos carriles con un interruptor aparte era pedirle al usuario
- * que entendiera la mecánica antes de elegir. Con el desplegable solo tiene que
- * responder a la pregunta que ya se está haciendo: ¿desde cuál de mis wallets?
- *
- * ── POR QUÉ SALEN WALLETS QUE NO PUEDEN FIRMAR AQUÍ ─────────────────────────
- * En las entradas de Ethereum se listan igual las wallets XRPL, aunque no
- * puedan firmar ahí: es donde suele estar el FXRP del usuario, y quitarlas
- * responde «¿en qué wallet tengo mi FXRP?» escondiendo la respuesta. Elegir una
- * explica la ruta que necesita, en vez de fallar tres pantallas después.
- *
- * Y una wallet EVM aparece DOS VECES cuando la entrada admite dos cadenas: es
- * la misma clave, pero su FXRP puede estar en Flare o ya en Ethereum, y de eso
- * depende si hay puente o no. Una sola fila obligaba a saber de antemano dónde
- * está el dinero para elegir bien — que es justo lo que se viene a preguntar.
- *
- * ── LA PERSONAL ACCOUNT NO ESTÁ, Y ES DELIBERADO ────────────────────────────
- * Solo ejecuta userOps 0xFE firmadas desde XRPL: nunca puede firmar una tx EVM.
- * Su FXRP entra por el carril de Xaman.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -84,9 +58,7 @@ export function useSigningWallets({
   defaultRail: Rail;
   /**
    * El carril que MANDA si tiene candidata, por encima de la wallet conectada
-   * por casualidad (fundador 2026-09-17: el pote gestionado abría con MetaMask
-   * por defecto teniendo Xaman enlazada; el producto es «todo Flare desde una
-   * wallet XRPL»). La persona puede cambiarla en el desplegable.
+   * por casualidad. La persona puede cambiarla en el desplegable.
    */
   preferRail?: Rail;
   /** La entrada solo se firma en EVM (p. ej. la de FLR). */
@@ -191,7 +163,7 @@ export function SigningWalletPicker({
   const { t } = useT();
   if (wallets.candidates.length === 0) return null;
 
-  // CON LA CARA DE CADA WALLET (fundador 2026-08-30): el `<select>` nativo no
+  // CON LA CARA DE CADA WALLET: el `<select>` nativo no
   // podía pintar el color ni la marca —un `<option>` no admite estilo— y aquí
   // es justo donde hay que reconocer la tuya de un vistazo. WalletSelect trae
   // la misma receta de identidad que la tarjeta de Wallets.

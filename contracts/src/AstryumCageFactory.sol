@@ -101,8 +101,8 @@ contract CageDeployer {
 /**
  * @title AstryumCageFactory — una cuenta XRPL, una jaula, nacida desde XRPL
  *
- * @notice Clon del patrón probado en mainnet (LegacyStackFactory, 5-ago;
- * AstryumStackFactory, 23-ago) para la jaula v2. Las factories anteriores no
+ * @notice Clon del patrón probado en mainnet (LegacyStackFactory;
+ * AstryumStackFactory) para la jaula v2. Las factories anteriores no
  * se tocan.
  *
  * QUIÉN PUEDE CREAR (todo el modelo de seguridad en una línea): solo la Personal

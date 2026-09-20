@@ -3,24 +3,6 @@
 /**
  * ManagedShelf — los vaults donde un TERCERO gestiona el capital, vistos desde
  * el lado del cliente, dentro de Strategies.
- *
- * READ PATH (8-sep): `useMyManagedPositions` mira TODAS las direcciones
- * linkeadas — cada wallet EVM y la Personal Account de cada wallet XRPL — y
- * encuentra los potes donde hay shares (el depósito por XRP las deja en la PA).
- *
- * ES UNA VISTA DE POSICIÓN, NO DE CATÁLOGO (fundador 8-sep): aquí ya TIENES
- * capital dentro, así que no se muestra la ficha de «entrar» (venues, gestor,
- * «Enter this vault») — eso es para decidir entrar. Se muestra lo justo: qué
- * tienes (shares + dirección) y UN botón para SALIR. La info de la salida
- * (ventana, importe, a dónde vuelve) la da el propio modal antes de firmar.
- *
- * «NO PUDE LEER» ≠ «NO TIENES» (revisión 14-sep): con una lectura caída el
- * titular decía «You have no managed vaults» y el fallo iba en letra pequeña —
- * y lo que se lee es el titular. Ahora la vista la decide `managedShelfView`:
- * lectura fallida sin posiciones tiene SU titular y un Retry.
- *
- * COPY que se mantiene: el gestor es un tercero, nunca Astryum; lo que puede o
- * no hacer lo impone el CONTRATO; ni tasa ni proyección (invariante #9).
  */
 
 import { useState } from 'react';
@@ -69,7 +51,7 @@ export function ManagedShelf() {
       <MicroLabel>{t('Managed by a third party')}</MicroLabel>
 
       {view === 'loading' ? (
-        /* Espera de sección con la marca (v-100%, 2026-09-08). */
+        /* Espera de sección con la marca (v-100%). */
         <div className="mt-4">
           <AstryumLoader size={48} label={t('Reading your positions from the chain…')} />
         </div>

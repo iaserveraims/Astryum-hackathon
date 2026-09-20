@@ -1,5 +1,5 @@
 /**
- * THE EXIT IS NEVER GATED (doctrine, 2026-09-13) — the flare-demo router.
+ * THE EXIT IS NEVER GATED (doctrine) — the flare-demo router.
  *
  * A holder's exit (redeem / claim / withdraw / unwind back to their own wallet) must
  * not be blocked by policy: not by the geofence, not by the per-address daily budget.

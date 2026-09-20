@@ -15,65 +15,6 @@ import { translateError } from '../../../lib/errors/translateError';
 /**
  * UI-settling W2-F2 (R6.1 + R8.1) — the two vault modals that ended the story
  * at the SIGNATURE.
- *
- * What was wrong, in the code that shipped:
- *  1. `sign()` did `setPhase('done')` the instant the wallet handed back a
- *     hash. Nothing had been read from the ledger; the mould that already
- *     existed (CouncilOrderCard: 'settling' → 'done' only inside onSettled)
- *     was not applied here.
- *  2. VaultWithdrawModal promised, in the form, that the exact release time
- *     would be "shown before you sign" — and never showed it. The prepare
- *     carries it (`disclosure.queuedExit.claimableAt` = Firelight's on-chain
- *     `currentPeriodEnd()`), and the done-view invented "~24h" instead.
- *  3. VaultClaimModal said "the only cost is the network fee" on BOTH rails —
- *     false on the 0xFE dispatch, which pays a minting fee and an executor fee
- *     in XRP — and rendered those fee rows behind a bare `!= null` guard, so an
- *     unquoted fee became SILENCE. It also decided the success sentence from
- *     the destination toggle alone, never from the rail actually prepared.
- *
- * ROUND 2 — `settling-residuos` (2026-08-18). The residues a sceptical review
- * found on top of that work, all of them in the same family:
- *  4. the catch of `sign()` sent EVERY failure back to 'review' ("prepared
- *     payload still valid — retry the signature"). After a signature that may
- *     already be out, that is an invitation to pay twice: second dispatch,
- *     second carrier XRP, second nonce seat. → `signOutcome`.
- *  5. VaultWithdrawModal still rendered the dispatch's XRP fees behind bare
- *     `!= null` guards (the very asymmetry (3) fixed in its twin), and printed
- *     them with `fmt(x, 2)`, so 0.003 XRP read as "0 XRP" — free.
- *     → `dispatchFeeQuote` + `feeXrpDigits`.
- *  6. the done-view asserted the release date the PREPARE had read, minutes
- *     before the 0xFE executor runs and one period before the exit actually
- *     lands. → `freshClaimableAt` + `releaseLine`.
- *  7. "Fee charged by the vault: none — taken at redeem" was decided by the
- *     rail alone, and the claim's copy inherited "the exit fee was already
- *     taken when you requested the withdrawal" — a charge nobody reads (the
- *     Firelight queued path leaves `instantRedemptionFeeBps` null).
- *
- * ROUND 3 — `settling-final` (2026-08-19). Round 2 built the amber ending and
- * then undermined it in its own last line; a sceptical read named three ways
- * the screen still said more than it knew:
- *  8. the panel quoted `translateError(e, t).message`, and for the two errors
- *     that DOMINATE the unconfirmed state that sentence is «Nothing was signed
- *     and nothing moved — try again in a minute» / «Something went wrong — try
- *     again in a minute», printed under "Do NOT sign it again".
- *     → `unconfirmedTrace` + `signFailureAction`.
- *  9. the hand-off flag flipped when the modal CALLED the wallet partner, and
- *     that call switches chain and estimates gas before any wallet opens — so
- *     a chain-switch failure was announced as a possibly-sent transaction and
- *     left with no way back. → `NEVER_REACHED_WALLET` inside `signOutcome`.
- * 10. `(estimated)` was not an estimate: `currentPeriodEnd()` is the end of the
- *     period BEFORE the one the exit joins, so the modal printed a day with no
- *     Claim button waiting. → `ReleaseLine.floor`.
- * 11. `SignOutcome.'reverted'` had no reader. It has one now, and it is not
- *     decoration: a read revert sends the modal back to the FORM, because the
- *     prepared calldata is spent. → `signFailureAction` view 'form'.
- *
- * The round-2/3 logic lives in `../vaultModalTruth` (plain .ts) and is imported
- * FOR REAL here — these assertions run the shipping functions, not a copy and
- * not a substring. The two round-1 helpers still live inside the .tsx modals,
- * so they keep being pulled OUT of the shipping source and evaluated (the
- * frontend vitest bootstrap is `environment: 'node'`; importing those modules
- * would drag wagmi/AppKit into the test process).
  */
 
 const WITHDRAW = join(__dirname, '..', 'VaultWithdrawModal.tsx');
@@ -643,7 +584,7 @@ describe('settling-final 1 — under "Do NOT sign it again", nothing may invite 
       'Timed out while waiting for transaction receipt. timeout: 180000ms',
     );
     expect(unconfirmedTrace(TIMEOUT)).not.toMatch(INVITES);
-    // familia-no-pude-leer (2026-08-20) closed the residue this assertion used
+    // familia-no-pude-leer closed the residue this assertion used
     // to encode. Quoting Xaman verbatim was only half the fix: its sentence
     // here is a VERDICT about a failed READ ("Transaction submission failed:
     // Failed to retrieve transaction hash from payload"), printed under a

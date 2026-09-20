@@ -1,23 +1,6 @@
 /**
- * productizer it. 31 (agente C, 3) — LA PUERTA DEL DUEÑO LLEGA AL DUEÑO: EL
+ * LA PUERTA DEL DUEÑO LLEGA AL DUEÑO: EL
  * CONSUMIDOR, contra el cuerpo REAL del 409.
- *
- * Lo que falló: `DELETE …/requests/:rid` (it. 27) y `DELETE …/clients/:cid/
- * desk-payments/:pid` (it. 29) existían solo para `curl`. La consola del cliente
- * no tenía método ni botón, `POST …/requests` no mandaba ids ni nombraba la
- * puerta, y `describeRefusal` imprimía el `detail` inglés y ahí acababa.
- *
- * Aquí se prueba la CADENA del lado del cliente:
- *   1. el 409 que hoy manda el servidor entra por `call()` (fetch stub) y sale
- *      como `Refusal` con `inFlight`, `withdrawableRequestIds`, …;
- *   2. la pantalla (`RequestRefusalActions`, lo que `ExchangeClientApp` monta
- *      bajo los botones «Put it into the vault» / «Withdraw to my wallet») pinta
- *      UN botón por puerta, con el id que el servidor nombró;
- *   3. pulsarlo (`openRefusalDoor`, lo que el hook llama) dispara exactamente el
- *      DELETE de esa puerta — URL y método comprobados sobre `fetch`;
- *   4. lo que SÍ está firmado no tiene botón; una lectura nuestra fallida tiene
- *      «Try again» y su frase, no el `detail` crudo.
- * Y el cable: las dos pantallas montan el componente con `c.openDoor`.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
@@ -29,7 +12,7 @@ import { demoApi, describeRefusal, describeRequestRefusal, openRefusalDoor, refu
 
 const t = (s: string) => s;
 
-/** El cuerpo que `POST …/requests` contesta hoy con una SALIDA pendiente delante de una entrada (routes/demoExchange.ts, it. 31). */
+/** El cuerpo que `POST …/requests` contesta hoy con una SALIDA pendiente delante de una entrada (routes/demoExchange.ts). */
 const INSUFFICIENT_WITH_DOOR = {
   error: 'INSUFFICIENT_AVAILABLE_BALANCE',
   detail: 'The demo ledger holds 2.000000 XRP for this client, but 2.000000 XRP of it are reserved by payments still in flight — 0.000000 XRP are available now. Nothing of it appears signed: DELETE /api/demo-exchange/runs/:id/clients/:cid/requests/rq_exit takes it out of the way (it cedes only if nothing was signed for it), and then this composes.',
@@ -151,10 +134,10 @@ describe('1+2 — el 409 real entra por call() y la pantalla pinta la puerta', (
     expect(html).not.toContain('data-door-id');
   });
 
-  it('el otro código sin lector: DESK_PAYMENT_NOT_RELEASABLE_HERE dice que SÍ retiene la retirada (la verdad de la it. 31)', () => {
+  it('El otro código sin lector: DESK_PAYMENT_NOT_RELEASABLE_HERE dice que SÍ retiene la retirada (la verdad de la)', () => {
     const sentence = describeRefusal({ status: 409, error: 'DESK_PAYMENT_NOT_RELEASABLE_HERE', detail: 'raw' }, t);
     expect(sentence).toContain('including against your withdrawal');
-    // it. 33: the promise is conditioned on the loop that keeps it
+    // The promise is conditioned on the loop that keeps it
     expect(sentence).toContain('on its own while its backend loop is running, or by the desk otherwise');
     expect(sentence).not.toBe('raw');
   });

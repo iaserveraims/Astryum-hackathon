@@ -1,21 +1,8 @@
 /**
- * El invariante de aprobaciones (Orden de Trabajo 22-ago §2):
+ * El invariante de aprobaciones (Orden de Trabajo §2):
  *
  *   «Ningún flujo de producto puede pedir al cliente que apruebe al operador
  *    sobre sus participaciones.»
- *
- * AstryumVault hereda ERC-20 sin tocar approve/transferFrom: un
- * `approve(operador, MAX)` sobre las SHARES dejaría al operador llevárselas
- * (y en el pote síncrono, redimirlas él eligiendo receiver). Hoy ningún flujo
- * lo pide — este test existe para que SIGA siendo verdad: si mañana una ruta
- * compone un approve cuyo spender sea el director o el consejo, esto se pone
- * rojo antes de que llegue a producción.
- *
- * Dos capas, como el tripwire de flareDemo.capRoutes:
- *  1) RUNTIME — se llama a la ruta real (lector mockeado) y se DECODIFICAN
- *     los calls devueltos: todo approve tiene spender == el propio pote.
- *  2) FUENTE — barrido del código de institutional.ts: cada
- *     encodeFunctionData('approve' nombra a state.pote como spender.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -181,11 +168,8 @@ describe('institutional — fee-leg de Astryum en el redeem (en participaciones)
   });
 
   /**
-   * INVERTIDO el 24-ago-2026. Este caso comprobaba que con las envs puestas se
-   * compusiera el fee-leg. Ya no: el fundador fijó que el ingreso de Astryum
-   * viene SIEMPRE del lado del operador (corte de la fee del manager, fee de
-   * integrador del venue, pago por creación de pote), nunca del cliente — que es
-   * lo que el canon exigía desde el 18-ago:
+   * INVERTIDO. Este caso comprobaba que con las envs puestas se
+   * compusiera el fee-leg.
    *
    *   «Astryum cobra licencia al operador, jamás un corte del rendimiento del
    *    cliente. Cobrar de ahí nos convertiría de proveedor de software en
@@ -240,7 +224,7 @@ describe('institutional.ts — tripwire de fuente (rutas futuras)', () => {
     expect(approveLines.length).toBeGreaterThan(0);
     const offenders = approveLines.filter((l) => !l.includes('state.pote'));
     // Si esto se pone rojo: una ruta nueva compone un approve con otro spender.
-    // Leer el §2 de la Orden de Trabajo 22-ago ANTES de tocar la lista.
+    // Leer el §2 de la Orden de Trabajo ANTES de tocar la lista.
     expect(offenders).toEqual([]);
   });
 });

@@ -1,24 +1,6 @@
 /**
  * exitCopy — what a prepared pot exit may PROMISE, decided by what the backend
  * actually composed.
- *
- * Why this exists (productizer, 13-sep): PoteExitCard promised «converts back to
- * XRP and lands in the account you are signing with» while calling
- * `/pote-exit/prepare` WITHOUT `unmint`. The backend composed `sync-fxrp` — the
- * FXRP stays in the user's Flare Personal Account — and its disclosure said so,
- * so the user read two contradictory things right before signing. The unit and
- * the arrival sentence must come from the backend's `mode`, never from what the
- * card hoped to ask for.
- *
- * Modes (backend routes/institutional.ts):
- *  · 'sync'      — redeem + unmint in one signature → native XRP to the signer
- *  · 'sync-fxrp' — redeem only → FXRP in the user's own Flare account
- *  · 'request'   — pot with an exit window: shares burn, amount fixed in FXRP
- *  · 'claim'     — collecting a matured ticket; `unminted` says XRP or FXRP
- *
- * An unknown or missing mode never promises XRP: only an explicit unmint does.
- *
- * Strings are English sources for `t()` (they fall back to English).
  */
 
 export type ExitUnit = 'XRP' | 'FXRP';

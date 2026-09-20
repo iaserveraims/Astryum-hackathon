@@ -163,8 +163,7 @@ const USER_ROW = {
 };
 
 // La misma operación pero desde una cuenta NUESTRA de prueba: tras el corte
-// tampoco entra (founder: "dejamos visible todo lo que hay hoy; no van a entrar
-// más"). Mover el cupo es un acto deliberado, no un efecto secundario.
+// tampoco entra. Mover el cupo es un acto deliberado, no un efecto secundario.
 const OURS_XRPL = 'rAstryumTestAccount33333333333333';
 const OURS_ROW = {
   ...USER_ROW,
@@ -265,7 +264,7 @@ describe('GET /api/platform/trust', () => {
   });
 });
 
-// ── El cupo público (founder 2026-08-01) ─────────────────────────────────────
+// ── El cupo público ─────────────────────────────────────
 //
 // Un tx hash ES un identificador: quien lo abre en el explorador ve la cuenta
 // del usuario. Por eso la landing publica lo que había al cerrar el cupo y, de
@@ -309,10 +308,10 @@ describe('el cupo público de /proof', () => {
     process.env.PROOF_PUBLIC_CUTOFF_AT = '2026-08-11T00:00:00Z';
     state.rows = [OURS_ROW, USER_ROW, GOOD_ROW];
     const res = await request(freshApp()).get('/api/platform/activity');
-    // Entra la del usuario del 10-ago porque el corte se movió a propósito: la
+    // Entra la del usuario porque el corte se movió a propósito: la
     // fecha es la única palanca, y es deliberada.
     expect(res.body.recent).toHaveLength(2);
-    expect(res.text).not.toContain(OURS_ROW.result.xrplTxHash); // el 11-ago sigue fuera
+    expect(res.text).not.toContain(OURS_ROW.result.xrplTxHash); // Sigue fuera
   });
 
   test('una fecha de corte ilegible cae al default — nunca a «pasa todo»', async () => {

@@ -11,7 +11,7 @@
  *   - Native partners (XRPL=Xaman, Aptos=Petra, Stellar=Freighter): connected
  *     through their own SDK/service, then persisted here.
  *
- * REGULATORY (CLAUDE.md §0): connecting is READ-ONLY. It never authorizes a
+ * REGULATORY: connecting is READ-ONLY. It never authorizes a
  * transaction and never broadcasts. Signing stays in the user's wallet.
  */
 
@@ -64,8 +64,7 @@ export function useUniversalConnect(refresh: () => Promise<void> | void) {
   /**
    * XRPL via Xaman (deeplink/QR). Updates walletStore so signing sees it too.
    *
-   * `confirm` ES LA PARADA ANTES DE ESCRIBIR (fundador 2026-09-13: «si estás
-   * añadiendo una wallet que es legacy quiero que te avise»). La dirección sólo
+   * `confirm` ES LA PARADA ANTES DE ESCRIBIR. La dirección sólo
    * se conoce DESPUÉS de conectar, así que la comprobación no puede vivir antes
    * de este bloque: se le entrega aquí la dirección recién conocida y, si
    * contesta `false`, no se persiste nada y el alta termina en CANCELLED —

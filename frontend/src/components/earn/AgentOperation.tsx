@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * AgentOperation — el agente como VENTANA DE OPERACIÓN (fundador 2026-08-29:
- * «cuando le hables, se abra anclado a la derecha, como si fuera una
- * estrategia»). Misma OperationSurface que las estrategias — anclable,
+ * AgentOperation — el agente como VENTANA DE OPERACIÓN. Misma OperationSurface que las estrategias — anclable,
  * minimizable a píldora, sobrevive a la navegación en el host global — con
  * una diferencia deliberada: NO cuenta para el tope de tres operaciones (el
  * store lo excluye), así que el máximo real es tres estrategias más el

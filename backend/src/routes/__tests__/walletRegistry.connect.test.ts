@@ -2,16 +2,6 @@
  * Regression: POST /api/wallets/connect — auto-primary vs the partial unique
  * index `wallets_one_primary_per_user_ecosystem` (ONE isPrimary=true per
  * userId+ecosystem, WHERE isPrimary).
- *
- * Bug (2026-07-11): the auto-primary gate counted wallets with purpose IN
- * (sign, both). Two watch-only wallets of the same ecosystem (e.g. two Xaman
- * addresses added from the tracker) therefore BOTH computed "first in
- * ecosystem" → both isPrimary=true → the second insert 500'd with
- * "Unique constraint failed on the fields: (userId, ecosystem)".
- *
- * The gate must mirror the index: grant primary only when no wallet of that
- * ecosystem is currently primary. Prisma is faked in-memory, including the
- * partial-unique behaviour, so this is hermetic.
  */
 import express from 'express';
 import request from 'supertest';
@@ -90,8 +80,7 @@ const tx = {
 const bindingRows: { id: string; userId: string; address: string; isActive: boolean }[] = [];
 
 /**
- * The live session /connect now proves INSIDE its own transaction (productizer
- * it. 16, 4.1). Flip `live` to simulate a takeover that commits while the
+ * The live session /connect now proves INSIDE its own transaction. Flip `live` to simulate a takeover that commits while the
  * request is in flight — `TrialCapService` alone is a pricing round-trip.
  */
 const live = {
@@ -231,7 +220,7 @@ describe('POST /api/wallets/connect — one primary per ecosystem', () => {
 });
 
 /**
- * Bug (2026-08-01): a Xaman r-address reached /connect declared as
+ * Bug: a Xaman r-address reached /connect declared as
  * `ecosystem: 'evm', network: 'flare', chainId: 14` (the Wallets page
  * auto-registers `user.address`, which falls back to the first linked wallet).
  * It was stored lower-cased under the EVM rail and auto-named "Flare 2" — a
@@ -283,7 +272,7 @@ describe('POST /api/wallets/connect — the ecosystem must match the address', (
 });
 
 /**
- * productizer it. 16 (4.1) — a wallet row is a DESTINATION: the send modal
+ * A wallet row is a DESTINATION: the send modal
  * pre-fills the primary of an ecosystem and the router picks it to sign with. A
  * request that passed requireSiweAuth before an account takeover would otherwise
  * land after it and make the intruder's address the owner's primary wallet,
@@ -304,7 +293,7 @@ describe('POST /api/wallets/connect — a takeover in flight plants nothing', ()
     const res = await connectXrpl(XRPL_1);
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('session_revoked');
-    // A readable English sentence, never a raw error chain (it. 16, 5.6).
+    // A readable English sentence, never a raw error chain (5.6).
     expect(res.body.detail).toMatch(/session is no longer valid/i);
     expect(rows).toHaveLength(0);
   });
@@ -329,9 +318,7 @@ describe('DELETE /api/wallets/mine/:id', () => {
 });
 
 describe('POST /api/wallets/connect — nickname is the USER\'s, never invented', () => {
-  // The "<Chain> N" auto-nickname generator was RETIRED (founder 2026-08-08:
-  // their own Xaman read "XRPL 1" everywhere — the machine name shadowed the
-  // provider's in the display rule). No nickname from the client = NULL
+  // The "<Chain> N" auto-nickname generator was RETIRED. No nickname from the client = NULL
   // stored; the frontend shows the provider name or the short address.
   it('stores NULL when the client sends no nickname (no "<Chain> N" invention)', async () => {
     const a = await connectXrpl(XRPL_1);

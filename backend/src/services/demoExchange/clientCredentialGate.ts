@@ -1,28 +1,9 @@
 /**
  * clientCredentialGate — el KYC del exchange, UNA CREDENCIAL POR CASILLA.
  *
- * Decisión del fundador (14-sep, «solo B»): la credencial XLS-70 la emite la
- * RAÍZ del exchange y su SUJETO es el propio OMNIBUS, con un tipo por tag —
- * `KYC-101`. Así cada casilla del omnibus lleva su KYC en el ledger y el cliente
+ * Así cada casilla del omnibus lleva su KYC en el ledger y el cliente
  * no necesita cuenta XRPL propia para operar (la necesita para retirar a
  * autocustodia, que es otra cosa).
- *
- * QUÉ ES Y QUÉ NO ES, dicho sin adornos:
- *  · Es un **registro notarizado del proceso del exchange**: público, fechado,
- *    no reescribible, y con caducidad que este gate relee en cada movimiento.
- *  · NO es consentimiento del cliente (no firma él) ni una credencial portable.
- *  · NO la hace cumplir el ledger: XRPL no condiciona nada a un DestinationTag,
- *    y una credencial cuyo sujeto es el omnibus solo autorizaría al omnibus como
- *    PAGADOR (`CredentialIDs` exige que el emisor de la tx sea el sujeto). El
- *    enforcement lo hace este backend; llamarlo de otra forma sería mentir.
- *
- * Tres reglas que no son negociables:
- *  1. **Se gatea lo que ENTRA, jamás lo que SALE.** Una credencial caducada se
- *     renueva; mientras tanto el dinero ya dentro sale igual.
- *  2. **El ledger lleva el SÍ, nunca el NO.** Aquí solo se LEE la atestación
- *     positiva; no se publica ningún rechazo.
- *  3. **Fail-closed sin mentir**: si el ledger no se puede leer es 503
- *     `CREDENTIALS_UNREADABLE`, que NO es «no tiene credencial».
  */
 
 import { readAccountCredentials, type CredentialRead } from '../XrplCredentialVerifier';

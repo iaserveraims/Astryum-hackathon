@@ -5,7 +5,7 @@
  * (Esplora) REST API and returns it as CanonicalPosition[]. BTC priced via
  * DeFiLlama (coingecko:bitcoin).
  *
- * Read-only. Astryum never signs or broadcasts (CLAUDE.md §0).
+ * Read-only. Astryum never signs or broadcasts.
  */
 
 import type {

@@ -1,6 +1,6 @@
 /**
  * The demo exchange's client self-serve routes must not be a path to someone
- * else's money (productizer cycle, iterations 3 and 4):
+ * else's money:
  *  - a SESSION is required for every self-serve mutation (401 anonymous);
  *  - rows have OWNERS: a desk-created row is claimed only with its one-time
  *    claim code; nobody else mutates a row they do not own;
@@ -13,7 +13,7 @@
  */
 import express from 'express';
 import request from 'supertest';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange
 // se prueba en clientCredentialGate.test y demoExchange.credentialGate.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 import type { DemoRun } from '../../services/demoExchange/DemoExchangeStore';
@@ -21,7 +21,7 @@ import { payoutWalletProven } from '../../services/demoExchange/payoutProof';
 import { classifyOmnibusTxs, type OmnibusTx } from '../../services/demoExchange/OmnibusWatcher';
 
 let store: DemoRun;
-// 18-sep: más exchanges en el mismo almacén (cliente POR exchange). Vacío por defecto.
+// Más exchanges en el mismo almacén (cliente POR exchange). Vacío por defecto.
 let mockExtraRuns: DemoRun[] = [];
 const mockSaveRun = jest.fn(async () => undefined);
 
@@ -127,7 +127,7 @@ describe('a session is required for every self-serve mutation', () => {
     expect(mockSaveRun).not.toHaveBeenCalled();
   });
 
-  it('reads need a door (20-sep), and what they serve never carries the claim hash, the owner id or the creator id', async () => {
+  it('Reads need a door, and what they serve never carries the claim hash, the owner id or the creator id', async () => {
     expect((await request(app).get('/api/demo-exchange/runs/run1')).status).toBe(401);
     expect((await request(app).get('/api/demo-exchange/runs')).status).toBe(401);
     // Quien no es ni dueño ni cliente recibe lo mismo que por un id inventado.
@@ -276,20 +276,18 @@ describe('passkey duplicates are per owner', () => {
     expect(mine.body.client.id).toBe('erinRow');
     const stranger = await request(app).get(`/api/demo-exchange/runs/for-account?account=${OTHER_PASSKEY}`).set(as('zoe'));
     expect(stranger.body.found).toBe(false);
-    // 14-sep: y se le DICE que esa llave ya tiene cuenta en ese exchange (nunca de quién),
+    // Y se le DICE que esa llave ya tiene cuenta en ese exchange (nunca de quién),
     // para que no abra una segunda ficha para la misma llave.
     expect(stranger.body.heldElsewhere).toEqual({ exchange: expect.objectContaining({ runId: 'run1' }), reclaimRequired: false });
     expect(JSON.stringify(stranger.body.heldElsewhere)).not.toContain('erin');
-    // 20-sep: el portal ya no contesta a una lectura anónima.
+    // El portal ya no contesta a una lectura anónima.
     const anon = await request(app).get(`/api/demo-exchange/runs/for-account?account=${OTHER_PASSKEY}`);
     expect(anon.status).toBe(401);
   });
 });
 
 /**
- * 18-sep (fundador: «cuando crea una cuenta a un exchange es al que ha pedido
- * acceso y le han dado la verificación, sino no está dentro de ese exchange»):
- * ser cliente es POR EXCHANGE. La misma llave pide acceso a otro exchange con su
+ * Ser cliente es POR EXCHANGE. La misma llave pide acceso a otro exchange con su
  * propia ficha (su tag, su KYC); dentro de UN exchange sigue siendo una ficha.
  */
 describe('a passkey is one client PER EXCHANGE', () => {
@@ -331,7 +329,7 @@ describe('a passkey is one client PER EXCHANGE', () => {
     expect(res.body.joinable).toEqual([]);
   });
 
-  it('an exchange where this key already has a row of ANOTHER session is not offered to join (14-sep: no second row for one key)', async () => {
+  it('An exchange where this key already has a row of ANOTHER session is not offered to join (no second row for one key)', async () => {
     mockExtraRuns = [secondRun()];
     // 'victim' (run1) carries OTHER_PASSKEY and belongs to someone else.
     const res = await request(app).get(`/api/demo-exchange/runs/for-account?account=${OTHER_PASSKEY}`).set(as('zoe'));

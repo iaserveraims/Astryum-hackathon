@@ -2,30 +2,7 @@
 
 /**
  * ScopeSelect — el filtro de alcance como UN BOTÓN, no como una fila entera
- * de chips (fundador 2026-09-07: «en vez de mostrar todas las wallets ahí
- * abiertas, estaría bien que fuera rollo selector... que se abre pasando el
- * ratón y presionando el botón también»).
- *
- * POR QUÉ. La fila de chips crecía con cada wallet enlazada y se comía un
- * renglón entero de la pantalla en TODAS las lentes del Portfolio, cuando lo
- * que dice es una sola cosa: qué estás mirando. Un botón lo dice igual y
- * devuelve el sitio al contenido, que es a lo que se viene.
- *
- * SE ABRE DE DOS MANERAS, a propósito:
- *  · al pasar el ratón — rápido, sin clic, para echar un vistazo;
- *  · al pulsar — porque el hover no existe en táctil ni en teclado, y un
- *    control que solo responde al ratón deja fuera a media casa.
- * Pulsado, queda ANCLADO (no se cierra al salir el ratón): elegir con calma
- * no debería depender de no despegar el cursor.
- *
- * LA ETIQUETA VA DELANTE («Wallet: Xaman»), fundador: «que se indique de
- * manera leve a qué hace referencia cada botón» — un chip suelto que pone
- * «XRPL» no dice si filtra red, activo o carril.
- *
- * ACCESIBILIDAD: el panel es un listbox de verdad — roles, aria-selected,
- * flechas + Home/End, Enter/Espacio, Escape y foco devuelto al botón. La fila
- * de chips que sustituye era navegable con Tab por construcción; sin esto,
- * compactar sería quitarle a alguien su manera de usar la página.
+ * de chips.
  */
 
 import { useEffect, useId, useRef, useState } from 'react';

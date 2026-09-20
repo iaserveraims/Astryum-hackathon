@@ -8,9 +8,7 @@ import { invalidatePortfolioCache } from '@/lib/portfolioMerge';
 import { translate } from '@/i18n/dict';
 
 /**
- * operationStore v2 — HASTA TRES operaciones vivas a la vez (fundador
- * 2026-08-27: «que se puedan abrir varias estrategias a la vez,
- * concretamente tres, para no romper nada»; el Legacy cuenta como card).
+ * operationStore v2 — HASTA TRES operaciones vivas a la vez (el Legacy cuenta como card).
  *
  * El modelo: una lista de operaciones montadas (cada una conserva TODO su
  * estado — importes, review, ceremonia) y UNA activa desplegada (flotante o
@@ -40,10 +38,10 @@ export type HostedOp =
   | { id: string; kind: 'constitute' }
   | { id: string; kind: 'reinforce'; account: string }
   | { id: string; kind: 'govern'; account: string; label?: string | null; tab?: 'proposals' }
-  /** La MESA DEL GESTOR como ventana anclable (fundador 2026-09-10: fuera del
-   *  sidebar, dentro de Managed vaults, «en una ventanita anclable a la derecha»). */
+  /** La MESA DEL GESTOR como ventana anclable.
+   */
   | { id: string; kind: 'manager' }
-  /** El alta del gestor y la del exchange como ceremonias (12-sep): la misma
+  /** El alta del gestor y la del exchange como ceremonias: la misma
    *  ventana que Constituir, una sola vez cada una. */
   /** `jump`: a one-shot order to land on a station (renew the title from
    *  Operate). Not persisted — a restored window lands where the ledger says. */
@@ -103,11 +101,11 @@ interface OperationState {
   openCageOp: (op: { account: string; vaultTitle: string }) => boolean;
   openConstituteOp: () => boolean;
   openReinforceOp: (account: string) => boolean;
-  /** Gobernar un Legacy en burbuja anclable (fundador 2026-08-30). */
+  /** Gobernar un Legacy en burbuja anclable. */
   openGovernOp: (account: string, label?: string | null, tab?: 'proposals') => boolean;
-  /** La mesa del gestor en burbuja anclable (fundador 2026-09-10). */
+  /** La mesa del gestor en burbuja anclable. */
   openManagerOp: () => boolean;
-  /** Las ceremonias de configuración (12-sep): alta del gestor y del exchange. */
+  /** Las ceremonias de configuración: alta del gestor y del exchange. */
   openManagerSetupOp: (jump?: { step: number; nonce: number }) => boolean;
   openExchangeSetupOp: () => boolean;
   openAgentOp: (seed?: string) => boolean;
@@ -132,8 +130,7 @@ export const useOperationStore = create<OperationState>((set, get) => ({
       }));
       return true;
     }
-    // El AGENTE no cuenta para el tope (fundador 2026-08-29: «si se minimiza
-    // no cuenta para el límite de tres») — el máximo real de píldoras es
+    // El AGENTE no cuenta para el tope — el máximo real de píldoras es
     // tres estrategias más el agente.
     const strategyCount = get().ops.filter((o) => o.kind !== 'agent').length;
     if (op.kind !== 'agent' && strategyCount >= MAX_OPS) {
@@ -178,23 +175,7 @@ export const useOperationStore = create<OperationState>((set, get) => ({
 }));
 
 /* ─────────────────────────────────────────────────────────────────────────
- * LAS VENTANAS SOBREVIVEN A LA RECARGA (fundador 2026-09-09: «cuando
- * refresco la página se elimina por completo… que se mantenga la pestañita
- * abierta hasta que el usuario decida cerrar»).
- *
- * Se persiste la LISTA de operaciones y cuál está desplegada, por cuenta, en
- * localStorage — no su estado interior (importes tecleados, paso de una
- * ceremonia): eso vive en cada componente. Lo que sí vuelve entero es lo que
- * importa tras firmar: la fase «en proceso», porque el asiento pendiente
- * persiste con la clave de su ventana (PendingRef.opKey) y la ventana
- * rehidratada lo readopta (useSettlement.adopt).
- *
- * Serialización honesta: una `vault` guarda solo su `kind` y se resuelve
- * contra el catálogo real al rehidratar (el DemoVault lleva JSX); una `pa`
- * pierde su callback onChanged y recibe uno que invalida el Portfolio; el
- * agente vuelve como ventana vacía (sus conversaciones ya tienen su propio
- * historial). Cerrar sesión borra todo (authStore.logout).
- * ───────────────────────────────────────────────────────────────────────── */
+ * LAS VENTANAS SOBREVIVEN A LA RECARGA. */
 
 const OPS_KEY_PREFIX = 'astryum:ops';
 
@@ -281,7 +262,7 @@ export async function rehydrateOperations(): Promise<void> {
 
   const restored: OpInput[] = [];
   for (const p of stored.ops) {
-    // Cada entrada por su cuenta (revisión 10-sep): una que no se pueda
+    // Cada entrada por su cuenta (revisión): una que no se pueda
     // rehidratar (chunk que ya no existe tras un deploy, forma vieja) no
     // arrastra a las demás — antes un solo fallo perdía TODAS las ventanas.
     try {

@@ -3,34 +3,10 @@
  *
  * Los agentes de Astryum ya avisaban de lo que les pasaba MIENTRAS corrían
  * (executor 0xFE, provider-health, relayer). El hueco era el otro: lo que NO
- * pasa no emite nada. El 31-jul el watcher se quedó 5 horas ciego sirviendo
+ * pasa no emite nada. El watcher se quedó 5 horas ciego sirviendo
  * una ventana XRPL congelada y el canal estuvo en silencio todo ese rato —
  * porque un tick que no encuentra nada y un tick que no corre se parecen
  * demasiado desde fuera.
- *
- * Este servicio da la vuelta al planteamiento: cada N minutos PREGUNTA por el
- * estado de cada carril (probes), compara con el estado anterior y solo abre
- * la boca cuando algo CAMBIA — se rompe, empeora, mejora o se resuelve. Cada
- * aviso lleva el objeto afectado (hash/cuenta/importe) y la línea de arreglo,
- * de modo que el texto que llega al móvil basta para actuar:
- *
- *   🔴 CRITICAL · sentinel/executor-pendientes
- *   la tx 7BFC…65F (12.5 XRP de rN7n…) lleva 47 min pillada en el executor
- *   hash: 7BFC…65F · xrp: 12.5 · fallos: 3
- *   ↳ Arreglo: /app/admin → Sistema → Desatascar → Reintentar en esa fila.
- *
- * Tres propiedades que lo hacen fiable:
- *  · Antifrágil al ruido — un aviso por objeto y por transición; los críticos
- *    se recuerdan cada hora, los warns cada 6h, y la RESOLUCIÓN también se
- *    anuncia (si no, nadie sabe cuándo dejar de mirar).
- *  · Verdad en el panel — el snapshot vive en /app/admin (regla del fundador:
- *    los gauges no viven en la consola), aunque no haya webhook configurado.
- *  · Interruptor de hombre muerto — si el proceso ENTERO muere, ningún vigía
- *    interno puede avisar. Por eso cada pasada hace ping a OPS_HEARTBEAT_URL
- *    (healthchecks.io / Better Stack): el silencio lo detecta alguien de fuera.
- *
- * Read-only por construcción: los probes leen: nunca firman, nunca escriben
- * on-chain, nunca tocan capital (invariantes #1/#8). Nunca lanza.
  */
 
 import { opsAlert, alertChannels, type AlertLevel } from '../OpsAlertService';

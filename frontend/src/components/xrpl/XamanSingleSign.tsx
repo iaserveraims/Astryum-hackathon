@@ -7,85 +7,8 @@
  * credenciales), empaquetado: para cuentas SIN SignerList — el gestor, el
  * ancla de la demo, el emisor. Una cuenta-consejo firma por
  * `CouncilSigningDoors`; mandar a un gestor single-sig por esas puertas
- * acababa en «no es una cuenta de consejo» (visto 5-sep, el accept de la
+ * acababa en «no es una cuenta de consejo» (visto, el accept de la
  * bandeja). Cada herramienta a su cuenta.
- *
- * Astryum compone y entrega; la firma ocurre en el móvil del dueño. El
- * payload caduca solo (5 min) si nadie firma.
- *
- * «FIRMADO» NO ES «HECHO» (familia unearned-success, 13-sep). Quien usa este
- * componente relaya una prueba FDC o marca un paso completo en `onSettled`, así
- * que `onSettled` solo se llama cuando el LEDGER valida la tx con tesSUCCESS.
- * La decisión vive en `lib/xrpl/singleSignVerdict` (pura, con tests): sin hash
- * o sin validación → 'unconfirmed' y jamás «Try again»; tem/tef/tel → nada
- * entró en un ledger, reintentar es seguro; tec validado → error sin reintento.
- * Arreglarlo aquí lo arregla en todos los que llaman.
- *
- * UNA TX ACTIVA (13-sep, residuos de doble firma). El payload se crea una vez
- * por transacción ACTIVA. Un padre que cambiaba `txjson` con el componente
- * montado (ManagerConsole, con un segundo «Review and sign») dejaba en pantalla
- * el QR del payload ANTERIOR mientras su `onSettled` ya hablaba por la orden
- * nueva — la orden nueva relayada contra el hash viejo. Ahora, con
- * `nextActiveTxKey` (pura, con tests):
- *   · si la firma activa NO bloquea → se adopta la tx nueva y se pide su payload;
- *   · si bloquea (QR vivo, confirmando, sin confirmar, tec validado) → se
- *     CONSERVA la activa, su validación en curso no se aborta, y se avisa de que
- *     hay otra esperando.
- * Tras un tesSUCCESS la fase es 'settled': se dice, y deja de bloquear.
- *
- * EL QR VIVO TAMBIÉN ES UNA FIRMA (13-sep). Con el QR/push en pantalla el
- * usuario puede firmar YA en el móvil, y el «Cancel» del padre solo dejaba de
- * sondear: el payload seguía firmable en Xaman sus 5 minutos, y «Prepare the
- * order» daba un segundo payload al lado — firmar los dos, dos órdenes. Ahora
- * 'waiting' bloquea al padre, y la única salida es «Cancel this request» aquí
- * dentro, que PREGUNTA a Xaman (`cancelPayloadAndDecide`, el mismo viaje de
- * CloseDoorSign y la bandeja del consejo) y obedece su respuesta
- * (`retreatDecision`): matado → 'cancelled' + `onCancelled`; ya respondido en el
- * móvil → se sigue hacia la confirmación, jamás un payload nuevo; vivo o sin
- * respuesta → se queda y se dice.
- *
- * DESMONTAR NO ES CANCELAR (productizer-it7, 14-sep). Al desmontar con un
- * payload vivo se disparaba un DELETE ciego que nadie leía: con ALREADY_OPENED
- * (abierto en el móvil, firmable) la petición seguía viva en silencio. Ahora el
- * payload se REGISTRA al crearse (`lib/xaman/liveRequests`), se RESUELVE con su
- * veredicto, y si el componente se va sin veredicto se ENTREGA al registro, que
- * sigue leyendo su estado; el banner global (`LiveXamanRequests`) lo dice y
- * ofrece cancelarlo obedeciendo la respuesta. Si se va con una firma cuyo
- * resultado del ledger nadie leyó, el banner dice «firmada — comprueba el
- * resultado» con el hash. `XamanSignBlockScope` deja a un ancestro cerrar su
- * propia salida mientras una firma de dentro bloquea.
- *
- * FIRMADA NO ES EL FINAL, Y CADUCADA NO SE REINTENTA (it.11, 14-sep).
- *   · Con la orden FIJADA (Sequence + LastLedgerSequence), tefPAST_SEQ /
- *     tefMAX_LEDGER dicen que ESTA tx no puede validar nunca: fase 'stale', sin
- *     «Try again» (recrearía el mismo payload en bucle) y sin bloquear al padre,
- *     cuyo prepare es el camino. tefALREADY espera al ledger.
- *   · Mientras se lee el resultado del ledger ('confirming') la firma queda
- *     registrada como 'confirming' (la guarda `beforeunload`); si el componente se
- *     va entonces, se ENTREGA al registro, que lee el resultado y lo muestra en el
- *     banner. Una orden de consejo la lleva a Flare el vigía del servidor aunque
- *     esta pantalla ya no exista (`sweepComposedCouncilOrders`) SOLO si su prepare
- *     dijo `serverDelivery` registrada + executor en marcha (it.13); si no, el
- *     banner lo dice y pide relayarla por hash.
- *
- * CADUCADA NO ES «PREPÁRALA OTRA VEZ» SI ES UNA ORDEN (it.13, R2 3.1). La misma
- * orden vive en dos payloads (el del banner y el re-preparado, misma Sequence
- * fijada): si uno se firmó y va de camino, el otro contesta tefPAST_SEQ, y «prepare
- * it again» componía una orden NUEVA — capital movido dos veces. Ante 'stale'
- * sobre una orden de consejo (memo de 32 bytes) se lee su destino
- * (`readCouncilOrderFate`) ANTES de ofrecer nada: salida → «no la prepares otra
- * vez» con el hash; compuesta/desconocida → «prepárala otra vez»; ilegible →
- * «comprueba antes de preparar otra vez». 'stale' sigue sin bloquear al padre.
- *
- * Y EL PADRE SE ENTERA (it.14, R2 2.3). Esa frase era decoración: el padre podía
- * componer otra orden en cuanto esta tarjeta desaparecía, que es justamente el
- * capital movido dos veces. El destino sale por `onStaleFate` y el padre lo
- * guarda en `useStaleOrderLock` — un candado que sobrevive al desmontaje y que
- * solo abre la persona («I checked — compose a new order»).
- *
- * `onSigned` (it.13): el hash en cuanto Xaman firma y la tx va al ledger — para
- * avisar `/handoff/signed` al instante (el backend recuerda el hash con 202
- * PENDING_LEDGER). `onSettled` sigue siendo solo el tesSUCCESS validado.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -157,17 +80,16 @@ const VALIDATION_TIMEOUT_MS = 60_000;
  * The `expire` every payload this component mints carries, in MINUTES — Xaman's
  * unit (300 once meant five HOURS here). Named because the seat's real window is
  * derived from it: `payload-opened` re-stamps the server's `payloadExpiresAt` at
- * «now + this», which is the only clock Xaman is actually running (it. 19, R1 1.3).
+ * «now + this», which is the only clock Xaman is actually running (R1 1.3).
  */
 export const XAMAN_EXPIRE_MIN = XAMAN_PAYLOAD_EXPIRY_MIN_DEFAULT;
 
 /**
- * it. 21 (it. 20 §3.9) — AND IT IS ONLY THE FALLBACK.
+ * AND IT IS ONLY THE FALLBACK.
  *
  * The number above was hand-written here AND in the backend
  * (`HANDOFF_PAYLOAD_EXPIRY_MIN`), and the server has been answering its own
- * value as `payloadExpiryMin` on every prepare and every `payload-opened` since
- * it. 19 — which this frontend never read. Two hand-kept copies of one number
+ * value as `payloadExpiryMin` on every prepare and every `payload-opened` — which this frontend never read. Two hand-kept copies of one number
  * drift the day somebody changes one of them, and the direction that hurts is
  * silent: a seat that outlives its payload (nothing signable, the account
  * walled) or a seat freed under a payload that can still be signed (the twin).
@@ -177,23 +99,12 @@ export const XAMAN_EXPIRE_MIN = XAMAN_PAYLOAD_EXPIRY_MIN_DEFAULT;
  */
 
 /**
- * it. 25 (§3) — THE SEAT'S REAL DEADLINE, NOT THIS BROWSER'S ARITHMETIC.
+ * THE SEAT'S REAL DEADLINE, NOT THIS BROWSER'S ARITHMETIC.
  *
- * `payload-opened` has been sealing «now + the window we asked for» ever since
- * it. 19. That is a guess twice over: the payload exists a round trip later than
+ * `payload-opened` has been sealing «now + the window we asked for» ever. That is a guess twice over: the payload exists a round trip later than
  * `now`, and Xaman counts to an `expires_at` of its OWN which it reports on the
- * payload. The desk (`OmnibusSignDoor`) has sealed the real one since it. 23 —
+ * payload. The desk (`OmnibusSignDoor`) has sealed the real one —
  * the ordinary signature, which is every other 0xFE in the product, never did.
- *
- * So: one read of the payload, one re-seal. The server only ever moves a seat's
- * deadline FORWARD and caps it at the ledger window (`clampStampedPayloadExpiry`),
- * so this can neither shorten a seat under a live payload nor stretch one past
- * the ledger. Anything beyond the window we ASKED for is ignored here too — a
- * reading that claims more than we requested is not a fact about this payload.
- *
- * Best effort by construction: a failure leaves the estimate already sealed
- * above, which is exactly today's behaviour. It never blocks the QR and it never
- * signs, cancels or broadcasts anything.
  */
 async function sealRealPayloadExpiry(uuid: string, memoHex: string, expireMin: number): Promise<void> {
   try {
@@ -217,8 +128,8 @@ type Phase = SingleSignPhase;
 /**
  * XamanSignBlockScope — lets an ANCESTOR lock its own way out (a lens bar, an
  * operation window's X) while ANY `XamanSingleSign` below it blocks retreat,
- * without every component in between threading `onBlockedChange`
- * (productizer-it7). Scopes nest: an inner scope reports into the outer one.
+ * without every component in between threading `onBlockedChange`.
+ * Scopes nest: an inner scope reports into the outer one.
  * `onBlockedChange` hears only transitions; the scope says nothing on unmount
  * (its owner is going away with it).
  */
@@ -272,7 +183,7 @@ interface PayloadRun {
   /**
    * The hash whose LEDGER result this component is reading right now (phase
    * 'confirming'). Registered as 'confirming' in `liveRequests`; leaving while
-   * it is set hands it off so the registry reads the result (it.11).
+   * it is set hands it off so the registry reads the result.
    */
   confirmingTxid?: string;
   /** Read the status once, now (also the poll tick). */
@@ -297,8 +208,8 @@ export function XamanSignBlockedNote({ className = '' }: { className?: string })
 }
 
 /**
- * What the server said about a composed council order besides the order itself
- * (it.13): `recoveryWarning` (an exit the server could not remember — nobody but
+ * What the server said about a composed council order besides the order itself:
+ * `recoveryWarning` (an exit the server could not remember — nobody but
  * this screen delivers it) and `inFlightWarning` (another order of the account
  * is already in flight). Rendered visibly by every console that composes one.
  */
@@ -311,7 +222,7 @@ export function CouncilOrderServerWarnings({
   recoveryWarning?: string | null;
   inFlightWarning?: string | null;
   /**
-   * it.14 (K2): the SAME order (same action, same parameters) went out for this
+   * The SAME order (same action, same parameters) went out for this
    * council a moment ago. An exit is never refused, so the server lets it
    * through with this word instead of a 409 — and the screen must show it, or
    * the quorum signs the second movement of the same capital without knowing.
@@ -355,20 +266,13 @@ export function CouncilOrderServerWarnings({
 }
 
 /**
- * productizer it. 21 (it. 20 §3.5) — THE 503s THAT HAD NO READER AND NO BUTTON.
+ * THE 503s THAT HAD NO READER AND NO BUTTON.
  *
  * `ACCOUNT_BUSY` (503 + `Retry-After`) and `PROOF_STORE_UNREADABLE` (503) are the
  * server saying A READ OF OURS FAILED: nothing was saved, nothing moved, come
  * back in a moment. Both were shipped with `retryable: true` and a sentence —
  * and reached the screens as nothing but a `detail` under a generic headline,
  * with no way to act. A retry that nobody can press is not a retry.
- *
- * One block for all of them (`describeRetryableRefusal` writes the sentence, the
- * seconds included when the server sent a `Retry-After`), with the retry as a
- * BUTTON. It renders nothing for a refusal that is not one of these, so a caller
- * can put it above its own panel without a condition. Exported so the exit
- * screens use the same words — an exit is the surface where «I could not read»
- * must never look like a no.
  */
 export function ReadFailureNotice({
   refusal,
@@ -407,15 +311,15 @@ export function ReadFailureNotice({
 }
 
 /**
- * 409 SAME_ORDER_RECENTLY_LAUNCHED (it.14; `COUNCIL_ORDER_IN_FLIGHT` in it.13):
+ * 409 SAME_ORDER_RECENTLY_LAUNCHED (`COUNCIL_ORDER_IN_FLIGHT` in):
  * the server refuses to compose a non-exit order because the SAME one — same
  * action, same parameters — went out for this council a moment ago. Composing it
  * again anyway is an explicit, separate decision, never a silent retry.
  *
- * The guard changed shape between iterations: it.13 asked «is anything of this
+ * The guard changed shape between iterations: asked «is anything of this
  * council in flight», which blocked harmless pairs and stopped blocking the
  * moment the first order executed — precisely when the double became possible.
- * It.14 asks «is THIS order a repeat», so the sentence names the repetition and,
+ * Asks «is THIS order a repeat», so the sentence names the repetition and,
  * when the server counts it, how long ago.
  */
 export function CouncilOrderInFlightConfirm({
@@ -435,14 +339,14 @@ export function CouncilOrderInFlightConfirm({
   /** The refusal's code, so an older deploy's wording stays truthful. */
   code?: string | null;
   /**
-   * it. 21 (it. 20 §2.7): seconds the server asked us to wait, when it said so.
+   * Seconds the server asked us to wait, when it said so.
    * Only meaningful for `DUPLICATE_CHECK_UNREADABLE`, which is a retry.
    */
   retryAfterSeconds?: number | null;
   busy?: boolean;
   onConfirm: () => void;
   /**
-   * it. 21 (§2.7): `DUPLICATE_CHECK_UNREADABLE` is OUR read failing, not a
+   * `DUPLICATE_CHECK_UNREADABLE` is OUR read failing, not a
    * verdict — so it gets a plain «Try again» that re-runs the same compose
    * WITHOUT confirming anything. Absent ⇒ no retry is offered (an older caller).
    */
@@ -453,7 +357,7 @@ export function CouncilOrderInFlightConfirm({
   const { t } = useT();
   const legacyGuard = code === 'COUNCIL_ORDER_IN_FLIGHT';
   /**
-   * it. 21 (it. 20 §2.7) — THE 409 THAT HAD NO READER ANYWHERE.
+   * THE 409 THAT HAD NO READER ANYWHERE.
    *
    * `DUPLICATE_CHECK_UNREADABLE` says the duplicate check itself could not run
    * (the fate budget spent, a node down, the store threw). It is NOT «the same
@@ -517,7 +421,7 @@ export function CouncilOrderInFlightConfirm({
       <p className="text-ink/60">
         {t('It may still reach the ledger and Flare. Composing another order now can move capital twice — check the pending one (its screen, the banner, or the explorer) first.')}
       </p>
-      {/* it.16 (R5 5.4): the server writes some of these `detail`s in Spanish,
+      {/* The server writes some of these `detail`s in Spanish,
           and this app is in English. A paragraph the reader cannot read teaches
           nothing and reads as noise under a decision about money, so only a
           plainly English detail is quoted. */}
@@ -536,7 +440,7 @@ export function CouncilOrderInFlightConfirm({
 }
 
 /**
- * productizer it.14 (R2 2.3) — THE PARENT'S LOCK AFTER A 'stale' THAT WENT OUT.
+ * THE PARENT'S LOCK AFTER A 'stale' THAT WENT OUT.
  *
  * `XamanSingleSign` says «another request of this same order already went out —
  * do not prepare it again», and then the surface around it happily composed a
@@ -548,10 +452,10 @@ export function CouncilOrderInFlightConfirm({
  * `report` is the component's `onStaleFate`; `release` is the confirmation.
  * The decision itself is pure (`nextStaleOrderLock`, lib/xrpl/singleSignVerdict).
  */
-/* ── the lock is ONE fact, not one per mounted hook (it. 19) ─────────────── */
+/* ── the lock is ONE fact, not one per mounted hook ─────────────── */
 
 /**
- * productizer it. 19 — TWO MOUNTS, TWO LOCKS, ONE CONFUSED PERSON.
+ * TWO MOUNTS, TWO LOCKS, ONE CONFUSED PERSON.
  *
  * `useStaleOrderLock` kept the verdict in ITS OWN React state and only read
  * `sessionStorage` once, on mount. The exchange wizard mounts the hook TWICE
@@ -561,14 +465,6 @@ export function CouncilOrderInFlightConfirm({
  * printing «composing this order again is paused» and went on disabling its
  * buttons, over a lock the person had just released, with no second button
  * anywhere to release it again. The only way out was F5.
- *
- * The fact now lives in the MODULE and every mounted hook subscribes to it, so
- * a report or a release reaches all of them in the same tick. `sessionStorage`
- * stays the memory across a reload (it. 16, R5 5.5); this is the memory across
- * two components of the same render.
- *
- * Restored once per session, in an effect — never in the state initializer, so
- * the server render and the first client render still agree.
  */
 let sharedStaleLock: StaleOrderFate | null = null;
 let sharedStaleLockRestored = false;
@@ -598,7 +494,7 @@ export function useStaleOrderLock(): {
   /**
    * Is a NON-exit compose paused right now? Kept as a field because most call
    * sites compose only non-exits; an exit asks `blocks('exit')`, which is false
-   * by construction (it.16, R3 3.1).
+   * by construction (R3 3.1).
    */
   locked: boolean;
   /** Does the lock stop THIS compose? See `staleLockBlocks` for the whole rule. */
@@ -609,8 +505,8 @@ export function useStaleOrderLock(): {
   release: () => void;
 } {
   const [lock, setLock] = useState<StaleOrderFate | null>(null);
-  // it.16 (R5 5.5): F5 used to drop the lock in silence — it is restored from
-  // sessionStorage. it. 19: and every mounted instance follows the SAME fact, so
+  // F5 used to drop the lock in silence — it is restored from
+  // sessionStorage. And every mounted instance follows the SAME fact, so
   // a release in one of them is a release in all of them. The effect, not the
   // initializer, so the server render and the first client render agree.
   useEffect(() => {
@@ -648,7 +544,7 @@ export function useStaleOrderLock(): {
  * What a warned surface shows. `pausing` says whether anything is actually
  * held back: with a verdict we could not check — or on a console whose live
  * doors are exits — the note WARNS and says so, because «paused» printed over a
- * door that works is its own lie (it.16, R3 3.1 / R5 5.5).
+ * door that works is its own lie (R3 3.1 / R5 5.5).
  */
 export function StaleOrderLockNote({
   lock,
@@ -715,7 +611,7 @@ export function XamanSingleSign({
    */
   onSettled: (hash: string, settledTx: Record<string, unknown>) => void;
   /**
-   * Opcional (it.13): el hash EN CUANTO Xaman firmó y la tx va camino del ledger
+   * Opcional: el hash EN CUANTO Xaman firmó y la tx va camino del ledger
    * (antes de validar). Una vez por tx activa. NO es éxito: solo sirve para
    * avisar al servidor del hash (p. ej. `notifyHandoffSigned` de un 0xFE).
    */
@@ -734,7 +630,7 @@ export function XamanSingleSign({
    */
   onCancelled?: () => void;
   /**
-   * Opcional (it.14, R2 2.3): esta tx quedó 'stale' (tefPAST_SEQ / tefMAX_LEDGER)
+   * Opcional (R2 2.3): esta tx quedó 'stale' (tefPAST_SEQ / tefMAX_LEDGER)
    * y era una ORDEN DE CONSEJO, así que se preguntó qué fue de la orden. El
    * destino viaja al padre — 'checking' primero y el veredicto después — porque
    * decir «no la prepares otra vez» aquí dentro no impedía que el padre
@@ -751,16 +647,16 @@ export function XamanSingleSign({
   // Only an error that provably moved nothing may offer «Try again».
   const [retryable, setRetryable] = useState(false);
   const [txid, setTxid] = useState<string | undefined>();
-  // A stale COUNCIL ORDER: what the server said became of the order (it.13).
+  // A stale COUNCIL ORDER: what the server said became of the order.
   const [staleFate, setStaleFate] = useState<StaleOrderFate | undefined>();
   // What Xaman answered to «Cancel this request» (payloadBus vocabulary).
   const [cancelUi, setCancelUi] = useState<XamanCancelUi>('idle');
-  // Reintentar (revisión 10-sep): un payload que no se pudo crear o que caducó
+  // Reintentar (revisión): un payload que no se pudo crear o que caducó
   // dejaba el bloque muerto — había que salir y volver a entrar. `attempt`
   // relanza el efecto y pide uno nuevo.
   const [attempt, setAttempt] = useState(0);
   /**
-   * it. 21 (it. 20 §3.3) — WHAT HAPPENS TO THE SEAT WHEN NOBODY SIGNS.
+   * WHAT HAPPENS TO THE SEAT WHEN NOBODY SIGNS.
    *
    * Rejecting in Xaman (or letting the request expire, or closing the tab) leaves
    * the 0xFE's nonce seat held until its signing window passes, and NOTHING on
@@ -880,7 +776,7 @@ export function XamanSingleSign({
           setRetryable(false);
           setPhase('stale');
           setError(v.code);
-          // A COUNCIL ORDER (it.13): the seat may have been spent by a sibling
+          // A COUNCIL ORDER: the seat may have been spent by a sibling
           // request of the same order that is being delivered. Ask what became of
           // the order BEFORE saying «prepare it again».
           const memo = councilOrderMemoOf(tx);
@@ -896,7 +792,7 @@ export function XamanSingleSign({
                 const fate = staleOrderFate(read);
                 if (run.alive) setStaleFate(fate);
                 // Reported even if we already left: the lock lives in the parent.
-                // The MEMO travels with it (it.16, R5 5.5) so the lock can be
+                // The MEMO travels with it (R5 5.5) so the lock can be
                 // remembered per order and survive an F5.
                 onStaleFateRef.current?.(fate, memo);
               });
@@ -943,7 +839,7 @@ export function XamanSingleSign({
       setPhase('error');
       setRetryable(true);
       setError(message);
-      // it. 21 (§3.3): a 0xFE that nobody signed is still holding a nonce seat.
+      // A 0xFE that nobody signed is still holding a nonce seat.
       // Say so immediately with the honest generic, then replace it with what
       // the server actually answered. Never blocking, never a signature.
       const memo = flareInstructionMemoOf(tx);
@@ -987,7 +883,7 @@ export function XamanSingleSign({
         run.stopPolling();
         // Nothing signable is left in Xaman; what is open now is the LEDGER
         // outcome, followed below. While it is read the registry holds it as
-        // 'confirming' (beforeunload guards it; leaving hands it off, it.11).
+        // 'confirming' (beforeunload guards it; leaving hands it off).
         run.signedOpen = { txid: st.txid };
         setCancelUi('idle');
         const first = decideAfterSigned({ txid: st.txid, dispatched: st.dispatched });
@@ -1035,11 +931,11 @@ export function XamanSingleSign({
 
     (async () => {
       try {
-        // it. 21 (§3.9): the SERVER's `payloadExpiryMin` when anything has carried
+        // The SERVER's `payloadExpiryMin` when anything has carried
         // one this session, the constant otherwise — one number, and the seat is
         // measured with the same one the payload actually lives by.
         //
-        // it. 25 (§2): …and the one that belongs to THIS dispatch. The memo names
+        // …and the one that belongs to THIS dispatch. The memo names
         // the row, so a council prepare read in another screen (24 h, §2.1) can no
         // longer decide the `expire` of an ordinary payload minted here.
         const instructionMemo = flareInstructionMemoOf(tx);
@@ -1060,8 +956,8 @@ export function XamanSingleSign({
         const uuid: string | undefined = typeof data?.uuid === 'string' ? data.uuid : undefined;
         if (!run.alive) {
           // The parent left while the request was being created: nobody saw the
-          // QR, but a push may already be on the phone. Not a blind DELETE
-          // (productizer-it7): the registry watches it and asks Xaman to kill
+          // QR, but a push may already be on the phone. Not a blind DELETE:
+          // the registry watches it and asks Xaman to kill
           // it, obeying the answer — ALREADY_OPENED keeps it in the banner.
           if (uuid) {
             handOffLiveRequest(meta(uuid));
@@ -1073,7 +969,7 @@ export function XamanSingleSign({
         run.uuid = uuid;
         // Signable from this instant: the registry knows it before the QR shows.
         registerLiveRequest(meta(uuid));
-        // it. 19 (R1 1.3) — THE SEAT'S CLOCK STARTS HERE, NOT AT COMPOSE TIME.
+        // THE SEAT'S CLOCK STARTS HERE, NOT AT COMPOSE TIME.
         //
         // Xaman's `expire` counts from the moment the PAYLOAD exists, which is
         // this line; the server was stamping `payloadExpiresAt` when it composed
@@ -1086,9 +982,9 @@ export function XamanSingleSign({
         // the window keeps being measured exactly as it was. Never blocks the QR.
         if (instructionMemo) {
           notePayloadOpened(instructionMemo, new Date(Date.now() + expireMin * 60_000));
-          // it. 25 (§3): …and then the instant XAMAN is really counting to. The
+          // …and then the instant XAMAN is really counting to. The
           // line above is our ARITHMETIC (now + the window we asked for); the desk
-          // has been sealing the real `expires_at` since it. 23 and the simple
+          // has been sealing the real `expires_at` and the simple
           // signature never did, so every ordinary 0xFE has been measuring its
           // seat by this browser's clock. Best effort, never blocking, never
           // beyond the window we asked for.
@@ -1113,11 +1009,11 @@ export function XamanSingleSign({
       const uuid = run.uuid;
       if (!uuid) return;
       // Leaving a LIVE request (an ancestor unmounted us, or navigated away):
-      // NO blind DELETE (productizer-it7) — an ALREADY_OPENED answer was read by
+      // NO blind DELETE — an ALREADY_OPENED answer was read by
       // nobody and the request stayed signable in silence. The registry keeps
       // reading its status and the global banner says it is still open.
       // A signature whose ledger result is still being read ('confirming') is
-      // handed off too: the registry reads the result and the banner says it (it.11).
+      // handed off too: the registry reads the result and the banner says it.
       if (leaveAction({ uuid, decided: run.decided, confirming: !!run.confirmingTxid }) === 'hand-off') {
         handOffLiveRequest(meta(uuid));
       } else if (run.signedOpen) {
@@ -1258,7 +1154,7 @@ export function XamanSingleSign({
       {phase === 'stale' && error ? (
         // No «Try again» on purpose: it would recreate this same spent payload.
         // The parent's own prepare (now free — 'stale' does not block) is the way
-        // — UNLESS this is a council order whose sibling already went out (it.13).
+        // — UNLESS this is a council order whose sibling already went out.
         <div className="space-y-1.5">
           <p className="text-[11px] text-tone-warning">
             {staleFate?.kind === 'checking' ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : null}
@@ -1292,7 +1188,7 @@ export function XamanSingleSign({
       {phase === 'error' && error ? (
         <div className="space-y-1.5">
           <p className="text-[11px] text-tone-warning">{error}</p>
-          {/* it. 21 (§3.3): where the seat stands after a request nobody signed,
+          {/* Where the seat stands after a request nobody signed,
               so «Try again» is not a walk into NONCE_SEAT_TAKEN. */}
           {seatNote ? <p className="text-[11px] leading-relaxed text-ink/55">{seatNote}</p> : null}
           {txid && !retryable ? (

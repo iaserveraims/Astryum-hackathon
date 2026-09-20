@@ -110,7 +110,7 @@ const CHAIN_NAMES: Record<number, string> = {
 };
 
 // One neutral chip for every chain — the name already identifies it, so no
-// per-chain rainbow (de-AI pass 2026-07-21).
+// per-chain rainbow (de-AI pass).
 const CHAIN_BADGE: Record<number, string> = {
   1:      'ETH',
   42161:  'ARB',
@@ -137,14 +137,14 @@ interface WalletPortfolio {
 /* HELPERS                                                             */
 /* ------------------------------------------------------------------ */
 
-// ─── Organizer (founder 2026-07-25 · reworked user test 2026-08-03) ──────────
+// ─── Organizer ──────────
 // "La vista de las wallets me parece un poco compleja": the fleet can be laid
 // out three ways — a compact list (now the DEFAULT: the grid of full cards
 // confused the first-time tester), the grid (operate), or grouped by native
 // token — filtered by origin (added by you / created for you) and ordered
 // A–Z, by balance or by colour tag. Persisted per browser so the chosen lens
 // survives navigation.
-// The list/grid/token lenses and their orders DIED with the 2026-08-22
+// The list/grid/token lenses and their orders DIED with the
 // redesign — one presentation (identity cards, two shelves), one order
 // (balance). Pre-0.9.53 git history keeps them.
 // Key bumped to v2 with the list-default change so every browser re-defaults
@@ -155,8 +155,7 @@ interface WalletPortfolio {
 /** Friendly sub-type shelf label inside each origin section of the list. */
 
 /** The token chips of what a wallet HOLDS (shared walletHoldings reading) —
- *  ALL readable tokens with their money in plain sight (founder 2026-08-12:
- *  a wallet holding ~10 FXRP read «0 FLR» and the chip said only "FXRP").
+ *  ALL readable tokens with their money in plain sight.
  *  Quantity when the snapshot priced it (never invented), USD always; the
  *  hidden-balances switch masks the numbers but keeps the identity. */
 function HoldingsChips({ holdings, hidden }: { holdings: WalletHolding[]; hidden: boolean }) {
@@ -201,7 +200,7 @@ export function legacyWalletRow(
     chainId: number | null;
     caip2: string | null;
     ecosystem: string;
-    /** The Legacy's real name (registry label / local nickname) — 2026-08-22. */
+    /** The Legacy's real name (registry label / local nickname). */
     nickname?: string | null;
   },
 ): BackendWallet {
@@ -234,8 +233,7 @@ export function legacyWalletRow(
 /* ------------------------------------------------------------------ */
 
 // ─── Personalization panel — name + colour, shared by card and row ───────────
-// The glyph picker left this panel (founder 2026-07-25: "los iconitos
-// quítalos"); wallets that already carry a glyph keep rendering it.
+// The glyph picker left this panel; wallets that already carry a glyph keep rendering it.
 function PersonalizePanel({
   wallet,
   onRename,
@@ -284,7 +282,7 @@ function PersonalizePanel({
             />
           ))}
           {usesXamanAvatar(wallet) ? (
-            /* SEGUIR EL AVATAR (fundador 2026-09-13): la opción por defecto de
+            /* SEGUIR EL AVATAR: la opción por defecto de
                una wallet de Xaman — la tarjeta toma el color de su cubito.
                Elegir una muestra la sustituye; volver aquí la restaura. */
             <button
@@ -325,17 +323,17 @@ function PersonalizePanel({
  * It has NO key of its own: it only executes 0xFE userOps signed from the XRPL
  * account that controls it (Xaman). So an EVM ownership proof can never be
  * produced for it — offering "Enable transactions" dead-ended on "connect this
- * exact wallet in your wallet app", a demand no wallet app can ever satisfy
- * (founder 2026-08-03). Same reason the Earn signer picker excludes it.
+ * exact wallet in your wallet app", a demand no wallet app can ever satisfy.
+ * Same reason the Earn signer picker excludes it.
  */
 function isSmartAccount(w: BackendWallet): boolean {
   return w.walletType === 'smart-account' || w.walletType === 'Flare Smart Account';
 }
 
-// ─── Compact row — the "Lista" / "Por token" views (founder 2026-07-25) ──────
+// ─── Compact row — the "Lista" / "Por token" views ──────
 // The simple lens on a wallet: identity, name, address, chain, live native
 // balance + USD, copy, Movements and the SAME pencil. The list is the DEFAULT
-// lens since 2026-08-03, so it must let the user act, not just read — deep
+// lens, so it must let the user act, not just read — deep
 // management (enable tx, remove, dashboard-inclusion) still lives on the card.
 // WalletRow (the list/token row) left with the lenses — git keeps it.
 
@@ -362,7 +360,7 @@ function WalletCard({
   /** What this wallet HOLDS (shared aggregated-portfolio reading) — undefined
    *  while the engine hasn't priced it (renders nothing, never a false 0). */
   holdings?: WalletHolding[];
-  /** The Smart Account visually folded into this card (paFold, 2026-08-17). */
+  /** The Smart Account visually folded into this card (paFold). */
   absorbedPa?: BackendWallet;
   /** Opens the unmint door (FXRP → native XRP) — Smart Account cards only. */
   onUnmint?: (w: BackendWallet) => void;
@@ -372,8 +370,7 @@ function WalletCard({
   /** Shared switch-to-Flare engine (one instance, owned by WalletManager).
    *  Renders the contextual «Switch to Flare» CTA ON the active EVM card when
    *  its live network ≠ Flare — same engine as the global banner, zero
-   *  duplicated logic (founder 2026-07-29: the button belongs on the
-   *  connected MetaMask wallet, not only on a global banner). */
+   *  duplicated logic. */
   flareSwitch?: FlareSwitch;
   /** Governance-embedded (Legacy Wallets tab): a read-only card. Suppresses
    *  every write/action CTA — a Legacy's council is a MULTISIG and its Smart
@@ -384,7 +381,7 @@ function WalletCard({
   /** Present only on a Legacy-scoped card: opens the GOVERNED Movements
    *  surface (compose unsigned → council inbox → quorum signs) instead of the
    *  single-sig modal a personal card opens. The gesture is the same, the rail
-   *  is not — which is the whole point of the unification (2026-07-28). */
+   *  is not — which is the whole point of the unification. */
   onGovernedMovements?: () => void;
   /** Una cuenta del consejo: abre su gobernanza (consejo, constitución,
    *  propuestas). Es la puerta que hace que un Legacy no necesite un apartado
@@ -392,12 +389,12 @@ function WalletCard({
   onGovern?: () => void;
   onEnableTx: (address: string) => void;
   onMovements: (wallet: BackendWallet) => void;
-  /** Opens the MANAGE dialog for this wallet (2026-08-22, second pass: the
+  /** Opens the MANAGE dialog for this wallet (second pass: the
    *  inline expanding panel stretched every card in its grid row — a layout
    *  bug by construction. A dialog floats above; the grid never moves). */
   onManage?: () => void;
   /** Council-governed (Legacy): the card dresses as an institutional PLAQUE —
-   *  seal watermark, squared chip, double frame, and the CROWN (2026-08-24).
+   *  seal watermark, squared chip, double frame, and the CROWN.
    *  Founder, twice: «parece una wallet normal con otro color» → «tiene que
    *  destacar más, no solo el logito del panteón abajo». */
   council?: boolean;
@@ -406,7 +403,7 @@ function WalletCard({
   /** Los hechos del consejo que la corona enseña. Sin ellos dice «firma el
    *  consejo» — el quórum jamás se inventa. */
   councilFacts?: { quorum?: number; memberCount?: number };
-  /** Modo tarjeta-de-crédito (2026-08-27): esta tarjeta grande nació de una
+  /** Modo tarjeta-de-crédito: esta tarjeta grande nació de una
    *  compacta al pulsarla, y este botón la devuelve a su tamaño. */
   onCollapse?: () => void;
 }) {
@@ -477,8 +474,7 @@ function WalletCard({
       className={`group relative overflow-hidden h-full ${
         council ? 'ring-1 ring-offset-2 ring-offset-surface-1' : ''
       }`}
-      // The whole box wears the wallet's colour (founder 2026-08-22: «no solo
-      // el iconito, sino todo el recuadro») — subtle wash + hairline, one
+      // The whole box wears the wallet's colour — subtle wash + hairline, one
       // shared recipe (walletWash). Councils arrive already indigo via
       // walletColor's council rule.
       style={{
@@ -490,8 +486,7 @@ function WalletCard({
     >
       {/* faint per-chain watermark — the wallet's home ecosystem, sitting behind
           the content (never intercepts clicks): Flare/EVM orbit, XRPL comet. */}
-      {/* La marca de agua, RECOLOCADA (fundador 2026-08-25: «they are buged
-          and on the right down corner, its strange») — el ancla -right-10
+      {/* La marca de agua, RECOLOCADA — el ancla -right-10
           -bottom-10 la metía medio recortada en la esquina por el
           overflow-hidden y leía como un bug, no como arte. Ahora vive
           centrada en el lateral derecho y se DESVANECE hacia el borde con
@@ -505,7 +500,7 @@ function WalletCard({
           WebkitMaskImage: 'radial-gradient(105% 90% at 35% 50%, black 45%, transparent 85%)',
         }}
       >
-        {/* EL CRITERIO (fundador 2026-08-27): la marca de agua ES la identidad
+        {/* EL CRITERIO: la marca de agua ES la identidad
             de la cuenta — el sello del consejo, o la marca real del proveedor
             (la zorra, la X). El cometa y la órbita genéricos se retiran: un
             adorno que no dice de quién es la tarjeta no gana sitio en ella. */}
@@ -519,12 +514,11 @@ function WalletCard({
       </div>
       <div className="relative z-[1]">
       {council && <CouncilCrown quorum={councilFacts?.quorum} memberCount={councilFacts?.memberCount} t={t} />}
-      {/* E2 amplificado (2026-09-06): la reforzada lleva CORONA, como un
+      {/* E2 amplificado: la reforzada lleva CORONA, como un
           Legacy — misma banda, en oro personal. La píldora de abajo murió. */}
       {!council && hardened && <QuorumCrown quorum={hardened.quorum} memberCount={hardened.memberCount} t={t} />}
       {/* ── THE FACE says three things: who it is, what it holds, what it can
-             do. Everything else lives behind «Manage» (founder 2026-08-22:
-             «hay demasiada información en cada card»). The ADDRESS left the
+             do. Everything else lives behind «Manage». The ADDRESS left the
              face — the name is guaranteed now (walletIdentity never falls to
              the code) and the copy button still copies the address. ── */}
       <div className="flex items-start justify-between mb-3 gap-2">
@@ -569,7 +563,7 @@ function WalletCard({
                 </Pill>
               )}
               {/* E2: la píldora «Quorum M/N» vivía aquí — ahora lo dice la
-                  QuorumCrown de cabecera, más grande y antes (2026-09-06). */}
+                  QuorumCrown de cabecera, más grande y antes. */}
             </div>
             <div className="text-[11px] text-ink/40 mt-0.5">{chainName}</div>
           </div>
@@ -656,8 +650,8 @@ function WalletCard({
             </span>
           </div>
         )}
-        {/* What the wallet holds — same shared reading as Home/Portfolio
-            (founder 2026-08-08), so a wallet with FXRP in Kinetic no longer
+        {/* What the wallet holds — same shared reading as Home/Portfolio,
+            so a wallet with FXRP in Kinetic no longer
             looks empty next to its native balance. Independent of the native
             fetch: tokens still show when that read is unavailable. */}
         {holdings && holdings.length > 0 && (
@@ -706,7 +700,7 @@ function WalletCard({
 
       {/* Movements / Govern / Unmint — the card's ACTION row. A Legacy-scoped
           card shows the same Movements gesture but routes to the GOVERNED
-          surface (composed unsigned, quorum signs — 2026-07-28). */}
+          surface (composed unsigned, quorum signs). */}
       {(!readOnly || onGovernedMovements || onGovern) && (
         <div
           className={`mt-3 ${
@@ -809,9 +803,7 @@ function WalletCard({
 /* ------------------------------------------------------------------ */
 
 /**
- * CouncilSealMark — el toque con clase de la tarjeta Legacy (fundador
- * 2026-08-23: «aunque estén separadas parece una wallet normal con otro
- * color»). Un SELLO institucional grabado: columna entre dos anillos — el
+ * CouncilSealMark — el toque con clase de la tarjeta Legacy. Un SELLO institucional grabado: columna entre dos anillos — el
  * exterior firme, el interior punteado como una órbita — y cinco estrellas
  * en el aro, el vocabulario astral del consejo (la constelación del
  * crossing, quieta y en relieve). Va de marca de agua, veiled como todas.
@@ -852,9 +844,7 @@ function CouncilSealMark({ size = 120 }: { size?: number }) {
 }
 
 /**
- * CouncilCrown — la CORONA de una cuenta gobernada (fundador 2026-08-24: «el
- * distintivo de la cuenta legacy tenemos que amplificarlo, tiene que destacar
- * más, no solo el logito del panteón abajo»).
+ * CouncilCrown — la CORONA de una cuenta gobernada.
  *
  * El sello de marca de agua era un detalle bonito EN el fondo; el problema es
  * que una tarjeta Legacy seguía teniendo la silueta de una wallet normal. Una
@@ -923,16 +913,14 @@ function CouncilCrown({
 }
 
 /**
- * QuorumCrown — la corona de la cuenta REFORZADA (fundador 2026-09-06: «en
- * legacy hay un artifact que da a entender la gente que hay en multisig y el
- * quorum. debería haber lo mismo para este tipo de wallets en personal»).
+ * QuorumCrown — la corona de la cuenta REFORZADA.
  *
  * Misma gramática que la corona Legacy — puntos por miembro, M encendidos de
  * N, y la cifra en palabra — pero en el ORO personal y con el escudo, no el
  * sello: la cuenta sigue siendo TUYA (firman tus llaves, no un consejo), y el
  * color lo dice antes que el texto. La píldora «Quorum M/N» muere con ella:
  * decirlo dos veces en la misma cabecera era ruido (la lección de la corona
- * Legacy, 2026-09-05).
+ * Legacy).
  */
 function QuorumCrown({
   quorum,
@@ -993,9 +981,8 @@ function QuorumCrown({
 }
 
 /**
- * cardNumber — la dirección con la GRAMÁTICA de un número de tarjeta
- * (fundador 2026-08-27: «añade el id de manera que parezca el número de una
- * tarjeta»). Cuatro grupos en mono: los dos primeros reales, el tercero de
+ * cardNumber — la dirección con la GRAMÁTICA de un número de tarjeta.
+ * Cuatro grupos en mono: los dos primeros reales, el tercero de
  * puntos, el último real — se reconoce la cuenta por sus extremos, que es como
  * todo el mundo compara direcciones, y el botón de al lado copia la ENTERA.
  */
@@ -1007,42 +994,12 @@ function cardNumber(addr: string): string {
 /**
  * CompactWalletCard — la cuenta como TARJETA DE CRÉDITO, con anverso y REVERSO.
  *
- * LA INTERACCIÓN (fundador 2026-08-27, tercera pasada): LA TARJETA ENTERA ES
+ * LA INTERACCIÓN: LA TARJETA ENTERA ES
  * EL GIRO. Se pulse donde se pulse — anverso o reverso — la tarjeta rota; las
  * únicas excepciones son las superficies con trabajo propio: el número (copia)
  * y los botones del dorso (cada uno activa LO SUYO, con stopPropagation). Al
  * pasar el ratón la tarjeta se eleva y una flecha circular aparece arriba a la
  * derecha sugiriendo el giro.
- *
- * EL BUG QUE ESTA VERSIÓN PAGA: `backface-visibility: hidden` esconde la cara
- * girada PERO SUS BOTONES SEGUÍAN RECIBIENDO CLICS — en el dorso, cualquier
- * pulsación caía en el botón invisible del anverso y expandía la tarjeta
- * («le des donde le des se expande»). La cara oculta lleva ahora
- * pointer-events: none; solo la cara visible escucha.
- *
- * EXPANDIR vive en el dorso (botón «Abrir») y ES PERSISTENTE: quien prefiera
- * la vista grande la conserva — entre visitas incluidas (localStorage) — y
- * puede tener varias abiertas a la vez. La regla vieja de «una a la vez» era
- * mía, no del fundador, y murió con este encargo.
- *
- * CUARTA PASADA (fundador 2026-08-29): tarjetas más grandes (suelo ~300px),
- * caras OPACAS con cuerpo de degradado («menos translúcidas, algo más de
- * contraste, no super llamativas»), Movements fijo en el rincón del anverso
- * («que el usuario no tenga que darle la vuelta») con la flecha del giro
- * corrida a su lado, y el dorso con DOS direcciones etiquetadas — la wallet
- * y su Smart Account de Flare — cada una con su botón de copia.
- *
- * QUINTA PASADA (fundador 2026-08-29): cada listón del dorso lleva el
- * DISTINTIVO de su cuenta — glifo personal o marca del proveedor en el de la
- * wallet, el logo de Flare en el de la Smart Account («un distintivo de cada
- * una, a modo de logo pequeño») — y el titular va grabado en la banda
- * magnética.
- *
- * SEXTA PASADA (fundador 2026-08-29: «no me gusta el toque brillante…
- * como antes pero mejor en general»): el barniz especular MUERE el mismo día
- * que nació — la tarjeta es MATE. Mejor sin brillo: el chip gana sus
- * contactos grabados y la sombra pasa a la doble de la casa (contacto +
- * vuelo). Si alguien propone otro reflejo, que lea esta línea primero.
  */
 
 /** Los mismos umbrales que las @container queries de `.wallet-cards`
@@ -1051,10 +1008,8 @@ function cardNumber(addr: string): string {
 const CARD_COL_STEPS_REM = [77, 58, 38] as const;
 
 /**
- * La rejilla de tarjetas con el recuento de columnas ASENTADO, no en vivo
- * (fundador 2026-08-29: al ensanchar la estrategia anclada «las wallets hacen
- * dos redimensiones... a mitad de ensanchar se reinicia el tamaño de la
- * wallet»). Las @container queries puras cambiaban de columnas EN EL FOTOGRAMA
+ * La rejilla de tarjetas con el recuento de columnas ASENTADO, no en vivo.
+ * Las @container queries puras cambiaban de columnas EN EL FOTOGRAMA
  * exacto en que la animación del dock cruzaba un umbral: las tarjetas se
  * encogían con la animación y, a mitad de gesto, saltaban de golpe a otra
  * rejilla. Aquí el número de columnas lo decide un ResizeObserver que espera a
@@ -1111,8 +1066,7 @@ export function WalletCardsGrid({ children }: { children: React.ReactNode }) {
 
 /**
  * Una dirección etiquetada en el dorso — la etiqueta dice DE QUÉ cuenta es el
- * código (fundador 2026-08-29: «se tiene que entender qué código es de qué
- * wallet para que no confunda»). Todo el listón copia; el check confirma.
+ * código. Todo el listón copia; el check confirma.
  */
 function BackAddressStrip({
   label,
@@ -1124,8 +1078,7 @@ function BackAddressStrip({
 }: {
   label: string;
   addr: string;
-  /** El distintivo de la cuenta (fundador 2026-08-29: «detrás, donde pone el
-   *  hash de cada wallet, un distintivo de cada una, a modo de logo pequeño»):
+  /** El distintivo de la cuenta:
    *  la marca del proveedor o el glifo personal en el listón de la wallet, el
    *  logo de Flare en el de la Smart Account — el código se reconoce por su
    *  emblema antes de leer la etiqueta. */
@@ -1179,8 +1132,8 @@ export function CompactWalletCard({
   /** Lo que contiene, del agregado compartido. undefined = sin leer ⇒ «…». */
   usd?: number;
   /** La Smart Account de Flare que ejecuta por esta cuenta — su dirección se
-   *  copia desde el dorso, etiquetada para no confundirla con la de la wallet
-   *  (fundador 2026-08-29). En las personales llega como la wallet absorbida
+   *  copia desde el dorso, etiquetada para no confundirla con la de la wallet.
+   * En las personales llega como la wallet absorbida
    *  (absorbedPaByOwner); en un consejo, como la PA que resuelve
    *  useSmartAccountsOf — solo hace falta la dirección, y el tipo lo dice. */
   absorbedPa?: { address: string };
@@ -1188,7 +1141,7 @@ export function CompactWalletCard({
   /** Wallet con mandato sobre managed vaults: lleva el sello de gestor. */
   manager?: boolean;
   councilFacts?: { quorum?: number; memberCount?: number };
-  /** E2 (2026-09-06): la cuenta personal REFORZADA — sus llaves son un quórum
+  /** E2: la cuenta personal REFORZADA — sus llaves son un quórum
    *  confirmado por el ledger. La tarjeta compacta lo dice con la misma
    *  gramática que la corona Legacy (puntos + M/N), en el oro personal. */
   quorumFacts?: { quorum?: number; memberCount?: number };
@@ -1204,8 +1157,7 @@ export function CompactWalletCard({
   const hidden = useBalanceVisibility((st) => st.hidden);
   const [flipped, setFlipped] = useState(false);
   const [hovered, setHovered] = useState(false);
-  // EL VUELO (fundador 2026-09-10, segunda pasada de la tarjeta: «cuando giran
-  // se queda la sombra en color iluminada por detrás, no me acaba»). El aura
+  // EL VUELO. El aura
   // era un estado de HOVER: se encendía al posarse y, como al girar el ratón
   // sigue encima, se quedaba encendida detrás de la tarjeta girada — una
   // mancha de color fija, que es justo lo que no convence. Ahora el aura es
@@ -1227,9 +1179,7 @@ export function CompactWalletCard({
   const auraScaleX = useTransform(ry, (d) => 0.7 + 0.3 * Math.abs(Math.cos((d * Math.PI) / 180)));
   const [copied, setCopied] = useState<null | 'wallet' | 'fsa'>(null);
   const color = council ? 'hsl(var(--product-legacy))' : walletColor(wallet);
-  // LA TARJETA REACCIONA AL RATÓN EN TIEMPO REAL (fundador 2026-09-12: «antes
-  // hacían un efecto hover más divertido y reaccionaban a la ubicación del
-  // ratón… vuelve a ponerlo sin desactivar nada de lo nuevo»): la receta de
+  // LA TARJETA REACCIONA AL RATÓN EN TIEMPO REAL: la receta de
   // la mano del Earn —inclinación 3D hacia el cursor— más una luz con la
   // tinta de la tarjeta (índigo en un consejo, la del proveedor en una
   // personal) que lo sigue por la cara. Se SUMA al amago del giro, a la
@@ -1264,13 +1214,11 @@ export function CompactWalletCard({
   };
   const face =
     'absolute inset-0 flex flex-col overflow-hidden rounded-2xl border p-3.5 text-left cursor-pointer [backface-visibility:hidden]';
-  /* MENOS translúcida, más tarjeta (fundador 2026-08-29: «algo más de
-     contraste, no que sean super llamativas, pero sí menos translúcidas»): el
+  /* MENOS translúcida, más tarjeta: el
      color se mezcla con la SUPERFICIE en vez de con transparente — la tarjeta
      es opaca, con un degradado diagonal que le da cuerpo de plástico, y el
      hairline sube de 30% a 45%. El wash de 7% queda para filas y paneles. */
-  // Un CONSEJO viste más tinta que una personal (fundador 2026-09-05: «no se
-  // distingue mucho la wallet legacy de la de Xaman, son colores parecidos»;
+  // Un CONSEJO viste más tinta que una personal (
   // segunda pasada el mismo día: «la legacy puede mejorar bastante»): el matiz
   // solo no separa dos azules — separan la ESTRUCTURA (la corona), un cuerpo
   // francamente índigo (la primera dosis, 26%, seguía leyéndose gris) y el
@@ -1282,16 +1230,15 @@ export function CompactWalletCard({
     borderColor: `color-mix(in srgb, ${color} ${washMix.edge}%, transparent)`,
     // La sombra doble de la casa (astry-panel): contacto + vuelo — asienta
     // la tarjeta sin un solo reflejo. En un consejo, el vuelo es su aura.
-    // Y el CUERPO por dentro (2026-09-10, «no acaba de estar perfecto»):
+    // Y el CUERPO por dentro («no acaba de estar perfecto»):
     // una luz cenital de un pelo en el canto superior y un sombreado grave
-    // hacia el pie — iluminación mate, no barniz (el brillo murió el 29-ago).
+    // hacia el pie — iluminación mate, no barniz (el brillo murió).
     // En un consejo el pie se apaga en su propia tinta índigo.
     boxShadow: council
       ? '0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px -16px hsl(var(--product-legacy) / 0.4), inset 0 1px 0 hsl(0 0% 100% / 0.06), inset 0 -16px 26px -22px hsl(var(--product-legacy) / 0.38)'
       : '0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -18px rgba(0, 0, 0, 0.55), inset 0 1px 0 hsl(0 0% 100% / 0.05), inset 0 -14px 24px -22px rgba(0, 0, 0, 0.32)',
   };
-  /** La invitación al giro (fundador 2026-09-10: «que no sea un simple botón
-   *  que aparece — algo más complejo»): una pestaña que se DESPLIEGA al
+  /** La invitación al giro: una pestaña que se DESPLIEGA al
    *  posarse — el arco se traza alrededor del icono, el icono da media vuelta
    *  y la palabra aparece. Decorativa (la tarjeta entera gira), y vestida con
    *  la casa de su tarjeta: índigo de consejo o la tinta del proveedor. La
@@ -1410,8 +1357,7 @@ export function CompactWalletCard({
             />
           )}
           {flipInvite(council && onGovern ? 'right-[5.4rem]' : onMovements ? 'right-[2.8rem]' : 'right-2', t('Turn'))}
-          {/* MOVEMENTS EN EL ANVERSO (fundador 2026-08-29: «para agilizar,
-              que el usuario no tenga que darle la vuelta»): un chip fijo y
+          {/* MOVEMENTS EN EL ANVERSO: un chip fijo y
               quieto en el rincón — presente sin estorbar, se enciende al
               pasar. El giro sigue siendo la tarjeta entera; este botón es
               otra excepción con trabajo propio, como el número. */}
@@ -1426,8 +1372,7 @@ export function CompactWalletCard({
               <ArrowLeftRight className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>
           )}
-          {/* GOVERN EN EL ANVERSO de un consejo (fundador 2026-09-05: «entrar
-              a gobernar sin tener que girarla»): el chip vecino, teñido de
+          {/* GOVERN EN EL ANVERSO de un consejo: el chip vecino, teñido de
               índigo Legacy — la acción de la casa de esta tarjeta, a un clic
               desde la primera pantalla. */}
           {council && onGovern && (
@@ -1446,7 +1391,7 @@ export function CompactWalletCard({
               <Landmark className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>
           )}
-          {/* El barniz especular vivió una pasada (2026-08-29) y MURIÓ el
+          {/* El barniz especular vivió una pasada y MURIÓ el
               mismo día: «no me gusta el toque brillante». La tarjeta es mate:
               su cuerpo lo pone el degradado del wash, no un reflejo. */}
           {/* la marca de agua ES la identidad: sello del consejo o la marca
@@ -1455,7 +1400,7 @@ export function CompactWalletCard({
             aria-hidden
             className="art-veil pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2"
             // El sello de un consejo pesa más que la marca de agua estándar
-            // (0.1 la dejaba fantasmal en la captura del fundador) y va en su
+            // y va en su
             // tinta índigo, no en la del texto.
             style={council ? { zIndex: 0, opacity: 0.2, color: 'hsl(var(--product-legacy))' } : { zIndex: 0 }}
           >
@@ -1472,15 +1417,13 @@ export function CompactWalletCard({
               )}
             </span>
           </div>
-          {/* LA CORONA de un consejo (fundador 2026-09-05: «no se distingue
-              mucho la legacy de la de Xaman»): una banda índigo de cabecera —
+          {/* LA CORONA de un consejo: una banda índigo de cabecera —
               sello, palabra y quórum en puntos — con el ADN del estante
               Legacy. Dos azules parecidos no se separan por matiz; una
               tarjeta CORONADA no se confunde con ninguna personal. Sustituye
               al chip de glifo: la corona ES la identidad del consejo. */}
           {council ? (
-            /* Segunda pasada de la corona (fundador: «puede mejorar
-               bastante»): más alta, gradiente con cuerpo, sello y palabra a
+            /* Segunda pasada de la corona: más alta, gradiente con cuerpo, sello y palabra a
                plena tinta — y el quórum ANCLADO tras la palabra («M/N» +
                puntos), no flotando a media tarjeta como quedó en la v1. */
             <div
@@ -1524,9 +1467,7 @@ export function CompactWalletCard({
               )}
             </div>
           ) : quorumFacts ? (
-            /* LA CORONA de la REFORZADA (fundador 2026-09-06: «en legacy hay
-               un artifact que da a entender la gente que hay en multisig y el
-               quorum — debería haber lo mismo en personal»): misma banda que
+            /* LA CORONA de la REFORZADA: misma banda que
                un consejo, en el ORO personal y con el escudo — la cuenta
                sigue siendo tuya, sus llaves son un quórum. */
             <div
@@ -1594,7 +1535,7 @@ export function CompactWalletCard({
           )}
           {/* el chip + el número — la copia es la EXCEPCIÓN al giro */}
           <div className="relative z-[1] mt-auto">
-            {/* el chip — con sus CONTACTOS grabados (sexta pasada, 2026-08-29:
+            {/* el chip — con sus CONTACTOS grabados (sexta pasada:
                 «como antes pero mejor»): detalle mate, no brillo */}
             <span
               aria-hidden
@@ -1632,8 +1573,8 @@ export function CompactWalletCard({
           {/* el titular y el dinero — parte de la tarjeta: giran con ella */}
           <div className="relative z-[1] mt-2 flex w-full items-end justify-between gap-2">
             <span className="min-w-0">
-              {/* La etiqueta «LEGACY M/N» junto al nombre MURIÓ con la corona
-                  (2026-09-05): decirlo dos veces en 180px es ruido. */}
+              {/* La etiqueta «LEGACY M/N» junto al nombre MURIÓ con la corona:
+                  decirlo dos veces en 180px es ruido. */}
               <span className="block truncate text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/90">
                 {walletDisplayName(wallet, t)}
               </span>
@@ -1643,9 +1584,7 @@ export function CompactWalletCard({
               {/* El carril de logos SIEMPRE reserva su alto (min-h de 1rem =
                   TokenLogo xs), tenga tokens o no: sin la reserva, la fila de
                   abajo era más baja en las wallets vacías y el NÚMERO de cada
-                  tarjeta quedaba a distinta altura que el de su vecina
-                  (fundador 2026-08-29: «no están a la misma altura ambos
-                  hash — quiero que los muestre a la misma altura»). */}
+                  tarjeta quedaba a distinta altura que el de su vecina. */}
               <span className="flex min-h-[1rem] items-center" aria-hidden>
                 {toks.map((h, i) => (
                   <span key={h.symbol} className="relative" style={{ marginLeft: i === 0 ? 0 : -5, zIndex: 3 - i }}>
@@ -1687,7 +1626,7 @@ export function CompactWalletCard({
               banda es negra en los dos temas: el blanco tenue es material,
               no color de tema). En un consejo la banda tira a índigo y lleva
               el sello a la izquierda: el dorso también dice Legacy sin leer
-              (2026-09-10, «seguir diferenciando la normal de la legacy»). */}
+              («seguir diferenciando la normal de la legacy»). */}
           <div
             aria-hidden
             className={`-mx-3.5 -mt-3.5 flex h-6 shrink-0 items-center px-3.5 ${council ? 'justify-between' : 'justify-end'}`}
@@ -1708,8 +1647,8 @@ export function CompactWalletCard({
           </div>
           {/* las bandas de firma: la dirección de la WALLET y, debajo, la de
               su Smart Account de Flare — cada una con su etiqueta para que se
-              entienda qué código es de qué cuenta, y cada una copia LA SUYA
-              (fundador 2026-08-29). Excepciones al giro, como el número. */}
+              entienda qué código es de qué cuenta, y cada una copia LA SUYA.
+              Excepciones al giro, como el número. */}
           <div className="mt-2.5 space-y-1.5">
             <BackAddressStrip
               label={t('Wallet')}
@@ -1738,9 +1677,7 @@ export function CompactWalletCard({
               />
             )}
           </div>
-          {/* Gestionar YA NO cede su sitio a Gobernar (fundador 2026-09-06:
-              «pon un botón en las cards de Legacy para personalizar nombre y
-              demás — ya está en las de Personal»): un consejo lleva LAS DOS
+          {/* Gestionar YA NO cede su sitio a Gobernar: un consejo lleva LAS DOS
               puertas — gobernar es del consejo, el nombre es tuyo. La rejilla
               se ensancha a 4 solo cuando conviven. */}
           <div className={`mt-auto grid gap-1.5 ${council && onGovern && onManage ? 'grid-cols-4' : 'grid-cols-3'}`}>
@@ -1778,15 +1715,14 @@ export function CompactWalletCard({
 /* ------------------------------------------------------------------ */
 
 /**
- * WalletListRow — the compact lens (founder 2026-08-22, second pass: «vuelve
- * a añadir las distintas vistas, pero que sea sencillo y se entienda»). ONE
+ * WalletListRow — the compact lens. ONE
  * line per account: identity (chip + name + marks), what it is worth, and the
  * same two doors the card offers (Movements/Govern + Manage). Same wash, same
  * shelves — a row is the card at squint distance, never a different story.
  */
 /** El sello de GESTOR — mismo en tarjeta abierta, compacta y fila: un
- *  distintivo, no un estante (fundador 2026-09-11). */
-/** La cabecera de estante, la misma para los tres (12-sep): icono en su
+ *  distintivo, no un estante. */
+/** La cabecera de estante, la misma para los tres: icono en su
  *  anillo, nombre a color, recuento, la regla en una línea y, si toca, una
  *  puerta a la derecha. Va sobre el raíl de color del estante (.shelf-rail). */
 function ShelfHead({ icon, color, label, count, purpose, action }: { icon: React.ReactNode; color: string; label: string; count: number; purpose: string; action?: React.ReactNode }) {
@@ -1840,7 +1776,7 @@ function WalletListRow({
   busy: boolean;
   council: boolean;
   manager?: boolean;
-  /** E2 (2026-09-06): reforzada — el quórum M/N también a escala de fila. */
+  /** E2: reforzada — el quórum M/N también a escala de fila. */
   quorumFacts?: { quorum?: number; memberCount?: number };
   onMovements: () => void;
   onGovern?: () => void;
@@ -1853,7 +1789,7 @@ function WalletListRow({
   const color = walletColor(wallet);
   const glyph = walletIcon(wallet);
   return (
-    /* La fila LLEGA con el dato (arriveMotion, 2026-08-25): la lista es la
+    /* La fila LLEGA con el dato (arriveMotion): la lista es la
        lente por defecto de esta pantalla y sus filas se enchufaban de golpe. */
     <motion.li
       className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
@@ -1949,9 +1885,7 @@ function WalletListRow({
 
 /**
  * ManageWalletModal — everything the card's face no longer shouts, floating
- * ABOVE the grid (founder 2026-08-22, second pass: the inline expanding panel
- * stretched every card in its row — «está medio bugeado» — because grid rows
- * share a height by construction; a dialog cannot move the grid).
+ * ABOVE the grid.
  *
  * Personal wallet: personalize (name + colour), the address, the totals
  * toggle, signing options, the reinforce door and the way out. A council
@@ -2081,10 +2015,8 @@ function ManageWalletModal({
           </div>
 
           <div className="space-y-3">
-            {/* Identity: rename + colour — TAMBIÉN para un consejo ENLAZADO
-                (fundador 2026-09-13: «las tarjetas de legacy deben tener el
-                mismo modal de manage que las otras... el nombre no se
-                guarda»). El nombre va a la fila del registro de wallets (se
+            {/* Identity: rename + colour — TAMBIÉN para un consejo ENLAZADO.
+                El nombre va a la fila del registro de wallets (se
                 guarda y se pinta en todas partes) Y al apuntador de
                 gobernanza, para que la superficie Legacy diga lo mismo. La
                 fila SINTETIZADA (id legacy:…) no existe en el registro: esa
@@ -2206,7 +2138,7 @@ function ManageWalletModal({
                   </div>
                 )}
 
-                {/* The reinforce door (founder 2026-08-21) — states what the
+                {/* The reinforce door — states what the
                     LEDGER says; opens the governance page. */}
                 {isXrplWallet(wallet) && !smartAccount && (onReinforce || onGovernance) && (
                   <div className="flex items-center justify-between gap-2 px-2.5">
@@ -2244,12 +2176,10 @@ function ManageWalletModal({
                   </div>
                 )}
 
-                {/* LA PUERTA DE VUELTA (fundador 2026-09-13: cuatro consejos
-                    clavados en Personal con corona de oro y el estante Legacy
-                    vacío — la MARCA «es mi reforzada» existía solo de ida).
+                {/* LA PUERTA DE VUELTA.
                     El ledger no distingue reforzada de Legacy; la marca es
                     del dueño, así que el dueño puede retirarla: sin marca, el
-                    default del 2026-07-18 manda y la cuenta gobierna desde el
+                    default manda y la cuenta gobierna desde el
                     estante Legacy. Reversible en ambos sentidos (la puerta de
                     ida vive en My Legacies). */}
                 {isXrplWallet(wallet) && hardened && (
@@ -2279,14 +2209,12 @@ function ManageWalletModal({
               </>
             )}
 
-            {/* LA SALIDA, Y TAMBIÉN PARA UN LEGACY (fundador 2026-09-13:
-                «tengo una wallet legacy que no puedo eliminar de la cuenta; en
-                Manage no aparece el botón de remove, ni la papelera»).
+            {/* LA SALIDA, Y TAMBIÉN PARA UN LEGACY.
                 Este bloque vivía DENTRO del `{!council && …}` de arriba, así
                 que la cuenta que más necesita explicarse era justo la única
                 sin puerta de salida — y el texto para Legacy que hay dentro
                 estaba escrito y muerto.
-
+            { *
                 CONFIRMACIÓN CLÁSICA (misma orden): el botón ya no arma nada en
                 línea; abre un diálogo que dice qué se borra, qué NO se toca y
                 qué hace falta para que no vuelva. Nada se borra hasta
@@ -2396,7 +2324,7 @@ function ManageWalletModal({
 /**
  * One partner-connected-but-not-yet-added wallet, as a row — replaces three
  * near-identical banner cards (EVM/Solana/Bitcoin) with one parametrized
- * component (de-AI pass 2026-07-21). Callers render as many as apply inside
+ * component (de-AI pass). Callers render as many as apply inside
  * a single shared Card.
  */
 function PendingWalletBanner({
@@ -2416,7 +2344,7 @@ function PendingWalletBanner({
   onSecondary?: () => void;
   secondaryLabel?: string;
   secondaryTitle?: string;
-  /** La X (fundador 2026-09-09: «añade una x para cerrar la ventanita»). */
+  /** La X. */
   onDismiss?: () => void;
 }) {
   const { t } = useT();
@@ -2483,7 +2411,7 @@ function PendingWalletBanner({
 // multi-ecosystem connectors (AppKit multi-chain, Aptos, Stellar) are preserved
 // in useUniversalConnect / walletLinkService but have no UI entry point here.
 //
-// Founder 2026-08-04: the MetaMask button no longer opens a wallet picker. It
+// It
 // connects MetaMask itself and only survives on Flare Mainnet (chain 14) — the
 // picker, the other chains and the other extensions are gone from the rail (see
 // lib/wallet/config.ts · MULTI_VM_CONNECT_ENABLED).
@@ -2525,7 +2453,7 @@ function AddWalletModal({
   const [evmError, setEvmError] = useState<string | null>(null);
   const [xamanError, setXamanError] = useState<string | null>(null);
 
-  // ── EL ALTA TERMINA SIEMPRE EN UNA FRASE (fundador 2026-09-13) ────────────
+  // ── EL ALTA TERMINA SIEMPRE EN UNA FRASE ────────────
   // Tres estados, y ninguno es el silencio de antes: `checking` (mirando qué
   // es la dirección), `pending` (hace falta tu permiso y aquí está el motivo)
   // y `outcome` (cómo acabó y DÓNDE ha aterrizado la fila). El modal ya no se
@@ -2609,8 +2537,7 @@ function AddWalletModal({
       // Con Xaman, «ya la tenías» NO es «no ha pasado nada»: el QR ya se
       // escaneó y este navegador vuelve a tener la sesión de esa cuenta — la
       // que usan la mesa del gestor y las firmas. Decir «nada cambió» era
-      // mentir justo a quien venía de la mesa a reconectar (fundador
-      // 2026-09-14).
+      // mentir justo a quien venía de la mesa a reconectar.
       const v = verdictRef.current;
       if (isCancelled(e) && v?.kind === 'already_linked') {
         setOutcome({ kind: 'reconnected', name: walletDisplayName(v.wallet) });
@@ -2647,8 +2574,8 @@ function AddWalletModal({
 
   return (
     <ModalOverlay className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto">
-      {/* Springy arrival + staggered rows (founder 2026-08-22: "se pueden
-          mejorar mucho las animaciones") — transforms/opacity only. */}
+      {/* Springy arrival + staggered rows — transforms/opacity only.
+      { */}
       <motion.div
         initial={{ opacity: 0, y: 22, scale: 0.965 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -2847,7 +2774,7 @@ function AddWalletModal({
           </p>
           {connectError && <p className="text-xs text-tone-danger text-center -mt-1">{connectError}</p>}
 
-          {/* The door for exchange-only users (founder 2026-08-08): both
+          {/* The door for exchange-only users: both
               buttons above assume a wallet app already exists — this row is
               for the user who has none and would otherwise bounce here. */}
           <button
@@ -2932,13 +2859,11 @@ export default function WalletManager({
   const engraved = useEngraved();
   const legacyCouncil = typeof scope === 'object' ? scope.legacyCouncil : null;
 
-  // The lenses returned SIMPLE (founder 2026-08-22, second pass: «vuelve a
-  // añadir las distintas vistas, pero que sea sencillo»): exactly TWO —
+  // The lenses returned SIMPLE: exactly TWO —
   // cards or rows — over the same two shelves and the same balance order.
   // The old organizer (token lens, three orders) stays retired in git.
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  /** LAS TARJETAS ABIERTAS (fundador 2026-08-27, tercera pasada: «que se
-   *  mantenga expandida, por si alguien prefiere la vista expandida»). La
+  /** LAS TARJETAS ABIERTAS. La
    *  expansión es una PREFERENCIA, no un vistazo: varias pueden estar abiertas
    *  a la vez y el conjunto sobrevive entre visitas (localStorage). La regla
    *  vieja de «una a la vez» era mía, no del fundador, y murió aquí. */
@@ -3023,7 +2948,7 @@ export default function WalletManager({
   const linking = useWalletLinking(hasJwt);
   const { wallets: allLinkedWallets, connectedAddress, isConnected } = linking;
 
-  // The visual fold (paFold, 2026-08-17): personal Smart Accounts whose
+  // The visual fold (paFold): personal Smart Accounts whose
   // owning XRPL wallet is linked disappear as rows — the owner absorbs their
   // value/tokens (aggregated store folds them) and wears the badge + the
   // unmint door. Legacy tab untouched: a council's legs stay explicit.
@@ -3042,15 +2967,14 @@ export default function WalletManager({
   // banner uses) — the active EVM card renders the contextual CTA from it.
   const flareSwitch = useSwitchToFlare();
 
-  // TODAS LAS CUENTAS, LOS LEGACY TAMBIÉN (fundador 2026-08-22: «los legacy los
-  // tienes que poner en la pantalla de wallets»). Hasta aquí, la cuenta del
+  // TODAS LAS CUENTAS, LOS LEGACY TAMBIÉN. Hasta aquí, la cuenta del
   // consejo y su Smart Account salían de esta lista y sólo se veían dentro de
   // su Legacy — así que la pantalla que promete enseñar tus cuentas escondía
   // justo las que más explicación necesitan. Un consejo es una wallet cuya
   // firma es un quórum, y eso lo dice su propia tarjeta (readOnly + la píldora
   // M-de-N), no su ausencia.
   const { authorities: allAuthorities, governedCandidates, reload: reloadAuthorities } = useAuthorities();
-  // A SignerList alone does NOT make an account a council (founder 2026-08-21):
+  // A SignerList alone does NOT make an account a council:
   // a reinforced personal account has one too, and it belongs HERE — that is
   // the whole promise of "it stays a personal wallet". Before this, finishing a
   // reinforcement made the wallet disappear from this screen and reappear as a
@@ -3069,16 +2993,14 @@ export default function WalletManager({
     legacyCouncil ? [legacyCouncil] : confirmedCouncils,
   );
 
-  // NINGUNA puerta de esta pantalla NAVEGA ya a /app/legacy (fundador
-  // 2026-08-30: «que se mantenga en la pantalla de wallets»). El helper
+  // NINGUNA puerta de esta pantalla NAVEGA ya a /app/legacy. El helper
   // `openLegacySurface` que empujaba a la página murió con el recableado:
   // constituir, reforzar y gobernar abren su operación en el host global, y
   // Movimientos su modal aquí mismo. Las tres siguen pasando por las MISMAS
   // puertas de acceso (demo → aviso; sin beta → aviso), ahora cada una en su
   // propio abridor. /app/legacy sigue existiendo para deep-links y para el
   // push «firma en la bandeja».
-  // CONSTITUIR = OPERACIÓN (fundador 2026-08-26: «que cuente como otra
-  // operación normal... formato popup... anclable a la derecha»). La puerta
+  // CONSTITUIR = OPERACIÓN. La puerta
   // ya no navega: abre ConstituteOperation aquí mismo, sobre el dashboard
   // vivo. /app/legacy?constitute=1 sigue existiendo (deep-links, Home).
   const openConstituteOperation = () => {
@@ -3092,8 +3014,7 @@ export default function WalletManager({
     }
     openConstituteOp();
   };
-  // GOBERNAR = OPERACIÓN (fundador 2026-08-30: «no quiero que te lance el
-  // menú ese tan complejo — burbuja anclable»): la puerta ya no navega a
+  // GOBERNAR = OPERACIÓN: la puerta ya no navega a
   // /app/legacy; abre GovernOperation en el host global, sobre el dashboard
   // vivo. La página ?govern= sigue existiendo (deep-links, push «firma en la
   // bandeja»). Las MISMAS puertas de acceso que siempre.
@@ -3109,8 +3030,7 @@ export default function WalletManager({
     }
     openGovernOp(address, getLegacyNickname(address), tab);
   };
-  // MOVIMIENTOS SE QUEDA EN WALLETS (fundador 2026-08-30: «que se mantenga
-  // en la pantalla de wallets») — el modal de la cuenta gobernada abre aquí
+  // MOVIMIENTOS SE QUEDA EN WALLETS — el modal de la cuenta gobernada abre aquí
   // mismo, sin cargar la pantalla Legacy. Misma pieza que usa LegacyPanel.
   const [governedMovementsFor, setGovernedMovementsFor] = useState<string | null>(null);
   const openGovernedMovements = (address: string) => {
@@ -3124,7 +3044,7 @@ export default function WalletManager({
     }
     setGovernedMovementsFor(address);
   };
-  // Reinforce — la ceremonia abre como OPERACIÓN (fundador 2026-08-27):
+  // Reinforce — la ceremonia abre como OPERACIÓN:
   // popup/anclable del host global, en ORO — la cuenta sigue siendo personal,
   // así que nada de tema Legacy ni de viaje a la superficie de gobernanza.
   const openReinforceOp = useOperationStore((st) => st.openReinforceOp);
@@ -3144,7 +3064,7 @@ export default function WalletManager({
   // The Manage dialog — one wallet at a time, floating above the grid.
   const [manageWallet, setManageWallet] = useState<BackendWallet | null>(null);
   // La ceremonia de constitución, abierta como operación (popup/anclada).
-  // La operación vive en el HOST GLOBAL (operationStore, 2026-08-26): el
+  // La operación vive en el HOST GLOBAL (operationStore): el
   // fundador la pilló muriendo al cambiar de pestaña — estado local de página
   // era el mismo pecado que ya pagaron estrategia y posiciones.
   const openConstituteOp = useOperationStore((st) => st.openConstituteOp);
@@ -3158,7 +3078,7 @@ export default function WalletManager({
   // única sería ofrecer una acción que la cadena va a rechazar. Su tarjeta
   // dice lo que es («Gobernada por su consejo — Astryum nunca firma») y su
   // gobernanza vive en la pantalla de Legacy.
-  // ANCLADO POR CONTENIDO (2026-09-13): governedCandidates estrena identidad
+  // ANCLADO POR CONTENIDO: governedCandidates estrena identidad
   // con cada tick del ledger, y un Set nuevo-pero-igual re-disparaba los
   // efectos aguas abajo (la pata de credenciales del estante Manager corría
   // una docena de veces por visita). La clave-texto solo cambia cuando
@@ -3172,12 +3092,11 @@ export default function WalletManager({
     [councilKeyString],
   );
 
-  // ── El estante MANAGER (fundador 2026-09-06: «añadir otra sección para la
-  // de Manager — solo las wallets que sirven para los managed vaults»). La
+  // ── El estante MANAGER. La
   // clasificación vive en lib/wallet/managerWallets y se DERIVA de la chain,
   // nunca de una etiqueta guardada ni de un flag declarado. Tres patas:
   // consejo XRPL de un pote (catálogo), director EVM vigente de una jaula
-  // (listCages + la regla del contrato) y — la que faltaba el 6-sep — la
+  // (listCages + la regla del contrato) y — la que faltaba — la
   // cuenta ACREDITADA como gestor (credenciales AIFM/KYC aceptadas en el
   // ledger: la cuenta dedicada del wizard ya es la wallet del manager ANTES
   // de tener jaula o potes). «No pude leer» ≠ «no gestionas nada»: sin
@@ -3186,7 +3105,7 @@ export default function WalletManager({
   /** Las XRPL cuyo consejo AÚN NO contestó `false` (leyendo, error, o true):
    *  con gobernanza desconocida nadie sube al estante Manager — sin esto, un
    *  consejo de pote cuya lectura tardaba aterrizaba en Manager en vez de en
-   *  Legacy (fundador 2026-09-12, visto en vivo). */
+   *  Legacy. */
   const unresolvedKeyString = useMemo(
     () =>
       governedCandidates
@@ -3265,10 +3184,7 @@ export default function WalletManager({
         // fila del consejo.) Sin esto, quitar el viejo filtro de consejos
         // sacaba la pata de Flare como una fila suelta y sin dueña visible.
         !paKeys.has(addressKey(w.address)) &&
-        // Founder 2026-08-19 ("se siguen viendo las smart accounts"): an
-        // ORPHAN Smart Account holding nothing — neither a Legacy's leg nor
-        // absorbed by an owner in the list — is registry plumbing from old
-        // deployments, not capital: hidden here too. One with value stays.
+        // One with value stays.
         !isHiddenEmptyOrphanPa(w.walletType, usdByAddress.get(addressKey(w.address))),
     );
     // El consejo de un Legacy vive en el registro de cuentas gobernadas, no en
@@ -3285,8 +3201,7 @@ export default function WalletManager({
           chainId: null,
           caip2: null,
           ecosystem: 'xrpl',
-          // The Legacy's REAL name (founder 2026-08-22: the card read
-          // «Council» while the account was called «Family Legacy»): registry
+          // The Legacy's REAL name: registry
           // label first, local nickname as fallback — same precedence as
           // everywhere else. Without one, walletIdentity's curated 'Council'
           // stands; the display rule never shows the address.
@@ -3301,7 +3216,7 @@ export default function WalletManager({
   }, [allLinkedWallets, legacyCouncil, smartAccounts, confirmedCouncils, paKeys, absorbedPaByOwner, usdByAddress, governedCandidates, legacyNameBump]);
 
   // What each wallet HOLDS — the same per-wallet snapshot Home/Portfolio
-  // read, finally surfaced on this screen (founder 2026-08-08). Wallets the
+  // read, finally surfaced on this screen. Wallets the
   // engine hasn't priced (excluded from portfolio, or a failed read) simply
   // have no entry — the row renders nothing, never a false "empty".
   const holdingsByAddress = useMemo(() => {
@@ -3324,18 +3239,15 @@ export default function WalletManager({
   }, [wallets, usdByAddress]);
   // The origin filter cuts across every lens; the two origin shelves feed the
   // sectioned list/grid (added-by-you first, the platform's after).
-  // The origin filter + origin shelves LEFT (founder 2026-08-19: "el toggle
-  // de added by you / by the platform no tiene sentido — menos movidas"):
+  // The origin filter + origin shelves LEFT:
   // with Legacy legs and empty orphan PAs already out of this list, origin
   // stopped carrying information. The TYPE shelves below still explain each
   // row (login wallet, watch-only, embedded…).
-  // The two shelves (founder 2026-08-22): Personal above, Legacy below —
+  // The two shelves: Personal above, Legacy below —
   // separated so «esto es tuyo con tu llave» and «esto lo gobierna un
   // consejo» never share a row. A REINFORCED personal wallet (own-key quorum)
   // stays on the Personal shelf: reinforced is not governed.
-  // EL ESTANTE MANAGER, RESTAURADO (fundador 2026-09-12: «no están ordenadas
-  // cada una en su sitio: slot personal, slot manager y slot legacy»). El
-  // 11-sep pidió sello-sin-estante y el 12 pidió los tres slots — manda la
+  // EL ESTANTE MANAGER, RESTAURADO. Pidió sello-sin-estante y el 12 pidió los tres slots — manda la
   // orden más nueva. Conviven las dos piezas: la wallet de gestor VIVE en su
   // estante Y lleva el sello (ManagerMark) como identidad de tarjeta.
   // managerKeySet sigue derivándose de la chain, nunca de una etiqueta.
@@ -3366,7 +3278,7 @@ export default function WalletManager({
   }, [allAuthorities]);
   /** El quórum de cada REFORZADA, del mismo ledger (hardenedQuorum solo se
    *  escribe desde una lectura real) — la corona de oro de la tarjeta y la
-   *  cifra de la fila lo pintan; sin lectura no hay corona (2026-09-06). */
+   *  cifra de la fila lo pintan; sin lectura no hay corona. */
   const quorumFactsByKey = useMemo(() => {
     const m = new Map<string, { quorum?: number; memberCount?: number }>();
     for (const a of allAuthorities) {
@@ -3406,7 +3318,7 @@ export default function WalletManager({
   // Per-wallet Movements modal — one button opens send/receive + (XRPL) escrow
   // & DEX buy/sell, chain-adaptive to the card's wallet.
   const [movementsWallet, setMovementsWallet] = useState<BackendWallet | null>(null);
-  // The unmint door (founder 2026-08-12): the Smart Account card/row opens
+  // The unmint door: the Smart Account card/row opens
   // the send modal LOCKED as what the action really is — FXRP → native XRP.
   const [unmintWallet, setUnmintWallet] = useState<BackendWallet | null>(null);
 
@@ -3498,9 +3410,7 @@ export default function WalletManager({
     // (no balance, and re-created on every page load after being deleted).
     if (!/^0x[0-9a-fA-F]{40}$/.test(user.address)) return;
     const addr = user.address.toLowerCase();
-    // WHICH app signed the login (founder 2026-08-22: the row used to be filed
-    // as 'siwe' — the protocol, not the app — so the list showed an Ethereum
-    // diamond over a bare address). The extension identifies itself; 'siwe'
+    // WHICH app signed the login. The extension identifies itself; 'siwe'
     // survives only as the honest fallback when nothing does.
     const brandName = injectedWalletName((window as { ethereum?: unknown }).ethereum);
     const existing = allLinkedWallets.find((w) => w.address.toLowerCase() === addr);
@@ -3549,9 +3459,7 @@ export default function WalletManager({
     !!connectedAddress &&
     wallets.some((w) => w.address.toLowerCase() === connectedAddress.toLowerCase());
 
-  // EL BANNER SOLO MIENTRAS HAY ALGO QUE HACER (fundador 2026-09-09: «me
-  // aparece arriba el mensajito de MetaMask connected… ¿por qué aparece tanto
-  // rato?»). No era un mensaje que expira: era una tira de ESTADO atada a la
+  // EL BANNER SOLO MIENTRAS HAY ALGO QUE HACER. No era un mensaje que expira: era una tira de ESTADO atada a la
   // sesión de MetaMask, viva mientras la extensión siguiera conectada — o
   // sea, siempre. Su trabajo es ofrecer «añadir esta wallet»; una vez está
   // en la lista, su «Connect another» ya lo cubre el botón «Add Wallet» de
@@ -3657,7 +3565,7 @@ export default function WalletManager({
     }
   }
 
-  // handleSetIcon removed with the glyph picker (founder 2026-07-25) — the
+  // handleSetIcon removed with the glyph picker — the
   // walletsApi.setIcon endpoint and stored glyphs stay; only the UI to set
   // NEW ones is gone.
 
@@ -3801,10 +3709,9 @@ export default function WalletManager({
         </div>
       )}
 
-      {/* The stat band (Total/Tx/Read-only/Chains) DIED 2026-08-22 — it was
+      {/* The stat band (Total/Tx/Read-only/Chains) DIED — it was
           instrument-panel noise on a screen whose job is «which wallet is
-          which» (founder: «entras y lo único que se entiende es que hay tres
-          wallets»). The counts live in the shelf headers now. */}
+          which». The counts live in the shelf headers now. */}
 
       {actionMsg && (
         <div className="mb-6 text-xs text-ink/70 bg-ink/5 border border-ink/10 rounded-xl px-4 py-2.5">
@@ -3814,7 +3721,7 @@ export default function WalletManager({
 
       {/* Connected-wallet banner — add it, then connect another (any app) */}
       {/* Partner-connected-but-not-yet-added wallets — one shared card, one
-          banner row per pending wallet (de-AI pass 2026-07-21: was three
+          banner row per pending wallet (de-AI pass: was three
           near-identical cloned Cards). Personal-only: the Legacy tab links no
           new wallets. */}
       {variant === 'page' &&
@@ -3904,8 +3811,7 @@ export default function WalletManager({
           <SectionTitle
             actions={
               <span className="flex items-center gap-3">
-                {/* SE SIGUEN LEYENDO (fundador 2026-09-11: «no queda claro cuándo
-                    están todas cargadas»): mientras el agregado lee, un punto
+                {/* SE SIGUEN LEYENDO: mientras el agregado lee, un punto
                     que respira con el recuento de wallets ya valoradas. Sin
                     petición nueva — lee el mismo store que las tarjetas. */}
                 {!legacyCouncil && wallets.length > 0 && (aggLoading || aggRefreshing) && walletsRead < wallets.length && (
@@ -3919,7 +3825,7 @@ export default function WalletManager({
                   </span>
                 )}
                 {linking.loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-ink/40" />}
-                {/* Two lenses, nothing more (founder 2026-08-22): cards or
+                {/* Two lenses, nothing more: cards or
                     rows — same shelves, same order, same doors. */}
                 {!legacyCouncil && wallets.length > 0 && (
                   <SegmentedControl<'grid' | 'list'>
@@ -3938,7 +3844,7 @@ export default function WalletManager({
             {legacyCouncil ? t('Legacy wallets') : t('Your Wallets')} ({wallets.length})
           </SectionTitle>
           {/* «Aún leyendo» junto a la lista: una tarjeta sin cifra es una
-              wallet en cola, no una wallet vacía (2026-09-07). */}
+              wallet en cola, no una wallet vacía. */}
           <div className="-mt-1 mb-3">
             <PortfolioSyncBadge />
           </div>
@@ -3961,7 +3867,7 @@ export default function WalletManager({
               />
             )
           ) : legacyCouncil ? (
-            // Arrive, no Reveal (2026-08-25): estas rejillas montan CUANDO el
+            // Arrive, no Reveal: estas rejillas montan CUANDO el
             // dato contesta, así que su gesto es el de llegada de datos — el
             // de ruta ya jugó, con la página aún vacía.
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3989,13 +3895,11 @@ export default function WalletManager({
               ))}
             </div>
           ) : (
-            // ── TWO SHELVES (founder 2026-08-22): Personal above, Legacy
+            // ── TWO SHELVES: Personal above, Legacy
             //    below. A reinforced personal wallet stays Personal — its
             //    quorum pill tells the story; governed is a different thing. ──
             <div className="space-y-8">
-              {/* TRES ESTANTES, UN LENGUAJE (fundador 2026-09-12: «que cada una
-                  tenga su función… más visual, pero no un corte por el medio de
-                  la página»): la misma cabecera en línea (ShelfHead) sobre un
+              {/* TRES ESTANTES, UN LENGUAJE: la misma cabecera en línea (ShelfHead) sobre un
                   raíl de color a la izquierda (.shelf-rail) — personal en
                   tinta, gestor en oro, Legacy en índigo. Sin bandas. */}
               {personalRows.length > 0 && (
@@ -4028,7 +3932,7 @@ export default function WalletManager({
                     </ul>
                   ) : (
                   <WalletCardsGrid>
-                    {/* Rejilla de TARJETAS compactas (2026-08-27): tres por
+                    {/* Rejilla de TARJETAS compactas: tres por
                         fila, cara de tarjeta de crédito. La abierta ocupa la
                         fila entera y el `layout` del contenedor anima el
                         crecimiento EN EL SITIO — las vecinas se recolocan
@@ -4087,9 +3991,8 @@ export default function WalletManager({
                   )}
                 </div>
               )}
-              {/* ── El estante MANAGER (2026-09-06 · muerto el 11 · RESUCITADO
-                  el 2026-09-12 por orden del fundador: «cada una en su sitio:
-                  slot personal, slot manager y slot legacy»): entre Personal y
+              {/* ── El estante MANAGER (· muerto el 11 · RESUCITADO
+                  por orden del): entre Personal y
                   Legacy — tus llaves, con mandato sobre managed vaults. El
                   sello (ManagerMark) sigue en la tarjeta: estante Y sello. */}
               {managerRows.length > 0 && (
@@ -4183,7 +4086,7 @@ export default function WalletManager({
               )}
               {councilRows.length > 0 && (
                 <div className="shelf-rail" style={{ ['--shelf' as never]: 'hsl(var(--product-legacy) / 0.55)' }}>
-                  {/* La banda con degradado (2026-08-24) se retira (12-sep): la
+                  {/* La banda con degradado se retira: la
                       misma cabecera en línea que los otros dos estantes. */}
                   <ShelfHead
                     icon={<CouncilSealMark size={22} />}
@@ -4252,9 +4155,7 @@ export default function WalletManager({
                               usd={usdByAddress.get(addressKey(w.address))}
                               absorbedPa={
                                 // La pata de Flare del consejo — plegada como
-                                // fila, copiable desde el dorso (fundador
-                                // 2026-08-29: «la wallet de legacy también
-                                // tiene smart account»).
+                                // fila, copiable desde el dorso.
                                 smartAccounts[w.address]
                                   ? { address: smartAccounts[w.address] }
                                   : undefined
@@ -4320,7 +4221,7 @@ export default function WalletManager({
       {/* ConstituteOperation vive en EarnOperationHost (AppShell) — montarla
           aquí era lo que la mataba al navegar. */}
 
-      {/* Movimientos de una cuenta gobernada, EN SITIO (fundador 2026-08-30):
+      {/* Movimientos de una cuenta gobernada, EN SITIO:
           el modal abre sobre esta misma pantalla — nada de cargar Legacy.
           «Firma en la bandeja» abre la operación de gobierno directamente en
           Propuestas, también sin navegar. */}

@@ -1,12 +1,9 @@
 /**
  * MarketRatesService — live supply APY of Kinetic markets, for the APY trigger.
  *
- * The governed MoneyFlow the fundador chose as THE Legacy test is "si el APY
- * cae de X, saca y pon en otro sitio": the trigger half needs a real evaluator
- * over real venue rates (invariant #9 — APYs are always protocol data with a
- * source, never an estimate). Kinetic is a Benqi-style fork: rates are per
+ * Kinetic is a Benqi-style fork: rates are per
  * SECOND via `supplyRatePerTimestamp()` (`supplyRatePerBlock()` does not exist
- * and reverts — verified on-chain 2026-07-14, same note as strategyAssistant).
+ * and reverts — verified on-chain, same note as strategyAssistant).
  *
  * Read-only, no keys, no writes. A market that fails to answer is OMITTED from
  * the result — the evaluator treats missing data as "cannot fire" (fail-quiet,

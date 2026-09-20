@@ -11,10 +11,6 @@
  *   3. poll each until it is signed, collecting the blob,
  *   4. once the quorum weight is met, combine with xrpl.multisign() (client-side),
  *   5. broadcast the combined blob from THIS browser to a public XRPL node.
- *
- * Astryum never signs, never combines on a server, never broadcasts server-side.
- * Combining is arithmetic over signatures; the broadcast is the user's browser
- * submitting, exactly as a public tool would (ADR-008 guardrail #3).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { multisign } from 'xrpl';
@@ -68,12 +64,6 @@ type Phase = 'idle' | 'preparing' | 'signing' | 'submitting' | 'done' | 'error';
  * (ProposeToCouncil) must not compose the same transaction again: the server's
  * "one live proposal per account" rule cannot see a ceremony, because a
  * ceremony is not a proposal, so both would live on the same seat.
- *
- * `seatPinned` is the honest half of the error case: a prepare that failed
- * before answering pinned nothing, and closing the only other door over a
- * ceremony that never started would be a dead end. Anything after that — a
- * Xaman refusal per member, a broadcast that never left — happened over a
- * Sequence this account has already committed to.
  */
 export function ceremonyHoldsSeat(phase: Phase, seatPinned: boolean): boolean {
   if (phase === 'idle') return false;
@@ -82,7 +72,7 @@ export function ceremonyHoldsSeat(phase: Phase, seatPinned: boolean): boolean {
 }
 
 /**
- * it. 31 (§1 + §2) — DOES UNMOUNTING THIS SCREEN HAND THE SEAT BACK?
+ * DOES UNMOUNTING THIS SCREEN HAND THE SEAT BACK?
  *
  * The one rule for all seventeen hosts of this flow (the bus's modal and the
  * sixteen inline mounts): the seat this SITTING pinned goes back when the screen
@@ -99,7 +89,7 @@ export function unmountReleasesSeat(phase: Phase, seatPinned: boolean, committed
 }
 
 /**
- * it. 34 (E) — THE SITTING'S NAME, READ OFF THE PREPARE ANSWER. Pure.
+ * THE SITTING'S NAME, READ OFF THE PREPARE ANSWER. Pure.
  *
  * `/multisign/prepare` generates one id per sitting and returns it as
  * `sittingId`; every release of this sitting sends it back, so a release landing
@@ -115,10 +105,10 @@ export function prepareSittingId(prepare: unknown): string | null {
 }
 
 /**
- * it. 31 (§1) — CAN A SUBMIT WITH THIS PRELIMINARY RESULT STILL REACH A LEDGER?
- * it. 33 (B1): the rule moved to the engine (`lib/xrpl/councilSigning`) because
+ * CAN A SUBMIT WITH THIS PRELIMINARY RESULT STILL REACH A LEDGER?
+ * the rule moved to the engine (`lib/xrpl/councilSigning`) because
  * the async coordinator asks it too; re-exported from here, where the house has
- * looked for it since it. 31. Nothing deleted, no caller changes.
+ * looked for it. Nothing deleted, no caller changes.
  */
 export { broadcastMayLand };
 
@@ -131,22 +121,6 @@ export { broadcastMayLand };
  * ('preparing' / 'submitting') has no answer yet, and after 'done' this browser
  * has already broadcast — nothing here may suggest starting again over bytes
  * that may be on the ledger.
- *
- * it. 33 (B2) — `error` IS TWO STATES, AND ONLY ONE OF THEM MAY OFFER «Cancel».
- *
- * WHAT FAILED IN SILENCE. `broadcast()` only throws when ALL the nodes failed —
- * and the blob may have entered through the first one before its answer was
- * lost (a phone's network dropping mid-submit is the ordinary case). That throw
- * lands on `error`, the same phase as a QR that Xaman refused before anything was
- * sent, and `error` offered «Cancel this ceremony»: the screen said «No XRPL node
- * accepted the submission», the person pressed Cancel as invited, `abandon()`
- * handed the seat back — and the Payment landed. The twin, built by our own
- * button.
- *
- * So the exit is decided by the phase AND by whether the sitting has COMMITTED
- * bytes to a node (`committedRef`). An `error` after a commit offers no Cancel:
- * it offers the LEDGER — «check the account» — because only the ledger's own
- * window (server-side) may free that seat now.
  */
 export function ceremonyExit(phase: Phase, committed = false): 'none' | 'cancel' | 'check-ledger' {
   if (phase === 'signing') return 'cancel';
@@ -154,7 +128,7 @@ export function ceremonyExit(phase: Phase, committed = false): 'none' | 'cancel'
   return 'none';
 }
 
-/** it. 33 (B2) — what the post-commit `error` says instead of offering «Cancel». English, one place. */
+/** What the post-commit `error` says instead of offering «Cancel». English, one place. */
 export const CEREMONY_UNCONFIRMED_BROADCAST_SENTENCE =
   'This submission may have gone out: a node can apply the transaction and lose its answer, and a Payment that entered ' +
   'cannot be cancelled from here. Nothing is being handed back — the seat this sitting pinned stays held until the ' +
@@ -162,7 +136,7 @@ export const CEREMONY_UNCONFIRMED_BROADCAST_SENTENCE =
   'composing anything again.';
 
 /**
- * arriendo-ceremonia (round 5) — THE DOOR BESIDE THIS ONE, AND WHAT IT IS TOLD.
+ * arriendo-ceremonia — THE DOOR BESIDE THIS ONE, AND WHAT IT IS TOLD.
  *
  * `ceremonyHoldsSeat` answered a yes/no, and the closed door said ONE sentence:
  * "cancel the ceremony there, and this door opens again". That sentence names an
@@ -171,13 +145,6 @@ export const CEREMONY_UNCONFIRMED_BROADCAST_SENTENCE =
  * 'submitting', 'done']`) — so a broadcast the node refused, which lands on
  * `done` like every other outcome, left the family reading "cancel it there" in
  * front of a card with no Cancel at all.
- *
- * There is also a fourth state the boolean could not express: the sitting ENDED
- * and the server could not confirm the seat was handed back. Reporting `false`
- * there reopens the async door over a lease that will keep refusing for up to
- * 30 minutes — the trap this round exists to close, rebuilt from the other side.
- *
- * Both halves come from the two predicates that already exist, never restated.
  */
 export type SeatHold =
   /** No ceremony, and no lease we know of: the async door is the way in. */
@@ -190,7 +157,7 @@ export type SeatHold =
   | 'unreleased';
 
 /**
- * it. 33 (B2): `committed` travels — an `error` after a broadcast that no node
+ * `committed` travels — an `error` after a broadcast that no node
  * confirmed is 'committed' (the async door reads «already sent a transaction»),
  * never 'exitable', which would promise a Cancel this screen no longer renders.
  */
@@ -235,50 +202,23 @@ export function seatDoorNotice(
 }
 
 /**
- * it. 29 (§1) — LA PUERTA SE MUDA AL MÓDULO DEL ASIENTO, Y SIGUE SALIENDO DE AQUÍ.
+ * LA PUERTA SE MUDA AL MÓDULO DEL ASIENTO, Y SIGUE SALIENDO DE AQUÍ.
  *
  * `releaseCeremonySeat` vivía en este componente y tenía UN solo llamador en
  * producción: el botón «Cancel this ceremony» de abajo. Cerrar el diálogo por
  * cualquiera de sus otras tres puertas (Escape, el fondo, la X) desmonta esto sin
  * llamar a nada, así que el asiento de nonce de ese 0xFE quedaba ocupado 24 h y
  * el único rescate estaba DENTRO de la ceremonia que ya no se puede abrir.
- *
- * El arreglo es de sitio, no de parche: la función se muda a
- * `lib/wallet/handoffRelease` —el módulo del asiento, sin React— para que el bus
- * de la ceremonia (`lib/xrpl/quorumCeremonyBus`, por donde pasan las tres
- * puertas) pueda llamarla sin arrastrar un componente. Se re-exporta desde aquí
- * porque este módulo es el sitio donde la casa la busca desde hace cinco rondas;
- * nada se borra y ningún llamador cambia.
  */
 export { releaseCeremonySeat };
 
 /**
- * it. 29 (§4) — SOLTAR EL ASIENTO CUANDO XAMAN SE NEGÓ A MATAR LA PETICIÓN.
+ * SOLTAR EL ASIENTO CUANDO XAMAN SE NEGÓ A MATAR LA PETICIÓN.
  *
  * `abandon()` collects every cancel it could not confirm into `strayPayload` and
  * then hands the seat back UNCONDITIONALLY. The question this answers is whether
  * that is right, and the answer is YES — with the reason said out loud instead of
  * assumed, which is what was missing.
- *
- * WHY RELEASING IS STILL RIGHT. The twin — two Payments of this account both
- * reaching the ledger — is impossible over these bytes: the multisig coordinator
- * PINNED their `Sequence` (`prepareCouncilMultisig`), so a second dispatch of the
- * same account carries the same number and at most one can ever apply; the other
- * dies `tefPAST_SEQ` without touching the Core Vault. That is the entire argument
- * of `releaseAbandonedCeremonySeat`, and a Xaman DELETE we could not confirm does
- * not weaken it by one bit. Refusing to release here would wall this council's
- * next exit for 24 hours over a request Xaman would not confirm dead — punishing
- * the family for OUR unread answer. «No pude leer» no es una cárcel.
- *
- * WHAT THE REAL RISK IS, AND WHY IT IS NAMED. It is not the twin, it is the
- * ORPHAN: if that request IS still signable and lands later, the XRP arrives at
- * the Core Vault carrying a memo whose row this release has just marked
- * superseded — a client debited with zero shares, and nothing on any screen
- * saying why. So the seat goes back AND the sitting says, in the same breath,
- * that a live request may still be out there and what it would mean.
- *
- * Pure so the rule is tested without a browser: a stray we could not confirm dead
- * plus a seat that really went back is the one state that needs the sentence.
  */
 export function ceremonyOrphanWarned(
   stray: XamanStrayState | null,
@@ -312,25 +252,8 @@ export function xamanTypeRefused(raws: (string | undefined)[]): boolean {
 }
 
 /**
- * productizer it.14 (R3 3.1 / 3.3) — WHAT /multisign/prepare SAID WHEN IT WOULD
+ * WHAT /multisign/prepare SAID WHEN IT WOULD
  * NOT PIN AN EXIT, WITHOUT BLAMING THE REGION FOR IT.
- *
- * That door is content-agnostic and geofenced by default; an EXIT takes the
- * flag-only door via the `exitToken` its compose door minted, or — with no token
- * — via the server's own classification of the memo. When neither works the
- * refusal arrived as a bare 451 and `describeServerRefusal` said «DeFi execution
- * is not available for your region»: a sentence that is FALSE about an exit (an
- * exit is never closed by a region) and that sends the council to Settings to
- * fix something that is not broken.
- *
- * So the three answers that are NOT about a region get their own sentence:
- *   · 503 EXIT_CLASSIFICATION_UNREADABLE — the store could not be read. «I could
- *     not read» is not «this is not an exit»: nothing was pinned, try again.
- *   · a handoff that is no longer signable (`exitClassification` naming the
- *     queue state) — the 0xFE behind this exit was signed, executed or replaced.
- *   · a token that came and did not verify (`exitTokenRejected`) — expired
- *     (15 min), minted for other bytes, or for another account.
- * Anything else falls through to the one server-refusal reader, untouched.
  */
 export function multisignPrepareRefusal(err: unknown, t: (s: string) => string): ReadableRefusal | null {
   const r = describeServerRefusal(err, t);
@@ -364,9 +287,9 @@ export function multisignPrepareRefusal(err: unknown, t: (s: string) => string):
 }
 
 /**
- * productizer it. 19 (R3 N3 / M2) — THE CONTESTED SEAT, SAID WHERE THE COUNCIL SIGNS.
+ * THE CONTESTED SEAT, SAID WHERE THE COUNCIL SIGNS.
  *
- * WHAT FAILED IN SILENCE (it. 18, §2.1). it. 17 replaced a hard 422 over an EXIT
+ * WHAT FAILED IN SILENCE (§2.1). Replaced a hard 422 over an EXIT
  * with `seatContestWarning`, because a withdrawal must never be held behind
  * somebody else's payload. The warning was emitted and read by NOBODY: zero
  * references in `frontend/src`. So the family gathered a quorum over an exit
@@ -374,23 +297,6 @@ export function multisignPrepareRefusal(err: unknown, t: (s: string) => string):
  * nothing, and the chain the guard used to cut — a council paying twice — came
  * back through the door the fix had just opened. A warning with no reader is
  * worse than the refusal it replaced: it looks like a decision was taken.
- *
- * WHY THE SERVER'S PROSE WAS NOT PRINTED, AND WHY IT IS NOW. The old free-text
- * field was composed with the rival proposal's TITLE — text another council
- * wrote, on a route reachable by a caller with no standing on this account
- * (it. 18, §2.7) — so printing it was an inbox leak and an oracle. The TYPED
- * notices are not that field: the route builds each `detail` from the ids alone
- * (type + id + the physics of the seat) and a backend test pins that no title
- * ever reaches them. Meanwhile the client sentence could not say WHICH of the
- * two physics applied — «it was pinned to that seat» vs «it was NOT pinned, it
- * carries the next free Sequence» — and that is precisely what a council needs
- * to know before re-liquidating a payment that may already have landed (it. 22,
- * §2.1). So the server's `detail` is the body when it sent one, filtered by the
- * same language guard every other surface uses; the client sentence stays as the
- * fallback for a deploy that sends none. The free-text field is still never
- * printed.
- *
- * Pure so the wording is tested without a browser and without a ledger.
  */
 export type SeatNoticeKind =
   | 'rival-seat'
@@ -412,7 +318,7 @@ export interface SeatContestNotice {
 }
 
 /**
- * it. 23 (it. 22 §2.1) — A KIND THIS LIST DOES NOT KNOW IS A WARNING THROWN AWAY.
+ * A KIND THIS LIST DOES NOT KNOW IS A WARNING THROWN AWAY.
  * The server stopped calling everything `rival-seat`: when the seat was already
  * spent, or when this payload was NOT pinned to the contested one, it says so
  * with its own kind. Anything missing here is silently dropped, so the two new
@@ -427,7 +333,7 @@ const SEAT_NOTICE_KINDS: ReadonlySet<string> = new Set<SeatNoticeKind>([
   'inbox-unreadable',
 ]);
 
-/** The ids of a typed notice, validated. A title never travels (it. 19, 2.7). */
+/** The ids of a typed notice, validated. A title never travels (2.7). */
 function seatNoticeIds(raw: { proposalId?: unknown; txType?: unknown; pinnedSequence?: unknown } | null): {
   proposalId?: string;
   txType?: string;
@@ -448,7 +354,7 @@ function seatNoticeIds(raw: { proposalId?: unknown; txType?: unknown; pinnedSequ
 }
 
 /**
- * it. 23 (it. 22 §2.2) — WHICH NOTICE WINS WHEN TWO ARRIVE.
+ * WHICH NOTICE WINS WHEN TWO ARRIVE.
  *
  * The route can emit a rival AND an «I could not classify this as an exit» for
  * the same prepare, and the screen painted both: one saying another payload
@@ -494,7 +400,7 @@ function rivalSeatNotice(
 ): SeatContestNotice {
   return {
     kind: 'rival-seat',
-    // it. 23 (it. 22 §2.1): without a Sequence the server never said the two
+    // Without a Sequence the server never said the two
     // share one — saying «holding the SAME Sequence» there is asserting the
     // very thing the server declined to assert, and it is what sends a family
     // to re-liquidate a payment that may already have landed.
@@ -520,7 +426,7 @@ function rivalSeatNotice(
 }
 
 /**
- * productizer it. 21 (it. 20 §2.5) — THE SCREEN WAS INVENTING A RIVAL.
+ * THE SCREEN WAS INVENTING A RIVAL.
  *
  * The server packs THREE different warnings into the seat channel:
  *   · a real rival payload holding this account's only Sequence;
@@ -531,13 +437,6 @@ function rivalSeatNotice(
  * problem was a database blip was sent to settle a proposal that does not exist
  * — and the two true warnings had no reader. «No pude leer» rendered as a fact
  * is the same failure as a raw code, one level up.
- *
- * Each kind now gets ITS OWN sentence, and a notice with no rival NEVER says
- * another payload is holding the same Sequence. Typed notices win; the old free
- * text is read only when nothing typed arrived (an older backend), and even then
- * its prose is not printed — it may name another council's proposal (2.7).
- *
- * Pure, so the wording is tested without a browser and without a ledger.
  */
 export function seatContestNotices(
   prep: { seatContestWarning?: unknown; seatContest?: unknown; seatNotices?: unknown } | null | undefined,
@@ -550,7 +449,7 @@ export function seatContestNotices(
     const kind = typeof n?.kind === 'string' && SEAT_NOTICE_KINDS.has(n.kind) ? (n.kind as SeatNoticeKind) : null;
     if (!kind) return;
     const ids = seatNoticeIds(n as { proposalId?: unknown; txType?: unknown; pinnedSequence?: unknown });
-    // it. 23 (it. 22 §2.1): the server's own sentence is the body when it sent
+    // The server's own sentence is the body when it sent
     // one — it is the only text that says whether this payload was pinned to the
     // rival's seat or given the next free Sequence, and it was being dropped.
     const detail = noticeDetail(n);
@@ -575,7 +474,7 @@ export function seatContestNotices(
         kind,
         headline: t('This transaction was not pinned to that seat'),
         /**
-         * productizer it. 27 (2) — EL CUERPO DE RESERVA AFIRMABA UNA FÍSICA QUE EL
+         * EL CUERPO DE RESERVA AFIRMABA UNA FÍSICA QUE EL
          * SERVIDOR NUNCA DIJO.
          *
          * Decía «Both can reach the ledger, in either order — nothing here has to be
@@ -617,7 +516,7 @@ export function seatContestNotices(
   if (ranked.length > 0) {
     ranked.sort((a, b) => a.priority - b.priority || a.at - b.at);
     /**
-     * it. 23 (it. 22 §2.2) — ONE SITUATION, ONE NOTICE.
+     * ONE SITUATION, ONE NOTICE.
      *
      * A rival that the server NAMED is evidence; «we could not classify this»
      * and «we could not read the inbox» are absences of evidence, and their
@@ -633,7 +532,7 @@ export function seatContestNotices(
     const hasRival = ranked.some((r) => r.notice.kind === 'rival-seat');
     return ranked.filter((r) => !hasRival || r.notice.kind === 'rival-seat').map((r) => r.notice);
   }
-  // ── Older backend: one free-text field and, since it. 19, the rival's ids ──
+  // ── Older backend: one free-text field and, the rival's ids ──
   const warning = typeof prep.seatContestWarning === 'string' ? prep.seatContestWarning.trim() : '';
   const ids = seatNoticeIds(
     (prep.seatContest ?? null) as { proposalId?: unknown; txType?: unknown; pinnedSequence?: unknown } | null,
@@ -663,9 +562,9 @@ export function seatContestNotice(
 }
 
 /**
- * productizer it. 21 (it. 20 §2.9) — THE TRUTH HAS TO REACH WHOEVER SIGNS.
+ * THE TRUTH HAS TO REACH WHOEVER SIGNS.
  *
- * it. 19 put this warning «before the QR», and it was true — in the DOM. The
+ * Put this warning «before the QR», and it was true — in the DOM. The
  * composer sees it above their own button; the COSIGNATORIES get a push on their
  * phone and sign a payload they were never shown this screen for. So the one
  * person who read the warning is the one who already knew, and the quorum — the
@@ -754,7 +653,7 @@ export function livePayloadUuids(
 }
 
 /**
- * arriendo-ceremonia (round 5) — WHAT «Cancel this ceremony» ASKS XAMAN TO KILL.
+ * arriendo-ceremonia — WHAT «Cancel this ceremony» ASKS XAMAN TO KILL.
  *
  * The rows' answer (`livePayloadUuids`) UNION the register of requests Xaman has
  * already answered a create for and React has not rendered yet. That second half
@@ -805,7 +704,7 @@ export default function CouncilMultisigFlow({
   exitToken?: string | null;
   onSettled?: (hash: string) => void;
   /**
-   * it. 31 (§1) — what this sitting has DONE with the bytes, as it happens:
+   * What this sitting has DONE with the bytes, as it happens:
    * started (the coordinator pins the seat), committed to a broadcast, the hash
    * the node handed back, the ledger's verdict. A host that must decide what a
    * CLOSE means — the quorum ceremony bus, whose caller is waiting on a promise —
@@ -816,11 +715,11 @@ export default function CouncilMultisigFlow({
   /** Told whenever this ceremony starts or stops holding the account's pinned
    *  seat, so the surface around it can close the async door (consejo-
    *  superficies 2). Read by CouncilSigningDoors below — the only mount.
-   *  arriendo-ceremonia (round 5): a `SeatHold`, not a boolean — the door has to
+   *  arriendo-ceremonia: a `SeatHold`, not a boolean — the door has to
    *  say WHY it is closed, and "cancel it there" is a lie in two of the four. */
   onSeatHeld?: (hold: SeatHold) => void;
   /**
-   * it.14 (R2 2.3): the broadcast came back tefPAST_SEQ / tefMAX_LEDGER over a
+   * The broadcast came back tefPAST_SEQ / tefMAX_LEDGER over a
    * COUNCIL ORDER — the pinned Sequence was spent, possibly by a sibling of this
    * same order that is on its way to Flare. What became of the ORDER travels to
    * the surface around, which pauses composing until the person says they
@@ -848,19 +747,19 @@ export default function CouncilMultisigFlow({
   /** A cancel round trip for the whole ceremony is in flight. */
   const [abandoning, setAbandoning] = useState(false);
   /**
-   * arriendo-ceremonia (round 5): the last sitting ended and the server could
+   * arriendo-ceremonia: the last sitting ended and the server could
    * not confirm the seat was handed back. Keeps the async door CLOSED with the
    * reason instead of opening it onto a 422 the family cannot obey.
    */
   const [seatUnreleased, setSeatUnreleased] = useState(false);
   /**
-   * it. 29 (§4): the last sitting handed its seat back WHILE a sign request it
+   * The last sitting handed its seat back WHILE a sign request it
    * could not confirm dead may still be live. Not a gate and not an alarm about
    * the seat — see `ceremonyOrphanWarned` for why releasing is still right.
    */
   const [orphanRisk, setOrphanRisk] = useState(false);
   /**
-   * it.14 (R2 2.3): what became of the ORDER after a broadcast the ledger can
+   * What became of the ORDER after a broadcast the ledger can
    * never apply (tefPAST_SEQ / tefMAX_LEDGER). Shown here and reported out.
    */
   const [staleFate, setStaleFate] = useState<StaleOrderFate | null>(null);
@@ -869,24 +768,11 @@ export default function CouncilMultisigFlow({
   const onDispatchRef = useRef(onDispatch);
   onDispatchRef.current = onDispatch;
   /**
-   * it. 31 (§1) — HAS THIS SITTING COMMITTED TO A BROADCAST? Cleared only by a
+   * HAS THIS SITTING COMMITTED TO A BROADCAST? Cleared only by a
    * NEW sitting (`start()`). It is what the unmount cleanup reads to refuse
    * handing back the seat of a Payment that may already be on the ledger — the
    * phase alone cannot say it, because a broadcast that threw lands on `error`,
    * the same phase as a failed mint.
-   *
-   * it. 33 (B3): stamped the instant BEFORE `broadcast()` — after `multisign()`,
-   * not before it. Combining is local arithmetic: if it throws, nothing left this
-   * browser, and a close then must read ABANDONED (nothing left), not «it may be
-   * out there». It. 31 stamped it first thing in `submit()`, so a bad blob gave
-   * the caller RECEIPT_UNREAD over bytes that never reached a node.
-   *
-   * it. 33 (B2): the same fact as STATE too (`committed`), because the render
-   * now depends on it — «Cancel this ceremony» is not offered over a committed
-   * `error`, and the async door's hold reads 'committed' there. The ref stays
-   * the imperative source (the unmount cleanup and `abandon()` read it in the
-   * tick they run, before any re-render); both are written by `commitToNode()`
-   * and reset together in `start()`, so they cannot drift.
    */
   const committedRef = useRef(false);
   const [committed, setCommitted] = useState(false);
@@ -903,7 +789,7 @@ export default function CouncilMultisigFlow({
   const xrplTxRef = useRef(xrplTx);
   xrplTxRef.current = xrplTx;
   /**
-   * arriendo-ceremonia (round 5) — WHERE A MINTED PAYLOAD IS CERTAIN TO BE.
+   * arriendo-ceremonia — WHERE A MINTED PAYLOAD IS CERTAIN TO BE.
    *
    * This is the SIXTH time this family reopened its own 24-hour orphan by a new
    * door, so the register is the class fix rather than another patched path.
@@ -915,11 +801,6 @@ export default function CouncilMultisigFlow({
    * `abandon()`'s `setMembers([])` landed first: the uuid was written into an
    * empty array, never stored, never cancelled, never named in any warning.
    * `resetMember` had the mirror case, and `start()` a third by index.
-   *
-   * Every mint adds its uuid HERE, before anything else can be awaited, and it
-   * is only removed once Xaman has ANSWERED that request (signed / rejected /
-   * confirmed cancelled). So `abandon()` looks at the superset of what the rows
-   * can see, and nothing can be minted that it cannot find.
    */
   const openPayloadsRef = useRef<Set<string>>(new Set());
   /**
@@ -934,9 +815,9 @@ export default function CouncilMultisigFlow({
   const prepRef = useRef<MultisigPrepare | null>(null);
   prepRef.current = prep;
   /**
-   * it. 34 (E) — THE NAME OF THIS SITTING, as `/multisign/prepare` handed it back.
+   * THE NAME OF THIS SITTING, as `/multisign/prepare` handed it back.
    * Every release this sitting makes (the unmount cleanup, «Cancel this
-   * ceremony», the late prepare of it. 31 §2) sends it, so a release that lands
+   * ceremony», the late prepare) sends it, so a release that lands
    * AFTER a newer sitting re-pinned these bytes is a no-op server-side instead of
    * freeing that sitting's seat. `null` until the prepare returns — and the
    * cleanup says `null` then, which the server reads as «a sitting with no name,
@@ -951,7 +832,7 @@ export default function CouncilMultisigFlow({
 
   // consejo-superficies 2 — the seat this ceremony holds, reported OUT. Through
   // a ref so an inline callback at a call site cannot restart the effect.
-  // arriendo-ceremonia (round 5): what travels is the hold STATE, so the door
+  // arriendo-ceremonia: what travels is the hold STATE, so the door
   // beside it can only ever promise an exit that is really on screen.
   const seatHold = seatHoldOf(phase, prep !== null, seatUnreleased, committed);
   const onSeatHeldRef = useRef(onSeatHeld);
@@ -960,7 +841,7 @@ export default function CouncilMultisigFlow({
     onSeatHeldRef.current?.(seatHold);
   }, [seatHold]);
 
-  // it. 21 (§2.5 + §2.9): typed, one sentence per kind — and rendered in BOTH
+  // Typed, one sentence per kind — and rendered in BOTH
   // places, because the composer is not the only person who signs.
   const seatNotices = seatContestNotices(prep, t);
   const collectedWeight = members.filter((m) => m.status === 'signed').reduce((s, m) => s + m.weight, 0);
@@ -968,7 +849,7 @@ export default function CouncilMultisigFlow({
   const quorumMet = quorum > 0 && collectedWeight >= quorum;
 
   /**
-   * arriendo-ceremonia (round 5) — THE ONLY PLACE THIS SCREEN MINTS A PAYLOAD.
+   * arriendo-ceremonia — THE ONLY PLACE THIS SCREEN MINTS A PAYLOAD.
    *
    * Both minting paths (`start` and «New QR») go through here, so the register
    * above cannot be forgotten by one of them — which is precisely how this bug
@@ -979,16 +860,16 @@ export default function CouncilMultisigFlow({
    * to die instead of staying signable on a member's phone for 24 hours over a
    * Sequence the council has committed to.
    */
-  // it. 19 (R1 1.3) — POR QUÉ AQUÍ NO SE RE-ESTAMPA LA CADUCIDAD DEL ASIENTO.
+  // POR QUÉ AQUÍ NO SE RE-ESTAMPA LA CADUCIDAD DEL ASIENTO.
   //
   // `XamanSingleSign` avisa al servidor del instante real en que nace su payload
   // (`payload-opened`), porque su `expire` son 5 minutos y el desfase contra el
   // compose creaba el gemelo. Las peticiones de una ceremonia nacen con la
   // ventana que el servidor compuso para ESTA fila — hasta 24 h
-  // (`ceremonyPayloadExpiryMin`, it27 §4) — y estamparlo sin más dejaría el
+  // (`ceremonyPayloadExpiryMin`) — y estamparlo sin más dejaría el
   // asiento de ese 0xFE ocupado un día entero. Sobre una SALIDA eso es tapiarla,
   // que es exactamente lo que el invariante prohíbe. La escapatoria es la puerta
-  // del release, que esta pantalla SÍ llama ahora con el memo (it27 §1):
+  // del release, que esta pantalla SÍ llama ahora con el memo:
   // omisión leída, no olvido.
   const mintPayload = useCallback(
     async (memberAccount: string, tx: Record<string, unknown>, epoch: number) => {
@@ -1011,7 +892,7 @@ export default function CouncilMultisigFlow({
   const start = useCallback(async () => {
     // A new sitting: anything the previous one is still minting is stale.
     const epoch = (mintEpochRef.current += 1);
-    // it. 31 (§1): a new sitting has committed to nothing yet, and the host is
+    // A new sitting has committed to nothing yet, and the host is
     // told the coordinator is about to pin — from here the seat is this sitting's.
     committedRef.current = false;
     setCommitted(false);
@@ -1024,18 +905,18 @@ export default function CouncilMultisigFlow({
     // …and neither is the previous sitting's orphan warning: it belongs to bytes
     // this one is about to pin again.
     setOrphanRisk(false);
-    // it. 34 (E): a new sitting has no name until the coordinator answers.
+    // A new sitting has no name until the coordinator answers.
     sittingIdRef.current = null;
     try {
       const p = await xrplLegacy.multisignPrepare(account, xrplTx, exitToken ? { exitToken } : undefined);
-      // it. 34 (E): the id of THIS prepare, read off THIS answer — never off the
+      // The id of THIS prepare, read off THIS answer — never off the
       // ref, which a newer sitting of a remounted flow could not share anyway.
       const sittingId = prepareSittingId(p);
-      // it. 31 (§2): the screen went away while the coordinator was pinning (the
+      // The screen went away while the coordinator was pinning (the
       // unmount cleanup bumps the epoch). The sitting is over and the seat it has
       // JUST taken goes straight back — the cleanup ran before there was a pin to
       // hand back, so this is its only chance.
-      // it. 34 (E): …with its own name. «Back» in `preparing` + «Sign now» again
+      // …with its own name. «Back» in `preparing` + «Sign now» again
       // before this answer arrived means a NEWER sitting has pinned these bytes
       // by now; a release naming this dead one is a no-op there, as it must be.
       if (mintEpochRef.current !== epoch) {
@@ -1082,7 +963,7 @@ export default function CouncilMultisigFlow({
       // proposal on this account is not settled and that composing another one
       // now is exactly how a council pays twice — and the ceremony printed the
       // slug. A dead end at the one moment the family MUST understand why.
-      // it.14: an exit that could not take its own door is NOT a region refusal.
+      // an exit that could not take its own door is NOT a region refusal.
       setError(multisignPrepareRefusal(e, t) ?? describeServerRefusal(e, t));
       setPhase('error');
     }
@@ -1096,7 +977,7 @@ export default function CouncilMultisigFlow({
       if (waiting.length === 0) return;
       waiting.forEach(async (m) => {
         const st = await pollStatus(m.uuid!);
-        // arriendo-ceremonia (round 5): Xaman ANSWERED this request, so it is
+        // arriendo-ceremonia: Xaman ANSWERED this request, so it is
         // no longer killable — retiring it from the register is what keeps
         // «Cancel this ceremony» from raising ALREADY_RESOLVED over a signature
         // that arrived perfectly well. The verification verdict below does not
@@ -1128,43 +1009,13 @@ export default function CouncilMultisigFlow({
   }, [phase]);
 
   /**
-   * it. 29 (§1) — LO QUE SE QUEDA VIVO CUANDO ESTA PANTALLA DESAPARECE.
+   * LO QUE SE QUEDA VIVO CUANDO ESTA PANTALLA DESAPARECE.
    *
    * The QRs are not the seat. Each member request is minted with the ceremony's
    * own window (up to 24 h), so closing the dialog with Escape, the backdrop or
    * the X used to leave one signable multisign request per member alive on their
    * phones with NOBODY left to cancel them: `abandon()` is a button, and a button
    * that is no longer rendered cannot press itself.
-   *
-   * `openPayloadsRef` is exactly the register that was built for this (round 5):
-   * the superset of what the rows can see, holding only requests Xaman has not
-   * answered. Emptying it here is the same act the button performs, minus the one
-   * thing a destroyed screen cannot do — SAY what it could not confirm. That
-   * silence is honest rather than hidden, and a cancel we could not confirm leaves
-   * the same trace it always did in Xaman's own log.
-   *
-   * it. 31 (§1 + §2) — …AND THE SEAT, WHICH THIS CLEANUP USED TO DECLINE.
-   *
-   * WHAT FAILED IN SILENCE. This comment said «the seat is handed back by the bus
-   * now, on every close path», and on that sentence released nothing. It was true
-   * for ONE of the seventeen mounts of this flow — the bus's modal. The other
-   * sixteen (`OperatorConsole`, `ExchangeDesk`, `PoteBirthCard`, `XrpFundCard`,
-   * `CageBirthCard`, `CouncilVaultEntry`, `CouncilOrderCard`, `GovernedMovements`,
-   * `LegacyPanel`, `CouncilAnchorCard`, `WalletTransferModals`…) render it inline
-   * with a «Back» underneath, never touch the bus, and so a council that pressed
-   * Back under «Withdraw the creator's genesis capital» — an EXIT — kept its
-   * account's nonce seat for 24 h. And the one host that did release did it blind
-   * to the phase, so a Payment already broadcast lost its seat (see the bus).
-   *
-   * So the release lives HERE, once, for all seventeen — phase-aware
-   * (`unmountReleasesSeat`): the seat this sitting pinned goes back on unmount in
-   * `preparing`, `signing` and a pre-broadcast `error`; never once `submit()` has
-   * committed the bytes to a node (`committedRef`), and never in `idle`, where
-   * this sitting pinned nothing. The it. 29 worry about a StrictMode remount is
-   * exactly why `idle` releases nothing: React's double-invoke happens before
-   * `start()`, when there is no pin and no QR.
-   *
-   * Empty deps on purpose: this must fire when the component really goes away.
    */
   useEffect(() => {
     return () => {
@@ -1181,7 +1032,7 @@ export default function CouncilMultisigFlow({
       }
       if (unmountReleasesSeat(phaseRef.current, prepRef.current !== null, committedRef.current)) {
         // `keepalive` inside: this runs in the tick the screen is destroyed.
-        // it. 34 (E): named after THIS sitting (`null` in `preparing`, before the
+        // named after THIS sitting (`null` in `preparing`, before the
         // coordinator answered — the late prepare then releases with the real
         // name). A `keepalive` request that lands after the person signed again
         // must not free the seat of the sitting that replaced this one.
@@ -1197,19 +1048,6 @@ export default function CouncilMultisigFlow({
    * client that opens it ("payload handled by another client"); the cure is a
    * FRESH payload for the SAME pinned tx — same Sequence/Fee/signer, so any
    * signature already collected from other members keeps counting.
-   *
-   * consejo-superficies 1 — WHAT THE CURE LEFT BEHIND. The old payload does not
-   * die on its own: these are created with `expire: 1440`, so every press left
-   * ANOTHER signable multisign request on that member's phone for 24 hours.
-   * Press it N times and one seat had N live requests, each of which produces a
-   * signature this browser would happily combine. So the previous one is killed
-   * FIRST, through the one bus function (`cancelXamanPayload`, reached via
-   * `cancelPayloadAndDecide`) — never a second DELETE written here — and when
-   * Xaman refuses, or never answers, that is SAID instead of swallowed.
-   *
-   * The member goes to 'creating' before the round trip, which is also what
-   * takes the «New QR» button off this row: a second press cannot fire a second
-   * DELETE while the first is in flight.
    */
   const resetMember = useCallback(async (memberAccount: string) => {
     const tx = prepRef.current?.multisigTx;
@@ -1242,7 +1080,7 @@ export default function CouncilMultisigFlow({
       const stray = strayStateOf(cancelUi);
       // Only ever SET: minting a new request does not make the old one dead.
       if (stray) setStrayPayload(stray);
-      // arriendo-ceremonia (round 5): retired from the register ONLY when Xaman
+      // arriendo-ceremonia: retired from the register ONLY when Xaman
       // confirmed the kill. A DELETE we could not confirm leaves a request that
       // may still be signable, so «Cancel this ceremony» must still find it.
       if (!stray) openPayloadsRef.current.delete(prevUuid);
@@ -1275,29 +1113,11 @@ export default function CouncilMultisigFlow({
    * account had pinned — and nothing on any screen said so. It is also what
    * makes closing the async door beside this one honest rather than a trap:
    * the council can put the seat down, and then propose.
-   *
-   * Only requests still 'waiting' are killed. A member who already signed has
-   * an ANSWERED payload, and asking Xaman to cancel that would come back
-   * ALREADY_RESOLVED — a warning about a signature that arrived perfectly well.
-   *
-   * it. 33 (B2) — NEVER OVER A SITTING THAT COMMITTED BYTES TO A NODE.
-   *
-   * WHAT FAILED IN SILENCE. This released the seat without asking `committedRef`
-   * — the very flag it. 31 built so that the unmount cleanup would not. The
-   * button was on screen in `error`, and `error` is where a broadcast that no
-   * node CONFIRMED lands (`broadcast()` throws only when all three failed; the
-   * first may have applied the blob and lost its answer). «Cancel» released the
-   * seat of a Payment that could be on the ledger, then reported `abandoned` to
-   * the bus, which forgot the commitment: the next Escape released AGAIN and told
-   * the caller «nothing left». The render no longer offers the button there
-   * (`ceremonyExit`), and this guard is the rule itself: a click that reaches
-   * here over a committed sitting — a press delivered a frame after the button
-   * was withdrawn — does nothing, and says nothing false.
    */
   const abandon = useCallback(async () => {
     if (committedRef.current) return;
     setAbandoning(true);
-    // arriendo-ceremonia (round 5): from this line on, nothing Xaman is still
+    // arriendo-ceremonia: from this line on, nothing Xaman is still
     // minting belongs to this sitting — `mintPayload` kills whatever lands late
     // instead of letting it become a 24-hour orphan nobody recorded.
     mintEpochRef.current += 1;
@@ -1320,16 +1140,16 @@ export default function CouncilMultisigFlow({
     // same refusal. The QRs are killed FIRST on purpose: handing the seat back
     // while requests are still signable would reopen the async door over bytes
     // a member can still sign.
-    // it. 27 (§1): el memo del 0xFE viaja con la cancelación. Sin él el servidor
+    // el memo del 0xFE viaja con la cancelación. Sin él el servidor
     // devolvía la Sequence y dejaba el asiento de nonce ocupado 24 h — la mitad
     // de la puerta que nadie llamaba.
-    // it. 34 (E): «Cancel» hands back THIS sitting's seat, by name. Another tab of
+    // «Cancel» hands back THIS sitting's seat, by name. Another tab of
     // the same session that pinned these bytes after us keeps its seat.
     const outcome = await releaseCeremonySeat(account, paymentMemoHex(xrplTx), sittingIdRef.current);
     // Only a READ answer closes this: 'unconfirmed' keeps the async door shut
     // WITH the reason rather than opening it onto a refusal we already know of.
     setSeatUnreleased(outcome === 'unconfirmed');
-    // it. 29 (§4): the seat went back while a request may still be signable. The
+    // The seat went back while a request may still be signable. The
     // reasoning for doing it anyway is on `ceremonyOrphanWarned`; what was missing
     // was saying so. `strayStateOf` only ever SETS above, so the answers collected
     // in this very call are what decides — never a stale flag from a past sitting.
@@ -1341,7 +1161,7 @@ export default function CouncilMultisigFlow({
     setResult(null);
     setPhase('idle');
     setAbandoning(false);
-    // it. 31 (§1): the host learns the sitting is over — a close from here on is
+    // The host learns the sitting is over — a close from here on is
     // a close over nothing of this sitting's.
     onDispatchRef.current?.({ stage: 'abandoned' });
   }, [account, xrplTx]);
@@ -1350,7 +1170,7 @@ export default function CouncilMultisigFlow({
     setPhase('submitting');
     setError(null);
     setStaleFate(null);
-    // it. 33 (B2): did a node ANSWER the submit? Decides what a throw below means
+    // Did a node ANSWER the submit? Decides what a throw below means
     // — before an answer, the bytes may have entered a node whose reply was
     // lost; after one, the hash already travelled and the bus already knows.
     let nodeAnswered = false;
@@ -1359,7 +1179,7 @@ export default function CouncilMultisigFlow({
       // Local arithmetic over the collected signatures. If it throws, nothing has
       // left this browser — which is why the commitment is stamped AFTER it.
       const combined = multisign(blobs);
-      // it. 31 (§1) / it. 33 (B3): from this line the bytes are committed to a
+      // /: from this line the bytes are committed to a
       // node. The unmount cleanup will not hand the seat back, «Cancel» is no
       // longer offered, and the host is told.
       commitToNode();
@@ -1368,20 +1188,6 @@ export default function CouncilMultisigFlow({
       // can still land as tec* (the family's proven case was exactly this
       // ceremony, 6 validated-but-failed txns). onSettled only fires on the
       // ledger's verdict, never on the submit's.
-      //
-      // it. 31 (§1) — THE HASH REACHES THE SEAT'S REGISTER THE MOMENT THE NODE
-      // HANDS IT BACK, not after validation and not never. `XamanSingleSign` has
-      // done this since it. 13 (`/handoff/signed`: validated → `signedAt`, seat
-      // untouchable; not yet → 202 PENDING_LEDGER and the hash REMEMBERED). This
-      // screen never did, so a ceremony's 0xFE was, to the server, an unsigned
-      // draft for as long as its ledger window was empty — and a release in that
-      // gap (the closed dialog, it. 29) marked a broadcast Payment `superseded`.
-      // Only a 0xFE (an `FE…` memo) has a row to tell; a constitution, a
-      // SignerSet or a council order has none, and nothing is sent for them. And
-      // only a submit that CAN still land is reported: `tes` (accepted), `tec`
-      // (applied, fee claimed) and `ter` (retried by the node) may reach a
-      // ledger; `tef` / `tem` were refused locally and never will — reporting
-      // those would hold the seat on a hash that cannot exist.
       const sub = await broadcast(combined);
       nodeAnswered = true;
       if (sub.hash && broadcastMayLand(sub.engine)) notifyHandoffSigned(flareInstructionMemoOf(xrplTx), sub.hash);
@@ -1403,7 +1209,7 @@ export default function CouncilMultisigFlow({
       setResult(res);
       setPhase('done');
       if (res.validated && res.finalResult === 'tesSUCCESS' && res.hash) onSettled?.(res.hash);
-      // it.14 (R2 2.3) — THE SEAT WAS SPENT BY SOMEBODY ELSE'S COPY.
+      // THE SEAT WAS SPENT BY SOMEBODY ELSE'S COPY.
       // The node answered tefPAST_SEQ / tefMAX_LEDGER: THIS transaction can
       // never validate, and over a council order the copy that spent the
       // Sequence may be a sibling of the SAME order already on its way. «Back»
@@ -1418,7 +1224,7 @@ export default function CouncilMultisigFlow({
           const fate = staleOrderFate(read);
           setStaleFate(fate);
           // The memo travels so the surface can remember the lock per order and
-          // not lose it to an F5 (it.16, R5 5.5).
+          // not lose it to an F5 (R5 5.5).
           onStaleFateRef.current?.(fate, memo);
         }
       }
@@ -1427,7 +1233,7 @@ export default function CouncilMultisigFlow({
       // here too, never a bare code (detail-ceremonia).
       setError(describeServerRefusal(e, t));
       setPhase('error');
-      // it. 33 (B2): committed, and no node answered — the host learns that the
+      // Committed, and no node answered — the host learns that the
       // broadcast went UNCONFIRMED (not «never started», not `abandoned`): a close
       // from here on is a close over a Payment that may be on the ledger. A throw
       // after the node answered changes nothing the bus does not already hold.
@@ -1440,7 +1246,7 @@ export default function CouncilMultisigFlow({
   // The SYNCHRONOUS tempo, named as such. It sits next to ProposeToCouncil (the
   // async one) at every call site, so each has to say what it costs the family:
   // everyone now, or everyone eventually. Without the second line the two
-  // buttons read as the same act twice (2026-08-04).
+  // buttons read as the same act twice.
   if (phase === 'idle') {
     return (
       <div className="space-y-1">
@@ -1463,7 +1269,7 @@ export default function CouncilMultisigFlow({
             </div>
           </InlineNotice>
         )}
-        {/* it. 29 (§4) — EL HUÉRFANO, DICHO. The seat really went back and a
+        {/* EL HUÉRFANO, DICHO. The seat really went back and a
             request could not be confirmed dead: the twin is impossible (pinned
             Sequence) but a late landing would arrive over a row already filed as
             abandoned. Said next to the stray warning, never instead of it. */}
@@ -1492,7 +1298,7 @@ export default function CouncilMultisigFlow({
         </p>
       )}
 
-      {/* it. 19 (R3 N3) — BEFORE THE QRs, NOT AFTER. The council reads what the
+      {/* BEFORE THE QRs, NOT AFTER. The council reads what the
           seat costs the other payload while there is still nothing to undo:
           once a member scans, a signature exists. Rendered from the IDs the
           server sent, never from the prose (it names another council's title). */}
@@ -1572,7 +1378,7 @@ export default function CouncilMultisigFlow({
             {m.status === 'rejected' && <Pill tone="danger">{t('rejected / expired')}</Pill>}
             {m.status === 'error' && <Pill tone="danger">{m.error ?? t('error')}</Pill>}
             {phase === 'signing' && m.status !== 'signed' && m.status !== 'creating' && (
-              // arriendo-ceremonia (round 5): `abandoning` used to switch off
+              // arriendo-ceremonia: `abandoning` used to switch off
               // the Cancel button alone, leaving this one live through the whole
               // DELETE fan-out (up to 8s × N) — one press there minted a
               // 24-hour request that `setMembers([])` then threw away. The
@@ -1582,8 +1388,8 @@ export default function CouncilMultisigFlow({
                 <RefreshCw size={12} /> {t('New QR')}
               </GhostButton>
             )}
-            {/* it. 23 (it. 22 §2.2) — IT WAS INSIDE THE «waiting» BRANCH.
-                it. 21 put this beside each member's QR so a cosignatory reads
+            {/* IT WAS INSIDE THE «waiting» BRANCH.
+                Put this beside each member's QR so a cosignatory reads
                 what they are signing over. But it lived inside `status ===
                 'waiting'`, so the moment anyone pressed «New QR» — status
                 'creating', then 'waiting' again with a new payload — the
@@ -1624,7 +1430,7 @@ export default function CouncilMultisigFlow({
         </div>
       )}
 
-      {/* it. 33 (B2) — the `error` AFTER a commit: no node confirmed the submit,
+      {/* The `error` AFTER a commit: no node confirmed the submit,
           and the first may have applied it. No «Cancel» here — a Cancel over
           bytes that may be on the ledger is how the twin was built — but the
           ledger itself, which is the only thing that can answer. The seat is
@@ -1657,7 +1463,7 @@ export default function CouncilMultisigFlow({
           </div>
         </InlineNotice>
       )}
-      {/* it. 29 (§4) — the same sentence, on the card: a sitting that ends in
+      {/* The same sentence, on the card: a sitting that ends in
           'error' stays here, and the orphan must not depend on which branch
           the phase happened to land in. */}
       {orphanRisk && <InlineNotice tone="warning">{t(CEREMONY_ORPHAN_SENTENCE)}</InlineNotice>}
@@ -1681,7 +1487,7 @@ export default function CouncilMultisigFlow({
               {t('Broadcast accepted — still waiting for ledger validation. Check XRPScan in a moment; do not assume it applied.')}
             </InlineNotice>
           ) : staleFate ? (
-            // it.14: the Sequence this ceremony pinned was already spent. Say
+            // The Sequence this ceremony pinned was already spent. Say
             // what became of the ORDER before anything suggests composing again.
             <InlineNotice tone="warning">
               {staleFate.kind === 'checking' ? <Loader2 size={12} className="mr-1 inline animate-spin" /> : null}
@@ -1707,7 +1513,7 @@ export default function CouncilMultisigFlow({
 
       {error && <InlineNotice tone="warning">{error.text}</InlineNotice>}
 
-      {/* Dead-end guard (2026-08-03): when Xaman refuses to create the sign
+      {/* Dead-end guard: when Xaman refuses to create the sign
           request for this transaction TYPE (error 1217 — account-security
           types are granted per app), the live ceremony cannot proceed at all.
           Say where the way out is instead of leaving the council staring at a
@@ -1737,12 +1543,6 @@ export default function CouncilMultisigFlow({
  * proposal. Whichever copy executes first spends the Sequence, and the other
  * becomes a row the ledger says is spent: the family's next move is to compose
  * the payment again, with a fresh Sequence — and the council pays twice.
- *
- * The pair is ONE element with ONE rule now, rather than four adjacent pairs
- * that each had to stay correct. And the closed door SAYS why it is closed: a
- * door that merely vanishes teaches nothing, and leaves the person hunting for
- * the button that was there yesterday. The exit is real — «Cancel this
- * ceremony» hands the seat back and this door reopens.
  */
 export function CouncilSigningDoors({
   xrplTx,
@@ -1761,7 +1561,7 @@ export function CouncilSigningDoors({
    * creator exit) — handed to the live ceremony's /multisign/prepare so the exit
    * takes its own door instead of the general one. EVERY console that signs an
    * exit through these doors forwards it: two of them did not, and their exits
-   * came back 451 whenever the order could not be classified (it.14, R3 3.1).
+   * came back 451 whenever the order could not be classified (R3 3.1).
    */
   exitToken?: string | null;
   /** Prefill for the short human summary shown in the inbox. */
@@ -1770,7 +1570,7 @@ export function CouncilSigningDoors({
   onProposed?: (proposalId: string) => void;
   /** Told true while a ceremony holds the seat (any hold but 'none'): the surface around hides its way back. */
   onBlockedChange?: (blocked: boolean) => void;
-  /** it.14: this order's seat was spent — what became of the ORDER (see CouncilMultisigFlow). */
+  /** This order's seat was spent — what became of the ORDER (see CouncilMultisigFlow). */
   onStaleFate?: (fate: StaleOrderFate, memoHex?: string | null) => void;
 }) {
   const { t } = useT();
@@ -1778,7 +1578,7 @@ export function CouncilSigningDoors({
   const onBlockedRef = useRef(onBlockedChange);
   onBlockedRef.current = onBlockedChange;
   const blocked = seatHold !== 'none';
-  // productizer-it7: a FRESH mount never reports «not blocked». The flow starts
+  // A FRESH mount never reports «not blocked». The flow starts
   // at 'none' before it knows anything, and reporting that on a remount reopened
   // a Back / rail / tab the previous mount had closed over a hand-off that
   // already happened (the OmnibusSignDoor rule). Only a real transition speaks.
@@ -1788,7 +1588,7 @@ export function CouncilSigningDoors({
     reportedRef.current = true;
     onBlockedRef.current?.(blocked);
   }, [blocked]);
-  // arriendo-ceremonia (round 5): the sentence is CHOSEN by the same predicate
+  // arriendo-ceremonia: the sentence is CHOSEN by the same predicate
   // that decides whether the exit exists, so the closed door can no longer send
   // the family to a «Cancel» that three of its five phases never render — and
   // it can now also say the fourth thing, that the seat's release went unread.

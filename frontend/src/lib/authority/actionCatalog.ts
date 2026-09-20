@@ -1,5 +1,5 @@
 /**
- * actionCatalog — the honest action×authority table (review 2026-07-17,
+ * actionCatalog — the honest action×authority table (review,
  * Fase 0: "mapear ese catálogo es parte del recon, no un descubrimiento a
  * mitad de build").
  *

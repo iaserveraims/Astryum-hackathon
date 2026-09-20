@@ -1,36 +1,6 @@
 /**
  * sentinelProbes — LA LISTA. Qué se vigila de Astryum y, para cada cosa, qué
  * hacer cuando se pone roja.
- *
- * Orden de lectura (de abajo del stack hacia arriba):
- *   1. backend            — ¿está vivo el proceso? ¿acaba de reiniciarse?
- *   2. base-de-datos      — ¿responde Postgres? (sin ella no hay handoffs)
- *   3. flare-rpc          — ¿vemos la cadena donde se ejecuta?
- *   4. xrpl-endpoints     — ¿vemos el ledger donde firma el usuario?
- *   5. executor-watcher   — ¿sigue barriendo el executor 0xFE?
- *   6. executor-pendientes— ¿hay XRP de alguien esperando ejecución?
- *   7. executor-aparcados — ¿hay dispatches que ya NADIE reintentará?
- *   8. executor-combustible — ¿le queda FLR para defender?
- *   9. executor-presupuesto — ¿queda tope de fees FDC en la ventana de 24 h?
- *  10. executor-margen    — ¿la fee sigue cubriendo el coste (guardián FTSO)?
- *  11. consejo-ordenes    — ¿alguna orden firmada por el consejo sin relayar?
- *  12. jaulas-factory     — ¿el factory de jaulas está bien configurado? (+🎉 nacimientos)
- *  13. jaulas-nacimientos — ¿algún nacimiento firmable lleva demasiado en vuelo?
- *  14. agentes           — ¿siguen latiendo los lazos que no publican salud?
- *  15. errores-http      — ¿hay una rafaga de 5xx en la API?
- *  16. frontend          — ¿el sitio publico responde? (Vercel, dominio, DNS)
- *  17. providers          — ¿hay integraciones caídas?
- *  18. canal-alertas      — ¿esto que estás leyendo puede siquiera llegarte?
- *
- * Reglas de escritura de un probe (mantenerlas al añadir el siguiente):
- *  · Read-only. Nada de firmar, escribir on-chain ni tocar capital (#1/#8).
- *  · Un finding por OBJETO (`key`), no por categoría: se arregla la tx
- *    7BFC…65F, no "el executor".
- *  · `message` en una frase entendible desde el móvil, con el objeto y el
- *    impacto. `facts` con lo copiable (hash completo, cuenta, importe).
- *  · `runbook` SIEMPRE que exista un arreglo: el camino exacto en /app/admin
- *    o el comando. Sin runbook, un aviso es ruido con reloj.
- *  · Barato: esto corre cada 5 minutos. Reutiliza el ctx compartido.
  */
 
 import type { Probe, ProbeCtx, ProbeFinding } from './sentinelTypes';
@@ -216,7 +186,7 @@ const flareRpcProbe: Probe = {
 };
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* 4. Endpoints XRPL — la ceguera del 31-jul                                  */
+/* 4. Endpoints XRPL — la ceguera */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 const xrplEndpointsProbe: Probe = {
@@ -591,7 +561,7 @@ const providersProbe: Probe = {
   run: async () => {
     const { registry } = await import('../../integrations/registry/IntegrationRegistry');
     const { StubProvider } = await import('../../integrations/registry/StubProvider');
-    // Los STUBS no cuentan (misma línea que ProviderHealthService, 2026-08-01):
+    // Los STUBS no cuentan (misma línea que ProviderHealthService):
     // un placeholder sin provider cableado responde 'down' por construcción y
     // no puede recuperarse — avisar de eso entierra lo real.
     const down = registry
@@ -751,7 +721,7 @@ const frontendProbe: Probe = {
 };
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* 17. El factory de jaulas (carril self-service, 2026-08-06)                 */
+/* 17. El factory de jaulas (carril self-service) */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /**

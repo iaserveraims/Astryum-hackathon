@@ -16,7 +16,7 @@ import {
 import { RedemptionFeeNotice } from '../RedemptionFeeNotice';
 
 /**
- * Productizer it. 12, finding 4.2: seven surfaces unminted without the FAssets
+ * Finding 4.2: seven surfaces unminted without the FAssets
  * redemption fee, and some promised a GROSS «≈ X XRP». These fail the day a
  * surface shows a figure nobody read, calls «not read» zero, or promises the
  * gross as what arrives.
@@ -172,7 +172,7 @@ describe('RedemptionFeeNotice — rendered before the signing button', () => {
   });
 });
 
-/* ── THE FEE IS SUBTRACTED ONCE (productizer it. 14, finding R3 3.2) ───────────
+/* ── THE FEE IS SUBTRACTED ONCE (finding R3 3.2) ───────────
  *
  * The exit routes began sending `exit.xrpOutHuman` ALREADY net of the redemption
  * fee (flag `xrpOutNetOfRedemptionFee`, which nothing read), and PoteExitCard,
@@ -192,7 +192,7 @@ const exitOf = (exit: Record<string, unknown>, disclosure: Record<string, unknow
 
 // 1. CURRENT CONTRACT: the gross, plus the net in its own field.
 const grossAndNet = exitOf({ xrpOutHuman: '10', xrpOutNetHuman: '9.982' });
-// 2. TRANSITION (it. 13 backend): xrpOutHuman is ALREADY the net and says so.
+// 2. TRANSITION (backend): xrpOutHuman is ALREADY the net and says so.
 const netInPlace = exitOf({ xrpOutHuman: '9.982', xrpOutNetOfRedemptionFee: true });
 // 3. OLDER: the gross alone.
 const grossOnly = exitOf({ xrpOutHuman: '10', xrpOutNetOfRedemptionFee: false });

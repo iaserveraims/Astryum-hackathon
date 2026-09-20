@@ -5,7 +5,7 @@ import { ASSET_NOTICES, assetNoticeOf } from '../assetDisclosure';
 import { translate } from '../../../i18n/dict';
 
 /**
- * «El carry de Kinetic pide USDT0 y la card no lo decía» (fundador 2026-08-18).
+ * «El carry de Kinetic pide USDT0 y la card no lo decía».
  *
  * The e1 pack shows a live borrow APR, a profitability calculator and a Start
  * button for a loan taken in USDT0 — the omnichain USDT — which is exactly the
@@ -13,11 +13,6 @@ import { translate } from '../../../i18n/dict';
  * only: USDC, EURC, RLUSD. USDT is read-only»). The entry stays available (the
  * loan is Kinetic's, prepared unsigned, signed by the user), but the reader has
  * to be told WHAT they are borrowing before they sign it.
- *
- * The notice is asserted here — not grepped for a substring inside a 3.500-line
- * .tsx that drags AppKit into any test that imports it. The three shipping
- * surfaces are checked at source level, the same technique as
- * councilOrderCard.venueDoors: what ships is what is asserted.
  */
 
 const COMPONENT = join(__dirname, '..', 'FlareDemoEarn.tsx');
@@ -47,7 +42,7 @@ describe('the borrowed asset is disclosed on the card', () => {
     expect(notice!.body).toMatch(/lend-only/);
   });
 
-  it('the card FACE says it — real product, not MiCA-compliant, because of USDT0 (founder 2026-09-17)', () => {
+  it('The card FACE says it — real product, not MiCA-compliant, because of USDT0', () => {
     const face = assetNoticeOf('e1')!.face;
     // Both halves of the sentence, in this order: it is real, and it does not
     // comply. Dropping either turns a disclosure into either a warning about a

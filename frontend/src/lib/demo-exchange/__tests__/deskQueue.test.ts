@@ -1,8 +1,7 @@
 /**
- * 18-sep — SIN AUTOPILOT: cada petición del cliente la firma el omnibus con un QR.
+ * SIN AUTOPILOT: cada petición del cliente la firma el omnibus con un QR.
  *
- * Captura del fundador: «the exchange key opens rMB8x…; this run's omnibus is
- * r4yp47…» — el autopilot solo abre UN omnibus, y el de un exchange nuevo vive en
+ * Captura del — el autopilot solo abre UN omnibus, y el de un exchange nuevo vive en
  * la Xaman de su dueño. Decisión: «el autopilot hay que sacarlo no visible y que
  * se haga a través de QR».
  */
@@ -99,7 +98,7 @@ describe('el cableado', () => {
     expect(QUEUE).not.toMatch(/<input/);
   });
 
-  it('lo firmado y validado no se pinta como error (fundador 18-sep: «estaría bien que ese mensaje no apareciera»)', () => {
+  it('Lo firmado y validado no se pinta como error', () => {
     // Se reintenta en silencio lo que es «el nodo aún no lo ve»…
     expect(QUEUE).toMatch(/for \(let i = 0; i < 6 && !recorded; i\+\+\)/);
     // …y el rojo «the exchange ledger could not record it» ya no sale de esta cola.

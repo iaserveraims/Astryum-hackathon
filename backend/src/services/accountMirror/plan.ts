@@ -1,39 +1,10 @@
 /**
  * EL ESPEJO DE CUENTAS — la parte que DECIDE, sin tocar ninguna base.
  *
- * Fundador 2026-09-14: «quiero que el preview siempre tenga los datos de las
- * cuentas de production; en preview solo entramos nosotros, pero si hacemos
- * algún cambio a nuestras cuentas o creamos alguna necesitamos que estén
- * sincronizadas — sin romper nada de datos importante». Y por la tarde, ya
+ * Y por la tarde, ya
  * elegido el camino: «sincronizarlo todo, pero si hay un check que tiene la
  * cuenta marcado que en producción es de una función que no está activada,
  * ignorarlo sin más».
- *
- * Producción y el preview (staging) tienen bases de datos DISTINTAS a
- * propósito: Supabase para la real, un Postgres de Railway para el preview.
- * Esa separación es la que impide que el código sin revisar del preview toque
- * datos reales, y NO se toca. Lo que se construye es un espejo:
- *
- *     producción ──(solo lectura)──▶ preview
- *
- * UNA sola dirección, y siempre la misma. Producción es la verdad de la
- * CUENTA; el preview la refleja. Y nada de lo que pase en el preview llega a
- * producción — por construcción, no por disciplina: el origen se lee con un
- * rol de solo lectura y este servicio se niega a arrancar si su propia base
- * es la de producción.
- *
- * LO QUE EL PREVIEW CONSERVA (la petición de la tarde): lo que solo existe
- * allí. Su perfil de gestor, sus imágenes de bóveda, sus apoyos, y los checks
- * de la cuenta que producción no conoce (`preferences.managerMode`…). Por eso
- * el espejo ADOPTA la cuenta que el preview ya tiene con el mismo email —
- * conserva su id, y con él todo lo que cuelga de ese id— y le escribe encima
- * los campos de producción; las preferencias se FUNDEN, y las claves que
- * producción no tiene se quedan. Antes sustituía la cuenta entera (borrado
- * en cascada) y cada pasada pisaba esos checks: el «ignorarlo sin más» del
- * fundador es exactamente «no lo pises».
- *
- * Este fichero es puro para poder probarse: cada pregunta que decide tiene su
- * test, y la parte con I/O (AccountMirrorService) solo ejecuta lo decidido.
  */
 
 import { productionDatabaseMarker } from '../../config/bootGuards';

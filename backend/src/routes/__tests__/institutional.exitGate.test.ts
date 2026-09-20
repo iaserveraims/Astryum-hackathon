@@ -1,6 +1,5 @@
 /**
- * «LA SALIDA JAMÁS SE GATEA» — las órdenes de consejo del pote y de la jaula
- * (2026-09-14).
+ * «LA SALIDA JAMÁS SE GATEA» — las órdenes de consejo del pote y de la jaula.
  *
  * `/pote-council-order/prepare` y `/cage-order/prepare` componen órdenes que ABREN
  * exposición (direct-to…) y órdenes que la REDUCEN (recall, evacuate) en el mismo
@@ -8,16 +7,6 @@
  * jaula, además por la puerta del título de gestor. El frontend no manda región:
  * con una allowlist configurada TODO recall se rechazaba, y en un pote síncrono sin
  * colchón el holder no puede redimir sin un recall (`NOT_REDEEMABLE_NOW`).
- *
- * Lo que se fija:
- *  · recall / evacuate → solo flag: ni 451 por región, ni 403 por título de gestor.
- *  · direct-to → sigue en 451 fuera de región, y sigue exigiendo el título.
- *  · el flag del módulo sigue cerrando todo (503).
- *  · por FUENTE: la puerta de salida no llama al geofence.
- *
- * Hermético: el resolver de jaulas y la puerta del gestor van mockeados. «Pasó las
- * puertas» se ve en la primera negativa determinista de DESPUÉS (409 NO_CAGE en el
- * pote, 503 CAGE_FACTORY_UNCONFIGURED en la jaula) — sin RPC, sin ledger.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -199,7 +188,7 @@ describe('por fuente — las salidas de consejo no llegan al geofence', () => {
   });
 
   it('las salidas de jaula son EXACTAMENTE recall y evacuate (ampliar la lista es una decisión explícita)', () => {
-    // productizer it. 13: la jaula usa LA clasificación compartida (services/councilExitToken.ts).
+    // La jaula usa LA clasificación compartida (services/councilExitToken.ts).
     expect(SOURCE).toMatch(/const CAGE_EXIT_ACTIONS[^=]*=\s*COUNCIL_ORDER_EXIT_ACTIONS/);
     const TOKEN_SOURCE = readFileSync(join(__dirname, '..', '..', 'services', 'councilExitToken.ts'), 'utf8');
     const m = TOKEN_SOURCE.match(/export const COUNCIL_ORDER_EXIT_ACTIONS[^=]*=\s*new Set\(\[([^\]]*)\]\)/);
@@ -213,7 +202,7 @@ describe('por fuente — las salidas de consejo no llegan al geofence', () => {
   });
 
   /**
-   * productizer it. 15 (hallazgo 3.1) — TODA SALIDA ENTREGA SU TOKEN.
+   * TODA SALIDA ENTREGA SU TOKEN.
    *
    * Sin token, la ceremonia multifirma depende de que el servidor reconozca el memo,
    * y una BD caída o un registro lleno cerraban la salida con un 451 de región. El

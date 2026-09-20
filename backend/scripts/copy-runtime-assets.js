@@ -5,7 +5,7 @@
  * resolves relative to __dirname). Without this copy the production image
  * ships an EMPTY allowlist and PolicyGuard P6 rejects EVERY prepared intent
  * with `contract_not_allowed` — exactly the silent failure found live on
- * Railway 2026-07-18 (the automation trigger fired, the build was attempted,
+ * Railway (the automation trigger fired, the build was attempted,
  * the guard blocked it). Runs as part of `npm run build` in every environment,
  * including the Docker builder stage.
  */

@@ -1,27 +1,9 @@
 /**
  * Which doors this origin gets — the one rule, in one place.
  *
- * Founder decision 2026-08-17: in production Astryum has ONE entrance, XRP
- * Identity. Email, Google and Apple are not deleted (they stay wired and
+ * Email, Google and Apple are not deleted (they stay wired and
  * tested); they are hidden where the single door works, and they surface where
  * it cannot.
- *
- * The trigger is deliberately NOT "is this astryum.xyz". It is the honest
- * question: **can the XRP Identity door work on this origin at all?** The
- * provider only accepts redirect URIs its operator registered, so on a Vercel
- * preview or on localhost that door is physically dead — and an origin with no
- * working door is a site nobody can enter, including us.
- *
- * That framing pays for itself three ways:
- *   · preview and local dev keep a way in, with no flag to remember,
- *   · the day `localhost` gets registered, dev goes single-door on its own,
- *   · and if the redirect allowlist is ever broken in production, the old rail
- *     reappears instead of locking everyone out.
- *
- * Manual override, for the case the rule cannot see — their SSO is up, our
- * config is right, and yet nobody can get in (an outage at the provider):
- *   NEXT_PUBLIC_LEGACY_AUTH_DOORS = 'true'  → force the old doors on
- *                                  = 'false' → force them off, everywhere
  */
 import type { XrplIdentityConfig } from './xrplIdentity/login';
 import { xrplIdentityRedirectUri } from './xrplIdentity/login';
@@ -40,8 +22,7 @@ export function legacyDoorsOverride(): LegacyDoorsOverride {
  * provider is configured AND our callback URI is one it will redirect back to.
  *
  * A door that is visible but answers `xrplid_redirect_not_registered` on click
- * is worse than no door — that lesson is already paid for (the beta bounce,
- * 2026-08-07).
+ * is worse than no door — that lesson is already paid for (the beta bounce,).
  */
 export function xrplIdentityUsableHere(config: XrplIdentityConfig | null): boolean {
   if (!config?.clientId) return false;
@@ -60,7 +41,7 @@ export interface DoorsInput {
  *
  * Normally: only where it can actually complete, because a door that answers
  * `xrplid_redirect_not_registered` on click is worse than no door — that lesson
- * is already paid for (the beta bounce, 2026-08-07).
+ * is already paid for (the beta bounce).
  *
  * The exception is the rule that outranks it: **never leave a card with zero
  * doors.** If somebody forces the old rail off on an origin where this one is

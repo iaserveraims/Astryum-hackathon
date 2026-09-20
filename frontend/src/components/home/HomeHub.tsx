@@ -1,23 +1,11 @@
 'use client';
 
 /**
- * HomeHub — the welcome deck (founder 2026-08-15 "Home absorbe W1"; layout v2
- * founder 2026-08-16: a cosier arrival). The page opens with a calm greeting
+ * HomeHub — the welcome deck. The page opens with a calm greeting
  * — this is the main landing after login, it should seat the user, not shout
  * — and below it the TWO PRODUCTS stand as vertical cards, side by side:
  * Personal (gold) and Legacy (indigo), each carrying its own wallet list and
  * its own add door.
- *
- * THE THEME FOLLOWS THE SELECTION (founder 2026-08-16: the sidebar
- * ProductToggle retires): clicking a personal wallet activates it as the
- * authority → the shell crosses to gold; clicking a Legacy card activates
- * the governed account → indigo, with the real AuthorityCrossing either way.
- * Same store the toggle wrote — only the gesture changed.
- *
- * The FULL Wallets surface survives with zero functional cut (W1 condition):
- * `?panel=wallets` embeds WalletManager right here, and /app/wallets
- * redirects in (`?add=1` included). The first-run tour moved here from the
- * Summary (it is the meeting point now).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -92,7 +80,7 @@ export default function HomeHub() {
 
   // The fleet — same shared sources as the Summary band, never a new truth.
   const { wallets: myWallets } = useMyWallets();
-  // The visual fold (paFold, 2026-08-17): a Smart Account whose owning XRPL
+  // The visual fold (paFold): a Smart Account whose owning XRPL
   // wallet is in the list disappears as a row — its value/tokens already
   // ride the owner's aggregated entry — and the owner wears the Flare badge.
   const paFold = usePaFold(myWallets.map((w) => w.address));
@@ -113,13 +101,11 @@ export default function HomeHub() {
   const visibleWallets = myWallets.filter((w) => {
     const owner = paFold.ownerByPa.get(foldKey(w.address));
     if (owner && listedKeys.has(foldKey(owner))) return false; // absorbed into its owner
-    // Founder 2026-08-19: an ORPHAN Smart Account holding nothing is registry
-    // plumbing, not capital — hidden. One with value always stays visible.
+    // One with value always stays visible.
     return !isHiddenEmptyOrphanPa(w.walletType, freshPerWallet.get(addressKey(w.address))?.netWorthUSD);
   });
 
-  // RETENTION (founder 2026-08-16: "cada vez que se cambia de wallet los dos
-  // rectángulos se reposicionan porque el número desaparece"). Picking a
+  // RETENTION. Picking a
   // wallet re-scopes the aggregated store, which empties for a beat while it
   // reloads — the numbers vanished and the two cards jumped. The hub keeps
   // the last known reading per wallet (merging fresh rows over it) and the
@@ -177,8 +163,7 @@ export default function HomeHub() {
   if (overviewActive && scopedTotal != null) fleetTotalRef.current = scopedTotal;
   const totalUSD = fleetTotalRef.current ?? scopedTotal;
 
-  // A greeting that follows the clock — cosy, not loud (founder: "solo lo
-  // justo para acomodar a la gente").
+  // A greeting that follows the clock — cosy, not loud.
   const hour = new Date().getHours();
   const greeting = hour < 6 ? t('Good night') : hour < 13 ? t('Good morning') : hour < 21 ? t('Good afternoon') : t('Good night');
   const name = user?.username?.trim();
@@ -201,8 +186,7 @@ export default function HomeHub() {
 
   return (
     <div>
-      {/* First-run tour — moved here from the Summary (founder 2026-08-16:
-          the Home is the meeting point now). Walks the two shelves first,
+      {/* First-run tour — moved here from the Summary. Walks the two shelves first,
           then the sidebar doors; targets the current mode hides are skipped
           by ProductTour itself; replayable from Settings. */}
       <ProductTour
@@ -281,12 +265,12 @@ export default function HomeHub() {
                 const glyph = walletIcon(w);
                 const info = perWalletByKey.get(addressKey(w.address));
                 const isSel = activePersonalKey === addressKey(w.address);
-                // The reinforce door (founder 2026-08-21) — every XRPL account
+                // The reinforce door — every XRPL account
                 // can be given a quorum of its owner's own keys. The row is a
                 // <button>, so the door CANNOT nest inside it: the two live
                 // side by side in a flex wrapper instead.
                 //
-                // NOT gated by legacyAccess (founder 2026-08-21, second pass):
+                // NOT gated by legacyAccess:
                 // reinforcing your own wallet is a PERSONAL feature that only
                 // borrows the Legacy ceremony's screens. Gating it behind the
                 // Legacy product flag hid it from exactly the people it is for
@@ -360,7 +344,7 @@ export default function HomeHub() {
                         </button>
                       ) : (
                         <button
-                          // Reforzar abre como OPERACIÓN en oro (fundador 2026-08-27)
+                          // Reforzar abre como OPERACIÓN en oro
                           // — nada de viajar a la superficie Legacy en índigo.
                           onClick={() => openReinforceOp(w.address)}
                           aria-label={`${t('Reinforce it')} · ${walletDisplayName(w, t)}`}
@@ -458,9 +442,9 @@ export default function HomeHub() {
                             {t('To sign')} · {l.pendingSignatures}
                           </Pill>
                         )}
-                        {/* it. 34 (agente D) — «NO PUDE LEER» NO ES «NO TE TOCA FIRMAR
+                        {/* «NO PUDE LEER» NO ES «NO TE TOCA FIRMAR
                             NADA». El hook deja el recuento en `undefined` cuando la
-                            lectura se rechazó o vino a medias y lo MARCA (it. 27 §6),
+                            lectura se rechazó o vino a medias y lo MARCA,
                             pero solo StructuresBand pintaba la marca: esta estantería
                             —donde se pregunta «¿tengo algo que firmar?»— enseñaba un
                             Legacy con firmas pendientes que nadie pudo leer igual que

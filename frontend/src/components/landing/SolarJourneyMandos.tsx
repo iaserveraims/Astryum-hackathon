@@ -11,31 +11,6 @@
  * Portfolio · Wallets) and Astryum Legacy (indigo — the council-governed
  * account: you propose, the council signs by quorum). The palettes mirror the
  * dashboard's authority theming (--volt gold ⇄ governed indigo).
- *
- * Mechanics: a tall track (760svh) with a sticky 100svh stage, lg-and-up only —
- * below lg the pinned stage cannot fit the stacked hero, so a static stacked
- * variant renders instead (also the prefers-reduced-motion fallback). Native
- * scroll is never hijacked; one scrollYProgress drives a single continuous
- * timeline. The scene is the SAME node that renders in-flow inside the hero
- * grid — at progress 0 the camera transform is identity, so the hero is
- * pixel-identical to the pre-journey landing (no swap, no re-mount, no FLIP
- * flash). The original SolarSystem's CSS-keyframe spin is replaced by a rAF
- * engine writing motion values, so each planet's angle can blend toward a
- * canonical docking angle as the camera arrives at its stop.
- *
- * Focus veil: while a stop is held, a backdrop-blur veil softens the star
- * field and the non-docked scene elements blur+dim — everything defocuses
- * except the docked planet, its name and the copy. The veil dies whenever the
- * camera pulls back (between stops, takeoff, finale).
- *
- * Calm-system notes: cruise speed drops to ~12% during the tour, only the
- * docked planet keeps a glow (glow singularity), and the NEW section pills skip
- * the backdrop blur (blur under a scaled transform is Safari's jank source #1)
- * while the hero's original pills keep their glass look for rest parity.
- *
- * Copy rules honored: no yield numbers, no promises; rates only as protocol
- * data with a source; the public door is early access; the user (or the
- * council, in Legacy) always signs — Astryum never does.
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -56,9 +31,8 @@ const LOGO_HERO = '/astryum_logo-nobackground.png'; // same asset the hero sun u
 // Each product's sun is its OWN asteroid; the two hero PNGs share the exact
 // same geometry (1536×1024 canvas, asteroid 445px wide centred at 746,446) so
 // the sun renders at the SAME size in both products — astryum-hero-azul.png
-// is composed from asteroide_corregido_transparente to match the gold hero
-// (founder 2026-08-08: "rebaja el tamaño del asteroide en el sistema solar").
-// `self` (2026-09-20) es el mismo viaje en voz de aplicación —«lo que has
+// is composed from asteroide_corregido_transparente to match the gold hero.
+// `self` es el mismo viaje en voz de aplicación —«lo que has
 // visto, aplicado a ti»— para la página /self-custody: misma paleta, mismos
 // tiempos, otro copy en dos paradas.
 export type JourneyProduct = 'personal' | 'legacy' | 'self';
@@ -71,8 +45,8 @@ type Palette = {
   planetRim: string; // dark rim of the planet gradient
   glowSecondary: string; // outer halo of the planet glow
   planets: string[]; // one per ring, in PLANETS order
-  /** The star this system orbits — each product brings its OWN asteroid
-   *  (founder 2026-08-08, superseding "the mark stays gold in both"). */
+  /** The star this system orbits — each product brings its OWN asteroid.
+   */
   hero: string;
 };
 
@@ -108,18 +82,14 @@ const PALETTES: Record<Product, Palette> = {
 };
 
 // ─── The system ──────────────────────────────────────────────────────────────
-// Outer → inner. Founder 2026-07-25: the outer ring is no longer hidden at
-// rest — all FOUR planets live in the resting hero, each with its principle
-// pill (the outer one carries "Coordina": multi-wallet coordination, the
-// product's thesis, which reads true for the Wallets stop AND the Legacy
-// council). Sizes came up ~20% the same day so the bodies read as spheres
+// Outer → inner. Sizes came up ~20% the same day so the bodies read as spheres
 // (3D) at rest, not just when the dock camera magnifies them.
 const PLANETS = [
   { ring: 124, dur: 44, rev: false, sz: 18, phase: 150, prEs: 'Coordina', prEn: 'Coordinate' },
   { ring: 100, dur: 34, rev: false, sz: 20, phase: 205, prEs: 'Protege', prEn: 'Protect' },
   { ring: 70, dur: 22, rev: true, sz: 15, phase: 95, prEs: 'Genera', prEn: 'Earn' },
   { ring: 44, dur: 14, rev: false, sz: 12, phase: 325, prEs: 'Posee', prEn: 'Own' },
-  // LA QUINTA ÓRBITA (fundador 2026-09-20): «añadir una órbita y planeta más
+  // LA QUINTA ÓRBITA: «añadir una órbita y planeta más
   // explicando la facilidad de ejecución gracias a la abstracción». Vive
   // FUERA del héroe —sin pastilla de principio y oculta en reposo (ver DIM)—
   // para que el primer fotograma siga siendo el de siempre, píxel a píxel; se
@@ -151,14 +121,13 @@ type Stop = {
   enH: string;
   esB: string;
   enB: string;
-  // Three concrete capabilities, shown as check rows — the founder wants the
-  // journey to carry MORE clear product information, not less.
+
   esPoints: string[];
   enPoints: string[];
   Artifact: (props: { lang: Lang; active: boolean; accent?: string; soft?: string; rgb?: string }) => ReactNode;
 };
 
-// EL NÚCLEO — la parada nueva del 2026-09-20. El astro es tu cuenta, y dentro
+// EL NÚCLEO — la parada nueva. El astro es tu cuenta, y dentro
 // están las cuentas que abres: la cámara entra en el asteroide y sus capas son
 // las cuentas (ver CoreOverlay). Voz de Personal; `self` la reescribe.
 const CORE_STOP: Stop = {
@@ -167,7 +136,7 @@ const CORE_STOP: Stop = {
   labelEn: 'Core',
   num: '01',
   planet: -1,
-  // A LA DERECHA (2026-09-20, segunda vuelta). El símbolo lleva sus estelas
+  // A LA DERECHA (segunda vuelta). El símbolo lleva sus estelas
   // arriba a la izquierda; con el núcleo aparcado a la izquierda los brotes
   // tenían que abrirse justo por ahí y se enredaban con ellas. A la derecha el
   // abanico sale por el hemisferio limpio del símbolo, y además el astro ya
@@ -175,8 +144,7 @@ const CORE_STOP: Stop = {
   dock: 'right',
   start: 0.2,
   end: 0.33,
-  // Fundador 2026-09-20: «your account holds every type of account that you
-  // need, different use cases same signer». La wallet y la cuenta principal
+  // La wallet y la cuenta principal
   // son el núcleo; el resto son cuentas que nacen de él.
   esH: 'Tu cuenta contiene todas las cuentas que necesites.',
   enH: 'Your account holds every account you need.',
@@ -707,25 +675,7 @@ const SCENE_CSS = `
 `;
 
 // ─── Tour labels, in camera space ────────────────────────────────────────────
-// Founder 2026-08-22, third pass: "sigue pixelado… pierde profesionalidad".
-//
-// The previous two passes attacked the symptom from inside the scene — release
-// the compositor hints, oversample the glyphs — and neither moved the measured
-// sharpness, because both still depended on the browser choosing to re-rasterize
-// a `perspective` + `preserve-3d` subtree at the scale it is being shown at.
-// It does not have to, and it does not.
-//
-// So the label stops living in there. It is rendered OUTSIDE the camera, as a
-// sibling, and every length it uses is derived with calc() from --sjs, the
-// camera's live scale. Nothing about it is ever magnified: at a 2.4x camera the
-// text is a real 26.7px font laid out and rasterized at 26.7px, instead of an
-// 11px texture stretched to 26.7. It looks identical — same position, same
-// size, same growth as the camera pushes in — and it cannot be soft, because
-// there is no scale transform anywhere in its chain to be soft about.
-//
-// The one thing it must not do is carry a scale() of its own; that would put it
-// straight back at the mercy of raster-scale heuristics. Position comes from a
-// translate (which never affects rasterization) and size comes from calc().
+// Founder, third pass: "sigue pixelado… pierde profesionalidad".
 const SJ_LABEL_CSS = `
   .sj-labels { position: absolute; inset: 0; pointer-events: none; z-index: 21; }
   .sj-label { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
@@ -757,7 +707,7 @@ const SJ_LABEL_CSS = `
 // ─── Planet bodies — oversampled spheres with real character ─────────────────
 // The old planets were sz-px radial-gradient dots; the dock camera scales the
 // scene up to ~4×, and a 13px gradient blown to 50px read as a blurry pea
-// ("son muy cutres", founder 2026-07-25). Each body is now PAINTED at 4× and
+// ("son muy cutres", founder). Each body is now PAINTED at 4× and
 // parked at scale 1/4, so the camera's zoom lands near native resolution and
 // the surface stays crisp through the whole flight — plus a gentle 16% swell
 // while docked (written by the rAF engine into `bodyT`). Four characters, one
@@ -807,8 +757,7 @@ function PlanetBody({
     >
       {/* local dark halo — space itself darkens around the body, so its own
           orbit line fades out before touching it instead of slicing straight
-          through the sphere (founder 2026-07-25: "esas líneas no acaban de
-          quedar bien"), and the extra contrast is what makes the small
+          through the sphere, and the extra contrast is what makes the small
           resting planet read as a 3D body, not a flat dot */}
       <span
         style={{
@@ -838,7 +787,7 @@ function PlanetBody({
           }}
         />
       )}
-      {/* ONE paint for the whole sphere (perf 2026-07-26 — was three stacked
+      {/* ONE paint for the whole sphere (perf — was three stacked
           spans per planet): specular limb, night-side crescent, character
           texture and base shading composed as background layers, clipped by
           the border-radius itself. Top → bottom order. */}
@@ -859,7 +808,7 @@ function PlanetBody({
   );
 }
 
-// Transit comets (scroll-bound streaks) were REMOVED 2026-07-25, same day they
+// Transit comets (scroll-bound streaks) were REMOVED, same day they
 // shipped: bound to progress they froze mid-sky whenever the reader stopped
 // scrolling ("se quedan parados y queda raro" — founder). The ambient falling
 // stars live in StarfieldCanvas (time-driven, never freeze) — their cadence
@@ -870,8 +819,7 @@ function PlanetBody({
 // camera scales enough for Safari's blur-under-transform jank to matter. The
 // section pills, which live under the scaled camera for the whole tour, trade
 // the blur for a denser fill.
-// ─── Pill oversampling (founder 2026-08-22: "se ve cada vez más pixelado en
-// función de lo cerca que esté") ─────────────────────────────────────────────
+// ─── Pill oversampling ─────────────────────────────────────────────
 // The dock camera scales the scene up to ~3.3× (2.4× at the Earn stop on a
 // 1440×860 window, measured live), and the whole stage lives inside a
 // `perspective` + `preserve-3d` subtree — which Chrome rasterizes ONCE and then
@@ -881,36 +829,6 @@ function PlanetBody({
 // subtree does not get re-rastered at its screen scale. Verified by measuring:
 // with the camera parked and will-change reading `auto`, an 11px label was
 // still soft.
-//
-// So the pills take the exact medicine the planets took in July: painted at
-// PILL_OVERSAMPLE× and parked at 1/PILL_OVERSAMPLE. Visually identical — 11px
-// text under a 2.4× camera is the same 26px on screen either way — but the
-// glyph is rasterized from 33px instead of from 11px, so the camera's zoom
-// lands near native resolution instead of stretching a small texture.
-//
-// The transform order matters: `scale(1/N) translateY(-50%)` — the translate
-// must sit INSIDE the scale so its percentage (which resolves against the now
-// N× taller border box) comes back down with everything else. Written the
-// other way round the pill flies up by N/2 of its own height.
-//
-// HONEST STATUS (2026-08-22). Geometry is verified: measured live against the
-// previous build, the pill lands at the same x/y and the same width/height to
-// within 0.1px, so this is visually neutral by construction. The SHARPNESS gain
-// is NOT verified — in a headless, software-rendered harness the edge energy of
-// the label region did not move (12.61 -> 12.66, inside the noise), and that
-// harness did not move for the will-change work either. It may simply not do
-// scale-adaptive rasterization at all: a control pill rendered FLAT at the
-// identical on-screen size scored 18.37 against the camera pill's 12.62, which
-// proves the blur is real and measurable, but not that any hint can cure it
-// there.
-//
-// What that leaves: this and the will-change work are the correct, cheap moves,
-// and they are the same medicine that visibly worked for the planets on real
-// hardware. The one fix that CANNOT fail — because it stops depending on
-// compositor heuristics — is to take the label out of the camera's 3D subtree
-// and position it in screen space, so it is never magnified at all. That is a
-// larger change to how the label tracks its planet, and it is the founder's call.
-// How much bigger than life the pinned scene is built. See .solar-scene-inner.
 const SCENE_OVERSAMPLE = 3;
 
 const PILL_OVERSAMPLE = 3;
@@ -948,7 +866,7 @@ const PILL_TEXT: React.CSSProperties = {
 };
 const PILL_HERO: React.CSSProperties = {
   ...PILL_BASE,
-  // No backdrop-filter (perf 2026-08-20): a persistent backdrop blur over the
+  // No backdrop-filter (perf): a persistent backdrop blur over the
   // 60fps star canvas re-samples it EVERY frame — a slightly denser plate
   // reads the same and composites once.
   background: 'rgba(10,10,10,0.88)',
@@ -1030,8 +948,7 @@ function ProductSwitch({
         ))}
       </div>
       {/* Legacy is validating on mainnet and not open yet — the toggle says so
-          the moment it is selected, in BOTH journey variants (founder
-          2026-07-29: honest label, not a hidden product). */}
+          the moment it is selected, in BOTH journey variants. */}
       {product === 'legacy' && (
         <span
           className="text-[10px] font-mono uppercase tracking-[0.18em] px-2.5 py-1 rounded-full text-center max-w-[90vw]"
@@ -1096,7 +1013,7 @@ function JourneyScene({
       sunSpec: motionValue('radial-gradient(circle at 50% 45%, rgba(255,246,214,0), rgba(255,246,214,0) 60%)'),
       oldLabel: motionValue(1),
       newLabel: motionValue(0),
-      /** THE CORE OVERLAY (2026-09-20): the star's screen position, its radius
+      /** THE CORE OVERLAY: the star's screen position, its radius
        *  in px and the core stop's blend — placed outside the camera, like the
        *  labels, so the account rings are never a stretched texture. */
       coreT: motionValue('translate(0px, 0px)'),
@@ -1104,7 +1021,7 @@ function JourneyScene({
       coreOp: motionValue(0),
       // Leader-line life = whichever label generation is alive. Unbound, the
       // lines outlived their pills and stuck out of every planet at the
-      // finale ("las flechas que salen de los planetas" — founder 2026-07-25).
+      // finale ("las flechas que salen de los planetas" — founder).
       rings: PLANETS.map((p) => ({
         op: motionValue(1),
         ringT: motionValue(`translate(-50%,-50%) rotate(${p.phase}deg)`),
@@ -1124,7 +1041,7 @@ function JourneyScene({
         bodyT: motionValue(`scale(${1 / PLANET_OVERSAMPLE})`),
         // The docked planet's moonlet — opacity IS the dock blend; visibility
         // gates its infinite CSS spin so four invisible moons don't keep the
-        // compositor busy through the whole page (perf, 2026-07-26).
+        // compositor busy through the whole page (perf).
         moon: motionValue(0),
         moonVis: motionValue<'hidden' | 'visible'>('hidden'),
       })),
@@ -1215,8 +1132,7 @@ function JourneyScene({
       c.y += (ty - c.y) * k;
       c.s += (ts - c.s) * k;
       c.tilt += (tiltTarget - c.tilt) * k;
-      // SETTLE (perf + sharpness, founder 2026-07-26 "pega tirones… se ven
-      // borrosos"): the exponential ease asymptotes but never lands, so the
+      // SETTLE: the exponential ease asymptotes but never lands, so the
       // transform kept changing by float dust every frame — the browser never
       // got an idle beat to re-rasterize, planets stayed soft at dock zoom
       // and the main thread paid style writes forever. Snap when within a
@@ -1227,24 +1143,12 @@ function JourneyScene({
       if (Math.abs(ty - c.y) < 0.05) c.y = ty;
       if (Math.abs(ts - c.s) < 0.0003) c.s = ts;
       if (Math.abs(tiltTarget - c.tilt) < 0.01) c.tilt = tiltTarget;
-      // ARRIVAL RE-RASTER (founder 2026-08-22: "el zoom que hace al sistema
-      // solar se ve cada vez más pixelado en función de lo cerca que esté").
-      // This is the other half of the 2026-07-26 settle fix. Quantizing the
+      // ARRIVAL RE-RASTER.
+      // This is the other half of the settle fix. Quantizing the
       // transform gave the browser an idle beat — but `will-change:transform`
       // is precisely the instruction NOT to use it: it pins the layer's raster
       // scale so the compositor can zoom the existing texture instead of
-      // repainting. At the innermost stop the camera lands around 3× (the
-      // scale is (0.95·minD)/((ring/100)·W), which for ring 44 on a 480px
-      // scene is ~3.3 on a laptop), so a texture rasterized at 1× is stretched
-      // 3× — exactly the mush in the screenshot, and worse the closer the
-      // camera gets, which is what the founder noticed.
-      //
-      // So the hint is TEMPORARY: on while the camera travels (smooth zoom, no
-      // repaint per frame), off the moment it parks, which drops the pin and
-      // lets Chrome repaint the scene at the scale it is actually being shown
-      // at. Reading always happens parked, so reading always happens sharp.
-      // The planets keep their own 4× oversample — that is what carries them
-      // DURING the flight, when nothing can re-rasterize in time.
+      // repainting.
       const parked = c.x === tx && c.y === ty && c.s === ts && c.tilt === tiltTarget;
       if (parked !== camParked.current) {
         camParked.current = parked;
@@ -1298,8 +1202,7 @@ function JourneyScene({
 
     // While a stop is held the sun dies almost completely: at 0.25 its baked
     // golden comet trails still crossed the docked planet's frame reading as
-    // stray rotating lines (founder 2026-07-25: "unas líneas alrededor del
-    // planeta… no me gustan nada"). Crossings/hero/finale keep the table values.
+    // stray rotating lines. Crossings/hero/finale keep the table values.
     // THE CORE: while the star itself is the docked object it stays whole and
     // sharp — the focus dims everything BUT the docked body, and here the
     // docked body is the sun.
@@ -1362,10 +1265,6 @@ function JourneyScene({
       // (sin a · rf · W, −cos a · rf · W · cos tilt), plus the scene's bob.
       // The camera then translates by (c.x, c.y) and scales by c.s about that
       // same centre, which turns the offset into the two lines below.
-      //
-      // The pointer parallax would break this — it rotates the scene in 3D and
-      // the labels would not follow — but it is already faded to zero by p=0.14
-      // and the labels only live from p=0.16, so the two never overlap.
       if (camNow && sceneW.current) {
         const rad = (a * Math.PI) / 180;
         const rf = pl.ring / 200;
@@ -1380,7 +1279,7 @@ function JourneyScene({
       // pero callan su nombre — un «HOME» desenfocado detrás de los brotes era
       // el último ruido de la parada.
       r.labelOp.set(Math.round(newL * piece(p, DIM[i].pts, DIM[i].vals) * (1 - coreBlend) * 500) / 500);
-      // All four rings live at rest now (founder 2026-07-25) — the outer
+      // All four rings live at rest now — the outer
       // ring's old takeoff reveal is gone with its hidden state.
       r.op.set(piece(p, DIM[i].pts, DIM[i].vals));
       r.glow.set(piece(p, GLOW[i].pts, GLOW[i].vals));
@@ -1444,7 +1343,7 @@ function JourneyScene({
                       <motion.div className="solar-flat-j" style={{ transform: mv.flatT }}>
                         {/* content dimmer — same OPACITY as the ring line, applied on the
                             billboarded leaf so flattening can't distort geometry. No blur
-                            here (perf 2026-07-26): the 0.3 dim already de-emphasizes the
+                            here (perf): the 0.3 dim already de-emphasizes the
                             undocked planets, and dropping four animated filter surfaces
                             was one of the stutter fixes — defocus blur lives only on the
                             ring lines + the sun. */}
@@ -1523,7 +1422,7 @@ function JourneyScene({
             })}
           </motion.div>
           {/* Astryum — the star this system orbits. Each product brings its
-              own asteroid (founder 2026-08-08): gold hero for Personal, the
+              own asteroid: gold hero for Personal, the
               blue mark for Legacy — palette.hero, like every other color
               here. 50% (was 54%), own tilt + masked specular sweep. */}
           <motion.div
@@ -1591,23 +1490,12 @@ function JourneyScene({
 }
 
 // ─── The core overlay — the accounts are BORN from the symbol ────────────────
-// Fundador 2026-09-20, segunda vuelta: «sacamos las órbitas y cada enumerador
+// Fundador, segunda vuelta: «sacamos las órbitas y cada enumerador
 // aparece desde el símbolo de Astryum; va a quedar más limpio y se va a
 // entender que es el core». La primera versión dibujaba cinco anillos de
 // trazos alrededor del astro: en un sistema SOLAR un anillo se lee como otra
 // órbita más, y la tesis —esto es el centro y lo demás cuelga de él— se perdía
 // entre círculos.
-//
-// Ahora no hay anillos. Del símbolo salen cinco BROTES: un rayo que nace en su
-// superficie y crece hacia fuera, un nodo en la punta y, colgando de él, el
-// nombre de la cuenta en grande con su regla debajo. Se abren en abanico por
-// el lado contrario al panel de texto y aparecen uno tras otro, de arriba
-// abajo, todos desde el mismo sitio: el centro.
-//
-// Viven en el espacio de PANTALLA —fuera de la cámara 3D, como los rótulos del
-// recorrido— así que nada aquí es una textura estirada. Siguen al astro
-// (coreT), escalan con él (coreR) y su vida es la mezcla de la parada
-// (coreOp). Nombres y reglas son la misma MAQUETA que lista CoreArtifact.
 const CORE_SHOOTS = [
   // ang = hacia dónde brota (grados de pantalla, y hacia abajo) · k = hasta
   // dónde llega, en radios del astro. El abanico es simétrico y se abre por la
@@ -1789,7 +1677,7 @@ function TakeoffKicker({ progress, lang, product, palette }: { progress: MotionV
 }
 
 // ─── Stop panel — the copy + mini-widget for one planet ──────────────────────
-// memo (perf 2026-07-26): every phase flip re-rendered ALL FOUR panels (each
+// memo (perf): every phase flip re-rendered ALL FOUR panels (each
 // carrying a full artifact SVG) right at a stop's entrance — the hitch read
 // as "no termina de cargar". Props are referentially stable (stops/palette
 // are module constants, progress is one motionValue), so only the panel
@@ -1884,11 +1772,11 @@ function FinaleBlock({
       // max(8svh, 118px): the scroll cue is a 74px circle parked 28px off the
       // bottom edge, fixed and z-60. At 8svh alone the CTA sat INSIDE that band
       // on any screen shorter than ~1275px and the cue covered its lower half
-      // (measured 2026-09-20: the button's centre was not clickable).
+      // (measured: the button's centre was not clickable).
       className="absolute inset-x-0 bottom-[max(8svh,118px)] z-30 flex flex-col items-center text-center px-6"
       style={{ opacity, y, pointerEvents: active ? 'auto' : 'none' }}
     >
-      {/* The Astryum principle closes the tour (founder 2026-07-25) — the old
+      {/* The Astryum principle closes the tour — the old
           "Tu capital. Tu control. Tu firma." repeated the hero word for word.
           The PrincipleBreak section it came from is unmounted (preserved in
           LandingPage.tsx). */}
@@ -1910,7 +1798,7 @@ function FinaleBlock({
   );
 }
 
-// JourneyCue RETIRED (user test 2026-08-03): the in-stage cue died at 5% of the
+// JourneyCue RETIRED (user test): the in-stage cue died at 5% of the
 // track, only existed ≥md, and first-time visitors never noticed it. Its job
 // moved to the page-level PersistentScrollCue in LandingPage.tsx — bigger,
 // capsule-backed, alive through the whole scroll. Recover from git history if
@@ -1925,7 +1813,7 @@ function StaticScene({ lang, palette }: { lang: Lang; palette: Palette }) {
   return (
     <div className="solar-scene-j" style={{ ['--ja' as never]: palette.rgb }} aria-hidden>
       <style>{SCENE_CSS}</style>
-      {/* El latido del móvil (2026-08-26): en el viaje anclado los planetas se
+      {/* El latido del móvil: en el viaje anclado los planetas se
           mueven con el scroll; aquí están aparcados y la escena quedaba
           congelada. Se anima SOLO la opacidad de la capa de brillo — cero
           transforms nuevas: la cadena rotateX/counter-rotate de esta escena es
@@ -2026,8 +1914,7 @@ function StaticPlanetBadge({ planet, palette }: { planet: number; palette: Palet
 // render keeps the canonical ids.
 /**
  * StaticStop — una parada del viaje en su variante apilada (móvil y PRM del
- * escritorio), CON VIDA (fundador 2026-08-26: «la landing se ve sin ningún
- * tipo de animación en el móvil»). La variante apilada nació honesta pero
+ * escritorio), CON VIDA. La variante apilada nació honesta pero
  * MUERTA: divs planos y todos los artefactos con active=false — cero
  * animación en todos los teléfonos.
  *
@@ -2104,7 +1991,7 @@ function StaticJourney({
           <div className="mb-10 flex justify-center relative z-30">
             {switcher ?? <ProductSwitch product={product} setProduct={setProduct} lang={lang} />}
           </div>
-          {/* La entrada del héroe (2026-08-26): el mismo Reveal del resto de la
+          {/* La entrada del héroe: el mismo Reveal del resto de la
               landing — el escritorio la tenía por las transforms del escenario
               anclado, y esta variante llegaba clavada de golpe. */}
           <div className="max-w-6xl mx-auto w-full grid lg:grid-cols-[1.15fr,0.85fr] gap-12 lg:gap-16 items-center relative z-10">
@@ -2125,7 +2012,7 @@ function StaticJourney({
         ))}
         <section className="relative py-16 md:py-24 px-6 text-center">
           {/* Same close as the pinned finale: the Astryum principle, not a
-              repeat of the hero headline (founder 2026-07-25). */}
+              repeat of the hero headline. */}
           <Reveal y={24}>
           <h2
             className="font-light text-white text-balance max-w-3xl mx-auto"
@@ -2166,7 +2053,7 @@ export default function SolarJourney({
   // (data-authority='governed' on the landing root), not just the journey.
   product: Product;
   onProductChange: (p: Product) => void;
-  /** EL CONMUTADOR LO MONTA LA PÁGINA (2026-09-18). Vivía aquí dentro con dos
+  /** EL CONMUTADOR LO MONTA LA PÁGINA. Vivía aquí dentro con dos
    *  opciones y el oro clavado a hueso; con tres mundos, cada uno con su
    *  escena, el botón no puede ser de uno de ellos. Se recibe ya pintado para
    *  que este viaje no tenga que saber cuántos productos existen. */
@@ -2188,7 +2075,7 @@ export default function SolarJourney({
   const copyOpacity = useTransform(scrollYProgress, [0.02, 0.12], [1, 0]);
   // The reading veil: softens the star field behind the stage while a stop's
   // copy is on screen; lifts whenever the camera pulls back.
-  // DIRECT curve, no spring (perf 2026-07-26): the spring's asymptotic settle
+  // DIRECT curve, no spring (perf): the spring's asymptotic settle
   // kept writing micro-deltas onto the single most expensive element on
   // screen — a full-viewport backdrop-filter — long after scrolling stopped.
   // The piecewise ramps (0.04 of track) are already soft.
@@ -2221,7 +2108,7 @@ export default function SolarJourney({
   const switchOpacity = useTransform(scrollYProgress, [0.02, 0.07], [1, 0]);
   const switchVisibility = useTransform(switchOpacity, (v) => (v < 0.02 ? 'hidden' : 'visible'));
 
-  // Scroll NATURAL (fundador 2026-07-24): el imán anti-flick que redirigía los
+  // Scroll NATURAL: el imán anti-flick que redirigía los
   // lanzamientos violentos de trackpad al siguiente stop (vía Lenis) se retira
   // junto con Lenis mismo — el navegador es el único dueño de la rueda. El
   // suavizado de cámara (smoothCam) ya absorbe los picos de inercia por sí solo.
@@ -2341,7 +2228,7 @@ export default function SolarJourney({
           ))}
           <FinaleBlock progress={scrollYProgress} lang={lang} cta={finaleCta} active={phase === 'finale'} product={product} palette={palette} />
 
-          {/* hero-frame only (founder 2026-07-22): fades on takeoff, returns at
+          {/* hero-frame only: fades on takeoff, returns at
               the top. Sits at 104px — clear of the fixed header's hit area,
               which was swallowing clicks on the pill's upper half. */}
           <motion.div

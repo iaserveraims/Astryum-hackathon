@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * AgentHistory — el historial del agente, en UNA pieza para dos puertas
- * (fundador 2026-08-30: «se tiene que poder acceder al histórico de los
- * chats desde algún sitio que no sea con un chat abierto»).
+ * AgentHistory — el historial del agente, en UNA pieza para dos puertas.
  *
  * - AgentHistoryPanel: la lista en sí (nueva conversación, restaurar,
  *   borrar, la verdad del almacén al pie). La montan el chat abierto Y el

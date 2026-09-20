@@ -1,7 +1,7 @@
 /**
  * Morpho Blue position-math tests.
  *
- * Item 3 (2026-06-02) — Locks in the pure helpers the Morpho Blue position
+ * Item 3 — Locks in the pure helpers the Morpho Blue position
  * scanner relies on, so the shares→assets conversion and health-factor formula
  * can't silently drift. These mirror Morpho's on-chain SharesMathLib +
  * `_isHealthy` math (VIRTUAL_SHARES=1e6, VIRTUAL_ASSETS=1, ORACLE_PRICE_SCALE=1e36,

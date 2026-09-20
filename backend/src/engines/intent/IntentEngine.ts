@@ -178,7 +178,7 @@ export class IntentEngine {
     });
 
     // 4. find Protocol row (for FK). Self-healing: an environment whose DB was
-    // never seeded (prod Railway, found live 2026-07-18: every automation
+    // never seeded (prod Railway, found live: every automation
     // intent died on transaction_intents_protocolId_fkey) gets the row created
     // here from the adapter vocabulary — registry data, not user data.
     let protocolRow = await prisma.protocol.findFirst({

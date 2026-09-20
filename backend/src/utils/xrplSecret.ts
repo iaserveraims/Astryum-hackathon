@@ -1,26 +1,6 @@
 /**
  * xrplSecret — EL único sitio del backend donde una clave XRPL de infra PROPIA
  * se convierte en la Wallet que firma. Dos trampas, las dos mordidas de verdad:
- *
- * 1. **Formato.** Xaman enseña por defecto los "secret numbers" (8 grupos de 6
- *    dígitos), no el family seed. xrpl.js 4.x no los sabe leer: no existe
- *    `Wallet.fromSecretNumbers`. El anchor-feed llevaba desde el 6-ago-2026
- *    fallando cada tick por esto.
- *
- * 2. **Algoritmo.** `Wallet.fromSeed(s)` de xrpl.js 4.5 deriva SIEMPRE ed25519:
- *    pasa `algorithm: opts.algorithm ?? ECDSA.ed25519` a `deriveKeypair`, que
- *    solo mira el tipo codificado en la seed cuando NO le pasan algoritmo. Con
- *    una seed secp256k1 (la que da Xaman) sale otra cuenta, en silencio.
- *    Vector canónico: `snoPBrXtMeMyMHUVTgbuqAfg1SUTb` es la cuenta génesis
- *    rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh, pero `Wallet.fromSeed` devuelve
- *    rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf. Aquí se deriva SIEMPRE con el
- *    algoritmo que la propia seed lleva codificado.
- *
- * Prohibido volver a llamar a `Wallet.fromSeed` suelto: se importa esto.
- *
- * Frontera regulatoria (invariante #1): esto solo toca claves de infraestructura
- * PROPIA de Astryum (anchor del consejo, keeper de escrows). Ninguna clave de
- * usuario pasa por el backend, y este módulo jamás devuelve ni registra la seed.
  */
 import { ECDSA, Wallet, decodeSeed, encodeSeed } from 'xrpl';
 
@@ -75,18 +55,6 @@ function algorithmOf(seed: string): ECDSA {
 /**
  * La Wallet que de verdad firma, desde un family seed (`s…`) o desde los secret
  * numbers de Xaman.
- *
- * `expected` (la cuenta que TIENE que salir) es el cinturón de seguridad, y solo
- * se usa para aceptar una derivación alternativa cuando la canónica no casa:
- *
- * - el otro algoritmo, porque hay cuentas creadas justo con el default ed25519
- *   de xrpl.js sobre una seed secp256k1;
- * - los secret numbers sin verificar el checksum, porque si la cuenta derivada
- *   es la esperada, la entropía era correcta pase lo que pase con el dígito.
- *
- * Sin `expected` no se adivina nada: se deriva con el algoritmo de la seed y el
- * checksum es guardia dura. Nunca devuelve una cuenta que no sea la esperada sin
- * que el llamante pueda verlo — devuelve la canónica y que él decida.
  */
 export function xrplWalletFromSecret(raw: string, expected?: string): Wallet {
   const s = raw.trim();

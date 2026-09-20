@@ -36,7 +36,7 @@ export interface StepUpGrant {
 }
 
 /**
- * The legal gate as /auth/me reports it (2026-09-13: with the WHY and the
+ * The legal gate as /auth/me reports it (with the WHY and the
  * record). `reason` and `accepted` are optional — an older backend without
  * them still opens the gate for both documents.
  */
@@ -47,7 +47,7 @@ export interface LegalGateState {
   reason?: 'first' | 'terms' | 'privacy' | 'both' | null;
   accepted?: { termsVersion: string | null; privacyVersion: string | null; acceptedAt: string | null } | null;
   /**
-   * it. 25 — el tercer estado: el servidor NO PUDO LEER la ficha de esta
+   * El tercer estado: el servidor NO PUDO LEER la ficha de esta
    * cuenta. Llega con `required: false` a propósito (una lectura ilegible no
    * encierra a nadie fuera de su aplicación) y la puerta lo pinta como una
    * frase, no como una puerta. Ausente en un backend viejo ⇒ undefined ⇒ se
@@ -73,10 +73,8 @@ interface AuthState {
   /**
    * Legacy product access (LEGACY_ENABLED switch + LEGACY_ACCESS_EMAILS
    * exception list, hydrated from GET /auth/me). FAIL-CLOSED — defaults FALSE
-   * and only the server's explicit `true` lets the toggle actually switch
-   * (founder 2026-07-26: Legacy off for everyone but the listed accounts;
-   * revised same week: the toggle stays VISIBLE and a gated flip opens the
-   * in-development popup instead of hiding the product). The public demo never
+   * and only the server's explicit `true` lets the toggle actually switch.
+   * The public demo never
    * reaches /auth/me and keeps its showcase gate via isDemoMode(). Client
    * gating only (governed APIs re-gate server-side); never persisted.
    */
@@ -89,7 +87,7 @@ interface AuthState {
    */
   legacyAccessKnown: boolean;
   /**
-   * Legal acceptance gate (founder 2026-07-30): hydrated from GET /auth/me
+   * Legal acceptance gate: hydrated from GET /auth/me
    * `legal`. `required: true` ⇒ the dashboard shows the blocking modal for the
    * current /demo-terms + /privacy versions and records the acceptance via
    * POST /auth/legal-accept. Starts null (unknown) so nothing flashes before
@@ -98,29 +96,13 @@ interface AuthState {
    */
   legalGate: LegalGateState | null;
   /**
-   * WHY THE LAST `acceptLegal` DID NOT LAND (productizer it. 17, R5 5.6).
+   * WHY THE LAST `acceptLegal` DID NOT LAND (R5 5.6).
    *
    * `acceptLegal` answered a bare `false` for everything, so the gate said «check
    * your connection» to a 401 `session_revoked` — which is not a network
    * problem at all: the account was taken over (or this session predates that),
    * the signature was NOT recorded, and the way forward is signing in again.
    * Four distinguishable reasons, so the gate can say the right one:
-   *
-   *   'session_revoked' → this session no longer controls the account
-   *   'session_expired' → a plain 401
-   *   'server'          → the server answered and refused
-   *   'network'         → the request never got an answer
-   *   'not_recorded'    → (it. 27) the POST answered 200 and the server's OWN
-   *                       verdict still says the signature is needed. The screen
-   *                       says that, instead of pretending the gate closed.
-   *   'record_unreadable' → (it. 34, agent D) 409 `PREFERENCES_UNREADABLE`,
-   *                       `retryable: false`, WITH the `legal` status the server
-   *                       reports for that row (`unreadable: true`, `required:
-   *                       false`). Not «try again in a moment»: the row cannot
-   *                       take the signature, the gate retires on that very
-   *                       answer, and the third-state note explains.
-   *
-   * null = nothing to report (never attempted, or the last attempt worked).
    */
   legalAcceptRefusal:
     | 'session_revoked'
@@ -187,7 +169,7 @@ interface AuthState {
 const API_BASE = getApiBase();
 
 /**
- * The passkey login 401s, in words (productizer it. 14, R5 1.5).
+ * The passkey login 401s, in words (R5 1.5).
  *
  * `/auth/passkey/auth/verify` answers 401 with a machine code when the credential
  * lock refused to issue a session — the account's credentials moved while the
@@ -239,8 +221,7 @@ async function siweLogin(): Promise<User> {
   const address = (accounts[0] || '').toLowerCase();
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) throw new Error('Invalid wallet address from provider');
 
-  // 1b. NO network switch here (founder 2026-08-22: "un popup que me pide
-  // cambiar la network a Flare" al entrar desde un navegador nuevo). Signing in
+  // 1b. NO network switch here (al entrar desde un navegador nuevo). Signing in
   // is a `personal_sign` over a message the SERVER builds, and the server is
   // explicit that identity does not care where the wallet stands:
   // SiweAuth.issueNonce — "any EVM chain is valid for identity" — and the
@@ -248,12 +229,6 @@ async function siweLogin(): Promise<User> {
   // whatever the wallet is on. The old forced switch protected nothing and
   // met a first-time visitor (a fresh MetaMask sits on Ethereum) with a
   // network dialog before they had signed in.
-  //
-  // Flare is still demanded where it is REALLY needed, in context:
-  //   · linking an EVM wallet  → useWalletLinking.connectMetaMaskFlare
-  //   · signing an operation   → useWalletPartner.sendIntentCalls (switchChainAsync)
-  // and the NetworkSwitcher banner still covers a connected wallet parked on
-  // an unusable chain INSIDE the app.
 
   // 2. Get nonce + canonical message
   const nonceRes = await fetch(`${API_BASE}/auth/nonce`, {
@@ -350,7 +325,7 @@ function accountKeyOf(u: { email?: string; address?: string } | null | undefined
 const LAST_ACCOUNT_KEY = 'astryum:last-account';
 
 /**
- * ── UNA SESIÓN LIMPIA ANTES DE CADA ENTRADA (fundador 2026-09-13) ─────────
+ * ── UNA SESIÓN LIMPIA ANTES DE CADA ENTRADA ─────────
  * «Acabo de crear esta cuenta y me ha auto-añadido wallets que tienen dinero
  * dentro.» Salir limpiaba las cachés por cuenta (lista de wallets, registro
  * de Legacies); entrar y crear cuenta solo soltaban MetaMask. Como el alta
@@ -365,7 +340,7 @@ async function startFreshSession(): Promise<void> {
   await Promise.allSettled([
     import('../hooks/useMyWallets').then((m) => m.invalidateWalletCache()),
     import('../hooks/useAuthorities').then((m) => m.invalidateAuthorityCache()),
-    // Las posiciones gestionadas leídas eran de la cuenta anterior (17-sep).
+    // Las posiciones gestionadas leídas eran de la cuenta anterior.
     import('../lib/institutional/useMyManagedPositions').then((m) => m.resetManagedReads()),
   ]);
 }
@@ -397,7 +372,7 @@ function adoptAccount(u: { email?: string; address?: string } | null | undefined
     ]);
   }
   void import('./onboardingStore').then((m) => m.useOnboardingStore.getState().activateAccount(key));
-  // La APARIENCIA también es por cuenta (2026-09-13): sin esto, el segundo
+  // La APARIENCIA también es por cuenta: sin esto, el segundo
   // correo que entrase en este navegador heredaría el tema del primero — la
   // misma familia de bug que las wallets y el asistente de primera vez. El
   // servidor tiene la última palabra y llega en refreshMe; esto es lo que
@@ -420,7 +395,7 @@ function parseLegalGate(raw: unknown): LegalGateState | null {
   } | null;
   if (!l || typeof l.required !== 'boolean') return null;
   const reason = l.reason === 'first' || l.reason === 'terms' || l.reason === 'privacy' || l.reason === 'both' ? l.reason : null;
-  // Solo un `true` literal declara «no pude leer» (it. 25): un backend viejo sin
+  // Solo un `true` literal declara «no pude leer»: un backend viejo sin
   // el campo deja `false` y la puerta se comporta como siempre.
   const unreadable = l.unreadable === true;
   const acc = l.accepted && typeof l.accepted === 'object' ? l.accepted : null;
@@ -766,7 +741,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Update profile fields (display name, avatar).
       //
-      // Founder 2026-07-19 — "name/photo must survive logout→login": the
+      // Founder — "name/photo must survive logout→login": the
       // ACCOUNT is now the source of truth, so the patch is written through to
       // the backend (PATCH /auth/profile) and refreshMe hydrates it back on
       // every login. The device-local profile store stays as an instant
@@ -818,7 +793,7 @@ export const useAuthStore = create<AuthState>()(
           });
           if (!res.ok) return;
           const j = await res.json();
-          // A LATE ANSWER FROM A SESSION THAT IS GONE (2026-09-13): creating or
+          // A LATE ANSWER FROM A SESSION THAT IS GONE: creating or
           // entering another account while this request was in flight would
           // let the previous account's wallets land in the new one's store —
           // and, from there, get linked to it for real by the Wallets page.
@@ -840,7 +815,7 @@ export const useAuthStore = create<AuthState>()(
             legalGate: parseLegalGate(j?.legal),
           });
 
-          // Manager mode (founder 2026-08-30): the vault-manager declaration
+          // Manager mode: the vault-manager declaration
           // follows the ACCOUNT — /me carries the server verdict and the
           // per-user local cache adopts it (server wins; the cache only
           // bridges boot and offline). Dynamic import: managerStore already
@@ -851,7 +826,7 @@ export const useAuthStore = create<AuthState>()(
             void import('./managerStore').then((m) => m.adoptServerManagerFlag(serverManager, meEmail));
           }
 
-          // Apariencia (tema + luz, 2026-09-13): mismo raíl que managerMode —
+          // Apariencia (tema + luz): mismo raíl que managerMode —
           // la cuenta manda y /me la trae, para que el mismo correo se vea
           // igual en el navegador de la oficina y en el móvil. Un backend
           // viejo sin el campo no toca nada y lo local sigue mandando, que es
@@ -867,7 +842,7 @@ export const useAuthStore = create<AuthState>()(
             });
           }
 
-          // El cuestionario de alta (2026-09-14): idioma, objetivo y el hecho
+          // El cuestionario de alta: idioma, objetivo y el hecho
           // de haberlo contestado siguen a la CUENTA. Sin esto, abrir el mismo
           // correo en otro navegador era, para el producto, una cuenta que no
           // había contestado nunca — y el popup volvía a salir. Mismo raíl que
@@ -886,8 +861,8 @@ export const useAuthStore = create<AuthState>()(
           // covers reload / cross-device: demo + a restored wallet must not serve fixtures.
           if (linkedWallets.length > 0) markLiveWalletSession();
 
-          // Hydrate the ACCOUNT profile (name/photo saved server-side, founder
-          // 2026-07-19) — the server value wins over the derived default and
+          // Hydrate the ACCOUNT profile (name/photo saved server-side, founder)
+          // — the server value wins over the derived default and
           // is synced down into the device-local store under both identities.
           const profile = j?.profile as { username?: string | null; avatar?: string | null } | null;
           if (profile && (profile.username || profile.avatar)) {
@@ -952,13 +927,13 @@ export const useAuthStore = create<AuthState>()(
             body: JSON.stringify({ terms: true, privacyRead: true }),
           });
           if (!res.ok) {
-            // NO ES «REVISA LA CONEXIÓN» (productizer it. 17, R5 5.6). Un 401
+            // NO ES «REVISA LA CONEXIÓN» (R5 5.6). Un 401
             // `session_revoked` significa que la sesión que firmó ya no manda en
             // esta cuenta (hubo toma de posesión): la firma NO se registró y hay
             // que volver a entrar. Colapsarlo en un fallo de red manda a la
             // persona a mirar su wifi por un problema de autoridad.
             const body = (await res.json().catch(() => ({}))) as { error?: string; legal?: unknown; retryable?: unknown };
-            // EL 409 QUE TRAE SU PROPIO VEREDICTO (productizer it. 34, agente D).
+            // EL 409 QUE TRAE SU PROPIO VEREDICTO.
             //
             // /auth/legal-accept contesta 409 `PREFERENCES_UNREADABLE` con
             // `retryable: false` Y con `legal: { unreadable: true, required:
@@ -991,7 +966,7 @@ export const useAuthStore = create<AuthState>()(
             set({ legalAcceptRefusal: 'server' });
             return false;
           }
-          // EL CLIENTE NO DESMIENTE AL SERVIDOR (productizer it. 27).
+          // EL CLIENTE NO DESMIENTE AL SERVIDOR.
           //
           // Esto tomaba la respuesta del servidor y le sobrescribía `required`
           // a false, INCONDICIONALMENTE. El servidor contesta con el estado que
@@ -1002,11 +977,6 @@ export const useAuthStore = create<AuthState>()(
           // firma no había quedado registrada de forma utilizable y la puerta
           // volvía en el siguiente /auth/me — con el disfraz de «bug
           // intermitente» puesto encima, porque el recibo se había visto.
-          //
-          // Regla: si el servidor manda un veredicto bien formado, se adopta TAL
-          // CUAL. Solo cuando no manda ninguno (backend viejo, respuesta sin el
-          // campo) se cierra la puerta en local, y ahí `ok: true` es lo único
-          // que tenemos y nada lo contradice.
           const prev = get().legalGate;
           const fromServer = parseLegalGate(j?.legal);
           if (fromServer) {

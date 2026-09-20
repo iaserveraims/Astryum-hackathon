@@ -87,7 +87,7 @@ export interface DemoClient {
   /** How the payout wallet was proven when written. */
   xrplAddressProof?: 'session' | 'binding' | 'admin';
 }
-/** Una cuenta de esta llave en UN exchange (GET /runs/for-account, 18-sep). */
+/** Una cuenta de esta llave en UN exchange (GET /runs/for-account). */
 export interface ClientMembership { runId: string; exchange: RunSummary; client: DemoClient }
 export interface ClientRequest {
   id: string; kind: 'put-to-work' | 'withdraw'; clientId: string; drops: string;
@@ -115,13 +115,13 @@ export interface DeskPayment {
 export interface DeskPutToWorkHandoff {
   account: string; pote: string; receiver: string; xrplPayment: Record<string, unknown>;
   /**
-   * it. 19 — ¿ENTREGA ESTE SERVIDOR la instrucción de este 0xFE? Lo manda la
+   * ¿ENTREGA ESTE SERVIDOR la instrucción de este 0xFE? Lo manda la
    * ruta (`prepare-put-to-work`) y lo ingiere el registro de firmas en curso,
    * defensivamente: ausente = «no lo sé», que no acusa a nadie de nada.
    */
   serverDelivery?: { executorEnabled?: boolean };
   /**
-   * it. 23 (1.2): the `expire` (MINUTES) this deployment measures the 0xFE seat
+   * The `expire` (MINUTES) this deployment measures the 0xFE seat
    * with. The payload must be minted with THIS number, never a hand-written 5.
    */
   payloadExpiryMin?: number;
@@ -132,7 +132,7 @@ export interface DeskPutToWorkHandoff {
 /** An omnibus 0xFE the exchange marked as not a client movement. */
 export interface ExternalFe { txHash: string; memoHex?: string; ledgerIndex?: number; note: string; markedAt: string }
 /**
- * it. 33 (agente C, 2) — «NO PUDE USAR TU MARCA» EN EL LIBRO. `GET /runs/:id` (y
+ * «NO PUDE USAR TU MARCA» EN EL LIBRO. `GET /runs/:id` (y
  * el alta self-serve) lo mandan al nivel de arriba del cuerpo cuando la marca de
  * toma de posesión del lector no se pudo usar: `mine` falla cerrado en todas las
  * filas, y esto es lo único que distingue «esa fila no es tuya» de «no pude
@@ -155,7 +155,7 @@ export interface DemoRun {
 }
 
 /**
- * it. 33 (2) — THE ONE READER of `viewerUnreadable` for a client screen. Pure.
+ * THE ONE READER of `viewerUnreadable` for a client screen. Pure.
  *
  * «My row» is the one the server says is mine, else an unowned one with my
  * passkey (a claim prompt). With the mark unusable the server says `mine:false`
@@ -184,10 +184,8 @@ export interface AutopilotStatus {
   enabled: boolean; running: boolean; signerAddress: string | null; seedPresent: boolean; signerError?: string;
   attribution: 'user' | 'operational'; maxTxXrp: number; dailyCapXrp: number;
   /**
-   * it. 23 (3.2) — `null` ES UNA RESPUESTA, Y SE DICE. The backend has typed this
-   * `number | null` since it. 21 (the spend ledger is read strictly, and «I could
-   * not read it» must never pass for «nothing spent today» on the number that
-   * bounds a key that signs). The frontend kept typing it `number`, so the
+   * `null` ES UNA RESPUESTA, Y SE DICE. The backend has typed this
+   * `number | null`. The frontend kept typing it `number`, so the
    * console printed the literal word «null» and the desk printed a blank —
    * a blank next to «/ 200 XRP today» reads as zero. `spentTodayText` is the one
    * reader: it says it in words, never a number and never nothing.
@@ -226,7 +224,7 @@ export interface Refusal {
   /** RECORD_NOT_YET_VISIBLE: the same call can simply be made again. */
   retryable?: boolean;
   /**
-   * it. 16 (R5 5.4) — the seat-refusal contract, read defensively: some routes
+   * The seat-refusal contract, read defensively: some routes
    * name the code `code` instead of `error`, and `memoHex` (the 0xFE that HOLDS
    * the seat) is sent ONLY to the session that prepared it or that proves the
    * account. `describeSeatRefusal` needs both to say the right sentence and to
@@ -235,7 +233,7 @@ export interface Refusal {
   code?: string;
   memoHex?: string;
   /**
-   * it. 23 (3.3) — QUÉ LE FALTA A ESTA PUERTA, no solo que se cerró.
+   * QUÉ LE FALTA A ESTA PUERTA, no solo que se cerró.
    * `OMNIBUS_OWNER_UNKNOWN` lo decide una puerta MÁS ESTRECHA que la que dejó
    * pasar: `requireAdmin` admite `x-admin-session` (o la llave estática) sin
    * poblar `req.siwe`, así que un fundador que abrió la mesa por ahí llegaba sin
@@ -246,7 +244,7 @@ export interface Refusal {
   needs?: string;
   sessionState?: 'session' | 'no-session-presented' | 'session-not-verified';
   /**
-   * it. 31 — LA PUERTA DEL DUEÑO, LEÍDA. `POST …/requests` (la única ruta que
+   * LA PUERTA DEL DUEÑO, LEÍDA. `POST …/requests` (la única ruta que
    * una persona real toca) contesta ahora con lo que retiene su saldo y con los
    * ids que su propio DELETE puede soltar: una petición 'pending' sin firma
    * (`withdrawableRequestIds`) o una reserva de mesa sin memo ni hash
@@ -275,7 +273,7 @@ export interface InFlightRow {
 export type RefusalDoor = { kind: 'request'; id: string } | { kind: 'desk'; id: string };
 
 /**
- * it. 31 — the doors a refusal names, in the order the server named them. Pure.
+ * The doors a refusal names, in the order the server named them. Pure.
  * Empty for every refusal that has none (a signed payment, a read of ours that
  * failed, anything else): the screen never invents a lever the server did not offer.
  */
@@ -289,7 +287,7 @@ export function refusalDoors(refusal: Pick<Refusal, 'withdrawableRequestIds' | '
 export type Result<T> = { ok: true; data: T } | { ok: false; refusal: Refusal };
 
 /**
- * it. 31 — LA PUERTA DEL DUEÑO, DESDE LA CONSOLA DEL DUEÑO.
+ * LA PUERTA DEL DUEÑO, DESDE LA CONSOLA DEL DUEÑO.
  *
  * El último rechazo de una petición (entrar en el vault / retirar), con lo que
  * hace falta para ofrecer una salida: el importe (para reintentar tal cual si el
@@ -310,9 +308,9 @@ export interface RequestRefusal {
 export type DoorApi = Pick<typeof demoApi, 'withdrawRequest' | 'releaseOwnDeskPayment'>;
 
 /**
- * it. 31 — opens ONE door the server named: the owner's DELETE that cedes only if
- * nothing was signed for it (a request, it. 27) or if no 0xFE was ever composed
- * (a desk reservation, it. 29). Moves no money. The hook calls it; a test can
+ * Opens ONE door the server named: the owner's DELETE that cedes only if
+ * nothing was signed for it (a request) or if no 0xFE was ever composed
+ * (a desk reservation). Moves no money. The hook calls it; a test can
  * call it with a fake api and see which DELETE runs.
  */
 export async function openRefusalDoor(api: DoorApi, runId: string, clientId: string, door: RefusalDoor): Promise<Result<{ run: DemoRun; reconciled?: string }>> {
@@ -320,9 +318,9 @@ export async function openRefusalDoor(api: DoorApi, runId: string, clientId: str
 }
 
 /**
- * it. 33 (agente C, 6) — WHAT THE DOOR SAYS IT DID, FROM WHAT THE SERVER SAID.
+ * WHAT THE DOOR SAYS IT DID, FROM WHAT THE SERVER SAID.
  *
- * The owner's DELETE of a request has TWO outcomes (it. 31): «nothing was ever
+ * The owner's DELETE of a request has TWO outcomes: «nothing was ever
  * signed, taken out of the queue» and `reconciled: 'failed-on-ledger'` — a
  * payment WAS signed, the ledger refused it (validated ≠ tes, the drops never
  * left) and the door closed it with its ledger code. The hook printed the first
@@ -355,7 +353,7 @@ export function requestAcceptedNotice(kind: 'put-to-work' | 'withdraw', servedBy
 }
 
 /**
- * it. 23 (3.3): el paso que resuelve `OMNIBUS_OWNER_UNKNOWN`. Pura, y `null`
+ * El paso que resuelve `OMNIBUS_OWNER_UNKNOWN`. Pura, y `null`
  * para cualquier otra negativa — la pantalla no inventa un camino donde no lo hay.
  *
  * No es «reintentable»: repetir la misma llamada no cambia nada. Lo que la
@@ -373,14 +371,13 @@ export function omnibusOwnerUnknownStep(
 }
 
 /**
- * El paso que resuelve la puerta de operador en el alta de la mesa (fundador
- * 18-sep: la estación 7 pintaba «NOT_AN_ADMIN» a secas). Crear la mesa sigue
- * siendo de los operadores del despliegue (`requireAdmin`), y desde el it. 7 la
+ * El paso que resuelve la puerta de operador en el alta de la mesa. Crear la mesa sigue
+ * siendo de los operadores del despliegue (`requireAdmin`), y desde el la
  * puerta por email solo abre con un email VERIFICADO: una cuenta de contraseña
  * no pasa aunque su email esté en la lista.
  *
  * ⚠ La frase NO manda a entrar con Google/Apple. Ese login sobre una cuenta de
- * contraseña sin verificar es una TOMA DE POSESIÓN (it. 8,
+ * contraseña sin verificar es una TOMA DE POSESIÓN (
  * `AuthService._takeOverSquattedAccount`): mueve wallets, reglas y MoneyFlows a
  * una cuenta de cuarentena y desactiva los vínculos firmados. Para el dueño
  * legítimo es destruir su montaje. La puerta que no toca nada es la llave del
@@ -401,7 +398,7 @@ export function adminDoorStep(
 const SIGN_IN_AGAIN = 'Sign in to your Astryum account first — opening or changing an exchange account needs your session.';
 /** Refusals of the self-serve routes a client can actually meet, in words (the rest keep the server's detail). */
 /**
- * El KYC de UNA casilla (diseño B, 14-sep): la credencial `KYC-<tag>` que la raíz
+ * El KYC de UNA casilla (diseño B): la credencial `KYC-<tag>` que la raíz
  * del exchange emite sobre el omnibus — quién, sobre qué cuenta, qué tipo — y si
  * el ledger dice que existe, está aceptada y vigente.
  */
@@ -435,7 +432,7 @@ const REFUSAL_TEXT: Record<string, string> = {
   WALLET_PROOF_UNREADABLE: 'Your wallet bindings could not be read right now — nothing changed. Try again in a moment.',
   CLIENT_WALLET_ALREADY_SET: 'This account already has a withdrawal wallet on file; only the exchange can change it.',
   RUN_RECEIPTS_FULL: 'This exchange has no room for more receipts on this run.',
-  // El KYC del exchange, UNA CREDENCIAL POR CASILLA (diseño B, 14-sep): la emite y
+  // El KYC del exchange, UNA CREDENCIAL POR CASILLA (diseño B): la emite y
   // la acepta el exchange; el cliente no firma nada. Ninguna de estas frases vale
   // para una SALIDA: retirar no pasa por el gate, y decirlo evita leerlo como
   // «tu dinero se queda».
@@ -445,7 +442,7 @@ const REFUSAL_TEXT: Record<string, string> = {
   CLIENT_CREDENTIAL_EXPIRED: 'The KYC of your account expired. The exchange renews it; taking your money out is open meanwhile.',
   CLIENT_HAS_NO_XRPL_WALLET: 'Register your own XRPL wallet first: withdrawals to self-custody are paid there.',
   CREDENTIALS_UNREADABLE: 'Your credential could not be checked against the XRP Ledger right now — this does not mean you have none. Nothing moved; try again.',
-  // ── Opening an exchange profile (it. 19, R5 copy) ────────────────────────
+  // ── Opening an exchange profile (R5 copy) ────────────────────────
   // These came back as the server's raw `detail` on the operator's screen. The
   // refusals of the omnibus declaration are the ones an operator actually meets
   // at the last station of the sign-up, so they get their own sentence here —
@@ -458,7 +455,7 @@ const REFUSAL_TEXT: Record<string, string> = {
     "That address is already on file as a client's own XRPL wallet. Declaring it as an omnibus would take over that person's account — use the omnibus account you created for this desk.",
   OMNIBUS_IS_A_USER_ACCOUNT:
     "That address already belongs to an Astryum user, and it is not yours. Declaring it would put their account behind this desk's transaction guard. Use the omnibus account you created for this desk — or sign in with that account first, if it really is yours.",
-  // it. 21 (3.6): TIENE DUEÑO Y NO PUEDO ATRIBUIRLO — sin sesión, «de alguien» no
+  // TIENE DUEÑO Y NO PUEDO ATRIBUIRLO — sin sesión, «de alguien» no
   // es «de otro». La frase pide lo que falta en vez de acusar a quien quizá sea
   // su dueño; no es reintentable tal cual (hace falta la sesión).
   OMNIBUS_OWNER_UNKNOWN:
@@ -471,7 +468,7 @@ const REFUSAL_TEXT: Record<string, string> = {
   // «No pude leer» sobre un alta: nada se creó, y se puede reintentar tal cual.
   OMNIBUS_OWNERSHIP_UNREADABLE:
     'Whether that address already belongs to an Astryum user could not be read just now. Nothing was created — try again.',
-  // it. 31 (4.2): this one is the FALLBACK only — see `SERVER_DETAIL_FIRST`.
+  // This one is the FALLBACK only — see `SERVER_DETAIL_FIRST`.
   // The server's `detail` carries the cause (a mark dated ahead of its clock is
   // not «could not be read», and «try again» is not its only way forward).
   OWNERSHIP_UNREADABLE:
@@ -479,16 +476,16 @@ const REFUSAL_TEXT: Record<string, string> = {
   SEQ_HIGH_WATER_UNREADABLE: 'The exchange ledger marks could not be read just now. Nothing was created — try again.',
   TAG_RANGES_UNREADABLE: 'The assigned deposit-tag ranges could not be read just now. Nothing was created — try again.',
   RUN_MARKS_NOT_PERSISTED: 'The exchange ledger marks could not be recorded just now. Nothing was created — try again.',
-  // it. 21 (3.2): la lectura estricta de las runs (it. 19) hacía que cinco rutas
+  // La lectura estricta de las runs hacía que cinco rutas
   // contestaran 500 donde antes degradaban a lista vacía. Ahora son 503
   // reintentables, y esta es su frase: NADA cambió, solo no se pudo leer.
   RUN_UNREADABLE: 'The exchange ledger could not be read just now. Nothing was changed — try again in a moment.',
-  // it. 33 (7): the request never left the browser (offline, DNS, a killed connection).
+  // The request never left the browser (offline, DNS, a killed connection).
   NETWORK_UNREACHABLE: 'The exchange could not be reached from this device just now — the request never left. Nothing was changed; check your connection and try again.',
   RUN_NOT_PERSISTED: 'The exchange ledger could not record that just now. Nothing was recorded — try again.',
   RUN_VERSION_CONFLICT: 'Somebody else saved this exchange while you were working on it. Reload it and do it again — nothing was recorded.',
   AUTOPILOT_TICK_FAILED: 'The exchange backend could not complete a pass — it served nobody this time. Nothing was signed; try again.',
-  // ── it. 31: los códigos que no tenían lector en la consola del cliente ──
+  // ──Los códigos que no tenían lector en la consola del cliente ──
   // Una toma cerrada no ejecuta ENTRADAS; la salida sigue abierta (el autopiloto
   // la sirve también cerrada). Decirlo evita leer «closed» como «tu dinero se queda».
   RUN_CLOSED: 'This exchange desk is closed: it takes no new entries into the vault. Your XRP stays in your account at the exchange and you can withdraw it at any time.',
@@ -496,7 +493,7 @@ const REFUSAL_TEXT: Record<string, string> = {
   // que SÍ retiene ese XRP —también frente a tu retirada— hasta que pase su
   // ventana en el ledger; entonces el exchange la prueba ausente y la suelta solo.
   DESK_PAYMENT_NOT_RELEASABLE_HERE:
-    // it. 33 (3/7): «on its own» only while the exchange backend loop runs (it now
+    // «on its own» only while the exchange backend loop runs (it now
     // sweeps takes served by hand too); otherwise the desk does it. Said so.
     'This reservation already has a payment composed for it, so it may still be signed and land: it holds that XRP — including against your withdrawal — until its signing window on the XRP Ledger passes. Then the exchange proves it absent against the ledger and releases it — on its own while its backend loop is running, or by the desk otherwise; the desk can also close it against the ledger before that.',
   REQUEST_NOT_PENDING: 'That request already moved on — only a request with nothing signed can be taken out of the queue. The ledger decides the rest.',
@@ -507,7 +504,7 @@ const REFUSAL_TEXT: Record<string, string> = {
 
 /**
  * Refusals that mean «I could not read, so I did nothing» — the same call can
- * simply be made again (it. 19, R5). The screen turns these into a «Try again»
+ * simply be made again (R5). The screen turns these into a «Try again»
  * button instead of leaving the operator staring at a sentence with no way out.
  */
 const RETRYABLE_REFUSALS = new Set([
@@ -530,7 +527,7 @@ export function refusalIsRetryable(refusal: Refusal): boolean {
 }
 
 /**
- * it. 33 (7) — `fetch` threw (offline, DNS, CORS, a killed connection): no
+ * `fetch` threw (offline, DNS, CORS, a killed connection): no
  * status, no body. A `Refusal` the same readers turn into «could not read» +
  * «Try again» — the request never reached the server, so nothing changed.
  */
@@ -540,16 +537,16 @@ export function networkRefusal(e: unknown): Refusal {
 }
 
 /**
- * productizer it. 31 (agente D, 4.2) — CODES WHOSE SERVER `detail` WINS OVER OUR
+ * CODES WHOSE SERVER `detail` WINS OVER OUR
  * FIXED SENTENCE, because the sentence is only true for ONE of the causes the
  * code covers. `OWNERSHIP_UNREADABLE` used to mean one thing (the database did
- * not answer); since it. 29 the server also sends it for a takeover mark dated
+ * not answer); The server also sends it for a takeover mark dated
  * AHEAD of its clock — a row that was read perfectly well, that no re-link can
  * clear, and that heals on its own at a known instant. Its `detail` says
  * «dated later than our clock». `REFUSAL_TEXT.OWNERSHIP_UNREADABLE` («could not
  * be read just now … try again») was overwriting that in every one of the ~30
- * places that render through `describeRefusal`, so the it. 29 sentence never
- * reached a person. The it. 19 rule («our words, through t(); the server's prose
+ * places that render through `describeRefusal`, so the sentence never
+ * reached a person. The rule («our words, through t(); the server's prose
  * is the last resort») stands for every other code; here the server's prose is
  * the only one that knows which of three things happened. Without a `detail`
  * the fixed sentence still applies — a code is never shown raw.
@@ -563,7 +560,7 @@ export function describeRefusal(refusal: Refusal, t: (s: string) => string): str
   }
   const known = REFUSAL_TEXT[refusal.error];
   if (known) return t(known);
-  // it. 31: la familia «una lectura NUESTRA falló» (SUBMISSION_JOURNAL_UNREADABLE
+  // La familia «una lectura NUESTRA falló» (SUBMISSION_JOURNAL_UNREADABLE
   // entre ellas) tiene su lector compartido; antes caía aquí como el `detail`
   // inglés del servidor, sin frase y sin «try again».
   const readFailure = describeRetryableRefusal(refusal, t);
@@ -572,7 +569,7 @@ export function describeRefusal(refusal: Refusal, t: (s: string) => string): str
 }
 
 /**
- * it. 31 — the sentence for a refusal of `POST …/requests`, with its numbers and
+ * The sentence for a refusal of `POST …/requests`, with its numbers and
  * a pointer to the doors when the server named any. Pure; falls back to
  * `describeRefusal` for everything else.
  */
@@ -593,12 +590,12 @@ export function describeRequestRefusal(refusal: Refusal, t: (s: string) => strin
 
 /**
  * The desk's refusals about an omnibus payment in flight, said with their
- * numbers (productizer it. 12): a put-to-work release before its
+ * numbers: a put-to-work release before its
  * LastLedgerSequence waits for the ledger (2.3), and a record the backend's node
  * cannot see yet is retried, never read as «not this client's» (1.4).
  */
 export function describeDeskRefusal(refusal: Refusal, t: (s: string) => string): string {
-  // it. 16 (R5 5.4): a seat refusal is a SENTENCE, never a raw token. The desk
+  // A seat refusal is a SENTENCE, never a raw token. The desk
   // composes 0xFEs like any other surface and answered NONCE_SEAT_TAKEN…* with
   // the server's own code plus a paragraph of hashes. The shared reader owns the
   // wording (lib/xaman/seatRefusal); anything else keeps falling through.
@@ -647,14 +644,14 @@ export function councilOrderServerWarnings(prepared: unknown): string[] {
  * The one-use token the server hands back with an EXIT it composed itself
  * (`/multisign/prepare` takes it instead of classifying the memo again). A
  * console that does not forward it turns a bad read — or a region — into a
- * closed exit, which an exit may never be (it. 14, R3 3.1).
+ * closed exit, which an exit may never be (R3 3.1).
  */
 export function councilOrderExitToken(prepared: unknown): string | undefined {
   const v = (prepared as { exitToken?: unknown } | null | undefined)?.exitToken;
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
 }
 
-/** 409 of a prepare when THE SAME order went out moments ago (it. 15; before: COUNCIL_ORDER_IN_FLIGHT). */
+/** 409 of a prepare when THE SAME order went out moments ago (before: COUNCIL_ORDER_IN_FLIGHT). */
 export const SAME_ORDER_RECENTLY_LAUNCHED = 'SAME_ORDER_RECENTLY_LAUNCHED';
 /** Legacy name of the same refusal, still answered by older backends. */
 export const COUNCIL_ORDER_IN_FLIGHT = 'COUNCIL_ORDER_IN_FLIGHT';
@@ -675,7 +672,7 @@ export function isSameOrderRecentlyLaunched(refusal: { error?: string } | null |
  * order the server could not record (503), the region (451), a chain read that
  * failed (502), a network error — is the SERVER refusing to compose right now.
  * Recording one of those as «the cage says no» puts a denial the cage never gave
- * in the audit trail (it. 14, R2 2.4).
+ * in the audit trail (R2 2.4).
  */
 export const CAGE_VERDICT_CODES: ReadonlySet<string> = new Set([
   'VENUE_UNKNOWN',
@@ -718,7 +715,6 @@ export function describeCouncilOrderRefusal(refusal: { status?: number; error?: 
 
 /* ── exchange 2.0: las estructuras cautivas de un tenant ──────────────────── */
 
-/** Design: docs/context/Astryum_Exchange_2_Estructuras_Bajo_El_Omnibus_2026-09-18.md */
 export type StructureKind = 'box' | 'family' | 'enterprise' | 'agent';
 /** 'sole' = la personal manda sola · 'shared' = es uno de varios en el quórum. */
 export type StructureGovernance = 'sole' | 'shared';
@@ -824,7 +820,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string
   if (!res.ok) {
     const j = (json ?? {}) as { error?: string; code?: unknown; detail?: string; hashes?: unknown; lastLedgerSequence?: unknown; secondsLeft?: unknown; ledgersLeft?: unknown; retryable?: unknown; memoHex?: unknown; needs?: unknown; sessionState?: unknown; inFlight?: unknown; withdrawableRequestIds?: unknown; releasableDeskPaymentIds?: unknown; balanceDrops?: unknown; reservedDrops?: unknown; availableDrops?: unknown };
     const hashes = Array.isArray(j.hashes) ? j.hashes.filter((h): h is string => typeof h === 'string') : undefined;
-    // it. 31: the owner's doors travel with the 409 (POST …/requests, PAYMENT_IN_FLIGHT).
+    // The owner's doors travel with the 409 (POST …/requests, PAYMENT_IN_FLIGHT).
     const ids = (v: unknown): string[] | undefined => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0) : undefined);
     const withdrawableRequestIds = ids(j.withdrawableRequestIds);
     const releasableDeskPaymentIds = ids(j.releasableDeskPaymentIds);
@@ -856,11 +852,11 @@ async function call<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string
       },
     };
   }
-  // it. 17 (contrato con el agente D) — EL 0xFE DE LA MESA ENTRA EN EL MISMO
+  // EL 0xFE DE LA MESA ENTRA EN EL MISMO
   // REGISTRO. El aviso global de firmas en curso solo promete entrega a Flare
-  // cuando ALGUIEN dijo que el executor está en marcha (it. 14, R2 2.6), y
+  // cuando ALGUIEN dijo que el executor está en marcha (R2 2.6), y
   // distingue «el servidor dijo que está parado» de «ninguna ruta manda el
-  // campo» (it. 16, R3 3.2). Las rutas institucionales ya lo alimentaban; las
+  // campo» (R3 3.2). Las rutas institucionales ya lo alimentaban; las
   // del exchange no, así que su 0xFE salía siempre con la frase prudente.
   //
   // Lectura DEFENSIVA por partida doble: el 0xFE de la mesa viaja anidado
@@ -877,17 +873,17 @@ async function call<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string
       handoff.xrplPayment ?? body.xrplPayment ?? body.xrplTx,
       deliveryOf(handoff) ?? deliveryOf(body),
     );
-    // it. 23 (1.2) — LA MESA APRENDE LA CADUCIDAD DEL SERVIDOR, COMO LAS DEMÁS.
+    // LA MESA APRENDE LA CADUCIDAD DEL SERVIDOR, COMO LAS DEMÁS.
     // El asiento del 0xFE se mide con `HANDOFF_PAYLOAD_EXPIRY_MIN`, y la mesa
     // acuñaba su payload de Xaman con un `expire: 5` escrito a mano: baja esa
     // variable y el asiento se suelta con el payload TODAVÍA firmable — el
     // gemelo. Se aprende aquí (anidado o al nivel de arriba), igual que en
     // `lib/institutional/api.ts` y en `postHandoff`, así que ninguna pantalla
     // necesita enchufarlo a mano.
-    // it. 27 (§3): con su memo. Sin él, el número se aprendía solo para la
+    // con su memo. Sin él, el número se aprendía solo para la
     // pestaña — y el de una ceremonia (24 h) pasa del clamp ordinario, así que
     // se descartaba entero: la lectura del servidor no llegaba a ningún payload.
-    // it. 31: and whether the server actually READ the SignerList for that row
+    // and whether the server actually READ the SignerList for that row
     // ('single' | 'quorum' | 'unknown'). Without it the row stays 'unknown' and
     // the browser re-reads the ledger itself — the safe direction, but a read
     // the server already made. Same one-liner as v1Api and institutional/api.
@@ -896,7 +892,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string
       handoff.memoHex ?? body.memoHex,
       handoff.signerListRead ?? body.signerListRead,
     );
-    // it. 33 (2): «could not use your mark» travels WITH the run it qualifies, so
+    // «could not use your mark» travels WITH the run it qualifies, so
     // every `setRun(r.data.run)` carries it and a mutation that answered a run
     // without it (its mark was usable, or it would have 503'd) clears it.
     if (body.run && typeof body.run === 'object' && body.viewerUnreadable && typeof body.viewerUnreadable === 'object') {
@@ -918,7 +914,7 @@ export const demoApi = {
     call<PreparedStructureStep>('POST', `/runs/${runId}/structures/${structureId}/steps/${step}/prepare`, {}),
   recordStructureStep: (runId: string, structureId: string, step: BirthStepId, txHash: string) =>
     call<{ structure: DemoStructure; verdict: { ok: boolean; observed: string; ledgerIndex?: number } }>('POST', `/runs/${runId}/structures/${structureId}/steps/${step}/record`, { txHash }),
-  // Desde el 20-sep la lista es la de TUS exchanges. `all` es del panel de
+  // La lista es la de TUS exchanges. `all` es del panel de
   // operaciones de los fundadores: el backend solo lo honra con puerta de admin.
   listRuns: (opts: { all?: boolean } = {}) => call<{ runs: RunSummary[] }>('GET', opts.all ? '/runs?all=1' : '/runs'),
   createRun: (input: { label?: string; councilAddress: string; omnibusAddress: string; policy?: DemoPolicy; registryAddress?: string; poteAddress?: string }) =>
@@ -927,11 +923,11 @@ export const demoApi = {
   /** The exchange this Flare account is a client of — resolved from identity, never from a picker. */
   forAccount: (account: string) =>
     call<
-      // 18-sep — cliente POR EXCHANGE: `memberships` = sus cuentas (una por
+      // Cliente POR EXCHANGE: `memberships` = sus cuentas (una por
       // exchange) y `joinable` = los exchanges abiertos a los que esta llave aún
       // puede pedir acceso. Opcionales: un backend anterior no los manda.
       | { found: true; runId: string; exchange: RunSummary; client: DemoClient; others: number; memberships?: ClientMembership[]; joinable?: RunSummary[] }
-      // heldElsewhere (14-sep): la llave YA es cliente ahí, pero con otra cuenta de Astryum (o hay que reclamarla).
+      // heldElsewhere: la llave YA es cliente ahí, pero con otra cuenta de Astryum (o hay que reclamarla).
       | { found: false; exchanges: RunSummary[]; joinable?: RunSummary[]; heldElsewhere?: { exchange: RunSummary; reclaimRequired: boolean } }
     >(
       'GET', `/runs/for-account?account=${encodeURIComponent(account)}`),
@@ -940,15 +936,15 @@ export const demoApi = {
   addRequest: (runId: string, clientId: string, input: { kind: 'put-to-work' | 'withdraw'; amountXrp: string }) =>
     call<{ request: ClientRequest; run: DemoRun; servedBy?: 'autopilot' | 'desk' }>('POST', `/runs/${runId}/clients/${clientId}/requests`, input),
   /**
-   * it. 31 — LAS DOS PUERTAS DEL DUEÑO, QUE SOLO EXISTÍAN PARA `curl`.
-   * Retirar una petición 'pending' de la que nada se firmó (it. 27; el servidor
+   * LAS DOS PUERTAS DEL DUEÑO, QUE SOLO EXISTÍAN PARA `curl`.
+   * Retirar una petición 'pending' de la que nada se firmó (el servidor
    * vuelve a comprobar el journal y solo cede entonces), y soltar una reserva de
-   * mesa de la que nunca se compuso un 0xFE (it. 29). Ninguna mueve dinero.
+   * mesa de la que nunca se compuso un 0xFE. Ninguna mueve dinero.
    */
   withdrawRequest: (runId: string, clientId: string, requestId: string) =>
     call<{ request: ClientRequest; run: DemoRun; reconciled?: string }>('DELETE', `/runs/${runId}/clients/${clientId}/requests/${requestId}`),
   /**
-   * 18-sep — la MESA toma la petición del cliente para firmarla desde el omnibus
+   * La MESA toma la petición del cliente para firmarla desde el omnibus
    * con un QR (sin autopilot). La misma cesión que `withdrawRequest` (nada
    * firmado; el journal manda), escrita como `TAKEN_BY_THE_DESK`. Solo operador.
    */

@@ -1,8 +1,5 @@
 /**
- * injectedBrand — WHICH app is behind window.ethereum (founder 2026-08-22:
- * the login wallet read as a bare address with an Ethereum diamond because
- * its row was filed as walletType 'siwe' — the protocol's name, not the
- * app's — and nobody ever asked the extension who it was).
+ * injectedBrand — WHICH app is behind window.ethereum.
  *
  * Extensions announce themselves with boolean flags on the provider. Order
  * matters: almost everyone fakes `isMetaMask` for compatibility, so the

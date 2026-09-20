@@ -292,11 +292,6 @@ const nextConfig = {
       // hides itself and the old email/Google/Apple buttons come back. For a
       // visitor arriving from an XRPL audience that is the exact opposite of
       // what we are showing them.
-      //
-      // Collapsing the hosts here makes the allowlist a one-host problem that
-      // cannot drift again. Query and path are preserved, so a callback that
-      // lands on www still completes — though after this nobody reaches www at
-      // all: the redirect happens on the first request, before any login starts.
       {
         source: '/:path*',
         has: [{ type: 'host', value: 'www.astryum.xyz' }],
@@ -338,12 +333,8 @@ const nextConfig = {
           destination: '/api/health',
         },
         // /docs es ahora una página de la app (src/app/docs) con la carcasa de
-        // /about y /proof; la estática de public/docs/index.html se retiró el
-        // 19-sep. Las diapositivas y los PDF siguen sirviéndose desde public/docs/.
+        // /about y /proof; la estática de public/docs/index.html se retiró. Las diapositivas y los PDF siguen sirviéndose desde public/docs/.
         //
-        // Los DOCUMENTOS WEB de la biblioteca sí son ficheros estáticos de
-        // public/docs/ (los genera docs/context/astryum-docs/make_pages.py), así
-        // que conservan su URL limpia:
         {
           source: '/docs/explained',
           destination: '/docs/explained.html',

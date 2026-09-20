@@ -2,29 +2,11 @@
  * CanonicalXrplTranslator — CMF → AutomationRule payloads (XRPL, M4).
  *
  * The piece that makes the canonical language XRPL-native (plan del mes §3
- * M4, built 2026-08-16): one CanonicalStep compiles to ONE AutomationRule the
+ * M4, built): one CanonicalStep compiles to ONE AutomationRule the
  * engine ALREADY speaks — the same deterministic, pure, no-I/O shape as the
  * EVM twin. It became buildable the week it was scheduled to be skipped:
  * M1 (`scheduledPayment`), B.1 (`escrow`) and M3 (real `PRICE_DROP_PCT`)
  * built exactly the vocabulary this translator compiles to.
- *
- * What compiles today (nothing else — degradation is explicit and readable):
- *   verb 'transfer' + XRP + destination → 'scheduledPayment' (personal: the
- *     tick nudges, the Payment is composed FRESH at the signing door with
- *     Account pinned, the OWNER signs in Xaman) or 'councilPayment' when
- *     opts.governed (the trigger COMPOSES a proposal; the QUORUM signs).
- *   verb 'supply' + XRP + venue.params.lockDays → 'escrow' (the B.1 savings
- *     rail: the trigger nudges; the EscrowCreate is composed fresh in the
- *     Savings surface — FinishAfter is relative to SIGNING time, not trigger
- *     time, which is why nothing is composed here).
- *   triggers 'time' · 'idle-balance' · 'price'. The price floor converts to
- *     the evaluator's drop-from-baseline shape AT TRANSLATION TIME with a
- *     live price the ROUTE reads (opts.prices) — this module stays pure; a
- *     missing read fails with a readable error, never a guessed baseline.
- *
- * Line of custody intact (invariant #8): the rules go through the existing
- * SIWE-gated POST /api/rules; every fire ends in a USER signature. This
- * translator opens no new path toward a wallet.
  */
 
 import {

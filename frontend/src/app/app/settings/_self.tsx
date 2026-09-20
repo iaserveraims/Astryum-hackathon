@@ -61,11 +61,11 @@ export default function SettingsPage() {
   const es = lang === 'es';
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  // Perfil profesional (fundador 2026-08-29): el onboarding es saltable, así
+  // Perfil profesional: el onboarding es saltable, así
   // que el interruptor de gestor vive TAMBIÉN aquí — y con él, el KYC.
   const isManager = useIsManager();
   const setManager = useManagerStore((s) => s.setManager);
-  // El flag viaja a la CUENTA (2026-08-30); si el servidor no lo acepta, el
+  // El flag viaja a la CUENTA; si el servidor no lo acepta, el
   // toggle revierte y esta línea lo cuenta — un guardado a medias es el bug.
   const [managerSaveFailed, setManagerSaveFailed] = useState(false);
 
@@ -133,7 +133,7 @@ export default function SettingsPage() {
               </HairlineGroup>
 
               {/* Debug/connection-plumbing facts — collapsed by default (de-AI
-                  pass 2026-07-21): chainId/API base/flags are for troubleshooting,
+                  pass): chainId/API base/flags are for troubleshooting,
                   not something everyone needs to see every visit. */}
               <details className="group mt-3">
                 <summary className="flex list-none items-center gap-1.5 text-xs font-medium text-ink/45 transition-colors hover:text-ink/70 [&::-webkit-details-marker]:hidden cursor-pointer">
@@ -191,20 +191,19 @@ export default function SettingsPage() {
                 <Sliders className="w-4 h-4" strokeWidth={1.5} /> {t('Preferences')}
               </span>
             </SectionTitle>
-            {/* APARIENCIA (fundador 2026-09-13) — dos filas, dos ejes: el TEMA
+            {/* APARIENCIA — dos filas, dos ejes: el TEMA
                 (de qué material está hecho el panel: Astryum o Institucional,
                 con sus dos probetas en vivo) y la LUZ (claro, oscuro o el
                 dispositivo). Hasta hoy esta fila se llamaba «Tema» y solo
                 elegía la luz. Ver components/settings/AppearanceSettings.tsx
                 y lib/theme/appearance.ts. */}
             <AppearanceSettings />
-            {/* Movimiento (fundador 2026-09-10): cuánto se mueve la interfaz —
+            {/* Movimiento: cuánto se mueve la interfaz —
                 completo, sereno o mínimo — o que decida el dispositivo. Un
                 ajuste para toda la web; las probetas de abajo lo enseñan en
                 vivo. Persistido (stores/motionStore). */}
             <MotionSettings />
-            {/* Language — moved here from the sidebar (founder 2026-08-08:
-                "escondido en settings"): same ES/EN pair, now living with the
+            {/* Language — moved here from the sidebar: same ES/EN pair, now living with the
                 other preferences instead of taking a sidebar slot. */}
             <div className="flex items-center justify-between gap-4 py-2 border-b border-ink/5">
               <div>
@@ -248,7 +247,7 @@ export default function SettingsPage() {
           </Card>
         </RevealItem>
 
-        {/* ── Legal: qué firmaste y cuándo (13-sep). El recibo de la ceremonia
+        {/* ── Legal: qué firmaste y cuándo. El recibo de la ceremonia
             de firma, siempre a mano, con los textos públicos enlazados. ── */}
         <RevealItem className="md:col-span-2">
           <LegalRecordCard />
@@ -306,7 +305,7 @@ export default function SettingsPage() {
                   {t('Open Manager desk')} <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
               )}
-              {/* La comunidad (8-sep): quién lleva bóvedas, personas y agentes,
+              {/* La comunidad: quién lleva bóvedas, personas y agentes,
                   con sus apoyos. No vive en el sidebar — se llega desde aquí,
                   desde el catálogo y desde cualquier perfil. */}
               <Link
@@ -318,8 +317,7 @@ export default function SettingsPage() {
             </div>
           </Card>
         </RevealItem>
-        {/* La certificación como REFERRAL (fundador 2026-08-30: ni creación
-            ni custodia de documentos) — la MISMA tarjeta que en la mesa, una
+        {/* La certificación como REFERRAL — la MISMA tarjeta que en la mesa, una
             pieza y dos montajes: la explicación del circuito y la puerta
             hacia la certificadora (por env; apagada mientras no haya empresa). */}
         {isManager && (
@@ -380,11 +378,10 @@ export default function SettingsPage() {
   );
 }
 
-// Region — feeds JurisdictionService's fail-closed geofence (CLAUDE.md invariant #5).
+// Region — feeds JurisdictionService's fail-closed geofence (invariant #5).
 // Purely device-local (see lib/region.ts) and purely explicit: no IP/language guess.
 /**
- * LegalRecordCard — lo que esta cuenta tiene firmado (fundador 2026-09-13,
- * «que esté mejor hecho todo el proceso»): las condiciones aceptadas y el
+ * LegalRecordCard — lo que esta cuenta tiene firmado: las condiciones aceptadas y el
  * aviso leído, con versión y fecha, y el enlace a cada texto para releerlo.
  * Sale de /auth/me (`legal.accepted`); si falta la firma, lo dice y remite a
  * la puerta del panel. Nada se firma desde aquí: firmar es la ceremonia.
@@ -393,12 +390,12 @@ function LegalRecordCard() {
   const { t, lang } = useT();
   const legal = useAuthStore((s) => s.legalGate);
   const acc = legal?.accepted ?? null;
-  // TERCER ESTADO (it. 25): la puerta legal ya no dice «no has firmado»
+  // TERCER ESTADO: la puerta legal ya no dice «no has firmado»
   // cuando lo que ocurrio es que no pudimos leer la ficha. Esta tarjeta
   // leia lo mismo a traves de `accepted: null` y seguia acusando. Las
   // frases viven en lib/legal/legalGateMode: una sola redaccion para la
   // nota de la puerta y para esta tarjeta, y en los dos idiomas sin tocar
-  // dict.ts (regla del fundador).
+  // dict.ts.
   const recordUnreadable = legal?.unreadable === true;
   const unreadableTitle = lang === 'es' ? LEGAL_RECORD_UNREADABLE_TITLE_ES : LEGAL_RECORD_UNREADABLE_TITLE_EN;
   const unreadableBody = lang === 'es' ? LEGAL_RECORD_UNREADABLE_ES : LEGAL_RECORD_UNREADABLE_EN;

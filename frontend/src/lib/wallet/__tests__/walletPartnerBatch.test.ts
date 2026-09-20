@@ -1,29 +1,6 @@
 /**
- * batch-evm (2026-08-20) — the two money bugs left in `sendIntentCalls`, and
+ * batch-evm — the two money bugs left in `sendIntentCalls`, and
  * the wiring nobody had ever EXECUTED.
- *
- * Everything here runs the shipping hook. `useWalletPartner` only ever calls
- * `useCallback`, so with the wagmi hooks and `useCallback` mocked it can be
- * invoked as a plain function and its real closures driven end to end — the
- * catch, the loop, the four arguments handed to `sequentialStepError`. The
- * previous round verified those four by READING them; an off-by-one there turns
- * a partial execution into "the first step died" and puts the sign button back,
- * with 700 tests still green.
- *
- * The two facts under test:
- *
- *  1. The 5792 `catch` did not bind its error. ANY death of `sendCallsAsync` —
- *     a transport timeout, a dropped socket, a -32002, a user rejection — was
- *     read as "this wallet does not speak EIP-5792" and fell through to the
- *     sequential rail, which re-sends EVERY call. A bundle the wallet had
- *     ACCEPTED was therefore executed a second time, in full, with no receipt
- *     read and nothing said. «No pude leer» ≠ «falló», in the same function
- *     that fixed it one rail over.
- *
- *  2. The hash offered to the user could be the hash of the step that FAILED:
- *     one variable held both "the last step that completed" and "the step I am
- *     sending now", so the amber panel said «1 earlier step is already on the
- *     chain» over a link the explorer marks FAILED.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

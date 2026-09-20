@@ -2,28 +2,6 @@
  * rulePrefill — carry PRECOMPUTED, user-chosen values from one flow into a
  * rule/automation form, as EDITABLE starting values with a fallback to the
  * form's own defaults.
- *
- * The pattern is deliberately agnostic (no E1/PROTECT/Flare specifics): a
- * producer flow stashes values under a scope key; a consumer form resolves its
- * initial field values as `stashed ?? default`, field by field. The user can
- * always edit — the prefill is a starting point, never an imposition — and the
- * rule is still created through the normal POST (nothing here signs or
- * executes; CLAUDE.md invariants #1/#8).
- *
- * First producer/consumer pair: the E1 entry (its `a1` precompute reflects the
- * thresholds the user chose) → the PROTECT template. An XRPL flow that
- * precomputes thresholds reuses this file untouched: same stash/resolve, other
- * scope and values.
- *
- * F25: localStorage alone doesn't cross devices. `stashRulePrefill` still
- * writes localStorage first (so the current device's flow is unaffected even
- * if the network is down), then best-effort mirrors the same entry to
- * `backend/src/routes/preferences.ts` (`PUT /api/preferences/rule-prefills`).
- * `hydrateRulePrefillsFromServer` is the read-back half: called once per page
- * session (by the board), it pulls the user's stashed prefills from the
- * server and backfills any scope missing/stale in localStorage — same
- * on-disk shape as `stashRulePrefill`, so `readRulePrefill` needs no changes.
- * All of this is best-effort UX; it never blocks or throws into a signing flow.
  */
 
 import { getApiBase } from '../env';

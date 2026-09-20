@@ -81,7 +81,7 @@ describe('staysPersonal — the classification rule', () => {
     expect(staysPersonal({ marked: true, registryId: 'row-1' })).toBe(false);
   });
 
-  it('unmarked keeps the 2026-07-18 default: a confirmed council operates as Legacy', () => {
+  it('Unmarked keeps the default: a confirmed council operates as Legacy', () => {
     expect(staysPersonal({ marked: false })).toBe(false);
   });
 });

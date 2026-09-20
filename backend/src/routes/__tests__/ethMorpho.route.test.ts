@@ -126,7 +126,7 @@ describe('la frontera: flag + geovalla', () => {
 });
 
 /**
- * LAS LECTURAS NO SE GEOFENCEAN (doctrina «LA SALIDA JAMÁS SE GATEA», 2026-09-14).
+ * LAS LECTURAS NO SE GEOFENCEAN (doctrina «LA SALIDA JAMÁS SE GATEA»).
  *
  * Cada modal de salida LEE antes de preparar: EmExitModal lee /position y /market,
  * EmRepayModal y EmBridgeModal leen /market, la retirada lend-only lee /vault. Con
@@ -214,7 +214,7 @@ describe('las lecturas del carril: solo flag, jamás la geovalla', () => {
 });
 
 /**
- * LA SALIDA JAMÁS SE GATEA (doctrina 2026-09-13). Repagar, retirar colateral,
+ * LA SALIDA JAMÁS SE GATEA (doctrina). Repagar, retirar colateral,
  * cerrar la posición, redimir de la bóveda y traer el FXRP de vuelta a Flare
  * son salidas: solo flag, sin geovalla. Las entradas siguen respondiendo 451.
  */

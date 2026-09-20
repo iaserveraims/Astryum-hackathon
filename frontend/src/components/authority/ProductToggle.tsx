@@ -1,24 +1,12 @@
 'use client';
 
 /**
- * ⚠️ RETIRADO Y SIN SENTIDO YA (fundador 2026-08-22, cuarta pasada: «no que sea
- * seleccionable como producto distinto, porque no lo es»). Llevaba desmontado
- * desde el 2026-08-16, pero ahora además su premisa es falsa: el producto no
+ * ⚠️ RETIRADO Y SIN SENTIDO YA. Llevaba desmontado,
+ * pero ahora además su premisa es falsa: el producto no
  * se elige, lo pone la PANTALLA (AppShell sincroniza 'legacy' mientras la ruta
  * es /app/legacy). Si se remontara, su interruptor lo revertiría el
  * sincronizador en el mismo render. No revivir: para llegar a la gobernanza
  * está el destino Legacy del menú, que ahora sale siempre.
- *
- * ProductToggle — the product switch, and NOTHING else (founder 2026-07-18):
- * two segments, Astryum ↔ Legacy, living in the sidebar slot the old
- * "Overview" switcher occupied. No status line, no card chrome — the
- * dashboard's color already says which product you are in, and the loaded
- * Legacy's identity lives in the Summary's Net worth card.
- *
- * Flipping to Legacy loads the predefined governed account (last used, else
- * the first of Mis Legacies) via the ONE source of truth (useAuthorities
- * through the useAuthorityAccount adapter); flipping back restores the
- * aggregated overview of simple wallets.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -31,7 +19,7 @@ import { isDemoMode } from '../../lib/demoMode';
 
 /** Which product a segment paints as: its colour is FIXED to the product, not
  *  to the active mode, so the active pill never flashes gold→indigo during a
- *  crossing (founder 2026-07-20). Reads the product-fixed CSS vars. */
+ *  crossing. Reads the product-fixed CSS vars. */
 type Product = 'personal' | 'legacy';
 
 export default function ProductToggle() {
@@ -40,7 +28,7 @@ export default function ProductToggle() {
   const router = useRouter();
   const pathname = usePathname();
   const legacy = productMode === 'legacy';
-  // Legacy gate (founder 2026-07-26, revised: visible but gated): the toggle
+  // Legacy gate: the toggle
   // renders for EVERYONE in the beta; without access (LEGACY_ENABLED off and
   // not on LEGACY_ACCESS_EMAILS) flipping to Legacy opens the in-development
   // popup instead of switching (gated inside setProductMode). Hydrated from
@@ -60,19 +48,12 @@ export default function ProductToggle() {
     if (pathname === '/app/legacy') router.push('/app/home');
   }, [legacyAccessKnown, legacyAccess, legacy, pathname, setProductMode, router]);
 
-  // Entering Legacy (founder 2026-08-04, "vía libre a todos"): the flip is
+  // Entering Legacy: the flip is
   // now UNCONDITIONAL for accounts with access — setProductMode activates the
   // governed account when one exists, or flips into the LOBBY (indigo shell,
   // Legacy nav, no account claimed) when nothing is constituted yet. The
   // popups (demo / no access) stay inside setProductMode. This layer only
   // navigates and upgrades:
-  //
-  //  1. /app/wallets only exists in Personal → carry the user over NOW (the
-  //     mode already flipped, lobby or account — founder 2026-07-20).
-  //  2. Accounts still LOADING → park the intent; when the registry answers
-  //     with a governed account, re-entering ACTIVATES it in place (the
-  //     crossing plays once — loading transitions are tracked silently).
-  //  3. Resolved and truly nothing governed → the panel (Constituir door).
   const [pendingLegacy, setPendingLegacy] = useState(false);
   const enterLegacy = useCallback(() => {
     setProductMode('legacy');
@@ -118,7 +99,7 @@ export default function ProductToggle() {
         {legacy ? t('Legacy product active') : t('Personal product active')}
       </span>
       {/* The mode key stays 'astryum' (persisted store value); only the label
-          reads "Personal" (founder 2026-07-18). */}
+          reads "Personal". */}
       <Segment on={!legacy} product="personal" onClick={() => select('astryum')} icon={<Wallet size={13} />} label={t('Personal')} />
       <Segment on={legacy} product="legacy" onClick={() => select('legacy')} icon={<Landmark size={13} />} label="Legacy" />
     </div>

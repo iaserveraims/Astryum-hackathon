@@ -8,10 +8,6 @@
  * row now stays `ready`/`collecting` for ever, so nothing clears it by itself:
  * a monthly rule composed a fresh, perfectly valid Sequence over a payment that
  * may already have gone out. Every month.
- *
- * These tests run the REAL service against a mocked Prisma and a mocked
- * `account_info` — the same shape the route suite uses — so they fail on the
- * code as it was: there, `prepareCouncilMultisig` and `create` were both called.
  */
 
 const mockFindFirst = jest.fn();
@@ -21,10 +17,10 @@ const mockUpdate = jest.fn();
 /** g1-ceremonia: the ceremony lease the rule path was blind to. */
 const mockCacheFindUnique = jest.fn();
 const mockCacheDeleteMany = jest.fn();
-/** productizer-it6: the trigger-time seat check asks who this owner is. */
+/** The trigger-time seat check asks who this owner is. */
 const mockWalletFindMany = jest.fn();
 /**
- * productizer it. 17 (finding 2.1): and the ANSWER is a PROVEN address — an active
+ * And the ANSWER is a PROVEN address — an active
  * `WalletBinding` the user signed a challenge for — never a `wallet` row, which
  * anybody can write by typing a council's public signer address. The rule path has
  * no request, so a binding is the only proof it can have.
@@ -57,7 +53,7 @@ jest.mock('../../database/prismaClient', () => ({
 }));
 
 const mockAccountSequence = jest.fn();
-/** productizer-it6: the council's signer list, read off the ledger at trigger time. */
+/** The council's signer list, read off the ledger at trigger time. */
 const mockSignerCouncil = jest.fn();
 jest.mock('../../integrations/providers/chain/XRPLProvider', () => ({
   xrplProvider: {
@@ -123,11 +119,11 @@ beforeEach(() => {
   for (const m of [mockFindFirst, mockFindMany, mockCreate, mockUpdate, mockPrepare, mockAccountSequence, mockCacheFindUnique, mockCacheDeleteMany, mockSignerCouncil, mockWalletFindMany, mockBindingFindMany]) {
     m.mockReset();
   }
-  // it. 17: the proof is read from the database, so this path needs one.
+  // The proof is read from the database, so this path needs one.
   process.env.DATABASE_URL = 'postgres://test';
   __resetSequenceCache();
-  // productizer-it6 defaults: COUNCIL has a signer list, and the rule owner
-  // (user-1) holds one of its seats — PROVEN by a signed binding (it. 17).
+  // Defaults: COUNCIL has a signer list, and the rule owner
+  // (user-1) holds one of its seats — PROVEN by a signed binding.
   mockSignerCouncil.mockResolvedValue({ quorum: 2, masterKeyDisabled: true, signers: SIGNERS });
   mockBindingFindMany.mockResolvedValue([
     { address: SIGNERS[0].account, signatureProof: 'signed-challenge', linkedAt: new Date(0) },
@@ -223,7 +219,7 @@ describe('createCouncilProposalFromRule — the rule may not compose over an unr
 });
 
 /**
- * g1-ceremonia (round 4) — THE RULE PATH WAS BLIND TO THE SITTING TOO.
+ * g1-ceremonia — THE RULE PATH WAS BLIND TO THE SITTING TOO.
  *
  * A synchronous ceremony pins the council's Sequence and used to leave no trace
  * at all, so a governed MoneyFlow firing on a tick could pin the same one with
@@ -304,7 +300,7 @@ describe('createCouncilProposalFromRule — a ceremony in flight is a busy counc
     await fire();
 
     // The shared guard selects the row's title and type so its refusals can
-    // name it; the copy that used to live here selected only the id. it. 19 (2.2):
+    // name it; the copy that used to live here selected only the id.
     // it also reads the pinned txjson and the signer list — the ceremony door pins
     // an exit to the seat this row is holding, and only that council reads its title.
     expect(mockFindFirst).toHaveBeenCalledWith(
@@ -321,7 +317,7 @@ describe('createCouncilProposalFromRule — a ceremony in flight is a busy counc
 });
 
 /**
- * productizer-it6 — THE RULE PROPOSED ON ANY COUNCIL ITS OWNER NAMED.
+ * THE RULE PROPOSED ON ANY COUNCIL ITS OWNER NAMED.
  *
  * `createCouncilProposalFromRule` created the proposal with the rule owner as
  * proposer and asked nothing about the owner's seat. `POST /api/rules` now
@@ -331,7 +327,7 @@ describe('createCouncilProposalFromRule — a ceremony in flight is a busy counc
  */
 describe('createCouncilProposalFromRule — the owner must still sit on the council', () => {
   it('an owner holding none of the ledger signer addresses → NOT_A_COUNCIL_MEMBER; nothing read, pinned or persisted', async () => {
-    // it. 17: a `wallet` row naming a seat buys nothing — nobody reads that table.
+    // A `wallet` row naming a seat buys nothing — nobody reads that table.
     mockWalletFindMany.mockResolvedValue([{ address: SIGNERS[0].account }]);
     mockBindingFindMany.mockResolvedValue([]);
     mockFindFirst.mockResolvedValue({ id: 'p-other-family', title: 'Herencia', txType: 'Payment' });
@@ -344,7 +340,7 @@ describe('createCouncilProposalFromRule — the owner must still sit on the coun
     expect(outcome.detail).toContain(COUNCIL);
     // Asked against the LEDGER signer list, with the rule owner's user id.
     expect(mockSignerCouncil).toHaveBeenCalledWith(COUNCIL);
-    // it. 17: asked of the PROOF (this owner's active, signature-backed bindings).
+    // Asked of the PROOF (this owner's active, signature-backed bindings).
     expect(mockBindingFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: 'user-1', isActive: true } }),
     );

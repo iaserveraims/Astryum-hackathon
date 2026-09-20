@@ -59,7 +59,7 @@ function useReplayOnEpoch(): boolean {
  * ¿Ha caído ya el velo del arranque? (lib/motion/veil.ts). Las entradas de
  * página esperan a que sea true: en recarga dura el panel monta DEBAJO del
  * velo de AccessGate y, sin esto, la coreografía entera se consumía a
- * escondidas y la página aparecía ya colocada (2026-09-14). Navegando entre
+ * escondidas y la página aparecía ya colocada. Navegando entre
  * páginas ya está levantado y nada cambia.
  */
 export function useVeilLifted(): boolean {
@@ -70,7 +70,7 @@ export function useVeilLifted(): boolean {
 export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 /**
- * The house tempo — THREE durations and no more (de-AI pass 2026-07-21; the
+ * The house tempo — THREE durations and no more (de-AI pass; the
  * audit counted ~34 ad-hoc values). fast = micro feedback (crossfades,
  * popovers), base = modals/tabs, slow = page-level reveals. Anything longer
  * must be a NAMED cinematic (AuthorityCrossing, the login decode).
@@ -96,12 +96,10 @@ export const backdropFade: Variants = {
 // interpolation gets orphaned when the animating subtree re-renders mid-reveal
 // (e.g. a WalletCard's async fetchNativeBalance→setPortfolio lands while the
 // card is still settling): opacity/y reach their end state but the blur never
-// clears, leaving content permanently blurred (bug 2026-07-21). y+opacity are
+// clears, leaving content permanently blurred (bug). y+opacity are
 // re-render-safe and read the same; blur is not worth a stuck-blur regression.
 /**
- * NINGUNA DE LAS DOS VARIANTES ARRANCA EN OPACIDAD 0, y ese es el arreglo
- * (fundador 2026-08-25: «aparecen todas las cards de golpe, es agresivo…
- * genera un efecto visual muy feo, es intrusivo»).
+ * NINGUNA DE LAS DOS VARIANTES ARRANCA EN OPACIDAD 0, y ese es el arreglo.
  *
  * La causa era una RAMPA DOBLE. El shell ya funde la página entera al navegar
  * (`motion.main key={pathname}`, opacity 0→1) y encima cada tarjeta hacía su
@@ -117,8 +115,7 @@ export const backdropFade: Variants = {
 /**
  * ── TODAS LAS VARIANTES DECLARAN LAS MISMAS TRES PROPIEDADES ─────────────
  * (opacity, y, clipPath), aunque una de ellas no cambie en ese estilo. NO es
- * redundancia: es el arreglo de «la página se queda en gris» (fundador
- * 2026-09-14). Cuando un componente ya montado cambia de juego de variantes
+ * redundancia: es el arreglo de «la página se queda en gris». Cuando un componente ya montado cambia de juego de variantes
  * —al cambiar de tema— framer devuelve a su valor INICIAL toda propiedad que
  * desaparece del objetivo nuevo. Astryum animaba opacidad y la lámina
  * recorte: al pasar a la lámina la opacidad volvía al 0.35 de «oculto» y se
@@ -126,10 +123,6 @@ export const backdropFade: Variants = {
  * volver a Astryum el recorte volvía a «cerrado» y la página se vaciaba. Con
  * las tres propiedades en todos los estados, nada desaparece y nada se
  * restaura: cambiar de tema es una animación de 1→1 y none→none.
- *
- * Y todo «oculto» es INSTANTÁNEO (duration 0): el estado inicial no se anima
- * al montar, y al volver a jugar la entrada (useReplayOnEpoch) el salto a
- * oculto no tiene que verse — solo la vuelta.
  */
 const HIDDEN_NOW = { duration: 0 } as const;
 
@@ -145,7 +138,7 @@ const riseVariants: Variants = {
 
 /**
  * La revisita. Sigue siendo más corta y más plana que la primera vez —la regla
- * de 2026-07-21 (no repetir la función entera en cada clic del menú) se
+ * (no repetir la función entera en cada clic del menú) se
  * mantiene— pero ya no es simultánea: conserva el ORDEN, que es lo que hace
  * que una pantalla se lea como que llega en vez de que salta.
  */
@@ -162,7 +155,7 @@ const settleVariants: Variants = {
 /**
  * Reveal-once-per-route: the rise+blur settle is a FIRST-impression gesture.
  * Replaying the full cascade on every sidebar click made the product feel like
- * an animated template, not a tool (audit 2026-07-21) — revisits get a fast
+ * an animated template, not a tool (audit) — revisits get a fast
  * plain fade instead. In-memory per JS session: a reload earns the settle again.
  */
 const seenPaths = new Set<string>();
@@ -176,34 +169,15 @@ const seenPaths = new Set<string>();
 export type RevealStyle = 'rise' | 'fade' | 'calm' | 'print' | 'print-settle';
 
 /**
- * ── LA LÁMINA SE IMPRIME (fundador 2026-09-14: «con el nuevo estilo gráfico
- * institucional no tiene animación de inicio el portfolio, aparecen todos los
- * cuadros sin más») ──────────────────────────────────────────────────────────
+ * ── LA LÁMINA SE IMPRIME ──────────────────────────────────────────────────────────
  *
  * No era una regresión: la entrada de Astryum siempre fue sutil a propósito
  * (las tarjetas parten de opacidad 0.35 y suben 12px — «se posan, no
- * aparecen», 2026-08-25), y lo que la hacía LEGIBLE eran las sombras, los
+ * aparecen»), y lo que la hacía LEGIBLE eran las sombras, los
  * halos, la luz que sigue al cursor y las escenas que se dibujan solas. El
  * tema Institucional quita todo eso por diseño (§4 de globals.css: nada
  * flota), así que la misma entrada de siempre se lee como «aparece de golpe».
  * Un tema que quita los artefactos de la entrada tiene que traer los suyos.
- *
- * Y el suyo no puede ser posarse: eso es el gesto de un objeto que flota, y en
- * la lámina nada flota. El gesto de un documento es IMPRIMIRSE: cada bloque
- * entra escrito de izquierda a derecha, uno detrás de otro, como las líneas
- * de una impresora de registro. Un recorte (clip-path) que se abre, sin tocar
- * la opacidad — así no hay rampa doble con el fundido del shell, que es la
- * regla del 25-ago. Al terminar, el recorte se retira del todo
- * (`transitionEnd: clipPath none`): un bloque impreso no puede seguir
- * recortando a sus globos de ayuda ni a sus menús.
- *
- * La revisita imprime más rápido y con menos escalón — la misma regla que
- * rise/fade (2026-07-21: no repetir la función entera en cada clic del menú),
- * pero sigue imprimiendo: en la lámina el orden ES la entrada.
- *
- * EL MOVIMIENTO MANDA SOBRE EL TEMA: en Mínimo no se imprime nada, se funde
- * como siempre. En Sereno se imprime igual que en Completo — imprimir ya es
- * lento y pequeño; no hay versión más serena de una línea que se escribe.
  */
 export function resolveRevealStyle(level: MotionLevel, engraved: boolean, first: boolean): RevealStyle {
   if (level === 'minimal') return 'fade';
@@ -217,20 +191,6 @@ export function resolveRevealStyle(level: MotionLevel, engraved: boolean, first:
 /**
  * ¿Es la PRIMERA visita a esta ruta en esta sesión de JS? Se decide UNA VEZ,
  * al montar, y se congela (useState con inicializador).
- *
- * POR QUÉ CONGELADA (astryum-73, 2026-09-14): antes se recalculaba en cada
- * render, y daba igual porque la cascada arrancaba en el mismo render en que
- * `first` era true. Desde que la entrada espera al velo (~1,9 s en recarga
- * dura), entre el montaje y el arranque hay renders — la llegada de datos, el
- * autorefresh — y en cualquiera de ellos `first` ya era false: los ítems
- * pasaban a las variantes de REVISITA y el grupo apretaba el escalón. En
- * Astryum eso era un fundido plano tras cada recarga: «todo carga tan
- * rápido» — la queja del fundador, garantizada por mi propio arreglo.
- *
- * Los grupos de una misma pasada de render siguen coincidiendo (el
- * inicializador corre antes de que ningún efecto marque la ruta), y cambiar
- * de ruta sigue dando first=true porque `motion.main` va con key={pathname} y
- * todo lo de dentro remonta.
  */
 function useFirstVisit(pathname: string): boolean {
   const epoch = useSkinEpoch();
@@ -306,20 +266,13 @@ export const REVEAL_VARIANTS: Record<RevealStyle, Variants> = {
 const variantsFor = (style: RevealStyle): Variants => REVEAL_VARIANTS[style];
 
 /**
- * ── LA OTRA MITAD DEL POP (fundador 2026-08-25, segunda pasada: «se sigue
- * viendo todo popear: los números, las posiciones, las wallets») ─────────────
+ * ── LA OTRA MITAD DEL POP ─────────────
  *
  * Los Reveal de arriba juegan al ENTRAR EN LA RUTA — y en ese momento las
  * tarjetas están vacías: el dato aún viaja. Cuando el fetch contesta, filas,
  * cifras y gráficos se enchufaban en una página YA VISIBLE sin transición
  * ninguna. Ese es el pop que se seguía viendo: no era la entrada de la página,
  * era la llegada de los datos, que es otra capa y necesita su propio gesto.
- *
- * `Arrive` es ese gesto. Se monta CON el dato (la rama condicional que sustituye
- * al esqueleto) y hace exactamente lo que la entrada de ruta ya no puede hacer:
- * fundir desde 0. Aquí no hay rampa doble — la página ya está pintada, el shell
- * no está fundiendo nada — así que la opacidad completa es correcta y es
- * precisamente la suavidad que faltaba. Con `index`, una lista llega escalonada.
  */
 export function Arrive({
   children,
@@ -338,7 +291,7 @@ export function Arrive({
   // EN LA LÁMINA EL DATO SE ESCRIBE, no se funde: el mismo recorte de
   // izquierda a derecha que imprime los bloques, un poco más corto porque
   // llega a una página ya impresa. Es lo que hace que un gráfico que llega
-  // con su dato se vea LLEGAR — la mitad del encargo del 14-sep.
+  // con su dato se vea LLEGAR — la mitad del encargo.
   //
   // UN SOLO motion.div y LAS MISMAS TRES PROPIEDADES en las dos caras (ver la
   // nota de las variantes): si el material cambia con el dato ya en pantalla,
@@ -387,22 +340,13 @@ export function arriveMotion(index: number, reduced: boolean | null) {
 }
 
 /**
- * ── EL GENIO (fundador 2026-08-27: «efecto tipo aladín de Mac… no excesivo
- * pero que tenga algo más de gracia») ────────────────────────────────────────
+ * ── EL GENIO ────────────────────────────────────────
  *
  * La aproximación de la casa al genie de macOS: la ventana no aparece — SALE de
  * su lanzador. Nace estrecha y achatada pegada a su ancla (transform-origin en
  * la esquina del botón que la invoca), y se despliega con un muelle corto que
  * estira primero lo vertical — la insinuación del "estirón" del genie sin
  * intentar el warp real, que CSS no sabe hacer y quedaría barato imitado.
- *
- * DOS consumidores por diseño, mismos parámetros: el popup del copiloto (ancla
- * abajo-izquierda, su botón vive en el pie del raíl) y la píldora de una
- * operación minimizada (ancla abajo-derecha, se pliega hacia el borde). Si un
- * tercero lo quiere, usa esta receta — dos copias con muelles distintos serían
- * dos genios de dos lámparas.
- *
- * Reducido: fundido plano, cero teatro.
  */
 export function genieMotion(reduced: boolean | null, anchor: 'bottom-left' | 'bottom-right') {
   if (reduced) {
@@ -508,8 +452,8 @@ export function RevealItem({
   /**
    * NO vuelve a jugar la entrada cuando cambia el tema (sí entra la primera
    * vez, en su orden). Para el bloque que CONTIENE el selector de tema: el
-   * recorte de la impresión recorta también el hit-testing (astryum-73,
-   * 14-sep), así que al pulsar «Institucional» el propio botón quedaba
+   * recorte de la impresión recorta también el hit-testing (astryum-73,),
+   * así que al pulsar «Institucional» el propio botón quedaba
    * medio segundo bajo un hueco muerto y quien comparaba pulsando seguido
    * lo sentía como «no me responde». Un bloque `steady` mantiene «visto»
    * mientras el grupo reproduce y vuelve a heredar del grupo al terminar.
@@ -548,7 +492,7 @@ export function CountUp({
 }) {
   const reduced = useReducedMotion();
   // La cifra cuenta cuando cae el velo del arranque, no al montar: en recarga
-  // dura contaba a escondidas y aparecía ya en su valor (14-sep).
+  // dura contaba a escondidas y aparecía ya en su valor.
   const lifted = useVeilLifted();
   const [display, setDisplay] = useState(() => (reduced ? value : 0));
   const prev = useRef(reduced ? value : 0);
@@ -579,11 +523,8 @@ export function CountUp({
  * on the surface rather than a layer over it. No tilt: this is a tool.
  */
 /**
- * ── LO QUE SIGUE AL CURSOR, con el tempo del nivel ─────────────────────────
- * (fundador 2026-09-12: «antes cuando pasabas el ratón por encima sin clicar
- * hacían un efecto hover más divertido y reaccionaban a la ubicación del ratón
- * en tiempo real, ¿puedes volver a poner esa función? sin desactivar nada de
- * lo nuevo»). La primera versión del Sereno apagaba todo lo que persigue al
+ * ── LO QUE SIGUE AL CURSOR, con el tempo del nivel ─────────────────────────.
+ * La primera versión del Sereno apagaba todo lo que persigue al
  * cursor; el fundador lo echó de menos en las wallets. La regla del Sereno
  * pasa de «nada persigue al cursor» a «lo sigue CON RETARDO»: los dos hooks
  * de abajo leen el mismo ratón y solo cambia el muelle —

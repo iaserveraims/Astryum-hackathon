@@ -151,7 +151,7 @@ describe('AutomationEngine — governed MoneyFlow (councilPayment → proposal i
     expect(mockSendToUser).not.toHaveBeenCalled(); // no push spam while queued
   });
 
-  // productizer-it6 — the service re-checks the owner's seat at trigger time;
+  // The service re-checks the owner's seat at trigger time;
   // a refusal is recorded on the rule's run (and Alert) as a failure, never as
   // a composed proposal or a busy council.
   it('an owner who no longer sits on the council → run recorded as error with the reason, no push', async () => {

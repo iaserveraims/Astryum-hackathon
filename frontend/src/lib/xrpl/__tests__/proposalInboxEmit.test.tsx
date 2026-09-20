@@ -1,27 +1,6 @@
 /**
- * productizer it. 33 (B1 del cuadro final de la it. 32) — EL COORDINADOR ASÍNCRONO
+ * EL COORDINADOR ASÍNCRONO
  * EMITE UN 0xFE Y NO LE DECÍA EL HASH A NADIE.
- *
- * LA PERSONA. El miembro B pulsa «Combine & broadcast» en la bandeja de propuestas.
- * `emit` hacía `await submitAndConfirm(combined)`, que solo vuelve tras la
- * validación (o a los 20 s), y en NINGÚN punto del fichero se llamaba a
- * `notifyHandoffSigned`: el `/submitted` iba solo tras un tesSUCCESS validado. Entre
- * el nodo devolviendo el hash y el ledger validando, el servidor contaba ese 0xFE
- * como un BORRADOR sin firmar. El proponente A, que seguía viendo la fila `ready`,
- * la retiraba para recomponer; con el pin de la ceremonia `holderEndedCeremony`
- * sustituye el reloj, la ventana del memo se leía `absent` (el Payment aún no
- * había validado) y el asiento se soltaba con el Payment en vuelo. El siguiente
- * prepare componía otro 0xFE sobre el mismo nonce. XRP dos veces.
- *
- * LA FASE QUE SE PRUEBA: la bandeja REAL montada con un runtime de hooks que
- * ejecuta efectos (`miniReact`), la red fingida en el borde. Se pulsa el botón real;
- * `broadcast()` devuelve el hash y `awaitValidation` se queda pendiente — y en ESE
- * instante `/handoff/signed` ya recibió `{memoHex, txHash}`. La misma regla que la
- * ceremonia síncrona desde la it. 31: solo un submit que aún puede entrar
- * (`broadcastMayLand`) y solo un 0xFE.
- *
- * Mutación comprobada: quitar la línea `notifyHandoffSigned(...)` de
- * `ProposalInbox.emit` → (a) y (c) en rojo (cero POST a `/handoff/signed`).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -196,7 +175,7 @@ describe('ProposalInbox.emit — el hash llega al registro del asiento EN CUANTO
     // before validation, exactly when the proposer may still withdraw the row.
     expect(signedCalls()).toHaveLength(1);
     expect(signedCalls()[0].body).toEqual({ memoHex: MEMO, txHash: HASH });
-    expect(submitted).not.toHaveBeenCalled(); // preliminary is not paid (it. 6)
+    expect(submitted).not.toHaveBeenCalled(); // preliminary is not paid
 
     // The ledger answers: only now is the proposal reported as submitted.
     pendingValidation!.resolve({ validated: true, finalResult: 'tesSUCCESS' });

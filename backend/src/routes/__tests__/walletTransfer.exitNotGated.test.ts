@@ -1,5 +1,5 @@
 /**
- * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13) —
+ * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA») —
  * POST /api/wallet-transfer/bridge/flare-to-xrpl/prepare.
  *
  * FXRP → XRP is the way home (DERISK in PaActionsModal, WalletTransferModals): flag-only,

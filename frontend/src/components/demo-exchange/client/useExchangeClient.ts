@@ -2,22 +2,7 @@
 
 /**
  * useExchangeClient — la cuenta de UN cliente en SU exchange, como lógica sin
- * pintar (fundador 14-sep: «una versión productizada del modo exchange… el
- * cliente debe tener lo mismo que hay, pero productizado»).
- *
- * Es la lógica de ClientInner (ClientApp.tsx) sacada a un hook para que la app
- * del cliente la reparta en pantallas (Inicio · Depositar · Vault · Retirar ·
- * Perfil). Las REGLAS no cambian ni una coma:
- *   · «mi fila» es la que el servidor dice mía, o una sin dueño con MI passkey
- *     (reclamable con código). Una de otro nunca soy yo.
- *   · un depósito que llegó a Xaman y cuyo final no se pudo leer NO vuelve a
- *     ofrecer «Firmar» (sería un segundo pago): queda el aviso ámbar.
- *   · la salida se compone, se ENSEÑA (comisiones incluidas, invariante #6) y
- *     solo entonces Face ID firma exactamente eso. Una lectura fallida jamás
- *     cierra la salida: se relee al pulsar.
- *
- * ClientInner sigue vivo (la vista demo del operador lo usa); esta copia es la
- * del producto. Si se toca una regla de dinero, se toca en los dos sitios.
+ * pintar.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -84,7 +69,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
     return byAccount.find((c) => c.mine) ?? byAccount.find((c) => !c.owned);
   }, [run, account]);
   const needsClaim = Boolean(me && !me.owned);
-  // it. 33 (2) — «no pude leer si esta fila es tuya» NO es «no tienes cuenta».
+  // «no pude leer si esta fila es tuya» NO es «no tienes cuenta».
   // El libro se recarga cada 20 s; con la marca del lector inutilizable el
   // servidor contesta todas las filas `mine:false` y esto quedaba `undefined` →
   // «Open an account» sobre la cuenta de una persona con XRP dentro. La pantalla
@@ -219,7 +204,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
 
   /* ── Meter en el vault: la petición la ejecuta el exchange desde su omnibus ── */
   /**
-   * it. 31 — las dos peticiones pasan por aquí: el 201 dice quién sirve (el
+   * Las dos peticiones pasan por aquí: el 201 dice quién sirve (el
    * autopiloto en segundos, o una persona), y un 409 deja el rechazo ENTERO en
    * `requestRefusal` para que la pantalla ofrezca la puerta que el servidor nombró
    * (retirar la petición muerta, soltar la reserva de mesa) o el reintento.
@@ -248,7 +233,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
   }
   const askToWork = (amountXrp: string) => askRequest('put-to-work', amountXrp, 'ask');
 
-  /** it. 31 — the door the last refusal named, opened by its owner. Nothing moves; the queue lets go. */
+  /** The door the last refusal named, opened by its owner. Nothing moves; the queue lets go. */
   async function openDoor(door: RefusalDoor) {
     if (!me) return false;
     setError('');
@@ -258,7 +243,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
       if (!r.ok) throw new Error(describeRefusal(r.refusal, t));
       demo.setRun(r.data.run);
       setRequestRefusal(null);
-      // it. 33 (6): the sentence follows what the server said it did — a request
+      // The sentence follows what the server said it did — a request
       // closed as `reconciled: 'failed-on-ledger'` HAD a signed payment (the
       // ledger refused it); «nothing had been signed» was false there.
       setNotice(doorOpenedNotice(door, r.data.reconciled, t));
@@ -271,7 +256,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
     }
   }
 
-  /** it. 31 — a refusal the server marked retryable («a read of ours failed»): the same ask, again. */
+  /** A refusal the server marked retryable («a read of ours failed»): the same ask, again. */
   async function retryRequest() {
     const last = requestRefusal;
     if (!last || !last.retryable) return false;
@@ -407,7 +392,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
   }
 
   /* ── Retirar XRP del exchange a mi wallet ─────────────────────────── */
-  // it. 31: misma pieza que la entrada — y la frase del 201 ya no promete «en
+  // Misma pieza que la entrada — y la frase del 201 ya no promete «en
   // unos segundos» cuando quien paga es una persona (`servedBy`).
   const askWithdraw = (amountXrp: string) => askRequest('withdraw', amountXrp, 'withdraw');
 
@@ -428,7 +413,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
     account,
     me,
     needsClaim,
-    // it. 33 (2): «could not read whether this row is yours» — the screen shows
+    // «could not read whether this row is yours» — the screen shows
     // this (server sentence + retry) instead of «Open an account».
     ownershipUnreadable,
     facts,
@@ -472,7 +457,7 @@ export function useExchangeClient(demo: DemoRunApi, account: string) {
     exitUnconfirmed,
     setExitUnconfirmed,
     askWithdraw,
-    // it. 31: la puerta del dueño y el reintento, para la pantalla
+    // La puerta del dueño y el reintento, para la pantalla
     requestRefusal,
     openDoor,
     retryRequest,

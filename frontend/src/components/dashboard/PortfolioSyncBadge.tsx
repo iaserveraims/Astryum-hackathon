@@ -1,10 +1,7 @@
 'use client';
 
 /**
- * PortfolioSyncBadge — «hay wallets aún leyéndose» dicho DONDE está el dinero
- * (fundador 2026-09-07: «he entrado en el dashboard y me aparecía muy poco
- * dinero y absolutamente nada cargando, hasta que se ha leído el contenido de
- * Xaman… en ciertos casos puede asustar»).
+ * PortfolioSyncBadge — «hay wallets aún leyéndose» dicho DONDE está el dinero.
  *
  * El agujero era de señal, no de datos: en la carga fría el agregado pinta
  * PROGRESIVAMENTE (portfolioStore — `data` crece wallet a wallet mientras

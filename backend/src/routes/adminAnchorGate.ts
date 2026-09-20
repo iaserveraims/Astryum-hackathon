@@ -1,24 +1,6 @@
 /**
  * Admin anchor-gate ops — la puerta del ancla v2 (DepositAuth + preauth por
  * credencial) desde /app/admin, pestaña Sistema.
- *
- * Mismas puertas que el panel (requireAdmin de adminPanel.ts) y, como
- * admin-executor, router PROPIO: adminPanel sigue siendo read-only por
- * construcción y admin-executor sigue sin firmar nada. Este SÍ firma — con la
- * clave OPERATIVA del ancla (`ASTRYUM_ANCHOR_SEED`, la del anchor-feed), sobre
- * una cuenta que es infraestructura propia de Astryum. Jamás una clave ni un
- * fondo de usuario (invariante #1): lo que se firma aquí son los objetos que
- * hacen que el CONSENSO rechace órdenes sin título, no órdenes.
- *
- *   GET  /        — estado del ancla (flag, conjuntos, cuentas), los conjuntos
- *                   que la config exige, la deriva entre ambos y el plan.
- *   POST /arm     — { dryRun?: boolean, objectsOnly?: boolean }. Manda los
- *                   DepositPreauth que faltan y luego el AccountSet{asfDepositAuth}.
- *                   `objectsOnly` publica los conjuntos sin encender el flag
- *                   (fase 1 del runbook). Idempotente.
- *   POST /disarm  — { dryRun?: boolean }. Apaga el flag (kill-switch, 1 firma).
- *
- * Solo el ancla v2. El ancla del Legacy no se toca (ver XrplAnchorGateOps).
  */
 import { Router, Request, Response } from 'express';
 import { requireAdmin } from './adminPanel';

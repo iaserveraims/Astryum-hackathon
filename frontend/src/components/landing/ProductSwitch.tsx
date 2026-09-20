@@ -7,40 +7,6 @@
  * ('#C9A227' y '#000') y el aviso de Legacy incrustado en el cuerpo. Sale de
  * ahí por tres razones, y las tres importaban antes de poder añadir el
  * tercero:
- *
- *   1. Los colores son TOKENS (products.ts). Un segmento nuevo sin token
- *      heredaba el oro del primero sin que nada se quejara.
- *   2. El aviso es un DATO del producto, no una rama `if (product ===
- *      'legacy')` dentro del render.
- *   3. El conmutador lo monta la PÁGINA, no un viaje: con tres mundos, cada
- *      uno con su escena, el botón no puede vivir dentro de uno de ellos.
- *
- * El aviso es la pieza honesta: un producto que aún no está abierto lo dice
- * en el mismo gesto en que se elige. Es la regla que Legacy cumple desde el
- * 2026-07-29 y la que impide que una narrativa se lea como una promesa.
- *
- * ── SEGUNDA PASADA (2026-09-18): ESTE ES EL PRIMER CONTROL QUE SE TOCA ────
- * Es el único mando de la portada y hasta hoy era una píldora que cambiaba de
- * color de golpe. Lo que lo sube de nivel no son efectos, son cuatro cosas que
- * un control caro tiene y este no tenía:
- *
- *   · UN POMO QUE VIAJA. El fondo activo se desplaza con un muelle
- *     (`layoutId`) en vez de encenderse y apagarse. Es la diferencia entre «he
- *     cambiado de opción» y «esto se ha redibujado».
- *   · LUZ FÍSICA. Filete claro arriba del pomo, sombra propia debajo y un halo
- *     corto del color del producto: el pomo está POR ENCIMA del raíl, y se ve.
- *   · EL AVISO NO MUEVE NADA. Tiene su hueco reservado siempre, así que al
- *     cambiar de mundo la página no da un salto de dieciocho píxeles. Entra con
- *     una cortinilla, no con un fundido.
- *   · TECLADO DE VERDAD. `radiogroup` con recorrido por flechas y un solo
- *     `tabIndex` activo, que es el patrón APG para un grupo de una sola
- *     elección. `aria-pressed` en tres botones dice «tres interruptores
- *     independientes», que es mentira.
- *
- * El `layoutId` se cuelga de un `useId` por instancia A PROPÓSITO: en pantalla
- * grande hay DOS conmutadores en el árbol —el del recorrido y el de la versión
- * apilada, que solo está oculta por CSS—, y con un id compartido framer
- * intentaría animar el pomo de uno al otro y lo mandaría fuera de la pantalla.
  */
 
 import { useId, useRef } from 'react';

@@ -6,19 +6,6 @@
  * So we list every POST route explicitly and a test (flareDemo.capRoutes.test.ts) walks
  * the router's registered POST routes and fails if any is UNCLASSIFIED. Adding a new
  * mint route without capping it becomes a red test, not a production discovery.
- *
- * Classification (verified in flareDemo.ts, 2026-07-23; EXIT class 2026-09-13):
- *   MINT = XRP → Core Vault → 0xFE executor mints FXRP to OPEN or GROW exposure (spends
- *          the FLR fee budget, can strand XRP on revert). Capped per-tx + per-address/day
- *          + budget-pre-checked + geofenced in the handler.
- *   EXIT = returns capital to the holder (redeem / claim / withdraw / unwind). THE EXIT IS
- *          NEVER GATED by policy: no geofence (flag-only gate in the handler) and never
- *          refused by the per-address daily budget. If it rides a 0xFE carrier, that
- *          carrier keeps the per-TRANSACTION cap (blast-radius bound — it really mints)
- *          and the executor fuel pre-check (physics: no executor, no transport).
- *   NON-MINT = neither of the above (no executor budget, no capital returned).
- *
- * Each route lives in exactly ONE list (the tripwire test checks disjointness).
  */
 
 /** POST prepare routes that mint XRP→FXRP to open/grow exposure and MUST be capped.
@@ -76,7 +63,7 @@ export const NON_MINT_POST_ROUTES: ReadonlyArray<string> = [
   '/e2/prepare', // FLR wrap + FTSO delegate (amountFlr; user signs their own EVM tx) — an ENTRY, geofenced in the handler
   '/handoff/release', // free a prepared-but-unsigned 0xFE nonce seat (DB status flip; no mint, no chain)
   '/handoff/signed', // mark a prepared 0xFE as signed (DB status flip; the mint it belongs to was already capped at its own prepare)
-  // it19 (contrato C2): the party that CREATED the Xaman payload stamps its real
+  // The party that CREATED the Xaman payload stamps its real
   // expiry on the queued row (moves the seat clock forward only). No mint, no
   // chain, no capital — it writes one timestamp on a row that already exists.
   '/handoff/payload-opened',

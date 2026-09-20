@@ -2,21 +2,7 @@
 
 /**
  * QuorumCeremonyModal — la ceremonia multifirma, montada UNA vez para toda la
- * app (fundador, 22-ago-2026).
- *
- * Hermano de `XamanQRModal`: aquél atiende un payload suelto (una firma, un
- * QR); éste atiende una cuenta que firma POR QUÓRUM (un QR por llave, todos a
- * la vez). Los dos viven en `WalletProvider` y escuchan su bus, así que
- * cualquier superficie que llame a `sendIntent` los usa sin importarlos.
- *
- * Por qué global y no dentro de cada pantalla: hay diecisiete llamadas a
- * `sendIntent` (enviar, Kinetic lend, el vault, posiciones, moneyflows…) y
- * montar la ceremonia en cada una es cómo se acaba con diecisiete copias que
- * se desincronizan — que es exactamente lo que ya pasó.
- *
- * Cerrar es ABANDONAR, y se dice: la promesa de quien llamó se rechaza, para
- * que su pantalla vuelva a un estado honesto en vez de quedarse esperando una
- * firma que nadie va a dar. Los QRs vivos los retira la propia ceremonia.
+ * app.
  */
 
 import { useEffect, useState } from 'react';
@@ -79,7 +65,7 @@ export function QuorumCeremonyModal() {
             // devolvemos por su promesa, así su vigilante de settlement arranca
             // igual que con una firma única.
             onSettled={(hash) => req.resolve(hash)}
-            // it. 31 (§1): lo que la ceremonia va haciendo con los bytes llega al
+            // Lo que la ceremonia va haciendo con los bytes llega al
             // bus, que es quien decide qué significa CERRAR: antes de empezar,
             // devolver el asiento del dispatch; a medias, abandonar; una vez
             // emitido, jamás soltar el asiento — devolver el hash o decir que

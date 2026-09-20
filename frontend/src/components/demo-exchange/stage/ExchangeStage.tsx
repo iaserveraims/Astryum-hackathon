@@ -1,24 +1,13 @@
 'use client';
 
 /**
- * ExchangeStage — LA MESA DEL EXCHANGE, entera, en un sitio propio del menú
- * (fundador 2026-09-11: «un slot en el menú que ponga exchange… toda la
- * interfaz del exchange que ya hay construida… un tour guiado… tutoriales
- * escondidos detrás de botones, para que el que ya sabe tenga la vía libre»).
+ * ExchangeStage — LA MESA DEL EXCHANGE, entera, en un sitio propio del menú.
  *
  * TRES SALAS, el patrón de la mesa del gestor:
  *   · Set up   — «Nace tu exchange»: la fase 1 del flujo, por estaciones.
  *   · Operate  — el rodaje v2: Exchange (E0…E8) · User · Behind the curtain ·
  *                Evidence · Runs. Con el TOUR al lado, si se quiere.
  *   · v1       — la generación anterior (/app/admin/institutional), como acta.
- *
- * LO QUE ENVUELVE, NO REESCRIBE: ExchangeDesk, ClientApp, CurtainGraph,
- * EvidencePanel y RunsPanel son los de siempre. El escenario les da contexto
- * (qué estación se enseña, si las notas al pie se ven), un raíl de estaciones
- * (StationProgress, la pieza de la casa), el tour y la puerta de cuenta.
- *
- * LA PUERTA: sin una cuenta XRPL elegida como tuya no se entra
- * (ExchangeAccountGate). Solo fundadores: la página va tras PreviewOnly.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -100,8 +89,7 @@ export function ExchangeStage() {
     roomChosen.current = true;
     setRoom(run ? 'operate' : 'setup');
   }, [demo.runs.length, demo.loading, run]);
-  // EL ALTA SE ESCONDE CUANDO ESTÁ TERMINADA (fundador 2026-09-11: «esconderlo
-  // cuando ya está terminado»): con mesa y pote para esta raíz, la sala «Set
+  // EL ALTA SE ESCONDE CUANDO ESTÁ TERMINADA: con mesa y pote para esta raíz, la sala «Set
   // up» deja de ser pestaña y queda un chip verde para revisarla.
   const mine = useMemo(() => demo.runs.find((r) => r.councilAddress === root), [demo.runs, root]);
   const setupDone = Boolean(mine?.poteAddress);
@@ -146,7 +134,7 @@ export function ExchangeStage() {
   const goTo = useCallback((s: ScriptStep) => {
     // Blocked: ANY move is refused — also to another exchange station, because a
     // Step outside the current station renders null and unmounts its signing
-    // door (productizer-it7).
+    // door.
     if (deskBlocked) return;
     setRoom('operate');
     setTab(s.tab);
@@ -190,7 +178,7 @@ export function ExchangeStage() {
           <StationProgress
             stations={rail}
             current={stationIdx}
-            // Locked while a desk signature blocks (productizer-it7): another
+            // Locked while a desk signature blocks: another
             // station renders its Step as null and unmounts the signing door.
             onSelect={(i) => { if (deskBlocked) return; setStationIdx(i); patchPrefs({ all: false }); }}
             ariaLabel={t('Exchange stations')}
@@ -264,8 +252,7 @@ export function ExchangeStage() {
                   </>
                 ) : null}
 
-                {/* THE DESK NEVER UNMOUNTS with a tab or a station (productizer
-                    it. 6): its pending omnibus signatures live in its state, and
+                {/* THE DESK NEVER UNMOUNTS with a tab or a station: its pending omnibus signatures live in its state, and
                     a remount offered «Compose» → a second payment. Hidden, not
                     removed; the server records the hand-off as well. */}
                 <ExchangeStationContext.Provider value={{ station: prefs.all ? null : station, hints: prefs.hints }}>
@@ -344,7 +331,7 @@ export function ExchangeStage() {
           exit={reduced ? undefined : { opacity: 0, y: -8 }}
           transition={{ duration: 0.28, ease: EASE_OUT }}
         >
-          {/* Desde el 12-sep el alta vive UNA vez, en su ventana
+          {/* El alta vive UNA vez, en su ventana
               (ExchangeSetupOperation, la plantilla del Legacy): aquí, la puerta. */}
           {room === 'setup' ? (
             <SetupDoorCard
@@ -363,8 +350,7 @@ export function ExchangeStage() {
 
           {room === 'operate' ? (
             operateAside ? (
-              /* LA COLUMNA LATERAL (fundador 12-sep: «ponerlo en el lateral como
-                 si estuviera anclado»): el raíl de estaciones del desk y, debajo,
+              /* LA COLUMNA LATERAL: el raíl de estaciones del desk y, debajo,
                  el tour — pegados arriba; la mesa a la derecha. La MISMA pieza
                  que el alta; el lado lo decide la caja (tira encima si es
                  estrecha). */

@@ -36,22 +36,7 @@ function isValidClassicAddress(address: string): boolean {
 /**
  * /api/xaman/avatar/{address}.png — el avatar público de una cuenta XRPL tal
  * como lo sirve Xaman (su hashicon, o la imagen que puso), PEDIDO DESDE
- * NUESTRO SERVIDOR (fundador 2026-09-13: el cubito de Xaman en el chip de cada
- * wallet, y su color en la tarjeta).
- *
- * Por qué por aquí y no con un <img src="https://xumm.app/…"> directo: el aviso
- * de privacidad (§4) enumera lo que pide TU navegador a terceros y fija que
- * esos CDN ven «qué activo miras, nunca tu dirección». Una petición directa
- * habría mandado tu dirección, tu IP y tu navegador a Xaman en cada pintado
- * (7c1aeffb lo retiró por eso). Pasando por aquí, Xaman ve la dirección y la
- * IP del servidor — el mismo patrón que las consultas a nodos y exploradores
- * que el aviso ya declara — y tu navegador solo habla con nuestro dominio. La
- * fila «Xaman (XRPL Labs)» del §4 lo dice desde la revisión 2026-09-13.
- *
- * No viaja nada del usuario: ni cookies, ni cabeceras, ni su IP. Solo la
- * dirección, validada con checksum (una cadena inventada no llega arriba).
- * La respuesta se cachea un día en el borde y en el navegador: un hashicon
- * es determinista y un avatar puesto a mano cambia rara vez.
+ * NUESTRO SERVIDOR.
  */
 export async function GET(_req: NextRequest, { params }: { params: { address: string } }) {
   // El chip pide la ruta SIN «.png» (ver XamanAvatar); se sigue admitiendo con

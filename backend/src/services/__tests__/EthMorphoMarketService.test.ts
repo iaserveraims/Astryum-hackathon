@@ -1,6 +1,6 @@
 /**
  * EthMorphoMarketService — B2 data layer tests (plan §13, adjustment #4 of the
- * 15-ago infrastructure review: liquidity pre-flight BEFORE the signature).
+ * infrastructure review: liquidity pre-flight BEFORE the signature).
  *
  * Fixtures mirror the real market's shape: FXRP collateral at 6 decimals,
  * RLUSD loan at 18, price at the 1e36×10^(18-6) oracle scale, ~90% utilisation.

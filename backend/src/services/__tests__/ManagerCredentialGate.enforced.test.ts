@@ -1,6 +1,5 @@
 /**
- * La puerta del título de gestor está PUESTA en código (fundador 2026-09-20:
- * «el producto se podrá probar solo si tienes las credenciales»).
+ * La puerta del título de gestor está PUESTA en código.
  *
  * Era `MANAGER_GATE_ENABLED === 'true'`: apagada salvo que alguien se acordara.
  * Con el módulo institucional abierto y esa variable sin definir, cualquier cuenta

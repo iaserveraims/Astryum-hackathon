@@ -172,7 +172,7 @@ async function findOwnedRule(id: string, userId: string) {
   return rule;
 }
 
-// ── Council membership (productizer-it6) ─────────────────────────────────────
+// ── Council membership ─────────────────────────────────────
 //
 // WHAT FAILED IN SILENCE: a 'councilPayment' / 'councilOrder' rule carries a
 // free `params.council`, and this router only asked that the rule's WALLET be
@@ -182,18 +182,6 @@ async function findOwnedRule(id: string, userId: string) {
 // 403 NOT_A_COUNCIL_MEMBER that `POST /api/council/proposals` enforces: a
 // stranger could pin any council's Sequence for 7 days (renewable), drop a
 // phishing payment into a family's inbox and hold proposer powers on it.
-//
-// The floor is the SAME predicate that door asks (`sessionIsCouncilMember`),
-// fed with the signer list read OFF THE LEDGER — never one the caller supplies.
-// The council is resolved exactly as composeCouncilRuleTx resolves it
-// (`params.council ?? wallet address`), so what is checked here is what fires.
-//
-// it. 17 (finding 2.1b) — CLOSED: that helper no longer reads the `wallet`
-// table. Membership is a PROVEN address (a signature-backed `WalletBinding`, or
-// the address this session logged in with), because a watch-only import proves
-// nothing — and a council's signer addresses are public on the ledger, so
-// declaring one was enough to propose on that council's behalf and pin its
-// Sequence for seven days. The session address is forwarded from the route.
 
 const COUNCIL_KINDS = new Set(['councilPayment', 'councilOrder']);
 const COUNCIL_READ_TIMEOUT_MS = 4_000;
@@ -236,7 +224,7 @@ async function councilMembershipRefusal(
   userId: string,
   params: Record<string, unknown> | undefined,
   walletAddress: string,
-  // it. 17 (finding 2.1b): membership is now read from PROVEN addresses — a
+  // Membership is now read from PROVEN addresses — a
   // signature-backed binding, or the address this very session logged in with.
   // The `wallet` table never proved anything (a watch-only import carries
   // `ownershipProof: 'none'`), which is how a stranger could declare a
@@ -292,7 +280,7 @@ async function councilMembershipRefusal(
       status: 403,
       body: {
         error: 'NOT_A_COUNCIL_MEMBER',
-        // it. 19 (2.3b): the hint travels, so someone who DOES sit on the list
+        // The hint travels, so someone who DOES sit on the list
         // and only ever registered the address learns the one thing that fixes
         // it — signing it once — instead of reading a flat no.
         detail:
@@ -343,7 +331,7 @@ router.post('/', async (req: Request, res: Response) => {
       // Wallet rows keep their connect-time chainId (EVM connects store 1/null;
       // SIWE stores no row on 14). The RULE's chain scope does NOT live here:
       // it is the Protocol row resolved below (slug@chainId) — the engine tick
-      // reads rule.protocol.chainId first (fix 2026-07-25; wallet.chainId is
+      // reads rule.protocol.chainId first (fix; wallet.chainId is
       // only the fallback for protocol-less rules). So an address registered
       // under ANOTHER chain row is still this user's wallet. Case-insensitive:
       // EIP-55 vs lowercase storage.
@@ -370,7 +358,7 @@ router.post('/', async (req: Request, res: Response) => {
       ? await prisma.protocol.findFirst({ where: { slug: protoId, chainId: parsed.data.chainId } })
       : null;
 
-    // The rule is created under a live-session check (it. 14, 4.4): the council
+    // The rule is created under a live-session check (4.4): the council
     // read above can take seconds, and a rule written after an account takeover
     // would fire on the owner's wallet with the previous holder's action.
     const rule = await withLiveSession(req.siwe, (tx) => tx.automationRule.create({
@@ -395,7 +383,7 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (err) {
     if (isSessionRevoked(err)) return respondSessionRevoked(res);
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) return respondBusyRetry(res);
     return res.status(500).json({
       error: 'create_rule_failed',

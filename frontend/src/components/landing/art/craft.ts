@@ -6,25 +6,6 @@
  * resultado en los tres sitios. Eso no es una preferencia de estilo: las dos
  * escenas emiten geometría a nivel de módulo y una sola llamada a
  * `Math.random()` aquí rompería la hidratación de la portada entera.
- *
- * ── POR QUÉ EXISTE ───────────────────────────────────────────────────────
- * El fundador, viendo la primera versión de los dos mundos (2026-09-18):
- * «se siguen viendo las animaciones toscas y están hechas con palitos simples».
- * Tenía razón, y el diagnóstico de fondo es que la geometría estaba ESCRITA A
- * MANO: una uve de tres puntos reutilizada como cuenca, roca, cumbre cercana y
- * segunda cumbre; dos cordilleras de doce puntos tecleados; veintisiete
- * palitos del terreno clonados cada treinta y seis unidades exactas. Nada de
- * eso tiene variación natural porque nada de eso salió de un procedimiento.
- *
- * Aquí vive el procedimiento: un generador determinista, un ruido, un
- * desplazamiento del punto medio, una conversión a curvas, una perspectiva
- * ortográfica y una escala de tintas. La complejidad sale de MEDIR, no de
- * añadir más palitos.
- *
- * ── LO QUE NO ESTÁ AQUÍ, Y POR QUÉ ───────────────────────────────────────
- * Nada que use `SolarJourney`. Si el mundo Personal necesita algo parecido se
- * COPIA, nunca se refactoriza en su sitio: sus tablas de tiempo cuelgan del
- * array de paradas de Personal y es el fichero más delicado del repo.
  */
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -90,17 +71,6 @@ export type Pt = [number, number];
  * su segmento con una amplitud que cae a la mitad larga en cada nivel. El
  * resultado tiene rasgos a todas las escalas, que es lo que distingue una
  * silueta de roca de una línea quebrada.
- *
- * ── LAS DOS GARANTÍAS ────────────────────────────────────────────────────
- * 1. LOS ANCLAJES NO SE MUEVEN. Los extremos son los brazos de la Y: si se
- *    mueven, el valle deja de apoyarse en la letra y el relevo se ve.
- * 2. NADA SE SALE DE LA HORQUILLA. `inside` recorta cada punto dentro del
- *    envolvente de la uve. Sin esto la cresta asoma por fuera del brazo de la
- *    letra, que es un fallo que este repo ya cometió dos veces con líneas
- *    escritas a mano.
- *
- * El peso `w` lleva el desplazamiento a cero junto a cada anclaje y lo reduce
- * junto a la cumbre, para que un pico siga siendo un pico.
  */
 export function ridge(
   seed: number,
@@ -247,25 +217,6 @@ export function haze(depth: 0 | 1 | 2): { fillAlpha: number; skyTint: number; st
  * vista desde arriba (constelación) y desde el suelo (triangulación). Esa
  * afirmación ES la abscisa: si al inclinarse las x se mueven, la demostración
  * deja de demostrar.
- *
- * Por eso NO hay división en perspectiva. Una perspectiva hace que la x de
- * pantalla dependa de la profundidad, y con la inclinación final eso son varios
- * puntos porcentuales de deriva horizontal — varios puntos porcentuales de la
- * afirmación. Una oblicua ortográfica conserva las abscisas POR CONSTRUCCIÓN,
- * es la proyección correcta de una plancha de levantamiento topográfico, y no
- * tiene modos de fallo (ni suelo de la división, ni cero en el denominador).
- *
- * La consecuencia honesta, dicha en voz alta: una proyección ortográfica NO
- * tiene punto de fuga, así que la retícula del suelo son rectas paralelas cuyo
- * espaciado se comprime por `cos φ`. Es exactamente como se lee una hoja de
- * plancheta o una carta náutica. No se promete una retícula que converge.
- *
- * ── DE DÓNDE SALE EL ÁNGULO ──────────────────────────────────────────────
- * No es a ojo. Es el ajuste por mínimos cuadrados de la tabla de posiciones de
- * suelo que el autor original ESCRIBIÓ A MANO, contra la profundidad de cada
- * asiento: pendiente −0,18857 → cos φ = 0,18857 → φ = 79,13°, con un residuo
- * máximo de 3,1 unidades. O sea: ya estaba dibujando una inclinación de 79° a
- * ojo, y esto sustituye diez números mágicos por dos.
  */
 export const PHI_MAX = (79.13 * Math.PI) / 180;
 

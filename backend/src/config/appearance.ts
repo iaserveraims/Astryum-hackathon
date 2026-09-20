@@ -1,28 +1,6 @@
 /**
  * La APARIENCIA de la cuenta — la lógica pura detrás de GET /me `appearance`
- * y POST /auth/appearance (fundador 2026-09-13).
- *
- * DOS EJES, UN REGISTRO:
- *   · `skin`  — de qué MATERIAL está hecho el panel: 'astryum' (espacio y oro,
- *               lo de siempre) o 'institutional' (la lámina: tinta sobre papel
- *               de registro, bronce, serif, filetes y grabados).
- *   · `theme` — la LUZ: 'dark', 'light' o 'system'.
- *
- * POR QUÉ ESTÁ EN EL SERVIDOR Y NO EN EL NAVEGADOR. Un ajuste en localStorage
- * sigue al navegador, no a la persona: la misma cuenta abierta en un portátil
- * nuevo aparecería en oro, y el segundo correo que entrase en el mismo Chrome
- * heredaría el tema del primero. Es literalmente el bug que el fundador
- * reportó con el modo gestor («he abierto en un perfil de Brave nuevo la misma
- * cuenta y tenía el manager mode desactivado», 2026-08-30) y con las wallets y
- * los tours el 13-sep. Se resuelve igual: la verdad va en la cuenta y el
- * navegador guarda una caché de arranque.
- *
- * Cabalga `User.preferences.appearance`, el mismo raíl que `legal` y
- * `managerMode` — sin migración, preservando las claves hermanas.
- *
- * ES PURA PRESENTACIÓN: no abre ninguna capacidad, no toca permisos y no
- * decide nada sobre el dinero. Un valor forjado aquí solo consigue que el
- * panel se vea de otro color.
+ * y POST /auth/appearance.
  */
 
 export type Skin = 'astryum' | 'institutional';

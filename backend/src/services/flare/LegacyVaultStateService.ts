@@ -8,18 +8,6 @@
  * NUMBER and an amount in BASE UNITS, blind — and an order aimed at a venue that
  * does not exist still costs the whole ceremony (quorum signatures + the FDC
  * round + its ~20 FLR) before reverting with VenueUnknown() on the far side.
- *
- * This module is the missing read. It is READ-ONLY by construction: it never
- * writes, never signs, and does not touch the cage's rules — those live in
- * LegacyVault.sol and stay exactly where they are (invariant: the cage is not
- * moved, softened, or bypassed). Everything here is a `view` call.
- *
- * `checkDirectTo` mirrors, in pure TypeScript, the SIX ways LegacyVault._allocate
- * reverts. It is a courtesy pre-flight, not an authority: the contract remains
- * the only thing that decides. Saying "this order would revert, and why" before
- * the quorum signs is the honest counterpart to invariant #11 (simulate before
- * signature) — and it closes one more instance of the unearned-success family:
- * a ceremony that LOOKS successful right up to the moment it silently was not.
  */
 
 import { ethers } from 'ethers';
@@ -286,21 +274,6 @@ export type VenueEntryGate = { ok: true; venue: LegacyVenueRow } | VerdictRefusa
 /**
  * The refusals EVERY entry into a venue shares — unknown venue, retired venue,
  * venue still inside its D1a waiting window.
- *
- * REUSE (auditoría 2026-08-18): `checkMoveDestination` was born in
- * CouncilProposalService.ts carrying a LITERAL second copy of the VENUE_RETIRED
- * and VENUE_NOT_READY branches below — same codes, same conditions
- * (`venue.retired`, `nowSec < venue.readyAt`), only the prose differed. Its own
- * comment said it lived there because that round did not own this file. Two
- * copies of «can capital enter this venue?» is how the two doors drift apart:
- * the day LegacyVault adds a fourth entry guard, one door learns it and the
- * other keeps composing orders that revert after the quorum has signed and the
- * FDC round is paid for. One condition, two voices.
- *
- * Mirrors LegacyVault: `venueId >= venues.length` → VenueUnknown, the `retired`
- * flag → VenueRetired, `block.timestamp < readyAt` → VenueNotReady. Pure (no
- * RPC): a pass is «nothing known blocks it», never a guarantee — the contract
- * decides.
  */
 export function checkVenueAcceptsEntry(
   state: LegacyVaultState,
@@ -390,26 +363,6 @@ export function checkDirectTo(
 /**
  * The DESTINATION half of `moveToVenue` — i.e. `_allocate(toId, received,
  * false)` (LegacyVault L330, L583-587).
- *
- * Deliberately NOT `checkDirectTo`, and the two differences are the whole
- * point:
- *  - the D2 entry cap is NOT enforced on a rescue (`enforceCap = false`), so
- *    refusing a move over the cap would block a legitimate emergency;
- *  - `InsufficientIdlePrincipal` cannot fire either: the origin's principal is
- *    withdrawn and `allocatedPrincipal` decremented in the SAME call, so
- *    `received <= idlePrincipal()` holds by construction.
- * `notMigrated` is absent from `moveToVenue` too — and a migrated vault has had
- * every venue evacuated (L500-506 zeroes each basis), so the origin check the
- * caller runs first (checkRecall) already reports the revert the contract would
- * actually raise.
- *
- * REUSE (auditoría 2026-08-18): this function used to live in
- * CouncilProposalService.ts with its own literal copy of the retired /
- * not-ready branches, under a comment saying it only lived there because that
- * round did not own this file. It now sits beside checkDirectTo/checkRecall,
- * where it belongs, and the CONDITION comes from the one gate both doors share
- * — while the rescue prose, which is the sentence the council needs, is kept
- * intact by the `'rescue'` door.
  */
 export function checkMoveDestination(
   state: LegacyVaultState,
@@ -424,25 +377,9 @@ const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /**
- * Would `setPayees(accounts, bps, ref)` land — and land SAFELY? (E6, 2026-08-15)
+ * Would `setPayees(accounts, bps, ref)` land — and land SAFELY? (E6)
  *
  * Two kinds of refusal live here, and they are named apart on purpose:
- *
- *  - CONTRACT MIRRORS — the order would REVERT after the quorum has signed and
- *    the FDC round has been paid for: Σbps ≠ 10000 on a non-empty list
- *    (PayeeBpsSumInvalid), the zero address (ZeroAddress), a zero share
- *    (BpsOutOfBounds).
- *  - TRAP PREVENTION — the order would LAND and strand the money: the bridge
- *    or the vault itself as a payee. `_splitYield` transfers the asset to that
- *    address and neither contract can ever move tokens out (revision 1-ago §5
- *    danger #1: "jamás el bridge como payee"). This is the ONE place this
- *    pre-flight is deliberately stricter than the contract, because the
- *    failure is permanent — not a wasted ceremony, a buried inheritance.
- *
- * An EMPTY list is legal and composes: that is the endowment decision —
- * everything keeps capitalizing into the principal. Duplicated addresses are
- * NOT refused here (the contract accepts them and simply splits twice); the
- * form warns about them client-side, where intent can still be corrected.
  */
 export function checkSetPayees(
   stack: { vault: string; bridge: string },
@@ -541,8 +478,6 @@ const VAULT_DEPOSIT_ABI = ['function deposit(uint256 amount)'];
  * continuity check — to a successor vault. That is the cage working as
  * intended, and it is exactly the kind of fact that must be loud BEFORE a
  * signature, not discovered afterwards (#6).
- *
- * Pure: no RPC. Takes the state the caller already read.
  */
 export function buildVaultDepositCalls(
   state: LegacyVaultState,
@@ -615,7 +550,7 @@ export async function readVaultState(overrideVault?: string): Promise<LegacyVaul
   // to demand the whole configured stack even when handed the vault — so a
   // missing LEGACY_VAULT_ADDRESS made a factory-born cage (whose address the
   // resolver had just proven) unreadable, and the portfolio scan swallowed that
-  // as "this Legacy has no cage" (2026-08-22). Without an override the env
+  // as "this Legacy has no cage". Without an override the env
   // stack is still the only place the address can come from, so it is still
   // required there — and its error message is still the readable one.
   let cfg: LegacyNetwork;

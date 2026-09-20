@@ -23,7 +23,7 @@ jobs:
         working-directory: backend
     env:
       HUSKY: 0
-      # DATABASE_URL / DIRECT_URL NO viven aquí, a nivel de job (2026-09-19).
+      # DATABASE_URL / DIRECT_URL NO viven aquí, a nivel de job.
       # Estaban aquí y por tanto también los veía el paso `Tests`. Con una URL
       # puesta, las lecturas ESTRICTAS del backend (una lectura ilegible ya no vale
       # por «vacío») intentan conectar a un Postgres que en CI no existe y contestan
@@ -63,10 +63,7 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
-      # BLOQUEANTE desde el 18-ago-2026. Estuvo en `continue-on-error` con una
-      # condición explícita de retirada — «once the 12 failing suites in
-      # AUDITORIA_COMPLETA_2026-06-09 are fixed» — y esa condición ya no existe:
-      # la suite corre en 2.028 tests con CERO fallos.
+      # BLOQUEANTE.
       #
       # Dejarlo abierto ahora es peor que cuando estaba justificado: una suite
       # verde que NO puede tumbar el build es una suite que se pudre en silencio,

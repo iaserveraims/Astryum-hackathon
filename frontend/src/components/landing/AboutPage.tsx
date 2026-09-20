@@ -1,32 +1,9 @@
 'use client';
 
 /**
- * /about — la PÁGINA DE CONFIANZA (founder 2026-07-25, segunda pasada): en
+ * /about — la PÁGINA DE CONFIANZA: en
  * cripto un desconocido asume scam por defecto, y eso no se desmonta con una
  * misión bonita — se desmonta con hechos comprobables y mesura. Estructura:
- *
- *   1. La arquitectura que nos ata las manos — por qué NO PODEMOS quedarnos
- *      con el dinero de nadie (no-custodia como hecho técnico, comprobable en
- *      cada firma), no como promesa.
- *   2. Posición regulatoria estricta por diseño — estructurados para no ser CASP; las patas
- *      que MiCA reserva a entidades autorizadas pasan por partners
- *      licenciados. SIN mención de jurisdicción propia (founder: "lo de
- *      Andorra no").
- *   3. Quiénes somos de verdad — equipo pequeño con cara, el background real
- *      (construimos esto porque somos USUARIOS de esto) y la misión (una sola
- *      app para controlar todas tus finanzas).
- *   4. Se construye a la vista — evaluación pública (hackathons), y la
- *      honestidad de la beta: lo que hay y lo que aún no está.
- *
- * Reglas de copy con fuerza extra aquí: nada de "100% seguro", nada de
- * "auditado", nada de rendimientos — el lenguaje de garantía es exactamente
- * como hablan los timos. Direcciones de contrato/explorador: NO por ahora
- * (founder) — cuando toque, van en el bloque 1.
- *
- * FOUNDERS carries the real names (2026-07-27) and the real portraits
- * (512×512 square crops in /public/founders/, derived from /assets — the
- * heavy originals stay out of git). If a photo ever fails to resolve, the
- * frame falls back to initials over the gold gradient, never a broken image.
  */
 
 import { motion } from 'framer-motion';
@@ -37,7 +14,7 @@ import { T, type Lang } from './useLang';
 const GOLD_SOFT = '#E8C25A';
 const CARD_STYLE = { border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.02)' } as const;
 
-// ── The crew — real names 2026-07-27 (founder). The two bios are the page's
+// ── The crew — real names. The two bios are the page's
 // strongest trust argument and they are DELIBERATELY asymmetric: Eric operates
 // in DeFi daily, Guillem was kept out by its complexity. That asymmetry IS the
 // product thesis, so don't "balance" it into two generic founder blurbs.
@@ -54,7 +31,7 @@ const FOUNDERS: Array<{
     name: 'Eric',
     roleEs: 'Cofundador · Arquitectura y protocolo',
     roleEn: 'Co-founder · Architecture & protocol',
-    // GLOSSARY reconciliation 2026-07-29: "redes" (never "raíles"),
+    // GLOSSARY reconciliation: "redes" (never "raíles"),
     // "transacciones sin firmar" (never "intents") — in both languages.
     bioEs:
       'El criterio técnico del proyecto y el origen de la mayoría de sus ideas. Opera en DeFi a diario —posiciones abiertas, riesgo real— y de ahí sale cada decisión de arquitectura: las redes XRPL y Flare, las transacciones sin firmar y la frontera que mantiene las claves fuera de nuestro alcance. Sabe qué le falta a la herramienta porque lo echa en falta él.',

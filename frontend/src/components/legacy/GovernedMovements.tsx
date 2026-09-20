@@ -3,18 +3,6 @@
 /**
  * GovernedMovements — the "Movements" tab for a governed (multisig council)
  * account in Astryum Legacy.
- *
- * Same rails as the personal MovementsPanel (send / set XRP aside / native DEX
- * buy-sell), but the VERB changes with the authority (actionCatalog): a personal
- * wallet EXECUTES (you sign, it settles); a governed account PROPOSES (the
- * council signs by quorum). So every action here composes an UNSIGNED tx bound
- * to the council account and drops it into the proposal inbox — the quorum signs
- * it in the Proposals tab. Astryum never signs, never holds a key (#1); one live
- * proposal per account (XRPL pins one Sequence at a time).
- *
- * The unsigned tx bodies come from the SAME prepare endpoints the personal panel
- * uses (escrow-create, offer-create) — only the hand-off differs: propose vs
- * sign. The plain Payment is composed inline (Account = the council).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -75,7 +63,7 @@ const RLUSD = {
 } as const;
 
 /**
- * G6 (auditoría 17-ago) — XRP humano → drops, por la doctrina F4.
+ * G6 (auditorí) — XRP humano → drops, por la doctrina F4.
  *
  * Antes: `String(Math.round(n * 1_000_000))` sobre un float. Con `0.0000001`
  * devolvía la cadena `"0"` — que es **truthy** — así que pasaba el guard
@@ -115,15 +103,9 @@ function short(a: string): string {
  * council that does not exist yet was told to let a proposal expire, and the
  * 422 that explains how a council pays twice never reached the screen at all.
  * The wording itself was retired by the backend this round.
- *
- * One reader now (`serverRefusal`, the superset of the six twins): the server's
- * `detail` wins, infrastructure refusals (401 / 451 geofence / XRPL_DEFI_DISABLED
- * flag / access list) keep their own copy, and a known code with no detail still
- * gets a sentence instead of the bare slug. Kept as a named function because
- * three call sites read it and the name says what it is for.
  */
 /**
- * productizer it. 27 (3): y el lector compartido tiraba `headline`, `ways[]` y
+ * Y el lector compartido tiraba `headline`, `ways[]` y
  * `retryAfterSeconds`, que es lo único que un rechazo trae con una salida dentro.
  * El rechazo entero viaja ahora; la pantalla pinta la frase Y el camino.
  */
@@ -215,13 +197,11 @@ export default function GovernedMovements({
   // carry a real disclosure; the plain Payment shows a one-line summary).
   const [pending, setPending] = useState<{ xrplTx: unknown; title: string; disclosure?: XrplTxHandoff['disclosure']; summary?: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  // it. 27 (3): una frase nuestra, o un rechazo LEÍDO con sus salidas y su puerta.
+  // Una frase nuestra, o un rechazo LEÍDO con sus salidas y su puerta.
   const [error, setError] = useState<string | ReadableRefusal | null>(null);
   const [proposalId, setProposalId] = useState<string | null>(null);
 
-  // ── Send (Payment) form — con la GRAMÁTICA del Send genérico (fundador
-  // 2026-09-11: «no me aparece el modal genérico que aparece en todas las
-  // accounts… me debería aparecer»): el mismo gesto — destino elegido entre
+  // ── Send (Payment) form — con la GRAMÁTICA del Send genérico: el mismo gesto — destino elegido entre
   // TUS wallets / libreta / dirección externa, saldo vivo con MAX y la
   // reserva dicha — y el final de siempre en este raíl: el Payment compuesto
   // SIN FIRMAR pasa por los dos tempos del consejo, jamás por una sola llave.
@@ -327,7 +307,7 @@ export default function GovernedMovements({
     setBusy(true);
     setError(null);
     try {
-      // G6 (auditoría 17-ago) — el `preflight` venía en la respuesta y esta
+      // G6 (auditorí) — el `preflight` venía en la respuesta y esta
       // superficie lo IGNORABA. El coordinador ya corre el `simulate` del
       // ledger (invariante #11), así que una propuesta que la red YA sabe que
       // fallará (importe malo, cuenta sin fondos, reserva insuficiente) entraba
@@ -482,20 +462,14 @@ export default function GovernedMovements({
                     ))}
                   </div>
                 )}
-                {/* THE TWO TEMPOS, both offered here (founder 2026-08-22).
+                {/* THE TWO TEMPOS, both offered here.
                     This surface only ever filed a proposal, so a movement from
                     a council account produced ONE QR — the signer's own, later,
                     in the inbox — when the family was sitting together and
                     expected every member's QR at once. Every other council
                     surface (cage birth, council orders, vault entry, the panel)
                     already offers both doors through this component; Movements
-                    was the one left out.
-
-                    It is CouncilSigningDoors and not two hand-rolled buttons
-                    because the two tempos share one scarce thing: the account's
-                    next Sequence. The component closes the propose door while a
-                    ceremony holds that seat — a pair of buttons would happily
-                    put both on the same seat. */}
+                    was the one left out. */}
                 <CouncilSigningDoors
                   xrplTx={pending.xrplTx as Record<string, unknown>}
                   account={account}

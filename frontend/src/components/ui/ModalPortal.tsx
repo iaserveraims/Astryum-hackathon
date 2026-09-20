@@ -3,36 +3,9 @@
 /**
  * ModalPortal — the one place every overlay in the app is mounted from.
  *
- * WHY (bug 2026-07-30): almost every modal used to render inline, right where
+ * WHY (bug): almost every modal used to render inline, right where
  * its owner card lived, as a plain `fixed inset-0 z-50` div. That looks correct
  * and is not, for four compounding reasons:
- *
- *   1. `position: fixed` is NOT viewport-relative when an ancestor has a
- *      transform / filter / backdrop-filter — that ancestor becomes the
- *      containing block. `<Card hover>` carries `hover:-translate-y-0.5`, so a
- *      modal opened from a collapsed position card was sized and placed against
- *      the CARD, not the screen. Worse, it oscillated: the overlay covers the
- *      card → :hover stays on → transform on → overlay shrinks to the card →
- *      pointer is now outside the card → :hover off → transform off → overlay
- *      snaps back to fullscreen → repeat. That is the "disappears, comes back,
- *      moves" the founder saw.
- *   2. Cards with `overflow-hidden` (WalletManager) simply CLIPPED the overlay.
- *   3. AppShell wraps all page content in `<div class="relative z-10">`, so a
- *      page modal's z-50 is a z-50 INSIDE a z-10 stacking context. Any sibling
- *      of that wrapper with z-40 (ProductAssistant; formerly the floating
- *      ResumedSettlements, since moved into the sidebar) paints on top of it
- *      and eats the clicks.
- *   4. Every modal re-implemented its own scroll lock, or none at all, so the
- *      page scrolled behind the dialog.
- *
- * Portalling to <body> removes 1–3 by construction (no ancestor left to trap
- * or clip, and every overlay becomes a body-level sibling so z-index means
- * again what it says). 4 is handled here once, with a refcount so nested
- * modals restore the page scroll exactly once.
- *
- * It also publishes an open-count so background pollers can hold still while
- * the user is mid-signature — a refresh that unmounts the owner card takes the
- * open modal with it (see useModalsOpen).
  */
 
 import React, { createContext, ReactNode, useContext, useEffect, useSyncExternalStore } from 'react';
@@ -130,7 +103,7 @@ export function useModalRegistration(opts?: {
 /**
  * PortalSuspense — «este subárbol está PLEGADO: sus portales también».
  *
- * El bug (revisión 2026-08-29): la ventana de operación persistente esconde a
+ * El bug (revisión): la ventana de operación persistente esconde a
  * sus hijos con display:none — pero un sub-modal de esos hijos (EmExitModal,
  * CmfReviewModal, la hoja de envío del agente…) se portala a <body>, FUERA
  * del subárbol escondido: al minimizar la operación, su diálogo seguía a

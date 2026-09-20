@@ -2,7 +2,7 @@
  * KineticAdapter.discoverPositions — the scan that feeds the positions board
  * and the withdraw modal's legs (balance + MAX).
  *
- * The bug this pins down (2026-07-14): getAssetsIn only lists ENTERED markets,
+ * The bug this pins down: getAssetsIn only lists ENTERED markets,
  * and a plain supply (E3 lend-only, carry re-supply) deliberately never calls
  * enterMarkets — so the supply existed on-chain but the scan returned nothing,
  * the modal showed no balance and the assets looked unwithdrawable. The fix
@@ -47,7 +47,7 @@ const CHAIN: Record<string, Record<string, unknown>> = {
   },
 };
 
-/** it. 31 — a read that does NOT answer (the public RPC's 429). */
+/** A read that does NOT answer (the public RPC's 429). */
 const DOWN = '__rpc_down__';
 
 jest.mock('ethers', () => {
@@ -113,7 +113,7 @@ describe('KineticAdapter.discoverPositions — lend-only supplies (no enterMarke
     delete CHAIN[ISO_COMPTROLLER.toLowerCase()].getAllMarkets;
     CHAIN[ISO_COMPTROLLER.toLowerCase()].getAssetsIn = [KFXRP_ISO];
     try {
-      // Ola 0 — the partial read serves the entered market AND names the read
+      // The partial read serves the entered market AND names the read
       // it could not make; the all-or-nothing entry turns that into a throw.
       const { positions, unreadable } = await new KineticAdapter().discoverPositionsPartial(WALLET);
       expect(positions).toHaveLength(1); // entered market still scanned
@@ -129,14 +129,14 @@ describe('KineticAdapter.discoverPositions — lend-only supplies (no enterMarke
 });
 
 /**
- * it. 31 — THE BOARD READ THE DEBT SOFT. `borrowBalanceCurrent.staticCall(…)
- * .catch(() => 0n)` showed a wallet with live USDT0 debt as debt-free whenever
+ * THE BOARD READ THE DEBT SOFT. `borrowBalanceCurrent.staticCall(…).
+ * catch(() => 0n)` showed a wallet with live USDT0 debt as debt-free whenever
  * the node 429'd — and the guided unwind read that zero as «nothing to repay».
  * Money reads (shares probe, supply, debt) now RISE, typed and naming the
  * market; the engine drops the adapter from THIS sweep and names it to the
  * person. Metadata reads (symbol, underlying) keep their soft fallbacks.
  */
-describe('KineticAdapter.discoverPositions — an unread debt is not a zero debt (it. 31)', () => {
+describe('KineticAdapter.discoverPositions — an unread debt is not a zero debt', () => {
   it('a 429 on borrowBalanceCurrent RISES as KINETIC_POSITION_UNREADABLE naming the market', async () => {
     const k = CHAIN[KFXRP_ISO.toLowerCase()];
     const saved = k.borrowBalanceCurrent;
@@ -175,9 +175,9 @@ describe('KineticAdapter.discoverPositions — an unread debt is not a zero debt
 });
 
 /**
- * Ola 0 (15-sep) — DEGRADE PER MARKET, NOT PER PROTOCOL.
+ * DEGRADE PER MARKET, NOT PER PROTOCOL.
  *
- * it. 31 was right to make the probe rise; it was wrong to let it take the
+ * Was right to make the probe rise; it was wrong to let it take the
  * whole adapter with it. The carry holder (FXRP supplied, USDT0 borrowed)
  * opened Positions under the gateway's routine 429, ONE probe of a market
  * they never touched did not answer, and their supply, their debt and their

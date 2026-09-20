@@ -18,14 +18,6 @@ Thumbs.db
 coverage/
 tmp/
 
-# Claude Code skills cache (regenerable via skills-lock.json + `npx skills add`)
-# Same pattern as node_modules: the lock is committed, the install dir isn't
-.agents/skills/
-.claude/skills/
-
-# Personal, per-machine permission overrides — never in the due-diligence repo
-.claude/settings.local.json
-
 # Archived code (excluded from builds)
 # Archived 2026-02-02: Pre-Flare migration code
 _archived/

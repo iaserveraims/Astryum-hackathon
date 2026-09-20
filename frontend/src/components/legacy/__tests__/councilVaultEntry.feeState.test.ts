@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * G13 (auditoría 2026-08-17) — «un quórum de 0 firma».
+ * G13 (auditorí) — «un quórum de 0 firma».
  *
  * The funding box printed `String(quote.signerCount)` straight into the
  * sentence "(a quorum of {n} signs…)". When the XRPL read of the signer list
@@ -12,12 +12,6 @@ import { join } from 'node:path';
  * words, that a quorum of ZERO signs, while MAX reserved the fee of a SINGLE
  * signature. The council then signed a payment its own account could not fund
  * and the only feedback was a cryptic tec after the ceremony.
- *
- * Why source-level and not a render test: the frontend vitest bootstrap is
- * `environment: 'node'` and tsconfig sets `jsx: "preserve"`, so importing a
- * .tsx here fails at transform time. `fundFeeState` is therefore pulled OUT of
- * the shipping source and evaluated — assertions run on the code that ships,
- * not on a copy that can drift. (Same technique as moneyflowsRunHealth.)
  */
 
 const COMPONENT = join(__dirname, '..', 'CouncilVaultEntry.tsx');

@@ -56,7 +56,7 @@ describe('parseCron — supported subset', () => {
 
 describe('lastCronOccurrence', () => {
   test('finds the most recent weekly occurrence within the window', () => {
-    // 2026-07-13 is a Monday. Now = Monday 10:30 UTC → last "Mon 09:00" is today 09:00.
+    // Is a Monday. Now = Monday 10:30 UTC → last "Mon 09:00" is today 09:00.
     const m = parseCron('0 9 * * 1')!;
     const due = lastCronOccurrence(m, new Date('2026-07-13T10:30:00Z'));
     expect(due?.toISOString()).toBe('2026-07-13T09:00:00.000Z');
@@ -121,7 +121,7 @@ describe('TIME_TRIGGER — fires once per occurrence, catches up missed ticks', 
 });
 
 /**
- * G3 (auditoría 17-ago) — la ocurrencia quemada.
+ * G3 (auditorí) — la ocurrencia quemada.
  * The occurrence marker used to be `lastTriggeredAt`, which the engine stamps
  * on EVERY fire — errors and busy-council included. A monthly payment whose
  * fire produced nothing was therefore filed as done and never came back.
@@ -186,19 +186,8 @@ describe('TIME_TRIGGER — an occurrence is served by its ARTEFACT, not by the a
 
 
 /**
- * G3-tormenta (2ª ronda, 18-ago) — the two holes the sceptic MEASURED on the
+ * G3-tormenta (2ª ronda) — the two holes the sceptic MEASURED on the
  * round-1 fix, both of them silent:
- *
- *  R2 — the retry floor was the constant 60 for every rule, so any cron whose
- *       period is 60 minutes or less had its failed occurrence superseded
- *       before the floor expired: EXACTLY ONE attempt, then abandoned. The
- *       half of G3 that keeps a failed occurrence alive never reached them.
- *  R3 — after ~37 barren attempts the occurrence left the 36h catch-up window
- *       and simply stopped existing. No signal: the last thing the family had
- *       been told was "retries after cooldown", a promise that expired in
- *       silence.
- *
- * Both suites fail against the round-1 evaluator.
  */
 describe('G3-tormenta R2 — the retry floor never outlasts the rule own period', () => {
   test('the floor is the gap minus one for sub-hourly crons, the 60m ceiling otherwise', () => {
@@ -279,7 +268,7 @@ describe('G3-tormenta R3 — an occurrence abandoned at the 36h wall says so', (
 });
 
 /**
- * G3-final (3ª ronda, 18-ago) — blocker 5: the abandonment notice was
+ * G3-final (3ª ronda) — blocker 5: the abandonment notice was
  * FABRICATED. `owedAttempt` is nothing but `lastTriggeredAt`: it says "a fire
  * produced nothing", never "an occurrence of THIS cron produced nothing".
  * Round 2 announced anyway — HIGH alert + push, `dueAt: null` — for a rule
@@ -307,7 +296,7 @@ describe('G3-final blocker 5 — a barren attempt must be ATTRIBUTABLE before an
   });
 
   test('a stamp whose occurrence has already been superseded announces NOTHING', () => {
-    // Disabled after a barren attempt on 1-ago, re-enabled on 3-sep: 1-sep has
+    // Disabled after a barren attempt, re-enabled: has
     // come and gone. That abandonment is not news any more.
     const res = TriggerEvaluator.evaluate(
       monthly,
@@ -343,7 +332,7 @@ describe('G3-final blocker 5 — a barren attempt must be ATTRIBUTABLE before an
 
   test('a weekly rule tells the same two stories', () => {
     const weekly = { type: 'TIME_TRIGGER' as const, cron: '0 9 * * 1' }; // Mondays 09:00
-    // Monday 2026-08-03 09:00 fired barren; Tuesday 21:01 the window closes.
+    // Monday 09:00 fired barren; Tuesday 21:01 the window closes.
     const genuine = TriggerEvaluator.evaluate(
       weekly,
       ctx(new Date('2026-08-04T21:01:00Z'), {

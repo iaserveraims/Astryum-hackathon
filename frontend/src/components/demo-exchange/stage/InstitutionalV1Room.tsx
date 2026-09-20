@@ -2,8 +2,8 @@
 
 /**
  * InstitutionalV1Room — la PRIMERA generación (pote suelto, v1) tal y como
- * vivía en /app/admin/institutional, traída a la mesa del exchange (encargo
- * 2026-09-11: «coger la parte de admin/institutional y ponerlo allí»).
+ * vivía en /app/admin/institutional, traída a la mesa del exchange (encargo:
+ * «coger la parte de admin/institutional y ponerlo allí»).
  *
  * Se conserva por lo que es: el recorrido de 11 pasos del vídeo, la consola
  * del operador v1, el panel del usuario y la constitución del consejo

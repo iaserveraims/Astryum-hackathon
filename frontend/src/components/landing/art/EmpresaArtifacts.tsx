@@ -3,20 +3,10 @@
 /**
  * LAS LÁMINAS DEL MUNDO EMPRESA — en el idioma de quien las lee.
  *
- * Fundador, 2026-09-19: «adaptamos también los artifacts al público, ya que
- * un institucional entenderá referencias de liquidez, transacción y más». Así
+ * Así
  * que estas cuatro láminas no hablan de «patrimonio» ni de «órbita»: hablan de
  * liquidez por plazo, de matriz de firmas, de exposición contra un tope y de
  * un registro de transacciones con su estado y su hash.
- *
- * Material impreso (Plate tone="print", radio 3): una entidad lee una plancha,
- * no una tarjeta que flota. Y las cuatro se LEEN CON EL SCROLL, atadas a los
- * mismos tiempos que la carta estelar (CHART_BEATS): la escalera se llena
- * mientras la constelación se traza, la matriz se marca mientras se marcan los
- * asientos, la exposición se cierra con los arcos y el registro se escribe con
- * la eclíptica.
- *
- * Cifras de MAQUETA, rotuladas como tal. Ni una de rendimiento.
  */
 
 import { motion, useTransform, type MotionValue } from 'framer-motion';

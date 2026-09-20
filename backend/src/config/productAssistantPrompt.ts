@@ -2,20 +2,6 @@
  * Product Assistant — system prompt (Component 3).
  *
  * This is the KNOWLEDGE the product agent is grounded on. Two layers:
- *
- *   1. CAGE (below, hardcoded) — the safety rails from the knowledge base §0.
- *      They ALWAYS apply, even before the full manual lands, so the agent is
- *      caged from day one: no user data, no advice, no execution, no invention.
- *
- *   2. PRODUCT_KNOWLEDGE_BASE — the manual/GPS itself (concepts, navigation,
- *      strategies). Authored by the team; dropped in via the PRODUCT_ASSISTANT_KB
- *      env var (or by replacing the placeholder string below). Source of truth:
- *      docs/context/Astryum_ProductAgent_KnowledgeBase_2026-07-06.md.
- *
- * Scope: the agent ONLY knows the Astryum app. It sees NOTHING of the user (no
- * balance, positions, actions). It gives no advice. It has NO tools and cannot
- * build payloads — it stays out of the signing path by construction (invariants
- * #1 / #7). It never invents features, rates, or data.
  */
 
 const CAGE = `Eres el ASISTENTE DE PRODUCTO de Astryum. Tu único trabajo es ayudar a entender y navegar la app de Astryum: explicar conceptos, decir dónde está cada cosa, y describir qué hace cada estrategia. Eres un manual vivo + GPS de la app.
@@ -35,8 +21,7 @@ TÉRMINOS-ANCLA (respeta también al traducir): "Tú siempre firmas" / "You alwa
 /**
  * The product manual (§1-7 of the knowledge base v0.2). Injected inline so the
  * agent answers for real out of the box; PRODUCT_ASSISTANT_KB overrides it if the
- * team wants to hot-swap without a deploy. Source of truth (keep in sync):
- * docs/context/Astryum_ProductAgent_KnowledgeBase_2026-07-06.md. The §0 cage is in
+ * team wants to hot-swap without a deploy. The §0 cage is in
  * CAGE above; this is the knowledge the agent grounds its answers on.
  */
 export const PRODUCT_KNOWLEDGE_BASE =

@@ -1,5 +1,5 @@
 /**
- * productizer it. 27 (§4) — EL GEMELO LATENTE DENTRO DE LA PUERTA DE it. 25.
+ * EL GEMELO LATENTE DENTRO DE LA PUERTA.
  *
  * `releaseAbandonedCeremonySeat` suelta el asiento de nonce de un 0xFE ANTES de
  * que caduque su payload, y todo su argumento de seguridad es que esos bytes los
@@ -8,17 +8,6 @@
  * como mucho uno puede aplicar — el otro muere `tefPAST_SEQ` sin llegar al Core
  * Vault, así que el gemelo (dos Payments dentro y un userOp en `InvalidNonce` con
  * el XRP del cliente ya pagado) es imposible.
- *
- * La puerta, en cambio, solo comprobaba dos cosas: que la ventana fuera larga y
- * que la cuenta coincidiera. Las dos las cumple CUALQUIER 0xFE compuesto para una
- * cuenta con SignerList — incluido uno que se firme por el camino normal de
- * Xaman, con la `Sequence` autorrellenada. Era inalcanzable solo porque el
- * cliente nunca mandaba el `memoHex`; el día que lo mandara (it. 27 §1, este
- * mismo trabajo) el gemelo se volvía real. Aquí se prueba el cerrojo.
- *
- * Y lo que NO cambia: la regla del asiento entera sigue mandando — «no pude leer»
- * no suelta nada, una firma marcada tampoco, y una ventana que dice que aquel
- * Payment entró tampoco.
  */
 const mockRows: Array<{ id: number; jobType: string; status: string; payload: Record<string, unknown>; createdAt: Date }> = [];
 const mockDb = { down: false };
@@ -113,9 +102,9 @@ describe('ceremonyPinOf — qué cuenta como prueba de que estos bytes los pinam
 
 describe('la puerta del asiento abandonado exige la marca del coordinador', () => {
   /**
-   * it. 29 (§3) — SIN MARCA NO HAY PARED: HAY LA REGLA ORDINARIA. it. 27 devolvía
+   * SIN MARCA NO HAY PARED: HAY LA REGLA ORDINARIA. Devolvía
    * aquí un `not-pinned-by-us` seco y paraba, así que una fila sin marca — la de
-   * una BD que parpadeó al sellar, o cualquiera anterior a it. 27 — no tenía
+   * una BD que parpadeó al sellar, o cualquiera anterior a — no tenía
    * NINGUNA regla, ni la que `/handoff/release` aplica a cualquier borrador.
    * Ahora cae a esa regla: con el payload VIVO no se suelta (el reloj no se
    * sustituye sin prueba de Sequence fijada) y se contesta la cuenta atrás REAL.
@@ -145,7 +134,7 @@ describe('la puerta del asiento abandonado exige la marca del coordinador', () =
   });
 
   /**
-   * it. 29 (§3) — EL PIN QUE LA BASE NO DEJÓ ESCRIBIR. El coordinador pinó (el
+   * EL PIN QUE LA BASE NO DEJÓ ESCRIBIR. El coordinador pinó (el
    * hecho existe) y la BD rechazó la marca. Ese hecho vive en la memoria del
    * proceso, así que la puerta actúa como con la marca en la fila — y de paso la
    * escribe, ahora que la BD volvió.
@@ -229,7 +218,7 @@ describe('la puerta del asiento abandonado exige la marca del coordinador', () =
   /**
    * Y la mitad que la marca NO sustituye: con la ventana ilegible el asiento
    * sigue retenido, pinado o no. La ceremonia terminada reemplaza el RELOJ del
-   * payload, jamás la lectura del ledger (it25 §4, conservado).
+   * payload, jamás la lectura del ledger (conservado).
    */
   it('con pin pero sin poder leer la ventana, el asiento NO se suelta', async () => {
     await stampCeremonyPin(MEMO, COUNCIL, 771_204);
@@ -248,7 +237,7 @@ describe('la puerta del asiento abandonado exige la marca del coordinador', () =
 });
 
 /**
- * productizer it. 34 (E) — LA CARRERA DEL BUS, VISTA DESDE EL PIN.
+ * LA CARRERA DEL BUS, VISTA DESDE EL PIN.
  *
  * Dos sittings de la misma sesión sobre los mismos bytes re-estampan el mismo
  * memo con la misma Sequence. La liberación TARDÍA del primero pasaba por aquí
@@ -258,7 +247,7 @@ describe('la puerta del asiento abandonado exige la marca del coordinador', () =
  * es un no-op que no toca la fila. Mutación: quitar la comparación
  * (`ceremonySittingIsStale` en `releaseAbandonedCeremonySeat`) → rojo.
  */
-describe('it. 34 (E) — el pin distingue sittings: una liberación obsoleta no toca la fila', () => {
+describe('El pin distingue sittings: una liberación obsoleta no toca la fila', () => {
   const window = { validatedLedgerIndex: 90_000_100, readWindow: async () => ({ state: 'absent' }) as never };
 
   it('ceremonySittingIsStale — la tabla de verdad', () => {
@@ -376,7 +365,7 @@ describe('it. 34 (E) — el pin distingue sittings: una liberación obsoleta no 
   });
 
   it('control: un pin anterior al campo (sin nombre) lo suelta cualquier id', async () => {
-    await stampCeremonyPin(MEMO, COUNCIL, 771_204); // sin opts: como antes de it. 34
+    await stampCeremonyPin(MEMO, COUNCIL, 771_204); // sin opts: como antes
     expect(row().ceremonySittingId).toBeNull();
     const out = await releaseAbandonedCeremonySeat(MEMO, COUNCIL, { ...window, sittingId: 'whoever' });
     expect(out.released).toBe(true);
@@ -425,8 +414,7 @@ describe('stampCeremonyPin — quién puede escribir esa prueba, y sobre qué', 
 
   /**
    * Best-effort a propósito: una escritura que no entra deja la puerta de
-   * liberación tan cerrada como estaba antes de it25 §4 (el asiento se suelta
-   * solo, por su ventana). Lo que NUNCA hace es tirar la ceremonia entera.
+   * liberación tan cerrada como estaba antes. Lo que NUNCA hace es tirar la ceremonia entera.
    */
   it('una BD caída no lanza: informa, y el asiento se seguirá soltando solo', async () => {
     mockDb.down = true;
@@ -436,7 +424,7 @@ describe('stampCeremonyPin — quién puede escribir esa prueba, y sobre qué', 
 
 
 /**
- * it. 29 (§3) — LO QUE SE DICE, DICHO EN INDICATIVO SOLO CUANDO SE COMPROBÓ.
+ * LO QUE SE DICE, DICHO EN INDICATIVO SOLO CUANDO SE COMPROBÓ.
  * `seatReleaseAnswer` es la única gramática del campo `seat` en las dos puertas
  * (la ceremonia y la retirada de una propuesta).
  */

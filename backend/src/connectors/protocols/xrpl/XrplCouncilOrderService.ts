@@ -126,7 +126,7 @@ const VAULT_READ_ABI = [
  * FDC round runs and is paid for (~20 FLR) — and only then does the vault revert
  * with NotCouncil(). That is the unearned-success shape exactly: a ceremony that
  * looks right until the last inch. Today the deployment is correct (verified
- * on-chain 2026-07-28); this makes sure nobody finds out the hard way if it
+ * on-chain); this makes sure nobody finds out the hard way if it
  * stops being.
  */
 export function assertCouncilBinding(vaultCouncil: string, bridge: string): void {
@@ -333,7 +333,7 @@ export function encodeCouncilOrder(
   };
 }
 
-// ── The service fee (FIXED — "never charity", roadmap Ola 2) ─────────────────
+// ── The service fee ─────────────────
 //
 // A council order is a Payment; XRPL forbids a 0-value one, so it carries at
 // least 1 drop to the anchor. When the executor-as-service fee is ON, that
@@ -358,9 +358,7 @@ export interface OrderFee {
 /**
  * Resolve the fixed order fee from env (pure — unit-tested; no RPC, no oracle).
  *
- * Modelo del fundador (2026-07-28): el executor es un servicio del producto y se
- * cobra al MISMO precio que el executor de Flare (el mint) — fijo, 0,2 XRP (la
- * `executorFeeUBA` de FAssets). Se pone en `LEGACY_ORDER_FEE_XRP=0.2`. Fijo, no
+ * Se pone en `LEGACY_ORDER_FEE_XRP=0.2`. Fijo, no
  * dinámico: "si el del executor de Flare es siempre fijo, igual".
  */
 export function resolveOrderFee(): OrderFee {
@@ -387,7 +385,7 @@ export function buildOrderPaymentTx(
   memoHex: string,
   amountDrops = '1',
   /**
-   * Los IDs de credencial XLS-70 del firmante (27-ago). Cuando el ancla es una
+   * Los IDs de credencial XLS-70 del firmante. Cuando el ancla es una
    * PUERTA (DepositAuth + AuthorizeCredentials), el pago solo entra si los lleva
    * y el ledger los da por válidos. Vacío = sin campo: un ancla sin puerta los
    * ignora igual.

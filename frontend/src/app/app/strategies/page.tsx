@@ -1,22 +1,10 @@
 'use client';
 
 /**
- * Estrategias — the home of every strategy (UI reorg 2026-07-12).
+ * Estrategias — the home of every strategy (UI reorg).
  *
  * The hub is TWO full-width horizontal shelves, sized to fill the viewport
  * without scrolling:
- *
- *   · Funcionando · Online  → everything working right now: the live on-chain
- *     footprint (moved here from Earn), open positions with their MoneyFlows,
- *     and active savings (locked escrows + enabled savings rules).
- *   · Guardadas · Offline   → the registry of every strategy NOT running:
- *     agent-created and manual drafts (editable, re-runnable, with the words
- *     that created them) plus paused savings rules (resumable here).
- *
- * Each shelf opens INTO its card (view switch, same gesture as Earn's doors).
- * Creating strategies lives in Earn — this page lists, inspects, edits and
- * re-activates. Running a draft deep-links back to Earn's prepare→review→sign
- * modal: Astryum never signs, never executes.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -202,19 +190,6 @@ function Reading({ label, children }: { label: string; children: React.ReactNode
 /**
  * ProtectionsHealth — LA superficie honesta de las protecciones de esta
  * pantalla, y la razón por la que esconder MoneyFlows no deja un agujero.
- *
- * El apartado de MoneyFlows era donde una regla que revienta en CADA disparo
- * lo decía (G4, auditoría 2026-08-17). Al esconderlo —y con el panel embebido
- * del tablero apagado aquí desde el split de 2026-07-20— esta página se
- * quedaba SIN ningún sitio donde una protección rota se delatara… justo
- * mientras estrena un botón para crear protecciones. Crear una vigilancia y no
- * tener dónde ver que no funciona es peor que no ofrecerla.
- *
- * Así que la salud de las reglas sube AQUÍ, pegada al health factor que las
- * justifica, en dos líneas en vez de un catálogo: cuántas vigilan, y cuáles
- * fallaron su último disparo con su porqué. Reparte por el MISMO reductor
- * compartido (rulePillState) que las otras superficies — «no lo sé» jamás se
- * pinta como «va bien».
  */
 function ProtectionsHealth() {
   const { t } = useT();
@@ -299,10 +274,7 @@ function ProtectionsHealth() {
 }
 
 /**
- * ProtectDialog — la puerta de PROTEGER, abierta desde el health factor
- * (fundador 2026-08-24: «añade un botón donde el health factor, que tenga
- * cierta gracia, que sirva para proteger una posición… auto payment functions
- * y demás estrategias de protección que ya están creadas»).
+ * ProtectDialog — la puerta de PROTEGER, abierta desde el health factor.
  *
  * No inventa ninguna protección: monta la MISMA tarjeta que ya crean todos los
  * caminos (ProtectRuleCard — escalera de HF, repago por % de la deuda VIVA o
@@ -512,7 +484,7 @@ function HealthStrip() {
   const buffer = Math.min(100, Math.round(dropPct));
 
   return (
-    /* La tarjeta LLEGA cuando el dato sustituye al esqueleto (2026-08-25). */
+    /* La tarjeta LLEGA cuando el dato sustituye al esqueleto. */
     <Arrive>
     <Card spotlight padded={false} className="relative overflow-hidden">
       {protectOpen && (
@@ -524,7 +496,7 @@ function HealthStrip() {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center gap-6 p-5 md:p-6">
         <div className="flex-1 min-w-0">
-          {/* EL VEREDICTO, a tamaño de veredicto (2026-08-24). Era una frase de
+          {/* EL VEREDICTO, a tamaño de veredicto. Era una frase de
               14px con un icono al lado; ahora la palabra que resume tu riesgo
               se lee primero y el resto la explica. El escudo LATE mientras haya
               deuda viva: hay algo que vigilar y la pantalla lo dice sin
@@ -578,8 +550,8 @@ function HealthStrip() {
             )}
           </div>
 
-          {/* LA PUERTA DE PROTEGER, pegada a la cifra que la justifica
-              (fundador 2026-08-24). Sale solo cuando hay deuda que vigilar: sin
+          {/* LA PUERTA DE PROTEGER, pegada a la cifra que la justifica.
+              Sale solo cuando hay deuda que vigilar: sin
               posición abierta no protege nada, y una puerta que no lleva a
               ningún sitio es peor que ninguna puerta. Lo que abre es la MISMA
               tarjeta que crea el resto de la app — escalera de HF y repago por
@@ -943,7 +915,7 @@ function PausedSavings({
 /* PAGE                                                                */
 /* ------------------------------------------------------------------ */
 
-// TWO switches, and only ONE of them is on screen (both 2026-08-24, from two
+// TWO switches, and only ONE of them is on screen (both, from two
 // different edits that landed the same day — read them together):
 //   · CapitalTab (outer, VISIBLE) — WHAT KIND of thing: run by you, or run by
 //     a manager. Lives in lib/nav/capitalSection.ts because the nav reads it
@@ -977,13 +949,12 @@ export default function StrategiesPage({
   // is inert since the section got its own nav row, but the prop is preserved
   // — nothing built gets deleted), so it stays pinned to the strategies side.
   const [tab, setTab] = useState<CapitalTab>('strategies');
-  // ABIERTA PARA TODOS (fundador 2026-08-25). Estuvo un dia tras isAdmin, y
+  // ABIERTA PARA TODOS. Estuvo un dia tras isAdmin, y
   // dejo de tener sentido en cuanto la puerta de Earn se publico: un usuario
   // podia leer como funciona una boveda con gestor y no tener donde ver la
   // suya. Embebida dentro de Earn no hay barra (ese embed esta inerte desde
   // que la seccion recupero su fila del menu, pero la prop se conserva).
-  // Managed vaults ya NO es una pestaña aparte (fundador 8-sep: «solo hay una
-  // sección strategies»): sus posiciones viven DENTRO de Strategies, como un
+  // Managed vaults ya NO es una pestaña aparte: sus posiciones viven DENTRO de Strategies, como un
   // apartado más. Sin conmutador → siempre la sección de strategies.
   const showTabs = false;
   const activeTab: CapitalTab = 'strategies';
@@ -1010,8 +981,7 @@ export default function StrategiesPage({
   const activeRules = rules.filter((r) => r.enabled);
   const pausedRules = rules.filter((r) => !r.enabled);
 
-  // A COUNCIL account (founder 2026-08-01: "My strategies debe ser igual que
-  // Personal"): the SAME page renders, but capital moves by council ORDER
+  // A COUNCIL account: the SAME page renders, but capital moves by council ORDER
   // through the cage — so the cage's strategy cards open the governed composer
   // (quorum signs, FDC proves, the vault executes) instead of the personal
   // withdraw rails, and MoneyFlows swap for the governed surface.
@@ -1030,7 +1000,7 @@ export default function StrategiesPage({
   // Withdraw works DIRECTLY from the hub: the modal opens here, over the
   // shelves. XRPL-read strategies resolve their Smart Account first.
   const { wallets: myWallets } = useMyWallets();
-  // LA regla canónica (2026-08-22) — ver WorkingStrategies: nunca la
+  // LA regla canónica — ver WorkingStrategies: nunca la
   // dirección como nombre de una wallet propia.
   const walletNameOf = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);
   const aliasFor = useCallback(
@@ -1198,7 +1168,7 @@ export default function StrategiesPage({
   // → deep-link into Earn. One handle for the Strategy section + draft cards.
   const runStrategy: LaunchStrategy = onLaunch ?? goEarn;
 
-  // ── The two shelves became one segmented toggle (founder 2026-07-20): the
+  // ── The two shelves became one segmented toggle: the
   //    section switch renders the selected view inline instead of two big
   //    cards you click into. The claimable banner and the hub modals stay. ──
   {
@@ -1215,7 +1185,7 @@ export default function StrategiesPage({
 
     return (
       <div className="flex flex-col">
-        {/* Embedded inside Earn (founder 2026-07-18): Earn's own header + back
+        {/* Embedded inside Earn: Earn's own header + back
             row give the context, so the page header would be a double title. */}
         {!embedded && (
           <div className="flex-none">
@@ -1286,12 +1256,10 @@ export default function StrategiesPage({
             </div>
           </div>
         )}
-        {/* EL CONMUTADOR Funcionando/Guardadas SE ESCONDE (fundador 2026-08-24:
-            «quita moneyflows… entonces tienes que esconder también el toggle de
-            running saved»). Sin el apartado de MoneyFlows, el estante Guardadas
+        {/* EL CONMUTADOR Funcionando/Guardadas SE ESCONDE. Sin el apartado de MoneyFlows, el estante Guardadas
             se quedaba con los borradores y las reglas en pausa — el inventario
             de lo que NO está pasando — y esta pantalla trata de lo que SÍ.
-
+        { *
             El estante offline sigue montado y entero más abajo (`view` nunca
             sale de 'online'): esconder no es borrar, y el día que vuelva basta
             con devolver estos botones. */}
@@ -1312,7 +1280,7 @@ export default function StrategiesPage({
 
               {/* Apartado 1 — DeFi positions (protocols + capital). The embedded
                   MoneyFlows are hidden here: automations live in the Strategy
-                  apartado below (My strategies split, founder 2026-07-20). */}
+                  apartado below (My strategies split, founder). */}
               <RevealItem>
                 <DefiPositionsBoard autoAction={autoAction} showStrategyPanel={false} embedded />
               </RevealItem>
@@ -1349,16 +1317,15 @@ export default function StrategiesPage({
               )}
 
               {/* Managed vaults — el capital que un TERCERO gestiona dentro de
-                  los límites que firmaste (Producto A). Va DENTRO de Strategies
-                  (fundador 8-sep), como un apartado más, no en pestaña aparte.
+                  los límites que firmaste (Producto A). Va DENTRO de Strategies,
+                  como un apartado más, no en pestaña aparte.
                   Solo aparece si tienes shares en algún pote — y las busca en
                   TODAS tus wallets y en la Personal Account de cada XRPL. */}
               <RevealItem>
                 <ManagedShelf />
               </RevealItem>
 
-              {/* APARTADO DE MONEYFLOWS ESCONDIDO (fundador 2026-08-24: «vamos a
-                  quitar la función de moneyflows, es decir escóndela»). El
+              {/* APARTADO DE MONEYFLOWS ESCONDIDO. El
                   motor sigue intacto y las reglas siguen corriendo: lo que se
                   retira es su escaparate en esta pantalla. La protección —que
                   ES una MoneyFlow— entra ahora por su propia puerta, arriba,
@@ -1366,8 +1333,7 @@ export default function StrategiesPage({
                   necesita. StrategySection y GovernedMoneyFlows quedan
                   montados y sin tocar para el día que vuelva. */}
 
-              {/* PAGO RECURRENTE ESCONDIDO (fundador 2026-08-24: «quiero que
-                  escondas el recurring payment»). Mismo trato: el carril vive,
+              {/* PAGO RECURRENTE ESCONDIDO. Mismo trato: el carril vive,
                   la tarjeta no se enseña. ScheduledPaymentCard sigue entera en
                   components/moneyflows. */}
 
@@ -1387,7 +1353,7 @@ export default function StrategiesPage({
 
           {view === 'offline' && (
             <>
-              {/* Offline has only the Strategy apartado (founder 2026-07-20):
+              {/* Offline has only the Strategy apartado:
                   paused MoneyFlows + saved drafts as cards, plus the ＋ card.
                   A council has no personal drafts — its rules (active AND
                   paused) live in the governed surface under Online. */}
@@ -1432,9 +1398,9 @@ export default function StrategiesPage({
           />
         )}
         {/* La retirada Kinetic abre por el HOST GLOBAL (operationStore) —
-            así sobrevive a la navegación con el panel anclado (2026-08-26). */}
-        {/* La orden de consejo abre por el HOST GLOBAL (operationStore,
-            2026-08-26): ancla, minimiza y sobrevive a la navegación como el
+            así sobrevive a la navegación con el panel anclado. */}
+        {/* La orden de consejo abre por el HOST GLOBAL (operationStore,):
+            ancla, minimiza y sobrevive a la navegación como el
             resto de operaciones. */}
 
         {hubModal?.kind === 'norail' && (

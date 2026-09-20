@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * OperationSurface — la operación en curso, en VENTANA o ANCLADA (fundador
- * 2026-08-25: «o sigues el proceso a ciegas o... anclarla a la derecha»).
+ * OperationSurface — la operación en curso, en VENTANA o ANCLADA.
  *
  * Flotante: el modal de siempre (patrón oro — overlay que scrollea, my-auto).
  * Anclada: un panel fijo al borde derecho; el dashboard entero se desliza a
@@ -26,9 +25,7 @@ import { useOperationStore } from '../../stores/operationStore';
 import { useT } from '../../i18n/LanguageProvider';
 
 /**
- * OpWindow — lo que el HOST le cuenta a cada superficie montada (multi-op,
- * fundador 2026-08-27: hasta TRES a la vez, solo una desplegada y las demás
- * plegadas en píldora): si es la activa, qué hueco de la fila de píldoras
+ * OpWindow — lo que el HOST le cuenta a cada superficie montada: si es la activa, qué hueco de la fila de píldoras
  * ocupa, y cómo restaurarse. Sin contexto la superficie cae al comportamiento
  * de operación única de siempre (el flag global del dockStore).
  */
@@ -47,14 +44,9 @@ const PILL_W = 224;
 const PILL_GAP = 10;
 
 /**
- * CloseOperationButton — el cierre en DOS PASOS, nada intrusivo (fundador
- * 2026-08-27: «un mensaje de confirmación... si el usuario quiere cerrarla
- * del todo simplemente tiene que hacer clic al lado de la cruz donde
- * aparecerá el disclaimer»). Primer clic en la X: el aviso se despliega A SU
+ * CloseOperationButton — el cierre en DOS PASOS, nada intrusivo. Primer clic en la X: el aviso se despliega A SU
  * LADO y la X se ARMA (roja, con su halo). Segundo clic — en el aviso O EN
- * LA MISMA X (fundador 2026-09-12: «no me gusta que cliques una vez y tengas
- * que mover el ratón a la izquierda… tienes que poder cerrar dando dos veces
- * en la cruz») — cierre de verdad. Se desarma sola a los 4 s, con Escape, o
+ * LA MISMA X — cierre de verdad. Se desarma sola a los 4 s, con Escape, o
  * al sacar el ratón del conjunto — jamás un diálogo encima de la operación.
  */
 export function CloseOperationButton({
@@ -65,8 +57,7 @@ export function CloseOperationButton({
   onClose: () => void;
   /** Versión píldora: cruz pequeña con borde propio. */
   compact?: boolean;
-  /** Cerrar A LA PRIMERA, sin el aviso (fundador 2026-08-29: el chat del
-   *  agente «se tiene que poder cerrar de una») — la confirmación protege
+  /** Cerrar A LA PRIMERA, sin el aviso — la confirmación protege
    *  operaciones con firma a medias; una conversación no lo es. */
   immediate?: boolean;
 }) {
@@ -119,10 +110,7 @@ export function CloseOperationButton({
 }
 
 /**
- * EL TAMAÑO DE LA VENTANA FLOTANTE (fundador 2026-09-15: «se abre en pequeñito…
- * el popup no cambia demasiado de tamaño, pero sí el fondo… siempre anclo la
- * configuración a la derecha y no es la solución, el popup bien hecho es lo
- * mejor»). Antes TODAS las operaciones flotaban en la misma caja de 42 rem de
+ * EL TAMAÑO DE LA VENTANA FLOTANTE. Antes TODAS las operaciones flotaban en la misma caja de 42 rem de
  * ancho y 44 rem de alto: bien para un vault o una orden del consejo, pero
  * una ceremonia de seis estaciones con su raíl quedaba encogida en mitad de
  * una pantalla grande, con el fondo oscurecido alrededor.
@@ -184,7 +172,7 @@ export function OperationSurface({
   const setWidth = useDockStore((st) => st.setWidth);
   const setResizing = useDockStore((st) => st.setResizing);
 
-  // El asa (fundador 2026-08-26): arrastrar el canto izquierdo redimensiona.
+  // El asa: arrastrar el canto izquierdo redimensiona.
   // Listeners en window para no perder el puntero al salirse del asa; el
   // ancho se acota en el store y se recuerda entre sesiones.
   const startResize = (e: React.PointerEvent) => {
@@ -199,8 +187,7 @@ export function OperationSurface({
     window.addEventListener('pointerup', onUp, { once: true });
   };
 
-  // ── UNA sola estructura, tres trajes (fundador 2026-08-29: al pasar de
-  // anclado a ventana «se vuelve a generar todo el texto»). Las tres ramas de
+  // ── UNA sola estructura, tres trajes. Las tres ramas de
   // antes desmontaban a los hijos en cada cambio de modo — plegar, anclar o
   // soltar REINICIABA el estado interior de la operación (el chat del agente
   // re-enviaba su seed; una ceremonia perdía su scroll). Ahora la cadena
@@ -215,7 +202,7 @@ export function OperationSurface({
     <ModalPortal lockScroll={floating}>
       {minimized && (
         <motion.div
-          // EL GENIO al minimizar (fundador 2026-08-27): la píldora no aparece
+          // EL GENIO al minimizar: la píldora no aparece
           // — la ventana SE PLIEGA hacia el borde. Fila de píldoras multi-op:
           // cada una en su hueco fijo; `layout` recoloca a las vecinas.
           {...genieMotion(reduce, 'bottom-right')}
@@ -277,7 +264,7 @@ export function OperationSurface({
           {/* Plegada, los PORTALES de los hijos se pliegan con ella — el
               display:none de arriba solo alcanza al DOM en el árbol; un
               sub-modal portalado a <body> seguía a pantalla completa
-              (revisión 2026-08-29, ver PortalSuspenseContext). */}
+              (revisión, ver PortalSuspenseContext). */}
           <PortalSuspenseContext.Provider value={minimized}>{children}</PortalSuspenseContext.Provider>
         </div>
       </motion.div>

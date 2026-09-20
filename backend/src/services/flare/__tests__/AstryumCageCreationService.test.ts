@@ -87,7 +87,7 @@ describe('validateCageParams — los parámetros eternos, comprobados antes', ()
     expect(() => validateCageParams(params())).not.toThrow();
   });
 
-  it('acepta la lista vacía: la jaula sigue al registro de Astryum (27-ago)', () => {
+  it('Acepta la lista vacía: la jaula sigue al registro de Astryum', () => {
     const p = params();
     p.allowedTargets = [];
     expect(() => validateCageParams(p)).not.toThrow();

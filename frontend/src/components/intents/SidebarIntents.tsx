@@ -4,27 +4,6 @@
  * SidebarIntentsCard — the always-on "waiting for your signature" surface,
  * pinned to the bottom of the app sidebar (replaces the old /app/intents nav
  * row; the page itself is kept and still reachable by URL).
- *
- * Empty almost always → a QUIET ZONE MARKER, not a card (founder 2026-09-11:
- * «no quiero que te lo avise cuando no hay nada pendiente… más que fuera un
- * espacio de notificaciones»): one muted line — bell + «Notifications» — that
- * teaches WHERE things will appear, and nothing else. No title «To sign», no
- * verdict sentence, no bordered box. The moment something needs the user, the
- * card POPS into that same spot with its amber border, its count and a
- * breathing dot next to the title — the indicator that says «here, now». And
- * the in-flight operations (SidebarSettlements, right below) share the zone:
- * while one is settling, ITS card occupies the space and the marker steps
- * aside, so the user learns one place for everything that is waiting or
- * working. The moment an automation leaves a prepared intent, it shows up here
- * (which strategy/action + protocol) without the user having to navigate
- * anywhere. Pressing a row opens a modal
- * that EXPLAINS the intent and lets the user sign it in their OWN wallet — the
- * same WaitingCard + sign path the full page uses. Astryum never signs.
- *
- * Today only EVM-addressed intents reach this card (the backend intent list is
- * EVM-keyed — see useIntentWatcher / backend/src/routes/intents.ts), so the
- * signing modality here is the wallet request. When XRPL/Xaman automation
- * intents land, this is where a Xaman QR would slot in (see modal below).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -68,8 +47,8 @@ const MAX_ROWS = 3;
 /**
  * The council's live proposals, for the sidebar tray.
  *
- * The card was TITLED "Proposals" in Legacy mode and showed none of them
- * (founder 2026-08-03): it listed automation intents and vault claims, so a
+ * The card was TITLED "Proposals" in Legacy mode and showed none of them:
+ * it listed automation intents and vault claims, so a
  * decision waiting for three family signatures was invisible unless someone
  * opened the Legacy tab. Read-only, polled gently — the tray never signs.
  */
@@ -77,14 +56,14 @@ interface CouncilUnreadableNotice {
   /** The sentence to put in front of the councillor. */
   text: string;
   /**
-   * it. 25 (1): TRUE when the listing DID arrive and only some rows inside it
+   * TRUE when the listing DID arrive and only some rows inside it
    * could not be read. The whole-read failure gets the «could not be read»
    * headline; a partial one already carries its own count, and prefixing it
    * would claim the whole tray failed when it did not.
    */
   partial: boolean;
   /**
-   * it. 34 (agente D): el rechazo ENTERO cuando falló la lectura completa —
+   * El rechazo ENTERO cuando falló la lectura completa —
    * `headline`, `ways[]` y la puerta que `serverRefusalText` tiraba. El 403
    * NOT_A_COUNCIL_MEMBER de esta bandeja dice «register the wallet that holds
    * your seat» y no había nada que pulsar. Ausente en la lectura parcial, que
@@ -94,9 +73,9 @@ interface CouncilUnreadableNotice {
 }
 
 /**
- * productizer it. 25 (1) — QUÉ DICE LA BANDEJA CUANDO LA LECTURA LLEGA A MEDIAS.
+ * QUÉ DICE LA BANDEJA CUANDO LA LECTURA LLEGA A MEDIAS.
  *
- * El `then` del éxito hacía `setUnreadable(null)` a secas. it. 23 hizo que la fila
+ * El `then` del éxito hacía `setUnreadable(null)` a secas. Hizo que la fila
  * que el servidor no pudo decidir viajase NOMBRADA en `unreadable[]` DENTRO del 200,
  * con su código y su frase — así que un 200 parcial no solo tiraba esas filas:
  * apagaba la advertencia que hubiese puesta. La bandeja volvía a decir «nada te
@@ -136,7 +115,7 @@ function useCouncilProposals(account: string | null): {
         .then((r) => {
           if (!alive) return;
           setRows(r.proposals ?? []);
-          // it. 25 (1): el aviso del 200 MANDA — si la respuesta trae filas que no se
+          // El aviso del 200 MANDA — si la respuesta trae filas que no se
           // pudieron leer, se dicen; solo una lectura COMPLETA apaga la advertencia.
           setUnreadable(councilTrayUnreadable(r, tRef.current));
         })
@@ -181,17 +160,6 @@ function useCouncilProposals(account: string | null): {
  * a proposal counted down its seven days. A read we did not get is not an
  * emptiness we observed: when the council was unreadable the card STAYS, with
  * the server's own sentence in it, and the zone never goes quiet.
- *
- * (2026-09-11: the sentence «Nothing waiting for your signature» itself left
- * the sidebar with the quiet marker — this guard now decides the marker.)
- *
- * it. 31 — the SAME hole, for the claim queue. This guard knew the council
- * could be unreadable and not the withdrawal queue: with `/vault-claims`
- * answering 502 (the it. 29 refusal), the watcher had no rows, this said
- * «quiet», and the money in Firelight's queue — shares already burned —
- * vanished from the tray with its Claim button, one floor above where it. 29
- * fixed it. A queue we could not read is not a queue we saw empty.
- * Pure and primitive-only on purpose: this is the piece a test can hold.
  */
 function mayClaimNothingWaiting(hasAnything: boolean, councilUnreadable: boolean, claimsUnreadable = false): boolean {
   return !hasAnything && !councilUnreadable && !claimsUnreadable;
@@ -235,7 +203,7 @@ export function SidebarIntentsCard({
   claims?: VaultClaimEntry[];
   /** Re-poll the claim queue (after a claim signature). */
   refreshClaims?: () => void;
-  /** it. 31 — owners whose withdrawal queue the watcher could not (fully) read
+  /** Owners whose withdrawal queue the watcher could not (fully) read
    *  on its last tick. Non-empty ⇒ the tray never goes quiet, and says why. */
   claimsUnreadable?: VaultClaimsUnreadable[];
   /** Tickets de salida pendientes en managed vaults (requestRedeem) — «pending to withdraw». */
@@ -358,13 +326,13 @@ export function SidebarIntentsCard({
             because those reads DID succeed. */}
         {councilUnreadable && (
           <div className="mt-2 text-[11px] leading-snug text-tone-warning/90" role="alert">
-            {/* it. 25 (1): la cabecera «no se pudieron leer» solo cuando falló la
+            {/* La cabecera «no se pudieron leer» solo cuando falló la
                 lectura ENTERA. Un 200 con filas ilegibles ya trae su propia cuenta
                 («2 of this council’s proposals could not be read…»), y anteponerle
                 esta frase afirmaría que falló toda la bandeja, que es falso. */}
             {councilUnreadable.partial ? null : <p>{t('The council’s proposals could not be read.')}</p>}
-            {/* it. 34 (agente D): la lectura entera rechazada se pinta con el
-                cuerpo completo — frase, salidas y puerta —, no con la frase sola. */}
+            {/* La lectura entera rechazada se pinta con el
+                cuerpo completo — frase, salidas y puerta, no con la frase sola. */}
             {councilUnreadable.refusal ? (
               <ServerRefusalBody refusal={councilUnreadable.refusal} t={t} />
             ) : (
@@ -373,7 +341,7 @@ export function SidebarIntentsCard({
           </div>
         )}
 
-        {/* it. 31 — the withdrawal queue that could not be read is SAID here,
+        {/* The withdrawal queue that could not be read is SAID here,
             in the same slot: the rows below (if any) are the last good read,
             and «nothing waiting» is never printed over this. The server's own
             code stays out of the sentence; its detail joins only in English. */}
@@ -478,7 +446,7 @@ export function SidebarIntentsCard({
             {/* Money in flight — vault exits queued in a withdrawal period
                 (Firelight ~24h). Nothing to do until the period ends; then the
                 row turns into the one-tap Claim. The info lives HERE directly
-                (founder 2026-07-19) — no navigation needed. */}
+                — no navigation needed. */}
             {claims.length > 0 && (
               <div>
                 <div className="text-[10px] uppercase tracking-[0.1em] text-ink/35 px-1 mb-1">

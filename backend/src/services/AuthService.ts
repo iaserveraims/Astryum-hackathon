@@ -3,15 +3,6 @@
  *
  * Issues JWT tokens with the same payload shape as SiweAuth so
  * requireSiweAuth middleware works for both auth methods without changes.
- *
- * Password hashing: Node.js built-in crypto.scrypt (no external deps).
- * Refresh tokens:   64-byte random hex, stored as SHA-256 hash in Session.
- * Reset tokens:     32-byte random hex, stored as SHA-256 hash in User.
- *
- * INVARIANTS:
- *   - DEV (ALLOW_NO_AUTH=1): these endpoints exist but are never called
- *     (dev flow bypasses auth entirely via requireSiweAuth middleware)
- *   - PROD: email+password is the primary login; SIWE stays for wallet binding
  */
 
 import crypto from 'crypto';
@@ -92,7 +83,7 @@ function issueAccessJwt(userId: string, sessionId: string): string {
  * for local development: NODE_ENV must not be production AND
  * AUTH_EXPOSE_RESET_TOKEN must be literally 'true'. The default is never — a
  * staging that forgot NODE_ENV=production used to hand the token of any
- * password account to whoever typed its address (productizer it. 12, 5.4).
+ * password account to whoever typed its address (5.4).
  */
 export function resetTokenExposureEnabled(): boolean {
   return process.env.NODE_ENV !== 'production' && process.env.AUTH_EXPOSE_RESET_TOKEN === 'true';
@@ -135,8 +126,8 @@ export class AuthService {
       firstName?: string;
       lastName?: string;
       demoTermsVersion?: string;
-      /** The sign-up ceremony presented BOTH documents and the user signed
-       *  (2026-09-13): the unified `legal` record is written at birth, so the
+      /** The sign-up ceremony presented BOTH documents and the user signed:
+       * the unified `legal` record is written at birth, so the
        *  first dashboard entry does not ask for the same texts again. */
       legalSigned?: boolean;
     },
@@ -435,68 +426,13 @@ export class AuthService {
   // ── Private ──────────────────────────────────────────────────────────────────
 
   /**
-   * PRE-ACCOUNT HIJACK (productizer it. 8). `register` stores any address with
+   * PRE-ACCOUNT HIJACK. `register` stores any address with
    * no verification loop, so whoever typed a password on this row never proved
    * they own the mailbox. The provider that just attested the address is the
    * first real proof of ownership: its holder TAKES OVER the account instead of
    * inheriting a stranger's password and live sessions — which, since the
    * admin/exemption/Legacy doors key on `emailVerified`, would have handed the
    * squatter those powers the moment the real owner signed in.
-   *
-   * Everything the unverified password holder could come back through is cut,
-   * in one transaction (if revocation cannot be written, nothing is linked):
-   *   · the password (and any pending reset token for it);
-   *   · every session — `verifyToken` and `refresh` both check `isActive`, so
-   *     issued JWTs and refresh tokens die with their row;
-   *   · every login passkey on the row: a logged-in squatter can add one
-   *     (PasskeyService.verifyRegistration), and it would re-open a session.
-   *     They are login credentials only, never on-chain signers; the owner adds
-   *     their own again.
-   *   · the credential epoch (`preferences.security.credentialsEpoch`): a session
-   *     or JWT from before it is refused even if its row escaped the sweep;
-   *     `preferences.security.takeoverAt` marks the handover (same instant) for
-   *     consumers that must not trust what the previous holder attached — the
-   *     demo exchange's wallet proof and provenAddressesOf honour it.
-   *   · what the previous holder attached that could PASS for the owner's:
-   *     wallet bindings are deactivated on the row (re-binding with a fresh
-   *     signature re-activates and re-dates them; they stay on the account,
-   *     dated before `takeoverAt`, and every reader that matters honours that
-   *     mark). Everything else the previous holder left is REASSIGNED to a
-   *     quarantine account — see below.
-   *
-   * NOTHING IS DELETED (productizer it. 14, 4.3 — REGRESSION of it. 11/13).
-   * Deleting the `wallet` rows cascaded into the audit trail itself:
-   * transaction_intents, transaction_executions, transaction_confirmations,
-   * positions, automation_rules and ai_recommendations all hang off
-   * `wallets.id` with ON DELETE CASCADE (v1_baseline/migration.sql:1319-1388).
-   * A founder who registered with a password and only later signed in with
-   * Google is "the squatter" by this rule, and the sweep destroyed their whole
-   * history — irreversible, and a broken audit trail (invariant #11).
-   *
-   * So the residue MOVES instead: the transaction creates a QUARANTINE user (no
-   * password, no oauthSub, no passkeys, `isActive: false`, a synthetic
-   * `…@invalid` address nobody can receive mail at, and a `quarantine` mark in
-   * its preferences naming the account it came from and when) and re-points the
-   * previous holder's rows at it with `updateMany`:
-   *     Wallet (and with it, untouched, every intent / execution / confirmation
-   *     / position / automation rule / recommendation that hangs off it),
-   *     AddressBookEntry, AgentDocument, AgentRule, AgentConversation (+
-   *     messages), UserAnthropicKey, UserMCPConnection, TriggerRule, MoneyFlow
-   *     (+ runs), GovernedAccount, WalletWatchlist (+ positions/interactions),
-   *     Alert, PartnerIntent, TaxEvent, TransactionExecution,
-   *     TransactionConfirmation and StepUpLockConfig.
-   * The owner sees none of it (every read is scoped by userId or by their own
-   * wallets); the previous holder cannot reach it either (the quarantine row has
-   * no credential and no session, and `isActive: false` is refused by every
-   * login path); and an admin can still hand it back. Rows that steer money or
-   * data are also switched OFF as they move (AutomationRule/TriggerRule/
-   * MoneyFlow `enabled`, AgentRule/UserMCPConnection/WalletWatchlist `isActive`)
-   * so no background tick keeps working for a quarantined account.
-   * The one deletion left is the passkey credentials (login keys, no dependants).
-   * Only counts are logged — no address, no email, no content.
-   * The row lock is taken FIRST (user update) so credential issuers that CAS on
-   * the same row (login, refresh, passkey login and registration) and the
-   * preferences writers (identity/userPreferences) serialise against this.
    */
   private async _takeOverSquattedAccount(
     byEmail: { id: string; oauthSub: string | null },
@@ -619,9 +555,9 @@ export class AuthService {
     });
     // The cage acknowledgement is cached in memory per user: a positive cached
     // before the takeover would let the OWNER fund a cage on the intruder's
-    // reading (it. 14, 4.1). Dropped only after the transaction commits, and
+    // reading (4.1). Dropped only after the transaction commits, and
     // with the takeover instant so a read still in flight cannot re-seed the
-    // positive it computed BEFORE the handover (it. 16, 4.4).
+    // positive it computed BEFORE the handover (4.4).
     forgetCageAck(byEmail.id, takeoverAt);
     // Same shape for the step-up lock matrix: the row moved to quarantine above,
     // but this process would keep serving the intruder's matrix for its TTL and

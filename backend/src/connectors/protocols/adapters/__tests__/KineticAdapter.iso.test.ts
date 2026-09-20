@@ -153,7 +153,7 @@ describe('KineticAdapter.buildIsoRepayBehalfBatch (A1 repay, Cable 2)', () => {
   });
 
   // uint(-1) = "toda la deuda VIVA al ejecutar" — el contrato la resuelve él
-  // mismo (CErc20Delegate verificado 2026-07-26). Es el cierre-sin-polvo del
+  // mismo (CErc20Delegate verificado). Es el cierre-sin-polvo del
   // swap-fill: el fill compra hueco+colchón y el pull toma la deuda del bloque
   // de la firma. El approve acompaña FINITO — jamás un approve infinito.
   test('MaxUint256 repay: approve FINITO (deuda+colchón), repay uint(-1)', async () => {

@@ -3,19 +3,8 @@ import { __resetLiveRequests, flareInstructionDeliveryWord } from '../../xaman/l
 import { demoApi } from '../api';
 
 /**
- * productizer it. 17 (contrato con el agente D) — EL 0xFE DE LA MESA TAMBIÉN
+ * EL 0xFE DE LA MESA TAMBIÉN
  * ENTRA EN EL REGISTRO DE PETICIONES VIVAS.
- *
- * El aviso global de firmas en curso solo promete entrega a Flare cuando alguien
- * dijo que el executor está en marcha, y distingue «el servidor dijo que está
- * parado» de «ninguna ruta manda el campo» (it. 16, R3 3.2). Las rutas
- * institucionales alimentaban ese registro; las del exchange no, así que el 0xFE
- * que compone la mesa salía siempre con la frase prudente, sin poder
- * desmentirse. Aquí se prueba la CADENA: la respuesta llega → el registro lo
- * sabe → el banner tiene su palabra.
- *
- * El 0xFE de la mesa viaja ANIDADO (`handoff.xrplPayment`), que es justo lo que
- * la lectura de la capa institucional no habría encontrado.
  */
 
 const MEMO = 'FE' + '01'.repeat(40);

@@ -47,7 +47,7 @@ describe('decideAfterSigned', () => {
   });
 
   /**
-   * CHANGED ON PURPOSE (it.11). The orders are pinned (Sequence +
+   * CHANGED ON PURPOSE. The orders are pinned (Sequence +
    * LastLedgerSequence): tefPAST_SEQ / tefMAX_LEDGER say THIS tx can never
    * validate. As 'refused', «Try again» recreated the same payload with the same
    * tx — an endless loop, while the handed-off sibling may have validated.
@@ -137,7 +137,7 @@ describe('blocksRetreat — may the parent still drop this signature?', () => {
   });
 
   /**
-   * CHANGED ON PURPOSE (13-sep). 'waiting' used to be free: the parent's Cancel
+   * CHANGED ON PURPOSE. 'waiting' used to be free: the parent's Cancel
    * dropped the order while the QR/push was live, the payload was never
    * cancelled at Xaman (signable for its 5 minutes), and preparing again gave a
    * SECOND signable order — sign both, two council orders. A live request is
@@ -185,7 +185,7 @@ describe('nextActiveTxKey — a different txjson while mounted', () => {
   const NEW = JSON.stringify({ TransactionType: 'Payment', Account: 'rA', Amount: '2000000' });
 
   it('adopts the new transaction when nothing blocks', () => {
-    // 'waiting' is NOT here any more (13-sep): adopting a new tx while the old
+    // 'waiting' is NOT here any more: adopting a new tx while the old
     // QR is live left the old payload signable at Xaman beside the new one.
     for (const phase of ['creating', 'cancelled'] as SingleSignPhase[]) {
       expect(nextActiveTxKey({ activeKey: OLD, incomingKey: NEW, blocked: blocksRetreat(phase, false) })).toBe(NEW);

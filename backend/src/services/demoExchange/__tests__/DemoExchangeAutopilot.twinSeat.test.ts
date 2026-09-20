@@ -1,28 +1,16 @@
 /**
- * productizer it. 19 (R1 1.1) — EL GEMELO QUE ENCENDIÓ NUESTRO PROPIO ARREGLO.
+ * EL GEMELO QUE ENCENDIÓ NUESTRO PROPIO ARREGLO.
  *
- * La mesa compone su put-to-work sin `preparedByProven` (el fundador no prueba
- * el omnibus con su sesión: lo firma en Xaman), así que su fila quedaba marcada
- * «de quien no prueba». Desde la it. 17, el autopilot —flujo servidor de una
+ * La mesa compone su put-to-work sin `preparedByProven`, así que su fila quedaba marcada
+ * «de quien no prueba». Desde la, el autopilot —flujo servidor de una
  * cuenta operativa— aparta SOLA cualquier fila así, sin 409 y sin aviso. Con la
  * run declarada, eso significaba: la mesa entrega un Payment a Xaman, el tick
  * siguiente lo desplaza, compone OTRO en el mismo nonce, y los dos son
  * firmables. Pago doble con la llave del omnibus, con el XRP del cliente ya en
  * el Core Vault.
- *
- * Lo que se fija aquí:
- *  1. el tick declara `serverComposed: true`, igual que la mesa — ninguna de las
- *     dos composiciones del servidor puede desplazar a la otra;
- *  2. con la fila de la mesa viva, el tick ESPERA: no firma, no envía, la
- *     petición sigue pendiente con su motivo, y la reserva de la mesa (su memo y
- *     su ventana) queda intacta.
- *
- * La regla del asiento vive en el constructor (`buildDirectMintHandoff`); aquí
- * se refleja como CONTRATO en el mock: una fila compuesta por el servidor es
- * titular del asiento y nadie la aparta automáticamente.
  */
 import type { DemoRun } from '../DemoExchangeStore';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC al ejecutar (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC al ejecutar
 // se prueba en DemoExchangeAutopilot.kycAtFulfil.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 
@@ -82,7 +70,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   spentToday: async () => BigInt(0),
   sweepStaleReservations: async () => [],
   recordSpend: async () => undefined,
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -110,7 +98,7 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => {
     readDirectMintParams: async () => ({ paymentAddress: CORE_VAULT }),
     computeNetMint: (drops: bigint) => ({ supplyUBA: drops - BigInt(1000) }),
     /**
-     * El CONTRATO del asiento que fija la it. 19: quien compone desde un flujo
+     * El CONTRATO del asiento que fija la: quien compone desde un flujo
      * servidor de una cuenta operativa puede apartar el borrador de un extraño,
      * pero JAMÁS una fila que el propio servidor compuso (`serverComposed`) —
      * esa sigue viva en el Xaman de alguien. Si queda titular, 409.
@@ -139,12 +127,12 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => {
   };
 });
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
-// it. 34 — el paso 0 del tick lee el ledger validado (`currentValidatedLedgerIndex`)
+// El paso 0 del tick lee el ledger validado (`currentValidatedLedgerIndex`)
 // en cuanto hay una reserva de mesa `prepared` con LLS — que es exactamente el
 // fixture de esta suite. Sin este mock, cada `tick()` golpeaba un nodo XRPL
-// público (la suite era flaky desde la it. 31: «WS fallback falló: rate limit»).
+// público (la suite era flaky desde la: «WS fallback falló: rate limit»).
 // Un índice ANTERIOR al LLS de la reserva (1090): nada que barrer, la reserva
 // sigue viva, que es lo que esta suite afirma.
 jest.mock('../OmnibusWatcher', () => ({ currentValidatedLedgerIndex: jest.fn(async () => 1050) }));

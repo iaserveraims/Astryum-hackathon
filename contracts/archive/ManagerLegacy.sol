@@ -433,7 +433,7 @@ contract ManagerLegacy {
 
     /// Reenvía la orden y BURBUJEA el revert del pote: la razón real, arriba.
     /// Un «OrderFailed» pelado obligaría a adivinar, que es lo que costó una
-    /// tarde entera con el direct a Kinetic (23-ago).
+    /// tarde entera con el direct a Kinetic.
     function _order(address pote, bytes memory data, bytes32 ref) internal {
         (bool ok, bytes memory ret) = pote.call(data);
         if (!ok) {

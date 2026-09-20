@@ -1,6 +1,6 @@
 /**
- * What a client can still ask the omnibus to pay, given what is in flight
- * (productizer cycle, it. 6), and the run seq that is never handed out twice.
+ * What a client can still ask the omnibus to pay, given what is in flight,
+ * and the run seq that is never handed out twice.
  * Pure — no RPC, no DB.
  */
 import {
@@ -101,7 +101,7 @@ describe('desk payments', () => {
     const proven = new Set(['a']);
     expect(deskPaymentOpen(r, p)).toBe(true); // no view: no ledger closes anything
     expect(deskPaymentOpen(r, p, { validatedLedgerIndex: 1100, payoutsProvenAbsent: proven })).toBe(true); // could still enter ledger 1100
-    // it. 8: past the LLS alone is NOT enough — a page-capped scan can miss a validated payout
+    // Past the LLS alone is NOT enough — a page-capped scan can miss a validated payout
     expect(deskPaymentOpen(r, p, { validatedLedgerIndex: 1101 })).toBe(true);
     expect(deskPaymentOpen(r, p, { validatedLedgerIndex: 1101, payoutsProvenAbsent: new Set(['other']) })).toBe(true);
     expect(deskPaymentOpen(r, p, { validatedLedgerIndex: 1101, payoutsProvenAbsent: proven })).toBe(false);
@@ -164,19 +164,19 @@ describe('run seq high-water (tags of a deleted run are never reused)', () => {
 });
 
 /**
- * it. 27 — LA RESERVA ES ASIMÉTRICA: UNA ENTRADA PENDIENTE NO RETIENE LA SALIDA.
+ * LA RESERVA ES ASIMÉTRICA: UNA ENTRADA PENDIENTE NO RETIENE LA SALIDA.
  *
  * Una petición 'pending' reservaba SIEMPRE. El autopiloto deja pendiente a
  * propósito toda entrada que quizá pueda firmarse más tarde, y hay estados que no
  * se arreglan nunca (`NO_CLIENT_ACCOUNT` mientras el cliente no cree su cuenta
  * Flare), así que esa entrada retenia el saldo de su dueño para siempre.
  *
- * it. 29 — Y LA EXENCIÓN LA CONCEDE UNA PRUEBA, NO EL `status`. Un guardado
+ * Y LA EXENCIÓN LA CONCEDE UNA PRUEBA, NO EL `status`. Un guardado
  * concurrente del run devuelve a 'pending' una petición YA firmada; por eso la
  * exención viaja como `Against.provenUnsigned` (leído del journal). Sin la prueba
  * —o con una entrada que el journal dice firmada— la entrada retiene como antes.
  */
-describe('it. 27/29 — una entrada pendiente PROBADA sin firma no retiene la salida de su dueño', () => {
+describe('/29 — una entrada pendiente PROBADA sin firma no retiene la salida de su dueño', () => {
   const entry = rq('entry', 'put-to-work', 2, 'pending');
   const exit = rq('exit', 'withdraw', 2, 'pending');
   /** El journal la declaró nunca firmada. */
@@ -190,7 +190,7 @@ describe('it. 27/29 — una entrada pendiente PROBADA sin firma no retiene la sa
     expect(requestReserves(r, entry)).toBe(true); // sin dirección: lo estricto de siempre
     expect(requestReserves(r, entry, IN)).toBe(true);
     expect(requestReserves(r, entry, OUT_PROVEN)).toBe(false);
-    // it. 29 — la dirección sola no exime: sin prueba, retiene.
+    // La dirección sola no exime: sin prueba, retiene.
     expect(requestReserves(r, entry, OUT_BLIND)).toBe(true);
     expect(requestReserves(r, entry, { kind: 'withdraw', provenUnsigned: new Set(['someone-else']) })).toBe(true);
     // Y una salida pendiente retiene SIEMPRE: es lo que su dueño ya pidió.
@@ -198,7 +198,7 @@ describe('it. 27/29 — una entrada pendiente PROBADA sin firma no retiene la sa
     expect(requestReserves(r, exit, IN)).toBe(true);
   });
 
-  test('it. 29 — CADENA (a): el journal dice que la entrada está firmada → la salida NO se compone (la entrada retiene)', () => {
+  test('CADENA (a): el journal dice que la entrada está firmada → la salida NO se compone (la entrada retiene)', () => {
     // La fila del run dice 'pending' (un guardado concurrente la devolvió ahí),
     // pero el journal no la exime: `againstFor` no la mete en `provenUnsigned`.
     const r = run(2, { requests: [entry] });
@@ -208,7 +208,7 @@ describe('it. 27/29 — una entrada pendiente PROBADA sin firma no retiene la sa
     expect(paymentsInFlight(r, 'c1', {}, undefined, againstWithSignedEntry).map((p) => p.id)).toEqual(['entry']);
   });
 
-  test('it. 29 — un pending CON hash retiene aunque el journal lo exima: hay bytes firmados', () => {
+  test('Un pending CON hash retiene aunque el journal lo exima: hay bytes firmados', () => {
     const withHash = rq('entry', 'put-to-work', 2, 'pending', { txHash: HASH });
     const r = run(2, { requests: [withHash] });
     expect(requestReserves(r, withHash, OUT_PROVEN)).toBe(true);
@@ -243,12 +243,12 @@ describe('it. 27/29 — una entrada pendiente PROBADA sin firma no retiene la sa
 });
 
 /**
- * it. 29 — LA MISMA ASIMETRÍA EN LA MESA. `POST /runs/:id/desk-payments` abre una
+ * LA MISMA ASIMETRÍA EN LA MESA. `POST /runs/:id/desk-payments` abre una
  * reserva `prepared` de put-to-work SIN memo y sin un solo byte firmado, no caduca
  * por ledger (solo un withdraw cierra ahí) y retenía la salida de su dueño para
  * siempre; su única puerta era un DELETE de admin que contesta 503 sin XRPL.
  */
-describe('it. 29 — una reserva de MESA de la que nunca se compuso nada no retiene la salida de su dueño', () => {
+describe('Una reserva de MESA de la que nunca se compuso nada no retiene la salida de su dueño', () => {
   const OUT: Against = { kind: 'withdraw', provenUnsigned: new Set<string>() };
   const IN: Against = { kind: 'put-to-work' };
   const abandoned = dp('desk', 'put-to-work', 2, 'prepared');

@@ -1,19 +1,11 @@
 /**
- * xamanHues — EL COLOR DEL CUBITO, por cuenta (fundador 2026-09-13: «quiero
- * que los colores de cada cubito de Xaman se vean reflejados en la propia
- * card de la wallet… una opción que se activa por defecto dentro de Gestionar»).
+ * xamanHues — EL COLOR DEL CUBITO, por cuenta.
  *
  * El avatar de Xaman de una cuenta (su hashicon, o la imagen que puso) llega
  * como PNG por nuestro propio dominio (api/xaman/avatar). Al cargar, el chip
  * lo pinta en un canvas de 24×24 y se queda con su color dominante — el tono
  * más presente entre los píxeles saturados. Ese hex es lo que la tarjeta usa
  * como color por defecto (walletColor), hasta que el usuario elija uno a mano.
- *
- * Es una CACHÉ SÍNCRONA a propósito: walletColor() es una función pura que
- * llaman decenas de sitios en el render, y no puede esperar a una imagen. Por
- * eso el mapa vive aquí, se guarda en localStorage (la próxima carga ya lo
- * tiene antes del primer pintado) y avisa a quien se suscriba (useXamanHues)
- * para que las tarjetas se repinten cuando llega un color nuevo.
  */
 
 import { useSyncExternalStore } from 'react';

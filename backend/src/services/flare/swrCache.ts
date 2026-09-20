@@ -1,26 +1,7 @@
 /**
  * swrCache — stale-while-revalidate + fusión de peticiones para LECTURAS de
- * cadena (2026-09-11, tras la lentitud de la mesa del gestor y el «no se pudo
+ * cadena (tras la lentitud de la mesa del gestor y el «no se pudo
  * leer» de Running).
- *
- * POR QUÉ. El catálogo de potes, el estado de cada pote y la jaula de un
- * consejo se releían de Flare ENTEROS en cada petición, y cada pantalla los
- * pedía por duplicado (el shell y la estantería a la vez; la mesa, su consola
- * y su gobernanza, el mismo pote tres veces). Contra el RPC público, que
- * limita por IP, esa ráfaga acababa en 429 y el 429 en un 502 que la UI
- * pintaba como «la cadena no se pudo leer».
- *
- * QUÉ HACE. Mismo patrón que `PortfolioEngine` (staleGet/coalesce), en
- * memoria del proceso:
- *  · FRESCO (≤ freshMs): se sirve sin tocar la cadena.
- *  · PASADO (≤ staleMs): se sirve YA y se recalcula por detrás, una sola vez.
- *  · NADA: se calcula, y todas las peticiones concurrentes esperan la MISMA
- *    promesa (fusión) — una ráfaga de N lectores es UNA lectura de cadena.
- *  · Un fallo de recálculo NO borra lo servible: se reintenta a la siguiente.
- *
- * NO cachea errores: si no hay nada servible y el cálculo falla, el fallo se
- * propaga tal cual (la ruta decide su 502). «No pude leer» sigue sin ser «no
- * tienes».
  */
 
 interface Entry<T> {

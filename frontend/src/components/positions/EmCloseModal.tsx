@@ -3,24 +3,11 @@
 /**
  * EmCloseModal — CANCELAR LA POSICIÓN ENTERA, en una firma.
  *
- * El problema que resuelve (fundador, 29-ago-2026): para cerrar del todo hay
+ * El problema que resuelve: para cerrar del todo hay
  * que devolver MÁS de lo que se pidió prestado, porque la deuda devenga interés
  * (~7,5% APR) y lo prestado en la bóveda rinde menos (~6,2%). Ese hueco obligaba
  * al usuario a traer RLUSD de otra cadena — fricción fea en un producto que
  * vende abstracción.
- *
- * No hace falta traer nada: la posición está sobrecolateralizada por diseño y
- * ese exceso se puede retirar ANTES de repagar. Con él se compra el hueco EXACTO
- * (swap `exactOutput`, sin vuelta) y se cierra. Las siete patas viajan en UN
- * lote que el usuario firma una vez.
- *
- * DOCTRINA DE LA CASA (31-jul): elegir es OBLIGATORIO. Si hay hueco, esta
- * pantalla NO decide por él — enseña el hueco y bloquea la firma hasta que
- * marque una de las dos opciones. Un default silencioso que vende su colateral
- * es exactamente lo que no hacemos.
- *
- * Todo lo que se pinta viene del `/close/prepare` del servidor: aquí no se
- * calcula nada, solo se convierte de base units a humano (regla R0).
  */
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';

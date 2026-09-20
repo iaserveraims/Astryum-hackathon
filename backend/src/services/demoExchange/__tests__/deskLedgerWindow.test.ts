@@ -1,5 +1,5 @@
 /**
- * productizer it. 19 (R1 1.6) — LA VENTANA DE LA MESA Y LA DEL CONSTRUCTOR SON
+ * LA VENTANA DE LA MESA Y LA DEL CONSTRUCTOR SON
  * LA MISMA, Y NO PUEDEN VOLVER A SEPARARSE.
  *
  * La mesa clavaba 100 ledgers (~6,7 min) mientras el payload de Xaman caduca a

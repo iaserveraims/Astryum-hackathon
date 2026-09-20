@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { softDomain } from '../softDomain';
 
 /**
- * El eje de la curva del Portfolio (2026-09-10): ni ceñido al dato (un 0,3 %
+ * El eje de la curva del Portfolio: ni ceñido al dato (un 0,3 %
  * parece un desplome) ni desde cero (todo parece plano). Lo que se vigila es
  * la PROPORCIÓN: un movimiento pequeño ocupa poco alto, uno grande lo llena.
  */

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /register — redirect shim (founder 2026-07-19).
+ * /register — redirect shim.
  *
  * Account creation lives INSIDE /login (the access-pass card, mode "create"):
  * one door, one artifact. This route survives only so old links don't 404.

@@ -1,7 +1,5 @@
 /**
- * chatHistory — el historial del agente, SOLO en este navegador (fundador
- * 2026-08-29: «un historial de chats, que dure no sé 30 días en disco y
- * luego se borren»). localStorage a propósito, jamás el backend: una
+ * chatHistory — el historial del agente, SOLO en este navegador. localStorage a propósito, jamás el backend: una
  * conversación con el agente lleva información financiera de la persona, y
  * guardarla en servidor abriría superficie de protección de datos (aviso,
  * ROPA) que hoy no existe. En su disco, muere sola a los 30 días.
@@ -38,7 +36,7 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_CHATS = 30;
 
 /**
- * Clave POR CUENTA (revisión 2026-08-29: la clave única global mezclaba las
+ * Clave POR CUENTA (revisión: la clave única global mezclaba las
  * conversaciones de dos cuentas del mismo navegador y sobrevivía al logout).
  * El id viene del authStore en el momento de la llamada — import perezoso
  * para no acoplar este lib puro al store en tiempo de módulo.
@@ -80,7 +78,7 @@ function prune(chats: StoredChat[]): StoredChat[] {
 export function loadChats(): StoredChat[] {
   try {
     const key = storageKey();
-    // Migración de la clave global previa (vivió unas horas el 2026-08-29):
+    // Migración de la clave global previa (vivió unas horas):
     // se adopta en el cubo actual una sola vez y se retira.
     const legacy = window.localStorage.getItem(KEY_PREFIX);
     if (legacy && !window.localStorage.getItem(key)) {

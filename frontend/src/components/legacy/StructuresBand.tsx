@@ -2,34 +2,9 @@
 
 /**
  * StructuresBand — the governed fleet on the Summary (E1, plan del mes §4;
- * built 2026-08-15). One row per structure: name + council shape, health,
+ * built). One row per structure: name + council shape, health,
  * "your signature is due", balance, and money in flight — the Summary now
  * answers «one signature, N structures» right under the personal wallets.
- *
- * This band SUPERSEDES, for itself only, the 2026-07-18/08-04 flattening
- * ("Legacy es una wallet más"): the hero organisms above still read the
- * ACTIVE authority; this band lists EVERY structure you govern, from any
- * product mode. The identity accent is the product token (--product-legacy,
- * indigo in both authorities by design) so a structure reads as Legacy even
- * from the Personal dashboard — and the WORD carries every state, color is
- * never the only indicator (CVD guardrail; danger↔volt pair prohibited).
- *
- * StructureFacts is exported on its own: the Home hub's Legacy shelf
- * (preview/home-hub, Builder A) can drop the same fact line into its cards —
- * one vocabulary for the same facts, never a second visual language.
- *
- * DOS PUERTAS, NINGUNA NAVEGA (fundador 2026-09-07: «cuando le das a una
- * estructura te manda a la pantalla de wallets»). Tocar la fila ACOTA la
- * pantalla que la contiene a esa estructura; «Gobernar» abre la ceremonia
- * sobre ella, en el host global de operaciones — el mismo camino que la
- * tarjeta de Wallets desde el 30-ago.
- *
- * Lo anterior —setActive + router.push('/app/wallets')— prometía dejar la
- * estructura «preseleccionada» y no lo hacía: AppShell resetea toda autoridad
- * gobernada en cuanto la ruta no es /app/legacy, y Wallets no lee la
- * autoridad activa (solo entiende ?add=1). Se perdía la página sin ganar
- * nada al llegar. Las puertas de demo/beta viajan con GOBERNAR, que es
- * entrar; acotar es leer capital propio y no pasa por ellas.
  */
 
 import { useCallback } from 'react';
@@ -97,9 +72,9 @@ export function StructureFacts({
           {structure.liveProposals} {t('in progress')}
         </span>
       )}
-      {/* productizer it. 27 (6) — «NO PUDE LEER» NO ES «NO HAY NADA». El recuento se
-          queda `undefined` a propósito cuando la lectura se rechazó o vino a medias
-          (it. 25), y esta banda solo pintaba con un número positivo: un Legacy con
+      {/* «NO PUDE LEER» NO ES «NO HAY NADA». El recuento se
+          queda `undefined` a propósito cuando la lectura se rechazó o vino a medias,
+          y esta banda solo pintaba con un número positivo: un Legacy con
           decisiones en vuelo que nadie consiguió leer se veía idéntico a uno sin
           nada. La marca la pone el hook y solo después de INTENTARLO, así que esto
           jamás aparece durante la primera lectura. */}
@@ -136,7 +111,7 @@ function StructureRow({
   onGovern: (g: GovernedAuthority) => void;
 }) {
   const { t } = useT();
-  // El nombre JAMÁS es la dirección (fundador 2026-08-22); sin bautizar se
+  // El nombre JAMÁS es la dirección; sin bautizar se
   // llama 'Legacy' a secas — el índigo y el Landmark dicen qué es.
   const name = structure.label || getLegacyNickname(structure.address) || t('Legacy');
   return (
@@ -184,7 +159,7 @@ function StructureRow({
               {t('To sign')} · {structure.pendingSignatures}
             </Pill>
           )}
-          {/* it. 27 (6): el mismo silencio, sobre la firma que a esta persona le
+          {/* El mismo silencio, sobre la firma que a esta persona le
               toca. Una píldora que solo sale con un número positivo convierte «no
               lo pude leer» en «no te toca firmar nada», que es la reducción de
               la que nadie se entera hasta que la propuesta caduca. */}
@@ -226,8 +201,7 @@ export default function StructuresBand({
   const { t } = useT();
   const openGovernOp = useOperationStore((st) => st.openGovernOp);
 
-  // ── LA FILA YA NO TELETRANSPORTA (fundador 2026-09-07: «cuando le das a
-  // una estructura te manda a la pantalla de wallets»). Tocar una estructura
+  // ── LA FILA YA NO TELETRANSPORTA. Tocar una estructura
   // ACOTA el Portfolio a ella y te quedas leyendo lo que viniste a leer.
   //
   // Lo que había —setActive + router.push('/app/wallets')— prometía dejarla
@@ -245,7 +219,7 @@ export default function StructuresBand({
   );
 
   // Gobernar abre la ceremonia SOBRE esta pantalla — el mismo host global y
-  // la misma operación que la tarjeta de Wallets desde el 30-ago; aquí sí
+  // la misma operación que la tarjeta de Wallets; aquí sí
   // aplican las puertas de demo/beta, que viven dentro de esa puerta.
   const governStructure = useCallback(
     (g: GovernedAuthority) => {

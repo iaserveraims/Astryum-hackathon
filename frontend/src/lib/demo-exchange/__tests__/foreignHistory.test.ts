@@ -1,13 +1,11 @@
 /**
- * 18-sep — LA JAULA DE ESTA VIDA NO ES DE OTRA.
+ * LA JAULA DE ESTA VIDA NO ES DE OTRA.
  *
- * Captura del fundador: raíz fundada ese mismo día, credenciales, DIDSet, jaula
- * y pote hechos en esta misma alta, y la estación 7 decía «esta raíz ya tiene
- * historia de otra vida — vuelve a la estación 1 y elige una cuenta NUEVA». La
+ * La
  * regla era `jaula && !mesa`, y la jaula nace en la estación 4, antes que la
  * mesa (7): toda alta legítima caía en ella entre medias.
  *
- * Y el 12-sep sigue en pie: la raíz del gestor elegida como raíz del exchange
+ * Y sigue en pie: la raíz del gestor elegida como raíz del exchange
  * (jaula de antes, sin mesa y sin nada que la ate a esta alta) se avisa.
  *
  * Más abajo, la estación 7 deja de pintar el código `NOT_AN_ADMIN` y dice el
@@ -22,11 +20,11 @@ import { adminDoorStep, describeRefusal } from '../api';
 const t = (s: string) => s;
 
 describe('isForeignHistory', () => {
-  it('12-sep: una jaula que ya estaba, sin mesa y sin nada que la ate a esta alta, es de otra vida', () => {
+  it('Una jaula que ya estaba, sin mesa y sin nada que la ate a esta alta, es de otra vida', () => {
     expect(isForeignHistory({ cage: true, existing: false, local: {}, appointed: false })).toBe(true);
   });
 
-  it('18-sep: la jaula nacida en esta alta no lo es — esta alta vio la raíz sin jaula', () => {
+  it('La jaula nacida en esta alta no lo es — esta alta vio la raíz sin jaula', () => {
     expect(isForeignHistory({ cage: true, existing: false, local: { virginSeen: true }, appointed: false })).toBe(false);
   });
 

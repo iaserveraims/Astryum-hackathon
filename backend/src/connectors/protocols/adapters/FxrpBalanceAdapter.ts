@@ -16,15 +16,6 @@ import { resolveFxrpToken } from '../flare/FlareDirectMintService';
  * LP positions…), but nothing read the plain ERC-20 sitting in the wallet —
  * so freshly minted or received FXRP was invisible in the portfolio. This
  * adapter is the FXRP twin of NativeBalanceAdapter (raw FLR).
- *
- * Token address: FXRP_TOKEN env when configured, else resolved live from the
- * FlareContractsRegistry via AssetManagerFXRP.fAsset() (invariant #9 — a
- * protocol datum, never hardcoded). Read-only: balanceOf, no actions.
- *
- * The RawPosition is emitted under protocolId 'wallet' (same bucket as native
- * FLR) — it IS a wallet holding, and the engine's external-provider dedupe
- * keys on that bucket, so a CoinStats/DeBank read of the same token can never
- * double-count it.
  */
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
 

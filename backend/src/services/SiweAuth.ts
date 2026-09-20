@@ -218,19 +218,6 @@ export interface IssuedSession {
  * passkey, and email/password logins so the session shape never drifts.
  * `walletAddress` is empty for wallet-less accounts (email / passkey only) — the
  * JWT still carries an `addr` claim (empty string) so middleware stays uniform.
- *
- * `db`: pass the transaction client when the session must be born under a lock
- * (passkey login issues it inside lockCredentialState, so an account takeover
- * that commits first leaves nothing behind — see PasskeyService.verifyAuthentication).
- *
- * THE CLAIM IS NOT LOWERCASED BLINDLY (productizer it. 18, 3.1). This used to be
- * `(walletAddress ?? '').toLowerCase()`, which is right for an EVM address and
- * DESTRUCTIVE for every other form: an XRPL classic address is base58 and its
- * case IS the address, so a lowercased r-address can never match a real one
- * again. That silently broke the one mitigation `provenAddresses` relies on —
- * «whatever else fails, the wallet you signed in with still proves itself» — for
- * every session minted here, and with it the user's last key out when the proof
- * store could not be read. `sessionAddressClaim` lowercases EVM and nothing else.
  */
 export async function issueSessionForUser(
   userId: string,
@@ -339,7 +326,7 @@ export async function verifyToken(jwtToken: string): Promise<VerifiedToken> {
   if (session.expiresAt < new Date()) {
     throw Object.assign(new Error('session_expired'), { code: 'session_expired' });
   }
-  // THE ACCOUNT MUST BE ACTIVE (productizer it. 16, 4.5). Without this there is
+  // THE ACCOUNT MUST BE ACTIVE (4.5). Without this there is
   // no such thing as suspending an account: `isActive:false` is set on the
   // quarantine row a takeover creates, and would be set by any future suspension
   // — and every session already minted would keep working regardless. Disabling

@@ -2,23 +2,10 @@
 
 /**
  * ManagerSetupWizard — «Configurar la cuenta» para managed vaults, EN UN SOLO
- * SITIO (fundador 6-sep): el gemelo del Constitute del Legacy — el RAIL de
+ * SITIO: el gemelo del Constitute del Legacy — el RAIL de
  * estaciones numeradas (check al completarse, DETECTADO del ledger, jamás un
  * estado local), la fracción «n / N», el propósito y el coste honesto de cada
  * estación — con los colores de managed («color no»).
- *
- *   1 · Cuenta        — se ELIGE la XRPL a configurar (dedicada: solo para esto)
- *   2 · Título        — la PRIMERA verificación: KYC + AIFM a esa cuenta
- *   3 · Constitución  — plantilla (opcional) o tu documento; el SHA-256 se
- *                       calcula solo y la cuenta va puesta sola. Se ancla la huella.
- *   4 · Jaula         — estación PROPIA (fundador 6-sep): nace la jaula
- *                       obedeciendo a esta cuenta, con una firma 0xFE.
- *   5 · Primer vault  — el pote, con tus parámetros (el creador de 5 estaciones).
- *
- * DETECCIÓN REAL: cada estación se marca hecha leyendo la verdad — la wallet
- * conectada, el manager-status del ledger, el DID (XLS-40), la factory de
- * jaulas y el catálogo. Puedes salir en cualquier estación y volver: el wizard
- * retoma exactamente donde la realidad está.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -69,7 +56,7 @@ async function sha256Hex(text: string): Promise<string> {
  * Plantilla editable o documento propio pegado; el hash se calcula EN VIVO en
  * el navegador; la cuenta es la que se está configurando. Si el ledger ya
  * tiene el ancla, se enseña — la estación se re-detecta, no se re-pide. */
-// Exportada (11-sep): la mesa del exchange la reutiliza tal cual — una cuenta
+// Exportada: la mesa del exchange la reutiliza tal cual — una cuenta
 // XRPL que ancla / pare es la misma ceremonia sea gestor o exchange.
 export function ConstitutionStation({
   account,
@@ -84,7 +71,7 @@ export function ConstitutionStation({
   anchored: boolean;
   anchoredSha?: string;
   onAnchored: () => void;
-  /** Plantilla del caller (13-sep: el exchange trae la SUYA, con el omnibus
+  /** Plantilla del caller (el exchange trae la SUYA, con el omnibus
    *  como regla de designación). Sin ella, la del gestor de siempre. */
   template?: string;
   /** The DIDSet signature can no longer be dropped: the wizard must not leave
@@ -94,7 +81,7 @@ export function ConstitutionStation({
   settling?: boolean;
 }) {
   const { t } = useT();
-  // La constitución COMPLETA (10-sep): doce artículos con huecos [ … ] que el
+  // La constitución COMPLETA: doce artículos con huecos [ … ] que el
   // gestor rellena; sale en el idioma de la interfaz. Ver constitutionTemplate.
   const template = useMemo(() => templateOverride ?? buildConstitution(t, account), [t, account, templateOverride]);
 
@@ -105,7 +92,7 @@ export function ConstitutionStation({
   const [pending, setPending] = useState<CouncilAnchorPrepared | null>(null);
   // The DIDSet request is live in Xaman (or signed): Cancel steps aside.
   const [pendingBlocked, setPendingBlocked] = useState(false);
-  // …and so does the wizard's station rail (productizer-it6).
+  // …and so does the wizard's station rail.
   useEffect(() => { onBlockedChange?.(pendingBlocked); }, [pendingBlocked, onBlockedChange]);
   useEffect(() => () => onBlockedChange?.(false), [onBlockedChange]);
   const [error, setError] = useState('');
@@ -198,8 +185,7 @@ export function ConstitutionStation({
           </div>
 
           {error ? <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-2.5 text-[11px] text-tone-warning">{error}</p> : null}
-          {/* FIRMADO, EN VALIDACIÓN (fundador 2026-09-15: «que no te deje firmar dos
-              veces el mismo tema»): mientras el ledger valida y el wizard relee,
+          {/* FIRMADO, EN VALIDACIÓN: mientras el ledger valida y el wizard relee,
               el botón desaparece y se dice qué pasa — una firma es una. */}
           {settling ? (
             <p className="mt-3 flex items-center gap-2 rounded-lg border border-tone-success/20 bg-tone-success/[0.05] p-2.5 text-[11px] text-ink/60">
@@ -216,10 +202,10 @@ export function ConstitutionStation({
   );
 }
 
-/* ── Estación 4: la JAULA, con estación propia (fundador 6-sep) ─────────────
+/* ── Estación 4: la JAULA, con estación propia ─────────────
  * Una firma 0xFE hace nacer la jaula obedeciendo a esta cuenta. La estación
  * se marca hecha cuando la FACTORY dice que existe — no cuando se firmó. */
-// Exportada (11-sep): la mesa del exchange la reutiliza tal cual — una cuenta
+// Exportada: la mesa del exchange la reutiliza tal cual — una cuenta
 // XRPL que ancla / pare es la misma ceremonia sea gestor o exchange.
 export function CageBirthStation({
   account,
@@ -246,7 +232,7 @@ export function CageBirthStation({
   settling?: boolean;
 }) {
   const { t } = useT();
-  // PREDETERMINADO (fundador 6-sep): la jaula no bloquea capital — el XRP de
+  // PREDETERMINADO: la jaula no bloquea capital — el XRP de
   // la orden solo paga el cruce (FDC) y el gas de crear el contrato. Nada que
   // teclear: un botón.
   const AMOUNT_XRP = '0.5';
@@ -254,14 +240,13 @@ export function CageBirthStation({
   // The 0xFE birth request is live in Xaman (or signed): Cancel steps aside —
   // dropping it and composing again was a second birth beside a signable one.
   const [birthBlocked, setBirthBlocked] = useState(false);
-  // …and so does the wizard's station rail (productizer-it6).
+  // …and so does the wizard's station rail.
   useEffect(() => { onBlockedChange?.(birthBlocked); }, [birthBlocked, onBlockedChange]);
   useEffect(() => () => onBlockedChange?.(false), [onBlockedChange]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  // FIRMADO EN ESTA SESIÓN (fundador 2026-09-15: «me chirría que te deje firmar
-  // dos veces»): desde que Xaman firma, esta estación es «en vuelo» — sin botón
+  // FIRMADO EN ESTA SESIÓN: desde que Xaman firma, esta estación es «en vuelo» — sin botón
   // de componer — hasta que la factory conozca la jaula o el servidor diga que
   // el nacimiento ya no está en vuelo. El servidor lo recuerda entre recargas
   // (birthInFlight) y su prepare se niega con 409 CAGE_BIRTH_IN_FLIGHT.
@@ -321,8 +306,7 @@ export function CageBirthStation({
             ))}
           </ol>
 
-          {/* Decirlo ANTES de pulsar (fundador 10-sep: pulsó y el backend se negó
-              por la AIFM): si el Título no está completo, la jaula se negará
+          {/* Decirlo ANTES de pulsar: si el Título no está completo, la jaula se negará
               con MANAGER_CREDENTIAL_REQUIRED — mejor la puerta a la estación
               que un botón condenado. */}
           {titleMissing ? (
@@ -343,7 +327,7 @@ export function CageBirthStation({
               <XamanSingleSign
                 txjson={birth.xrplPayment}
                 title={t('Birth the cage — your 0xFE signature')}
-                // The REAL hash, the moment Xaman signs (it.13). This used to send
+                // The REAL hash, the moment Xaman signs. This used to send
                 // '' after validation: the backend answered 400 INVALID_TX_HASH and
                 // never learned the hash, so the seat could expire under a signed 0xFE.
                 onSigned={(hash) => notifyHandoffSigned(birth.memoHex, hash)}
@@ -409,7 +393,7 @@ export function CageBirthStation({
   );
 }
 
-/* ── Estación 6: el PERFIL PÚBLICO (fundador 6-sep) ─────────────────────────
+/* ── Estación 6: el PERFIL PÚBLICO ─────────────────────────
  * Campos auto-declarados + foto; los clientes lo revisan ANTES de depositar.
  * Solo lo escribe el dueño PROBADO de la r-address (el backend lo exige).
  * Debajo, la vista EXACTA que verá el cliente — con las credenciales del
@@ -417,7 +401,7 @@ export function CageBirthStation({
 function ProfileStation({ account, onSaved }: { account: string; onSaved: () => void }) {
   const { t } = useT();
   const [form, setForm] = useState({ displayName: '', entity: '', bio: '', avatarUrl: '', website: '', twitter: '' });
-  // Persona o agente de IA (8-sep): auto-declarado, y siempre visible después.
+  // Persona o agente de IA: auto-declarado, y siempre visible después.
   const [actorKind, setActorKind] = useState<ActorKind>('human');
   // «Usar mi foto de cuenta» (Settings → Perfil): el servidor la copia al
   // perfil público al guardar — la misma cara en la app y en la comunidad.
@@ -609,7 +593,7 @@ export function ManagerSetupWizard({
   const [hasProfile, setHasProfile] = useState(false);
   /** Una firma espera al ledger y el wizard relee: las estaciones no reofrecen firmar. */
   const [settling, setSettling] = useState(false);
-  // RETOMAR DONDE ESTÁ LA REALIDAD (8-sep): la primera lectura del ledger
+  // RETOMAR DONDE ESTÁ LA REALIDAD: la primera lectura del ledger
   // decide la estación de aterrizaje — la primera obligatoria pendiente. Se
   // hace UNA vez; después manda el clic del usuario (o un jumpTo), nunca una
   // relectura. Antes cada visita empezaba en «Cuenta» aunque fueras por la 4ª.
@@ -619,16 +603,16 @@ export function ManagerSetupWizard({
   // The active station has a Xaman signature that can no longer be dropped
   // (live QR, confirming, unconfirmed, validated failure). Leaving the station
   // unmounts it, and XamanSingleSign's unmount cancel is blind: a signature made
-  // in that gap is followed by nobody and the station re-offers it
-  // (productizer-it6). The rail — and any jump — stays put until it resolves.
+  // in that gap is followed by nobody and the station re-offers it.
+  // The rail — and any jump — stays put until it resolves.
   const [stationBlocked, setStationBlocked] = useState(false);
   const go = (i: number) => { if (stationBlocked) return; landed.current = true; setStep(i); };
 
-  // La elección de la cuenta gestora (5-sep: jamás una elección silenciosa;
-  // 6-sep: cuenta DEDICADA solo para esto). Las candidatas son las Xaman
-  // conectadas en este navegador Y las XRPL enlazadas a la cuenta (15-sep:
+  // La elección de la cuenta gestora (jamás una elección silenciosa;
+  // cuenta DEDICADA solo para esto). Las candidatas son las Xaman
+  // conectadas en este navegador Y las XRPL enlazadas a la cuenta (
   // solo con las conectadas, en otro navegador la cuenta configurada no se
-  // podía ni elegir). El apodo del DUEÑO en el selector (fundador 13-sep).
+  // podía ni elegir). El apodo del DUEÑO en el selector.
   // La MISMA regla que sigue la mesa: useManagerAccount.
   const manager = useManagerAccount();
 
@@ -685,14 +669,14 @@ export function ManagerSetupWizard({
   /**
    * TRAS UNA FIRMA, el ledger tarda unos segundos en validar y la primera
    * relectura suele llegar pronto: la estación seguía sin check y el gestor
-   * volvía a firmar (fundador 10-sep: dos DIDSet en doce minutos). Se relee
+   * volvía a firmar. Se relee
    * cada 4 s hasta que `done()` diga sí, con tope de 90 s.
    */
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Vivo mientras el wizard esté montado: un `detect` en vuelo al desmontar
   // (cambiar a Operar justo tras firmar) programaba el siguiente tick y el
   // sondeo seguía 90 s de fondo, cuatro lecturas cada 4 s, contra el mismo RPC
-  // que la sala nueva estaba usando (revisión 2026-09-11).
+  // que la sala nueva estaba usando (revisión).
   const mounted = useRef(true);
   const settleThenDetect = useCallback(
     (done: (r: NonNullable<Awaited<ReturnType<typeof detect>>>) => boolean) => {
@@ -731,11 +715,11 @@ export function ManagerSetupWizard({
   const firstRun = doneCount <= 1;
   // «¿Por qué está hecha?» vive en la franja de la estación (StationDoneStrip);
   // el aterrizaje más allá de la primera estación se avisa UNA vez, en una
-  // notificación temporal (15-sep: sin popups).
+  // notificación temporal (sin popups).
   useResumeToast({ landed: landedAt, stations, key: account });
   const nextPendingIdx = stations.findIndex((s) => !s.done);
 
-  // EL RAÍL LATERAL (12-sep): la barra al lado del contenido, pegada arriba
+  // EL RAÍL LATERAL: la barra al lado del contenido, pegada arriba
   // mientras se hace scroll, con los nombres a la vista, Atrás/Siguiente y el
   // «¿Por qué hecha?». Los checks siguen viniendo del ledger. En la estación
   // del creador, el creador navega SUS pasos por dentro; las estaciones, aquí.
@@ -822,7 +806,7 @@ export function ManagerSetupWizard({
         </>
       )}
 
-      {/* TÍTULO (10-sep): una sola pieza, ordenada como se lee — qué es,
+      {/* TÍTULO: una sola pieza, ordenada como se lee — qué es,
           la lista de credenciales con su estado, UNA acción, la firma, y lo
           demás plegado. Ver ManagerTitleStation. */}
       {step === 1 && <ManagerTitleStation account={account} onChanged={() => void detect()} />}

@@ -8,18 +8,6 @@
  * transfers and FAssets bridge moves), RECEIVE via address QR, and SET XRP
  * ASIDE on the ledger (the XRPL savings-escrow flow, absorbed from the old
  * SavingsPanel) plus its savings rules.
- *
- * Same invariants as always (CLAUDE.md #1/#6/#8/#9):
- *  - Astryum composes UNSIGNED payloads; the user reviews the FULL disclosure
- *    and signs in their own wallet (Xaman / MetaMask et al.). Never signs,
- *    never custodies, never broadcasts.
- *  - The escrow LOCKS capital, it does NOT generate yield — the copy says so.
- *    XRP only: RLUSD is not escrowable today (issuer flag off).
- *  - Rules only watch and remind (IDLE_BALANCE / TIME_TRIGGER): when one
- *    fires, the user composes + signs here. Nothing moves without a signature.
- *
- * Active and paused savings (escrows + rules) ALSO surface in Estrategias,
- * under Funcionando · Online / Guardadas · Offline respectively.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -86,27 +74,8 @@ const XRPSCAN_TX = 'https://xrpscan.com/tx/';
 const XRPL_PSEUDO_CHAIN_ID = 1440002;
 
 /**
- * G4-strategies (auditoria 2026-08-17 [G4]) — the bolt that was green for
+ * G4-strategies (auditoria [G4]) — the bolt that was green for
  * a rule that nudged nobody.
- *
- * WHAT WAS FAILING IN SILENCE HERE: the savings-rules list coloured its
- * lightning bolt from `rule.enabled` alone (`text-volt` vs `text-white/30`) and
- * printed only `totalTimesTriggered`. An IDLE_BALANCE / TIME_TRIGGER rule whose
- * fire ERRORS is stored by the engine as `status: 'error'` with the reason in
- * `notes`, and — by design, the "exito no ganado" guard — does NOT increment
- * that counter and sends NO push. So the surface showed a live-coloured bolt
- * with no nudge count and no explanation: the exact reading of a rule that has
- * never once worked, dressed as one that simply has not fired yet.
- *
- * Same reducer, same sentences and the same i18n keys as MoneyFlowsPanel,
- * StrategySection, LegacyActivityFeed and DefiPositionsBoard —
- * lib/rules/runHealth.ts. One read per mount/refresh, never a poll. If the read
- * itself fails we SAY so; «I could not read it» is never «it works».
- *
- * G4-pildoras (round 3) — `enabled` arrived because this note never looked at
- * it: a PAUSED savings rule with an old failed run claimed «this rule is armed»
- * beside a Resume button. The failure still shows (it happened); the tense
- * follows the rule's actual state.
  */
 function RuleRunHealthNote({
   health,
@@ -301,7 +270,7 @@ export default function MovementsPanel({
   }, []);
   const hasTransferable = useMemo(() => wallets.some((w) => transferRailOf(w) !== null), [wallets]);
 
-  // ── La puerta de unmint, también AQUÍ (fundador 14-sep-2026) ──
+  // ── La puerta de unmint, también AQUÍ ──
   // Vivía solo en el botón de la tarjeta abierta de la cuenta Astryum. Con la
   // lente compacta —que es la de por defecto— esa tarjeta no está desplegada,
   // así que la única puerta visible era Enviar… que con FXRP hacia una
@@ -1205,7 +1174,7 @@ export default function MovementsPanel({
                       // errored is not watching: it is armed and nudging
                       // nobody. The live-coloured bolt on `rule.enabled` alone
                       // was the reassurance that hid it.
-                      // G4-pildoras (round 3) — nor is a rule we have not READ:
+                      // G4-pildoras — nor is a rule we have not READ:
                       // `isFailing` is false for `unread`/`unreadable`, so both
                       // lit the volt bolt. A /runs timeout relit a FAILING rule
                       // as live. The bolt now follows the verdict's own tone:

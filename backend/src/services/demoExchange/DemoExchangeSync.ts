@@ -36,7 +36,7 @@ export function makeReceipt(run: DemoRun, input: {
  * Pure (mutates `classified`): an outgoing payment whose hash a withdraw RECORD
  * carries (a request the omnibus key signed, a desk payout reported signed) is
  * that record's client's — not whoever holds the destination wallet today. The
- * wallet lookup alone let an admin re-point hand A's debit to B (it. 8).
+ * wallet lookup alone let an admin re-point hand A's debit to B.
  */
 export function attributeKnownPayouts(run: DemoRun, classified: ClassifiedTx[]): void {
   const owner = new Map<string, string>();
@@ -72,7 +72,7 @@ export async function syncOmnibus(run: DemoRun, opts?: { maxPages?: number }): P
 /**
  * Pure (mutates `run`): the ledger half of syncOmnibus, over rows ALREADY read.
  * Lets a route read the chain OUTSIDE the run lock and apply the rows to a fresh
- * copy inside it (productizer it. 12, 2.6b). Idempotent by tx hash.
+ * copy inside it (2.6b). Idempotent by tx hash.
  */
 export function applyOmnibusScan(run: DemoRun, txs: OmnibusTx[]): SyncResult {
   const classified = classifyOmnibusTxs(txs, run.clients, { tagRange: runTagRange(run), sinceLedgerIndex: run.sinceLedgerIndex });

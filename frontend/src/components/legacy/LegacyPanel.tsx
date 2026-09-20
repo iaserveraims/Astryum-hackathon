@@ -3,35 +3,6 @@
 /**
  * LegacyPanel — Astryum Legacy v0: XRPL governs, Flare produces.
  *
- * Three cards over one Legacy account (vías (a)+(b), doc
- * Astryum_Legacy_Investigacion_Verificada_2026-07-13):
- *
- *  1. EL CONSEJO — the account's signer list read from the ledger (members,
- *     weights, quorum, master key state). Setup is NOT done here (ADR-006: we
- *     are not a wallet — and since 2026-08-03 Xaman refuses a `SignerListSet`
- *     composed by any app, 401 / code 1217): the family creates it in the Xaman
- *     Multisign xApp, guided step by step by `CouncilInXaman`, and comes back
- *     for everything else — rehearsal, closing the door, constitution.
- *  2. TRANSFERENCIA PROGRAMADA — EscrowCreate(Destination=beneficiary,
- *     FinishAfter[, CancelAfter]) composed UNSIGNED. Honest semantics in the
- *     copy: with pure times the commitment is UNBREAKABLE until the unlock
- *     date (a feature — not even the council can back out), and recoverable
- *     after the expiry date if unclaimed. Protection of the account is BY THE
- *     COUNCIL (quorum) — never "the code prevents it" (that is only true of
- *     the Flare cage, not of XRPL).
- *  3. LA CONSTITUCIÓN — the governance document anchored as a DID (XLS-40):
- *     SHA-256 computed CLIENT-SIDE (the document never leaves the browser),
- *     anchored via DIDSet, verified against the ledger, with the quorum-signed
- *     amendment history.
- *
- * Signing: if the Legacy account IS the connected Xaman account (single-key
- * v0 / testing), hand-off signs directly. If it is a multisig council account,
- * Xaman cannot sign multisig natively — the panel hands out the UNSIGNED
- * txjson (copy) + links to the Multisign xApp. Astryum composes; the council
- * signs. Nothing here ever signs or submits on the user's behalf (#1).
- *
- * Forbidden copy (L5 — legal): testamento / herencia / fideicomiso / sucesión.
- * This is a programmed, conditioned, revocable transfer.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -102,7 +73,7 @@ import { applyXrplSignFailure, confirmOnLedger } from '../../lib/xrpl/ledgerSign
 import type { UnconfirmedSignature } from '../../lib/wallet/signOutcome';
 import { UnconfirmedSignatureNotice } from '../settlement/UnconfirmedSignatureNotice';
 import ConstitutionBuilder from './ConstitutionBuilder';
-// LegacyDiscovery (the embedded Guía card) is UNMOUNTED here (2026-08-04): its
+// LegacyDiscovery (the embedded Guía card) is UNMOUNTED here: its
 // left column ate a third of the ceremony. The global co-pilot IS the Guía in
 // Legacy mode now — this panel only PUBLISHES the journey context to it.
 import { type LegacyJourney } from './LegacyDiscovery';
@@ -152,21 +123,20 @@ async function assertLedgerApplied(txHash: string, t: (s: string) => string): Pr
 }
 const XRPSCAN_ACCOUNT = 'https://xrpscan.com/account/';
 /** Multisig setup + signing live in the user's wallet tools, not in Astryum (ADR-006).
- *  The xApp detect link is VERIFIED (2026-07-13: valid page, "create, distribute &
+ *  The xApp detect link is VERIFIED (valid page, "create, distribute &
  *  collect multi sign signatures"). xrpl.services is an SPA whose tool query params
  *  are not verifiable from here — link the tools page plainly, no invented param. */
 const XAMAN_MULTISIGN_XAPP = 'https://xumm.app/detect/xapp:xumm.multisign';
 const XRPL_SERVICES_TOOLS = 'https://xrpl.services/tools';
 /** The wallet itself — slide 0 sends the person here to CREATE the vessel
- *  account before anything else can happen (founder 2026-08-04: nobody knew
- *  this step existed; it was learned by asking a colleague). */
+ *  account before anything else can happen. */
 const XAMAN_APP = 'https://xaman.app';
 
 const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 /** The vault mirror was the honest drift-check while FDC enforcement did not
- *  exist. Retired from the frontend (founder 2026-07-19): the Council order rail
+ *  exist. Retired from the frontend: the Council order rail
  *  IS the enforcement now. Kept in the repo, gated off — flip to re-enable. */
 const SHOW_VAULT_MIRROR = false;
 
@@ -185,8 +155,7 @@ function BackToWallets() {
     // llega con view='list' (el efecto de params aún no corrió), y los
     // efectos de los HIJOS corren antes que los del padre — así que redirigir
     // a ciegas aquí ganaba siempre la carrera y devolvía a Wallets cualquier
-    // entrada legítima (fundador 2026-08-23: «se carga la página y luego se
-    // vuelve»). Si la URL trae una entrada, el panel está a punto de abrir el
+    // entrada legítima. Si la URL trae una entrada, el panel está a punto de abrir el
     // taller: este componente no hace nada y desaparece en el re-render.
     const p = new URLSearchParams(window.location.search);
     if (
@@ -520,12 +489,12 @@ function HandoffActions({
   );
 }
 
-/** The per-station brief (founder 2026-08-04, from their own first run): each
+/** The per-station brief: each
  *  slide opens by saying WHAT YOU PHYSICALLY DO here, in numbered steps. The
  *  ceremony was legible to whoever built it and to nobody else — the founder
  *  had to ask a colleague that the vessel account must exist before slide 0. */
 function StationBrief({ title, items }: { title: string; items: ReactNode[] }) {
-  // Format v2 (founder 2026-08-04, "demasiado texto junto"): separated rows
+  // Format v2: separated rows
   // with a numbered chip and real air between them — a rhythm, not a wall.
   return (
     <div className="space-y-3 rounded-xl border border-ink/[0.07] bg-ink/[0.02] p-4">
@@ -547,7 +516,7 @@ function StationBrief({ title, items }: { title: string; items: ReactNode[] }) {
   );
 }
 
-/** One breath per navigation INSIDE the panel (2026-08-04, the immersion
+/** One breath per navigation INSIDE the panel (the immersion
  *  pass): station changes slide in from the direction of travel; surface and
  *  tab changes settle with a short rise. Reduced motion collapses to a fade.
  *  Short and on the house curve — the long cinematic stays AuthorityCrossing. */
@@ -565,7 +534,7 @@ function SurfaceMotion({ dir, children }: { dir: 1 | -1 | 0; children: ReactNode
 }
 
 /**
- * Embedded entry (2026-08-22): the /app/legacy PAGE died — governance now
+ * Embedded entry: the /app/legacy PAGE died — governance now
  * opens as a large dialog over /app/wallets (GovernanceModal). The dialog
  * passes the entry that used to travel in the URL; `onExit` replaces both the
  * «← My Legacies» chrome and the reinforce ceremony's exit navigation. The
@@ -588,7 +557,7 @@ export interface LegacyPanelEmbed {
   entry: LegacyPanelEntry;
   onExit: () => void;
   /**
-   * 'operation' (founder 2026-08-26): hosted inside the house operation
+   * 'operation': hosted inside the house operation
    * surface (ConstituteOperation — short popup / dockable right panel). The
    * host paints the header and the close/pin chrome, so the panel renders
    * ONLY the ceremony: no back row, no surface switcher, no PageHeader —
@@ -599,7 +568,7 @@ export interface LegacyPanelEmbed {
 
 export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}) {
   const { t } = useT();
-  // LOS GRABADOS DEL LEGACY (tema Institucional, 2026-09-14): el templo es el
+  // LOS GRABADOS DEL LEGACY (tema Institucional): el templo es el
   // pórtico, el consejo y el faro son el sello con sus firmas, el libro es el
   // registro. La rúbrica que se escribe sola se queda: en bronce es una firma.
   const engraved = useEngraved();
@@ -649,8 +618,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   /** Hosted as an operation: the popup/dock IS one surface and stays pinned
    *  to it — Constitute for the ceremony (walkthrough logic: a constituted
    *  account would otherwise auto-derive to Govern on paste and eject), and
-   *  Govern for the governance operation (fundador 2026-08-30: gobernar se
-   *  abre en burbuja anclable, como constituir). */
+   *  Govern for the governance operation. */
   const opEmbed = embed?.variant === 'operation';
   const opSurface: 'constitute' | 'govern' | null = opEmbed
     ? embed!.entry.kind === 'govern' || embed!.entry.kind === 'proposals'
@@ -661,7 +629,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     ? 'constitute'
     : opSurface ?? surface ?? (constituted ? 'govern' : 'constitute');
   // The surface is now chosen at the DOOR — a Legacy card's Constitution /
-  // Governance buttons (founder refactor 2026-07-19) — and carried here through
+  // Governance buttons — and carried here through
   // this ref; on account change we apply it, or fall back to null = auto-follow
   // the ledger. The old in-workspace toggle is gone.
   /** The 60-second "never created a Xaman account" fold on station 0 —
@@ -673,8 +641,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     surfaceIntent.current = null;
   }, [account]);
 
-  // ── Govern is the HUB OF GOVERNANCE and nothing else (founder refactor
-  //    2026-07-28): Information (the council, its constitution, its health) ·
+  // ── Govern is the HUB OF GOVERNANCE and nothing else: Information (the council, its constitution, its health) ·
   //    Wallets (what this Legacy controls) · Proposals (where the family
   //    signs). Everything that a personal wallet already does moved to the
   //    SHARED surfaces the toggle swaps — Activity to Portfolio, MoneyFlows to
@@ -682,28 +649,13 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   //    wallet that signs by quorum; it deserves the same pages, not a second
   //    copy of them. Movements is a MODAL now, reachable in exactly two places
   //    (the Legacy card's third door, and per wallet in the Wallets tab). ──
-  // ── GOBERNAR, EN CINCO SALAS (fundador 2026-08-30, segunda pasada: «sigue
-  //    estando bastante complicado... añade más menús para tener menor
-  //    contenido en cada pantalla»). «Info» cargaba CINCO bloques pesados de
+  // ── GOBERNAR, EN CINCO SALAS. «Info» cargaba CINCO bloques pesados de
   //    golpe — identidad, capital, rendimiento, actividad y el consejo entero
   //    con sus emergencias y enmiendas — y «Propuestas» otros tres. Ahora cada
   //    pestaña responde UNA pregunta y trae uno o dos bloques:
-  //
-  //      capital    · qué hay dentro y qué produce
-  //      council    · quién manda y con qué quórum
-  //      orders     · COMPONER una orden (transferencia programada / jaula)
-  //      proposals  · FIRMAR lo compuesto (la bandeja del quórum)
-  //      activity   · qué ha pasado
-  //
-  //    Componer y firmar eran la misma pantalla y son dos gestos distintos —
-  //    de dos personas distintas, incluso. `proposals` conserva su id porque
-  //    es el destino de los enlaces «firma en la bandeja» (?tab=proposals y
-  //    los onGoToProposals de rendimiento, actividad y movimientos).
-  //    La pestaña Wallets murió antes en el día: /app/wallets es la única
-  //    casa de las cuentas.
   const [govTab, setGovTab] = useState<GovTab>('capital');
   /** The Movements modal, scoped to this council account. La pieza vive en
-   *  GovernedMovementsModal (extraída 2026-08-30) — con su disciplina de foco
+   *  GovernedMovementsModal (extraída) — con su disciplina de foco
    *  dentro — porque /app/wallets ahora la abre EN SITIO, sin navegar aquí. */
   const [movementsOpen, setMovementsOpen] = useState(false);
   /** A card door may open the Legacy STRAIGHT into its Movements; the intent
@@ -732,7 +684,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   //   the constitute surface; otherwise, an active governed authority opens
   //   ITS workspace directly — and switching authority while here follows.
   // The list stays one click away in both cases.
-  /** WALKTHROUGH mode (?walkthrough=1 — founder 2026-08-11, for recording the
+  /** WALKTHROUGH mode (?walkthrough=1 — founder, for recording the
    *  ceremony with an already-constituted account): the wizard does not
    *  auto-jump, the rail shows no checks, the surface stays pinned to
    *  Constitute, and station 1 renders the creation tutorial even when a
@@ -795,8 +747,8 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       setView('workspace');
       // Deliberately NOT stripped from the URL (unlike ?constitute=1): a hard
       // reload mid-recording must re-enter the mode, not silently fall back
-      // to the normal wizard — that fallback read as "the fix did nothing"
-      // (founder 2026-08-11). Leaving the page drops the mode naturally.
+      // to the normal wizard — that fallback read as "the fix did nothing".
+      // Leaving the page drops the mode naturally.
       return;
     }
     if (params.get('constitute') === '1') {
@@ -810,7 +762,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       window.history.replaceState(null, '', window.location.pathname);
       return;
     }
-    /** REINFORCE mode (`?reinforce=r…`, founder 2026-08-21) — the door from a
+    /** REINFORCE mode (`?reinforce=r…`, founder) — the door from a
      *  wallet card: "reinforce this account". It is the SAME constitution
      *  ceremony, pinned to an account the user already holds, and it never
      *  ends in a cage: a reinforced account is a PERSONAL wallet whose keys
@@ -831,14 +783,14 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       setAccount(reinforceParam);
       setSurface('constitute');
       setView('workspace');
-      // Deliberately NOT stripped (the walkthrough's lesson, 2026-08-11): a
+      // Deliberately NOT stripped (the walkthrough's lesson): a
       // reload in the middle of the ceremony must re-enter the mode, not fall
       // back to the generic wizard — a header that suddenly reads "Legacy" over
       // a personal account is the exact misdescription this mode exists to
       // prevent. Leaving the page drops it naturally.
       return;
     }
-    /** GOVERN a reinforced personal account (`?govern=r…`, founder 2026-08-21).
+    /** GOVERN a reinforced personal account (`?govern=r…`, founder).
      *  Once the ceremony is done the card's door stops being "reinforce it" and
      *  becomes "govern it" — and it cannot ride `?tab=proposals`, because that
      *  one takes its account from `activeGoverned`, and a personal quorum is
@@ -857,7 +809,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       setAccount(governParam);
       setSurface('govern');
       // `&movements=1` — la puerta «Movimientos» de la tarjeta de esta cuenta
-      // en /app/wallets (2026-08-22). El intent viaja por el ref porque el
+      // en /app/wallets. El intent viaja por el ref porque el
       // efecto de `account` de abajo resetea la sección; es el mismo mecanismo
       // que ya usaba la tercera puerta de la tarjeta del Legacy.
       if (params.get('movements') === '1') govTabIntent.current = 'movements';
@@ -867,7 +819,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       // personal account's governance into a Legacy's.
       return;
     }
-    // G5 (auditoría 17-ago) — `?tab=proposals`: el push del consejo dice «firma
+    // G5 (auditorí) — `?tab=proposals`: el push del consejo dice «firma
     // en la bandeja» y necesita ABRIRLA. Sin este lector el enlace aterrizaba
     // en la pestaña «info» y la propuesta seguía escondida (y caducaba a los 7
     // días). La bandeja vive en la superficie Govern, así que el deep-link fija
@@ -902,11 +854,12 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     surfaceIntent.current = null;
     setAccountInput(activeGoverned.address);
     setAccount(activeGoverned.address);
-    // Deliberately NOT setView('workspace') (founder 2026-07-28): entering
+    // Deliberately NOT setView('workspace'): entering
     // Legacy always lands on "My Legacies". Having an active governed
     // authority pre-selects WHICH Legacy is loaded, but opening it stays one
     // explicit click — otherwise the family Legacy swallowed the entrance and
     // the list of the others was unreachable.
+    //
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGoverned?.address]);
   const [closeDoorOpen, setCloseDoorOpen] = useState(false); // inline confirm (no Dialog)
@@ -936,7 +889,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   const [escrows, setEscrows] = useState<XrplEscrowRow[]>([]);
   const [spendable, setSpendable] = useState<XrplSpendable | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  // The escrow read FAILED (13-sep): an empty list would hide «Recover» of an
+  // The escrow read FAILED: an empty list would hide «Recover» of an
   // expired commitment without a word. Rows are kept only for the account they
   // were read for.
   const [escrowsUnreadable, setEscrowsUnreadable] = useState(false);
@@ -1262,7 +1215,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   // A SignerListSet we could not follow: no second composition or signature of
   // the council until the ledger has been checked.
   const [councilUnconfirmed, setCouncilUnconfirmed] = useState<UnconfirmedSignature | null>(null);
-  // §1.2 (2026-08-01): rotation. The UI used to DEMAND replacing a fallen
+  // §1.2: rotation. The UI used to DEMAND replacing a fallen
   // signer while only rendering the SignerListSet form when no council existed
   // — the emergency had no path. Amending = the SAME form, seeded from the
   // CURRENT council, signed by the CURRENT quorum (HandoffActions already
@@ -1288,7 +1241,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     // is a SignerList no combination of keys can ever satisfy — with the master
     // key later disabled, that is an account locked forever. The rules live in
     // lib/legacy/councilPlan so the live form in CouncilInXaman and this
-    // composer cannot drift apart (2026-08-03).
+    // composer cannot drift apart.
     const problem = validateCouncilPlan(account, councilSigners, councilQuorum, isValidClassicAddress);
     if (problem) return setCouncilError(formatPlanProblem(problem, t));
     const { signers } = normalizeCouncilPlan(councilSigners, councilQuorum);
@@ -1413,14 +1366,14 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     };
   }, [account, councilLoaded, council, rehearsal, anchor, escrows]);
 
-  // Feed the co-pilot — the Guía lives there now (2026-08-04). Abstract
+  // Feed the co-pilot — the Guía lives there now. Abstract
   // ledger flags only; cleared when the panel unmounts.
   useEffect(() => {
     setLegacyJourney(journey ?? null);
     return () => setLegacyJourney(null);
   }, [journey]);
 
-  // ── Constitute = a slide deck (founder redesign 2026-07-16): ONE step per
+  // ── Constitute = a slide deck: ONE step per
   //    slide, the guide agent pinned left, a clickable stations feed on top.
   //    wizStep auto-follows the ledger (first incomplete step) after each
   //    refresh; the stations let the user jump freely. ──
@@ -1468,7 +1421,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     const doorClosed = council?.masterKeyDisabled === true;
     const anchored = !!anchor?.dataHex;
     const funded = escrows.length > 0 || (spendable !== null && spendable.balanceXrp >= 15);
-    // REINFORCE (fundador 2026-08-27, «podemos simplificar el proceso?»):
+    // REINFORCE:
     // la cuenta reforzada no necesita constitución — el quórum ya la protege.
     // La estación queda como OPCIONAL (se puede entrar desde el raíl) y el
     // final es «Hecho» en cuanto la puerta se cierra, no «Capital»: aquí no
@@ -1499,7 +1452,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     // account, whatever the ledger already holds.
     return walkthrough ? base.map((s, i) => (i === 0 ? s : { ...s, done: false })) : base;
   }, [account, steps, t, walkthrough]);
-  // «¿Por qué está hecha?» (12-sep): qué se leyó del ledger para cada estación
+  // «¿Por qué está hecha?»: qué se leyó del ledger para cada estación
   // — sale al ENTRAR en una hecha (una vez), y el pie la reabre.
   const stationHow = useMemo(
     () => [
@@ -1514,12 +1467,12 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   );
   // «¿Por qué está hecha?» vive en la franja de la estación (StationDoneStrip);
   // el aterrizaje más allá de la primera estación se avisa UNA vez por cuenta,
-  // en una notificación temporal (fundador 15-sep: sin popups). En el
+  // en una notificación temporal. En el
   // walkthrough no hay aterrizaje del ledger, así que no hay aviso.
   useResumeToast({ landed: walkthrough ? null : landedAt, stations, key: account });
   const nextPendingIdx = stations.findIndex((s) => !s.done);
 
-  // One line of orientation per station (immersion pass 2026-08-05): what this
+  // One line of orientation per station (immersion pass): what this
   // station is FOR and what it costs, always visible above the slide. Honest
   // effort estimates — time and devices, never money or outcomes.
   // REINFORCE runs the same six stations with a different cast: every key is
@@ -1569,8 +1522,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     return legacies.find((l) => l.address === account)?.label || getLegacyNickname(account) || null;
   }, [account, legacies]);
 
-  // Creating vs reading the council are DIFFERENT screens (founder
-  // 2026-08-05): creation is a stack of tutorial cards (CouncilInXaman owns
+  // Creating vs reading the council are DIFFERENT screens: creation is a stack of tutorial cards (CouncilInXaman owns
   // its own frames now); the single council Card below only reads the ledger.
   const councilCreation = !!account && councilLoaded && !council;
   // Walkthrough swaps the council station's creation/read split: station 1
@@ -1602,7 +1554,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     prevNavRef.current = { key: contentKey, step: wizStep };
   });
 
-  // ── Reserve preflight (2026-07-22): the constitution ceremony is a SEQUENCE
+  // ── Reserve preflight: the constitution ceremony is a SEQUENCE
   //    of reserve-consuming txns (council + rehearsal escrow + constitution DID);
   //    XRPL's per-tx simulate only checks the next one. On the test council SIX
   //    ceremony txns failed for tecINSUFFICIENT_RESERVE — each failed signature
@@ -1622,11 +1574,8 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-0';
 
   // ── Interface B: the list is the entry point; a workspace opens one Legacy ──
-  // LA LISTA MURIÓ COMO PANTALLA (fundador 2026-08-22) … Y RESUCITA COMO LA
-  // CASA DEL LEGACY (fundador 2026-09-12, con el hub del hackathon: «cuando le
-  // des te lleve a una pantalla nueva donde se vea la wallet legacy que ya
-  // está configurada, puedas crear nuevos legacy y, si entras sin nada
-  // configurado, te pida configurar un legacy desde cero»). Aterrizar en
+  // LA LISTA MURIÓ COMO PANTALLA … Y RESUCITA COMO LA
+  // CASA DEL LEGACY. Aterrizar en
   // /app/legacy sin destino ya no devuelve a Wallets: pinta MyLegaciesList —
   // los Legacies constituidos como tarjetas, «Constituir un nuevo Legacy», y
   // el estado vacío que lleva al asistente. Los deep-links con params siguen
@@ -1634,7 +1583,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
   // montar por si la decisión vuelve a girar.
   if (view === 'list') {
     return (
-      // The door gets the sign, not a blocking dialog (founder 2026-08-06):
+      // The door gets the sign, not a blocking dialog:
       // arriving here locks up nothing, and an acknowledgement spent at the
       // moment of zero risk is one nobody reads at the moment of real risk.
       // The blocking one fires where capital turns one-way — see
@@ -1678,7 +1627,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
     );
   }
 
-  // EL RAÍL DE ESTACIONES (12-sep, «pon la del Legacy igual a las demás»): la
+  // EL RAÍL DE ESTACIONES («pon la del Legacy igual a las demás»): la
   // MISMA pieza que el alta del gestor y la del exchange — raíl lateral si la
   // caja es ancha (la página), tira encima si es estrecha (la ventana).
   const constituteRail =
@@ -1709,7 +1658,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
         </div>
       )}
       {/* Chrome: back to the list on the left; the surface switcher on the
-          right (returned 2026-08-04 — the card doors still choose the surface
+          right (returned — the card doors still choose the surface
           on entry, but changing your mind no longer means walking back to the
           list). The emergency flag outranks everything else on the row. */}
       {!opEmbed && (
@@ -1790,9 +1739,9 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       />
       )}
 
-      {/* ── Govern's four sections (founder refactor 2026-07-19). Information
+      {/* ── Govern's four sections. Information
           holds the Guía; the tabs distribute the rest so nothing overwhelms. ── */}
-      {/* The tab bar is only as wide as its four tabs (founder 2026-07-20): a
+      {/* The tab bar is only as wide as its four tabs: a
           full-width bar left a long empty gutter. w-fit hugs the content;
           max-w-full + flex-wrap still lets it wrap on a narrow viewport. */}
       {effectiveSurface === 'govern' && account && (
@@ -1839,7 +1788,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       )}
 
 
-      {/* The Guía's embedded column is GONE (founder 2026-08-04): the ceremony
+      {/* The Guía's embedded column is GONE: the ceremony
           owns the full width, and the co-pilot carries the Guía. Keyed by the
           in-panel navigation so each station/tab change breathes in. */}
       <StationRailLayout rail={constituteRail}>
@@ -1875,8 +1824,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
           <span className="text-[12px] text-ink/45">{govMeta[govTab].purpose}</span>
         </div>
       )}
-      {/* El truco de CSS `order` MURIÓ con el reparto en cinco salas (fundador
-          2026-08-30, segunda pasada): dentro de cada pestaña quedan uno o dos
+      {/* El truco de CSS `order` MURIÓ con el reparto en cinco salas: dentro de cada pestaña quedan uno o dos
           bloques y el orden del DOM ya es el correcto — la identidad primero,
           después su contenido. Menos maquinaria y el mismo resultado. */}
       <RevealGroup className="space-y-5">
@@ -1930,7 +1878,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
             )}
           </RevealItem>
         )}
-        {/* First contact with the ceremony (immersion pass 2026-08-05): before
+        {/* First contact with the ceremony (immersion pass): before
             any form, say what this IS, that it is resumable, and that nothing
             irreversible happens until the gated door step. Comfort first. */}
         {effectiveSurface === 'constitute' && wizStep === 0 && !account && (
@@ -1959,11 +1907,10 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
           <Card spotlight padded={false} className="group isolate relative overflow-hidden p-5 md:p-6 lg:pr-56 space-y-4">
             {/* permanence — the account enthroned under its north star. The
                 content reserves the right zone (lg:pr-56) so the scene owns it. */}
-            {/* El panteón del producto, dibujándose (fundador 2026-08-25:
-                el orbe genérico fuera — aquí nace un Legacy y su marca es el
-                templo). */}
+            {/* El panteón del producto, dibujándose.
+            { */}
             <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden lg:block opacity-[0.55] group-hover:opacity-90 transition-opacity duration-700" style={{ zIndex: -1 }} aria-hidden>
-              {/* REINFORCE viste otra cara (fundador 2026-08-27): aquí no nace
+              {/* REINFORCE viste otra cara: aquí no nace
                   un Legacy — la cuenta sigue siendo tuya. El faro personal en
                   lugar del templo, para que no parezca lo mismo. */}
               {engraved
@@ -2000,7 +1947,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
                 ]}
               />
             )}
-            {/* First-wallet comfort (immersion pass 2026-08-05): the person who
+            {/* First-wallet comfort (immersion pass): the person who
                 has never held a wallet gets the 60-second version, folded so it
                 never burdens the person who has. */}
             {effectiveSurface === 'constitute' && (
@@ -2041,13 +1988,11 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
                   if (!accountValid) return;
                   const a = accountInput.trim();
                   rememberLegacy(a); // it lands in "Mis Legacies" — observing IS opening
-                  // A NEW Legacy is born already named (founder 2026-08-22:
-                  // «se añade un nombre de ejemplo que el usuario puede
-                  // modificar luego a su gusto») — an example, never left as
+                  // A NEW Legacy is born already named — an example, never left as
                   // an address. A nickname the user already set is untouched.
                   if (!getLegacyNickname(a)) setLegacyNickname(a, t('My Legacy'));
                   // Pasting an address INSIDE the constitute surface means
-                  // staying in it (fix 2026-08-11): without this intent, the
+                  // staying in it (fix): without this intent, the
                   // account-change effect reset the surface to auto-follow and
                   // a constituted account expelled the user straight to Govern
                   // — "it resumes at the end".
@@ -2066,7 +2011,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
             </div>
             {listError && <InlineNotice tone="warning">{listError}</InlineNotice>}
 
-            {/* The stations rail moved UP to the slide-deck feed (2026-07-16).
+            {/* The stations rail moved UP to the slide-deck feed.
                 Here instead: "observe" merged into constitution — opening an
                 address remembers it in "Mis Legacies". */}
             {effectiveSurface === 'constitute' && (
@@ -2126,8 +2071,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
           </RevealItem>
         )}
 
-        {/* ── 1a. Creating the council — its own stack of cards (founder
-            2026-08-05): the illustrated Xaman tutorial is the protagonist,
+        {/* ── 1a. Creating the council — its own stack of cards: the illustrated Xaman tutorial is the protagonist,
             each block in its own frame, the plan form optional and folded. ── */}
         {showCouncilCreation && (
             <RevealItem>
@@ -2300,7 +2244,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
                   )}
                 </p>
 
-                {/* The ceremony carries you forward (immersion 2026-08-05):
+                {/* The ceremony carries you forward (immersion):
                     every completed station offers the next one where the
                     success lands — the rail stays for jumping around. */}
                 {effectiveSurface === 'constitute' && wizStep === 1 && (
@@ -2311,7 +2255,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
                   </div>
                 )}
 
-                {/* §1.2 (2026-08-01): rotation — the amendment path, always
+                {/* §1.2: rotation — the amendment path, always
                     offered. One SignerListSet with the full NEW list, signed by
                     the CURRENT quorum via the same coordinator as every order. */}
                 {effectiveSurface === 'govern' && (
@@ -2509,7 +2453,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
         </RevealItem>
         )}
 
-        {/* The embedded Guía card left this spot too (2026-08-04): the
+        {/* The embedded Guía card left this spot too: the
             co-pilot in the sidebar IS the Guía now, fed by setLegacyJourney. */}
 
         {/* ── §2. The signing rehearsal (slide 2) ── */}
@@ -2597,8 +2541,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
           </RevealItem>
         )}
 
-        {/* MoneyFlows and Movements no longer have tabs here (founder refactor
-            2026-07-28). MoneyFlows moved to Earn → My strategies, where the
+        {/* MoneyFlows and Movements no longer have tabs here. MoneyFlows moved to Earn → My strategies, where the
             personal rules already lived; Movements became a modal reachable
             from the Legacy card and from each wallet in the Wallets tab. Both
             components are untouched and still the only rail for a council —
@@ -2607,14 +2550,14 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
         {/* ── Wallets: the SAME wallet manager as Astryum Personal (cards +
             per-wallet functionality), scoped to THIS Legacy — its council
             account and the Flare Smart Account it controls. A Legacy's wallets
-            live here, not in Personal (founder 2026-07-21). Read-only handoff:
+            live here, not in Personal. Read-only handoff:
             Astryum never signs for either leg. ── */}
         {/* La jaula, PRIMERO — es donde vive el grueso del capital del consejo.
             Vivía solo en la cadena: la familia fondeó y la app no lo enseñaba
-            en ningún inventario (fundador 2026-07-29). Va junto a las wallets
+            en ningún inventario. Va junto a las wallets
             porque es patrimonio, pero con su naturaleza dicha: de aquí no se
             saca. */}
-        {/* La pestaña Wallets MURIÓ (fundador 2026-08-30): las cuentas de este
+        {/* La pestaña Wallets MURIÓ: las cuentas de este
             Legacy viven en /app/wallets como todas las demás — el WalletManager
             embebido que vivía aquí era la segunda copia que confundía. */}
 
@@ -2622,7 +2565,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
             and everything still running, each entry openable to its on-chain
             proof and the actions it still allows (renew a rule near its 90 days,
             withdraw or go sign a live proposal, read a council order's FDC leg).
-            It lost its own tab (2026-07-28) and sits in the hub instead: this is
+            It lost its own tab and sits in the hub instead: this is
             GOVERNANCE history — FDC legs, council orders, proposals — which is a
             different record from Portfolio's generic per-wallet activity, so it
             is redistributed rather than dropped. */}
@@ -2633,8 +2576,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
         {/* ── SALA «CAPITAL»: qué hay dentro y qué produce. Dos bloques, y el
             capital es el primero — era el dato que no estaba en ninguna
             pantalla de la app pese a existir en la cadena. ── */}
-        {/* EL XRP DE LA PROPIA CUENTA (fundador 13-sep: abrió Capital de un
-            Legacy con 2,79 XRP dentro y la sala no enseñaba NADA). La jaula de
+        {/* EL XRP DE LA PROPIA CUENTA. La jaula de
             Flare es solo la mitad del patrimonio: la otra vive en la cuenta
             XRPL y hasta hoy no se veía en ninguna pantalla de Govern. Se lee de
             `spendable`, que el panel ya carga para los escrows; si esa lectura
@@ -2931,8 +2873,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
         </RevealItem>
         )}
 
-        {/* ── 3. The constitution (slide 4) — Constitute only now (founder
-            refactor 2026-07-19): this artifact lives in the Constitution
+        {/* ── 3. The constitution (slide 4) — Constitute only now: this artifact lives in the Constitution
             surface; Governance no longer renders it. ── */}
         {effectiveSurface === 'constitute' && wizStep === 4 && (
         <RevealItem>
@@ -3226,7 +3167,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
 
         {/* ── The EVM/vault mirror (auditoría P1): a manual drift-check that
             existed only WHILE FDC enforcement did not. Retired from the frontend
-            (founder 2026-07-19: enforcement is the rail now) — kept in the repo,
+            — kept in the repo,
             gated off, never deleted. ── */}
         {SHOW_VAULT_MIRROR && effectiveSurface === 'govern' && govTab === 'council' && (
         <RevealItem>
@@ -3306,7 +3247,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
         )}
 
         {/* ── Per-page footer: ONE honest sentence for the surface/section you
-            are on (founder refactor 2026-07-19). ── */}
+            are on. ── */}
         <RevealItem>
           <Card padded={false} className="p-4">
             <p className="text-[11px] leading-relaxed text-ink/40">
@@ -3330,7 +3271,7 @@ export default function LegacyPanel({ embed }: { embed?: LegacyPanelEmbed } = {}
       </SurfaceMotion>
       </StationRailLayout>
 
-      {/* ── Movements, as a modal (founder refactor 2026-07-28) — the same
+      {/* ── Movements, as a modal — the same
           overlay shape a personal wallet card opens, so the gesture is
           identical on both sides of the toggle. It is reachable from exactly
           two places: this Legacy's card in "My Legacies", and each wallet in

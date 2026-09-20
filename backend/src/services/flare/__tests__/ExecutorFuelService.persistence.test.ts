@@ -6,7 +6,7 @@
  * restores the accrued spend; and a >24h-stale window resets on load.
  */
 const store = new Map<string, Record<string, unknown>>();
-/** it. 29 — when set, the DB read THROWS (Postgres down), as `kvGetStrict` does. */
+/** When set, the DB read THROWS (Postgres down), as `kvGetStrict` does. */
 let dbDown = false;
 jest.mock('../../persistence/backgroundJobKv', () => ({
   kvGet: jest.fn(async (jobType: string, _kf: string, key: string) => store.get(`${jobType}:${key}`) ?? null),
@@ -72,7 +72,7 @@ it('loadFeeLedger is idempotent (a second call does not double-count)', async ()
 });
 
 /**
- * it. 29 — THE LEDGER IS NOT «LOADED» BEFORE IT IS READ.
+ * THE LEDGER IS NOT «LOADED» BEFORE IT IS READ.
  *
  * `loadFeeLedger` used to set `feeLedgerLoaded = true` BEFORE the `await`, and
  * read through `kvGet`, which answers `null` for «no row» and for «Postgres
@@ -83,7 +83,7 @@ it('loadFeeLedger is idempotent (a second call does not double-count)', async ()
  * payment is DEFERRED with a retryable refusal — and (f) heals by itself the
  * moment the database answers, with the persisted spend intact.
  */
-describe('it. 29 · a ledger we could not read is not a blank ledger', () => {
+describe('A ledger we could not read is not a blank ledger', () => {
   it('(d) a DB failure at boot leaves the ledger UNLOADED and the next load retries', async () => {
     recordFeeSpend(FLR('100'), T0); // persisted: 100 of 120 already spent today
     _resetFeeLedgerForTests(); // redeploy

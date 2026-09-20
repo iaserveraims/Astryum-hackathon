@@ -3,20 +3,6 @@
  *
  * Wraps the Enso Finance API to build unsigned calldata for single DeFi actions
  * (route) and multi-step atomic bundles (supply + borrow + LP in one tx).
- *
- * Revenue model:
- *   - ENSO_FEE_BPS (default 15 = 0.15%) embedded in every route/bundle request.
- *   - Fee goes directly to ASTRYUM_FEE_WALLET on-chain — Astryum never holds funds.
- *   - disclosedToUser: true — always disclosed before user signs.
- *
- * Regulatory invariants (never remove):
- *   authorization.astryumRelays: false
- *   referralAttribution.disclosedToUser: true
- *   Astryum never calls sendTransaction / broadcastTransaction
- *
- * Supported chains: 1 (Ethereum), 137 (Polygon), 42161 (Arbitrum), 10 (Optimism),
- *   8453 (Base), 56 (BSC), 43114 (Avalanche), 250 (Fantom).
- * NOT Flare (14) — Flare DeFi uses internal protocol adapters (kinetic, sparkdex, etc.).
  */
 
 import { randomUUID } from 'crypto';

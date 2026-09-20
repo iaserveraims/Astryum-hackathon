@@ -48,16 +48,6 @@ const PALETTE = [
 // assets keep their colour in every donut/legend no matter how big the slice
 // is or which lens (asset/chain) produced the name:
 //   XRP / XRPL → cobalt  ·  FXRP → light blue  ·  FLR family / Flare → pink
-//
-// FXRP left the cobalt it shared with XRP (founder 2026-08-04: "no puede ser
-// que tengan el mismo color") — two slices of the same ring reading identical
-// is the one thing a donut may never do. It takes a LIGHTER STEP OF THE SAME
-// BLUE, not a new hue, for two reasons: it says what FXRP is (the same asset in
-// wrapped form, not a different coin), and lightness is the only separation
-// that survives colour blindness — cobalt vs cyan collapses to ΔE ~4 under
-// deutan/protan, cobalt vs this ΔE 16.6 (validated, OKLab ×100; ≥8 is the
-// target). Its one close neighbour is the slate idle state, which no longer
-// shares a ring with assets.
 const ENTITY_COLORS: Record<string, string> = {
   XRP: '#5B8DEF',
   FXRP: '#93C5FD',
@@ -71,7 +61,7 @@ const ENTITY_COLORS: Record<string, string> = {
 // State labels (not assets) that can share a ring with entity slices. Money
 // LEAVING a venue (a queued vault exit, arriving on a known date) takes amber —
 // moving, not parked. Slate stays RESERVED for idle capital: the "Assets
-// Earning" ring no longer draws an idle slice (2026-08-04 — it only charts
+// Earning" ring no longer draws an idle slice (it only charts
 // capital placed in a venue), but the hue must never be handed to an asset, so
 // a grey wedge can only ever mean "not working".
 const STATE_COLORS: Record<string, string> = {
@@ -120,25 +110,9 @@ export function chartColorsFor(names: string[], opts: { engraved?: boolean; ligh
 }
 
 /**
- * LA PALETA DE LA LÁMINA (tema Institucional, 2026-09-14). Los colores de los
+ * LA PALETA DE LA LÁMINA (tema Institucional). Los colores de los
  * gráficos son de ESPACIO: cobalto, menta, violeta y rosa a plena saturación,
  * afinados para leerse sobre negro con oro. Sobre grafito y bronce gritan.
- *
- * La regla: el TONO no se toca —el azul de XRP sigue siendo azul, el rosa de
- * Flare sigue siendo rosa, que es lo que hace reconocible a cada activo en
- * todos los anillos y leyendas del panel (y lo único que sobrevive al
- * daltonismo, ver ENTITY_COLORS)— pero la saturación baja a menos de la mitad
- * y la luz se acerca al medio. Tinta de imprenta, no luz de pantalla. Los
- * tokens (`hsl(var(--volt))`) se dejan tal cual: ya son bronce.
- *
- * Es una función pura sobre el hex, así que el anillo y su leyenda —que llaman
- * a chartColorsFor con los mismos nombres— salen iguales por construcción.
- *
- * `targetL` es la luz hacia la que se COMPRIME la paleta (no a la que se
- * iguala): cada color conserva la mitad de su distancia al gris medio, así el
- * azul claro de FXRP sigue siendo un paso más claro que el cobalto de XRP —
- * la separación que sobrevive al daltonismo — pero todos se acercan a la
- * tinta de la cara en que se pintan (ENGRAVED_L_DARK / ENGRAVED_L_LIGHT).
  */
 export function engravedTone(color: string, targetL = ENGRAVED_L_DARK): string {
   const m = /^#([0-9a-f]{6})$/i.exec(color.trim());
@@ -208,7 +182,7 @@ export function AllocationDonut({
   // allocation, but dollar amounts (tooltip + centre total) mask together
   // with the rest of the app.
   const hidden = useBalanceVisibility((s) => s.hidden);
-  // LA LÁMINA (2026-09-14): tinta atenuada, cada porción separada por un
+  // LA LÁMINA: tinta atenuada, cada porción separada por un
   // filete del color del papel —un anillo grabado, no un anillo de luz— y el
   // barrido de entrada al tempo lento de la casa (900ms, como la curva) para
   // que el anillo se vea LLEGAR: era la queja del Portfolio. En Astryum nada
@@ -216,7 +190,7 @@ export function AllocationDonut({
   const engraved = useEngraved();
   // La tinta se oscurece sobre papel (ENGRAVED_L_LIGHT): el 3:1 del anillo.
   const light = useResolvedTheme() === 'light';
-  // EL BARRIDO DEL ANILLO ESPERA AL VELO (14-sep): recharts anima al montar,
+  // EL BARRIDO DEL ANILLO ESPERA AL VELO: recharts anima al montar,
   // y en recarga dura el panel monta detrás de la cortina — el anillo se
   // barría a escondidas y aparecía hecho. Cambiar la `key` al caer el velo
   // remonta el gráfico y el barrido se ve; navegando entre páginas el velo
@@ -249,7 +223,7 @@ export function AllocationDonut({
             // la primera versión de esta rama (41589223) escribía 400ms para
             // Astryum creyendo que era el valor por defecto, y el anillo pasó a
             // barrer casi cuatro veces más deprisa que antes — «los gráficos se
-            // generan súper rápido» (fundador 2026-09-14). Un tema que promete
+            // generan súper rápido». Un tema que promete
             // no tocar Astryum no puede pasar ni un número que no sea el suyo:
             // `undefined` deja el valor de la librería, sea cual sea.
             animationDuration={engraved ? 900 : undefined}
@@ -443,9 +417,8 @@ export function DriversBars({
  * AxisTick — una marca del eje del tiempo que ENTRA cuando su texto cambia.
  *
  * Recharts pinta los ticks como `<text>` planos: al cambiar de ventana las
- * fechas se sustituían en el sitio, sin que se viera que había pasado nada
- * (fundador 2026-08-25: «quiero que se muevan las fechas de debajo… y que se
- * muevan según cambia de filtro el usuario»). Aquí cada etiqueta es un
+ * fechas se sustituían en el sitio, sin que se viera que había pasado nada.
+ * Aquí cada etiqueta es un
  * `motion.text` con `key` en su propio contenido: cuando el texto cambia,
  * framer la trata como un elemento nuevo y la hace entrar desplazándose. El
  * `animationKey` entra en la key para que un cambio de ventana mueva TODAS,
@@ -480,8 +453,7 @@ function AxisTick({
       fill="hsl(var(--ink) / 0.45)"
       fontSize={10}
       fontFamily="monospace"
-      // EL BUG QUE BORRÓ LOS DÍAS (fundador 2026-08-27: «ya no aparecen los
-      // días debajo del chart»): en un elemento SVG, framer trata `y` como
+      // EL BUG QUE BORRÓ LOS DÍAS: en un elemento SVG, framer trata `y` como
       // TRANSFORM, no como el atributo — animar hacia `y` (la coordenada
       // absoluta, ~200px) apilaba un translateY(200px) sobre el atributo ya
       // correcto y empujaba cada etiqueta fuera del lienzo. Aquí `y` es un
@@ -573,11 +545,11 @@ export function PerfLine({
    * Cambia cuando cambia LA VENTANA de tiempo (no cuando llegan datos nuevos).
    * Al cambiar, la curva se vuelve a dibujar y el eje de abajo entra con ella:
    * sin esto, elegir otro rango sustituía las etiquetas de golpe y no se veía
-   * que hubiera pasado nada (fundador 2026-08-25). Sin la prop, el gráfico se
+   * que hubiera pasado nada. Sin la prop, el gráfico se
    * comporta como siempre — los demás consumidores no cambian.
    */
   animationKey?: string | number;
-  /** SCRUB (2026-09-07): el punto bajo el cursor, o null al salir. Quien lo
+  /** SCRUB: el punto bajo el cursor, o null al salir. Quien lo
    *  monta puede hacer que su cifra grande siga al cursor — el gesto de las
    *  apps de bolsa. Sin la prop, nada cambia. */
   onHover?: (p: { t: string; value: number } | null) => void;
@@ -589,8 +561,8 @@ export function PerfLine({
   const reduce = useReducedMotion();
   // El pulso del último valor es un bucle: solo en el nivel COMPLETO.
   const level = useMotionLevel();
-  // LA CURVA GRABADA (tema Institucional, 2026-09-14): sin resplandor bajo la
-  // línea —un halo es luz, y en la lámina no hay luz—, el área rellena con
+  // LA CURVA GRABADA (tema Institucional): sin resplandor bajo la
+  // línea —un halo es luz, y en la lámina no hay luz, el área rellena con
   // un TRAMADO de líneas finas en vez de un degradado, la rejilla en filetes
   // continuos y el punto del final quieto. La forma de la curva, su trazado
   // de una sola vez y el scrub no cambian: cambia el material.
@@ -601,7 +573,7 @@ export function PerfLine({
   const fmt = hidden ? () => MASK : formatY;
   /** El primer trazado, y solo el primero — ver el comentario del <Area>. */
   const [drawOnce, setDrawOnce] = useState(() => !reduce);
-  // LA CURVA SE TRAZA CUANDO CAE EL VELO (14-sep): en recarga dura el primer
+  // LA CURVA SE TRAZA CUANDO CAE EL VELO: en recarga dura el primer
   // trazado corría detrás de la cortina y `onAnimationEnd` lo daba por hecho.
   // Al caer el velo el gráfico se remonta (key) y el trazado vuelve a estar
   // permitido UNA vez; después rige la regla de siempre (nunca regenerar al
@@ -610,8 +582,7 @@ export function PerfLine({
   useEffect(() => {
     if (lifted) setDrawOnce(!reduce);
   }, [lifted, reduce]);
-  // EL EJE VERTICAL ES DINÁMICO (fundador 2026-09-10: «parece que baja mucho
-  // por poco cambio… más sutil, pero no plano»): abarca al menos un 5 % del
+  // EL EJE VERTICAL ES DINÁMICO: abarca al menos un 5 % del
   // valor y crece con la variación real. Ver lib/charts/softDomain.ts.
   const yDomain = useMemo(
     () => softDomain(points.map((p) => Number((p as Record<string, unknown>)[dataKey]))),
@@ -624,14 +595,13 @@ export function PerfLine({
   const last = points[points.length - 1];
   const sinceLabel = t('vs start');
   return (
-    // LA CURVA NO SE REGENERA (fundador 2026-08-25: «cada vez que clico se
-    // genera de nuevo el gráfico, no quiero eso»). El intento anterior
+    // LA CURVA NO SE REGENERA. El intento anterior
     // re-montaba el gráfico con una `key` para que recharts lo redibujara —
     // demasiado: al cambiar de ventana lo único que debe moverse es el EJE DEL
     // TIEMPO, que es lo que de verdad cambia. La línea se limita a adoptar sus
     // nuevos valores, sin volver a dibujarse desde cero.
     //
-    // v2 (fundador 2026-09-07: «se ve un poco cutre»): resplandor bajo la
+    // V2: resplandor bajo la
     // línea, línea base punteada del arranque de la ventana, punto vivo al
     // final, tooltip propio con la diferencia, eje Y compacto y escaso, y
     // scrub hacia la cabecera. La forma de la curva y su regla de no
@@ -728,10 +698,7 @@ export function PerfLine({
             stroke={color}
             strokeWidth={engraved ? 1.75 : 2.25}
             fill={engraved ? 'url(#perf-hatch)' : 'url(#perf-grad)'}
-            // LA CURVA SE DIBUJA UNA VEZ — la primera (fundador 2026-08-27:
-            // «mejora la animación»), y NUNCA al cambiar de ventana (fundador
-            // 2026-08-25: «cada vez que clico se genera de nuevo, no quiero
-            // eso»). Las dos cosas a la vez: la animación está viva solo hasta
+            // LA CURVA SE DIBUJA UNA VEZ — la primera, y NUNCA al cambiar de ventana. Las dos cosas a la vez: la animación está viva solo hasta
             // que termina su primer trazado; onAnimationEnd la apaga, así que
             // cualquier cambio de datos posterior — el filtro de fechas —
             // adopta sus valores en seco, como se pidió.
@@ -819,13 +786,13 @@ export function OrbitDial({
   size?: number;
 }) {
   const reduced = useReducedMotion();
-  // EL CALIBRE (tema Institucional, 2026-09-14): el planeta luminoso sobre su
+  // EL CALIBRE (tema Institucional): el planeta luminoso sobre su
   // órbita punteada es la escena solar de la landing en miniatura. En la
   // lámina el mismo instrumento es un calibre GRABADO: corona de graduación,
   // arco recorrido en tinta plana y una aguja con su punto, sin halo. El
   // valor, la animación del vuelo y la cifra del centro no cambian.
   const engraved = useEngraved();
-  // El vuelo arranca cuando cae el velo del arranque, no al montar (14-sep).
+  // El vuelo arranca cuando cae el velo del arranque, no al montar.
   const lifted = useVeilLifted();
   const target = value == null ? null : Math.max(0, Math.min(100, value));
   // Animated fraction 0..1 — the planet flies to its reading on load/refresh.

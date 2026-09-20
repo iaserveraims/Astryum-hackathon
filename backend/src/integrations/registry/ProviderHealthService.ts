@@ -77,12 +77,12 @@ export class ProviderHealthService {
   }
 
   /**
-   * Alerta de transición (Ola 1 de la doctrina agéntica): el registry ya
+   * Alerta de transición: el registry ya
    * guardaba el estado, pero nadie se enteraba. 3 ticks 'down' consecutivos
    * (~3 min) → warn por el canal común; recuperación tras haber alertado →
    * info. Sin flag: sin webhook configurado esto es solo log, como antes.
    *
-   * Los STUBS no alertan jamás (2026-08-01): un placeholder sin provider real
+   * Los STUBS no alertan jamás: un placeholder sin provider real
    * cableado responde 'down' por construcción y no puede recuperarse — su
    * aviso no es accionable y entierra los reales. Su estado sigue visible en
    * el panel admin; el día que se cablee el provider real, alerta solo.

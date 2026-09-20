@@ -4,30 +4,6 @@
  * useIntentSigning — the ONE place a prepared intent is handed to the user's
  * wallet, shared by the full page (app/intents/page.tsx) and the always-on
  * sidebar card (SidebarIntents.tsx).
- *
- * REGULATORY BOUNDARY (CLAUDE.md invariants #1/#8): Astryum builds the unsigned
- * calldata, forwards it to the user's OWN connected wallet via
- * useWalletPartner.sendIntentCalls, and reports the hash back so the backend
- * FSM can advance. Astryum never signs, never broadcasts, never custodies.
- * `dismiss` only cancels a not-yet-signed intent.
- *
- * SETTLEMENT: `submitted` is reported to the backend ONLY once the settlement
- * machine confirms the operation on-chain (real receipt / 5792 status) — the
- * old flow persisted 'submitted' with an unconfirmed 5792 bundle id. While the
- * machine watches, `signingId` stays set (no double-sign) and `settling`
- * exposes pending | stalled | failed for the UI.
- *
- * UNCONFIRMED (unearned-success family, 13-sep): an error AFTER the calls
- * reached the wallet (RECEIPT_UNREAD, a dropped RPC…) used to clear
- * `signingId` and hand the sign button back — a second signature of an
- * intent that may already be on-chain. Such an intent is now BLOCKED for the
- * life of this hook (`isBlocked`), and `unconfirmed` carries the amber panel.
- * The same block applies when the operation settled on-chain but recording it
- * in the backend failed: the intent still reads as waiting, and signing it
- * again would execute it twice.
- *
- * `onChanged(intentId)` fires after a CONFIRMED sign OR a dismiss so the caller
- * can re-poll / optimistically drop the intent it just acted on.
  */
 
 import { useState } from 'react';

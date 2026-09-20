@@ -1,36 +1,6 @@
 /**
  * xrplIdentityOidc — the XRP Identity (account.xrpl.in) authorization-code
  * exchange.
- *
- * Astryum's front door is the XRPL ecosystem's own identity provider. The
- * browser runs authorization_code + PKCE (S256) and never sees a token: it
- * hands the one-time `code` to this backend, which exchanges it at the
- * provider's /token endpoint and returns the id_token to the existing
- * verification rail (oauthVerify → AuthService.oauthLogin).
- *
- * Why the exchange is server-side even though the client is public:
- *   · the id_token never rides in a URL fragment or browser history,
- *   · the audience/issuer check happens where we control it,
- *   · and if the operator ever moves us to a confidential client, only this
- *     file changes — the secret stays server-side by construction.
- *
- * INVARIANT 2 (no secrets in client code): the registered client is PUBLIC —
- * `token_endpoint_auth_method: "none"` — so there is NO secret to leak. The
- * optional XRPL_IDENTITY_CLIENT_SECRET below exists only because we do not
- * control the registration; if the operator issues a confidential client it is
- * read here, server-side, and never reaches the browser.
- *
- * What this does NOT give us — stated so nobody builds on a wrong assumption:
- * the id_token carries `sub, roles, preferred_username, email, email_verified`
- * and nothing else. No XRPL address, no credential, no KYC. It answers "who is
- * this person", never "which ledger account do they control". That second
- * question has exactly one honest answer and we already implement it: a
- * signature, via the wallet-binding rail (routes/walletBindings.ts).
- *
- * Config (all server-side; never NEXT_PUBLIC_*):
- *   XRPL_IDENTITY_CLIENT_ID      — the registered client id (also the `aud`)
- *   XRPL_IDENTITY_REDIRECT_URIS  — comma-separated allowlist of registered URIs
- *   XRPL_IDENTITY_CLIENT_SECRET  — optional, only if issued a confidential client
  */
 
 export const XRPL_IDENTITY_ISSUER = 'https://account.xrpl.in';
@@ -47,19 +17,9 @@ export const XRPL_IDENTITY_SCOPES = 'openid profile email';
  *
  * The question and its answer, so nobody re-runs the experiment: the provider's
  * profile page lets a user connect an XRPL wallet with Xaman, and we asked
- * whether that address rides along at login. Measured over real logins on
- * 2026-08-18 with the scope granted: the `/userinfo` endpoint does NOT carry it — it
+ * whether that address rides along at login. Measured over real logins with the scope granted: the `/userinfo` endpoint does NOT carry it — it
  * returns `sub, roles, preferred_username, email, email_verified` and nothing
  * more, with or without the scope.
- *
- * The operator's answer (2026-08-19) is that it lives outside OIDC entirely, at
- * the Account API — see XRPL_IDENTITY_ACCOUNT_API below, which the same
- * `profile:read` access token opens. **So this flag is not a diagnostic any
- * more: it is the switch that makes the wallet reachable at all.** Turning it
- * off does not just silence a probe, it closes that door.
- *
- * What the address is worth is settled too, and it is less than we assumed —
- * read the ceiling stated at XRPL_IDENTITY_ACCOUNT_API before building on it.
  */
 export function xrplIdentityProfileScopeEnabled(): boolean {
   return process.env.XRPL_IDENTITY_PROFILE_SCOPE === 'true';
@@ -203,7 +163,7 @@ export interface IdentityProbe {
   userinfo:
     | { ok: true; claims: ClaimShape[] }
     | { ok: false; error: string };
-  /** The Account API answer — the operator's documented way in (2026-08-19). */
+  /** The Account API answer — the operator's documented way in. */
   accountApi?:
     | { ok: true; walletPresent: boolean; looksLikeXrplAddress: boolean }
     | { ok: false; error: string };
@@ -214,7 +174,7 @@ const XRPL_CLASSIC_ADDRESS = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 /**
  * The operator's Account API — where the connected wallet actually lives.
  *
- * Thomas Hussenet, 2026-08-19: the address is NOT exposed over OIDC, but a
+ * Thomas Hussenet: the address is NOT exposed over OIDC, but a
  * client holding `profile:read` can read it here. Same access token, different
  * host: the profile app, not the issuer.
  *

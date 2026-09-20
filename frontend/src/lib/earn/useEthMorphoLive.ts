@@ -3,20 +3,6 @@
 /**
  * useEthMorphoLive — live data + runtime gate for the two eth-morpho cards in
  * Earn «Choose a strategy» (BuildSpec B5-UI paso 2).
- *
- * Reads the backend module that already enforces flag + geofence server-side:
- *   GET /eth-morpho/status → { active }   — the RUNTIME kill-switch (never the
- *                                           build-time NEXT_PUBLIC twin: a hot
- *                                           kill in Railway must hide the cards
- *                                           without a redeploy).
- *   GET /eth-morpho/market → live FXRP/RLUSD market (lltv, utilisation,
- *                            liquidity, borrow APR with named source).
- *   GET /eth-morpho/vault  → Sentora vault (netApy split base/net, perf fee,
- *                            source) — nulls mean "source unavailable" and the
- *                            UI says so, never invents (invariant #9).
- *
- * Fail-closed: unreachable status ⇒ active=false ⇒ cards hidden. Same polling
- * idiom as useStrategyYields (60s + focus), never throws, keeps last good data.
  */
 import { useEffect, useState } from 'react';
 import { getApiBase } from '../env';

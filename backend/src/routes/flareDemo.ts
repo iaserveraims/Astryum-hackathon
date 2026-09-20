@@ -1,24 +1,8 @@
 /**
- * Flare mainnet DEMO routes — the two live "entradas" shown in the Earn surface
- * (docs/context/Astryum_Demos_Mainnet_Flare_Plan_2026-06-22.md):
  *
  *   E1 — FXRP entry  (rail: Xaman → Flare Smart Account)
  *        XRP → direct-mint FXRP → supply collateral + borrow USDT0 on Kinetic ISO.
  *        Output = the UNSIGNED XRPL Payment the user signs in Xaman.
- *
- *   E2 — FLR entry   (rail: EVM direct, MetaMask et al.)
- *        wrap FLR → WFLR → delegate WFLR vote power to an FTSO data provider.
- *        Output = the UNSIGNED [wrap, delegate] EVM calls the user signs.
- *
- * Astryum stays PREPARE-ONLY (invariant #1): every endpoint returns unsigned
- * payloads + a fee/price disclosure (#6). Both demos sit behind FLARE_DEFI_ENABLED
- * (#8) + the per-jurisdiction geofence (#5) — the geofence gates ENTRIES only: the
- * EXIT routes (config/demoCapRoutes.ts EXIT_PREPARE_ROUTES) are flag-only, because
- * the exit is never gated (gateFlareDemoExit); E1 additionally runs the KWYH scanner
- * (#10) and discloses the USDT0 borrow demo-exception (#4, see plan §9).
- *
- * This mirrors the proven CLI scripts (src/scripts/e1-prepare.ts) over HTTP so the
- * Earn UI can drive the same hand-off. It never signs, never broadcasts.
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import { ethers } from 'ethers';
@@ -113,7 +97,7 @@ router.use(async (req: Request, res: Response, next: NextFunction) => {
     //    refuse BEFORE signing if it can't attest one more mint (else the XRP leaves and
     //    parks with no reclaim). EVM-direct settles with the user's own signature.
     if (isXrplMintBody(req.body) && !hasFeeBudgetForOneMint()) {
-      // The PROTECTION route deserves the harder truth (founder 2026-07-25):
+      // The PROTECTION route deserves the harder truth:
       // this refusal avoids PARKING the XRP, but it does NOT stop a
       // liquidation — "come back tomorrow" can be too late when HF is
       // falling. Name the fallback that does not depend on the executor.
@@ -179,7 +163,7 @@ const WNAT_ADDRESS = '0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d';
 const WNAT_DEPOSIT_SELECTOR = '0xd0e30db0'; // deposit() payable
 const WNAT_ABI = [
   'function delegate(address to, uint256 bips)',
-  // E2 exit rail (2026-07-31): unwrap + undelegate + the reads that size them.
+  // E2 exit rail: unwrap + undelegate + the reads that size them.
   'function withdraw(uint256 amount)',
   'function undelegateAll()',
   'function balanceOf(address owner) view returns (uint256)',
@@ -196,13 +180,13 @@ function isPositiveFinite(n: number): boolean {
 }
 
 /** true si el cliente pide invalidar el handoff pendiente que ocupa el mismo
- *  PA+nonce (guard NonceSeatTakenError → 409; incidente 2026-07-14/16). */
+ *  PA+nonce. */
 function wantsSupersede(req: Request): boolean {
   return ((req.body ?? {}) as { supersede?: unknown }).supersede === true;
 }
 
 /**
- * productizer-it13 §2.1 — the seat fields every 0xFE prepare hands the builder.
+ * The seat fields every 0xFE prepare hands the builder.
  * `supersede` still comes from the body, but it only DISPLACES a fresh draft
  * prepared by someone else when this session proved `xrplAddress` (or is a
  * verified founder) — `supersedeAuthorized`, read server-side. The session's user
@@ -221,26 +205,10 @@ async function seatClaimOf(
   signingCeremony?: true;
 }> {
   const supersede = wantsSupersede(req);
-  // productizer-it15 §K1 (contrato C2) — la prueba se lee UNA vez y viaja siempre:
+  // §K1 (contrato C2) — la prueba se lee UNA vez y viaja siempre:
   // el registro guarda si quien preparó probaba la cuenta, porque un borrador de
   // quien no la prueba lo puede desplazar el dueño probado (nadie más puede
   // firmarlo), y porque la UI necesita saber si reintentar tiene sentido.
-  //
-  // productizer-it19 §M3 3.1 — …Y EN UNA SALIDA, «no pude leer» NO es «no lo has
-  // probado». La clasificación de la ruta (la misma lista que exime la salida de
-  // la geo-valla y del cupo) decide el propósito: en una entrada un fallo de
-  // lectura falla cerrado; en una salida conserva el derecho del dueño.
-  //
-  // productizer-it21 §P2 2.2 — …Y AQUÍ SE PERDÍA ESE 503, Y ALGO PEOR. Esta puerta
-  // usaba la forma BOOLEANA (`sessionMayActOnXrplAccount`), que colapsa «no pude
-  // leer» y «no lo has probado» en el mismo `false`: con la tienda de pruebas
-  // caída, la fila se componía marcada «de quien no prueba» —que es justo la fila
-  // desplazable de §1.1— y el usuario acababa en un 409 definitivo en vez de en
-  // un «vuelve a intentarlo» (it20 N2 2.2/1.4). Ahora se pide el veredicto
-  // COMPLETO y se parte en los tres estados que hay, con la pieza del agente E:
-  // `seatProofFromVerdict`. `preparedByProofUnreadable` viaja hasta el registro
-  // para que ninguna regla de asiento aparte una fila por un `preparedByProven:
-  // false` que en realidad era «no pude preguntar».
   const isExitPath = EXIT_PREPARE_PATHS.has(req.path);
   const authority = await sessionAuthorityOnXrplAccount(req, xrplAddress, isExitPath ? 'exit' : 'entry');
   const { seatProofFromVerdict } = await import('../services/identity/provenAddresses');
@@ -255,25 +223,9 @@ async function seatClaimOf(
     },
     { supersede },
   );
-  // SOLO una causa TRANSITORIA se convierte en espera, y quien lo decide es el
-  // propio `refusal`: el agente E clasifica `no-user-row` y `unreadable-floor`
-  // como **409 no reintentable** (esperar no los cura; lo que hay que hacer es
+  // Lo que hay que hacer es
   // entrar con esa wallet, o que un administrador repare el registro) y deja el
-  // 503 reintentable para la avería de verdad (it20 N2 2.4, cerrado allí).
-  //
-  // productizer it. 31 (agente D, 4.1) — …Y EL REFUSAL VIAJA ENTERO, NO SU
-  // SOMBRA. Esta rama reescribía cualquier refusal reintentable como un
-  // `PROOF_STORE_UNREADABLE` de frase fija («could not read … try again in a
-  // moment», con el código crudo delante y la r-address dentro). Desde it. 29
-  // también entra por aquí `PROOF_FLOOR_AHEAD_OF_CLOCK` — la marca de toma de
-  // posesión adelantada a nuestro reloj —, y para él las dos mitades de esa
-  // frase son falsas: la fila SE LEYÓ, y el instante puede ser 2099. Se perdían
-  // el código, `headline`, `ways` («re-linking will not help», «an administrator
-  // can check that date») y el usuario de email veía «try again in a moment» en
-  // bucle sobre su propia salida — con la marca ILEGIBLE (409 determinista) esa
-  // misma salida se compone marcada `preparedByProofUnreadable`, y con la
-  // adelantada quedaba cerrada bajo una promesa falsa. El error transporta ahora
-  // el refusal tal cual (`fromProofRefusal`) y `nonceSeatBody` lo reenvía.
+  // 503 reintentable para la avería de verdad (cerrado allí).
   if (claim.refusal?.retryable === true) {
     throw SeatStateUnreadableError.fromProofRefusal(claim.refusal);
   }
@@ -283,42 +235,29 @@ async function seatClaimOf(
     supersedeAuthorized: claim.supersedeAuthorized,
     preparedByProven: claim.preparedByProven,
     preparedByProofUnreadable: claim.preparedByProofUnreadable,
-    // it. 27 (§2) — …Y LA VENTANA, EN EL MISMO OBJETO. Ver `ceremonyWindowFor`.
+    // …Y LA VENTANA, EN EL MISMO OBJETO. Ver `ceremonyWindowFor`.
     ...(await ceremonyWindowFor(xrplAddress)),
   };
 }
 
 /**
- * productizer it. 27 (§2) — ¿LA FIRMA ESTE 0xFE UN QUÓRUM? SE PREGUNTA AL LEDGER.
+ * ¿LA FIRMA ESTE 0xFE UN QUÓRUM? SE PREGUNTA AL LEDGER.
  *
  * **El fallo que esto cierra: las trece composiciones de 0xFE de este router se
- * quedaron fuera del arreglo de it25 §2.1.** `institutional.ts` lo pregunta en
+ * quedaron fuera del arreglo ** `institutional.ts` lo pregunta en
  * siete puertas y `xrplDefi.ts` en tres; aquí no había NI UNA (`grep
  * ceremonyWindowFor backend/src/routes/flareDemo.ts` → 0). Y el desvío del
  * navegador sí mira el SignerList (`lib/wallet/useXrplWalletPartner.ts`: toda
  * cuenta con quórum va a la ceremonia), así que el servidor componía con ~6 min
  * un Payment que un quórum tarda una hora en firmar: `tefMAX_LEDGER`, y esa
  * salida no puede aterrizar NUNCA. Probar el builder no probaba la cadena.
- *
- * DÓNDE VIVE, Y POR QUÉ AQUÍ. Dentro de `seatClaimOf`, que es el único objeto que
- * las catorce composiciones de este fichero extienden. Una llamada suelta por
- * puerta se olvida en la siguiente que se escriba — que es exactamente cómo
- * `signingCeremony` se quedó sin llamador dos iteraciones seguidas. Aquí no puede
- * perderse: quien compone un 0xFE ya pasa por esta puerta para el asiento.
- *
- * Y LAS DOS REGLAS QUE NO SE TOCAN, porque viven dentro de `signingCeremonyFor`:
- * un «no pude leer» devuelve `{}` (jamás estira el asiento de nonce de nadie por
- * un fallo nuestro) y una cuenta que Astryum OPERA tampoco se estira (su 0xFE lo
- * firma nuestra semilla en el acto, y su asiento sirve a toda la run).
- *
- * Gemelo exacto del helper de `routes/xrplDefi.ts` y `routes/institutional.ts`.
  */
 async function ceremonyWindowFor(
   account: string,
 ): Promise<{ signingCeremony?: true; signerListRead?: 'single' | 'quorum' | 'unknown' }> {
   try {
     const { signingCeremonyFor } = await import('../connectors/protocols/flare/FlareDirectMintService');
-    // it. 31 (§5): `signerListRead` rides along — the builder stamps it on the
+    // `signerListRead` rides along — the builder stamps it on the
     // handoff and `zeroFeSigningWindow` answers it, so the browser can tell a
     // window that was READ from one that is merely the default.
     return await signingCeremonyFor(account);
@@ -328,36 +267,32 @@ async function ceremonyWindowFor(
 }
 
 /**
- * productizer-it15 §K1 (contrato C3) — el cuerpo 409 de un asiento ocupado: el
+ * §K1 (contrato C3) — el cuerpo 409 de un asiento ocupado: el
  * CÓDIGO dice de qué tipo es (firmada, reportada, ilegible, borrador vivo),
  * `retryable` si reintentar liberando el asiento puede funcionar para ESTA
  * sesión, y la ventana de ledger da la cuenta atrás real. Sin esto, la consola
  * ofrecía «Retry, freeing the seat» en bucle sobre el borrador de otro.
  */
 /**
- * productizer-it19 §M1 1.4 — el asiento OCUPADO es un conflicto (409); el asiento
+ * El asiento OCUPADO es un conflicto (409); el asiento
  * que no se pudo LEER es una espera del servidor (503). Son dos cosas distintas y
  * la pantalla las cuenta distinto: en la primera hay algo de alguien ahí, en la
  * segunda no lo sabemos y no compusimos nada.
  */
 function seatRefusalStatus(e: NonceSeatTakenError): number {
-  // it. 31 (4.1): un refusal de la tienda de pruebas reenviado trae su status.
+  // Un refusal de la tienda de pruebas reenviado trae su status.
   return forwardedProofRefusalStatus(e) ?? (e instanceof SeatStateUnreadableError ? 503 : 409);
 }
 
 /**
- * productizer-it23 §Q1 1.6 — NINGUNA PUERTA COLAPSA EL CÓDIGO DE OTRO.
+ * NINGUNA PUERTA COLAPSA EL CÓDIGO DE OTRO.
  *
- * `sessionAuthorityOnXrplAccount` devuelve, cuando dice que no, el cuerpo EXACTO
- * que se debe: 403 «no lo has probado», **503** «no pude leer» (transitorio) o
- * **409** `ACCOUNT_RECORD_MISSING` / `PROOF_FLOOR_UNREADABLE` — los dos
- * deterministas del agente E, cuya prosa nombra las dos salidas reales (entrar
- * con esa wallet; que un administrador repare la fila). Estas dos puertas
+ * Que un administrador repare la fila). Estas dos puertas
  * miraban solo el 503 y convertían todo lo demás en un 403
  * `NOT_THE_HANDOFF_OWNER` cuya frase —«esto lo preparó otra sesión, para una
  * cuenta que esta sesión no ha probado»— es FALSA cuando lo que pasó es que
- * falta el registro de la cuenta o su bloque de seguridad no se puede leer
- * (it22 Q1 1.6). Y desde it23, si ni el módulo de pruebas carga, ese refusal es
+ * falta el registro de la cuenta o su bloque de seguridad no se puede leer.
+ * Y, si ni el módulo de pruebas carga, ese refusal es
  * un 503 reintentable en una salida: aquí se propaga tal cual.
  *
  * El 403 propio se reserva para el único caso en que es verdad: la tienda se
@@ -378,16 +313,16 @@ function handoffOwnerRefusal(
 }
 
 /**
- * productizer-it23 §Q1 1.2 — LA VENTANA DE FIRMA VIAJA CON CADA 0xFE.
+ * LA VENTANA DE FIRMA VIAJA CON CADA 0xFE.
  *
  * `payloadExpiryMin` es el `expire` (minutos) que el frontend DEBE poner en el
  * payload de Xaman, y es el mismo número con el que el servidor mide el asiento
  * de nonce de ese dispatch. El frontend ya sabe aprenderlo
- * (`notePayloadExpiryMin`, it21 §3.9) pero NINGÚN prepare de este router lo
+ * (`notePayloadExpiryMin`) pero NINGÚN prepare de este router lo
  * contestaba: se quedaba con su constante de 5 min escrita a mano, y el día que
  * el servidor cambie la suya las dos cifras se separan — hacia arriba el asiento
  * sobrevive al payload, hacia abajo el asiento se suelta con el payload aún
- * firmable, que es el gemelo (it22 Q1 1.2). `payloadExpiresAt` viaja al lado: es
+ * firmable, que es el gemelo. `payloadExpiresAt` viaja al lado: es
  * el instante que el servidor ya estampó al componer.
  */
 function zeroFeSigningWindow(h: {
@@ -396,7 +331,7 @@ function zeroFeSigningWindow(h: {
   signerListRead?: string | null;
 }): { payloadExpiryMin: number; payloadExpiresAt?: string; signerListRead?: 'single' | 'quorum' | 'unknown' } {
   const min = typeof h?.payloadExpiryMin === 'number' && h.payloadExpiryMin > 0 ? h.payloadExpiryMin : handoffPayloadExpiryMin();
-  // it. 31 (§5): whether that window is a READ or a default travels beside it.
+  // Whether that window is a READ or a default travels beside it.
   // The browser only skips its own SignerList read on `'single'` — a window
   // alone never says why it is short.
   const read = h?.signerListRead;
@@ -408,7 +343,7 @@ function zeroFeSigningWindow(h: {
 }
 
 function nonceSeatBody(e: NonceSeatTakenError): Record<string, unknown> {
-  // it. 31 (4.1): la puerta del asiento reenvía el refusal de la tienda de
+  // La puerta del asiento reenvía el refusal de la tienda de
   // pruebas ENTERO (código, headline, ways, retryAfterSeconds, detail) — jamás
   // un `PROOF_STORE_UNREADABLE` reconstruido a partir del mensaje.
   const forwarded = forwardedProofRefusalBody(e);
@@ -418,7 +353,7 @@ function nonceSeatBody(e: NonceSeatTakenError): Record<string, unknown> {
     retryable: e.retryable,
     ...(e.lastLedgerSequence !== undefined ? { lastLedgerSequence: e.lastLedgerSequence } : {}),
     ...(e.secondsLeft !== undefined ? { secondsLeft: e.secondsLeft } : {}),
-    // productizer-it17 (contrato C2) — el memo de la fila que bloquea viaja SOLO
+    // El memo de la fila que bloquea viaja SOLO
     // cuando el builder decidió que esta sesión puede tocarla (la preparó o
     // prueba la cuenta): con él la pantalla ofrece liberar ese asiento en vez de
     // dejar al usuario en un callejón. A un extraño nunca se le confirma el memo.
@@ -428,7 +363,7 @@ function nonceSeatBody(e: NonceSeatTakenError): Record<string, unknown> {
 }
 
 /**
- * productizer-it17 (it16 R3 3.2) — ¿ESTÁ CORRIENDO EL EXECUTOR? El banner del
+ * ¿ESTÁ CORRIENDO EL EXECUTOR? El banner del
  * 0xFE se quedaba en su frase prudente («puede que nadie lo entregue») en TODA
  * salida legítima, porque ninguna ruta 0xFE decía nada: solo las órdenes de
  * consejo mandaban `serverDelivery`. Un aviso permanente que el usuario no puede
@@ -442,7 +377,7 @@ function zeroFeServerDelivery(): { executorEnabled: boolean } {
 }
 
 /**
- * productizer-it13 §4.2 — the FAssets redemption fee on the UBA a prepare
+ * The FAssets redemption fee on the UBA a prepare
  * actually redeems (invariants #6/#9): live bips, the estimated FXRP, and a line
  * that states the figure or says it could not be read — never 0, never omitted.
  */
@@ -457,7 +392,7 @@ async function redemptionFeeFor(
 /**
  * XRP ≤ fees del direct-mint (mint 0.1 + executor 0.2 XRP en vivo) responde
  * como lo que es — importe insuficiente, no un fallo del servidor. El ensayo
- * mainnet 2026-07-26 lo observó saliendo como 500 genérico en las rutas 0xFE;
+ * mainnet lo observó saliendo como 500 genérico en las rutas 0xFE;
  * walletTransfer ya usaba este mismo mapeo (AMOUNT_BELOW_MINT_FEES).
  * Returns true when the response was sent (the catch must stop there).
  */
@@ -472,8 +407,8 @@ function repliedAmountBelowMintFees(res: Response, e: unknown): boolean {
 }
 
 /**
- * The road BACK to native XRP, said at ENTRY time (2026-07-24; PA-unmint built
- * 2026-07-26): the PA rail CAN redeem FXRP back to native XRP (Unmint on your
+ * The road BACK to native XRP, said at ENTRY time (PA-unmint built):
+ * the PA rail CAN redeem FXRP back to native XRP (Unmint on your
  * position / /pa-unmint), with the protocol's on-chain minimum per redemption
  * (minimumRedeemAmountUBA, 5 XRP on mainnet — read live, invariant #9). The
  * user still learns the minimum BEFORE signing the entry.
@@ -576,8 +511,7 @@ router.get('/yields', async (_req: Request, res: Response) => {
 
   // La capa de RECOMPENSAS (incentivos WFLR vía el distribuidor) es lo que la
   // app de Kinetic titula: el interés base solo es ~0,07% mientras su UI
-  // enseña ~1% (incidente 2026-07-25 — nuestra card "estaba mal" porque solo
-  // mostraba la pierna base). El base sigue siendo la lectura on-chain viva;
+  // enseña ~1%. El base sigue siendo la lectura on-chain viva;
   // las recompensas salen del split de DeFiLlama para el MISMO pool
   // (verificado: apyBase de Llama == nuestra lectura on-chain al centésimo).
   // Si Llama no responde: degradar a base-solo CON nota — jamás inventar (#9).
@@ -663,7 +597,7 @@ router.get('/yields', async (_req: Request, res: Response) => {
     'v-earnxrp': numeric(earnApy, 'apy', UPSHIFT_SRC, '30-day historical'),
     // Monarq reporta NAV por ÉPOCAS (gestor off-chain): las ventanas 1d/7d de
     // la API van a 0 entre reportes y el 30d recoge la marca realizada — que
-    // puede ser ligeramente negativa. Verificado 2026-07-25 contra la API
+    // puede ser ligeramente negativa. Verificado contra la API
     // per-vault: apy_override/campaign_apy/reported_apy vacíos y DeFiLlama no
     // indexa MXRPY ⇒ NO existe un número mejor con fuente. Se muestra el real
     // con su naturaleza explicada — jamás se maquilla (#9).
@@ -677,7 +611,7 @@ router.get('/yields', async (_req: Request, res: Response) => {
       kind: 'none',
       pct: null,
       source: null,
-      // Dicho como se le diría a una persona (curación de copy, 25-ago):
+      // Dicho como se le diría a una persona (curación de copy):
       // «fase 2» es vocabulario del protocolo, no del usuario. El hecho —que
       // todavía no reparte nada— se mantiene entero, que es lo que importa (#9).
       label: 'Not paying rewards yet — Firelight says they start later',
@@ -1169,7 +1103,7 @@ router.post('/e1/prepare', async (req: Request, res: Response) => {
       });
     }
 
-    // 4-PA. SMART-ACCOUNT ENTRY (founder 2026-08-12): open the carry with FXRP
+    // 4-PA. SMART-ACCOUNT ENTRY: open the carry with FXRP
     // the Personal Account ALREADY holds — no new mint beyond the mandatory
     // 0xFE carrier, whose own net mint JOINS the supply (vault-rotate rule).
     // Borrow and trigger math run on the TOTAL supplied, same as any entry.
@@ -1447,8 +1381,8 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
 
     // Live supply APY — protocol data, never hardcoded (invariant #9). Best-effort:
     // Kinetic is a Benqi-style fork: kTokens expose *RatePerTimestamp (per-second
-    // rate); supplyRatePerBlock() does NOT exist and reverts (verified on-chain
-    // 2026-07-14, block 65063888). Annualise over seconds (simple APR — labelled
+    // rate); supplyRatePerBlock() does NOT exist and reverts (verified on-chain,
+    // block 65063888). Annualise over seconds (simple APR — labelled
     // as such, not compounded). If the read reverts, supplyApyPct stays null and
     // the frontend links to Kinetic instead of showing a made-up number.
     let supplyApyPct: number | null = null;
@@ -1511,7 +1445,7 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
       });
     }
 
-    // 4-PA. SMART-ACCOUNT ENTRY (founder 2026-08-12): supply FXRP the Personal
+    // 4-PA. SMART-ACCOUNT ENTRY: supply FXRP the Personal
     // Account ALREADY holds — e.g. left there by a strategy exit — instead of
     // forcing a fresh XRP mint. Same machinery as supply-usdt0: the action
     // amount is independent of the Payment, which is only the mandatory 0xFE
@@ -1664,7 +1598,7 @@ router.post('/e3/prepare', async (req: Request, res: Response) => {
 /* The vaults Flare's wallet partners already distribute (Xaman xApp →       */
 /* Firelight rails; D'CENT → earnXRP/Monarq on Upshift). Same `0xFE` rail as  */
 /* E3: XRP → direct-mint FXRP → deposit into the vault, zero debt. All        */
-/* addresses verified on-chain 2026-07-10 (see .env.example). Astryum        */
+/* addresses verified on-chain (see .env.example). Astryum */
 /* prepares unsigned payloads only; the user signs in Xaman.                  */
 /* ----------------------------------------------------------------------- */
 
@@ -1673,7 +1607,7 @@ const FIRELIGHT_READ_ABI = [
   'function depositLimit() view returns (uint256)',
   'function totalAssets() view returns (uint256)',
   'function convertToAssets(uint256 shares) view returns (uint256)',
-  // Withdrawal-period queue (VERIFIED 2026-07-14): redeem burns now and queues;
+  // Withdrawal-period queue (VERIFIED): redeem burns now and queues;
   // the FXRP is released by claimWithdraw(period) after the period ends.
   'function currentPeriod() view returns (uint256)',
   'function currentPeriodEnd() view returns (uint48)',
@@ -1687,24 +1621,11 @@ const UPSHIFT_READ_ABI = [
   'function lagDuration() view returns (uint256)',
 ];
 
-/* ── it. 27 — «NO PUDE LEER» NO ES UN CERO, NI UN «ABIERTO» ───────────────── */
+/* ── «NO PUDE LEER» NO ES UN CERO, NI UN «ABIERTO» ───────────────── */
 
 /**
  * A protocol read that either ANSWERED or DID NOT — never a value invented to
  * stand in for silence.
- *
- * WHAT THIS EXISTS TO STOP. Every vault read in this file was written as
- * `.catch(() => null)` or `.catch(() => false)`, and each consumer downstream
- * resolved the ambiguity the cheap way: an `instantRedemptionFee()` that could
- * not be read became a fee of ZERO, and a `paused()` that could not be read
- * became «this vault takes deposits». Both then travelled inside a payload
- * stamped `disclosedToUser: true`. Affirming the absence of a fee that nobody
- * managed to look at is not disclosing it — it is the opposite of disclosing
- * it (invariant #6: fees always visible before signing; invariant #9: protocol
- * data with its source, never a guess).
- *
- * Takes a THUNK, not a promise: a contract whose ABI lacks the method throws
- * synchronously, before any `.catch()` attached to the result could run.
  */
 type VaultRead<T> = { ok: true; value: T } | { ok: false };
 
@@ -1718,7 +1639,7 @@ async function readOrUnread<T>(read: () => Promise<T>): Promise<VaultRead<T>> {
 
 /**
  * DONDE ESTAN LAS PARTICIPACIONES de quien recibe el rechazo. Decide la unica
- * frase del rechazo que puede ser verdad o mentira (it. 29, ver abajo).
+ * frase del rechazo que puede ser verdad o mentira (ver abajo).
  *  · 'none'             — una ENTRADA: nada suyo esta todavia en el vault.
  *  · 'wallet'           — carril EVM-directo: las shares viven en SU wallet.
  *  · 'personal-account' — carril XRPL: viven en su Personal Account.
@@ -1730,21 +1651,6 @@ type ShareCustody = 'none' | 'wallet' | 'personal-account';
  * already knows how to render (`UNREADABLE_CODES` in lib/xaman/seatRefusal): a
  * code, a retry, and one English sentence naming what could not be read and
  * stating that nothing was prepared and nothing was signed.
- *
- * THIS IS NOT A GATE ON ANYONE'S EXIT. A gate is a policy saying «you may
- * not»; this is us saying «we could not look, so we will not put a number you
- * cannot check in front of a signature». It heals by retrying, and Astryum
- * holds nothing back because Astryum holds nothing (prepare-only).
- *
- * it. 29 — Y LA FRASE QUE ESCRIBI YO ERA FALSA EN UN CARRIL. Decia, para todo
- * el mundo, «your shares stay in your own wallet, redeemable from the
- * protocol's own interface at any time». Para participaciones que viven en el
- * PERSONAL ACCOUNT eso no es cierto: la app de Upshift conecta una EOA, no el
- * PA, y ninguna ruta mueve esas shares salvo /vault-withdraw y /vault-rotate.
- * Prometer una puerta que no existe es peor que callar: manda a alguien a
- * buscarla. Cada carril recibe ahora la frase que le corresponde, y la del PA
- * dice lo unico que sigue siendo verdad — que nadie se las ha quedado y que la
- * puerta se reabre en cuanto la lectura conteste.
  */
 function vaultReadRefusal(
   code: 'VAULT_FEE_UNREADABLE' | 'VAULT_STATE_UNREADABLE',
@@ -1752,7 +1658,7 @@ function vaultReadRefusal(
   what: string,
   custody: ShareCustody,
 ): { error: string; retryable: true; vault: string; detail: string } {
-  // it. 27 (cabo mío) — EL RAZONAMIENTO DE POR QUÉ ESTO NO CIERRA UNA SALIDA
+  // EL RAZONAMIENTO DE POR QUÉ ESTO NO CIERRA UNA SALIDA
   // vivía sólo en el comentario de arriba, donde la persona no lo ve. Para
   // alguien que no sabe que tiene otra puerta, un 502 sin alternativa ES una
   // puerta cerrada. Así que la frase se la dice.
@@ -1913,7 +1819,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
     const fxrpPriceUSD = await priceProvider.getPriceUSD('XRP');
     if (!(fxrpPriceUSD > 0)) return res.status(502).json({ error: 'FTSO_PRICE_UNAVAILABLE' });
 
-    // it. 27 — `null` here means ONE thing: the read failed. It is never
+    // `null` here means ONE thing: the read failed. It is never
     // folded into a value (see `readOrUnread` above).
     let depositsPaused: boolean | null = null;
     let depositCapUBA: bigint | null = null;
@@ -1957,7 +1863,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
       epochLagSeconds = lag != null ? Number(lag) : null;
     }
 
-    // it. 27 — «I could not read whether this vault is paused» is not «it takes
+    // «I could not read whether this vault is paused» is not «it takes
     // deposits». The old `.catch(() => false)` composed an entry into a vault
     // that may well be closed, off a fact nobody read (invariant #9).
     if (depositsPaused == null) {
@@ -1973,7 +1879,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
     if (depositsPaused) {
       return res.status(409).json({ error: 'VAULT_DEPOSITS_PAUSED', vault });
     }
-    // it. 27 — the EXIT TERMS of the vault being entered are part of what must
+    // The EXIT TERMS of the vault being entered are part of what must
     // be visible BEFORE the signature (invariant #6); this very disclosure
     // prints them below as `withdrawal.instantRedemptionFeeBps`. An unread fee
     // used to travel as `null`, which every surface renders as silence — and
@@ -2005,7 +1911,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
           ? depositCapUBA - totalAssetsUBA
           : 0n
         : null;
-    // it. 29 — EL CAP ERA EL UNICO GUARD QUE AUN SE FIABA DE UNA LECTURA
+    // EL CAP ERA EL UNICO GUARD QUE AUN SE FIABA DE UNA LECTURA
     // TRAGADA. `depositCap()`/`totalAssets()` caen a `null` con `.catch`, y
     // cada `if (capRemainingUBA != null && …)` de abajo se SALTABA la
     // comprobacion en silencio — al lado de las dos (pausa, comision) que si
@@ -2111,7 +2017,7 @@ router.post('/vault/prepare', async (req: Request, res: Response) => {
       });
     }
 
-    // 4-PA. SMART-ACCOUNT ENTRY (founder 2026-08-12): deposit FXRP the Personal
+    // 4-PA. SMART-ACCOUNT ENTRY: deposit FXRP the Personal
     // Account ALREADY holds into the vault — no new mint beyond the mandatory
     // 0xFE carrier, whose own net mint JOINS the deposit (vault-rotate rule).
     // Shares land on the Personal Account, same as the mint path.
@@ -2324,7 +2230,7 @@ router.post('/e2/prepare', async (req: Request, res: Response) => {
     ];
 
     // 3. DISCLOSURE (#9: FTSO rewards are a protocol datum, never a promise).
-    // it. 29 — same as /e2/exit: a price the FTSO did not give is `null`,
+    // — same as /e2/exit: a price the FTSO did not give is `null`,
     // never a `0` sealed under `disclosedToUser: true`.
     let flrPriceUSD: number | null = null;
     try {
@@ -2494,7 +2400,7 @@ router.post('/e2/exit/prepare', async (req: Request, res: Response) => {
     // 4. DISCLOSURE (#6) — price is informational, never blocking: this is
     //    an EXIT and the FTSO must not gate it.
     //
-    // it. 29 — but «informational» is not «zero». This was the only route that
+    // But «informational» is not «zero». This was the only route that
     // sealed `flrPriceUSD: 0` under `disclosedToUser: true` when the FTSO did
     // not answer (its siblings refuse with FTSO_PRICE_UNAVAILABLE). A price we
     // could not read travels as `null` with the admission beside it; the exit
@@ -2561,18 +2467,6 @@ async function resolveIsoUsdt0Underlying(
  * POST /api/flare-demo/a1/prepare
  * Body: { personalAccount, supplyUBA, debtUsdt0Base, collateralFactor,
  *         targetHF?, fxrpPriceUSD?, mode?, withdrawableUsdt0Base?, region? }
- *
- * The protection TWIN of E1 (stop-loss). Given the e1.a1 precomputed inputs and a
- * scenario/live FXRP price, it builds the UNSIGNED [approve, repayBorrowBehalf] EVM
- * calls that repay the Personal Account's USDT0 debt on the ISO market and lift its
- * health factor. `mode` = 'restore' (repay just enough to reach targetHF, default)
- * or 'full' (repay the whole debt). Signer = the user's EVM wallet (MetaMask).
- * Astryum builds; the user signs. It never signs, never broadcasts.
- *
- * `withdrawableUsdt0Base` (optional): what the ISO supply withdrawal yields
- * (DERISK step 1, /pa-withdraw-transfer). When given, the disclosure also
- * computes the carry-spread shortfall — the USDT0 the EVM wallet must top up
- * beyond the withdrawal so the repay pull doesn't revert (audit M7).
  */
 router.post('/a1/prepare', async (req: Request, res: Response) => {
   try {
@@ -2598,11 +2492,9 @@ router.post('/a1/prepare', async (req: Request, res: Response) => {
       mode?: 'restore' | 'full';
       withdrawableUsdt0Base?: string | number;
       /** La wallet EVM que FIRMARÁ (opcional): con ella el prepare capa el
-       *  repay a su saldo USDT0 real — jamás un payload condenado a revertir
-       *  (incidente 2026-07-26: repay full con shortfall de 0,0003 → revert
-       *  on-chain con gas quemado). */
+       *  repay a su saldo USDT0 real — jamás un payload condenado a revertir. */
       signerAddress?: string;
-      /** SWAP-FILL (doc 2026-07-26, variante A): si al firmante le falta USDT0,
+      /** SWAP-FILL (variante A): si al firmante le falta USDT0,
        *  compra EXACTAMENTE el hueco con un swap del PROPIO usuario (activo a
        *  su elección) compilado delante del repay. Sin `fill`, el prepare
        *  responde con las opciones cotizadas y el usuario elige. */
@@ -2731,13 +2623,13 @@ router.post('/a1/prepare', async (req: Request, res: Response) => {
 
     let repayBase = mode === 'full' ? debt : restore.repayUsdt0Base;
 
-    // Techo del FIRMANTE (incidente 2026-07-26): el repay full con la deuda
+    // Techo del FIRMANTE: el repay full con la deuda
     // devengando interés supera el saldo de la wallet por un polvo creciente
     // (~0,0003 aquel día) y el transferFrom REVIENTA on-chain — gas quemado
     // por un payload que nació muerto. Con signerAddress, el prepare capa al
     // saldo USDT0 real y lo DISCLOSA; sin saldo, rechaza honesto.
     //
-    // SWAP-FILL (variante A del doc 2026-07-26): antes de capar, se cotiza
+    // SWAP-FILL (variante A del): antes de capar, se cotiza
     // comprar EXACTAMENTE el hueco con un swap del PROPIO usuario (FXRP o FLR
     // → USDT0 en SparkDEX) compilado delante del repay — el principal viaja
     // usuario→pool→usuario, Astryum solo compila. Con el fill aplicado en mode
@@ -3211,7 +3103,7 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
         unmintToXrpl?: boolean;
         /** true = sin pierna de transfer: el activo sale del mercado ISO y se
          *  QUEDA en el propio Personal Account como saldo libre («sacar el
-         *  capital del vault a la misma wallet», founder 2026-07-30). Flag
+         *  capital del vault a la misma wallet», founder). Flag
          *  explícito a propósito: un evmWallet ausente por bug sigue siendo
          *  400, nunca un keep silencioso. */
         keepInPa?: boolean;
@@ -3359,7 +3251,7 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
               destinationIsOwner: true,
               fxrpRedeemed: Number(redeemTotalUBA) / DROPS,
               redeemMinimumXrp: minRedeemUBA != null ? Number(minRedeemUBA) / DROPS : null,
-              // productizer-it13 §4.2 — the redemption fee on what this batch redeems.
+              // The redemption fee on what this batch redeems.
               ...(await redemptionFeeFor(provider, redeemTotalUBA)),
             }
           : wantsKeep
@@ -3389,36 +3281,6 @@ router.post('/pa-withdraw-transfer/prepare', async (req: Request, res: Response)
  * POST /api/flare-demo/pa-transfer/prepare
  * Body: { xrplAddress, evmWallet, asset?: 'FXRP'|'FLR', amountFxrpBase?, amountFlrWei?,
  *         amountXrpForMint, region?, walletId? }
- *
- * La puerta que faltaba (fundador 2026-08-21): mover FXRP LIBRE del Personal
- * Account a una wallet EVM, sin posición de por medio. Hasta hoy el único
- * transfer PA→EVM vivía atado al withdraw del ISO de Kinetic, así que quien
- * elegía «pagar con el FXRP ya minteado» en el flujo de Ethereum se topaba con
- * un aviso en vez de con una firma. Es el subconjunto estricto de
- * pa-withdraw-transfer: batch de UNA pierna — `transfer(evmWallet, amount)` —
- * como 0xFE userOp que se firma en Xaman. Mint-coupled como todo dispatch (el
- * carrier también mintea un poco de FXRP en el PA); fees y side-mint
- * divulgados. Astryum construye sin firmar y PARA (invariantes #1/#6/#8).
- *
- * FLR NATIVO (fundador 2026-08-28: «enviar y recibir FLR con la FSA de Xaman»).
- * La misma puerta con `asset: 'FLR'`: la pierna deja de ser un `transfer` ERC-20
- * y pasa a ser una call vacía con `value` — el saldo NATIVO de la Smart Account
- * saliendo hacia una dirección de Flare, firmado en Xaman como todo lo demás.
- *
- * DE QUÉ BOLSILLO SALE ESE `value` — la pregunta que decidía si esto se podía
- * construir. La guía de Flare dice dos cosas que se contradicen: que la personal
- * account «debe tener saldo nativo para cubrir los values» y que el executor
- * «debe adjuntar msg.value = Σ call.value». Lo zanja el contrato:
- * `MemoInstructions.sol` hace `_personalAccount.call{value: msg.value}(callData)`
- * — REENVÍA el msg.value, no lo exige. Verificado además contra mainnet con un
- * eth_call sobre una PA real (28-ago-2026): con la PA fondeada y `msg.value = 0`
- * la pierna de `value` pasa; con la PA a cero revierte. Es decir: **paga la
- * cuenta del usuario, no Astryum** — siempre que el executor adjunte 0, que es
- * lo que hace desde este mismo commit (DirectMintExecutorService, paso 8).
- *
- * Si el executor siguiera adjuntando Σ call.value, cada envío de FLR de un
- * usuario lo pagaría la wallet caliente de Astryum. Por eso esta puerta y ese
- * cambio del executor son UN SOLO commit: separarlos es abrir un grifo.
  */
 router.post('/pa-transfer/prepare', async (req: Request, res: Response) => {
   try {
@@ -3566,19 +3428,6 @@ router.post('/pa-transfer/prepare', async (req: Request, res: Response) => {
  * POST /api/flare-demo/pa-repay/prepare
  * Body: { xrplAddress, mode?: 'restore'|'full'|'fixed', targetHF?, amountUsdt0Base?,
  *         amountXrpForMint, region?, walletId? }
- *
- * PA-NATIVE protection repay (pieza 1, 2026-07-25) — the walletless leg: repays
- * the Personal Account's USDT0 debt entirely INSIDE the PA as one atomic 0xFE
- * userOp signed in Xaman (executor-paid gas, no EVM wallet involved):
- *   [ redeemUnderlying(shortfall)?, approve, repayBorrowBehalf(PA, X) ]
- * Funding order: the PA's free USDT0 first, then the ISO carry supply — the
- * redeem-then-repay order is the DERISK-validated sequence (supplied USDT0
- * withdraws freely with debt outstanding; only FXRP collateral is blocked).
- * If both fall short (carry spread), it repays what the PA holds and DISCLOSES
- * the remainder — never a Payment doomed to revert. Modes mirror A1: 'restore'
- * (live minimum to targetHF), 'full', 'fixed'. Mint-coupled like every 0xFE
- * dispatch; fees + side-mint disclosed. Astryum builds unsigned and STOPS —
- * the user signs in Xaman (invariants #1/#6/#8).
  */
 router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
   try {
@@ -3591,7 +3440,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
         /** mode 'pct' (escalonado): % de la deuda VIVA a repagar (0 < pct ≤ 100). */
         pctOfDebt?: number;
         amountXrpForMint?: number | string;
-        /** SWAP-FILL (doc 2026-07-26, variante A) — rail walletless: si al PA le
+        /** SWAP-FILL (variante A) — rail walletless: si al PA le
          *  falta USDT0, la Call de swap FXRP→USDT0 (exactOutput, SparkDEX) va
          *  DENTRO del mismo userOp 0xFE que el usuario firma en Xaman. El pool
          *  hace de tercero trustless; el executor sigue solo con gatillo+gas. */
@@ -3669,7 +3518,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
     const supply = BigInt(supplyRaw);
     const debt = BigInt(debtRaw);
     const suppliedUsdt0 = BigInt(suppliedUsdt0Raw);
-    // it. 29 — `freeRaw ?? 0n` LEIA EL SALDO ILEGIBLE COMO CERO, y el error iba
+    // `freeRaw ?? 0n` LEIA EL SALDO ILEGIBLE COMO CERO, y el error iba
     // en la direccion cara: con el USDT0 suelto «a cero», la ruta redimia del
     // supply lo que la persona YA tenia libre y, con swap-fill, COMPRABA USDT0
     // con su FXRP libre. `erc20BalanceOf` devuelve null solo cuando la lectura
@@ -3776,7 +3625,7 @@ router.post('/pa-repay/prepare', async (req: Request, res: Response) => {
     }
 
     // FUNDING — free USDT0 first, then the carry supply; cap at what exists.
-    // SWAP-FILL (variante A, doc 2026-07-26): si libre+supply no llegan, el
+    // SWAP-FILL (variante A): si libre+supply no llegan, el
     // hueco se compra con el FXRP LIBRE del propio PA — la Call de swap
     // exactOutput va DENTRO del mismo userOp 0xFE que el usuario firma en
     // Xaman. Principal PA→pool→PA; el executor sigue solo con gatillo+gas.
@@ -4020,22 +3869,22 @@ router.post('/handoff/release', async (req: Request, res: Response) => {
     const { findQueuedHandoffByMemo, releaseQueuedHandoffByMemo } = await import(
       '../services/flare/DirectMintHandoffStore'
     );
-    // productizer-it9 — WHOSE SEAT IS THIS? Any session could free any
+    // WHOSE SEAT IS THIS? Any session could free any
     // prepared handoff by memo. Read the row first: nothing queued under this
     // memo (or no DB) is the same `released:false` it always was; a row that
     // exists is released only by a session that PROVED its XRPL account, or a
     // verified founder.
-    // productizer-it13 §1.2 — …or by the Astryum user who PREPARED it. An email
+    // — …or by the Astryum user who PREPARED it. An email
     // or Google account with an unsigned `wallet` row can prepare a 0xFE; it must
     // be able to cancel it too, not meet a silent 403 and a seat taken until the TTL.
-    // productizer-it21 §P1 1.2 (contrato C1) — …y con `strict`, porque un `null`
+    // §P1 1.2 (contrato C1) — …y con `strict`, porque un `null`
     // de esta lectura significaba a la vez «no hay nada bajo ese memo» y «la BD
     // no contestó». Lo segundo salía 200 «released:false», la pantalla lo leía
     // «no había nada que liberar» y ofrecía preparar otra: el gemelo.
     const row = await findQueuedHandoffByMemo(memoHex, { strict: true });
     if (!row) return res.json({ released: false });
     const samePreparer = isSameHandoffPreparer(req.siwe?.userId ?? null, row.preparedByUserId);
-    // productizer-it19 §M3 3.1 — liberar TU asiento es una salida: si la tienda de
+    // Liberar TU asiento es una salida: si la tienda de
     // pruebas no se pudo leer, la respuesta es 503 «vuelve a intentarlo» y el
     // derecho se conserva. Degradarlo a 403 sería quitarle a alguien su llave por
     // un fallo transitorio nuestro.
@@ -4043,7 +3892,7 @@ router.post('/handoff/release', async (req: Request, res: Response) => {
     const proven = authority.mayAct;
     const mayRelease = samePreparer || proven;
     if (!mayRelease) {
-      // it23 §Q1 1.6 — el refusal del veredicto viaja con SU código: 503 cuando no
+      // El refusal del veredicto viaja con SU código: 503 cuando no
       // se pudo leer (y también cuando ni el módulo de pruebas cargó), 409 con su
       // prosa cuando falta el registro de la cuenta o su bloque de seguridad está
       // corrupto. Solo el 403 honesto se contesta con la frase de esta ruta.
@@ -4055,9 +3904,9 @@ router.post('/handoff/release', async (req: Request, res: Response) => {
       );
       return res.status(refused.status).json({ ...refused.body, released: false });
     }
-    // productizer-it15 §K1 (contrato C3) — un «no se liberó» sin motivo dejaba a
+    // §K1 (contrato C3) — un «no se liberó» sin motivo dejaba a
     // la consola ofreciendo «Retry, freeing the seat» en bucle. Las dos razones
-    // por las que liberar sería EXACTAMENTE el bug del gemelo (2026-08-21)
+    // por las que liberar sería EXACTAMENTE el bug del gemelo
     // salen con su código: firmada, o con una firma reportada por quien puede
     // saberlo. Un informe de un extraño (ni preparador probado ni cuenta
     // probada) no gatea a nadie: el dueño sigue pudiendo liberar.
@@ -4086,21 +3935,21 @@ router.post('/handoff/release', async (req: Request, res: Response) => {
           'could produce a doomed twin. If that Payment never lands, the seat frees itself.',
       });
     }
-    // productizer-it17 §L1 (it16 R1 1.1) — LA VENTANA DECIDE, TAMBIÉN AL LIBERAR.
+    // §L1 — LA VENTANA DECIDE, TAMBIÉN AL LIBERAR.
     // Esta puerta miraba `signedAt` e informes y jamás la ventana: el preparador
     // cancelaba, la fila pasaba a 'superseded', el prepare siguiente componía otro
     // userOp en el MISMO nonce y el payload viejo seguía firmable en el móvil.
     // Mientras el payload pueda firmarse, liberar el asiento es lo que CREA el
     // gemelo — así que se espera, y se dice cuánto.
     //
-    // productizer-it19 §M1 1.3 — …Y EL RELOJ NO BASTA. Antes esta ruta decidía por
+    // …Y EL RELOJ NO BASTA. Antes esta ruta decidía por
     // caducidad sin leer jamás la ventana del memo: un Payment firmado al minuto 4
     // y validado al 5:02 existía, y su asiento se soltaba igual. Ahora el veredicto
     // (y la lectura de la ventana que haga falta) los da el store, en un solo
     // sitio — la misma regla que usa el guard del prepare (`classifySeatSignability`).
     const { released, verdict } = await releaseQueuedHandoffDetailed(memoHex, { reportBlocks });
     if (verdict && !verdict.release) {
-      // productizer-it21 §P1 1.2 (contrato C1) — «NO PUDE LEER» NO ES UN
+      // §P1 1.2 (contrato C1) — «NO PUDE LEER» NO ES UN
       // CONFLICTO, y sobre todo no es un 200. El store ya no se traga su fallo de
       // BD: lo devuelve tipado, y aquí sale **503** — el asiento no está ocupado
       // ni libre, es que no se pudo mirar. Un 409 afirmaría que hay algo ahí; un
@@ -4135,7 +3984,7 @@ router.post('/handoff/release', async (req: Request, res: Response) => {
 });
 
 // `sessionMayActOnHandoff` moved to services/flare/handoffAuthority.ts as
-// `sessionMayActOnXrplAccount` (productizer-it13): one verdict for every module.
+// `sessionMayActOnXrplAccount`: one verdict for every module.
 
 /** La fila 'queued' de un 0xFE, tal cual la devuelve el store (sin duplicar su forma). */
 type QueuedHandoffRow = NonNullable<
@@ -4143,7 +3992,7 @@ type QueuedHandoffRow = NonNullable<
 >;
 
 /**
- * productizer-it25 §R1 1.1 — ¿ATERRIZÓ LO QUE ACABAMOS DE ESCRIBIR EN EL ASIENTO?
+ * ¿ATERRIZÓ LO QUE ACABAMOS DE ESCRIBIR EN EL ASIENTO?
  *
  * Las tres escrituras del store del 0xFE (`recordHandoffSignatureReport`,
  * `markHandoffSignedByMemo`, `markHandoffLedgerFailedByMemo`) se tragan su fallo
@@ -4151,16 +4000,7 @@ type QueuedHandoffRow = NonNullable<
  * nada que escribir». En una ruta que decide un ASIENTO DE NONCE esas dos cosas
  * son opuestas: la segunda es rutina, la primera es un informe de firma perdido en
  * silencio, y sin ese informe el guard no tiene qué mirar y el TTL retira el
- * asiento mientras el Payment firmado sigue vivo (el gemelo del 2026-08-21).
- *
- * Como el store no las distingue, la ruta lo COMPRUEBA: relee la fila en ESTRICTO
- * y mira si el efecto está. Tres respuestas, ninguna ambigua:
- *   · `landed`     — el efecto está, o la fila ya no está en 'queued' (ejecutó, se
- *                    aparcó o se sustituyó) y no hay asiento que sostener;
- *   · `lost`       — la fila sigue ahí, intacta: la escritura NO entró;
- *   · `unreadable` — ni la relectura contestó.
- * Las dos últimas se contestan con un 503 reintentable. Ninguna cierra un asiento
- * ni afirma nada sobre el Payment de la persona: eso vive en el ledger, no aquí.
+ * asiento mientras el Payment firmado sigue vivo (el gemelo).
  */
 async function handoffWriteLanded(
   memoHex: string,
@@ -4179,19 +4019,8 @@ async function handoffWriteLanded(
 /**
  * POST /api/flare-demo/handoff/signed
  * Body: { memoHex, txHash }
- * El cliente reporta que Xaman FIRMÓ este handoff (incidente 2026-08-21: el
- * gemelo con nonce 19). Desde ese momento el asiento de nonce es intocable —
+ * El cliente reporta que Xaman FIRMÓ este handoff. Desde ese momento el asiento de nonce es intocable —
  * ni TTL, ni release, ni supersede: solo ejecutar o aparcar.
- *
- * productizer-it9 — EL AVISO DEL CLIENTE YA NO BASTA. Cualquier sesión podía
- * marcar firmado el handoff de cualquier cuenta y dejar su asiento tomado para
- * siempre (NONCE_SEAT_TAKEN_SIGNED, reservas del exchange demo bloqueadas). Ahora
- * se marca SOLO si el ledger lo dice: txHash VALIDADO (nodo fresco), Payment,
- * de la cuenta XRPL del handoff y con su memo (tesSUCCESS o tec* — ambos
- * consumen el asiento; el resultado queda registrado). Si aún no está validado
- * → 202 PENDING_LEDGER sin marcar nada: el barrido del executor la marca cuando
- * ve el Payment. Idempotente; si el aviso se pierde, degrada al TTL, nunca a
- * algo peor.
  */
 router.post('/handoff/signed', async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { memoHex?: unknown; txHash?: unknown };
@@ -4200,7 +4029,7 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
   if (!memoHex) return res.status(400).json({ error: 'MISSING_MEMO' });
   if (!/^[0-9A-Fa-f]{64}$/.test(txHash)) return res.status(400).json({ error: 'INVALID_TX_HASH' });
   /**
-   * productizer-it25 §R1 — la ÚNICA respuesta honesta de esta ruta a «no pude
+   * §R1 — la ÚNICA respuesta honesta de esta ruta a «no pude
    * leer» o «no pude escribir»: 503 reintentable, nada marcado y ninguna
    * afirmación sobre el asiento. Ni 403 (sería castigo), ni 409 (afirmaría un
    * conflicto que no sabemos que exista), ni un 200 mudo (que la pantalla lee
@@ -4218,7 +4047,7 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
       reportedTxHashesOf,
       readXrplSignerEntries,
     } = await import('../services/flare/DirectMintHandoffStore');
-    // productizer-it25 §R1 1.1 (anotado «Menor» en la it. 22, abierto desde
+    // §R1 1.1 (anotado «Menor» en la, abierto desde
     // entonces) — ESTRICTA, COMO LAS OTRAS DOS PUERTAS DEL HANDOFF. La lectura
     // blanda daba el mismo `null` para «no hay ningún 0xFE bajo ese memo» y para
     // «la base de datos no contestó», y lo segundo salía 200 `marked:false`: el
@@ -4230,32 +4059,13 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
     if (typeof row.signedAt === 'string' && row.signedAt) return res.json({ marked: true, alreadySigned: true });
     const verdict = await verifyHandoffPaymentOnLedger(row, txHash);
     if (verdict.state === 'pending') {
-      // productizer-it13 §1.1 — remember the report: the seat guard looks this
+      // Remember the report: the seat guard looks this
       // hash up on a fresh node before the TTL may retire the seat.
-      //
-      // productizer-it15 §K1 — …PERO SOLO DE QUIEN PUEDE SABERLO. El memo viaja
-      // en la vista pública de una run, así que cualquiera podía reportar firmas
-      // falsas del handoff de otro y sostener su asiento (it14 §1.2/§1.3). Ahora
-      // el informe se guarda solo si la sesión PREPARÓ ese handoff o PRUEBA la
-      // cuenta XRPL; a cualquier otra se le responde igual (202) sin guardar
-      // nada — no se le confirma ni se le niega que ese memo exista.
-      //
-      // productizer-it25 §R1 1.2 — …Y «NO PUDE COMPROBARLO» NO ES «NO ES SUYA».
-      // Esta puerta pedía la forma BOOLEANA y con propósito de ENTRADA, que colapsa
-      // «no la ha probado» y «no pude leer» en el mismo `false`: con la tienda de
-      // pruebas parpadeando, el informe del DUEÑO se descartaba en silencio con un
-      // 202 idéntico al del extraño y su asiento quedaba sin nada que lo sostenga.
-      // Ahora el veredicto es el COMPLETO y de SALIDA, las dos marcas las llena
-      // `seatProofFieldsFrom` (un `false` suelto es DESCONOCIDO, jamás «no la
-      // tiene»), y lo que no se pudo leer sale con SU código: 503 reintentable si
-      // es la avería transitoria, 409 con su prosa si es determinista (falta el
-      // registro de la cuenta, o su bloque de seguridad no parsea) — esperar no
-      // cura eso, y prometerlo sería un muro con cara de espera.
       const samePreparer = isSameHandoffPreparer(req.siwe?.userId ?? null, row.preparedByUserId);
       const authority = await sessionAuthorityOnXrplAccount(req, row.xrplAddress, 'exit');
       const seatProof = seatProofFieldsFrom(authority);
       const proven = seatProof.preparedByProven;
-      // it. 33 (cierre, B1) — THE ASYNC TEMPO'S EMITTER IS A THIRD KIND OF
+      // THE ASYNC TEMPO'S EMITTER IS A THIRD KIND OF
       // REPORTER. In the proposal inbox the member who combines and broadcasts
       // the 0xFE is rarely the session that prepared it, and proves their OWN
       // address, not the council's. So `proven || samePreparer` was false, the
@@ -4297,7 +4107,7 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
       const reported = mayReport
         ? await recordHandoffSignatureReport(memoHex, txHash, { userId: req.siwe?.userId ?? null, proven })
         : false;
-      // productizer-it25 §R1 1.3 — EL INFORME SE GUARDA O SE FALLA RUIDOSAMENTE.
+      // EL INFORME SE GUARDA O SE FALLA RUIDOSAMENTE.
       // El store contesta `false` tanto si no había nada que escribir como si la
       // base de datos se cayó a mitad, y el 202 le decía «recibido» a las dos. Sin
       // el hash escrito no hay nada que mirar cuando el guard decida el asiento,
@@ -4333,14 +4143,14 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
     if (verdict.state === 'mismatch') {
       return res.status(409).json({ error: 'HANDOFF_TX_MISMATCH', marked: false, detail: verdict.detail });
     }
-    // productizer-it15 §K1 — EL Payment ENTRÓ Y FALLÓ (tec*): consumió el Sequence
+    // §K1 — EL Payment ENTRÓ Y FALLÓ (tec*): consumió el Sequence
     // XRPL pero no entregó XRP al Core Vault, y FAssets exige
     // `status == PAYMENT_SUCCESS` para ejecutar el direct minting. Marcarlo
     // «firmado» tapiaba el asiento de nonce para siempre por algo que no puede
     // ejecutar jamás: ahora lo LIBERA, y el usuario puede volver a preparar.
     if (/^tec/i.test(verdict.result)) {
       const seatFreed = await markHandoffLedgerFailedByMemo(memoHex, txHash.toUpperCase(), verdict.result);
-      // productizer-it25 §R1 1.4 — …Y SI LA LIBERACIÓN NO SE ESCRIBIÓ, NO SE DICE
+      // …Y SI LA LIBERACIÓN NO SE ESCRIBIÓ, NO SE DICE
       // QUE EL ASIENTO ESTÁ LIBRE. Este 200 prometía «prepare it again when you are
       // ready» pasara lo que pasara con la escritura: con la BD parpadeando la fila
       // seguía 'queued', el prepare siguiente chocaba con NONCE_SEAT_TAKEN y la
@@ -4369,7 +4179,7 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
       });
     }
     const marked = await markHandoffSignedByMemo(memoHex, txHash.toUpperCase(), verdict.result);
-    // productizer-it25 §R1 1.3 — …Y LA MARCA, IGUAL. Un `false` de esta escritura
+    // …Y LA MARCA, IGUAL. Un `false` de esta escritura
     // salía 200 `marked:false` con cara de «no hacía falta», cuando el Payment está
     // VALIDADO en el ledger: el asiento está consumido de verdad y nuestra fila no
     // lo sabe, así que el TTL puede retirarla y el prepare siguiente compone el
@@ -4390,7 +4200,7 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
     }
     return res.json({ marked, ledgerResult: verdict.result });
   } catch (e) {
-    // productizer-it25 §R1 1.1 — la lectura ESTRICTA de arriba: la base de datos no
+    // La lectura ESTRICTA de arriba: la base de datos no
     // contestó. 503 reintentable, nada marcado y ninguna afirmación sobre el
     // asiento — «no pude leer» no es permiso, ni castigo, ni un hecho.
     if ((e as { code?: string } | null)?.code === 'SEAT_STATE_UNREADABLE') {
@@ -4407,61 +4217,6 @@ router.post('/handoff/signed', async (req: Request, res: Response) => {
 /**
  * POST /api/flare-demo/handoff/payload-opened
  * Body: { memoHex, expiresAt }
- *
- * productizer-it19 (contrato C2) — EL RELOJ DEL ASIENTO LO PONE QUIEN CREA EL
- * PAYLOAD. El servidor estampaba `payloadExpiresAt` al COMPONER, pero el `expire`
- * de Xaman empieza a correr cuando el payload se CREA (al abrir el modal, a veces
- * un minuto después): una firma viva a los 4:30 se daba por muerta a los 5:01 y su
- * asiento se entregaba a un segundo 0xFE — el gemelo, otra vez, por desfase de
- * reloj nuestro (it18 R1 1.3). Quien pide el payload es el único que sabe el
- * instante real, así que lo dice aquí.
- *
- * El reloj SOLO se mueve hacia adelante y nunca más allá del cierre de la ventana
- * de ledger (pasada la LastLedgerSequence el Payment no entra ni firmado), así que
- * esta llamada no puede alargar un asiento indefinidamente — ni siquiera un
- * payload de ceremonia con `expire: 1440` (24 h) puede tapiar un asiento un día:
- * el servidor lo acota a la ventana (`clampStampedPayloadExpiry`). Solo la acepta quien
- * preparó ese handoff o quien PRUEBA su cuenta XRPL: a un extraño no se le deja
- * mover el reloj del asiento de nadie. No firma, no mueve capital, es idempotente
- * y su fallo nunca rompe nada — sin ella rige la caducidad de composición.
- *
- * productizer-it21 (contrato C2, para la MESA) — ESTA RUTA LA PUEDE LLAMAR EL
- * ESCRITORIO IGUAL QUE LA FIRMA SIMPLE, y debe. `OmnibusSignDoor` no la llamaba
- * (it20 N1 1.3): el servidor medía el asiento desde COMPONER y a los 5 min lo
- * daba por muerto mientras el payload de Xaman seguía firmable — el gemelo sobre
- * el nonce del omnibus, con el XRP del cliente ya en el Core Vault. El contrato
- * es exactamente el mismo que ya usa `XamanSingleSign`:
- *
- *     POST /api/flare-demo/handoff/payload-opened  { memoHex, expiresAt }
- *     → 200 { stamped, payloadExpiresAt?, reason?, payloadExpiryMin }
- *     → 403 NOT_THE_HANDOFF_OWNER · 409 ACCOUNT_RECORD_MISSING / PROOF_FLOOR_UNREADABLE
- *     → 503 PROOF_STORE_UNREADABLE / SEAT_STATE_UNREADABLE
- *
- * productizer-it23 §Q1 1.2 (contrato para B y D) — DE DÓNDE SALE `expiresAt`, Y
- * DE DÓNDE SALE EL `expire` DEL PAYLOAD. Las dos cifras son del SERVIDOR y la
- * cadena es esta, sin ninguna constante escrita a mano en el cliente:
- *   1. el prepare contesta `payloadExpiryMin` (y `payloadExpiresAt`): TODAS las
- *      rutas 0xFE de este router lo hacen desde it23;
- *   2. el cliente crea el payload de Xaman con `expire: payloadExpiryMin` — el
- *      de la respuesta que tiene en la mano, no una constante;
- *   3. Xaman devuelve en esa misma creación un `expires_at` (ISO): ESE, tal cual,
- *      es el `expiresAt` que se manda aquí — no «ahora + expire» calculado en el
- *      cliente, que es una conjetura que se desvía con el reloj del móvil y con
- *      lo que tarde la petición;
- *   4. el servidor lo acota (adelante, y nunca más allá del cierre de su ventana
- *      de ledger) y contesta la caducidad vigente.
- * Si Xaman no devolviera `expires_at`, se manda «ahora + payloadExpiryMin» y se
- * dice en el log; nunca una cifra del cliente que el servidor no conozca.
- *
- * `expiresAt` = el instante REAL en que Xaman deja de firmar ese payload (el
- * `expires_at` que devuelve la creación del payload, o `ahora + expire`), en ISO.
- * Se llama UNA vez, al obtener el uuid. El helper del frontend ya existe:
- * `notePayloadOpened(memoHex, expiresAt)` en `lib/wallet/handoffRelease.ts` —
- * dispara y olvida, no rompe la firma si falla. Autorización sin cambios: la
- * acepta quien PREPARÓ la fila (la mesa la compone con
- * `preparedByUserId: req.siwe.userId`, así que la sesión del operador pasa por
- * ahí) o quien prueba la cuenta XRPL. NO se llama en la ceremonia multifirma
- * (payloads de 24 h): el servidor lo acota igual, pero no hay razón para pedirlo.
  */
 router.post('/handoff/payload-opened', async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { memoHex?: unknown; expiresAt?: unknown };
@@ -4475,7 +4230,7 @@ router.post('/handoff/payload-opened', async (req: Request, res: Response) => {
     const { findQueuedHandoffByMemo, stampHandoffPayloadExpiry } = await import(
       '../services/flare/DirectMintHandoffStore'
     );
-    // productizer-it21 §P1 1.2 — estricta: si la BD no contesta, esto NO es «no
+    // Estricta: si la BD no contesta, esto NO es «no
     // hay fila». Sellar corto un asiento (o creer que no hay nada que sellar) es
     // exactamente lo que suelta un payload vivo.
     const row = await findQueuedHandoffByMemo(memoHex, { strict: true });
@@ -4486,7 +4241,7 @@ router.post('/handoff/payload-opened', async (req: Request, res: Response) => {
     if (!mayStamp) {
       // «No pude leer» tampoco aquí: sin la caducidad real el asiento se mediría
       // corto y se soltaría un payload vivo — el 503 pide reintentar, no castiga.
-      // it23 §Q1 1.6 — y los dos 409 deterministas salen con SU código y su prosa,
+      // §Q1 1.6 — y los dos 409 deterministas salen con SU código y su prosa,
       // en vez de disfrazarse de «no eres el dueño».
       const refused = handoffOwnerRefusal(
         stampAuthority,
@@ -4496,7 +4251,7 @@ router.post('/handoff/payload-opened', async (req: Request, res: Response) => {
       return res.status(refused.status).json({ ...refused.body, stamped: false });
     }
     const out = await stampHandoffPayloadExpiry(memoHex, expiresAt);
-    // it23 §Q1 1.2/1.3 — la cifra que se contesta es la de ESTA fila: una
+    // §Q1 1.2/1.3 — la cifra que se contesta es la de ESTA fila: una
     // ceremonia multifirma declaró 24 h al componer, y devolverle los 5 min de
     // una firma simple sería enseñarle a crear su payload más corto que su
     // asiento. Sin fila que lo diga, el defecto del servidor.
@@ -4543,12 +4298,11 @@ router.post('/handoff/payload-opened', async (req: Request, res: Response) => {
  * redimir sin tocar posiciones. Read-only, dato público on-chain, sin auth.
  */
 /**
- * GET /api/flare-demo/carrier — the LIVE minimum carrier for a 0xFE dispatch
- * (founder 2026-08-17: the carrier stops being a user knob — one less thing
- * in every flow). Every dispatch rides an XRPL Payment whose fees are LIVE
+ * GET /api/flare-demo/carrier — the LIVE minimum carrier for a 0xFE dispatch.
+ * Every dispatch rides an XRPL Payment whose fees are LIVE
  * protocol params (minting floor + executor fee); the carrier must clear
  * them strictly or computeNetMint throws (0.30 = fees exactly → net 0 →
- * fails; 0.35 clears — verified live 2026-08-17). This endpoint returns
+ * fails; 0.35 clears — verified live). This endpoint returns
  * fees + a 0.05 XRP margin, floored at 0.35, so the frontend always sends
  * a figure that CANNOT block the operation even if the protocol moves its
  * fees. The margin is never lost: it mints as FXRP into the user's account.
@@ -4595,18 +4349,6 @@ router.get('/pa-fxrp/:owner', async (req: Request, res: Response) => {
  * POST /api/flare-demo/pa-unmint/prepare
  * Body: { xrplAddress, amountFxrpBase?, useMax?, xrplDest?, amountXrpForMint,
  *         region?, walletId? }
- *
- * El camino de VUELTA del usuario insignia (asimetría §3d, cerrada 2026-07-26):
- * quema FXRP del Personal Account vía AssetManagerFXRP.redeemAmount dentro de
- * un userOp 0xFE firmado en Xaman, y el agente FAssets paga el XRP nativo a la
- * wallet XRPL DUEÑA del PA (destino por defecto = anti-phishing por
- * construcción; override explícito vía xrplDest). Mint-coupled como todo
- * dispatch: el FXRP del propio Payment SE SUMA a lo redimible. El burn es
- * inmediato al ejecutar; el XRP llega después, menos la fee de redención del
- * protocolo. Si el agente no paga en plazo, la redención se compensa en
- * colateral al PA — y el executor de Astryum queda registrado como executor de
- * la redención (fee 0) para poder reclamar ese default sin otra firma.
- * Astryum construye unsigned y PARA (invariantes #1/#6/#8).
  */
 router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
   try {
@@ -4731,7 +4473,7 @@ router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
     );
 
     const redemptionExecutor = await resolveRedemptionExecutor();
-    // productizer-it9 §3.4 — the redemption fee as a LIVE protocol figure
+    // The redemption fee as a LIVE protocol figure
     // (invariants #6/#9). Unreadable → null plus a line that says so: the
     // disclosure never lets «could not read» render as a 0% fee.
     const { redemptionFeeLine, ...redemptionFee } = await redemptionFeeFor(provider, amountUBA);
@@ -4744,7 +4486,7 @@ router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
       preflight,
-      // productizer-it17 §1.3 — si este dispatch se compuso desplazando un asiento
+      // Si este dispatch se compuso desplazando un asiento
       // que ningún nodo pudo leer, el aviso sale ANTES de firmar, no en un log.
       ...(handoff.seatWarning ? { seatWarning: handoff.seatWarning } : {}),
       disclosure: {
@@ -4759,7 +4501,7 @@ router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
         redemptionFeeBips: redemptionFee.redemptionFeeBips,
         redemptionFeeFxrp: redemptionFee.redemptionFeeFxrp,
         redemptionFeeLine,
-        // productizer-it13 §4.4 — the redeem needs FXRP this very Payment mints;
+        // The redeem needs FXRP this very Payment mints;
         // computed here, so no screen has to infer it from preflight text.
         ridesOwnMint,
         redemptionExecutor:
@@ -4803,7 +4545,7 @@ router.post('/pa-unmint/prepare', async (req: Request, res: Response) => {
  * The LIVE Kinetic ISO legs of one account (FXRP supplied, USDT0 supplied,
  * USDT0 debt), read from the chain NOW. The withdraw modal calls this on open
  * so the balance it shows is never a stale snapshot — a cached snapshot
- * without the iso flag made real supplies look unwithdrawable (2026-07-14).
+ * without the iso flag made real supplies look unwithdrawable.
  * Read-only; no auth; no side effects (monitoring is always available).
  */
 router.get('/iso-legs/:owner', async (req: Request, res: Response) => {
@@ -4816,7 +4558,7 @@ router.get('/iso-legs/:owner', async (req: Request, res: Response) => {
     }
     const legs = await new KineticAdapter().readIsoLegs(owner, flareProvider());
 
-    // Net APY de la posición (founder 2026-07-25 — la métrica que faltaba):
+    // Net APY de la posición:
     // rendimiento del supply (FXRP base on-chain + recompensas WFLR de
     // DeFiLlama, mismas fuentes que /yields; + el USDT0 re-suppliado a su
     // propia tasa) MENOS el coste del borrow, sobre el equity. Best-effort:
@@ -4882,7 +4624,7 @@ router.get('/iso-legs/:owner', async (req: Request, res: Response) => {
       owner,
       ...legs,
       economics,
-      // it. 29 — la AFIRMACIÓN de que esto se leyó, no la suposición. El
+      // La AFIRMACIÓN de que esto se leyó, no la suposición. El
       // guard del frontend (deriskReadState.parseIsoLegs) exige las tres
       // claves presentes: un cuerpo que no las trae no es una lectura.
       legsRead: 'live',
@@ -4890,7 +4632,7 @@ router.get('/iso-legs/:owner', async (req: Request, res: Response) => {
       checkedAt: new Date().toISOString(),
     });
   } catch (e) {
-    // it. 29 — ESTA RUTA DEVOLVÍA 200 CON NULLS CUANDO LA CADENA NO CONTESTABA.
+    // ESTA RUTA DEVOLVÍA 200 CON NULLS CUANDO LA CADENA NO CONTESTABA.
     // `balanceOf`/`balanceOfUnderlying`/`borrowBalanceCurrent` se leían con
     // `.catch(() => 0n)`, el cero se volvía `null`, y la pantalla lo cantaba
     // como «no queda colateral: el desmontaje está completo» sobre un carry
@@ -4951,7 +4693,7 @@ router.post('/iso-withdraw/prepare', async (req: Request, res: Response) => {
     // accrued on read) — the number the modal shows, and the ceiling the
     // request is validated against so nobody signs a doomed redeem.
     //
-    // it. 29 — `null` AQUI SIGNIFICA UNA COSA: la cadena no contesto. Antes se
+    // `null` AQUI SIGNIFICA UNA COSA: la cadena no contesto. Antes se
     // leia con `.catch(() => 0n)` y ESTA RUTA respondia a una salida con
     // «This wallet has no FXRP supplied»: una salida rechazada con un hecho
     // inventado sobre el dinero de quien pregunta. «No pude leer» no es un
@@ -4988,22 +4730,6 @@ router.post('/iso-withdraw/prepare', async (req: Request, res: Response) => {
     // MAX (all) redeems by SHARES — balanceOfUnderlying keeps accruing, so an
     // amount-based MAX always strands dust; the share balance is static and
     // redeem(shares) empties the position to zero, interest included.
-    //
-    // it. 29 — y ES LA UNICA RAMA QUE NECESITA LA LECTURA: sin el saldo de
-    // participaciones no hay `redeem(shares)` que componer. Se rechaza
-    // NOMBRANDO la lectura caida y ofreciendo la puerta que sigue abierta (un
-    // importe exacto), jamas afirmando que no haya nada. Un importe exacto SI
-    // se compone sin la lectura: la comprobacion contra el techo era NUESTRA.
-    //
-    // it. 31 — PERO «KINETIC REVIERTE» ERA FALSO. Sonda real contra kFXRP_ISO
-    // desde una cuenta con balanceOf = 0: `redeemUnderlying(1e12)` y
-    // `redeem(1e12)` DEVUELVEN 0x…09 (MATH_ERROR) — Compound v2 no revierte,
-    // retorna un codigo. `estimateGas` pasa, MetaMask no avisa, la tx se mina
-    // con status 1, la persona paga gas y no se mueve nada; y el tracker del
-    // frontend lee ese recibo como exito. El techo que quitamos en la 29 lo
-    // sostenia el preflight que esta ruta NO adjuntaba — la unica de la
-    // familia ISO sin el. Ahora lo adjunta, en las dos ramas, con
-    // `compoundErrorCode: true` (decodifica el codigo devuelto).
     let sharesForMax: bigint | null = null;
     if (all) {
       if (snapshot == null) {
@@ -5065,7 +4791,7 @@ router.post('/iso-withdraw/prepare', async (req: Request, res: Response) => {
         all,
         availableBase: snapshot != null ? snapshot.underlyingBase.toString() : null,
         available: availableHuman,
-        // it. 29 — «live» o «unreadable», jamas un silencio que la pantalla
+        // «live» o «unreadable», jamas un silencio que la pantalla
         // pueda leer como un cero (#6/#9).
         supplyRead: snapshot != null ? 'live' : 'unreadable',
         sharesRedeemed: sharesForMax != null ? Number(sharesForMax) / DROPS : null,
@@ -5146,7 +4872,7 @@ router.post('/e1-borrow/prepare', async (req: Request, res: Response) => {
       ['function borrowBalanceCurrent(address account) returns (uint256)'],
       provider,
     );
-    // it. 27 — UNA DEUDA QUE NO SE PUDO LEER NO ES UNA DEUDA DE CERO.
+    // UNA DEUDA QUE NO SE PUDO LEER NO ES UNA DEUDA DE CERO.
     //
     // Las tres lecturas caían en `.catch(() => 0n)` / `.catch(() => false)`, y
     // el cero se usaba como si fuera un hecho. El daño no es cosmético:
@@ -5288,16 +5014,6 @@ router.post('/e1-borrow/prepare', async (req: Request, res: Response) => {
  *         xrplAddress? + amountXrpForMint + evmDest? — shares held by the
  *         Personal Account (0xFE userOp rail, signed in Xaman),
  *         region?, walletId? }
- *
- * Upshift: vault.instantRedeem(shares, receiver) — burns the LP shares from
- * the caller, FXRP minus the live instantRedemptionFee (bips, disclosed) to
- * the receiver. The fee-free requestRedeem+epoch path is roadmap. Firelight:
- * standard ERC-4626 redeem. Signatures verified against the implementations'
- * verified source on Flarescan (2026-07-13).
- *
- * NOTE deliberately NOT gated by UPSHIFT_MONARQ_ENABLED: that switch guards
- * ENTRIES into the CeDeFi vault; the exit must always be available to a user
- * who already holds shares.
  */
 router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
   try {
@@ -5363,7 +5079,7 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
 
     let sharePriceE6: bigint | null = null;
     let instantRedemptionFeeBps: number | null = null;
-    /** it. 29 — true = la comision NO se pudo leer. Ni un cero ni una ausencia. */
+    /** True = la comision NO se pudo leer. Ni un cero ni una ausencia. */
     let instantFeeUnreadable = false;
     let claimPeriod: number | null = null;
     let claimableAt: string | null = null;
@@ -5384,13 +5100,13 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
         readOrUnread<bigint>(() => c.instantRedemptionFee()),
       ]);
       sharePriceE6 = sp as bigint | null;
-      // it. 27 — THE FINDING THIS FRENTE EXISTS TO CLOSE. `fee` used to fall to
+      // THE FINDING THIS FRENTE EXISTS TO CLOSE. `fee` used to fall to
       // `null` on any RPC hiccup and `null` was then arithmetic'd as ZERO four
       // lines below, so a fee nobody could read was declared not to exist and
       // the GROSS was handed over as `estimatedFxrpOut`, sealed with
       // `disclosedToUser: true`. An unread fee is an UNKNOWN fee.
       instantRedemptionFeeBps = fee.ok ? Number(fee.value) : null;
-      // it. 29 — Y AQUI LA COMISION NO ES CARGA UTIL, ES SOLO DIVULGACION.
+      // Y AQUI LA COMISION NO ES CARGA UTIL, ES SOLO DIVULGACION.
       // `buildInstantRedeemBatch` solo necesita `sharesUBA` + `receiver`: la
       // comision no entra en la calldata, no dimensiona nada, y el contrato la
       // cobra igual la hayamos leido o no. En /vault-rotate SI es carga util
@@ -5420,14 +5136,14 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
 
     const sharesHuman = Number(shares) / DROPS;
     const grossFxrp = sharePriceE6 != null ? (sharesHuman * Number(sharePriceE6)) / DROPS : null;
-    // it. 27 — `null` is «this vault charges no instant fee» and NOTHING else:
+    // `null` is «this vault charges no instant fee» and NOTHING else:
     // the unreadable case returned above, so it cannot reach this line. The
     // old `: 0` fallback covered both at once, which is how an unread fee
     // became a free exit.
     const feeFxrp =
       grossFxrp != null && instantRedemptionFeeBps != null ? (grossFxrp * instantRedemptionFeeBps) / 10_000 : null;
-    // it. 29 — sin comision leida NO HAY NETO: restar cero seria entregar el
-    // BRUTO como «you receive», que es exactamente el fallo de la it. 27. El
+    // Sin comision leida NO HAY NETO: restar cero seria entregar el
+    // BRUTO como «you receive», que es exactamente el fallo de la. El
     // modal ya pinta «could not be read on-chain» cuando esto viene null.
     const netFxrp = grossFxrp != null && !instantFeeUnreadable ? grossFxrp - (feeFxrp ?? 0) : null;
 
@@ -5442,12 +5158,12 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
       sharePriceSource:
         vault === 'firelight' ? 'stXRP.convertToAssets(1e6) (live on-chain)' : 'vault.getSharePrice() (live on-chain)',
       instantRedemptionFeeBps,
-      // it. 27 — `feeFxrp || null` painted a REAL zero-bps fee as «no fee
+      // `feeFxrp || null` painted a REAL zero-bps fee as «no fee
       // here», the same word it used for the unreadable one. A genuine 0 now
       // travels as 0 and only «this vault has no instant fee» travels as null;
       // «I do not know» never reaches this payload, because it refuses above.
       instantFeeFxrp: feeFxrp,
-      // it. 29 — el sello dice si la comision se LEYO, y ahora puede decir que
+      // El sello dice si la comision se LEYO, y ahora puede decir que
       // no. `true` a secas convertia «no pude leerla» en «este vault no cobra».
       instantFeeKnown: !instantFeeUnreadable,
       instantFeeSource: instantFeeUnreadable
@@ -5458,8 +5174,8 @@ router.post('/vault-withdraw/prepare', async (req: Request, res: Response) => {
       estimatedFxrpOut: netFxrp,
       estimatedValueUSD: netFxrp != null && fxrpPriceUSD > 0 ? netFxrp * fxrpPriceUSD : null,
       fxrpPriceUSD: fxrpPriceUSD > 0 ? fxrpPriceUSD : null,
-      // Firelight does NOT pay out in the redeem tx (VERIFIED on-chain
-      // 2026-07-14): the FXRP queues into the current withdrawal period and is
+      // Firelight does NOT pay out in the redeem tx (VERIFIED on-chain):
+      // the FXRP queues into the current withdrawal period and is
       // released by claimWithdraw once it ends. Upshift instantRedeem IS
       // immediate. Disclosed before the signature, not discovered after.
       queuedExit:
@@ -5598,7 +5314,7 @@ router.get('/vault-claims/:owner', async (req: Request, res: Response) => {
       return res.status(503).json({ error: 'VAULT_NOT_CONFIGURED', detail: 'Set FIRELIGHT_STXRP' });
     }
     const state = await new FirelightAdapter().readPendingWithdrawals(owner, flareProvider(), 60);
-    // it. 31 — the sweep MARKS an unread period instead of throwing on it, so
+    // The sweep MARKS an unread period instead of throwing on it, so
     // this route can tell three truths apart: every period answered («live»),
     // some did not («partial» — the rows below are real, the named periods
     // are unread, and the client keeps what it last saw for THOSE), or none
@@ -5623,9 +5339,9 @@ router.get('/vault-claims/:owner', async (req: Request, res: Response) => {
       checkedAt: new Date().toISOString(),
     });
   } catch (e) {
-    // it. 29 — ONE 429 IN THE RIGHT PERIOD USED TO ANSWER 200 WITH AN EMPTY
+    // ONE 429 IN THE RIGHT PERIOD USED TO ANSWER 200 WITH AN EMPTY
     // `pending`, and the queued exit — shares already burned, FXRP waiting —
-    // vanished from the panel with its Claim button (founder, 9-sep). The
+    // vanished from the panel with its Claim button. The
     // adapter now raises instead of reading `0n`; this says «we could not
     // look», retryable, never «there is nothing here».
     if (e instanceof VaultQueueUnreadableError) {
@@ -5688,13 +5404,13 @@ router.post('/vault-claim/prepare', async (req: Request, res: Response) => {
     const provider = flareProvider();
     const holder = evmAddr ?? (await resolvePersonalAccount(provider, xrplAddr));
     const adapter = new FirelightAdapter();
-    // it. 29 — same read as /vault-claims: if it did not answer, this route
+    // Same read as /vault-claims: if it did not answer, this route
     // used to fall through to 409 NO_PENDING_CLAIM («nothing queued for this
     // account») — a claim refused on an invented fact about money already
     // burned out of shares. A failed read is said as such, retryable.
     //
-    // it. 31 — AND ONLY THE PERIOD BEING CLAIMED IS READ. `claimWithdraw(N)`
-    // needs `withdrawalsOf(N)` and `currentPeriod()`; the it. 29 version ran
+    // AND ONLY THE PERIOD BEING CLAIMED IS READ. `claimWithdraw(N)`
+    // needs `withdrawalsOf(N)` and `currentPeriod()`; the version ran
     // the 62-period sweep here and refused THIS claim with a 502 whenever ANY
     // other period 429'd — an exit of money already burned out of shares,
     // closed by a read that did not concern it. The sweep is disclosure
@@ -5861,7 +5577,7 @@ router.post('/vault-claim/prepare', async (req: Request, res: Response) => {
               xrplDestination: xrplAddr,
               destinationIsOwner: true,
               redeemMinimumXrp: minRedeemUBA != null ? Number(minRedeemUBA) / DROPS : null,
-              // productizer-it13 §4.2 — the redemption fee on what this batch redeems.
+              // The redemption fee on what this batch redeems.
               ...(await redemptionFeeFor(provider, redeemTotalUBA)),
             }
           : {}),
@@ -5914,7 +5630,7 @@ function resolvePartnerVault(
 /** Live vault state (pause / cap / share price / exit terms) — all protocol
  *  data, read now and disclosed before the signature (invariants #6/#9).
  *
- *  it. 27 — TWO FIELDS CARRY «I COULD NOT READ IT» AND SAY SO.
+ *  TWO FIELDS CARRY «I COULD NOT READ IT» AND SAY SO.
  *  `depositsPaused` is `boolean | null`, where null is the read failing and is
  *  NOT an open vault; `instantFeeUnreadable` separates «this vault charges no
  *  instant fee» (Firelight: bps null, flag false) from «its fee could not be
@@ -5926,7 +5642,7 @@ async function readPartnerVaultState(
   vault: PartnerVaultKey,
   vaultAddress: string,
 ): Promise<{
-  /** null = the pause read FAILED. Never read as «open» (it. 27). */
+  /** null = the pause read FAILED. Never read as «open». */
   depositsPaused: boolean | null;
   depositCapUBA: bigint | null;
   totalAssetsUBA: bigint | null;
@@ -6079,12 +5795,12 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
       readPartnerVaultState(provider, from, fromMeta.vaultAddress),
       readPartnerVaultState(provider, to, toMeta.vaultAddress),
     ]);
-    // it. 29 — DONDE VIVEN LAS PARTICIPACIONES DE QUIEN PREGUNTA, resuelto
+    // DONDE VIVEN LAS PARTICIPACIONES DE QUIEN PREGUNTA, resuelto
     // ANTES de cualquier rechazo. `holder` se resolvia mas abajo, asi que el
     // carril XRPL recibia la frase del carril EVM («redeemable from the
     // protocol's own interface»), que para un Personal Account es falsa.
     const rotateCustody: ShareCustody = evmAddr ? 'wallet' : 'personal-account';
-    // it. 27 — an unreadable `depositsPaused()` used to arrive here as `false`
+    // An unreadable `depositsPaused()` used to arrive here as `false`
     // and walk straight past this check, composing an ENTRY into a vault that
     // may be closed. «I could not read it» is not «it is open».
     if (toState.depositsPaused == null) {
@@ -6106,7 +5822,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
     if (fromState.sharePriceE6 == null || fromState.sharePriceE6 <= 0n) {
       return res.status(502).json({ error: 'VAULT_STATE_UNAVAILABLE', detail: `could not read ${from} share price` });
     }
-    // it. 27 — AND THE SAME GUARD THE FEE NEVER HAD, TWO LINES BELOW THE ONE
+    // AND THE SAME GUARD THE FEE NEVER HAD, TWO LINES BELOW THE ONE
     // THE PRICE ALREADY HAD. The exit fee is not decoration here: it sizes
     // `redeemDepositUBA`, the amount the SECOND leg of this batch deposits,
     // and the only slack is ROTATE_DEPOSIT_BUFFER_BIPS = 0.10%. Treating an
@@ -6155,7 +5871,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
     // the exit vault's instant fee, minus the rotation buffer. This becomes
     // the deposit amount of the second leg (the XRPL rail adds its net mint).
     const grossOutUBA = (shares * fromState.sharePriceE6) / 1_000_000n;
-    // it. 27 — reachable ONLY with a fee that was actually read: `null` here is
+    // Reachable ONLY with a fee that was actually read: `null` here is
     // now exclusively Firelight, which charges no instant fee (the unreadable
     // case refused above). Before the guard, this `0n` was the silent guess
     // that sized leg 2 wrong.
@@ -6175,7 +5891,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
           ? toState.depositCapUBA - toState.totalAssetsUBA
           : 0n
         : null;
-    // it. 29 — same guard as /vault/prepare: the second leg of this batch is an
+    // Same guard as /vault/prepare: the second leg of this batch is an
     // ENTRY into `to`, and an unread cap used to skip the check silently. Here
     // a revert of leg 2 lands AFTER leg 1 burned the shares. A plain
     // /vault-withdraw does not depend on this read and is not affected.
@@ -6232,7 +5948,7 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
       },
       sharesRedeemed: sharesHuman,
       estimatedFxrpOut: Number(netOutUBA) / DROPS,
-      // it. 27 — keyed off «does this vault charge an instant fee», not off
+      // Keyed off «does this vault charge an instant fee», not off
       // «is the number greater than zero»: a real 0-bps fee is a fee that was
       // READ and is worth nothing, and it deserves a row saying so rather than
       // the same null a fee-free vault gets. Unknown never reaches here.
@@ -6355,9 +6071,9 @@ router.post('/vault-rotate/prepare', async (req: Request, res: Response) => {
  * Has the signed 0xFE Payment actually EXECUTED on Flare? The XRPL memo only
  * commits the userOp hash; until an executor delivers the bytes and calls
  * executeDirectMintingWithData, nothing exists on-chain and the user's XRP
- * sits at the Core Vault (lesson of tx 7BFCF65F…, 2026-07-12). The frontend
+ * sits at the Core Vault (lesson of tx 7BFCF65F…). The frontend
  * polls this after the Xaman signature to show the REAL state instead of
- * assuming success. Read-only; no auth; no side effects.                    */
+ * assuming success. Read-only; no auth; no side effects. */
 const XRPL_TX_HASH_RE = /^[0-9a-fA-F]{64}$/;
 const MAC_STATUS_ABI = [
   'function isTransactionIdUsed(bytes32 _transactionId) view returns (bool)',

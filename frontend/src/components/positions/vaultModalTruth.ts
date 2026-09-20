@@ -1,42 +1,7 @@
 /**
  * vaultModalTruth — the pure decisions behind VaultWithdrawModal and
- * VaultClaimModal (frente `settling-residuos`, 2026-08-18; closed in
- * `settling-final`, 2026-08-19).
- *
- * The two modals are twins: same rails (EVM wallet / 0xFE dispatch signed in
- * Xaman), same disclosure shape, same post-signature story. Everything here is
- * the part of that story that can be decided WITHOUT React, so it can be
- * tested for real instead of grepped for a substring.
- *
- * WHAT MOVED, AND WHERE (frente `familia-no-pude-leer`, 2026-08-20).
- *
- * Residue 1 of this file — `signOutcome` / `unconfirmedTrace` /
- * `signFailureAction`, the classification of a signature we could not follow —
- * was never about vaults. It was written here because it was born here, and it
- * turned out to be the fix three other signing surfaces still needed
- * (`positions/PaActionsModal`, `positions/FtsoExitModal`, `earn/FlareDemoEarn`,
- * all of them ending their catch with "the prepared payload is still valid,
- * retry the signature"). One family of failure, one implementation: it now
- * lives at `lib/wallet/signOutcome.ts`, beside the `inFlightError` doctrine it
- * extends, with `applySignFailure` — the whole catch — added there.
- *
- * It is re-exported below, so this path keeps working for the two vault modals
- * and for anything else already importing it: the code was moved and signposted,
- * never deleted. New callers should import from `lib/wallet/signOutcome`.
- *
- * What stays here is what is genuinely about these two modals:
- *
- *  1. `dispatchFeeQuote` + `feeXrpDigits` — a fee is shown or its absence is
- *     said (invariant #6), and shown with enough precision that a real fee
- *     cannot read as free: `fmt(0.003, 2)` printed "0 XRP".
- *
- *  2. `freshClaimableAt` + `releaseLine` — the release date the withdraw modal
- *     prints once the exit is confirmed. The prepare's date is read BEFORE the
- *     signature and the 0xFE executor runs minutes later, so it is never
- *     asserted as the day the money comes back. `ReleaseLine.floor` is the
- *     shape of that honesty: what the prepare read is `currentPeriodEnd()`,
- *     while the redeem queues into `currentPeriod() + 1`, so that instant is
- *     not an estimate of the release date — it is a FLOOR strictly below it.
+ * VaultClaimModal (frente `settling-residuos`; closed in
+ * `settling-final`).
  */
 
 // Moved, not deleted (familia-no-pude-leer): the sign-failure family now has
@@ -93,7 +58,7 @@ export type InstantFeeQuote =
 /**
  * The instant-redemption fee of a vault exit, as one of THREE states.
  *
- * it. 27 — WHY THREE. The prepare used to send a single `null` for all of
+ * WHY THREE. The prepare used to send a single `null` for all of
  * them: «this vault has no instant fee», «the fee is zero» and «I could not
  * read the fee» arrived as the same symbol, and the row simply did not render.
  * Silence in a fee row reads as free (invariant #6), so the state that most
@@ -101,10 +66,6 @@ export type InstantFeeQuote =
  * rather than send an unread fee, and this reader is the belt to that
  * braces: a payload that still cannot account for its fee gets a row saying
  * so, never an empty one.
- *
- * `instantFeeKnown === true` is the prepare's own statement that the fee in
- * this payload was READ. Its absence on an instant-redeem vault with no bps is
- * what marks the gap.
  */
 export function instantFeeQuote(disclosure?: Record<string, unknown>): InstantFeeQuote {
   const bpsRaw = disclosure ? disclosure.instantRedemptionFeeBps : null;

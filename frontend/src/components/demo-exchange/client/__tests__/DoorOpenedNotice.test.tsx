@@ -1,17 +1,6 @@
 /**
- * productizer it. 33 (agente C, 6) — EL BOTÓN DEL DUEÑO DICE LO QUE EL SERVIDOR
+ * EL BOTÓN DEL DUEÑO DICE LO QUE EL SERVIDOR
  * HIZO, no una frase fija.
- *
- * Lo que fallaba (R2/R4 de la it. 32): `openDoor` en `useExchangeClient` ponía
- * «That request was taken out of the queue. Nothing had been signed for it, so
- * nothing was undone» para TODO 200 del DELETE — también cuando el servidor
- * contestaba `reconciled: 'failed-on-ledger'` (it. 31): una petición con un pago
- * FIRMADO que el ledger rechazó (validado ≠ tes) y que la puerta cerró con su
- * código. «Nothing had been signed» sobre un pago con hash.
- *
- * La cadena del lado del cliente: el 200 real del DELETE entra por `call()`
- * (fetch stub) → `openRefusalDoor` lo devuelve con `reconciled` → `doorOpenedNotice`
- * (lo que el hook pone en `notice`) dice la frase que corresponde. Y el cable.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -25,7 +14,7 @@ function stubFetch(body: unknown) {
 }
 afterEach(() => vi.unstubAllGlobals());
 
-/** What `DELETE …/requests/:rid` answers when the journal held a validated failure (routes/demoExchange.ts, it. 31). */
+/** What `DELETE …/requests/:rid` answers when the journal held a validated failure (routes/demoExchange.ts). */
 const RECONCILED_FAILED = {
   request: { id: 'rq_dead', kind: 'put-to-work', status: 'refused', drops: '2000000', txHash: 'D'.repeat(64), reason: 'XRPL_tecPATH_DRY: the ledger answered tecPATH_DRY (DDDD…)' },
   reconciled: 'failed-on-ledger',

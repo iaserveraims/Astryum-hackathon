@@ -1,24 +1,6 @@
 /**
  * ScheduledPaymentService — the personal twin of the governed «domiciliación»
- * (M1, plan del mes §3 · Última Milla §1.4/§2, built 2026-08-16).
- *
- * A `scheduledPayment` rule is MoneyFlows as a standing order for a NORMAL
- * wallet: on the chosen day the tick VALIDATES the payment and nudges the
- * owner; the Payment txjson is composed FRESH here when the owner opens the
- * signing door, and signed in their own Xaman. Sign-at-trigger with ONE
- * signer — the rule holds zero authority, nothing moves without the owner's
- * signature, and nothing signed ever waits in storage (same freshness rule
- * as the escrow rail: what you sign is composed at signing time).
- *
- * `Account` is PINNED to the rule's owning wallet on purpose (incidente
- * 2026-07-14: a Payment without Account let Xaman fill in whatever account
- * was active — two payments left the WRONG account). The rule is tied to the
- * wallet that owns the money; the tx must name it, so a mismatched Xaman
- * account is refused instead of silently obeyed.
- *
- * Prepare-only intact (invariants #1/#8): this composes UNSIGNED txjson.
- * It never signs, never broadcasts, and holds no discretion — every field
- * comes from the rule the owner wrote.
+ * (M1, plan del mes §3 · Última Milla §1.4/§2, built).
  */
 
 import { isValidClassicAddress, validate } from 'xrpl';

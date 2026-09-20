@@ -15,19 +15,13 @@ import {
 } from '../singleSignVerdict';
 
 /**
- * productizer it.16 — R3 3.1 (NUESTRA REGRESIÓN) y R5 5.5.
+ * R3 3.1 (NUESTRA REGRESIÓN) y R5 5.5.
  *
- * El candado de la it.14 paraba TODO lo que compone una consola, con lo que una
+ * El candado de la paraba TODO lo que compone una consola, con lo que una
  * SALIDA quedaba cerrada por una pantalla nuestra — exactamente lo que el mismo
  * commit prohibía en el backend. Y se armaba también con «no pude comprobarlo»,
  * o sea: le pedíamos a la persona que afirmara lo que el servidor se negó a
  * leer, que es la familia «no pude leer = permiso» del revés.
- *
- * Aquí se prueba la regla entera, pura:
- *   · una salida nunca se para (se avisa);
- *   · 'unchecked' nunca para (avisa);
- *   · la confirmación explícita nunca para (el botón muerto de R5 5.5);
- *   · y el candado sobrevive a un F5, guardado POR MEMO.
  */
 
 const OUT: StaleOrderFate = { kind: 'already-out', txHash: 'A'.repeat(64) };

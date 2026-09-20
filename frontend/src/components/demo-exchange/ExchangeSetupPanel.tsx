@@ -29,10 +29,10 @@ export function ExchangeSetupPanel({ demo }: { demo: DemoRunApi }) {
   const [policy, setPolicy] = useState<DemoPolicy>('A');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  // it. 19 (R5 copy): «no pude leerlo» sobre un alta no es un callejón — nada se
+  // «no pude leerlo» sobre un alta no es un callejón — nada se
   // creó, así que la pantalla ofrece repetir la misma llamada tal cual.
   const [errRetryable, setErrRetryable] = useState(false);
-  /** it. 23 (3.3): la negativa que no se repite, pero que sí tiene un paso. */
+  /** La negativa que no se repite, pero que sí tiene un paso. */
   const [errStep, setErrStep] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -51,7 +51,7 @@ export function ExchangeSetupPanel({ demo }: { demo: DemoRunApi }) {
     // (describeRefusal), y solo cae al detalle del servidor si no la tenemos.
     if (!r.ok) {
       setErrRetryable(refusalIsRetryable(r.refusal));
-      // it. 23 (3.3): OMNIBUS_OWNER_UNKNOWN no se arregla repitiendo, pero SÍ
+      // OMNIBUS_OWNER_UNKNOWN no se arregla repitiendo, pero SÍ
       // tiene un paso — y sin decirlo tapiaba al fundador que entró por la
       // puerta de admin (que prueba el despliegue, no de quién es la cuenta).
       setErrStep(omnibusOwnerUnknownStep(r.refusal, t));
@@ -67,7 +67,7 @@ export function ExchangeSetupPanel({ demo }: { demo: DemoRunApi }) {
     setRegistry('');
   }
 
-  /** it. 33 (7): the close can be refused (RUN_HAS_LIVE_WORK, a read of ours); the founder pressed «close» and saw nothing. Said, per profile. */
+  /** The close can be refused (RUN_HAS_LIVE_WORK, a read of ours); the founder pressed «close» and saw nothing. Said, per profile. */
   const [archiveErr, setArchiveErr] = useState<{ runId: string; text: string } | null>(null);
 
   async function archive(runId: string) {
@@ -147,7 +147,7 @@ export function ExchangeSetupPanel({ demo }: { demo: DemoRunApi }) {
         <section className="rounded-2xl border border-ink/10 bg-surface-1 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-ink">{t('New exchange profile')}</h3>
           <p className="text-xs text-ink/60">{t('One exchange = one council XRPL account (it governs ONE pote) + one omnibus account (where clients deposit with a tag). The council anchors its constitution and births the pote in Operate.')}</p>
-          {/* it. 16 (R5 5.1): decir aquí lo que la declaración hace — antes el
+          {/* Decir aquí lo que la declaración hace — antes el
               servidor exigía que la cuenta estuviera ya en una variable de
               entorno y el alta moría sin que esta pantalla dijera nada. */}
           <p className="text-[11px] text-ink/45">{t('The omnibus you name here becomes this exchange\'s declared cash desk: only this desk prepares transactions against it, and a stranger\'s request on that account is refused. Its key never reaches Astryum.')}</p>

@@ -7,7 +7,7 @@
  * XRPL real que gobierna al menos una bóveda O que tiene perfil o apoyos.
  * Las bóvedas de la casa y los consejos sin resolver no son personas: fuera.
  *
- * RAPIDEZ (fundador 11-sep: «llevo dos minutos esperando la comunidad»): la
+ * RAPIDEZ: la
  * página NO espera al catálogo. Pinta con la comunidad (una lectura ligera),
  * añade las bóvedas cuando llega la lista PELADA compartida del catálogo (la
  * misma que usa el shell, cacheada), y las credenciales por bóveda —la parte

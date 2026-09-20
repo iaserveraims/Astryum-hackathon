@@ -8,23 +8,6 @@ import type { EncodedAction } from '../IProtocolAdapter';
  * prepare-only: it RESOLVES the user's Personal Account, BUILDS the atomic
  * `CustomInstruction[]` batch and the XRPL memo, and exposes the UNSIGNED
  * `registerCustomInstruction(...)` calldata. It never signs, never custodies.
- *
- * Execution model (plan §2.3 path 3 — the FXRP path; registrant = Flare operator,
- * user decision 2026-06-24):
- *   1. Astryum builds the atomic `CustomInstruction[]` batch + the `99 + hash`
- *      memo and the unsigned XRPL Payment (this file). Astryum NEVER signs.
- *   2. The user signs the XRPL Payment to the operator in Xaman — this IS the
- *      authorization (plan §2.5). The full calls travel off-chain to the operator.
- *   3. The Flare OPERATOR registers the instruction (registerCustomInstruction —
- *      gas paid by the operator, not Astryum), gets an FDC proof, and executes
- *      the batch through the user's Personal Account.
- *
- * NOTE (operator dependency): register-on-relay with operator-provided calls is
- * not a published API yet — must be coordinated with Flare. Astryum's side (the
- * unsigned hand-off below) is correct regardless of that coordination.
- *
- * Addresses are resolved by NAME from the FlareContractRegistry (invariant #13 —
- * no hardcoding); the known mainnet address is only a documented fallback.
  */
 
 const REGISTRY_ABI = [
@@ -144,17 +127,11 @@ export function buildCustomInstructions(
  * ⚠️ RESERVED for the `0x99` registered-instruction path (register-then-reference).
  * This is NOT used for E1 (FXRP entry): E1 mints fresh FXRP from XRP and uses the
  * `0xFE` userOp + FAssets direct-minting path, where the operator/executor pays gas
- * and Astryum stays fully prepare-only (user decision 2026-06-24, after confirming
+ * and Astryum stays fully prepare-only (user decision, after confirming
  * the operator cannot register on relay). The `0x99` path requires a pre-registration
  * tx with FLR gas, which has no clean non-custodial signer — so it is parked here,
  * kept (not deleted) because it is the likely fit for ACTIONS ON AN EXISTING POSITION
  * that don't go through direct-minting (e.g. A1 repay, re-supply). See plan §2.3.
- *
- * Compute the 32-byte XRPL payment memo for a registered custom instruction:
- *   memo = 0x99 ++ (keccak256(abi.encode(CustomInstruction[])) >> 8)
- * i.e. the `99` identifier byte followed by the top 31 bytes of the call hash.
- * Matches MasterAccountController's lookup (FXRP automint guide:
- * `uint256(keccak256(abi.encode(_customInstruction))) >> 8`).
  */
 export async function computeCustomInstructionMemo(
   instructions: CustomInstruction[],

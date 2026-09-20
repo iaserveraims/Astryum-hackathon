@@ -3,8 +3,7 @@
 /**
  * ActorChip — QUIÉN, en un chip: la cara (foto del perfil si la hay), el
  * nombre, y si es persona o agente de IA. Es la pieza con la que cada
- * movimiento y cada bóveda «queda retratado» (fundador 8-sep: «no el
- * movimiento, sino el usuario o agente que lo ha ejecutado»). Un mismo chip
+ * movimiento y cada bóveda «queda retratado». Un mismo chip
  * en la ficha, en la consola, en el catálogo y en la comunidad, para que la
  * misma cuenta se reconozca en todas.
  *

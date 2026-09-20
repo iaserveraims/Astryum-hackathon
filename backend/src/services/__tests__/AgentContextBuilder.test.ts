@@ -1,5 +1,5 @@
 /**
- * productizer it. 15 (4.5) — WHAT THE COPILOT IS ALLOWED TO SEE.
+ * WHAT THE COPILOT IS ALLOWED TO SEE.
  *
  * `buildInternalContext` read the alerts table with no `userId`, so the five most
  * recent alerts OF THE WHOLE INSTALLATION — other people's liquidation warnings,

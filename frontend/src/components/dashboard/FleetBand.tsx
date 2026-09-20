@@ -3,31 +3,11 @@
 /**
  * FleetBand — las cuentas del Home, una línea cada una.
  *
- * Fundador 2026-08-22 (quinta pasada): «el summary siempre muestra el whole
+ * Fundador (quinta pasada): «el summary siempre muestra el whole
  * fleet, no pongas botón, hay que simplificar más las cosas… mostramos solo
  * las wallets (la legacy también) y no son seleccionables, pero sí clicables
  * para ir a wallets… ocupa mucho espacio lo de las wallets, a ver qué tal
  * limpiándolo poniéndolo igual que antes».
- *
- * De modo que esta banda vuelve a su forma de v0.9.41: UNA fila por cuenta, de
- * una sola línea — glifo, nombre, LAS MARCAS DE LO QUE TIENE DENTRO, la barra
- * del capital trabajando con su etiqueta, la salud con su palabra, y el saldo.
- * Nada de dirección y nada de hechos de la estructura: eso vive en Wallets, que
- * es donde lleva la fila al pulsarla. El Home es un vistazo, no un panel de
- * mando.
- *
- * Lo que se retiró aquí y por qué, para que no vuelva a crecer:
- *  · La LENTE («toda la flota» + seleccionar una fila para reencuadrar las
- *    cifras) duró un día: un botón de más en la pantalla que debe leerse de un
- *    vistazo. El Home enseña SIEMPRE la flota entera.
- *  · Las dos puertas del pie (añadir wallet · constituir) se mudaron a
- *    Wallets, que es su sitio y ya no está a un descubrimiento de distancia:
- *    tiene su propio destino en el menú.
- *  · La fila de DOS LÍNEAS (dirección + tokens debajo del nombre) comía el
- *    alto que necesitan los anillos de abajo, que es literalmente lo que los
- *    rompía. El problema era la segunda línea, no las marcas: en una sola
- *    línea caben sin crecer un píxel, y el fundador las echó de menos el
- *    2026-08-23 («antes se veían los assets que estaban en cada wallet»).
  */
 
 import Link from 'next/link';
@@ -46,7 +26,7 @@ import { walletHoldings } from '@/lib/portfolioMerge';
 import { positionState } from '@/lib/positionKinds';
 import { healthScoreFromHF, healthWords, healthTone as scoreTone } from '@/lib/healthScore';
 import { brandOf, usesXamanAvatar, walletColor, walletIcon } from '@/lib/walletIdentity';
-// EL nombre de una cuenta, con su dueña incluida (2026-08-22): una Smart
+// EL nombre de una cuenta, con su dueña incluida: una Smart
 // Account se llama «Smart Account · <apodo>», nunca por su walletType crudo.
 import { useWalletLabeler } from '@/lib/wallet/useWalletLabeler';
 import { formatMoneyCompact } from '@/lib/formatMoney';
@@ -148,8 +128,7 @@ const TONE_DOT: Record<string, string> = {
 };
 
 /**
- * El TOPE de filas (founder 2026-08-19: "no podemos controlar cuántas wallets
- * van a conectar los usuarios"). Sin él, ocho cuentas aplastan los anillos de
+ * El TOPE de filas. Sin él, ocho cuentas aplastan los anillos de
  * abajo — que es exactamente lo que los rompía. Las de más valor se ven; el
  * resto está a un clic, en Wallets, que es donde se gestionan.
  */
@@ -210,7 +189,7 @@ export default function FleetBand({ view }: { view: FleetView }) {
             reduced={!!reduced}
             emHealth={view.emHealth}
             hidden={hidden}
-            // El nombre JAMÁS es la dirección (fundador 2026-08-22): un
+            // El nombre JAMÁS es la dirección: un
             // Legacy sin bautizar se llama 'Legacy' — el índigo y el Landmark
             // ya dicen qué es; la dirección vive en su gestión.
             name={row.wallet ? labelOf(row.wallet) : row.legacy?.label || t('Legacy')}
@@ -296,15 +275,13 @@ function AccountRow({
               }. ${t('Manage your accounts')}`
             : t('Manage your accounts')
         }
-        // SIN lavado de color aquí (fundador 2026-08-22, tercera pasada:
-        // «en el summary queda mal que las wallets tengan el color, queda
-        // mejor sin») — el band es lectura densa y seis franjas tintadas lo
+        // SIN lavado de color aquí — el band es lectura densa y seis franjas tintadas lo
         // volvían ruido. La identidad la lleva el CHIP (color + marca), como
         // siempre; el lavado de recuadro entero vive en Wallets y Portfolio,
         // donde cada cuenta tiene su propia caja grande.
         // El calor al pasar por encima es DORADO, no gris: el gris se lee como
         // «deshabilitado» y el oro es el acento de la casa — la fila responde
-        // al puntero en el color del producto (2026-08-24).
+        // al puntero en el color del producto.
         className="group -mx-2 flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-volt/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt/40"
       >
         <span

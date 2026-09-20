@@ -3,43 +3,6 @@
 /**
  * ManagerConsole — los tres botones del gestor, con el límite calculado ANTES
  * de firmar.
- *
- * EL DÍA DE UN GESTOR SON TRES VERBOS. El contrato es tajante: bajo
- * `onlyDirectorOrCouncil` solo hay `directTo`, `recall` y `moveToVenue`. Todo lo
- * demás —proponer un sitio, retirar uno, cambiar el tope, nombrar director,
- * evacuar— es `onlyCouncil`. Esa asimetría ES el producto, así que esta consola
- * enseña exactamente tres acciones y ninguna más: una pantalla con diez botones
- * de los que siete revierten enseñaría un poder que el gestor no tiene.
- *
- * ── POR QUÉ SE CALCULA EL LÍMITE AQUÍ ───────────────────────────────────────
- * `EntryCapExceeded` y `BufferFloorCrossed` son las dos formas de que una firma
- * se pierda, y las dos se pueden calcular con lo que `/pote-state` ya devuelve.
- * Decirle al gestor CUÁNTO PUEDE vale más que explicarle por qué no pudo — y en
- * un raíl donde cada intento paga gas, un revert evitable es dinero tirado.
- *
- * La aritmética, sacada del propio `_allocate`:
- *
- *   suelo        = totalAssets · BUFFER_FLOOR_BPS / 10000
- *   desplegable  = max(0, freeBalance − suelo)      ← el director no lo cruza
- *   hueco(venue) = max(0, totalAssets · maxVenueBps / 10000 − venueValue)
- *   meter        ≤ min(desplegable, hueco(destino))
- *   sacar        ≤ venueValue
- *   mover        ≤ min(valor origen, hueco(destino))
- *
- * `freeBalance` ya descuenta lo reclamable y lo reservado, así que no hay que
- * restarlo dos veces.
- *
- * ⚠ EL HUECO ES UNA ESTIMACIÓN, y la pantalla lo dice. El cap se comprueba
- * DESPUÉS del movimiento y sobre valores reales: un venue puede no acreditar
- * exactamente lo que le mandas (redondeo, tipo de cambio, comisión de entrada).
- * Vender ese número como exacto sería prometer que no va a revertir.
- *
- * ── DOS REGLAS QUE SE APLICAN ANTES DEL CLIC ────────────────────────────────
- *  · `moveToVenue` revierte con `VenueKindMismatch` si el ORIGEN está en cola.
- *    El botón sale deshabilitado, con el motivo escrito.
- *  · `recall` sobre un venue en cola NO devuelve el capital: lo encola. Se dice
- *    en el propio botón — enterarse después es la diferencia entre esperar y
- *    creer que algo se rompió.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -117,11 +80,11 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
   // gestor gobierna por su cuenta XRPL, no por una wallet EVM director).
   const [councilOrder, setCouncilOrder] = useState<CageOrderPrepared | null>(null);
   const [orderSent, setOrderSent] = useState(false);
-  // 409 COUNCIL_ORDER_IN_FLIGHT (it.13): another order of this account is in
+  // 409 COUNCIL_ORDER_IN_FLIGHT: another order of this account is in
   // flight; composing beside it is an explicit confirm, never a silent retry.
   const [inFlight, setInFlight] = useState<{ detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
   /**
-   * it.14 (R2 2.3): the council order of this desk went stale and its fate says
+   * The council order of this desk went stale and its fate says
    * a sibling already went out (or could not be checked). «Put in» / «Pull out»
    * stay shut until the manager says they checked — the sentence inside the
    * signing card never stopped this console from composing the move again.
@@ -131,7 +94,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
   // dropped (confirming, unconfirmed, or validated with a failure).
   const [councilBlocked, setCouncilBlocked] = useState(false);
   // Pass-through to the host (ManagerDesk): unmounting this console with a live
-  // or confirming signature drops it blind (productizer-it6).
+  // or confirming signature drops it blind.
   useEffect(() => { onBlockedChange?.(councilBlocked); }, [councilBlocked, onBlockedChange]);
   useEffect(() => () => onBlockedChange?.(false), [onBlockedChange]);
   // Una firma EVM que no se pudo seguir (RECEIPT_UNREAD, RPC caído…): el panel
@@ -196,17 +159,6 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
   /**
    * QUIEN ERES PARA ESTA BOVEDA, decidido con la misma regla que el modifier:
    * `msg.sender == council || (msg.sender == director && now < directorUntil)`.
-   *
-   * Se calcula ANTES de firmar porque este es el fallo que mas caro sale y peor
-   * se lee: `NotDirectorOrCouncil` es un revert mudo que no dice cual de las dos
-   * cosas falta. Le paso al fundador en agosto —se firmaba la orden y no
-   * ejecutaba— y el diagnostico fue que nunca se habia cedido a nadie. Un aviso
-   * aqui habria ahorrado esa tarde.
-   *
-   * Y ojo al segundo caso: un director cuyo mandato CADUCO sigue siendo el
-   * `director` guardado en el contrato. Todo parece en orden y cada llamada
-   * revierte. La autoridad caduca sola y no se renueva (I5) — decirlo es la
-   * diferencia entre «se me acabo el plazo» y «esto esta roto».
    */
   const me = (evm.address ?? '').toLowerCase();
   const isCouncil = me !== '' && me === state.governance.council.toLowerCase();
@@ -223,7 +175,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
   async function run(opts?: { confirmAnotherOrder?: boolean }) {
     // A council order already waiting for its signature is THIS move: preparing
     // another would put a second order beside it.
-    // it.16 (R3 3.1): «Pull out» / «Queue exit» take capital OUT, and an exit is
+    // «Pull out» / «Queue exit» take capital OUT, and an exit is
     // warned, never stopped — not by a record, not by the database, not by a
     // region and not by a lock of ours. Only «Put in» is paused, and «Compose it
     // again anyway» composes (the confirmation IS the person's check).
@@ -266,7 +218,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
           ...(opts?.confirmAnotherOrder ? { confirmAnotherOrder: true } : {}),
         });
         if (!r.ok) {
-          // it. 21 (§2.7): «could not check» arrives at the same door as «already
+          // «could not check» arrives at the same door as «already
           // went out», and needs its own sentence plus a retry.
           if (mayConfirmAnotherOrder(r.refusal) && !opts?.confirmAnotherOrder) {
             setInFlight({ detail: r.refusal.detail, code: r.refusal.error, minutesAgo: sameOrderMinutesAgo(r.refusal), retryAfterSeconds: r.refusal.retryAfterSeconds ?? null });
@@ -336,7 +288,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
         </Card>
       )}
 
-      {/* EL PUENTE (11-sep): la bóveda entera como UNA barra — lo que trabaja
+      {/* EL PUENTE: la bóveda entera como UNA barra — lo que trabaja
           en cada destino, lo desplegable hoy y el suelo — con las cifras como
           leyenda. Sustituye a las cuatro cifras sueltas. */}
       <CapitalBridge
@@ -353,7 +305,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
 
       {/* Above the board, not inside the pending card: the card is gone as soon
           as the order is dropped, and the pause has to keep saying why the three
-          verbs are shut (it.14, R2 2.3). */}
+          verbs are shut (R2 2.3). */}
       <StaleOrderLockNote lock={staleLock.lock} onRelease={staleLock.release} pausing={staleLock.pausing} />
 
       {/* El tablero: un venue por fila, con lo que tiene, lo que le cabe y los
@@ -383,7 +335,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
               <li key={v.id} className="rounded-xl border border-ink/10 bg-ink/[0.02] p-4">
                 {(() => {
                   // El destino CON NOMBRE (mapa verificado), su mecanismo y su tipo
-                  // de hoy — no una dirección pelada (11-sep).
+                  // de hoy — no una dirección pelada.
                   const kindNum = v.kind === 'compoundv2' ? 0 : v.kind === 'erc4626queued' ? 2 : 1;
                   const st = venueStory(v.target, kindNum, t);
                   const site = venueIdentity(v.target).website;
@@ -446,7 +398,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
                   >
                     <ArrowUpRight className="mr-1 inline h-3.5 w-3.5" /> {t('Put in')}
                   </GhostButton>
-                  {/* it.16 (R3 3.1): an exit door is never closed by the stale lock. */}
+                  {/* An exit door is never closed by the stale lock. */}
                   <GhostButton
                     onClick={() => { setPending({ verb: 'recall', venue: v, max: value }); setAmount(''); setError(''); }}
                     disabled={value === BigInt(0) || signLocked || !!councilOrder}
@@ -558,8 +510,8 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
               txjson={councilOrder.xrplTx as Record<string, unknown>}
               title={t('Your council signature')}
               onSettled={(hash) => {
-                // El relay contesta {ok:false} en un HTTP de error (revisión
-                // 10-sep): si se niega, se dice — no un «orden enviada» sobre
+                // El relay contesta {ok:false} en un HTTP de error (revisión):
+                // si se niega, se dice — no un «orden enviada» sobre
                 // una orden que Flare nunca verá.
                 void relayCouncilOrder(hash, councilOrder.order.orderData).then(
                   (r) => {
@@ -576,12 +528,12 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
               }}
               onBlockedChange={setCouncilBlocked}
               onCancelled={() => setCouncilOrder(null)}
-              // it.14: a stale whose sibling already went out pauses this desk.
+              // A stale whose sibling already went out pauses this desk.
               onStaleFate={staleLock.report}
             />
           </div>
           {/* Cancel drops the order, and a dropped order is prepared and signed
-              again. From the moment the QR is live (13-sep: not only once
+              again. From the moment the QR is live (not only once
               signed) that is a second council order, so Cancel goes away and
               the way out is «Cancel this request», which asks Xaman first. */}
           {councilBlocked ? (
@@ -631,7 +583,7 @@ export function ManagerConsole({ pote, council, onShare, onBlockedChange }: { po
         </Card>
       )}
 
-      {/* it. 21 (it. 20 §3.5) — ACCOUNT_BUSY Y PROOF_STORE_UNREADABLE NO SON UN
+      {/* ACCOUNT_BUSY Y PROOF_STORE_UNREADABLE NO SON UN
           RECHAZO DE LA JAULA. Son 503: una lectura NUESTRA que falló. Pintarlos
           bajo «The cage refused», con el código crudo en monoespaciada y el
           `detail` en castellano debajo, acusa al contrato de algo que no dijo y

@@ -33,7 +33,7 @@ describe('flareLpVenues registry', () => {
     expect(ADDR_RE.test(FLARE_MULTICALL3)).toBe(true);
   });
 
-  test('covers the DeFiLlama Flare LP ecosystem (2026-07-11 review)', () => {
+  test('Covers the DeFiLlama Flare LP ecosystem (review)', () => {
     const ids = [
       ...FLARE_LP_V3_VENUES.map((v) => v.id),
       ...FLARE_LP_V2_VENUES.map((v) => v.id),

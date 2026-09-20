@@ -1,26 +1,6 @@
 /**
  * passkeyRelayOutcome — how far a Face ID batch got, read from what the relay
  * answered.
- *
- * `usePasskeyActions.signAndRelay` is a sequence: read the account, sign the
- * challenge with the passkey, POST the signed batch to `/passkey/relay`. The
- * caller marks the hand-off right before that POST (`onHandOff`). After it, the
- * backend (route `POST /passkey/relay` + `PasskeyRelayService`) refuses BEFORE
- * the user's batch is broadcast with:
- *
- *   · 400 — input validation (BAD_*, EMPTY_BATCH, BATCH_TOO_LARGE,
- *           TARGET_NOT_ALLOWED);
- *   · 401 — no SIWE session (`missing_siwe_session`, or the auth middleware):
- *           answered before `relayPasskeyBatch` is ever called;
- *   · 409 — WOULD_REVERT, the staticCall preflight;
- *   · 429 — DEPLOY_LIMIT, the per-user cap on relayer-paid deploys, checked
- *           before anything is sent.
- *
- * Everything else once the signed batch left the browser — a 500 RELAY_FAILED
- * (it may have died waiting for the receipt), a 503 or a proxy 5xx, a dropped
- * connection — is unknown, and unknown is never offered a second Face ID.
- * (productizer-it6: 401/429 used to be painted amber and the button vanished
- * over a batch the relay had provably never sent.)
  */
 
 import { signFailureAction, type SignFailureAction } from '../wallet/signOutcome';

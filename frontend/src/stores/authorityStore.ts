@@ -3,25 +3,12 @@
 /**
  * The active authority — WHICH account the whole app operates as (ADR-009/011).
  *
- * ⚠️ 2026-08-22, cuarta pasada del fundador: «el legacy simplemente sea una
- * wallet más… no que sea seleccionable como producto distinto, porque no lo
- * es». `productMode` DEJA DE SER UNA ELECCIÓN. Ya no lo mueve activar una
+ * ⚠️, cuarta pasada del `productMode` DEJA DE SER UNA ELECCIÓN. Ya no lo mueve activar una
  * cuenta ni un interruptor: lo pone la PANTALLA en la que estás (AppShell
  * sincroniza 'legacy' mientras la ruta es /app/legacy, 'astryum' fuera). El
  * tema índigo y la travesía siguen existiendo — pero como vestimenta de una
  * superficie, no como un producto que el usuario elige y en el que se queda
  * atrapado sin saber por qué la mitad de su dinero desapareció de la lista.
- *
- * Only the selection persists here; the authority list itself is derived live
- * (wallets from /api/wallets/mine, councils from /api/governed-accounts + the
- * ledger) in useAuthorities. Persisting just the id means a stale selection
- * degrades safely: if the authority disappears, consumers fall back to the
- * overview instead of operating a ghost account.
- *
- * `lastGovernedId` (2026-07-18 union with the product-toggle line): the last
- * governed account operated — the "predefined Legacy" the Summary toggle
- * re-enters. The toggle and the sidebar switcher write THIS same state, so
- * they can never disagree.
  */
 
 import { create } from 'zustand';
@@ -53,7 +40,7 @@ export const useAuthorityStore = create<AuthorityState>()(
       activeAuthorityId: OVERVIEW_AUTHORITY_ID,
       lastGovernedId: null,
       productMode: 'astryum',
-      // Activar una autoridad NO toca el producto (2026-08-22): abrir la
+      // Activar una autoridad NO toca el producto: abrir la
       // cuenta de un consejo para mirarla es lo mismo que abrir cualquier otra
       // wallet. El índigo lo pone la pantalla de Legacy, no esta línea.
       setActiveAuthority: (id) =>
@@ -67,7 +54,7 @@ export const useAuthorityStore = create<AuthorityState>()(
     }),
     {
       name: 'astryum:active-authority',
-      // El producto NO se restaura de disco (2026-08-22): era exactamente el
+      // El producto NO se restaura de disco: era exactamente el
       // fallo de comprensión — recargar te devolvía a un shell índigo que
       // nadie había pedido en esta sesión, con media flota fuera de la lista.
       // Arranca siempre en 'astryum'; si la ruta es /app/legacy, el

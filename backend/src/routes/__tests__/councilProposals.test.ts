@@ -9,15 +9,15 @@ const mockPosFindUnique = jest.fn();
 const mockPosCreate = jest.fn();
 // puertas-y-permiso: the withdraw/submitted doors now ask whether the session
 // owns one of THIS council's member addresses.
-// g1-ceremonia (round 4): the same question, asked once for a whole listing.
-// productizer it. 17 (finding 2.1): the ANSWER no longer comes from the
+// g1-ceremonia: the same question, asked once for a whole listing.
+// the ANSWER no longer comes from the
 // self-asserted `wallet` table — a council's signer addresses are public, so a
 // stranger could type one in, «become» a member and hold the family's Sequence
 // for seven days. It comes from `provenAddressesOf`: the signed-in address plus
 // signature-backed bindings. This knob IS that list.
 const mockProvenAddresses = jest.fn<Promise<string[]>, unknown[]>();
 /**
- * it. 21 (finding 2.1): the READ verdict asks the DETAILED form, because an empty
+ * The READ verdict asks the DETAILED form, because an empty
  * list and «I could not read the store» are two different answers and answering them
  * the same way closes an exit. Same knob, one extra fact.
  */
@@ -26,7 +26,7 @@ const mockProvenDetailed = jest.fn<
   unknown[]
 >();
 /**
- * it. 21 (2.1): the router now asks the identity module's MEMBERSHIP VERDICT
+ * The router now asks the identity module's MEMBERSHIP VERDICT
  * (`proveMembership`), which is the only thing that can tell «you hold none of these
  * seats» from «I could not ask». Driven by the same knob, so a test still says what
  * this session holds and nothing else.
@@ -49,7 +49,7 @@ const holdsSeats = (addresses: string[]) => {
     return { owned: members.filter((m) => addresses.includes(m)), storeReadable: true, failure: null, refusal: null };
   });
 };
-/** it. 21 (2.1): the proof store itself did not answer — never «you are not a member». */
+/** The proof store itself did not answer — never «you are not a member». */
 const proofStoreUnreadable = () => {
   mockProvenAddresses.mockResolvedValue([]);
   mockProvenDetailed.mockResolvedValue({ addresses: [], floorReadable: false, failure: 'read-failed' });
@@ -71,7 +71,7 @@ jest.mock('../../services/identity/provenAddresses', () => ({
   provenAddressesDetailed: (...a: unknown[]) => mockProvenDetailed(...a),
   proveMembership: (...a: unknown[]) => mockProveMembership(...a),
 }));
-/** ⛔ it. 17: kept only so an accidental `prisma.wallet` read would be VISIBLE here. */
+/** ⛔: kept only so an accidental `prisma.wallet` read would be VISIBLE here. */
 const mockWalletFindMany = jest.fn();
 /** g1-ceremonia: the ceremony lease lives in the generic CacheEntry table. */
 const mockCacheFindUnique = jest.fn();
@@ -111,7 +111,7 @@ jest.mock('../../database/prismaClient', () => ({
 // proposal expired. That read is the whole point of the guard, so it is a
 // first-class mock here.
 const mockAccountSequence = jest.fn();
-// productizer-it3: `POST /` reads the council's signer list off the ledger
+// `POST /` reads the council's signer list off the ledger
 // BEFORE anything else, to ask whether this session holds one of its seats.
 const mockSignerCouncil = jest.fn();
 jest.mock('../../integrations/providers/chain/XRPLProvider', () => ({
@@ -133,7 +133,7 @@ jest.mock('../../connectors/protocols/xrpl/XrplBlobVerifier', () => ({
   verifySignerBlob: (...a: unknown[]) => mockVerifyBlob(...a),
 }));
 
-// Productizer cycle, iteration 2: `/:id/submitted` reads the reported hash off
+// `/:id/submitted` reads the reported hash off
 // the ledger before it records it (council membership still rests on wallet
 // rows, so the report has to prove itself). Default in beforeEach: a VALIDATED
 // transaction of THIS council at the pinned Sequence 7.
@@ -223,14 +223,14 @@ beforeEach(() => {
   // Default: the session belongs to a member of this council (the ordinary
   // case). The tests that care about a stranger set their own answer.
   holdsSeats([MEMBER_A]);
-  // it. 19 (2.3): the READ floor also consults the wallet registry (never the write
+  // The READ floor also consults the wallet registry (never the write
   // doors). Default: this session registered nothing — the tests that care set rows.
   mockWalletFindMany.mockResolvedValue([]);
   // g1-ceremonia: no ceremony holding the seat unless a test says so.
   mockCacheFindUnique.mockResolvedValue(null);
   mockCacheDeleteMany.mockResolvedValue({ count: 0 });
   // The reported hash is, by default, a validated tx of this council at Sequence 7
-  // — and (productizer-it6) the SAME transaction liveProposal() stores: a Payment
+  // — and the SAME transaction liveProposal() stores: a Payment
   // with no destination, amount or memo.
   mockXrplJsonRpc.mockReset();
   mockXrplJsonRpc.mockResolvedValue({ validated: true, TransactionType: 'Payment', Account: COUNCIL, Sequence: 7, meta: { TransactionResult: 'tesSUCCESS' } });
@@ -298,12 +298,12 @@ describe('POST /api/council/proposals — create pins via the coordinator', () =
 });
 
 /**
- * productizer-it3 — `POST /` created a proposal for ANY account with a
+ * `POST /` created a proposal for ANY account with a
  * SignerList, for ANY authenticated session. `LIVE_PROPOSAL_EXISTS` then held
  * the real council out for 7 days, renewable. These fail on the code before
  * this round: 201 for the stranger.
  */
-describe('productizer-it3 — only a member of the council may pin its Sequence (POST /)', () => {
+describe('Only a member of the council may pin its Sequence (POST /)', () => {
   const compose = (userId: string = USER_ID) =>
     request(buildApp(userId))
       .post('/api/council/proposals')
@@ -318,7 +318,7 @@ describe('productizer-it3 — only a member of the council may pin its Sequence 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('NOT_A_COUNCIL_MEMBER');
     expect(mockSignerCouncil).toHaveBeenCalledWith(COUNCIL);
-    // it. 17 (2.1): the question is asked of the PROOF, never of `prisma.wallet`.
+    // The question is asked of the PROOF, never of `prisma.wallet`.
     expect(mockProveMembership).toHaveBeenCalledWith('stranger', expect.anything(), expect.anything(), 'entry');
     expect(mockWalletFindMany).not.toHaveBeenCalled();
     expect(res.body.detail).toContain('PROVEN address');
@@ -358,7 +358,7 @@ describe('productizer-it3 — only a member of the council may pin its Sequence 
   });
 
   /**
-   * productizer it. 17 (finding 2.1) — THE SEVEN-DAY EXIT A STRANGER COULD CLOSE.
+   * THE SEVEN-DAY EXIT A STRANGER COULD CLOSE.
    * A council's signer addresses are on the public ledger; `POST /api/wallets/connect`
    * writes any address with no signature. So «member» by wallet row meant anyone who
    * read the inbox could publish a proposal on somebody else's council and hold its
@@ -474,7 +474,7 @@ describe('POST /:id/signatures — verified blobs only', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// G1-guard (auditoría Silenciosos 2026-08-17 · G1 CRÍTICO — pagaba dos veces).
+// G1-guard (auditoría Silenciosos · G1 CRÍTICO — pagaba dos veces).
 // The old code stamped `expired` at 7 days WITHOUT reading the ledger: a
 // proposal that was broadcast but never reported died as "expired", the family
 // composed it again with a fresh Sequence, and the council paid twice. Every
@@ -613,7 +613,7 @@ describe('G1-guard — the server never calls a proposal expired without reading
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// G1-cadena (round 2) — the verdict has to REACH the moment of decision.
+// G1-cadena — the verdict has to REACH the moment of decision.
 //
 // Round 1 read the ledger and stopped the server lying. It left three doors
 // open, and every test below fails against THAT code (not against the code of
@@ -984,7 +984,7 @@ describe('POST /:id/submitted + /:id/withdraw', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  // productizer-it3 — validated is not paid: a tec* burns the Sequence and the
+  // Validated is not paid: a tec* burns the Sequence and the
   // fee and moves nothing, yet matched account + Sequence and was recorded.
   test('a VALIDATED tec* at the pinned Sequence → 409 TX_FAILED_ON_LEDGER, never marked submitted', async () => {
     mockFindUnique.mockResolvedValue(liveProposal({ status: 'ready' }));
@@ -1034,7 +1034,7 @@ describe('POST /:id/submitted + /:id/withdraw', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  // ── productizer-it6 — the seat is not the transaction ─────────────────────
+  // ── The seat is not the transaction ─────────────────────
   // Account + pinned Sequence + tesSUCCESS only proves that SOMETHING of this
   // council used the seat. Every refusal below was a 200 (and, for an order,
   // a launched relay) on the code before this round.
@@ -1286,7 +1286,7 @@ describe('G1-cadena — a seat that was never assembled does not hang on one per
 });
 
 /**
- * puertas-y-permiso (round 3) — THE DOORS THAT KNEW NOBODY.
+ * puertas-y-permiso — THE DOORS THAT KNEW NOBODY.
  *
  * `requireLegacyAccess` is the router's only doorman, and with LEGACY_ENABLED
  * it means "any authenticated session" — never "a member of THIS council".
@@ -1327,7 +1327,7 @@ describe('puertas-y-permiso — a council write door only opens for that council
       .send({ acknowledgeLedgerCheck: true });
 
     expect(res.status).toBe(200);
-    // it. 17: asked of the PROOF, with this session's id and its signed-in address.
+    // Asked of the PROOF, with this session's id and its signed-in address.
     expect(mockProveMembership).toHaveBeenCalledWith('user-2', expect.anything(), expect.anything(), 'entry');
     expect(mockWalletFindMany).not.toHaveBeenCalled();
     expect(mockUpdate).toHaveBeenCalledWith(
@@ -1402,7 +1402,7 @@ describe('puertas-y-permiso — a council write door only opens for that council
 describe('permisos-y-doble-pago — the acta anchor is recorded by that council only', () => {
   const anchorable = (o: Record<string, unknown> = {}) =>
     liveProposal({ status: 'submitted', positionsAnchor: null, positions: POSITIONS, ...o });
-  // productizer-it3: the recorded hash is read off the ledger — here, the real anchor.
+  // The recorded hash is read off the ledger — here, the real anchor.
   beforeEach(() => mockXrplJsonRpc.mockResolvedValue(anchorOnLedger()));
 
   test('a stranger cannot stamp an anchor hash on another council acta → 403', async () => {
@@ -1428,7 +1428,7 @@ describe('permisos-y-doble-pago — the acta anchor is recorded by that council 
       .send({ txHash: 'B'.repeat(64) });
 
     expect(res.status).toBe(200);
-    // it. 17: asked of the PROOF, with this session's id and its signed-in address.
+    // Asked of the PROOF, with this session's id and its signed-in address.
     expect(mockProveMembership).toHaveBeenCalledWith('user-2', expect.anything(), expect.anything(), 'entry');
     expect(mockWalletFindMany).not.toHaveBeenCalled();
     expect(mockUpdate).toHaveBeenCalledWith(
@@ -1460,7 +1460,7 @@ describe('permisos-y-doble-pago — the acta anchor is recorded by that council 
 });
 
 /**
- * g1-ceremonia (round 4) — THE SEAT THE CEREMONY HOLDS, SEEN FROM THE ASYNC DOOR.
+ * g1-ceremonia — THE SEAT THE CEREMONY HOLDS, SEEN FROM THE ASYNC DOOR.
  *
  * `POST /api/xrpl-defi/multisign/prepare` pins a Sequence and (until this
  * round) wrote nothing anywhere, so this door found nothing live and pinned the
@@ -1603,7 +1603,7 @@ describe('g1-ceremonia — a ceremony in flight holds the seat against the inbox
 });
 
 /**
- * g1-ceremonia (round 4) — THE PERMISSION HOLE THAT WAS A READ.
+ * g1-ceremonia — THE PERMISSION HOLE THAT WAS A READ.
  *
  * `GET /` and `GET /:id` had no ownership check at all: any authenticated
  * Legacy session could ask for any council's account and receive the signer
@@ -1632,20 +1632,20 @@ describe('g1-ceremonia — the inbox is readable by its own council', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.proposals).toHaveLength(2);
-    // it. 21 (2.1): the READ asks the DETAILED proof (the one that can say «I could
+    // The READ asks the DETAILED proof (the one that can say «I could
     // not read»), still ONCE for the whole listing.
     expect(mockProveMembership).toHaveBeenCalledTimes(1);
-    // it. 17: asked of the PROOF, with this session's id and its signed-in address.
+    // Asked of the PROOF, with this session's id and its signed-in address.
     expect(mockProveMembership).toHaveBeenCalledWith('user-2', expect.anything(), expect.anything(), 'exit');
-    // it. 19 (2.3): a READ also consults the registry — once for the whole listing,
+    // A READ also consults the registry — once for the whole listing,
     // never once per row. These bytes are the only ones a cosignatory can sign.
     expect(mockWalletFindMany).toHaveBeenCalledTimes(1);
   });
 
   /**
-   * it. 19 (finding 2.3) — A SIGNER THE REGISTRY KNOWS AND THE PROOF DOES NOT.
+   * A SIGNER THE REGISTRY KNOWS AND THE PROOF DOES NOT.
    *
-   * The bytes a councillor signs come ONLY from these two reads. it. 17 closed them
+   * The bytes a councillor signs come ONLY from these two reads. Closed them
    * to a proven address, so a cosignatory who sits on the SignerList but never signed
    * a binding could not read the exit proposal, could not sign it, and the quorum was
    * never reached: a registry narrowing a way out. Reading (and therefore signing) is
@@ -1760,7 +1760,7 @@ describe('g1-ceremonia — the inbox is readable by its own council', () => {
 });
 
 /**
- * g1-ceremonia (round 4) — THE ANCHOR: THE VERDICT USED TO ARRIVE AFTER THE
+ * g1-ceremonia — THE ANCHOR: THE VERDICT USED TO ARRIVE AFTER THE
  * LEDGER HAD BEEN SPENT.
  *
  * The flow is prepare → the emitter signs and BROADCASTS on XRPL →
@@ -1814,7 +1814,7 @@ describe('g1-ceremonia — the acta anchor is composed for that council only', (
 });
 
 /**
- * g1-ceremonia (round 4) — THE TWO HALVES OF THE ANCHOR DISAGREED.
+ * g1-ceremonia — THE TWO HALVES OF THE ANCHOR DISAGREED.
  *
  * `prepare` refuses to compose a second anchor (409 ALREADY_ANCHORED) while
  * `/anchored` OVERWROTE the stored hash without a word: the acta's on-chain
@@ -1867,7 +1867,7 @@ describe('g1-ceremonia — an anchored acta is not repointed', () => {
 });
 
 /**
- * arriendo-ceremonia (round 5) — THE ANCHOR BECAME IMMUTABLE WITHOUT A FLOOR.
+ * arriendo-ceremonia — THE ANCHOR BECAME IMMUTABLE WITHOUT A FLOOR.
  *
  * `submittedSchema` was `string().min(8).max(128)` and it guards TWO doors.
  * On `/submitted` a wrong hash was a wrong hash; on `/:id/positions/anchored`
@@ -1929,14 +1929,14 @@ describe('the ledger hash has a SHAPE, and the immutable door is the one that ne
 });
 
 /**
- * productizer-it3 — THE ANCHOR WAS FROZEN WITHOUT BEING READ.
+ * THE ANCHOR WAS FROZEN WITHOUT BEING READ.
  *
  * `/positions/anchored` recorded any 64-hex string as the acta's on-chain proof,
  * and round 4 made that record immutable. A tec-failed anchor, a typo that
  * happens to be a real hash, or any unrelated Payment became "anchored on-chain"
  * for ever. These fail on the code before this round: every one was 200.
  */
-describe('productizer-it3 — the acta anchor is read off the ledger before it is frozen', () => {
+describe('The acta anchor is read off the ledger before it is frozen', () => {
   const HASH = 'E'.repeat(64);
   const unanchored = (o: Record<string, unknown> = {}) =>
     liveProposal({ status: 'submitted', positionsAnchor: null, positions: POSITIONS, ...o });
@@ -2035,7 +2035,7 @@ describe('productizer-it3 — the acta anchor is read off the ledger before it i
 
 
 /**
- * productizer it. 21 (finding 2.1) — A STORE WE COULD NOT READ IS NOT A VERDICT
+ * A STORE WE COULD NOT READ IS NOT A VERDICT
  * ABOUT THE USER.
  *
  * `ownedSignerAddresses` was built on the ambiguous `provenAddressesOf`, so a blink
@@ -2045,7 +2045,7 @@ describe('productizer-it3 — the acta anchor is read off the ledger before it i
  * a verdict's clothes. The router asks `proveMembership` now, and sends the answer
  * the identity module says is owed.
  */
-describe('it. 21 (2.1) — the read floor says «I could not look», never «you are not a member»', () => {
+describe('The read floor says «I could not look», never «you are not a member»', () => {
   test('GET /:id — an unreadable proof store is 503 retryable, not 403', async () => {
     mockFindUnique.mockResolvedValue(liveProposal({ createdByUserId: 'someone-else' }));
     proofStoreUnreadable();
@@ -2111,18 +2111,18 @@ describe('it. 21 (2.1) — the read floor says «I could not look», never «you
 });
 
 /**
- * productizer it. 21 (finding 3.7, HIGH-IMPACT) — THE INBOX WAS OPEN TO A
+ * THE INBOX WAS OPEN TO A
  * SELF-DECLARED ADDRESS.
  *
  * `POST /api/wallets/connect` writes `prisma.wallet` with no signature, and a
  * council's signer addresses are public on the ledger: any session that typed one
  * read that family's acta — title, amounts, destinations, every member's stance and
- * comment, and the signed blobs. it. 19 accepted that as the price of not narrowing
+ * comment, and the signed blobs. Accepted that as the price of not narrowing
  * an exit. The price is no longer necessary: a registered-only address gets the
  * SIGNING MATERIAL (which is all a cosignatory needs, and cannot be hidden from
  * someone being asked to sign it) and none of the DELIBERATION.
  */
-describe('it. 21 (3.7) — a registered-only address reads the bytes, not the family’s words', () => {
+describe('A registered-only address reads the bytes, not the family’s words', () => {
   const withActa = (over: Record<string, unknown> = {}) =>
     liveProposal({
       createdByUserId: 'someone-else',
@@ -2193,7 +2193,7 @@ describe('it. 21 (3.7) — a registered-only address reads the bytes, not the fa
 });
 
 /**
- * productizer it. 23 (hallazgos 2.4 / 2.5) — SILENCIO DONDE DEBÍA HABER ERROR.
+ * SILENCIO DONDE DEBÍA HABER ERROR.
  *
  * 2.4: `councilReadAccess.readable` era un veredicto de UNIÓN — true en cuanto
  * CUALQUIER fila del listado se podía decidir. En un listado mixto (una fila cuyo
@@ -2206,7 +2206,7 @@ describe('it. 21 (3.7) — a registered-only address reads the bytes, not the fa
  * el middleware global como un 500 crudo, indistinguible de «esta propuesta no
  * existe».
  */
-describe('it. 23 (2.4) — la legibilidad se decide POR FILA, como el nivel', () => {
+describe('La legibilidad se decide POR FILA, como el nivel', () => {
   const rowRegistered = () =>
     liveProposal({ id: 'p1', createdByUserId: 'someone-else', signerList: SIGNERS });
   /** Un consejo cuyo único asiento es MEMBER_B: no está en el registro de wallets. */
@@ -2263,7 +2263,7 @@ describe('it. 23 (2.4) — la legibilidad se decide POR FILA, como el nivel', ()
   });
 });
 
-describe('it. 23 (2.5) — los errores de GET /:id, dichos como lo que son', () => {
+describe('Los errores de GET /:id, dichos como lo que son', () => {
   test('una lectura que falla es 503 reintentable, nunca un 404 ni un 500 crudo', async () => {
     mockFindUnique.mockRejectedValue(new Error('db down'));
 
@@ -2326,20 +2326,20 @@ describe('it. 23 (2.5) — los errores de GET /:id, dichos como lo que son', () 
 });
 
 /**
- * productizer it. 25 (2) — UNA FILA MALA NO PUEDE TUMBAR UNA RUTA DE LECTURA, Y
+ * UNA FILA MALA NO PUEDE TUMBAR UNA RUTA DE LECTURA, Y
  * NINGUNA ESCRITURA PUEDE CORRER FUERA DE SU GUARDA.
  *
  * QUÉ FALLABA EN SILENCIO. `withEffectiveStatus` no es una lectura: cuando el ledger
  * confirma que el asiento fijado por una propuesta vencida nunca se gastó, la ARCHIVA
- * (`prisma.councilProposal.update`). it. 23 envolvió el `findUnique` de `GET /:id` en
+ * (`prisma.councilProposal.update`). Envolvió el `findUnique` de `GET /:id` en
  * un `try` y dejó esa llamada FUERA; `GET /` no tenía guarda ninguna. Así que un
  * fallo de escritura —o un nodo XRPL raro— sobre UNA sola fila salía por el
  * middleware global como un 500 crudo y se llevaba por delante la bandeja entera del
  * consejo, incluidas las propuestas de una salida que estaba recogiendo firmas.
  *
- * Estos tests fallan con el código de it. 23: el listado contestaba 500.
+ * Estos tests fallan con el código: el listado contestaba 500.
  */
-describe('it. 25 (2) — una fila mala no tumba el listado, y nada escribe fuera de la guarda', () => {
+describe('Una fila mala no tumba el listado, y nada escribe fuera de la guarda', () => {
   /** Una fila VENCIDA cuyo asiento el ledger dice intacto: la ruta intenta archivarla. */
   const staleRow = (id: string) =>
     liveProposal({ id, expiresAt: new Date(Date.now() - 1000), txjson: { TransactionType: 'Payment', Account: COUNCIL, Sequence: 7 } });

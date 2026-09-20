@@ -3,20 +3,9 @@
 /**
  * FirstWalletGuide — the interactive "I don't have a wallet yet" wizard.
  *
- * Founder 2026-08-08: users arriving straight from an exchange own tokens but
- * no wallet, so "Connect wallet" is a wall for them. This guide walks that
+ * This guide walks that
  * user from zero to connected in four steps, per ecosystem the beta accepts:
  * Xaman on XRPL and MetaMask on Flare (the same two rails as AddWalletModal).
- *
- * Two mounting modes, decided by the props:
- *  - With onConnectXrpl/onConnectEvm (Wallets page): the final step CONNECTS
- *    right here — the wizard ends where AddWalletModal would have.
- *  - Without them (Summary welcome panel): the final step links to
- *    /app/wallets?add=1, which auto-opens the Add Wallet modal on arrival.
- *
- * Copy rules honoured: the XRPL base reserve and the network-choice warning
- * are stated as NETWORK facts (never Astryum fees/promises); the secret-phrase
- * step says out loud that Astryum never asks for it (non-custodial invariant).
  */
 
 import { useState } from 'react';

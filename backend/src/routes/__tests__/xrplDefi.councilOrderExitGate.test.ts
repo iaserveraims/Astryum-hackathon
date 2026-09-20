@@ -1,6 +1,5 @@
 /**
- * THE EXIT IS NEVER GATED — per ACTION on `POST /api/xrpl-defi/council-order/prepare`
- * (2026-09-14).
+ * THE EXIT IS NEVER GATED — per ACTION on `POST /api/xrpl-defi/council-order/prepare`.
  *
  * `recall` and `evacuate` only bring capital back into the vault's buffer: flag-only
  * (`gateXrplDefiExit`), never the geofence — the same classification `/cage-order`
@@ -92,7 +91,7 @@ describe('by source — the council-order door picks its gate per action', () =>
   const SOURCE = readFileSync(join(__dirname, '..', 'xrplDefi.ts'), 'utf8');
 
   it('the exit set is EXACTLY recall and evacuate (widening it is an explicit decision)', () => {
-    // productizer it. 13: ONE set for every council-order door, in services/councilExitToken.ts.
+    // ONE set for every council-order door, in services/councilExitToken.ts.
     expect(SOURCE).toMatch(/const COUNCIL_ORDER_EXIT_ACTIONS[^=]*=\s*SHARED_COUNCIL_ORDER_EXIT_ACTIONS/);
     const TOKEN_SOURCE = readFileSync(join(__dirname, '..', '..', 'services', 'councilExitToken.ts'), 'utf8');
     const m = TOKEN_SOURCE.match(/export const COUNCIL_ORDER_EXIT_ACTIONS[^=]*=\s*new Set\(\[([^\]]*)\]\)/);

@@ -1,7 +1,5 @@
 /**
- * XrplWatchScheduler — el vigía XRPL agentizado (Ola 1 del mapa de economía
- * agéntica, "proceder sin decisión": era `npx ts-node src/scripts/xrpl-watch.ts`
- * a mano al abrir sesión; ahora es un tick diario del backend).
+ * XrplWatchScheduler — el vigía XRPL agentizado.
  *
  * Vigía puro (taxonomía §1 de la doctrina): read-only por diseño, cero firmas,
  * cero capital. Observa y empuja por el canal común (OpsAlertService) cuando
@@ -9,11 +7,10 @@
  *  - un amendment vigilado se activa (o su votación alcanza el threshold),
  *  - un emisor gated (RLUSD/EURØP) enciende lsfAllowTrustLineLocking,
  *  - el XRPL EVM Sidechain estrena un venue real (lending/yield),
- *  - FAssets estrena un asset manager ≠ FXRP (¿FBTC? — doc Legacy §6.3),
+ *  - FAssets estrena un asset manager ≠ FXRP,
  * y una sola vez por hallazgo (por proceso), no cada tick.
  *
- * PMW/FCC queda fuera A PROPÓSITO: sin API pública, chequeo manual mensual
- * (doc Legacy §6.4 — no automatizar contra HTML frágil).
+ * PMW/FCC queda fuera A PROPÓSITO: sin API pública, chequeo manual mensual.
  */
 
 import {
@@ -25,7 +22,7 @@ import { opsAlert } from './OpsAlertService';
 
 const SOURCE = 'xrpl-watch';
 
-/* ── FBTC / FAssets — chequeo on-chain en Flare (doc Legacy §6.3) ─────────── */
+/* ── FBTC / FAssets — chequeo on-chain en Flare ─────────── */
 
 const FLARE_RPC_DEFAULT = 'https://flare-api.flare.network/ext/C/rpc';
 // FlareContractRegistry — dirección fija de mainnet (la misma del executor).
@@ -178,7 +175,7 @@ export class XrplWatchScheduler {
     }
   }
 
-  /** Latido para el Sentinel (2026-08-03): este vigía solo hablaba cuando un
+  /** Latido para el Sentinel: este vigía solo hablaba cuando un
    *  gate se desbloqueaba, así que su silencio podía ser «nada nuevo» o «llevo
    *  semanas parado». Ahora se distingue. */
   private async beat(ok: boolean, detail?: string): Promise<void> {

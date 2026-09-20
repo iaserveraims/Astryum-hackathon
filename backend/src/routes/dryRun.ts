@@ -72,7 +72,7 @@ router.post('/order', guarded(async (req, res) => {
   // Directo contra la factory de JAULAS, no el resolver multi-registro: en el
   // ensayo la misma cuenta puede gobernar un pote v1 (heredado del fork) y una
   // jaula v2, y el resolver devuelve el primero — ejecutaría la orden contra el
-  // vault equivocado (pasó el 28-ago: `require(false)` mudo del v1).
+  // vault equivocado (pasó: `require(false)` mudo del v1).
   const { astryumCageFactoryAddress } = await import('../services/flare/LegacyCageResolver');
   const { resolveAstryumCage } = await import('../services/flare/AstryumCageCreationService');
   const factory = astryumCageFactoryAddress();

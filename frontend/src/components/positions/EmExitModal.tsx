@@ -10,16 +10,6 @@
  * live liquidity» sin puerta que lo cumpliera, y el runbook del ensayo E2E
  * describía un recorrido —repagar, sacar colateral, puentear de vuelta— cuyo
  * segundo paso no existía en la interfaz.
- *
- * Dos modos, una puerta:
- *   'collateral' → saca FXRP del colateral del mercado (pre-flight de salud:
- *      sacar colateral con deuda viva puede liquidar, y el backend lo bloquea
- *      ANTES de la firma).
- *   'vault'      → redime RLUSD de la bóveda Sentora (pre-flight de
- *      `maxWithdraw`: la liquidez de la bóveda manda sobre tu saldo).
- *
- * Mismo patrón que EmRepayModal: preparar FRESCO al abrir la puerta, revisar
- * con números vivos, y firmar en la wallet del dueño. Astryum jamás firma.
  */
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
@@ -136,7 +126,7 @@ export function EmExitModal({
    * TOTAL. El único que sabía la cifra era el servidor, y viajaba dentro del
    * `data` de un check EN ROJO que la interfaz no pinta — así que cada intento
    * por exceso era un rojo sin número y el usuario dejaba polvo para siempre
-   * (auditoría 2026-08-17).
+   * (auditorí).
    */
   const [vaultInfo, setVaultInfo] = useState<{
     lentBase: string; availableNowBase: string; decimals: number; ok: boolean;

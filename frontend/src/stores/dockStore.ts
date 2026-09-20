@@ -1,9 +1,7 @@
 import { create } from 'zustand';
 
 /**
- * dockStore — la operación en curso, anclada (fundador 2026-08-25: «que se
- * pueda anclar a la derecha... el dashboard se desliza a la izquierda, la
- * barra lateral se colapsa a iconos, y la operación queda anclada»).
+ * dockStore — la operación en curso, anclada.
  *
  * UN solo hueco de anclaje: las operaciones son excluyentes entre sí (cada
  * modal ya es la única superficie viva), así que un booleano global basta.
@@ -11,17 +9,16 @@ import { create } from 'zustand';
  * superficie de la operación (OperationSurface) lo escribe. Quien monta la
  * operación lo suelta al desmontar — nunca queda un hueco fantasma.
  *
- * ANCHURA (fundador 2026-08-26: «que la tab de la derecha se pueda
- * redimensionar»): arrastrable por su canto izquierdo, acotada a
+ * ANCHURA: arrastrable por su canto izquierdo, acotada a
  * [360, 720]px y recordada entre sesiones. `resizing` apaga la transición
  * del margen del shell mientras se arrastra — un margen con transition
  * persiguiendo al puntero se siente como goma, no como asa.
  */
 const WIDTH_KEY = 'astryum:dockWidth';
-/** El modo anclado se recuerda (2026-09-09): una ventana rehidratada tras
+/** El modo anclado se recuerda: una ventana rehidratada tras
  *  recargar vuelve al lado en que estaba, no a flotar en medio. */
 const DOCKED_KEY = 'astryum:dockDocked';
-/** El sidebar ABIERTO con algo anclado (fundador 2026-09-10): por defecto se
+/** El sidebar ABIERTO con algo anclado: por defecto se
  *  pliega al raíl, pero en una pantalla ancha cabe entero al lado de la
  *  operación y el usuario decide. Se recuerda. */
 const SIDEBAR_OPEN_KEY = 'astryum:dockSidebarOpen';
@@ -44,7 +41,7 @@ function initialDocked(): boolean {
   }
 }
 export const DOCK_MIN_W = 360;
-// 720 → 1120 (fundador 2026-09-12: «hay que poder abrir más el anclaje»): con
+// 720 → 1120: con
 // ~52rem de caja el raíl de estaciones vuelve al lado y el contenido respira.
 // El tope real lo pone también la pantalla (setWidth deja sitio al resto).
 export const DOCK_MAX_W = 1120;
@@ -62,8 +59,7 @@ function initialWidth(): number {
 
 interface DockState {
   docked: boolean;
-  /** MINIMIZADA (fundador 2026-08-26: «como una ventana de navegador pero en
-   *  el bottom») — la operación se pliega a una píldora abajo a la derecha,
+  /** MINIMIZADA — la operación se pliega a una píldora abajo a la derecha,
    *  VIVA: su estado (prepare, review, importes) no se toca. Restaurar
    *  vuelve al modo anterior (flotante o anclada — `docked` no se pierde). */
   minimized: boolean;

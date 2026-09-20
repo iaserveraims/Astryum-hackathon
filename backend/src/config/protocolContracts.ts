@@ -1,29 +1,9 @@
 /**
  * ⚠️ EMERGENCY FALLBACK — will be deleted when ContractRegistry is stable.
  *
- * Block F (2026-06-01) — This file is NO LONGER the source of truth.
+ * Block F — This file is NO LONGER the source of truth.
  * The canonical source is `services/ContractRegistry.ts`, populated by
  * `services/PoolIngestionService.ts` from DefiLlama on a 6h cron.
- *
- * CalldataBuilder consults this map LAST, after:
- *   1. ContractRegistry.getExecutablePoolForAction() (primary, DB-backed)
- *   2. protocolContracts.ts entries (this file — emergency fallback)
- *   3. P10.5 protocolContractRecord DB records (legacy dynamic integration)
- *
- * Why we keep it for now:
- *   - Bootstrap window: until PoolIngestionService completes its first full
- *     resolution pass (typically <1 min), production pools resolve via this map.
- *   - RPC outage safety net: if the ContractRegistry can't return data
- *     transiently, CalldataBuilder still produces correct calldata for the
- *     core protocols.
- *
- * Removal plan:
- *   Once ContractRegistry has been in production with stable resolution rates
- *   for 30+ days (operational dashboard tracks abiSource distribution and
- *   abiResolutionAttempts), this file is DELETED in a follow-up sprint.
- *
- * Until then: DO NOT add new protocols here. Add them via PROTOCOL_KIND_MAP
- * in `services/contractKinds.ts` and the ContractRegistry pipeline.
  */
 
 export type FeeType = 'referral_code' | 'referrer_address' | 'revenue_share' | 'none';
@@ -140,7 +120,7 @@ export const PROTOCOL_CONTRACTS: Record<string, ProtocolContractConfig> = {
         },
       },
       // Base — same canonical singleton address as mainnet (code verified on
-      // Base RPC 2026-07-10). Registered so the position scanner reads the
+      // Base RPC). Registered so the position scanner reads the
       // cbXRP/USDC markets (Coinbase XRP-backed loans; ids in
       // MORPHO_BLUE_MARKET_IDS). Watch-only today: tracking, not execution.
       8453: {

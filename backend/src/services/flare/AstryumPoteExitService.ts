@@ -8,29 +8,6 @@
  * en la cuenta). Un usuario cuyo dueño de participaciones es su **Personal
  * Account** no podía usar ninguna de las dos: su PA no firma, la mueve el raíl
  * 0xFE con una firma XRPL suya.
- *
- * Resultado: se podía entrar por XRPL y no salir por donde se entró. Este
- * módulo cierra esa asimetría — mismo patrón que `LegacyVaultYieldService`
- * (una firma XRPL → batch en la PA), con las dos calls encadenadas:
- *
- *   1. la salida del pote (redeem síncrono, o claimRedeem si hubo cooldown)
- *   2. el unmint FXRP → XRP nativo a la r-address del usuario
- *
- * ── EL PROBLEMA DEL IMPORTE, y por qué se dimensiona a la baja ──────────────
- *
- * `redeem` entrega los assets que valgan las participaciones EN EJECUCIÓN, no
- * los que valían al preparar. El unmint, en cambio, pide una cifra fija. Si esa
- * cifra fuera mayor que lo que el redeem entrega, el unmint revierte y se cae
- * el batch entero (el usuario no pierde capital, pero sí la firma y el peaje).
- *
- * La misma lección que dejó escrita el raíl del Legacy: *«dimensionar el redeem
- * a una cifra obsoleta y MAYOR es la dirección peligrosa»*. Así que el unmint se
- * dimensiona SIEMPRE por debajo de lo previsto, y el sobrante se queda como FXRP
- * en la propia Personal Account del usuario — visible, suyo, y redimible después.
- * Nunca se pierde.
- *
- * Prepare-only: aquí se codifican bytes y se leen números. Ni firma, ni envía,
- * ni tiene llave (invariantes #1/#8).
  */
 
 import { ethers } from 'ethers';

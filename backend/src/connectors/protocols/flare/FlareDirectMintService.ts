@@ -37,20 +37,11 @@ import type { ProofRefusal } from '../../../services/identity/provenAddresses';
 /**
  * E1 — FXRP entry via the `0xFE` custom instruction over FAssets DIRECT MINTING.
  *
- * Flow (verified against source + mainnet, 2026-06-24):
+ * Flow (verified against source + mainnet):
  *   user pays XRP → Core Vault → AssetManagerFXRP direct-mints FXRP into the
  *   Personal Account → MasterAccountController dispatches the committed userOp
  *   → PersonalAccount.executeUserOp([approve, mint(supply), enterMarket,
  *   borrow USDT0]) runs atomically. The executor/operator pays Flare gas.
- *
- * Astryum is PREPARE-ONLY: it resolves the PA + nonce, reads fees live, builds
- * the PackedUserOperation + the 42-byte memo, and assembles the UNSIGNED XRPL
- * Payment. It never signs, never pays gas, never runs the executor.
- *
- * The contract validates `keccak256(_data) == userOpHash` (memo commitment) +
- * `sender == PA` + `nonce` → the operator is zero-discretion (invariant #7).
- * `_data` decodes as OpenZeppelin `draft-IERC4337.PackedUserOperation` (canonical
- * EIP-4337 v0.7, 9 fields) — confirmed in flare-smart-accounts MemoInstructions.sol.
  */
 
 const REGISTRY_ABI = [
@@ -80,9 +71,7 @@ export const PACKED_USER_OP_TUPLE =
 
 /**
  * El asiento de nonce ya tiene un handoff pendiente: dos userOps vivos con el
- * mismo PA+nonce son gemelos excluyentes — solo uno podrá ejecutar JAMÁS
- * (incidente 2026-07-14/16: dos rotaciones preparadas con el nonce 2; la
- * segunda murió InvalidNonce y el executor quemó fees reintentándola).
+ * mismo PA+nonce son gemelos excluyentes — solo uno podrá ejecutar JAMÁS.
  */
 export type NonceSeatCode =
   /** Un borrador sin firmar aún vivo (su ventana de ledger por delante, o dentro del TTL). */
@@ -94,7 +83,7 @@ export type NonceSeatCode =
   /** El ledger no se pudo leer entero: no se sabe si aquel Payment entró — y «no pude leer» nunca libera. */
   | 'NONCE_SEAT_UNREADABLE'
   /**
-   * productizer-it21 §P2 2.2 — NO SE PUDO LEER LA PRUEBA, no el asiento. La
+   * NO SE PUDO LEER LA PRUEBA, no el asiento. La
    * tienda de pruebas de direcciones no contestó, así que no sabemos si esta
    * sesión puede reclamar el asiento de esta cuenta. Sobre una SALIDA eso no
    * puede degradarse a «no lo has probado» (403 definitivo) ni componerse como
@@ -103,7 +92,7 @@ export type NonceSeatCode =
    */
   | 'PROOF_STORE_UNREADABLE'
   /**
-   * productizer it. 31 (agente D, 4.1) — LA MARCA DE TOMA DE POSESIÓN ESTÁ
+   * LA MARCA DE TOMA DE POSESIÓN ESTÁ
    * ADELANTADA A NUESTRO RELOJ, así que no sirve de suelo y no sabemos si esta
    * sesión puede reclamar el asiento. Se leyó bien (no es «ilegible») y se
    * cura sola cuando el reloj pasa la marca (no es «espera un momento»): por
@@ -113,7 +102,7 @@ export type NonceSeatCode =
   | 'PROOF_FLOOR_AHEAD_OF_CLOCK';
 
 export class NonceSeatTakenError extends Error {
-  /** Código máquina del asiento (productizer-it15 §K1, contrato C3) — lo que responden las rutas. */
+  /** Código máquina del asiento (§K1, contrato C3) — lo que responden las rutas. */
   readonly code: NonceSeatCode;
   /** true = reintentar liberando el asiento (`supersede`) PUEDE funcionar para esta sesión. */
   readonly retryable: boolean;
@@ -122,10 +111,10 @@ export class NonceSeatTakenError extends Error {
   /** Segundos que faltan para que el asiento se libere solo (ventana de ledger o TTL). */
   readonly secondsLeft?: number;
   /**
-   * productizer-it17 (contrato C2) — el memo de la fila que BLOQUEA, y solo para
+   * El memo de la fila que BLOQUEA, y solo para
    * quien ya tiene derecho a tocarla: quien la preparó o quien prueba la cuenta.
    * Con él la pantalla puede ofrecer «libera ese asiento» en vez de un callejón;
-   * a un extraño no se le confirma jamás que ese memo exista (it14 §1.2: el memo
+   * a un extraño no se le confirma jamás que ese memo exista (el memo
    * en la vista pública fue la vía de los informes falsos).
    */
   readonly memoHex?: string;
@@ -161,7 +150,7 @@ function codeFromSeatMessage(message?: string): NonceSeatCode {
 }
 
 /**
- * productizer-it13 §2.1 — an XRPL account Astryum OPERATES (the demo exchange
+ * An XRPL account Astryum OPERATES (the demo exchange
  * omnibus, the order anchors… see config/xrplSourceTag.ts) only takes the 0xFE
  * dispatches of Astryum's own server flows. `xrplAddress` is a body field on the
  * prepare routes: without this, any session could prepare against the omnibus
@@ -190,7 +179,7 @@ export const OPERATIONAL_HANDOFF_ACTIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * productizer-it19 §M1 1.4 — EL ASIENTO NO SE CONCEDE NI SE RETIRA POR UN FALLO
+ * EL ASIENTO NO SE CONCEDE NI SE RETIRA POR UN FALLO
  * DE LECTURA. Un prepare que no puede saber en qué estado está el asiento (la
  * tabla de handoffs ilegible, o la lista de cuentas operativas nunca leída) NO
  * compone a ciegas: refusa y dice que se reintente. Hereda de
@@ -206,23 +195,17 @@ export class SeatStateUnreadableError extends NonceSeatTakenError {
   /** Marca de clase para las rutas que quieran responder 503 en vez de 409. */
   readonly unreadableSeatState = true;
   /**
-   * productizer it. 31 (agente D, 4.1) — EL REFUSAL DE LA TIENDA DE PRUEBAS,
+   * EL REFUSAL DE LA TIENDA DE PRUEBAS,
    * ENTERO. Las tres puertas del asiento (`seatClaimOf` en flareDemo,
    * `seatProofFieldsFor` en institutional y xrplDefi) convertían CUALQUIER
    * refusal reintentable en un `PROOF_STORE_UNREADABLE` con frase fija: «could
-   * not read … try again in a moment». Desde it. 29 hay un segundo refusal
+   * not read … try again in a moment». Hay un segundo refusal
    * reintentable, `PROOF_FLOOR_AHEAD_OF_CLOCK`, para el que las dos mitades de
    * esa frase son falsas (la fila se leyó; el instante puede ser 2099) y cuyas
    * `ways` dicen justo lo que importa («re-linking will not help», «an
    * administrator can check that date»). Todo eso se perdía en la puerta, y el
    * usuario de email con la marca adelantada veía «try again in a moment» en
    * bucle indefinido sobre su propia salida.
-   *
-   * Cuando está presente, el serializador de la ruta lo envía TAL CUAL (código,
-   * `detail`, `retryable`, `headline`, `ways`, `retryAfterSeconds` si viene) en
-   * vez de reconstruir un cuerpo a partir de `code` y `message`
-   * (`forwardedProofRefusalBody`, en services/flare/handoffAuthority — puro y
-   * sin importar esta clase, porque dos de los tres routers la cargan perezosa).
    */
   readonly proofRefusal?: ProofRefusal;
   constructor(
@@ -264,40 +247,23 @@ export type OperationalAccountResolver = (address: string) => Promise<boolean | 
 
 let operationalAccountResolver: OperationalAccountResolver | null = null;
 /**
- * ¿Ha llegado el resolver a leer su fuente alguna vez? (contrato C1 ampliado en
- * it19 §M1 1.4: `declaredOmnibusEverRead`). Sin esto, un snapshot nunca leído
+ * ¿Ha llegado el resolver a leer su fuente alguna vez? (contrato C1 ampliado §M1 1.4: `declaredOmnibusEverRead`). Sin esto, un snapshot nunca leído
  * respondía `false` y una cuenta operativa se volvía «de usuario» durante el
  * apagón — asiento del omnibus tomable por cualquiera.
  */
 let operationalResolverReady: (() => boolean) | null = null;
 
 /**
- * productizer-it17 §1.6 (contrato C1) — REGISTRA UNA SEGUNDA FUENTE DE VERDAD
+ * REGISTRA UNA SEGUNDA FUENTE DE VERDAD
  * sobre qué cuenta opera Astryum, consultada ADEMÁS de `attributionForSigner`.
- *
- * La lista de entorno (`ASTRYUM_OPERATIONAL_XRPL_ACCOUNTS`, los anchors, la
- * semilla del omnibus) no conoce el omnibus que un operador declara al crear su
- * run: siete prepares institucionales aceptan `account` del body, y con ese
- * omnibus fuera de la lista cualquiera podía componer un 0xFE contra él y
- * quedarse con el asiento de nonce de su Personal Account sin firmar nada
- * (it16 R1 1.6). El módulo que SÍ conoce las runs (routes/demoExchange.ts)
- * registra aquí su propio veredicto al arrancar:
- *
- *   setOperationalAccountResolver(async (addr) => runOmnibusExists(addr));
- *
- * Contrato: el resolver es server-side, cachea por su cuenta (se consulta en
- * cada prepare) y cualquier fallo suyo se lee como `false` — «no pude leer»
- * nunca convierte una cuenta de usuario en operativa, y nunca al revés tampoco:
- * la lista de entorno sigue mandando por sí sola. Sin registrar nada, el
- * comportamiento es exactamente el de hoy. `null` lo desregistra (tests).
  */
 export function setOperationalAccountResolver(
   fn: OperationalAccountResolver | null,
   opts?: {
     /**
-     * `declaredOmnibusEverRead` (it19 §M1 1.4): false = este resolver todavía no
+     * `declaredOmnibusEverRead` (§M1 1.4): false = este resolver todavía no
      * ha podido leer su fuente, así que su `false` significa «no lo sé». Sin este
-     * hook el comportamiento es el de it17 — un `false` es un «no».
+     * hook el comportamiento es el — un `false` es un «no».
      */
     ready?: () => boolean;
   },
@@ -309,7 +275,7 @@ export function setOperationalAccountResolver(
 /**
  * ¿Opera Astryum esta cuenta XRPL? Lista de entorno, o el resolver registrado (C1).
  *
- * `'unknown'` (it19 §M1 1.4) cuando el resolver no pudo leer su fuente NI la
+ * `'unknown'` (§M1 1.4) cuando el resolver no pudo leer su fuente NI la
  * lista de entorno la reconoce: ni «sí» ni «no». Quien pregunte decide — una
  * ENTRADA se refusa (el asiento del omnibus no se regala por un apagón de BD) y
  * una SALIDA se compone igual, porque una salida no se gatea jamás.
@@ -362,7 +328,7 @@ export const DEFAULT_REPORTED_SIGNATURE_WINDOW_MIN = 15;
 
 /**
  * What a fresh-node lookup said about the tx hash(es) a client reported for a
- * queued handoff (productizer-it13 §1.1):
+ * queued handoff:
  *   'validated'  — a VALIDATED Payment from the handoff account with its memo:
  *                  the seat is consumed, the row is signed;
  *   'pending'    — a node answered: not validated yet;
@@ -427,17 +393,6 @@ function isFailedLedgerResult(result: unknown): boolean {
  * viejos que el TTL se invalidan SOLOS (el usuario cerró/no firmó a tiempo);
  * solo uno FRESCO — que podría estar firmado y en vuelo — hace esperar. Puro.
  * Sin `createdAt` → tratado como fresco (defecto seguro: preserva el guard).
- *
- * productizer-it13 §1.1 — A REPORTED SIGNATURE IS NOT A DRAFT. `/handoff/signed`
- * answers PENDING_LEDGER while the Payment validates, and the only other marker
- * is the executor sweep: with the executor stopped or slow past the TTL, the
- * next prepare invalidated a signed 0xFE and composed its twin on the same nonce
- * (the 2026-08-21 incident, back). The caller looks the reported hash up on a
- * fresh node and injects the verdict (`reports.verdictOf`), so this stays pure:
- *   validated → signed · unreadable → fresh, never supersedable ·
- *   pending / not-found → fresh, never supersedable while the report is younger
- *   than `reports.windowMs` (a bound, so a report cannot hold a seat forever),
- *   then the normal TTL · mismatch or no report → the normal TTL.
  */
 export function classifySeatConflicts<T extends SeatConflictRow>(
   conflicts: T[],
@@ -459,13 +414,13 @@ export function classifySeatConflicts<T extends SeatConflictRow>(
     drafts: [],
   };
   for (const c of conflicts) {
-    // Una orden FIRMADA jamás caduca por TTL (incidente 2026-08-21): «vieja»
+    // Una orden FIRMADA jamás caduca por TTL: «vieja»
     // no significa «abandonada» cuando el executor va lento — significa dinero
     // comprometido esperando. El TTL solo entierra borradores sin firma.
     if (typeof c.signedAt === 'string' && c.signedAt) {
       // …salvo que el ledger diga que aquel Payment FALLÓ (tec*): entró, no
       // entregó XRP y el direct minting no puede ejecutarlo jamás. Eso no es
-      // dinero esperando, es una lápida — y su asiento está libre (it15 §K1).
+      // dinero esperando, es una lápida — y su asiento está libre (§K1).
       if (isFailedLedgerResult(c.signedLedgerResult)) out.ledgerFailed.push(c);
       else {
         out.fresh.push(c);
@@ -474,7 +429,7 @@ export function classifySeatConflicts<T extends SeatConflictRow>(
       continue;
     }
 
-    // ── LA FÍSICA DEL LEDGER manda sobre cualquier reloj (productizer-it15 §K1) ──
+    // ── LA FÍSICA DEL LEDGER manda sobre cualquier reloj (§K1) ──
     // Un borrador con LastLedgerSequence solo puede entrar hasta ese ledger; hasta
     // entonces NO caduca (el TTL de 5 min era más corto que la ventana de la mesa
     // y el gemelo se firmaba en el mismo nonce), y pasado, solo se sustituye si la
@@ -579,7 +534,7 @@ export async function resolveReportedSignature(
       continue;
     }
     if (v.state === 'validated') {
-      // productizer-it15 §K1 — un tec* validado NO es una firma que ocupe el
+      // §K1 — un tec* validado NO es una firma que ocupe el
       // asiento: entró en el ledger y no entregó XRP, así que ese dispatch no
       // puede ejecutar nunca. Se sigue leyendo: un tesSUCCESS con el mismo memo
       // (el usuario firmó dos veces) mandaría sobre él.
@@ -627,7 +582,7 @@ export function _resetAssetManagerCache(): void {
  * FAssets redemption minimum (UBA), best-effort + cached. The mint disclosures
  * (E1/E3/vault, PA rail) say at ENTRY time that the road back to native XRP has
  * a protocol minimum — read live, never hardcoded (invariant #9; 5 XRP on
- * mainnet, 2026-07-24). Returns null if unreadable: the copy degrades to the
+ * mainnet). Returns null if unreadable: the copy degrades to the
  * qualitative warning and the prepare NEVER fails because of this read.
  */
 export async function readMinimumRedeemAmountUBA(provider: Provider): Promise<bigint | null> {
@@ -646,7 +601,7 @@ export async function readMinimumRedeemAmountUBA(provider: Provider): Promise<bi
   }
 }
 
-// ── FAssets redemption fee (productizer-it9 §3.4 · exact anchors it13 §4.3) ──
+// ── FAssets redemption fee (· exact anchors) ──
 //
 // The unmint disclosures said «minus the protocol redemption fee» without a
 // figure, and the frontend showed «unavailable (not zero)». The figure is a
@@ -654,35 +609,10 @@ export async function readMinimumRedeemAmountUBA(provider: Provider): Promise<bi
 // field `redemptionFeeBIPS` (uint16, field #25). Field NAME confirmed by the Flare
 // Dev Hub (Operational Parameters: «Redemption fee — redemptionFee»); declaration
 // ORDER and types from flare-foundation/fassets
-// contracts/userInterfaces/data/AssetManagerSettings.sol (main, re-read 2026-09-14).
+// contracts/userInterfaces/data/AssetManagerSettings.sol (main, re-read).
 // The value read live from AssetManagerFXRP on mainnet that day: 18 BIPS (0.18%).
-//
-// No AssetManager ABI ships in this repo, so the reader walks the ABI encoding by
-// hand. The struct carries dynamic members (`poolTokenSuffix` string #5, two
-// uint256[] #49/#50), so it is encoded as a dynamic tuple: word 0 is the tuple
-// offset, every field takes ONE head word (dynamic ones as offsets relative to
-// the tuple) and the dynamic data follows the head in declaration order. The fee
-// is answered only when EVERY anchor holds (live mainnet shape: 71 words,
-// #5 = 1920, #49 = 1984, #50 = 2112, #11 = #12 = 6, #25 = 18):
-//   1. word 0 is exactly 0x20 — one tuple, nothing before it;
-//   2. the head is exactly 60 words and the tail is exactly what it declares:
-//      #5 points right past the head, #49 right past the string, #50 right past
-//      the first array, both arrays have the same length (governance sets them
-//      together) and the return data ends right after the second array;
-//   3. every static head word fits its declared Solidity type;
-//   4. values the FAssets protocol itself enforces (SettingsInitializer.sol,
-//      SettingsManagementFacet.sol, SettingsValidators.sol): assetDecimals =
-//      assetMintingDecimals = 6 (FXRP, immutable), collateralReservationFeeBIPS
-//      < 100%, redemptionFeeBIPS < 100%, redemptionDefaultFactorVaultCollateralBIPS
-//      > 100%, vaultCollateralBuyForFlareFactorBIPS ≥ 100%, every liquidation
-//      collateral factor > 100%.
-// A field inserted or removed changes (2). An insertion and a removal that cancel
-// out around #25 slide a neighbour into #25 or #26 and break (4): e.g. #24
-// underlyingSecondsForPayment (900) landing on #25 pushes the fee (18) onto #26,
-// which must exceed 100%. A settings struct that moved under us answers null
-// («could not read»), NEVER a different field.
 
-/** `AssetManagerSettings.Data` field types, in declaration order (flare-foundation/fassets main, 2026-09-14). */
+/** `AssetManagerSettings.Data` field types, in declaration order (flare-foundation/fassets main). */
 export const SETTINGS_FIELD_TYPES: readonly string[] = [
   'address', 'address', 'address', 'address', 'address', 'string', 'address', 'address', 'address', 'address', // 0-9
   'address', 'uint8', 'uint8', 'bytes32', 'uint32', 'uint32', 'uint16', 'uint64', 'uint64', 'uint64', // 10-19
@@ -1106,7 +1036,7 @@ export interface DirectMintHandoff {
   /** XRPL memo (hex, uppercase, no 0x) — goes in Payment.Memos[0].Memo.MemoData. */
   memoHex: string;
   /**
-   * productizer-it15 §K1 — el ledger hasta el que este Payment puede entrar
+   * §K1 — el ledger hasta el que este Payment puede entrar
    * (`LastLedgerSequence` = ledger validado + ventana). Es lo que hace el asiento
    * de nonce decidible por física y no por reloj. null = el ledger validado no se
    * pudo leer al componer: el Payment sale SIN LastLedgerSequence (Xaman pondrá
@@ -1116,7 +1046,7 @@ export interface DirectMintHandoff {
   /** Ledger validado en el momento de componer — el suelo de la ventana de búsqueda. */
   composedLedgerIndex: number | null;
   /**
-   * productizer-it17 (contrato C3) — ISO en que el payload de Xaman de ESTE
+   * ISO en que el payload de Xaman de ESTE
    * dispatch deja de poder firmarse (`HANDOFF_PAYLOAD_EXPIRY_MIN`, 5 min por
    * defecto). El frontend pone ese mismo `expire` en el payload; el registro lo
    * guarda porque es lo que decide cuándo su asiento puede soltarse.
@@ -1125,12 +1055,12 @@ export interface DirectMintHandoff {
   /** Minutos de vida del payload — lo que el cliente debe pasar a Xaman como `expire`. */
   payloadExpiryMin: number;
   /**
-   * productizer it. 31 (§5) — ¿LEYÓ EL SERVIDOR EL SignerList DE ESTA CUENTA?
+   * ¿LEYÓ EL SERVIDOR EL SignerList DE ESTA CUENTA?
    *
    * `payloadExpiryMin` dice cuánto vive el payload; NO dice por qué. Una ventana
    * ordinaria sale igual de una lectura que dijo «firma sola» que de un timeout de
    * 6 s del nodo, de una cuenta operativa o de una ruta que nunca preguntó — y el
-   * navegador (it. 29 §5) tomaba esa ventana por un veredicto «firma sola» y
+   * navegador tomaba esa ventana por un veredicto «firma sola» y
    * dejaba de mirar el SignerList: una cuenta con quórum cuyo SignerList no se
    * pudo leer acababa en un payload de firma simple con la `Sequence`
    * autorrellenada. Esto es la mitad que faltaba: `'single'` y `'quorum'` son
@@ -1138,7 +1068,7 @@ export interface DirectMintHandoff {
    */
   signerListRead: SignerListRead;
   /**
-   * productizer-it17 §1.3 — aviso EXPLÍCITO cuando este dispatch se compuso
+   * Aviso EXPLÍCITO cuando este dispatch se compuso
    * desplazando un borrador cuya ventana no se pudo leer en ningún nodo y cuya
    * LLS quedó muy atrás. No es un error: es lo que hay que enseñar al usuario
    * antes de firmar, porque en el caso remoto de que aquel Payment hubiera
@@ -1148,9 +1078,7 @@ export interface DirectMintHandoff {
   /** UNSIGNED XRPL Payment for Xaman. No DestinationTag (would misroute the mint). */
   xrplPayment: {
     TransactionType: 'Payment';
-    /** Pinned signer (incidente 2026-07-14: sin Account, Xaman firma con la
-     *  cuenta ACTIVA — dos Payments salieron de la cuenta equivocada y sus
-     *  bytes quedaron inejecutables). Con Account, Xaman exige firmar con
+    /** Pinned signer. Con Account, Xaman exige firmar con
      *  EXACTAMENTE la cuenta para la que se construyó el userOp. */
     Account: string;
     Destination: string;
@@ -1159,7 +1087,7 @@ export interface DirectMintHandoff {
     /** Make Waves project tag (XRPL_SOURCE_TAG). Unlike a DestinationTag it does
      *  not affect FAssets routing — it labels the sender side on-ledger. */
     SourceTag?: number;
-    /** Ventana de firma (it15 §K1): pasado este ledger el Payment ya no puede entrar. */
+    /** Ventana de firma (§K1): pasado este ledger el Payment ya no puede entrar. */
     LastLedgerSequence?: number;
   };
 }
@@ -1180,13 +1108,13 @@ export interface BuildDirectMintInput {
    */
   supersedePendingNonce?: boolean;
   /**
-   * productizer-it13 §2.1 — the Astryum user id of the session preparing this
+   * The Astryum user id of the session preparing this
    * dispatch (null: no session, CLI, server job). Persisted on the handoff row:
    * that same user may release or supersede their own unsigned draft.
    */
   preparedByUserId?: string | null;
   /**
-   * productizer-it13 §2.1 — true ONLY when the caller proved, server-side, that
+   * True ONLY when the caller proved, server-side, that
    * the session may act on `xrplAddress` (proven address or verified founder —
    * services/flare/handoffAuthority.ts). With it, `supersedePendingNonce` may
    * displace a fresh unsigned draft prepared by somebody else; without it, only
@@ -1194,7 +1122,7 @@ export interface BuildDirectMintInput {
    */
   supersedeAuthorized?: boolean;
   /**
-   * productizer-it15 §K1 (contrato C2) — true si la sesión que prepara PRUEBA la
+   * §K1 (contrato C2) — true si la sesión que prepara PRUEBA la
    * cuenta XRPL, se pida supersede o no. Viaja al registro: un borrador preparado
    * por quien NO prueba la cuenta lo puede desplazar el dueño probado (nadie más
    * que el dueño puede firmarlo, y el dueño no lo preparó), y sirve para decir a
@@ -1202,7 +1130,7 @@ export interface BuildDirectMintInput {
    */
   preparedByProven?: boolean;
   /**
-   * productizer-it21 §P1 1.1/1.4 (contrato del agente E, `seatProofFromVerdict`)
+   * §P1 1.1/1.4
    * — true si la tienda de pruebas NO SE PUDO LEER al preparar. Es la mitad que
    * faltaba: `preparedByProven: false` significaba a la vez «esta sesión no tiene
    * la cuenta» y «no pude preguntar», y con lo segundo la fila quedaba marcada
@@ -1212,12 +1140,12 @@ export interface BuildDirectMintInput {
    */
   preparedByProofUnreadable?: boolean;
   /**
-   * productizer-it19 (contrato C1) — true si ESTE 0xFE lo compone un flujo
+   * True si ESTE 0xFE lo compone un flujo
    * servidor de Astryum para una cuenta operativa suya (el put-to-work de la
    * mesa, el autopilot, la alimentación de anchors). Esas filas no tienen sesión
    * que pruebe nada, así que sin esta marca se leían como «borrador de un
    * extraño» y otro flujo servidor las apartaba en silencio con el payload aún
-   * firmable (it18 R1 1.1). Una fila marcada no se desplaza sola JAMÁS.
+   * firmable. Una fila marcada no se desplaza sola JAMÁS.
    *
    * Se deduce además de la etiqueta de acción (`OPERATIONAL_HANDOFF_ACTIONS`
    * sobre una cuenta operativa), que es lo más seguro: las filas compuestas antes
@@ -1226,36 +1154,25 @@ export interface BuildDirectMintInput {
    */
   serverComposed?: boolean;
   /**
-   * productizer-it23 §Q1 1.3 — CUÁNTO VIVE DE VERDAD EL PAYLOAD QUE LLEVARÁ ESTE
+   * CUÁNTO VIVE DE VERDAD EL PAYLOAD QUE LLEVARÁ ESTE
    * 0xFE, en minutos. Por defecto, el de una firma simple
    * (`HANDOFF_PAYLOAD_EXPIRY_MIN`, 5). Una CEREMONIA multifirma crea sus payloads
    * de Xaman con `expire: 1440` porque un quórum firma a velocidad humana: si el
    * servidor compone ese dispatch con la ventana de una firma simple, a los seis
    * minutos el asiento se da por libre y —lo que mata la salida— el
    * `LastLedgerSequence` queda atrás, así que el consejo acaba firmando bytes que
-   * ya no pueden entrar (it22 Q1 1.3: «la salida institucional multifirma no
+   * ya no pueden entrar («la salida institucional multifirma no
    * puede completarse»).
-   *
-   * Declararlo aquí estira las DOS cosas a la vez: la caducidad del payload y la
-   * ventana de ledger que la cubre. No se puede arreglar después: la
-   * `LastLedgerSequence` va DENTRO de los bytes que se firman, así que sellar la
-   * caducidad más tarde (`/handoff/payload-opened`) no salva una ceremonia lenta.
-   *
-   * REGLA DE USO: lo declara la RUTA que compone, en código
-   * (`handoffCeremonyExpiryMin()` para una ceremonia) — **jamás** se toma del
-   * cuerpo de la petición: alargar el payload alarga el asiento de nonce de esa
-   * cuenta, y eso en manos de un extraño es tapiar el nonce ajeno. El servidor lo
-   * acota igual a [1 min, 24 h] (`clampPayloadExpiryMin`).
    */
   payloadExpiryMin?: number;
   /**
-   * productizer-it23 §Q1 1.3 — atajo de lo anterior: «a esto lo firma un quórum».
+   * Atajo de lo anterior: «a esto lo firma un quórum».
    * Equivale a `payloadExpiryMin: handoffCeremonyExpiryMin()` y es lo que una
    * ruta de consejo debería pasar, para no repetir el número por el repo.
    */
   signingCeremony?: boolean;
   /**
-   * productizer it. 31 (§5) — lo que `signingCeremonyFor` LEYÓ, para que viaje
+   * Lo que `signingCeremonyFor` LEYÓ, para que viaje
    * hasta la respuesta del prepare junto a la ventana que decidió. Opcional: una
    * ruta que declara la ceremonia en código sin leer nada declara `'quorum'` por
    * `signingCeremony`; el resto de silencios son `'unknown'`, nunca `'single'`.
@@ -1265,7 +1182,7 @@ export interface BuildDirectMintInput {
    * Ledgers que este Payment sigue siendo firmable (`LastLedgerSequence` = ledger
    * validado + ventana). Por defecto `HANDOFF_LLS_WINDOW` o, sin ella, la que
    * cubre la vida del payload de Xaman + 1 min (`defaultLastLedgerWindow`, ~90
-   * ledgers ≈ 6 min con la caducidad por defecto de 5 min — it17 §L1). La mesa
+   * ledgers ≈ 6 min con la caducidad por defecto de 5 min — §L1). La mesa
    * del exchange pasa la suya, que sigue mandando sobre todo lo demás.
    */
   lastLedgerWindow?: number;
@@ -1287,7 +1204,7 @@ export interface BuildDirectMintInput {
 }
 
 /**
- * Ventana plana anterior a it17 (~10 min): la que se estampaba sin mirar cuánto
+ * Ventana plana anterior a: la que se estampaba sin mirar cuánto
  * vivía el payload. Se conserva como suelo histórico y referencia de los
  * llamadores que aún la fijan a mano; el defecto vivo es `defaultLastLedgerWindow`.
  */
@@ -1300,25 +1217,25 @@ export const MIN_LAST_LEDGER_WINDOW = 10;
 const SECONDS_PER_LEDGER = SEAT_SECONDS_PER_LEDGER;
 
 /**
- * productizer-it17 §L1 — LA VENTANA SE MIDE CONTRA EL PAYLOAD, NO CONTRA UN
+ * §L1 — LA VENTANA SE MIDE CONTRA EL PAYLOAD, NO CONTRA UN
  * NÚMERO REDONDO. La ventana plana de 150 ledgers (~10 min) era casi el doble de
  * lo que el payload de Xaman vive (5 min por defecto): cada composición
  * abandonada congelaba el asiento del omnibus ~6,7 min para todos los clientes
- * de la mesa (it16 R1 1.5) sin que nadie pudiera ya firmar nada desde el minuto
+ * de la mesa sin que nadie pudiera ya firmar nada desde el minuto
  * 5. Ahora la ventana es «lo que vive el payload + un minuto»: ~90 ledgers (6
  * min) con la caducidad por defecto. Sigue cubriendo entera la vida del payload
  * — que es lo que impide el gemelo — y ni un minuto más.
  */
 export function defaultLastLedgerWindow(): number {
   // La fórmula vive con la caducidad del payload (handoffAuthority): son la misma
-  // decisión, y separarlas fue lo que las dejó discrepar (it16 R1 1.1/1.5).
+  // decisión, y separarlas fue lo que las dejó discrepar (/1.5).
   return Math.min(Math.max(defaultSeatWindowLedgers(), MIN_LAST_LEDGER_WINDOW), MAX_LAST_LEDGER_WINDOW);
 }
 
 /**
  * La ventana pedida, la del entorno o la de defecto — siempre dentro de [10, 1000].
  *
- * productizer-it23 §Q1 1.3 — …Y NUNCA MÁS CORTA QUE LA VIDA DEL PAYLOAD. Si el
+ * …Y NUNCA MÁS CORTA QUE LA VIDA DEL PAYLOAD. Si el
  * payload vive más que la ventana, pasan las dos cosas malas a la vez: el asiento
  * se declara libre con el payload aún firmable (el gemelo) y, sobre todo, lo que
  * se firme al final ya no puede entrar en el ledger — que es exactamente cómo una
@@ -1339,7 +1256,7 @@ export function resolveLastLedgerWindow(requested?: number, opts?: { payloadExpi
 }
 
 /**
- * productizer-it23 §Q1 1.3 — los minutos que vive el payload de ESTE dispatch.
+ * Los minutos que vive el payload de ESTE dispatch.
  *
  * Orden: lo que declaró la ruta que compone (`payloadExpiryMin`, o el atajo
  * `signingCeremony`) manda; si no declaró nada y el autodetect está encendido, se
@@ -1355,7 +1272,7 @@ async function resolvePayloadExpiryMin(
     return clampPayloadExpiryMin(input.payloadExpiryMin);
   }
   if (input.signingCeremony === true) return handoffCeremonyExpiryMin();
-  // productizer-it25 §2.1 — EL AUTODETECT NO ESTIRA EL ASIENTO DEL OMNIBUS. Una
+  // EL AUTODETECT NO ESTIRA EL ASIENTO DEL OMNIBUS. Una
   // cuenta que Astryum OPERA firma con su propia semilla o su relé, en el mismo
   // segundo: no hay quórum humano que espere. Su SignerList (el omnibus de la
   // mesa lleva una designación) habría estirado su asiento de nonce a 24 h — y
@@ -1383,7 +1300,7 @@ async function defaultSignerQuorumReader(address: string): Promise<'quorum' | 's
 }
 
 /**
- * productizer it. 31 (§5) — qué declara la fila sobre el SignerList de su cuenta.
+ * Qué declara la fila sobre el SignerList de su cuenta.
  * Pura. `'single'` SOLO si quien compone lo leyó y lo dijo; una ceremonia declarada
  * en código cuenta como `'quorum'` (es una decisión, y el navegador la respeta ya
  * por la ventana); todo lo demás es `'unknown'`.
@@ -1397,39 +1314,12 @@ export function signerListReadOf(
 }
 
 /**
- * productizer-it25 §2.1 — LO QUE UNA RUTA QUE COMPONE UN 0xFE LE PASA AL BUILDER
+ * LO QUE UNA RUTA QUE COMPONE UN 0xFE LE PASA AL BUILDER
  * CUANDO ESA CUENTA FIRMA POR QUÓRUM. **El fallo que esto cierra: `signingCeremony`
  * no tenía NI UN llamador.**
- *
- * El arreglo de it23 existía entero y nadie lo usaba: `grep signingCeremony` daba
- * cero fuera del servicio y sus tests, y `HANDOFF_QUORUM_AUTODETECT` no estaba
- * declarada en ningún entorno. Así que una salida institucional de un pote con
- * consejo seguía naciendo con el asiento de una firma simple (~6 min) mientras
- * cada miembro del quórum firmaba un payload de 24 h (`councilSigning.ts`:
- * `expire: 1440`): a los seis minutos la `LastLedgerSequence` quedaba atrás y el
- * consejo acababa firmando bytes que el ledger ya no admite. La salida multifirma
- * no podía completarse. Probar el builder no probaba la cadena.
- *
- * CÓMO SE SABE, Y CÓMO NO. No se adivina por la forma de la ruta: el mismo
- * `/pote-exit` lo usa un pote PERSONAL (manager == usuario, firma simple) y uno de
- * consejo. Se LEE el SignerList de la cuenta (`readXrplSignerQuorum` →
- * `account_info … signer_lists: true`, cacheado y con su propio timeout), que es
- * la única fuente que distingue las dos.
- *
- * Y LAS DOS REGLAS QUE NO SE TOCAN:
- *   · «no pude leer» JAMÁS estira una ventana. `'unknown'` — un nodo caído, un
- *     timeout, una respuesta ilegible — devuelve `{}`, es decir el comportamiento
- *     exacto de antes de esta iteración. Estirar a 24 h el asiento de nonce de
- *     una cuenta normal por un fallo nuestro sería tapiarle el nonce un día;
- *   · una cuenta que Astryum OPERA nunca se estira (ver `resolvePayloadExpiryMin`):
- *     su 0xFE lo firma nuestra semilla en el acto, y su asiento sirve a todos los
- *     clientes de la run.
- *
- * Nunca lanza: una ruta que compone una salida no puede caerse porque un nodo XRPL
- * no conteste.
  */
 /**
- * productizer it. 31 (§5) — LO QUE EL SERVIDOR LEYÓ, DICHO APARTE DE LO QUE DECIDIÓ.
+ * LO QUE EL SERVIDOR LEYÓ, DICHO APARTE DE LO QUE DECIDIÓ.
  *
  *   'quorum'  — se leyó el SignerList y lo hay: la ventana es la de la ceremonia;
  *   'single'  — se leyó y NO lo hay: la ventana ordinaria es un VEREDICTO;
@@ -1437,7 +1327,7 @@ export function signerListReadOf(
  *               preguntó): la ventana ordinaria es solo el defecto, y el
  *               navegador tiene que volver a mirar el SignerList antes de firmar.
  *
- * Es la distinción que it. 29 §5 dio por hecha sin que existiera: «a row composed
+ * Es la distinción que dio por hecha sin que existiera: «a row composed
  * with a single signature's window IS a row it read this account for» — falso
  * para `'unknown'`, que también devuelve la ventana ordinaria.
  */
@@ -1454,7 +1344,7 @@ export async function signingCeremonyFor(
   if (!account) return { signerListRead: 'unknown' };
   try {
     const operational = await (opts?.readOperationalAccount ?? resolveOperationalAccount)(account);
-    // it. 31 (§5): una cuenta operativa no se estira Y no se lee — su SignerList
+    // Una cuenta operativa no se estira Y no se lee — su SignerList
     // (la designación del omnibus) no decide cómo firma su 0xFE. Se declara
     // `'unknown'`, no `'single'`: nadie miró.
     if (operational === 'yes') return { signerListRead: 'unknown' };
@@ -1487,7 +1377,7 @@ function unreadableDetailOf<T extends { userOpHash: string }>(
   return '(the validated ledger could not be read)';
 }
 
-/** Minutos de más allá de su ventana que un asiento ilegible debe llevar para poder desplazarse (it17 §1.3). */
+/** Minutos de más allá de su ventana que un asiento ilegible debe llevar para poder desplazarse. */
 export const DEFAULT_UNREADABLE_DISPLACE_MIN = SEAT_DEFAULT_UNREADABLE_DISPLACE_MIN;
 
 /** `HANDOFF_UNREADABLE_DISPLACE_MIN` en ms, con suelo de 5 min: nunca un desplazamiento «rápido». */
@@ -1496,7 +1386,7 @@ export function unreadableDisplaceGraceMs(): number {
 }
 
 /**
- * productizer-it17 §1.3 — ¿la ventana de esta fila quedó MUY atrás? Se mide por
+ * ¿la ventana de esta fila quedó MUY atrás? Se mide por
  * tiempo porque este caso es justo aquel en que el ledger no se puede leer: la
  * fila lleva viva más que su propia ventana (LLS − ledger de composición, a ~4 s
  * por ledger; sin esos datos, la ventana por defecto) MÁS el margen. Sin
@@ -1506,13 +1396,13 @@ export function seatWindowLongPast(
   row: { createdAt?: Date; lastLedgerSequence?: number | null; composedLedgerIndex?: number | null },
   nowMs: number,
 ): boolean {
-  // Delegado en handoffAuthority (it19 §M1 1.2): la misma cuenta la usa el
+  // Delegado en handoffAuthority (§M1 1.2): la misma cuenta la usa el
   // release del store, y dos copias de esta regla es como se separaron antes.
   return seatWindowLongPastOf(row, nowMs, defaultLastLedgerWindow());
 }
 
 /**
- * productizer-it21 §P2 2.3 — CUÁNDO DEJA DE SER UN MURO. Segundos que faltan
+ * CUÁNDO DEJA DE SER UN MURO. Segundos que faltan
  * para que un asiento ILEGIBLE pueda desplazarlo quien PRUEBA la cuenta (su
  * ventana + `HANDOFF_UNREADABLE_DISPLACE_MIN`). El 409 decía «vuelve a
  * intentarlo» sin decir cuándo, así que sobre una salida se leía como una espera
@@ -1537,7 +1427,7 @@ export function seatUnreadableDisplaceInSeconds(
 /**
  * Cuánto falta para que el asiento se libere SOLO: lo que quede de ventana de
  * ledger (por física) o de TTL (filas sin ventana). Para la cuenta atrás de la
- * UI — it14 R5 §1.2: «Back» dejaba la reserva minutos sin decir cuántos.
+ * UI: «Back» dejaba la reserva minutos sin decir cuántos.
  */
 function seatSecondsLeft<T extends SeatConflictRow>(
   seat: SeatConflictClassification<T>,
@@ -1578,22 +1468,22 @@ export async function buildDirectMintHandoff(
     params?: DirectMintParams;
     readValidatedLedgerIndex?: () => Promise<number | null>;
     /**
-     * it23 §Q1 1.3 — ¿firma esta cuenta XRPL por quórum? Inyectable para los
+     * ¿firma esta cuenta XRPL por quórum? Inyectable para los
      * tests; por defecto la lee el store (y solo con `HANDOFF_QUORUM_AUTODETECT`).
      */
     readSignerQuorum?: (address: string) => Promise<'quorum' | 'single' | 'unknown'>;
   },
 ): Promise<DirectMintHandoff> {
-  // productizer-it13 §2.1 — an account Astryum operates only takes the 0xFE of
+  // An account Astryum operates only takes the 0xFE of
   // its own server flows; checked before any chain read or seat logic.
   //
-  // productizer-it15 §3.4 (contrato C4) — …y sus SALIDAS. Un consejo operado por
+  // …y sus SALIDAS. Un consejo operado por
   // Astryum que estuviera en la lista de entorno recibía 403 en `pote-exit` o
   // `pa-unmint`: una salida gateada por una lista nuestra, que es exactamente lo
   // que no puede pasar. Una etiqueta de salida pasa cuando la sesión prueba la
   // cuenta (o el fundador verificado); un extraño sigue sin poder tomar el asiento.
   //
-  // productizer-it17 §1.6 (contrato C1) — la pregunta «¿opera Astryum esta
+  // La pregunta «¿opera Astryum esta
   // cuenta?» ya no la contesta solo la lista de entorno: el resolver registrado
   // (el omnibus declarado por una run de la mesa) cuenta igual.
   const isExit = isHandoffExitAction(input.action);
@@ -1609,20 +1499,11 @@ export async function buildDirectMintHandoff(
         `'${input.action ?? 'unlabelled'}'.`,
     );
   }
-  // productizer-it19 §M1 1.4 — «NO PUDE LEER» NO CONCEDE EL ASIENTO DEL OMNIBUS.
+  // «NO PUDE LEER» NO CONCEDE EL ASIENTO DEL OMNIBUS.
   // Con el registro de runs nunca leído, una cuenta operativa se leía como cuenta
   // de usuario y cualquiera podía componer contra ella y quedarse su asiento de
-  // nonce (it18 R1 1.4). Mientras no se sepa, una ENTRADA ajena espera. La salida
+  // nonce. Mientras no se sepa, una ENTRADA ajena espera. La salida
   // pasa siempre: «no pude leer» jamás es castigo sobre una salida.
-  //
-  // productizer-it21 §P1 1.6 — …Y UNA ETIQUETA DE SALIDA NO ES UNA PRUEBA. Hasta
-  // aquí bastaba `isExit` para pasar, pero `action` la fija la ruta y
-  // `xrplAddress` viene del CUERPO: cualquiera podía escribir el omnibus de la
-  // mesa en un `/pa-unmint/prepare` y, con el registro de runs ilegible, componer
-  // contra el asiento que sirve a todos los clientes de esa run (it20 N1 1.6).
-  // La salida sigue sin gatearse: no recibe un «no» — recibe el MISMO 503
-  // reintentable, que es lo que «no pude leer» significa. Y para pasarlo basta
-  // probar la cuenta (`exitByOwner`), que es lo que el dueño de verdad puede hacer.
   if (operationalState === 'unknown' && !serverFlowAction && !exitByOwner) {
     throw new SeatStateUnreadableError(
       `SEAT_STATE_UNREADABLE: Astryum cannot tell right now whether ${input.xrplAddress} is an account it operates (the run ` +
@@ -1652,7 +1533,7 @@ export async function buildDirectMintHandoff(
     userOpHash,
   });
 
-  // ── LA VENTANA DE LEDGER DE ESTE PAYMENT (productizer-it15 §K1) ────────────
+  // ── LA VENTANA DE LEDGER DE ESTE PAYMENT (§K1) ────────────
   // Todo 0xFE sale con LastLedgerSequence: pasado ese ledger el Payment ya no
   // puede entrar, y eso — no un reloj de 5 min — es lo que decide cuándo su
   // asiento de nonce queda libre. Si el ledger validado no se puede leer, se
@@ -1670,19 +1551,12 @@ export async function buildDirectMintHandoff(
   } catch {
     composedLedgerIndex = null; // sin DB/nodo (scripts CLI) — se compone sin ventana
   }
-  // ── CUÁNTO VIVE EL PAYLOAD DE ESTE 0xFE (productizer-it23 §Q1 1.3) ─────────
+  // ── CUÁNTO VIVE EL PAYLOAD DE ESTE 0xFE (§Q1 1.3) ─────────
   // Una firma simple vive 5 min; una CEREMONIA multifirma, 24 h (`expire: 1440`),
   // porque un quórum firma a velocidad humana. Componer una ceremonia con la
   // ventana de una firma simple soltaba su asiento a los 6 min y dejaba su
   // `LastLedgerSequence` atrás: el consejo firmaba bytes que ya no pueden entrar
-  // y la salida institucional multifirma no podía completarse (it22 Q1 1.3).
-  //
-  // Se decide AQUÍ, al componer, porque la `LastLedgerSequence` va dentro de los
-  // bytes firmados: no hay forma de alargarla después. La ruta que compone para
-  // un consejo lo declara (`signingCeremony` / `payloadExpiryMin`); si no declaró
-  // nada, se puede preguntar al ledger si esa cuenta tiene SignerList — pero solo
-  // con `HANDOFF_QUORUM_AUTODETECT=true`, y un «no pude leer» NUNCA estira nada
-  // (estirar a 24 h el asiento de una cuenta normal sería tapiar su nonce un día).
+  // y la salida institucional multifirma no podía completarse.
   const payloadExpiryMin = await resolvePayloadExpiryMin(input, opts?.readSignerQuorum, { operationalAccount });
   // El suelo de ventana solo se impone cuando este payload vive MÁS que uno
   // normal: con la vida de siempre, la ventana la deciden exactamente quien la
@@ -1692,24 +1566,24 @@ export async function buildDirectMintHandoff(
     composedLedgerIndex !== null
       ? composedLedgerIndex + resolveLastLedgerWindow(input.lastLedgerWindow, { payloadExpiryMin: longerThanUsual })
       : null;
-  // productizer-it17 (contrato C3) — la OTRA caducidad: la del payload de Xaman.
+  // La OTRA caducidad: la del payload de Xaman.
   // Viaja en el registro porque es la que decide cuándo el asiento puede
   // soltarse (mientras el payload pueda firmarse, soltarlo es crear el gemelo).
   const payloadExpiresAt = handoffPayloadExpiresAt(Date.now(), payloadExpiryMin);
 
-  // productizer-it17 §1.4 — ¿ES ESTE PREPARE DE LA PROPIA CUENTA? Una sesión que
+  // ¿ES ESTE PREPARE DE LA PROPIA CUENTA? Una sesión que
   // PRUEBA la cuenta XRPL (o el fundador verificado), o el flujo servidor de una
   // cuenta que Astryum opera. Solo eso desplaza sin ceremonia un borrador que
   // nadie probado preparó: nadie más que el dueño puede firmar aquel payload, y
-  // el dueño no lo preparó (it16 R1 1.4: el extraño tapiaba una salida ajena).
+  // el dueño no lo preparó (el extraño tapiaba una salida ajena).
   const requesterOwnsAccount =
     input.preparedByProven === true || input.supersedeAuthorized === true || ownServerFlow === true;
 
   // Aviso que viaja con el handoff cuando este prepare desplazó un asiento que
-  // nadie pudo leer (it17 §1.3). Vive fuera del try: el guard puede llenarlo.
+  // nadie pudo leer. Vive fuera del try: el guard puede llenarlo.
   let seatWarning: string | undefined;
 
-  // Asiento de nonce único (incidente 2026-07-14/16): si ya hay un handoff
+  // Asiento de nonce único: si ya hay un handoff
   // pendiente con este PA+nonce y OTRO userOp, son excluyentes — abortar (o
   // invalidar el viejo con supersedePendingNonce). Best-effort: sin DB
   // (scripts CLI) no hay filas que consultar y el guard no aplica.
@@ -1721,16 +1595,7 @@ export async function buildDirectMintHandoff(
     // NO debe tapiar el nonce a un prepare nuevo. Cross-referenciamos por memoHex
     // con el store de aparcados y los excluimos — además del markHandoffParked de
     // parkTx. Así un dispatch YA-aparcado (o parkeado antes de ese fix) tampoco
-    // bloquea (incidente 12-sep: el re-claim moría en NONCE_SEAT_TAKEN_SIGNED aunque
-    // el viejo estuviera parked). Aparcar = «esto está muerto, déjame seguir».
-    //
-    // productizer-it21 §P1 1.4 — …Y ESTA LISTA SE LEE EN ESTRICTO. Con `kvList`
-    // un parpadeo de BD la dejaba vacía, así que las filas APARCADAS volvían a
-    // contar como ocupantes y una SALIDA moría en `NONCE_SEAT_TAKEN_SIGNED`, no
-    // reintentable, por un fallo nuestro (it20 N1 1.4 — el incidente del 12-sep).
-    // Ahora el fallo sube como `SEAT_STATE_UNREADABLE` y lo decide el catch de
-    // abajo con la regla de siempre: la entrada espera, la salida se compone con
-    // su aviso. Los lectores de panel siguen con la lectura blanda a propósito.
+    // bloquea. Aparcar = «esto está muerto, déjame seguir».
     let parked: Awaited<ReturnType<typeof listParked0xFe>>;
     try {
       parked = await listParked0xFe({ strict: true });
@@ -1748,7 +1613,7 @@ export async function buildDirectMintHandoff(
       const windowMs =
         Math.max(Number(process.env.HANDOFF_REPORTED_SIGNATURE_WINDOW_MIN || DEFAULT_REPORTED_SIGNATURE_WINDOW_MIN), 1) *
         60_000;
-      // productizer-it13 §1.1 — a client-reported signature is checked against
+      // A client-reported signature is checked against
       // the ledger (fresh node) BEFORE the TTL may retire the seat. Only unsigned
       // rows WITHOUT a ledger window carry reports that decide anything: con
       // LastLedgerSequence manda la lectura de la ventana, no la palabra de nadie.
@@ -1797,7 +1662,7 @@ export async function buildDirectMintHandoff(
       // Un Payment que entró en el ledger y FALLÓ (tec*) no entregó XRP al Core
       // Vault: FAssets exige `status == PAYMENT_SUCCESS` para ejecutar el direct
       // minting, así que ese dispatch está muerto y su asiento queda libre —
-      // jamás marcado «firmado» (it14 §1.4: bloqueaba el nonce para siempre).
+      // jamás marcado «firmado» (bloqueaba el nonce para siempre).
       for (const c of seat.ledgerFailed) {
         const win = windows.get(c.userOpHash);
         const hit = lookups.get(c.userOpHash);
@@ -1811,18 +1676,18 @@ export async function buildDirectMintHandoff(
           await store.markHandoffLedgerFailedByMemo(c.memoHex, txHash ?? '', result ?? 'tec');
         }
       }
-      // productizer-it19 §M1 1.1 (contrato C1) — LA FILA QUE COMPUSO NUESTRO
+      // §M1 1.1 (contrato C1) — LA FILA QUE COMPUSO NUESTRO
       // PROPIO SERVIDOR NO SE APARTA SOLA JAMÁS. La mesa compone su put-to-work
       // sin `preparedByProven` (no hay sesión que pruebe nada: firma una semilla
-      // nuestra), así que la regla de it17 la leía como «borrador de un extraño»
+      // nuestra), así que la regla la leía como «borrador de un extraño»
       // y el autopilot — `ownServerFlow` de la misma cuenta — la superseded en
       // silencio mientras el fundador aún podía firmarla: dos Payments vivos en
-      // el mismo nonce con el XRP del cliente ya en el Core Vault (it18 R1 1.1).
+      // el mismo nonce con el XRP del cliente ya en el Core Vault.
       // Se reconoce por la marca nueva Y por la etiqueta de acción, que las filas
       // compuestas antes de este arreglo sí llevan.
       const serverComposedRow = (c: (typeof conflicts)[number]): boolean =>
         c.serverComposed === true || OPERATIONAL_HANDOFF_ACTIONS.has(c.action ?? '');
-      // productizer-it19 §M1 1.2/1.3 (contrato C2) — EL PREDICADO ÚNICO. La misma
+      // §M1 1.2/1.3 (contrato C2) — EL PREDICADO ÚNICO. La misma
       // pregunta que contesta `/handoff/release`: ¿puede todavía firmarse este
       // payload, y dice la ventana leída que su Payment no entró? Release,
       // supersede y desplazamiento automático no pueden volver a discrepar.
@@ -1830,19 +1695,19 @@ export async function buildDirectMintHandoff(
         classifySeatSignability(c, {
           nowMs,
           validatedLedgerIndex: composedLedgerIndex,
-          // Un informe que este guard YA descartó (la excepción it14 §1.3: hash
+          // Un informe que este guard YA descartó (la excepción: hash
           // que el ledger nunca vio, de quien no prueba) no vuelve a contar aquí;
           // uno que no se ha descartado frena el reloj, pero no gatea por sí solo.
           reportedUnverified: !seat.reportedInFlight.includes(c) && store.reportedTxHashesOf(c).length > 0,
           windowState: windows.get(c.userOpHash)?.state ?? null,
-          // it23 §Q1 1.3 — la ventana por defecto de ESTA fila: una ceremonia sin
+          // La ventana por defecto de ESTA fila: una ceremonia sin
           // sus dos índices no se mide con los 6 min de una firma simple.
           fallbackWindowLedgers: defaultSeatWindowLedgers(c.payloadExpiryMin ?? null),
         });
       /**
        * ¿Está PROBADO que ese payload ya no puede firmarse ni entrar? Solo lo
        * dice una fila CON ventana de ledger: la que no la lleva se rige por el
-       * TTL de it13 (y `classifySeatConflicts` ya enterró las caducadas), así que
+       * TTL, así que
        * «sin ventana» no es prueba de nada — es la ausencia de la prueba.
        */
       const seatIsFree = (c: (typeof conflicts)[number]): boolean =>
@@ -1851,12 +1716,12 @@ export async function buildDirectMintHandoff(
       // que el TTL, nunca firmados ni reportados a tiempo) y borradores cuya
       // ventana de ledger pasó y se leyó ENTERA sin su memo — no pueden entrar jamás.
       //
-      // productizer-it21 §P1 1.5 — …Y ESTA PUERTA TAMBIÉN PASA POR EL PREDICADO.
-      // Era la única de las cuatro que la it. 19 no unificó: enterraba por reloj
+      // …Y ESTA PUERTA TAMBIÉN PASA POR EL PREDICADO.
+      // Era la única de las cuatro que la no unificó: enterraba por reloj
       // (`classifySeatConflicts`) sin preguntar si el payload seguía firmable y
       // sin mirar `serverComposed`, así que una fila de la mesa SIN ventana de
       // ledger — la que compone un nodo que no se pudo leer — caducaba a los 5
-      // min mientras el fundador aún la tenía abierta en Xaman (it20 N1 1.5).
+      // min mientras el fundador aún la tenía abierta en Xaman.
       // Ahora se aparta lo que las DOS reglas dan por muerto, y nada del servidor.
       const staleDisplaceable = seat.stale.filter((c) => !serverComposedRow(c) && seatVerdictOf(c).unsignable);
       if (staleDisplaceable.length > 0) {
@@ -1869,21 +1734,20 @@ export async function buildDirectMintHandoff(
             `${staleHeld.map((c) => `${c.userOpHash.slice(0, 10)}:${serverComposedRow(c) ? 'server-composed' : seatVerdictOf(c).reason}`).join(', ')}`,
         );
       }
-      // Lo FIRMADO manda incluso sobre el supersede explícito (incidente
-      // 2026-08-21: el gemelo con nonce 19): dos userOps vivos con el mismo
+      // Lo FIRMADO manda incluso sobre el supersede explícito: dos userOps vivos con el mismo
       // asiento son excluyentes, y firmar el segundo condena uno de los dos
       // — con su carrier — a morir InvalidNonce. Un asiento firmado solo lo
       // vacía ejecutar o aparcar desde el panel.
-      // productizer-it17 (contrato C2) — el memo de la fila que bloquea SOLO para
+      // — el memo de la fila que bloquea SOLO para
       // quien ya puede tocarla (la preparó, o prueba la cuenta). Con él la
       // pantalla ofrece liberar ese asiento; al extraño no se le confirma nada.
       const mayKnowRow = (c: (typeof conflicts)[number]): boolean =>
         requesterOwnsAccount || isSameHandoffPreparer(input.preparedByUserId, c.preparedByUserId);
-      // productizer-it19 (contrato C3) — el memo de la fila que bloquea viaja SOLO
+      // El memo de la fila que bloquea viaja SOLO
       // si esta sesión podría liberarla de verdad: un borrador sin firmar, suyo o
       // de su cuenta probada. Sobre una fila FIRMADA (o con informe vivo, o con la
       // ventana ilegible) la pantalla ofrecía «Free the seat» y el release
-      // contestaba que no — mentirle a quien ya firmó (it18 R4 3.3).
+      // contestaba que no — mentirle a quien ya firmó.
       const releasableMemoOf = (rows: typeof conflicts): string | undefined => {
         const known = rows.find((c) => {
           if (!mayKnowRow(c) || typeof c.memoHex !== 'string' || c.memoHex.length === 0) return false;
@@ -1893,39 +1757,19 @@ export async function buildDirectMintHandoff(
         return known?.memoHex;
       };
       /**
-       * productizer-it21 §P2 2.3 (contrato C3) — EL ASIENTO QUE NO SE PUDO LEER,
+       * §P2 2.3 (contrato C3) — EL ASIENTO QUE NO SE PUDO LEER,
        * DICHO COMO LO QUE ES.
-       *
-       * Viajaba `retryable: false` mientras su propia prosa decía «vuelve a
-       * intentarlo en un minuto» — una contradicción que la pantalla resolvía
-       * como callejón: ni «Free the seat» (correcto: sobre una fila ilegible el
-       * release se negaría) ni «Prepare it again», y sobre una SALIDA eso es un
-       * muro de hasta 30 min por un fallo de lectura NUESTRO (it20 N2 2.3).
-       *
-       * Lo que sale ahora, y por qué:
-       *  · `retryable: true` — es literalmente lo que hay que hacer, y para este
-       *    código la pantalla no ofrece liberar nada (`seatRefusal`: la clase
-       *    `unreadable` no está entre las liberables), así que no puede volverse
-       *    un bucle de «Retry» sobre el borrador de otro;
-       *  · `secondsLeft` — cuándo deja de ser un muro: el instante en que quien
-       *    PRUEBA la cuenta puede desplazarlo (ventana + margen). El camino
-       *    existe, y ahora tiene fecha;
-       *  · sobre una SALIDA, **503** en vez de 409 (`SeatStateUnreadableError`):
-       *    no hay conflicto probado, hay una lectura que falló — y una salida no
-       *    se contesta con un conflicto definitivo por un fallo nuestro.
-       * La espera de 30 min NO se acorta por ser salida: desplazar una fila cuyo
-       * Payment quizá aterrizó es el gemelo, venga de donde venga.
        */
       const unreadableSeatRefusal = (
         rows: typeof conflicts,
         opts: { message: string; memoHex?: string; nowMs: number },
       ): NonceSeatTakenError => {
         const secondsLeft = seatUnreadableDisplaceInSeconds(rows, opts.nowMs);
-        // productizer-it23 §Q1 §3.7 — EN INGLÉS, como toda la superficie. Esta
+        // §Q1 §3.7 — EN INGLÉS, como toda la superficie. Esta
         // frase se compone aquí y acaba en el `detail` de una pantalla de salida
         // escrita en inglés; el filtro del frontend (`serverDetailIfEnglish`) la
         // tiraba entera por venir en castellano, así que el usuario recibía el
-        // muro sin el motivo NI la fecha en que deja de serlo (it22 Q3 3.7).
+        // muro sin el motivo NI la fecha en que deja de serlo.
         const tail = requesterOwnsAccount
           ? ` Try again in a minute${secondsLeft !== undefined ? `; if no node answers, in about ${secondsLeft} s this seat can be displaced` : ', or displace it now: its window closed long ago'}.`
           : ` Try again in a minute${secondsLeft !== undefined ? `; in about ${secondsLeft} s it can be displaced by whoever proves this XRPL account` : '; it can already be displaced by whoever proves this XRPL account'}.`;
@@ -1947,10 +1791,10 @@ export async function buildDirectMintHandoff(
         );
       }
       // El ledger no se pudo leer entero: no se sabe si aquel Payment entró. No
-      // hay escape por tiempo (it14 §1.4) y tampoco lo hay por supersede: «no
+      // hay escape por tiempo y tampoco lo hay por supersede: «no
       // pude leer» jamás libera un asiento DENTRO de su ventana.
       //
-      // productizer-it17 §1.3 — LA ÚNICA PUERTA: un asiento cuya LLS quedó MUY
+      // LA ÚNICA PUERTA: un asiento cuya LLS quedó MUY
       // atrás (su ventana + margen; `HANDOFF_UNREADABLE_DISPLACE_MIN`, 30 min) y
       // que ningún nodo puede leer no puede tapiar para siempre la salida de su
       // dueño. Lo desplaza solo quien PRUEBA la cuenta (o el propio flujo
@@ -1981,11 +1825,11 @@ export async function buildDirectMintHandoff(
       }
       // Reported signed and not validated yet (or the ledger unreadable): that
       // Payment may still validate, so no prepare may compose its twin. La
-      // excepción (it14 §1.3): un informe de quien NO prueba la cuenta sobre SU
+      // excepción: un informe de quien NO prueba la cuenta sobre SU
       // propio borrador, cuyo hash el ledger no conoce, no puede gatear al dueño
       // probado — era el bloqueo indefinido de una salida por un extraño.
       //
-      // productizer-it17 §1.4 — …y ya no hace falta pedir supersede para eso: un
+      // …y ya no hace falta pedir supersede para eso: un
       // borrador que nadie probado preparó ni reportó NUNCA bloquea a la propia
       // cuenta. Pedir la ceremonia era el DoS: el extraño componía, el dueño veía
       // 409 y tenía que adivinar que debía reintentar «liberando el asiento».
@@ -2008,7 +1852,7 @@ export async function buildDirectMintHandoff(
       // (TTL), borradores cuya ventana sigue por delante, y los informes que la
       // excepción de arriba dejó pasar. `supersede` los desplaza solo con derecho.
       //
-      // productizer-it21 §P1 1.5 — …Y LO QUE EL RELOJ DIO POR MUERTO PERO EL
+      // …Y LO QUE EL RELOJ DIO POR MUERTO PERO EL
       // PREDICADO NO. `staleHeld` son las filas que `classifySeatConflicts`
       // enterraba por TTL y que aquí ya no se apartan (las compuso el servidor, o
       // su payload sigue firmable): si se quedaran fuera de esta lista nadie las
@@ -2020,46 +1864,22 @@ export async function buildDirectMintHandoff(
         ...seat.reportedInFlight.filter((c) => !reportedBlocking.includes(c)),
         ...staleHeld,
       ];
-      // productizer-it17 §1.4 — EL BORRADOR DE QUIEN NO PRUEBA LA CUENTA NO
+      // EL BORRADOR DE QUIEN NO PRUEBA LA CUENTA NO
       // BLOQUEA A LA CUENTA. Nadie más que el dueño puede firmar ese payload, y el
       // dueño no lo preparó: cuando quien pide PRUEBA la cuenta (o es el flujo
       // servidor de una cuenta operativa), esa fila se aparta SOLA, sin pedir
       // supersede y sin 409. Excepción intacta: si su ventana no se pudo leer,
       // nadie la desplaza a ciegas. Para su PROPIO preparador sin prueba sigue
       // ocupando el asiento — repetir no es tener derecho a dos asientos.
-      //
-      // productizer-it21 §P1 1.1/1.4 — …Y «NO PUDE LEER LA PRUEBA» NO ES «NO LA
-      // PROBÓ». Con la tienda de pruebas caída, toda fila nueva se guardaba con
-      // `preparedByProven: false` y quedaba clasificada como borrador de un
-      // extraño: desplazable. El parpadeo de base de datos entregaba el asiento.
-      // `preparedByProofUnreadable` es la mitad que faltaba (contrato del agente
-      // E, `seatProofFromVerdict`): una fila así no la aparta nadie por no estar
-      // probada — porque nunca se llegó a preguntar.
       const unprovenRow = (c: (typeof seated)[number]): boolean =>
         c.preparedByProven !== true && c.reportedByProven !== true && c.preparedByProofUnreadable !== true;
-      // productizer-it19 §M1 1.1/1.5 — CUÁNDO SE APARTA UNA FILA SOLA. Nunca una
+      // §M1 1.1/1.5 — CUÁNDO SE APARTA UNA FILA SOLA. Nunca una
       // que compuso el servidor, nunca una probada, nunca una con la ventana
       // ilegible. Y de las que quedan (borradores de quien no prueba nada, que
       // solo el dueño de la cuenta podría firmar):
       //   · si el predicado dice que YA no puede firmarse, la aparta cualquiera;
       //   · si sigue viva, SOLO quien PRUEBA la cuenta (nadie más puede firmarla,
       //     y él dice que no la preparó) o el propio flujo servidor.
-      //
-      // productizer-it21 §P1 1.1 — UNA ETIQUETA DE SALIDA NO ES AUTORIDAD SOBRE
-      // LA CUENTA DE OTRO. Aquí terminaba en `requesterOwnsAccount || isExit`, y
-      // las dos mitades de ese `isExit` vienen de fuera: la etiqueta la fija la
-      // RUTA y `xrplAddress` viene del CUERPO. Un extraño llamaba
-      // `/pa-unmint/prepare` con la dirección de la víctima y le apartaba su
-      // borrador VIVO — dos payloads firmables en el mismo nonce, y el aviso que
-      // recibía la víctima decía literalmente «sign only ONE of the two».
-      // Griefing repetible, y pago doble si firmaba los dos (it20 N1 1.1).
-      //
-      // La intención de it18 §1.5 se conserva entera, pero por la mitad honesta:
-      // el borrador de un extraño no tapia a nadie cuando YA NO PUEDE FIRMARSE
-      // (`seatIsFree`, que es cuando apartarlo no crea ningún gemelo), y el dueño
-      // de verdad lo aparta PROBANDO la cuenta — que es lo que solo él puede
-      // hacer. Quien no prueba y no puede probar recibe el 409/503 con su camino
-      // escrito, no la llave de la cuenta ajena.
       const mayAutoDisplace = (c: (typeof seated)[number]): boolean => {
         if (serverComposedRow(c) || !unprovenRow(c) || seat.aheadUnverified.includes(c)) return false;
         if (seatIsFree(c)) return true;
@@ -2088,7 +1908,7 @@ export async function buildDirectMintHandoff(
           if (positiveLedgerIndex(c.lastLedgerSequence) !== null) {
             // (a) El dueño probado desplaza el borrador de quien no prueba la
             //     cuenta: nadie más que él puede firmarlo, y él no lo preparó.
-            // it21 §P1 1.4 — …salvo que aquel «no probada» fuera un «no pude
+            // §P1 1.4 — …salvo que aquel «no probada» fuera un «no pude
             // preguntar»: ahí no hay nada que sostenga el desplazamiento.
             if (
               authorized &&
@@ -2099,7 +1919,7 @@ export async function buildDirectMintHandoff(
               return true;
             }
             // (b) …o su propio preparador dice que no lo firmó, y nadie lo ha
-            //     reportado — Y el payload ya no puede firmarse. productizer-it19
+            //     reportado — Y el payload ya no puede firmarse.
             //     §M1 1.2: decir «no la firmé» desde un botón no borra el payload
             //     del móvil, así que esta rama esperaba menos que `/handoff/release`
             //     y creaba por la otra puerta el gemelo que aquella impide.
@@ -2113,7 +1933,7 @@ export async function buildDirectMintHandoff(
           input.supersedePendingNonce === true && unverified.length === 0 && allEligible(input.supersedeAuthorized === true);
         if (!mayDisplace) {
           if (input.supersedePendingNonce === true && unverified.length > 0 && allEligible(input.supersedeAuthorized === true)) {
-            // productizer-it21 §P2 2.3 — mismo trato que la otra puerta ilegible:
+            // Mismo trato que la otra puerta ilegible:
             // reintentable de verdad, con cuándo deja de ser un muro, y 503 (no
             // 409) sobre una salida: aquí no hay conflicto probado, hay una
             // lectura que falló.
@@ -2146,7 +1966,7 @@ export async function buildDirectMintHandoff(
             {
               code: 'NONCE_SEAT_TAKEN',
               // Reintentar liberando el asiento solo se ofrece si ESTA sesión
-              // podría hacerlo (it14 R5 §1.6: el bucle de «Retry» sobre el
+              // podría hacerlo (el bucle de «Retry» sobre el
               // borrador de otro). Si ya vino con supersede y se denegó, no.
               retryable: input.supersedePendingNonce !== true && allEligible(input.preparedByProven === true),
               lastLedgerSequence: maxLls,
@@ -2160,8 +1980,8 @@ export async function buildDirectMintHandoff(
     }
   } catch (e) {
     if (e instanceof NonceSeatTakenError) throw e;
-    // productizer-it19 §M1 1.4 — UNA TABLA DE ASIENTOS ILEGIBLE NO ES «NO HAY
-    // ASIENTO». Hasta it18 este catch se tragaba el fallo de BD y el prepare
+    // UNA TABLA DE ASIENTOS ILEGIBLE NO ES «NO HAY
+    // ASIENTO». Hasta este catch se tragaba el fallo de BD y el prepare
     // componía como si el nonce estuviera libre: el gemelo por la puerta de
     // atrás. Una ENTRADA espera; una SALIDA se compone igual y se lo lleva
     // escrito, porque «no pude leer» jamás es castigo sobre una salida.
@@ -2182,7 +2002,7 @@ export async function buildDirectMintHandoff(
     /* sin DB (scripts CLI) — el guard no aplica; el log de abajo sigue siendo la traza */
   }
 
-  // Registro de recuperación (lección de la tx 7BFCF65F…, 2026-07-12): el memo
+  // Registro de recuperación (lección de la tx 7BFCF65F…): el memo
   // solo publica el hash; si estos bytes se pierden, ningún executor puede
   // ejecutar el mint y el XRP queda aparcado en el Core Vault. Este log es la
   // copia server-side mínima que hace todo handoff 0xFE re-ejecutable
@@ -2199,24 +2019,11 @@ export async function buildDirectMintHandoff(
     userOpData: dataHex,
     action: input.action ?? null,
     preparedByUserId: input.preparedByUserId ?? null,
-    // productizer-it15 §K1 — la ventana de ledger viaja CON el registro: sin ella
-    // en la fila, el guard del asiento vuelve a decidir por reloj (it14 §1.1: la
+    // §K1 — la ventana de ledger viaja CON el registro: sin ella
+    // en la fila, el guard del asiento vuelve a decidir por reloj (la
     // mesa la estampaba después, y el registro no la conocía).
-    // it21 §P1 1.1/1.4 — …y si esa respuesta fue «no pude leer», la fila lo dice:
+    // §P1 1.1/1.4 — …y si esa respuesta fue «no pude leer», la fila lo dice:
     // sin esta marca, `preparedByProven: false` la volvía desplazable por error.
-    //
-    // productizer-it23 §Q1 1.1 — EL BUILDER SE NIEGA A ESCRIBIR UNA FILA QUE NO
-    // SABE DECIR CUÁL DE LOS DOS ESTADOS ES. `preparedByProven: false` +
-    // `preparedByProofUnreadable: false` es una FRASE: «pregunté, y esta sesión no
-    // tiene esa cuenta» — y es la frase que hace la fila desplazable por el dueño
-    // probado. Un llamador que se olvida de la segunda marca la escribía sin
-    // haberla dicho, así que un parpadeo de BD paría una salida desplazable y el
-    // propio dueño, al reintentar cuando la BD sanaba, apartaba su borrador VIVO
-    // (it22 Q1 1.1, cuatro revisores sobre `institutional.ts` y `xrplDefi.ts`).
-    // Aquí el defecto pasa al lado seguro: sin la marca, el estado es DESCONOCIDO
-    // y esta fila no la aparta nadie. Quien quiera una fila desplazable tiene que
-    // haber preguntado de verdad y decirlo — `seatProofFieldsFrom` lo hace en un
-    // solo sitio (services/flare/handoffAuthority).
     ...seatProofFieldsFrom(
       input.preparedByProven === true
         ? true
@@ -2229,9 +2036,9 @@ export async function buildDirectMintHandoff(
     lastLedgerSequence,
     composedLedgerIndex,
     // contrato C3 — la caducidad del payload viaja con la fila: sin ella, liberar
-    // el asiento vuelve a decidirse a ojo (it16 R1 1.1).
+    // el asiento vuelve a decidirse a ojo.
     payloadExpiresAt,
-    // it23 §Q1 1.3 — …y CUÁNTO vive, para que el release y el sello midan esta
+    // …y CUÁNTO vive, para que el release y el sello midan esta
     // fila con SU payload (una ceremonia, 24 h) y no con el de una firma simple.
     payloadExpiryMin,
   };
@@ -2258,11 +2065,11 @@ export async function buildDirectMintHandoff(
     lastLedgerSequence,
     composedLedgerIndex,
     payloadExpiresAt,
-    // it23 §Q1 1.2/1.3 — la vida REAL del payload de ESTE dispatch (una ceremonia
+    // §Q1 1.2/1.3 — la vida REAL del payload de ESTE dispatch (una ceremonia
     // declara la suya): es el `expire` que el frontend debe poner en Xaman, y el
     // número con el que el servidor mide este asiento. Una sola cifra para las dos.
     payloadExpiryMin,
-    // it. 31 (§5) — …y si esa cifra es una LECTURA o un defecto. Lo que declaró
+    // …y si esa cifra es una LECTURA o un defecto. Lo que declaró
     // quien compone (`signingCeremonyFor`) manda; una ceremonia declarada en
     // código es un `'quorum'` decidido, no leído; y el silencio es `'unknown'`,
     // jamás `'single'`: el navegador vuelve a mirar el SignerList en ese caso.
@@ -2274,7 +2081,7 @@ export async function buildDirectMintHandoff(
       Destination: params.paymentAddress, // Core Vault — NOT the operator wallet
       Amount: input.grossXrpDrops.toString(), // drops
       Memos: [{ Memo: { MemoData: memoHex } }],
-      // La ventana de firma (it15 §K1): pasado este ledger el Payment no puede
+      // La ventana de firma (§K1): pasado este ledger el Payment no puede
       // entrar, y por eso el asiento de nonce se puede liberar SIN adivinar.
       ...(lastLedgerSequence !== null ? { LastLedgerSequence: lastLedgerSequence } : {}),
       // No DestinationTag by design (a tag misroutes FAssets direct minting).
@@ -2311,7 +2118,7 @@ export interface E1HandoffInput {
   /** Ver BuildDirectMintInput.lastLedgerWindow. */
   lastLedgerWindow?: number;
   /**
-   * it27 §2 — Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
+   * Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
    * compone (`seatClaimOf` → `signingCeremonyFor`), nunca el cuerpo. Sin
    * reenviarlo, estos cuatro envoltorios componían con la ventana de una firma
    * simple aunque la ruta ya hubiera leído el SignerList de la cuenta.
@@ -2426,7 +2233,7 @@ export interface E3HandoffInput {
   /** Ver BuildDirectMintInput.lastLedgerWindow. */
   lastLedgerWindow?: number;
   /**
-   * it27 §2 — Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
+   * Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
    * compone (`seatClaimOf` → `signingCeremonyFor`), nunca el cuerpo. Sin
    * reenviarlo, estos cuatro envoltorios componían con la ventana de una firma
    * simple aunque la ruta ya hubiera leído el SignerList de la cuenta.
@@ -2503,7 +2310,7 @@ export interface VaultEntryHandoffInput {
   /** Ver BuildDirectMintInput.lastLedgerWindow. */
   lastLedgerWindow?: number;
   /**
-   * it27 §2 — Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
+   * Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
    * compone (`seatClaimOf` → `signingCeremonyFor`), nunca el cuerpo. Sin
    * reenviarlo, estos cuatro envoltorios componían con la ventana de una firma
    * simple aunque la ruta ya hubiera leído el SignerList de la cuenta.
@@ -2586,7 +2393,7 @@ export interface VaultRotateHandoffInput {
   fromVault: VaultEntryKind;
   /** Vault being entered (its shares land on the Personal Account). */
   toVault: VaultEntryKind;
-  /** LP shares of `fromVault` to redeem (6-dec base units). */
+  /** LP shares of `fromVault` to redeem (base units). */
   sharesUBA: bigint;
   /** FXRP expected out of the redeem AFTER the exit fee and the rotation
    *  buffer (computed + disclosed by the route). The deposit into `toVault`
@@ -2607,7 +2414,7 @@ export interface VaultRotateHandoffInput {
   /** Ver BuildDirectMintInput.lastLedgerWindow. */
   lastLedgerWindow?: number;
   /**
-   * it27 §2 — Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
+   * Ver BuildDirectMintInput.signingCeremony. Lo decide la RUTA que
    * compone (`seatClaimOf` → `signingCeremonyFor`), nunca el cuerpo. Sin
    * reenviarlo, estos cuatro envoltorios componían con la ventana de una firma
    * simple aunque la ruta ya hubiera leído el SignerList de la cuenta.
@@ -2627,15 +2434,6 @@ export interface VaultRotateHandoff {
  * mint-coupled — every Personal Account dispatch rides a Payment that mints a
  * small FXRP — so a naive rotation (withdraw, then deposit) pays that toll
  * twice. Fusing both legs into a single userOp batch pays it once:
- *
- *   [ redeem(shares, PA)              — fromVault shares → FXRP into the PA
- *     approve(FXRP → toVault)         — for redeemDeposit + this mint's net
- *     deposit(FXRP, amount, PA) ]     — toVault shares → the PA
- *
- * The deposit amount adds the dispatch's own net mint (net.supplyUBA) to the
- * redeem output, so the mint-coupled FXRP joins the new position instead of
- * sitting loose in the PA. Vault rotations never touch FAssets redemption:
- * the FXRP stays on Flare throughout. Astryum signs nothing.
  */
 export async function buildVaultRotateHandoff(
   provider: Provider,

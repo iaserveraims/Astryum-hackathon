@@ -10,7 +10,7 @@ import {AstryumVault} from "../src/AstryumVault.sol";
  * Needs network ([rpc_endpoints] flare in foundry.toml). Filter out with
  * `forge test --no-match-contract Fork` when offline.
  *
- * Verified preconditions (2026-08-21, cast against mainnet):
+ * Verified preconditions (cast against mainnet):
  *  - kFXRP ISO holds ~20.4M FXRP of cash → whale-prank funding works.
  *  - Firelight's currentPeriod() is TIME-DERIVED (260 → 262 across ~2 days of
  *    blocks) → vm.warp advances the withdrawal queue, so the FULL exit cycle

@@ -3,21 +3,6 @@
  * E1 prepare — produce the UNSIGNED XRPL Payment for the FXRP direct-mint entry
  * (mint FXRP from XRP → supply collateral → borrow USDT0 on Kinetic ISO), for a
  * MANUAL mainnet test in Xaman. Astryum signs nothing; this only prints calldata.
- *
- * Order is deliberate (invariant frontier first):
- *   1. GATING  — FLARE_DEFI_ENABLED (#8) → geofence (#5) → KWYH scanner (#10).
- *                Any failure aborts BEFORE any live read or build.
- *   2. READS   — live FTSO XRP/USD + live CF of kFXRP ISO (not cached).
- *   3. BUILD   — buildE1Handoff (post-fee net, borrow = net·CF·ratio, 0xFE memo).
- *   4. DISCLOSE— fees + net FXRP + USDT0 + HF + trigger price (#6) BEFORE output.
- *   5. OUTPUT  — unsigned XRPL Payment (paste into Xaman) + off-chain userOp bytes.
- *
- * Usage:
- *   npx ts-node src/scripts/e1-prepare.ts \
- *     --xrpl rYourXrplAddr --amount 5 --ratio 0.3 --target-hf 1.1 --region US
- *
- * ⚠️ Use a MINIMAL amount (a few XRP) on the first live run. Review the disclosure
- *    in this output AND in Xaman before signing. If the numbers surprise you, STOP.
  */
 import dotenv from 'dotenv';
 import path from 'path';

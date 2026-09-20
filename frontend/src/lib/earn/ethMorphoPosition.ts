@@ -7,15 +7,6 @@
  * FXRP/RLUSD de Ethereum no existía como FILA del tablero — y sin fila no hay
  * botón «Repagar ahora» ni plantilla PROTECT_EM. La puerta de repago y su
  * MoneyFlow estaban construidos y eran inalcanzables.
- *
- * Este módulo convierte la lectura del carril (`GET /eth-morpho/position`) en
- * las MISMAS filas que el tablero ya sabe pintar: una de colateral (FXRP) y
- * una de deuda (RLUSD). Puro y sin red en la parte que decide (toRows) para
- * que la regla sea testeable; el fetch es una función aparte.
- *
- * Honestidad: los importes viajan en base units con sus decimales LEÍDOS del
- * ledger (6/18 — la trampa F4), y una posición vacía devuelve [] en vez de
- * filas a cero, que en un tablero se leerían como «tienes algo».
  */
 
 /** Lo que devuelve `GET /api/eth-morpho/position`. */

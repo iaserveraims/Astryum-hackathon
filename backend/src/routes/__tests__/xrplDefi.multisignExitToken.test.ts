@@ -1,5 +1,5 @@
 /**
- * productizer-it9 — a Legacy recall/evacuate can be SIGNED from a blocked region.
+ * A Legacy recall/evacuate can be SIGNED from a blocked region.
  *
  * `/council-order/prepare` already treated recall|evacuate as exits, but the council
  * signs through `/multisign/prepare`, which pins any `xrplTx` and stayed geofenced:

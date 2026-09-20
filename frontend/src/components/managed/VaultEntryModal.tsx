@@ -3,39 +3,9 @@
 /**
  * VaultEntryModal — entrar, pedir la salida y COBRARLA.
  *
- * Misma coreografía que «Choose a Strategy» (fundador 2026-08-27): formulario →
+ * Misma coreografía que «Choose a Strategy»: formulario →
  * REVISIÓN con la divulgación delante → firma de la wallet → seguimiento del
  * settlement. Astryum construye la llamada; nunca firma.
- *
- * ── TRES MODOS, Y EL TERCERO NO ES UN EXTRA ─────────────────────────────────
- * `deposit` · `exit` · `claim`.
- *
- * El tercero faltaba y era el peor hueco de toda la pantalla: en una bóveda con
- * plazo, `requestRedeem` NO devuelve el dinero — abre un ticket que madura. Sin
- * un sitio donde cobrarlo, el usuario pide salir, pasan las horas y su capital
- * simplemente NO ESTÁ EN NINGUNA PARTE de la interfaz. No es una función que
- * falte: es dinero que parece perdido.
- *
- * ── EL PASO DE REVISIÓN NO ES UN TRÁMITE ────────────────────────────────────
- * `disclosure.lines` llega del backend en ese paso y no antes: son los hechos
- * del contrato, y el invariante 6 dice que se ven ANTES de firmar. Saltárselo
- * para ahorrar un clic convertiría un requisito en una pantalla que nadie vio.
- *
- * ── Y EL FALLO QUE MÁS CARO SALE: «no pude leer» ≠ «falló» ──────────────────
- * La primera versión de este modal pintaba CUALQUIER error de firma en rojo. Eso
- * es un bug de dinero con nombre propio en este repo (17-ago): cuando la wallet
- * firma y el recibo no llega a tiempo, un rojo que dice «falló» empuja al
- * usuario a DEPOSITAR OTRA VEZ — y la primera transacción estaba en vuelo.
- *
- * Por eso la salida de la firma pasa por `applySignFailure`, que distingue el
- * rechazo real del recibo que no llegó, y el segundo se pinta en ámbar con
- * `UnconfirmedSignatureNotice`: «puede que ya esté hecho, comprueba antes de
- * repetir». Nunca las dos cosas a la vez — dos veredictos en una pantalla y el
- * rojo siempre gana.
- *
- * ── LA CADENA, ANTES QUE NADA ───────────────────────────────────────────────
- * Un depósito firmado en la cadena equivocada es otra forma de perder una tarde.
- * Si la wallet no está en Flare, el modal no ofrece firmar: ofrece cambiar.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -146,7 +116,7 @@ export function VaultEntryModal({
   const [error, setError] = useState('');
   const [preparing, setPreparing] = useState(false);
   /**
-   * Una firma que llegó tarde (it. 17, R5 5.2): `tefMAX_LEDGER`/`tefPAST_SEQ`
+   * Una firma que llegó tarde (R5 5.2): `tefMAX_LEDGER`/`tefPAST_SEQ`
    * significan que ESE payload no puede validar nunca — no se movió nada — así
    * que el modal ofrece prepararlo otra vez en lugar del ámbar «no pude
    * confirmarlo», que prohíbe justo el reintento correcto.
@@ -155,7 +125,7 @@ export function VaultEntryModal({
   /**
    * El memo del último 0xFE preparado aquí. Sobrevive al payload: un
    * NONCE_SEAT_TAKEN en el siguiente intento suele ser ESTE borrador todavía
-   * sentado en el nonce, y entonces se puede liberar (it. 17, R1 1.5).
+   * sentado en el nonce, y entonces se puede liberar (R1 1.5).
    */
   const abandonedMemo = useRef<string | null>(null);
 
@@ -174,8 +144,7 @@ export function VaultEntryModal({
    */
   // El cobro de un ticket de cola es de la Personal Account → carril XRPL por
   // defecto (deposit/exit siguen en EVM). El picker deja cambiarlo si hiciera falta.
-  // XRPL manda por defecto cuando hay una Xaman enlazada (fundador 2026-09-17:
-  // «me pone la wallet de MetaMask por defecto»): el pote gestionado se opera
+  // XRPL manda por defecto cuando hay una Xaman enlazada: el pote gestionado se opera
   // desde la cuenta XRPL; MetaMask sigue en el desplegable para quien tenga el
   // FXRP en Flare.
   const signingWallets = useSigningWallets({ defaultRail: mode === 'claim' ? 'xrpl' : 'evm', preferRail: 'xrpl' });
@@ -183,11 +152,11 @@ export function VaultEntryModal({
   const [xrpHandoff, setXrpHandoff] = useState<XrpFundHandoff | null>(null);
   const [exitHandoff, setExitHandoff] = useState<PoteExitHandoff | null>(null);
   // SALIDA: por defecto el FXRP vuelve a tu cuenta (la PA); opcional desmintear
-  // a XRP nativo en la misma firma (fundador 8-sep: «si no quiere, se queda en FXRP»).
+  // a XRP nativo en la misma firma.
   const [unmintOnExit, setUnmintOnExit] = useState(false);
 
   // La wallet XRPL ELEGIDA en el desplegable (no la que Xaman tenga conectada
-  // por casualidad): es de cuya PA y saldo hablamos, y la que firma. Bug 8-sep:
+  // por casualidad): es de cuya PA y saldo hablamos, y la que firma. Bug:
   // los saldos se leían de `xrpl.address` (el partner conectado), así que con
   // otra cuenta seleccionada se mostraba la PA equivocada (los 0.20 del manager
   // en vez de los 17 de la personal). Ahora manda el desplegable.
@@ -202,13 +171,12 @@ export function VaultEntryModal({
   // USER que redimió, NUNCA la del gestor ni la conectada por casualidad. Es
   // EXACTAMENTE la que el padre resuelve del ticket (ownerXrpl / receiver→dueño)
   // y la firma su dueño en Xaman (0xFE), jamás por EVM. Si no es una de tus
-  // cuentas, no lo cobras tú — no hay fallback a otra wallet (bug 10-sep: un
+  // cuentas, no lo cobras tú — no hay fallback a otra wallet (bug: un
   // fallback a la seleccionada mostraba la wallet del gestor en el claim del user).
   const claimXrplAccount = mode === 'claim' ? (claimAccount ?? undefined) : undefined;
   const forcedXrplClaim = mode === 'claim' && !!claimXrplAccount;
 
-  // LA CUENTA QUE FIRMA EN XAMAN, Y SI TIENE SESIÓN AQUÍ (fundador 2026-09-15:
-  // «no me permite poner FXRP» — XRPL_WALLET_PARTNER_NOT_CONNECTED). El
+  // LA CUENTA QUE FIRMA EN XAMAN, Y SI TIENE SESIÓN AQUÍ (XRPL_WALLET_PARTNER_NOT_CONNECTED). El
   // firmante es la cuenta ELEGIDA/FIJADA (enlazada a la cuenta), pero firmar
   // exige la sesión viva de Xaman de ESE navegador, que se pierde al cambiar de
   // dominio. Antes se preparaba el pago (ocupando el asiento de nonce 5 min) y
@@ -217,8 +185,7 @@ export function VaultEntryModal({
   const xrplSigner: string | null = forcedXrplClaim ? (claimXrplAccount ?? null) : forcedXrplExit ? (exitAccount ?? null) : selectedXrpl;
   const xrplLive = !!xrpl.address && !!xrplSigner && xrpl.address.toLowerCase() === xrplSigner.toLowerCase();
   const xrplPath = mode === 'deposit' ? rail === 'xrp' : forcedXrplExit || forcedXrplClaim || rail === 'xrp';
-  // SIN QR DE CONEXIÓN (fundador 2026-09-17: «me hace escanear un QR para
-  // conectar la wallet de Xaman cuando ya está en la cuenta»). Una cuenta de
+  // SIN QR DE CONEXIÓN. Una cuenta de
   // firma ÚNICA firma por el QR del servidor (XamanSingleSign: el pago lleva su
   // Account y Xaman pide esa cuenta), sin sesión en este navegador — un solo
   // QR, el de la firma. Solo una cuenta con QUÓRUM (SignerList) necesita la
@@ -349,7 +316,7 @@ export function VaultEntryModal({
 
   // El saldo del carril ACTIVO + su Max. XRP-mint deja ~2 XRP de reserva (la
   // wallet es el VOLANTE del Smart Account: mintear TODO lo deja sin pagar el
-  // peaje de futuras órdenes, fundador 30-jul). PA-FXRP y Flare gastan todo.
+  // peaje de futuras órdenes, fundador). PA-FXRP y Flare gastan todo.
   const XRPL_STEERING_RESERVE = 2;
   const available = paSourceActive ? paFxrpFree : rail === 'xrp' ? xrpAvail : fxrpAvail;
   const maxSpendable =
@@ -389,7 +356,7 @@ export function VaultEntryModal({
     try {
       // CARRIL XRP, PRIMERO — antes de cualquier guard EVM. No hay tx EVM que
       // firmar: es un PAGO XRPL que la Personal Account convierte en FXRP y
-      // deposita. Exigir aquí una wallet EVM era el bug (8-sep): a quien entra
+      // deposita. Exigir aquí una wallet EVM era el bug: a quien entra
       // con XRP se le pedía «Connect your EVM wallet» aunque no la necesite.
       if (mode === 'deposit' && rail === 'xrp') {
         // La cuenta que firma y de cuya PA sale el FXRP es la ELEGIDA en el
@@ -523,7 +490,7 @@ export function VaultEntryModal({
       setPhase('done');
       onChanged?.();
     } catch (e) {
-      // Firmada TARDE (it. 17, R5 5.2): tefMAX_LEDGER/tefPAST_SEQ es un
+      // Firmada TARDE (R5 5.2): tefMAX_LEDGER/tefPAST_SEQ es un
       // veredicto LEÍDO — ese payload no entra en ningún ledger — así que se
       // dice «prepárala otra vez», nunca «no pude confirmarlo, recarga».
       if (describeStaleSignature(e, t)) {
@@ -621,12 +588,12 @@ export function VaultEntryModal({
   // pulsar, no al abrir, para no gastar una llamada si el usuario se arrepiente.
   const showForm = phase === 'form' && mode !== 'claim';
 
-  // Invariant #6 (productizer it. 12, 4.2): an exit or claim that unmints pays
+  // Invariant #6 (4.2): an exit or claim that unmints pays
   // the FAssets redemption fee out of the XRP the agent sends. `xrpOutHuman` is
   // what is REDEEMED — the review shows the net when the fee was read and the
   // gross with its caveat when it was not, never the gross as a promise.
   //
-  // ONE READER (it. 14, R3 3.2): `exit.xrpOutHuman` can already be net of the
+  // ONE READER (R3 3.2): `exit.xrpOutHuman` can already be net of the
   // fee, and taking it as the gross showed a second, smaller net beside the
   // backend's own line. `exitRedemption` decides which shape it is.
   const exitUnmints = exitHandoff ? exitCopyFor(exitHandoff.mode, exitHandoff.unminted).unminted : false;
@@ -839,8 +806,7 @@ export function VaultEntryModal({
                 />
                 <span className="font-mono text-xs text-ink/45">{mode === 'deposit' ? amountAsset : sym}</span>
               </div>
-              {/* Deslizar en vez de teclear (fundador 2026-09-17: «en los demás
-                  vaults aparece la barra»): el MISMO componente que Earn y el
+              {/* Deslizar en vez de teclear: el MISMO componente que Earn y el
                   cierre de posición; el tope es el mismo que el botón MAX. */}
               <AmountSliderUsd
                 max={mode === 'deposit' ? (maxSpendable ?? 0) : max ? Number(fmtBase(max, dec, dec)) : 0}
@@ -910,7 +876,7 @@ export function VaultEntryModal({
               <StaleSignatureNotice error={staleSign} t={t} onPrepareAgain={() => void prepare()} />
             )}
             {refusal && !seatRefusal && (
-              /* it. 22 (Q3 3.7): el codigo crudo del servidor en monoespaciado
+              /* El codigo crudo del servidor en monoespaciado
                  y su parrafo en castellano debajo. Un slug no es una frase, y
                  la pantalla habla ingles: `refusalHeadline` lo dice, y el
                  `detail` solo acompana si esta en ese idioma. */
@@ -954,7 +920,7 @@ export function VaultEntryModal({
 
             {error && <p className="text-sm text-tone-danger">{error}</p>}
 
-            {/* it. 21 (it. 20 §3.3): cancelar en Xaman no suelta el asiento del
+            {/* Cancelar en Xaman no suelta el asiento del
                 0xFE preparado. Se dice, y con CUÁNDO se suelta; el botón de
                 soltarlo no aparece mientras el payload siga firmable aquí. */}
             {error && xrpHandoff.memoHex ? (
@@ -1036,7 +1002,7 @@ export function VaultEntryModal({
                   <p className="font-mono text-[12px] text-ink/70">
                     {/* La unidad sale de lo que el backend COMPUSO: sin desminteo
                         (el defecto) el FXRP se queda en la PA — pintarlo como XRP
-                        promete algo que no llega (productizer, 13-sep). */}
+                        promete algo que no llega. */}
                     {exitHandoff.exit.sharesHuman} {t('shares')} →{' '}
                     {exitFeeRows?.amount ? (
                       fillFeeText(t(exitFeeRows.amount.text), exitFeeRows.amount.params)

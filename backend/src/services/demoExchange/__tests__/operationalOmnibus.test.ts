@@ -1,5 +1,5 @@
 /**
- * productizer it. 17 (L3 / R5 5.1) — la declaración de la run ES la lista.
+ * La declaración de la run ES la lista.
  *
  * Lo que se prueba aquí es el CABLE, no la pieza: que el omnibus que una run
  * declara llega al constructor del 0xFE como fuente adicional de «cuenta
@@ -102,7 +102,7 @@ describe('a run created a moment ago is covered a moment ago', () => {
   });
 });
 
-describe('it. 19 (R1 1.4) — «nunca leí las runs» no es «no es un omnibus»', () => {
+describe('«nunca leí las runs» no es «no es un omnibus»', () => {
   it('con el primer listRuns caído, el veredicto es «unknown» y el asiento NO se regala', async () => {
     _resetDeclaredOmnibusForTests();
     const spy = jest.spyOn(Store, 'listRuns').mockRejectedValue(new Error('pooler down'));
@@ -164,7 +164,7 @@ describe('it. 19 (R1 1.4) — «nunca leí las runs» no es «no es un omnibus»
   });
 });
 
-describe('it. 19 (3.5) — el conjunto operativo OLVIDA una run retirada', () => {
+describe('El conjunto operativo OLVIDA una run retirada', () => {
   it('la cuenta de una run borrada deja de ser operativa; la de una run que sigue existiendo, jamás', async () => {
     await saveRun(run('run2', STRANGER));
     rememberDeclaredOmnibus(STRANGER);

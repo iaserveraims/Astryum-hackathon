@@ -9,10 +9,6 @@
  *     from an unverified password holder (AuthService._takeOverSquattedAccount).
  *     Anything the previous holder attached before it (wallet bindings) proves
  *     nothing about the owner.
- *
- * The epoch alone cannot close a race: a request that passed its session check
- * BEFORE the takeover can still write AFTER it, and its new row is born after
- * the epoch. `lockCredentialState` is the compare-and-swap for that — see there.
  */
 import type { Prisma } from '@prisma/client';
 
@@ -34,24 +30,7 @@ function securityOf(preferences: unknown): Record<string, unknown> {
  * The epoch, read SOFTLY: a `security` block that does not parse comes out as
  * «no epoch». That is deliberate, and it is the one place in this module where
  * an unreadable mark does not fail closed. The argument, written down so it is
- * re-decided rather than re-discovered (productizer it. 20, task 5):
- *
- *   · this is read on EVERY request, at the session door (`verifyToken`). Failing
- *     closed there means refusing the session — and the login that would follow
- *     re-reads the same unparseable row, so the person is bricked into a
- *     sign-in ↔ 401 loop with no way out and no exit;
- *   · the epoch is a BELT, not the brace. A takeover revokes the previous
- *     holder's sessions directly (the sweep in `_takeOverSquattedAccount`) and
- *     WRITES this block itself via `withCredentialsReset`, so after a real
- *     takeover the block is well-formed by construction. An unparseable one is
- *     corruption, not an attack surface someone can arrange;
- *   · everything that GRANTS off the same block reads it strictly instead —
- *     `readTakeoverAtStrict` for the bindings floor (provenAddresses), the cage
- *     acknowledgement and the legal click-wrap. There, «could not read» costs a
- *     permission; here it would cost an account.
- *
- * If that ever stops being true — if this value alone decides an authority — it
- * must move to a strict read WITH a repair path, not just a stricter answer.
+ * re-decided rather than re-discovered (task 5):
  */
 export function credentialsEpochOf(preferences: unknown): Date | null {
   return isoDate(securityOf(preferences).credentialsEpoch);
@@ -86,42 +65,10 @@ export function readTakeoverAtStrict(preferences: unknown): StrictTakeoverAt {
 }
 
 /**
- * A TAKEOVER MARK AHEAD OF OUR OWN CLOCK IS NOT A USABLE FLOOR (it. 27; made
- * shared in it. 29). Written for the legal click-wrap, it belongs HERE: every
+ * A TAKEOVER MARK AHEAD OF OUR OWN CLOCK IS NOT A USABLE FLOOR (made
+ * shared in). Written for the legal click-wrap, it belongs HERE: every
  * reader of `readTakeoverAtStrict` compares something against this mark, and a
  * rule that only one of them applies is not a rule — it is a coincidence.
- *
- * WHAT WENT WRONG (it. 27). It. 25 closed the loop that came in through
- * LEGIBILITY, but the condition that actually opens the legal ceremony is not
- * «the mark parses» — it is `acceptedAt > takeoverAt` (`signedByThisHolder`). A
- * mark that parses CLEANLY and sits in the FUTURE fails that comparison for
- * every signature that can ever be written, because a signature is stamped
- * `now` and `now` is always before it. The write lands (the row is a well-formed
- * object, so `applyPreferencesUpdate` does not refuse), no 409 is ever raised,
- * and the non-dismissable modal comes back on the next /auth/me. For ever. And
- * `unreadable` was `false` for that row, so the third state never caught it.
- *
- * How a mark gets ahead of the reader: the replica that stamps the takeover is
- * not necessarily the replica that later stamps the signature (clock skew), a
- * hand repair of the row, or a copy of the accounts mirror. With a corrupt —
- * but parsable — date, the distance is unbounded.
- *
- * WHY THE THIRD STATE AND NOT `min(takeoverAt, now)`. Clamping to `now` was the
- * other candidate and it does NOT break the loop: the floor would then move
- * forward with the wall clock, so a signature stamped at t1 is re-read at
- * t2 > t1 against a floor of t2 and STILL does not count. Clamping to a mark we
- * already distrust is worse: for a far-future mark it would admit every
- * binding and every signature older than `now`, which is precisely the previous
- * holder's proof passing as this holder's — the one thing the strict read exists
- * to stop. So the honest answer is the one it. 25 already built: we cannot
- * establish what this account signed, we say so, and we do not put a door in
- * front of anybody's exits while we cannot.
- *
- * NO TOLERANCE WINDOW ON PURPOSE. A few seconds of real skew resolves itself:
- * once the wall clock passes the mark the row reads normally again and the
- * person is asked to sign then, correctly. A tolerance would only buy an
- * interval in which a signature from BEFORE a real takeover counts — paid for
- * with the exact risk above, for a case that heals on its own.
  */
 export function markIsAheadOfClock(takeoverAt: Date | null, now: Date): boolean {
   return takeoverAt !== null && takeoverAt.getTime() > now.getTime();
@@ -145,28 +92,13 @@ export type StrictTakeoverFloor =
   | { readable: false; why: TakeoverFloorUnusable; at: Date | null };
 
 /**
- * THE FLOOR, AS EVERY CONSUMER MUST READ IT (productizer it. 29, 1.1/1.2).
+ * THE FLOOR, AS EVERY CONSUMER MUST READ IT (1.1/1.2).
  *
  * `readTakeoverAtStrict` answers about LEGIBILITY. That was never the whole
  * question: what a consumer actually does with the mark is compare a `now`-ish
  * instant against it (a binding's `linkedAt`, a click-wrap's `acceptedAt`, a
  * client row's `ownedSince`). A mark in the FUTURE loses every one of those
  * comparisons for ever, so it is not a floor — it is a wall.
- *
- * It. 27 taught that rule to the two doors that decide a MODAL and to neither of
- * the two that decide MONEY: with a future mark, `provenAddresses` dropped every
- * binding while claiming `floorReadable: true` (so the exit answered 403 «you
- * have not proven that wallet», with two remedies that cannot work: signing in
- * with a wallet an email user does not have, and re-linking — which stamps
- * `linkedAt = now`, still below the mark), and the demo exchange refused the
- * owner of a desk their own withdrawal with `CLIENT_RECLAIM_REQUIRED`, which
- * only a founder can undo.
- *
- * So the rule lives in ONE function and the answer is the third state:
- * `readable: false` with the reason, which every consumer already knows how to
- * turn into «no pude leer» — honest, retryable, and never a closed exit.
- *
- * `now` is injectable so the rule is testable without moving the machine clock.
  */
 export function readTakeoverFloorStrict(preferences: unknown, now: Date = new Date()): StrictTakeoverFloor {
   const strict = readTakeoverAtStrict(preferences);
@@ -217,17 +149,13 @@ export const QUARANTINED_PREFERENCES_KEY = 'unreadablePreferences';
 /**
  * preferences with the takeover marks merged in — every other key kept.
  *
- * A COLUMN THAT IS NOT AN OBJECT IS QUARANTINED, NEVER DROPPED (it. 22, 1.8).
+ * A COLUMN THAT IS NOT AN OBJECT IS QUARANTINED, NEVER DROPPED (1.8).
  * `asObject(preferences) ?? {}` silently threw the old value away. Here the
  * takeover CANNOT refuse — it is the rescue: the verified owner is taking the
  * account back and every credential must die now — so the raw original moves
  * under `QUARANTINED_PREFERENCES_KEY` and the fresh `security` is written on
  * top. The row that comes out is readable AND carries the floor, so nothing is
  * resurrected and nothing is lost.
- *
- * Note the asymmetry with `applyPreferencesUpdate`, which REFUSES on the same
- * input: an appearance patch is not worth writing over a column we cannot read,
- * and a takeover is worth everything. Both end with a row that has `security`.
  */
 export function withCredentialsReset(preferences: unknown, at: Date): Record<string, unknown> {
   const readable = asObject(preferences);
@@ -244,7 +172,7 @@ export function withCredentialsReset(preferences: unknown, at: Date): Record<str
  *
  * The owner keeps presentation and marks (appearance, managerMode…) plus the
  * fresh `security` epoch; they do NOT inherit a consent someone else clicked
- * (productizer it. 14, 4.2 — a click-wrap that accredits another person). The
+ * (4.2 — a click-wrap that accredits another person). The
  * consent record is not erased: it travels to the quarantine row, where it still
  * proves who accepted what and when.
  */

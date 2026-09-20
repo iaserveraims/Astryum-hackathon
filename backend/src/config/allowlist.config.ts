@@ -66,7 +66,7 @@ export const ALLOWLIST: AllowlistConfig = {
       dataProvider: '',
     },
 
-    // SparkDEX Protocol (Uniswap V3 fork on Flare) — verified 2026-05-23
+    // SparkDEX Protocol (Uniswap V3 fork on Flare) — verified
     sparkdex: {
       nfpm:    process.env.SPARKDEX_NFPM    || '0xEE5FF5Bc5F852764b5584d92A4d592A53DC527da',
       factory: process.env.SPARKDEX_FACTORY || '0x8A2578d23d4C532cC9A98FaD91C0523f5efDE652',
@@ -126,7 +126,7 @@ export const ALLOWLIST: AllowlistConfig = {
   tokens: {
     // Native wrapped token
     WFLR:  '0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d',
-    // Verified Flare token addresses (2026-05-23)
+    // Verified Flare token addresses
     USDCE: process.env.USDCE_TOKEN       || '0xFbDa5F676cB37624f28265A144A48B0d6e87d3b6',
     USDT:  process.env.USDT_FLARE_TOKEN  || '0x0B38e83B86d491735fEaa0a791F65c2B99535396',
     SFLR:  process.env.SFLR_TOKEN        || '0x12e605bc104e93B45e1aD99F9e555f659051c2BB',

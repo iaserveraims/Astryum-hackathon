@@ -3,7 +3,7 @@
  *
  * Two doors in (both client-side):
  *  - NEXT_PUBLIC_PREVIEW_DATA — set ONLY in .env.local for local design work.
- *  - The PUBLIC DEMO (founder 2026-07-18): accounts created through the
+ *  - The PUBLIC DEMO: accounts created through the
  *    landing's "Launch demo" set localStorage 'astryum:demo'; their dashboard
  *    runs on these fixtures — mock wallets, mock money, everything usable.
  *    The ACCOUNT is real (saved for launch); only the capital shown is fake.

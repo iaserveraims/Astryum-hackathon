@@ -7,14 +7,6 @@
  *   compose (prepare-only) → quorum signs N QRs (the existing coordinator) →
  *   browser broadcasts on XRPL → the courtesy relayer carries the FDC proof →
  *   the XrplCouncilBridge executes EXACTLY the committed bytes on the vault.
- *
- * The tracker (F8 pattern) shows the three stages honestly: signed on XRPL ✓ →
- * FDC round (~2-5 min) → executed in the cage ✓. Settlement truth is read from
- * the bridge on-chain (consumedTxId), never from local state alone.
- *
- * Astryum composes and relays with ZERO discretion: the bridge only accepts
- * the bytes whose keccak256 the quorum signed. No order can extract principal —
- * the vault has no such function.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -191,21 +183,6 @@ const ACTION_FORMS: ActionForm[] = [
  * `set-max-venue-bps` were built end to end (VAULT_COUNCIL_ABI + the zod enum
  * of POST /council-order/prepare + the vault callables) and ACTION_FORMS never
  * listed them, so the product had no door for them at all.
- *
- * The route's courtesy pre-flight covered direct-to, recall and set-payees ONLY
- * — nothing read the vault for a venue order, so a malformed target or a 500
- * bps cap was first heard as a revert on Flare AFTER the quorum signed and the
- * FDC round was paid (~20 FLR): unearned success. G12-move closed that half
- * server-side (CouncilProposalService.councilOrderPreflight, now shared by both
- * doors), and this guard stays for the two things the server cannot give:
- *
- *  - it answers BEFORE the round trip, on what was typed;
- *  - a same-venue move is the one refusal here that is NOT a revert mirror. The
- *    vault would happily execute it; it just spends a whole signing round and a
- *    paid FDC round moving principal to where it already is. Waste, not revert
- *    — which is why it lives on this side only.
- *
- * They never claim the order will land, only that it cannot land as typed.
  */
 function venueOrderIssue(action: string, params: Record<string, unknown>): string | null {
   if (action === 'move' && Number(params.fromId) === Number(params.toId)) {
@@ -247,17 +224,17 @@ export default function CouncilOrderCard({ account }: { account: string }) {
   const [stage, setStage] = useState<Stage>('form');
   const [handoff, setHandoff] = useState<CouncilOrderHandoff | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 409 SAME_ORDER_RECENTLY_LAUNCHED (it.14; COUNCIL_ORDER_IN_FLIGHT in it.13):
+  // 409 SAME_ORDER_RECENTLY_LAUNCHED (COUNCIL_ORDER_IN_FLIGHT in):
   // composing the same order again is an explicit confirm, never a silent retry.
   const [inFlight, setInFlight] = useState<{ detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
   /**
-   * it.14 (R2 2.3): the ceremony's broadcast came back over a spent Sequence and
+   * The ceremony's broadcast came back over a spent Sequence and
    * the order's fate says a sibling already went out (or could not be checked).
    * «Compose the order» stays shut until the council says it checked.
    */
   const staleLock = useStaleOrderLock();
   /**
-   * it.16 (R3 3.1): the lock asks WHAT is being composed. A recall and an
+   * The lock asks WHAT is being composed. A recall and an
    * evacuate take capital out of a venue, and an exit is warned, never stopped.
    * Everything else of this card is paused while the lock holds.
    */
@@ -273,10 +250,10 @@ export default function CouncilOrderCard({ account }: { account: string }) {
   }, []);
 
   const prepare = useCallback(async (opts?: { confirmAnotherOrder?: boolean }) => {
-    // it.14 (R2 2.3): a stale order of this council whose sibling already went
+    // A stale order of this council whose sibling already went
     // out — composing again here is the same capital, moved twice. An EXIT is
-    // exempt (it.16, R3 3.1), and so is the person's explicit «compose it again
-    // anyway», which used to hit this return and do nothing (it.16, R5 5.5).
+    // exempt (R3 3.1), and so is the person's explicit «compose it again
+    // anyway», which used to hit this return and do nothing (R5 5.5).
     if (staleLock.blocks(composeKindOf(form.action), { confirmed: opts?.confirmAnotherOrder })) return;
     setError(null);
     setInFlight(null);
@@ -363,11 +340,11 @@ export default function CouncilOrderCard({ account }: { account: string }) {
       setHandoff(h);
     } catch (e) {
       const body = (e as { body?: { error?: string; detail?: string; minutesAgo?: number; launchedAt?: string; retryAfterSeconds?: number } })?.body;
-      // it. 21 (§2.7): and DUPLICATE_CHECK_UNREADABLE — «we could not check» — which
+      // And DUPLICATE_CHECK_UNREADABLE — «we could not check» — which
       // had no reader at all, so the door simply closed for ~60 s with no button.
       if (mayConfirmAnotherOrder(body) && !opts?.confirmAnotherOrder) {
         // The same order went out for this council a moment ago: an explicit
-        // confirm, never a silent retry. Both guard names are read (it.13/it.14).
+        // confirm, never a silent retry. Both guard names are read.
         setInFlight({ detail: body?.detail, code: body?.error, minutesAgo: sameOrderMinutesAgo(body), retryAfterSeconds: body?.retryAfterSeconds ?? null });
         setStage('form');
         return;
@@ -481,7 +458,7 @@ export default function CouncilOrderCard({ account }: { account: string }) {
         )}
       </p>
 
-      {/* it.16 (R5 5.5): the lock ARMS in the review stage (the ceremony's
+      {/* The lock ARMS in the review stage (the ceremony's
           broadcast is what comes back stale) and its note used to live inside
           the FORM branch below, which that stage does not render — the card
           paused with no headline and no way to say «I checked». It lives above
@@ -663,8 +640,8 @@ export default function CouncilOrderCard({ account }: { account: string }) {
           <p className="text-[12px] text-ink/55">
             {/* The amount is READ from the composed tx, never described from
                 memory: this line used to promise a single drop while the order
-                fee made it 200,001 drops — a screen that contradicts what the
-                quorum is about to sign (F4 family, 2026-08-03). */}
+                fee made,001 drops — a screen that contradicts what the
+                quorum is about to sign (F4 family). */}
             {t('Your council signs this Payment of')} {orderPaymentXrp(handoff)}{' '}
             {t(
               'here, each member from their own device. The signature authorizes ONLY the order above — same bytes, once, in order.',
@@ -676,7 +653,7 @@ export default function CouncilOrderCard({ account }: { account: string }) {
               the principal to work in Kinetic"), not the generic "Council
               order": the capital movement lives in the order bytes, so without
               this the inbox — and the sidebar tray — could only say "Payment"
-              about a decision the family has to weigh (2026-08-03). */}
+              about a decision the family has to weigh. */}
           {/* consejo-superficies 2: the two tempos are ONE element with one
               rule — while the live ceremony holds the pinned seat, the async
               door beside it cannot compose the same transaction again (it says

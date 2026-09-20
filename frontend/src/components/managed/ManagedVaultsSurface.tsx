@@ -3,31 +3,6 @@
 /**
  * ManagedVaultsSurface — la puerta «Bóvedas con gestor» de Earn: EL CATÁLOGO,
  * y solo el catálogo.
- *
- * REORG 2026-08-29 (fundador): Earn es el menú del CLIENTE — aquí se elige una
- * bóveda igual que en los demás menús se elige una estrategia; la «estrategia»
- * de una managed vault es de su gestor. Las otras dos lentes que vivían aquí
- * se mudaron con su persona:
- *  · «Run a vault» (la mesa del gestor) → /app/manager, entrada de sidebar
- *    condicional al flag de gestor (managerStore) — mismo mecanismo que Admin.
- *  · «KYC partner» (la auditora) → /app/partner, SOLO por URL: relación B2B
- *    negociada, no auto-servicio.
- * El segmented control se fue con ellas: un selector de una sola opción es
- * un adorno.
- *
- * ── LA EXPLICACIÓN DEJA DE SER UN PEAJE ─────────────────────────────────────
- * Aparece (a) sola, EN MODAL, la primera vez que alguien entra, y (b) cuando
- * se pide desde el botón de arriba a la derecha. Una sola pieza
- * (`HowManagedVaultsWorkBody`) en los dos sitios — dos explicaciones
- * mantenidas aparte acabarían contando dos versiones distintas de qué puede
- * hacer alguien con tu dinero.
- *
- * ── LA PRIMERA VISITA SE RECUERDA EN EL NAVEGADOR, Y FALLA ABIERTO ──────────
- * `localStorage` puede estar bloqueado (modo privado, ajustes del navegador) y
- * `getItem` LANZA, no devuelve null. Si eso pasa, se enseña: molestar dos veces
- * a alguien es infinitamente mejor que dejar entrar sin la explicación a quien
- * nunca la vio. Al revés del gate de fundadores, que falla cerrado — aquí lo
- * que está en juego es entender, no un permiso.
  */
 
 import { useEffect, useState } from 'react';
@@ -51,8 +26,7 @@ export function ManagedVaultsSurface() {
   const [showHow, setShowHow] = useState(false);
   const [firstVisit, setFirstVisit] = useState(false);
   const isManager = useIsManager();
-  // La MESA DEL GESTOR vive aquí (fundador 10-sep: fuera del sidebar, dentro
-  // de Managed vaults), y se abre en ventana anclable — la misma que Gobernar.
+  // La MESA DEL GESTOR vive aquí, y se abre en ventana anclable — la misma que Gobernar.
   const openManagerOp = useOperationStore((st) => st.openManagerOp);
   // Durante el hackathon la mesa se enseña a TODOS con su botón con nombre
   // (lib/nav/managerDesk.ts); en reposo, solo a quien se declaró gestor.
@@ -94,7 +68,7 @@ export function ManagedVaultsSurface() {
             {t('Manager desk')}
           </button>
         ) : null}
-        {/* La COMUNIDAD (8-sep): quién lleva bóvedas, con cara y apoyos. No
+        {/* La COMUNIDAD: quién lleva bóvedas, con cara y apoyos. No
             vive en el sidebar — esta es su puerta principal, siempre visible
             (también mientras el catálogo carga o falla). */}
         <Link

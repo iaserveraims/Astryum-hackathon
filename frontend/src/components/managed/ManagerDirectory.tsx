@@ -2,38 +2,7 @@
 
 /**
  * ManagerDirectory — el catálogo de bóvedas con gestor, con LA MISMA MANO que
- * los otros dos menús de Earn (fundador 2026-08-29: «tiene que estar igual que
- * los otros dos menús con estrategias»).
- *
- * Las cartas SON la mano de `StrategyFan` — la misma que los otros dos menús,
- * con sus tres artefactos por nivel de movimiento (mano, estantería, lista).
- * Durante unas horas del 13-sep fueron un mosaico de recuadros (VaultMosaic,
- * sin montar): salían achatados y pequeños, y el fundador lo devolvió a la
- * carta de Earn («deberían verse como todas las estrategias del Earn»). De
- * aquel paso se conserva lo que pedía de fondo: EL DINERO DELANTE — en la
- * bóveda y lo tuyo, sumado en todas tus wallets (vaultMoney) — y la imagen
- * del gestor pequeña, secundaria. La ficha sigue desplegándose COMO COLUMNA
- * a la derecha, en flujo, con la mano comprimiéndose — la coreografía de pick.
- *
- * ── EL TOQUE DISTINTIVO ES EL GESTOR (fundador 2026-08-29) ──────────────────
- * Cada carta lleva el AVATAR del gestor en el tile (identicon determinista de
- * su cuenta XRPL — managerIdentity), su nombre en la frase y su chip de
- * acreditación. Su PERFIL (bóvedas, capital, apoyo de la comunidad, enlace de
- * referidos) se abre desde la ficha y desde el deep-link
- * `?view=managers&manager=r…` que el propio gestor comparte para captar.
- * Las bóvedas sin gestor tercero (la de prueba) llevan el perfil genérico
- * «Astryum made» — presentado como demo, jamás como gestión de Astryum.
- *
- * DOS REGLAS QUE ESTE COMPONENTE NO NEGOCIA:
- *
- * · NO ORDENA. El orden que llega del backend es el de creación, y se pinta tal
- *   cual. Ordenar es elegir, y elegir por el usuario es la diferencia entre
- *   publicar un catálogo y recomendar un producto (invariante #9). El apoyo de
- *   la comunidad dará visibilidad SOLO como orden que el usuario pide — cuando
- *   exista el recuento público; jamás como orden por defecto.
- * · «NO PUDE LEER» NUNCA ES «NO HAY». Un fallo de red pintado como catálogo
- *   vacío le dice al usuario que no existe ningún gestor: una afirmación
- *   distinta y probablemente falsa.
+ * los otros dos menús de Earn.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -63,7 +32,7 @@ import { useMyManagedPositions } from '../../lib/institutional/useMyManagedPosit
  * El chip de abajo: el gestor con su cara, y el estado de acreditación.
  * El tick viaja tal cual del ledger; `credential` a null se pinta «sin
  * acreditar» — la palabra que cubre «no tiene» y «no se pudo leer» sin acusar
- * de ninguno (la credencial es requisito desde el 27-ago).
+ * de ninguno (la credencial es requisito).
  */
 function VaultChip({
   entry,
@@ -77,7 +46,7 @@ function VaultChip({
   supported: boolean;
   t: (s: string) => string;
 }) {
-  // El perfil público delante (8-sep): nombre y foto reales cuando existen.
+  // El perfil público delante: nombre y foto reales cuando existen.
   const { actors } = useCommunity();
   const who = withProfile(mgr, mgr.address ? actors.get(mgr.address) : null);
   // ILEGIBLE = ilegible. Con `unreadable` no se sabe ni la acreditación ni la
@@ -136,8 +105,8 @@ function VaultChip({
  */
 type SortId = 'catalogue' | 'supported' | 'exit' | 'venues' | 'size';
 
-/** La cabecera de la carta: la imagen del gestor PEQUEÑA (secundaria, fundador
- *  13-sep) y el token con logo y símbolo — lo que dice de qué va la bóveda. */
+/** La cabecera de la carta: la imagen del gestor PEQUEÑA (secundaria, fundador)
+ * y el token con logo y símbolo — lo que dice de qué va la bóveda. */
 function VaultFanTile({
   entry,
   manager,
@@ -177,7 +146,7 @@ function toFan(p: PoteCatalogEntry, mgr: ManagerIdentity, who: { name: string },
     blocked: false,
     market: undefined,
   };
-  // ILEGIBLE (429 del RPC, el incidente del 17-ago): la carta lo dice y no
+  // ILEGIBLE: la carta lo dice y no
   // afirma NADA más — un «exit — · 0 destinos» sobre datos que no llegaron es
   // «no pude leer» pintado como «no hay», en la pantalla de comparar.
   if (p.unreadable) {
@@ -212,7 +181,7 @@ export function ManagerDirectory() {
   const [profileKey, setProfileKey] = useState<string | null>(null);
   /** La comunidad: perfiles (nombre, foto, persona/agente), apoyos e imágenes. */
   const { actors } = useCommunity();
-  /** LO TUYO en cada bóveda (13-sep): todas tus wallets y sus Smart Accounts,
+  /** LO TUYO en cada bóveda: todas tus wallets y sus Smart Accounts,
    *  del mismo lector compartido que usa el resto de la app. */
   const { positions, loading: positionsLoading } = useMyManagedPositions();
   /** Los gestores que TÚ apoyas — lo dice el servidor, no este navegador. */
@@ -268,7 +237,7 @@ export function ManagerDirectory() {
     if (sortBy === 'catalogue') return base;
     const arr = [...base];
     if (sortBy === 'supported') {
-      // El recuento PÚBLICO (8-sep): votos de la comunidad contados en el
+      // El recuento PÚBLICO: votos de la comunidad contados en el
       // servidor. Sigue siendo una opción que el usuario elige, jamás el
       // orden por defecto (#9): visibilidad votada por usuarios, no
       // recomendación de Astryum.
@@ -398,7 +367,7 @@ export function ManagerDirectory() {
         />
       </div>
 
-      {/* LA MISMA COREOGRAFÍA QUE PICK (24→26-ago allí, hoy aquí): mano a la
+      {/* LA MISMA COREOGRAFÍA QUE PICK (24→ allí, hoy aquí): mano a la
           izquierda que se comprime al abrir; ficha EN FLUJO como columna
           derecha que crece. En móvil el flex es columna: la mano cae a la
           rejilla de StrategyFan y la ficha queda debajo, a lo ancho. */}

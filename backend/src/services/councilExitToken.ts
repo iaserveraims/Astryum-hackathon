@@ -8,18 +8,6 @@
  * from the body and cannot tell a recall from an entry. So it stayed geofenced,
  * and a Legacy recall/evacuate was still impossible from a blocked region (or
  * under an allowlist, since the client sends no region).
- *
- * The compose door now hands back a short-lived server MAC over
- * {account, canonical hash of the EXACT composed txjson, action, exp}. The
- * coordinator skips the geofence only when that MAC verifies for the same
- * account and the same bytes: the memo of a council order commits the order
- * (action included), so a token minted for a recall cannot open any other tx.
- * No token, a tampered one, an expired one, or one for different bytes → the
- * full gate, exactly as before.
- *
- * Secret: the backend's JWT secret (`resolveJwtSecret`, fail-loud in
- * production), domain-separated so this MAC can never be confused with a JWT.
- * Server-side only; nothing here is a NEXT_PUBLIC value.
  */
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
@@ -32,7 +20,7 @@ function resolveJwtSecret(): string {
 export const COUNCIL_EXIT_TOKEN_TTL_MS = 15 * 60_000;
 
 /**
- * THE ONE EXIT CLASSIFICATION of council ORDERS (productizer it. 13). `recall`
+ * THE ONE EXIT CLASSIFICATION of council ORDERS. `recall`
  * brings capital out of a venue back into the buffer; `evacuate` brings everything
  * recoverable out of a venue. Both only REDUCE exposure. Shared by every door that
  * decides a gate by action: `/pote-council-order`, `/cage-order` (institutional.ts)
@@ -196,29 +184,13 @@ export function verifyCouncilExitToken(
   return { ok: true, action: payload.action };
 }
 
-/* ── The server-side classification (productizer it. 13, finding 4.1) ─────── */
+/* ── The server-side classification (finding 4.1) ─────── */
 
 /**
  * The token travels only when the compose door and the ceremony share a browser
  * session and the 15 minutes have not passed. An institutional council's recall
  * (ExchangeDesk, OperatorConsole) or a creator exit reached `/multisign/prepare`
  * WITHOUT one — and, under an allowlist with no region, got 451 everywhere.
- *
- * So the coordinator also asks the server what IT composed. The memo of a council
- * order is keccak256(orderData); the memo of a 0xFE is the whole Smart Account
- * instruction, which ENDS in the 32 bytes of the userOpHash (it is NOT a bare
- * keccak, and reading it as one is what kept this classifier dead until it. 29).
- * Either way the memo commits the exact action. When the single memo of the tx names
- *   · a COMPOSED council order (ComposedCouncilOrderStore) of THIS account whose
- *     bytes still hash to the memo, whose action is an exit, and whose Destination
- *     and Amount are the ones composed; or
- *   · a queued 0xFE HANDOFF (DirectMintHandoffStore) of THIS account whose action
- *     label is an exit, whose Amount is the gross composed and whose Destination is
- *     the Core Vault the mint pays,
- * the tx is an exit the server composed, and the door takes the flag-only gate.
- * Anything else — no single memo, an unknown memo, another account, an entry
- * action, other bytes, other Destination/Amount, or a store we could not read —
- * keeps the full gate, exactly as before. Read-only: nothing is written here.
  */
 export type ServerExitVerdict =
   | { ok: true; source: 'composed-order' | 'handoff'; action: string }
@@ -234,7 +206,7 @@ export type ServerExitVerdict =
         | 'destination-mismatch'
         | 'amount-mismatch'
         /**
-         * it. 15 (finding 3.3) — the memo names an EXIT of this account whose 0xFE is
+         * The memo names an EXIT of this account whose 0xFE is
          * no longer waiting for a signature (superseded, already executed, parked).
          * This is not a region and not an unknown memo: the exit is real, THIS
          * payment is stale, and the answer must say so (409) instead of 451.
@@ -260,7 +232,7 @@ export interface ServerExitDeps {
     grossXrpDrops: string;
   } | null>;
   /**
-   * it. 15: the same handoff in ANY state (queued, superseded, completed, parked).
+   * The same handoff in ANY state (queued, superseded, completed, parked).
    * STRICT — a database failure THROWS, so «could not read» is never «unknown memo».
    */
   readHandoffAnyState?: (memoHex: string) => Promise<{
@@ -283,33 +255,8 @@ const LOOKUPABLE_MEMO_HEX = /^[0-9A-F]{8,2048}$/;
 /**
  * THE ONE MEMO of a tx, normalised to uppercase hex — WHATEVER SHAPE IT HAS.
  *
- * ── productizer it. 29 — THIS READER DEMANDED 64 HEX, SO THE EXIT
+ * ── THIS READER DEMANDED 64 HEX, SO THE EXIT
  *    CLASSIFICATION NEVER RAN IN PRODUCTION ─────────────────────────────────
- *
- * It was born for a council ORDER, whose memo is `keccak256(orderData)`: 32
- * bytes, exactly 64 hex. But the other half of what `classifyCouncilExitByMemo`
- * classifies is a 0xFE, and the memo of a 0xFE is the WHOLE Smart Account
- * instruction (`UserOpCustomInstruction.encode()`: prefix + walletId + executor
- * fee + the 32 bytes of the userOpHash) = 42 bytes, 84 hex — asserted by the
- * repo itself (`FlareDirectMintService.test.ts`, «→ 42-byte memo»). Under the
- * 64-hex rule this returned `null` for EVERY 0xFE, the classification answered
- * `no-single-memo` every single time, and the whole branch below it was dead
- * code with three live consequences: an EXIT took the full geofence (451) on a
- * door whose doctrine is «LA SALIDA JAMÁS SE GATEA», the 409 «this payload is no
- * longer signable» (it. 15) never sounded once, and the seat guards judged an
- * exit as an ENTRY (422).
- *
- * UNIFIED, not duplicated. A second reader is a second truth that drifts apart
- * again — which is exactly what happened: it. 27 wrote `zeroFeMemoOf` with the
- * right range RIGHT NEXT TO THIS ONE and left this one broken. And the length
- * was never a check: what decides is the store the memo is looked up in and what
- * is verified afterwards —
- *   · council order: `keccak256(orderData) === memo` (`bytes-mismatch`), which no
- *     84-hex memo can ever pass, because a keccak is 32 bytes;
- *   · 0xFE handoff: an exit label + the composed Amount + the Core Vault
- *     Destination.
- * So widening the reader widens NOTHING that decides; it only stops throwing the
- * memo away before either store is ever asked.
  */
 export function singleMemoHex(tx: unknown): string | null {
   const memos = (tx as { Memos?: unknown } | null)?.Memos;
@@ -386,24 +333,8 @@ const defaultServerExitDeps: Required<ServerExitDeps> = {
 };
 
 /**
- * productizer it. 19 (findings 2.7 / R4 #3) — THE CLASSIFIER IS AN ORACLE OVER OTHER
+ * THE CLASSIFIER IS AN ORACLE OVER OTHER
  * PEOPLE'S MEMOS, AND IT WAS ANSWERING EVERYONE.
- *
- * The reasons above are exact by design: `not-an-exit`, `bytes-mismatch`,
- * `destination-mismatch`, `amount-mismatch`, `handoff-not-signable` + the handoff's
- * state. That precision is what lets a family repair their own ceremony — and served
- * to a caller with no relation to the account it is a probe: paste any account and any
- * memo and the server says whether it composed an order for it, whether that order was
- * an exit, whether the amount matches, and whether its 0xFE was already executed.
- *
- * So the reason travels only to a caller who proves the account (or sits on its signer
- * list). Everybody else gets this one sentence, for every distinguishable reason and
- * under ONE status, so the answer itself carries no information: nothing about whose
- * account it is, nothing about what the server composed, nothing to iterate on.
- *
- * It refuses nothing that was not already refused: an exit the server DOES recognise
- * (`ok: true`) is composed for whoever asks, exactly as before — this is only the
- * wording of the refusals.
  */
 export const GENERIC_PREPARE_REFUSAL = {
   error: 'CANNOT_PREPARE_HERE',
@@ -456,7 +387,7 @@ export async function classifyCouncilExitByMemo(
   } catch {
     unreadable = true;
   }
-  // it. 15 (finding 3.3): no queued row is not «no handoff». The same memo may name
+  // No queued row is not «no handoff». The same memo may name
   // one that was superseded, already executed or parked — a REAL exit of this
   // account whose payment is simply stale. Read STRICTLY (a database failure throws)
   // so the answer is «I could not read», never «I do not know this memo».

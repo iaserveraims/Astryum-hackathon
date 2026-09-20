@@ -1,25 +1,12 @@
 /**
  * SwapFillService — el auto-completado de cantidades exactas (swap-fill).
  *
- * Diseño: docs/context/Astryum_AutoCompletado_SwapFill_2026-07-26.md (variante A).
  * Cuando un flujo necesita una CANTIDAD EXACTA de un activo que el usuario no
- * tiene entera (el repay full con la deuda devengando interés es el caso
- * canónico — incidente 2026-07-26, shortfall 0,000291 → revert), Astryum
+ * tiene entera, Astryum
  * compila UNA CALL MÁS en el batch que el usuario ya firma: un swap
  * `exactOutput` DEL PROPIO USUARIO en SparkDEX que compra exactamente el hueco.
  * El principal viaja usuario→pool→usuario; Astryum solo compila (invariantes
  * #1/#6/#8). Jamás fondos por wallets de Astryum.
- *
- * Hechos verificados on-chain 2026-07-26 (no supuestos):
- *  - El router SparkDEX (0x8a1E…2781) es la forma V3 CLÁSICA con deadline:
- *    selector `exactOutputSingle` 0xdb3e2198 presente en el bytecode; la forma
- *    router02 (0x5023b4df) NO está. El calldata unsigned nace con esa forma.
- *  - Pools vivos hacia USDT0: FXRP (tiers 500/3000/10000) y WFLR (100/500/
- *    3000/10000) — se cotiza el importe real y gana el tier más barato.
- *
- * Kill-switch: SWAP_FILL_ENABLED=false lo apaga sin deploy. Vive DENTRO del
- * módulo flare-demo, ya gated por su propio flag/geofence (invariante #10 —
- * apagable en runtime; el gate de módulo es el de siempre).
  */
 
 import { ethers } from 'ethers';
@@ -85,7 +72,7 @@ const QUOTER_V1_OUT_ABI = [
   'function quoteExactOutputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountOut, uint160 sqrtPriceLimitX96) returns (uint256 amountIn)',
 ];
 // Forma V3 clásica CON deadline — la única presente en el bytecode del router
-// SparkDEX (0xdb3e2198 verificado 2026-07-26). No adivinar formas.
+// SparkDEX (0xdb3e2198 verificado). No adivinar formas.
 const ROUTER_EXACT_OUT_ABI = [
   'function exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountIn)',
 ];
@@ -94,25 +81,13 @@ const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)']
 const WNAT_DEPOSIT_ABI = ['function deposit() payable'];
 
 /**
- * EL VENUE, como parámetro (2026-08-29).
+ * EL VENUE, como parámetro.
  *
  * Toda la lógica de este fichero —cotizar `exactOutput` por tiers, el tope de
  * gasto con slippage, la composición [wrap?, approve, swap]— es de la FAMILIA
  * Uniswap V3, no de SparkDEX. El mercado FXRP/RLUSD de Ethereum necesita
  * exactamente esto mismo, y copiar el fichero sería la trampa de siempre: una
  * copia que diverge de producción verifica un carril que no es el que se firma.
- *
- * Así que el venue viaja como argumento OPCIONAL con el default de Flare: los
- * dos llamadores existentes (flareDemo, a1 EVM y pa-repay 0xFE) no cambian ni
- * una línea, y el carril de Ethereum pasa el suyo.
- *
- * La forma del router NO se adivina, se lee del bytecode — la misma disciplina
- * del 26-jul con SparkDEX. Verificado 2026-08-29 en Ethereum mainnet:
- *   · SwapRouter clásico 0xE592…1564 → `exactOutputSingle` CON deadline
- *     (selector 0xdb3e2198) — EL MISMO que SparkDEX, así que el ABI de abajo
- *     sirve tal cual.
- *   · SwapRouter02 0x68b3…5Fc45 → tiene la OTRA forma (0x5023b4df). Apuntar
- *     ahí con este ABI fallaría en la firma, no en la compilación.
  */
 export interface SwapVenue {
   /** Router con `exactOutputSingle` en la forma CON deadline (0xdb3e2198). */

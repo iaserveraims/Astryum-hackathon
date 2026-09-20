@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,7 +35,7 @@
     --gold-foreground: 40 45% 6%;
     --space: 0 0% 4%;
 
-    /* Product theme (founder direction 2026-07-17): the same dashboard skins
+    /* Product theme: the same dashboard skins
        two products. `--volt` feeds every Tailwind `*-volt*` class (see
        tailwind.config.js), so flipping it under [data-authority='governed']
        re-tints the ENTIRE dashboard — Astryum = warm gold, Legacy = a more
@@ -99,13 +98,12 @@
        want a scrollbar showing over the dashboard, and (2) a zero-width bar
        can never toggle on/off, so the centred shell (max-w-7xl mx-auto) can't
        drift sideways when content crosses the viewport-height threshold —
-       "the dashboard moving on its own" (bug 2026-07-21). Scroll still works
+       "the dashboard moving on its own" (bug). Scroll still works
        via wheel / trackpad / keyboard. NOT scrollbar-gutter: stable — that
        reserved a permanent empty gutter strip, which read as an unwanted bar. */
     scrollbar-width: none; /* Firefox */
     /* The trackpad rubber-band paints the ROOT's background beyond the page
-       edges — left unset it flashed WHITE behind the dark dashboard (founder
-       2026-07-26). --shell-bg lives on :root and flips with [data-theme]
+       edges — left unset it flashed WHITE behind the dark dashboard. --shell-bg lives on :root and flips with [data-theme]
        (stamped on <html> by ThemeApplier), so the overscroll always matches
        the shell: dark space by default, paper in the light theme. */
     background-color: var(--shell-bg);
@@ -116,9 +114,8 @@
   /* Windows Chromium can hand the VIEWPORT's scrollbar styling to <body>
      instead of <html> (overflow/scrollbar-style propagation) — with only the
      html rules above, the window bar flashed in and out on Windows whenever
-     an entrance animation or a data swap briefly overflowed the page
-     (founder 2026-07-27; macOS never shows it: overlay scrollbars take no
-     space). Hide the window bar from BOTH possible owners. */
+     an entrance animation or a data swap briefly overflowed the page.
+     Hide the window bar from BOTH possible owners. */
   body {
     scrollbar-width: none;
   }
@@ -126,7 +123,7 @@
     display: none;
   }
   /* Inner scrollables (the ship log, the ⌘K list, drawers, tables) — where a
-     bar MUST exist it wears the theme (founder 2026-07-27): a thin,
+     bar MUST exist it wears the theme: a thin,
      ink-tinted thumb on a transparent track, so Windows' classic bars read
      as part of the surface in dark, paper and governed alike. Type-selector
      rules above (html/body) and the .scrollbar-hide utility both out-rank
@@ -160,8 +157,7 @@
      their own ring (PrimaryButton/GhostButton) override via focus-visible
      utilities; everything else gets this. */
   /* Los spinners nativos de input[type=number] (las flechitas blancas del
-     navegador) rompen el tema en cada campo de cantidad (fundador
-     2026-08-25) — la casa pone MAX y slider; las flechitas sobran. */
+     navegador) rompen el tema en cada campo de cantidad — la casa pone MAX y slider; las flechitas sobran. */
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -207,7 +203,7 @@
   /* Decorative-art veil: the opacity for background scenes/doodles inside
      cards. One class instead of per-spot opacity-[0.1] so the light theme can
      lift ALL of them at once — gold-line art at 10% reads fine on dark space
-     but nearly disappears on paper (founder 2026-07-19: "se ven muy poco"). */
+     but nearly disappears on paper. */
   .art-veil {
     opacity: 0.1;
     transition: opacity 0.5s ease;
@@ -232,7 +228,7 @@
     display: none;
   }
   
-  /* Retuned 2026-07-27 to the SAME ink-tinted look as the global default in
+  /* Retuned to the SAME ink-tinted look as the global default in
      @layer base (was shadcn's grey --muted, which ignored the product theme). */
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -288,7 +284,7 @@
   
 }
 
-/* Lenis smooth-scroll: RETIRADO (scroll natural, fundador 2026-07-24) — el
+/* Lenis smooth-scroll: RETIRADO (scroll natural, fundador) — el
    navegador es el único dueño de la rueda. */
 
 /* ─── Astryum landing v2 — sui.io-grade motion utilities ──────────────────── */
@@ -405,28 +401,10 @@
   transform: translateY(0);
 }
 
-/* ─── NIVEL DE MOVIMIENTO (stores/motionStore.ts, fundador 2026-09-10) ──────
+/* ─── NIVEL DE MOVIMIENTO (stores/motionStore.ts, fundador) ──────
    Las guardas de «movimiento reducido» de esta hoja ya NO miran al SO: miran
    `data-motion` en <html>, que estampa el usuario desde Settings (el script
-   pre-pintado de app/layout.tsx lo pone antes del primer frame). Tres guardas:
-
-     :root:not([data-motion='full'])                    → SERENO y MÍNIMO: los
-         bucles RÁPIDOS o llamativos (barridos de luz, marquesinas, pulsos que
-         viajan, motas SMIL, ping) se apagan. Ni siquiera despacio valen.
-     :root:not([data-motion='full']):not([data-motion='calm']) → solo MÍNIMO
-         (y el atributo ausente): todo lo que se mueve solo se para, y los
-         trazos que se dibujan al pasar el ratón quedan ya dibujados.
-     :root[data-motion='calm']                          → SERENO: los bucles
-         LENTOS (órbitas, radar, deriva, respiraciones, twinkle, sello del
-         CTA) siguen vivos A UN TERCIO DE VELOCIDAD — el bloque «tempo del
-         sereno» de abajo. Sereno no es quieto: es lento, pequeño y nunca
-         persigue al cursor (fundador, tercera pasada: «el modo calm lo has
-         dejado sin animaciones, quiero que lo animes»).
-     :root[data-motion='minimal']                       → además, las
-         transiciones de estado se cortan y el loader de marca queda quieto.
-
-   El atributo ausente (antes del script, o sin JS) cae en la guarda de
-   MÍNIMO: sin nivel conocido, quieto. Es la dirección segura. ─────────── */
+   pre-pintado de app/layout.tsx lo pone antes del primer frame). Tres guardas: */
 
 :root[data-motion='minimal'] .plogo,
 :root[data-motion='minimal'] .plogo-name {
@@ -458,7 +436,7 @@
 /* ─── Earn surface icon life (components/earn/icons.tsx) ─────────────────────
    The orbit ring spins only while its door is hovered; constellation stars
    twinkle softly all the time; the comet trail stretches on hover. */
-/* ── El sidebar cambia de traje (raíl ↔ menú completo, 2026-09-10) ─────────
+/* ── El sidebar cambia de traje (raíl ↔ menú completo) ─────────
    El ANCHO del aside y el MARGEN del contenido se mueven a la vez (500ms,
    la salida expresiva de la casa) y el contenido nuevo del panel entra
    después, breve y desde la izquierda: primero se abre el hueco, luego se
@@ -481,7 +459,7 @@
 }
 .eicon-star { animation: eicon-twinkle 3s ease-in-out infinite; }
 
-/* ── Los cuerpos de operación miden SU panel, no la ventana (2026-08-26) ──
+/* ── Los cuerpos de operación miden SU panel, no la ventana ──
    La misma lección de los quesitos: anclada a 430px con la ventana ancha,
    un sm:grid-cols-2 de viewport aplasta dos columnas donde solo cabe una.
    OperationSurface declara el contenedor (.op-flow) y los pares de cajas
@@ -493,7 +471,7 @@
   .op-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* ── El re-tinte lento del cruce de producto (2026-08-25) ─────────────────/* ── El re-tinte lento del cruce de producto (2026-08-25) ─────────────────
+/* ── El re-tinte lento del cruce de producto ─────────────────/* ── El re-tinte lento del cruce de producto ─────────────────
    ThemeApplier añade .authority-retint al <html> durante ~1s alrededor de
    cada flip de data-authority: todo lo que consume los tokens (--volt,
    --surface-*, --shell-*) cruza de color EN LA PÁGINA, despacio, en vez de
@@ -519,13 +497,13 @@
   transition: none !important;
 }
 
-/* ── El BARRIDO del cambio de tema (ThemeApplier, 2026-09-14) ──────────────
-   Fundador: «alguna especie de barrido para cuando se cambia el tema». Una
+/* ── El BARRIDO del cambio de tema (ThemeApplier) ──────────────
+   Una
    banda de luz del ACENTO DEL TEMA NUEVO (los tokens ya están estampados
    cuando se monta) recorre la pantalla de izquierda a derecha en el tiempo
    del re-tinte, por encima del contenido y por debajo de los modales. Es luz
    que pasa, no una cortina: en ningún punto tapa ni oscurece la página
-   (regla de las transiciones sin cortina, 2026-07-24). Solo transform, así
+   (regla de las transiciones sin cortina). Solo transform, así
    que se compone en GPU. En Sereno va más despacio; en Mínimo no existe. */
 @keyframes theme-sweep {
   from {
@@ -540,7 +518,7 @@
   inset: 0;
   z-index: 110;
   pointer-events: none;
-  /* Medido en el navegador (14-sep): el oro sobre espacio se veía; el bronce
+  /* Medido en el navegador: el oro sobre espacio se veía; el bronce
      desaturado sobre grafito, no. La luz se MEZCLA en vez de superponerse:
      `screen` sobre las caras oscuras aclara con el acento, y en la cara
      clara `multiply` oscurece con él — así la banda se ve en los cuatro
@@ -557,7 +535,7 @@
   transform: translateX(-100%);
   /* Curva de CRUCERO, no la de salida de la casa: con el ease-out expresivo
      la banda cruzaba dos anchos de pantalla en 300 ms — un fogonazo que ni
-     el ojo ni una captura recogen (sondeado en el navegador el 14-sep:
+     el ojo ni una captura recogen (sondeado en el navegador:
      transform −1440 → +268 → +1412 px en 60/260/560 ms). Arranca suave, cruza
      a velocidad legible y frena al salir. */
   animation: theme-sweep 1.4s cubic-bezier(0.45, 0.05, 0.25, 1) forwards;
@@ -599,7 +577,7 @@
 :root:not([data-motion='full']):not([data-motion='calm']) .group:hover .eicon-orbit { animation: none; }
 :root:not([data-motion='full']):not([data-motion='calm']) .eicon-trail { transition: none; }
 
-/* ─── Launch App beacon (landing header CTA, 2026-08-16) — the dashboard
+/* ─── Launch App beacon (landing header CTA) — the dashboard
    door breathes its gold glow, softly: present without shouting. ─── */
 @keyframes cta-beacon {
   0%, 100% { box-shadow: 0 6px 22px hsl(var(--volt) / 0.22); }
@@ -609,8 +587,7 @@
 :root:not([data-motion='full']):not([data-motion='calm']) .cta-beacon { animation: none; box-shadow: 0 6px 22px hsl(var(--volt) / 0.28); }
 
 /* ─── Authority crossing glass (components/authority/AuthorityCrossing.tsx) ──
-   The Personal↔Legacy crossing frosts the page instead of curtaining it
-   (founder 2026-07-24: "que no se oscurezca el fondo — solo un poco de blur"):
+   The Personal↔Legacy crossing frosts the page instead of curtaining it:
    blur in→hold→out, ZERO tint, so the shell's own data-authority re-tint
    (gold↔indigo, transition-colors on AppShell's root) stays visible behind
    the glass — that re-tint IS the crossing. CSS keyframes rather than
@@ -620,7 +597,7 @@
    (1500ms, 300ms under reduced motion); fill-mode `both` parks the pane at
    blur(0) once it ends, so the exit unmount never snaps. */
 @keyframes acx-glass {
-  /* 4px desde 2026-08-23 (cruce más sutil — el fundador siente el de 6px
+  /* 4px (cruce más sutil — el fundador siente el de 6px
      intrusivo ahora que gobernar navega a /app/legacy en cada clic). */
   0%   { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
   22%  { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
@@ -635,7 +612,7 @@
    draws itself while its door is hovered. */
 .escene-spin-a { animation: eicon-spin 36s linear infinite; }
 .escene-spin-b { animation: eicon-spin 22s linear infinite reverse; }
-/* La capa media de las escenas v3 (2026-08-29): un tercer tempo, para que dos
+/* La capa media de las escenas v3: un tercer tempo, para que dos
    anillos de la misma escena nunca respiren al unísono. */
 .escene-spin-c { animation: eicon-spin 14s linear infinite; }
 .escene-draw {
@@ -646,8 +623,7 @@
   transition: stroke-dashoffset 1.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .group:hover .escene-draw { stroke-dashoffset: 0; }
-/* v4 (fundador 2026-08-29: «no creo que estén bien hechas las reacciones al
-   ratón, simples líneas no me gusta»): reacciones DE SISTEMA. Las capas
+/* V4: reacciones DE SISTEMA. Las capas
    `escene-boost-*` son envoltorios ADITIVOS que solo giran bajo atención —
    parten de 0°, así que la rotación constante del hijo no salta de fase: el
    sistema simplemente acelera bajo la mano y se relaja al soltar. Las motas
@@ -655,8 +631,7 @@
    y el hover solo las enciende. `escene-pop` es el crecimiento con muelle de
    los cuerpos centrales (sol, capital, candado) — transform-box para que el
    scale gire sobre el propio cuerpo, no sobre el viewBox. */
-/* v4.1 (fundador 2026-08-29, segunda vuelta: «la reactividad es too much…
-   más lenta», y «que no se reinicie de manera brusca al quitar el ratón»).
+/* v4.1.
    El reinicio brusco era esta capa: al soltar el hover perdía su animación y
    el ángulo acumulado saltaba a 0° de golpe. Ahora la animación existe
    SIEMPRE y el hover solo la despierta (play-state): al salir, la capa se
@@ -695,20 +670,9 @@
   transform-origin: center;
 }
 /* ── DonutCard: la fila dona+leyenda decide por el ancho de SU tarjeta, no del
-   viewport (fundador 2026-08-25: en la tira de 4 quesitos del Portfolio las
-   leyendas se salían del recuadro — la tarjeta es estrecha aunque la ventana
-   sea ancha, y un sm:flex-row de viewport no puede saberlo). Container queries
+   viewport. Container queries
    nativas: tarjeta ancha = dona a la izquierda y leyenda al lado; tarjeta
-   estrecha = dona arriba centrada y la leyenda debajo A TODO EL ANCHO.
-
-   ⚠️ ESTO ES LAYOUT, NO MOVIMIENTO, y por eso vive FUERA de la consulta de
-   movimiento reducido. Nació dentro de ella por un pegado desafortunado
-   (2026-08-25) y el resultado fue que en cualquier equipo SIN «reducir
-   movimiento» —o sea, casi todos— ni `.donut-scale` ni `.donut-row` existían:
-   el marco de la dona se quedaba sin medidas, el anillo no se dibujaba, la
-   órbita punteada se estiraba en cápsula sobre una caja de tamaño cero y la
-   leyenda se montaba encima del total. Se veía roto en Home y en Portfolio a
-   la vez, que era la pista: lo que fallaba era lo COMPARTIDO. */
+   estrecha = dona arriba centrada y la leyenda debajo A TODO EL ANCHO. */
 .donut-flow { container-type: inline-size; }
 .donut-row { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 .donut-scale { width: 170px; height: 170px; }
@@ -797,7 +761,7 @@
    simple accounts / overview, a deeper, colder vault palette when a governed
    account is active. The palette is an ACCOMPANIMENT — the GoverningBar and
    the switcher's text carry the state; colour is never the only indicator. */
-/* Un SUBÁRBOL puede declarar su propio tema (2026-09-13). Los tokens de
+/* Un SUBÁRBOL puede declarar su propio tema. Los tokens de
    Astryum viven en :root porque Astryum es la línea base; eso basta mientras
    solo haya un tema en la página, pero deja de bastar en cuanto una probeta
    quiere enseñar el tema que NO está puesto — un <div data-skin='astryum'>
@@ -832,7 +796,7 @@
      --volt-ink is the text ON volt-filled controls. */
   --ink: 0 0% 100%;
   --volt-ink: 0 0% 4%;
-  /* Product-fixed accents (founder 2026-07-20): the Personal↔Legacy toggle
+  /* Product-fixed accents: the Personal↔Legacy toggle
      paints each segment with ITS product's colour — Personal gold, Legacy
      indigo — regardless of which mode is active, so the active segment never
      flashes as it re-tints during a crossing. UNLIKE --volt/--authority-*,
@@ -842,7 +806,7 @@
   --product-personal-ink: 0 0% 4%;
   --product-legacy: 234 89% 74%;
   --product-legacy-ink: 0 0% 4%;
-  /* EL TERCER PRODUCTO (2026-09-18): la landing gana un mundo Institucional y
+  /* EL TERCER PRODUCTO: la landing gana un mundo Institucional y
      este token tenía que existir ANTES que él. Sin su par, todo lo que se pinta
      "del color del producto" —el chip del conmutador, y sobre todo la travesía
      de AuthorityCrossing, que elige entre dos valores— caía al oro, y el cruce
@@ -851,7 +815,7 @@
      un color nuevo: el mismo material en la web pública y en el panel. */
   --product-institutional: 36 36% 58%;
   --product-institutional-ink: 210 15% 8%;
-  /* LOS CUATRO A LOS MANDOS (2026-09-19): la landing pasa a un mundo por
+  /* LOS CUATRO A LOS MANDOS: la landing pasa a un mundo por
      gobernador. Autocustodia hereda el oro de Personal y Empresa el bronce
      institucional; Exchange y Agente necesitaban su par ANTES de existir, por
      la misma razón que el bronce: sin token, todo lo que se pinta «del color
@@ -886,7 +850,7 @@
   --authority-accent-border: rgba(157, 180, 232, 0.28);
 }
 
-/* ── Light theme (founder 2026-07-19) ────────────────────────────────────────
+/* ── Light theme ────────────────────────────────────────
    ThemeApplier stamps data-theme on <html> while the dashboard is mounted.
    Same token families as the authority flip — nothing else moves. Personal =
    warm paper with a DARKENED gold accent (the dark theme's gold fails
@@ -895,9 +859,9 @@
    (--volt*) regardless of order, same trick the authority flip relies on. */
 [data-theme='light'],
 [data-skin='astryum'][data-theme='light'] {
-  /* Paper, not printer-white (founder 2026-07-22): the background carries a
+  /* Paper, not printer-white: the background carries a
      touch more warmth and the cards sit BELOW white — second de-glare pass
-     2026-07-26 ("sigue teniendo un efecto un poco de blanco nuclear"): the
+     ("sigue teniendo un efecto un poco de blanco nuclear"): the
      whole ladder dropped ~2-3 points of lightness and the ink deepened a
      notch, so cards read as paper stock against parchment, not as glowing
      panels. Contrast went UP on both ends (darker surfaces AND darker ink). */
@@ -1007,33 +971,10 @@
 :root:not([data-motion='full']) .meter-flow::after { animation: none; opacity: 0; }
 
 /* ── El Home, con vida propia ───────────────────────────────────────────────
-   Fundador 2026-08-24: «el home está genial, simple pero efectivo… ¿podemos
-   darle un toque extra de vida?». La regla que no se rompe al hacerlo: nada
+   La regla que no se rompe al hacerlo: nada
    de esto INFORMA de nada, así que nada de esto puede pedir atención. Son
    gestos lentos, de bajo contraste, que se notan cuando te quedas mirando y
-   no cuando trabajas — el barrido tarda 14s, el latido 4.
-
-   `.hero-sheen` — la luz que cruza el héroe, y SOLO el héroe (fundador
-   2026-08-25: «deja el efecto únicamente en el primer recuadro, el de net
-   worth, como la primera versión, pero mantén la velocidad actual y todo»).
-
-   El relevo por los cuatro paneles se retira. Con un único panel el reparto en
-   cuartos deja de tener sentido —dejaría la tarjeta apagada 36 de cada 48s— así
-   que vuelve la cadencia de la v1: la travesía ocupa el 70% del ciclo y el
-   resto es la pausa. Con un ciclo de 17s eso son ~12s de travesía: EXACTAMENTE
-   la velocidad que ya tenía, porque el recorrido (±95%) tampoco cambia. Solo
-   desaparecen la espera larga y los otros tres barridos.
-
-   Lo aprendido con el relevo, que no conviene perder por si vuelve:
-     · Con `animation-delay`, `animation-fill-mode: backwards` NO es opcional —
-       sin él la banda se queda aparcada y encendida durante toda la espera.
-     · El bloque mide un 120% del panel: le basta ±92% de su propio ancho para
-       entrar y salir. Con ±130% dos tercios del tiempo se gastaban fuera de la
-       tarjeta y el cruce visible se quedaba en un tercio.
-
-   `.live-beat` — un halo que respira DETRÁS de un punto de estado. Se usa solo
-   donde hay un hecho vivo que lo justifique (protecciones vigilando), nunca
-   como adorno de una cifra cualquiera. */
+   no cuando trabajas — el barrido tarda 14s, el latido 4. */
 .hero-sheen {
   position: absolute;
   inset: 0;
@@ -1085,8 +1026,7 @@
 :root:not([data-motion='full']) .hero-sheen::after { animation: none; opacity: 0; }
 :root:not([data-motion='full']):not([data-motion='calm']) .live-beat::before { animation: none; opacity: 0; }
 
-/* ── ceremony-compact (fundador 2026-08-26: la constitución como operación
-   anclable). En un panel de 360–720px las reservas de escena del LegacyPanel
+/* ── ceremony-compact. En un panel de 360–720px las reservas de escena del LegacyPanel
    (lg:pr-56 / lg:pr-60 + las constelaciones decorativas absolutas) estrangulan
    el contenido: aquí se anulan por envoltorio, sin tocar la ceremonia — en
    /app/legacy a página completa siguen intactas. El selector compuesto gana a
@@ -1137,8 +1077,8 @@
   80% { opacity: 0.18; }
   100% { opacity: 0.09; }
 }
-/* Halo contenido (fundador 2026-09-08, tercera pasada: «el color es un poco
-   extraño») — al 0.3 teñía de marrón el hueco entre la roca y el anillo. */
+/* Halo contenido — al 0.3 teñía de marrón el hueco entre la roca y el anillo.
+ */
 @keyframes astry-halo-breathe {
   0%, 100% { opacity: 0.09; }
   50% { opacity: 0.18; }
@@ -1179,9 +1119,7 @@
 :root[data-motion='minimal'] .astry-load-halo { opacity: 0.18; }
 :root[data-motion='minimal'] .astry-load-mote { display: none; }
 
-/* ── Wallets: la rejilla de tarjetas mide SU PANEL, no el viewport ──────────
-   Fundador 2026-08-28: con una operación anclada a la derecha, las tarjetas
-   «se ven muy abultadas, se hacen pequeñas y no se reparten bien». La causa es
+/* La causa es
    estructural y ya la pagaron los quesitos y los cuerpos de operación: los
    breakpoints de viewport no saben que el dock se ha comido 800px del ancho.
    Container queries — la rejilla cuenta sus columnas según el ancho REAL que
@@ -1194,9 +1132,9 @@
   grid-template-columns: 1fr;
 }
 /* Los umbrales garantizan que una tarjeta nunca baje de ~300px de ancho (subido
-   de ~260 el 2026-08-29, fundador: «quiero que las hagas más grandes» — y el
+   de ~260 — y el
    dorso ahora aloja DOS direcciones etiquetadas, que piden ese aire).
-   OJO (2026-08-29): estas queries son solo el PRIMER PINTADO sin JS. El
+   OJO: estas queries son solo el PRIMER PINTADO sin JS. El
    recuento vivo lo pisa WalletCardsGrid (WalletManager.tsx) con un estilo
    inline ASENTADO — cambiar columnas en pleno ensanche del dock hacía dos
    redimensiones y un salto a mitad de gesto. Cambiar umbrales = cambiar
@@ -1205,14 +1143,12 @@
 @container (min-width: 58rem) { .wallet-cards { grid-template-columns: repeat(3, 1fr); } }
 @container (min-width: 77rem) { .wallet-cards { grid-template-columns: repeat(4, 1fr); } }
 
-/* ── Wallets: la INVITACIÓN al giro (fundador 2026-09-10: «que no sea un
-   simple botón que aparece — algo más complejo»). Al posarse en la tarjeta,
+/* ── Wallets: la INVITACIÓN al giro. Al posarse en la tarjeta,
    tres gestos a la vez: la pestaña del giro se DESPLIEGA de círculo a
    píldora y enseña su palabra, el arco se traza alrededor del icono mientras
    este da media vuelta, y la marca de agua del fondo se corre unos píxeles a
    contramano del amago 3D (la tarjeta empieza el giro en framer — ver
-   CompactWalletCard). El aura de vuelo la lleva framer (segunda pasada,
-   fundador: «se queda la sombra en color iluminada por detrás»): plena solo
+   CompactWalletCard). El aura de vuelo la lleva framer (segunda pasada): plena solo
    MIENTRAS la tarjeta gira, insinuada bajo el cursor, y sigue al ángulo real
    — por eso ya no hay regla CSS para .wcard-aura.
    Sereno: los mismos gestos, a la mitad de tempo. Mínimo: la pestaña aparece
@@ -1314,7 +1250,7 @@
 :root:not([data-motion='full']):not([data-motion='calm']) .emblem-turn-rev,
 :root:not([data-motion='full']):not([data-motion='calm']) .emblem-breathe { animation: none; }
 
-/* ── La mesa del exchange (stage/, 2026-09-11) ──────────────────────────────
+/* ── La mesa del exchange (stage/) ──────────────────────────────
    NOTAS PLEGADAS: dentro del escenario, las notas al pie inline de cada
    estación del desk (los <p> tenues de 11px) se pliegan tras «Notes» — el
    tour y el «Why» de cada paso llevan la explicación. Selector por atributo
@@ -1351,7 +1287,7 @@
 :root[data-motion='minimal'] .exchange-client section:hover,
 :root[data-motion='minimal'] .exchange-client > div > div.rounded-2xl:hover { transform: none; }
 
-/* ── EL RAÍL DE ESTACIONES (StationProgress v3, 2026-09-12) ─────────────────
+/* ── EL RAÍL DE ESTACIONES (StationProgress v3) ─────────────────
    El lado lo decide la CAJA, no la pantalla: en una ventana flotante (42rem)
    o un anclaje estrecho, la tira va encima del contenido; con 52rem de caja
    (la página entera, o el anclaje ensanchado) el raíl vertical se pone al lado,
@@ -1375,31 +1311,13 @@
   .station-rail .srl-strip { display: none; }
 }
 
-/* LOS ESTANTES DE WALLETS (12-sep): cada función con su raíl de color a la
+/* LOS ESTANTES DE WALLETS: cada función con su raíl de color a la
    izquierda (personal · gestor · Legacy) y la misma cabecera en línea — se ve
    de un vistazo qué hace cada wallet, sin bandas que partan la página. */
 .shelf-rail { border-left: 2px solid var(--shelf, transparent); padding-left: 1rem; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   EL TEMA INSTITUCIONAL — la lámina
-   (fundador 2026-09-13: «un tema más reglamentario para instituciones, no uno
-   soso… que cambie los colores, dibujos y layouts… algo disruptivo y que se
-   note, no un simple cambio de colores»)
-
-   El modelo entero, y por qué son DOS ejes, está en lib/theme/appearance.ts.
-   Resumen para quien edite esto: `data-skin` dice de qué MATERIAL está hecha
-   la interfaz; `data-theme` sigue diciendo si hay luz o no. Los dos se cruzan,
-   igual que ya se cruzaban `data-theme` y `data-authority` — un tema sin cara
-   clara sería medio tema.
-
-   NADA DE ESTO TOCA EL TEMA ASTRYUM. Todas las reglas de aquí abajo cuelgan de
-   [data-skin='institutional']; sin ese sello, el panel es exactamente el de
-   siempre, hasta el último pixel. Esa es la condición que el fundador puso
-   primero («déjalo todo como está y llámalo tema astryum»).
-
-   Los bloques van SIN CAPA (@layer) a propósito, como los de luz y autoridad:
-   así ganan a las utilidades de Tailwind pase lo que pase con el orden.
-   ═══════════════════════════════════════════════════════════════════════════ */
+   EL TEMA INSTITUCIONAL — la lámina */
 
 /* ── 1. MATERIAL — grafito y bronce, nunca espacio y oro ────────────────────
    Astryum tiñe TODA la escalera de superficies de cálido (43-44° de tono): es
@@ -1581,14 +1499,7 @@
    difusa de 36px y los botones y los aros llevan halo del color de la marca.
    En la lámina NADA flota — el papel no levita. La profundidad la da un
    segundo filete, y solo los planos que de verdad se superponen (modales)
-   conservan una sombra, dura y corta.
-
-   Por qué con `!important` y por qué por atributo `style`: 57 sitios del
-   panel escriben su sombra INLINE (Card, HairlineGroup, los modales…) y una
-   declaración inline gana a cualquier hoja de estilos salvo que sea
-   importante. Seleccionar por `[style*='shadow']` es lo que permite que este
-   tema apague TODOS los halos desde un sitio en vez de tocar 57 ficheros —
-   y que mañana un fichero nuevo con su sombra inline ya nazca apagado. */
+   conservan una sombra, dura y corta. */
 [data-skin='institutional'] [class*='shadow-'],
 [data-skin='institutional'] [style*='shadow'] {
   box-shadow: 0 0 0 1px var(--plate-rule-soft) !important;
@@ -1603,7 +1514,7 @@
     0 10px 26px -18px rgba(0, 0, 0, 0.7) !important;
 }
 /* El halo del anillo de foco pierde el difuminado pero NUNCA la visibilidad:
-   un tema no puede empeorar el teclado (barrido a11y 2026-08-03). */
+   un tema no puede empeorar el teclado (barrido a11y). */
 [data-skin='institutional'] :focus-visible {
   outline: 2px solid hsl(var(--volt));
   outline-offset: 2px;
@@ -1655,33 +1566,15 @@
   animation: none;
 }
 
-/* ── 6b. LA ENTRADA — la lámina se imprime (2026-09-14) ─────────────────────
-   Fundador: «con el nuevo estilo gráfico institucional no tiene animación de
-   inicio el portfolio, aparecen todos los cuadros sin más». No era una
+/* ── 6b. LA ENTRADA — la lámina se imprime ─────────────────────
+   No era una
    regresión: §4 quita las sombras y los halos que hacían LEGIBLE la entrada
    sutil de Astryum, y el tema nunca trajo la suya. La trae ahora, en tres
    piezas que se leen como una: los bloques se IMPRIMEN de izquierda a derecha
    (ui/motion.tsx, printVariants), el filete interior de cada lámina se TRAZA
    un instante después (aquí), y las orlas de los instrumentos grabados se
    dibujan al llegar (.plate-draw, DonutCard EngravedOrla). Nada funde, nada
-   flota: se escribe.
-
-   EL MOVIMIENTO MANDA SOBRE EL TEMA, como siempre: en Mínimo ninguna de las
-   tres se mueve. En Sereno el bloque y su filete van AL MISMO tempo que en
-   Completo — imprimir ya es lento y pequeño, y un filete que tardara el
-   doble que su bloque serían dos tempos para un gesto que se vende como uno
-   (astryum-73, 14-sep); solo la orla del instrumento, que es otro gesto, se
-   ralentiza. Los selectores llevan `:root[data-motion]` Y `[data-skin]`
-   sobre el mismo <html>, sin descendiente entre medias — los dos sellos
-   viven en la raíz (ThemeApplier).
-
-   Y LA ENTRADA ESPERA AL VELO: en recarga dura AccessGate retiene la cortina
-   ~1,9 s y el panel monta debajo; RevealGroup arranca al caer la cortina
-   (lib/motion/veil.ts). El filete de aquí es una animación CSS que corre al
-   montar, así que en recarga dura se traza detrás del velo — es el único de
-   los tres gestos que se pierde ahí, y se pierde a propósito: un filete que
-   esperase al velo tendría que ser JS, y el filete es CSS para que las
-   cientos de placas de una pantalla no se suscriban a un store. */
+   flota: se escribe. */
 @keyframes plate-rule-in {
   from {
     clip-path: inset(0 100% 0 0);
@@ -1832,10 +1725,9 @@
 :root:not([data-motion='full']) .lg-anim { animation: none !important; }
 
 /* ── LA ENTRADA DEL MUNDO INSTITUCIONAL ──────────────────────────────────
-   Fundador, 2026-09-19: «cuando cambias de modo el personal es el único modo
-   que tiene aparición de entrada». Cierto: SolarJourney monta su columna solar
+   Cierto: SolarJourney monta su columna solar
    con `initial={{opacity:0, scale:0.92}}` y el institucional aparecía de golpe.
-
+ *
    El gesto es el NOMBRE componiéndose letra a letra, que es lo que hace un
    cajista: cada letra baja a su pluma medida con su propio retardo. Va en CSS y
    no en framer a propósito — la separación por scroll escribe el atributo

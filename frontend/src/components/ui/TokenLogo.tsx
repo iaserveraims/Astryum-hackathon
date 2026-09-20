@@ -46,7 +46,7 @@ const LOGO_MAP: Record<string, string> = {
   TUSD:    'https://assets.coingecko.com/coins/images/3449/small/tusd.png',
   BUSD:    'https://assets.coingecko.com/coins/images/9576/small/BUSD.png',
   USDP:    'https://assets.coingecko.com/coins/images/6013/small/Pax_Dollar.png',
-  // RLUSD faltaba (25-ago). Sin entrada aqui caia al fallback de jsdelivr,
+  // RLUSD faltaba. Sin entrada aqui caia al fallback de jsdelivr,
   // que no tiene rlusd.svg, y de ahi a las dos letras «RL» sobre un degradado
   // — que es lo que se veia en la card de la boveda Sentora. Es un EMT de los
   // del invariante 4, o sea uno de los activos centrales del producto.

@@ -5,18 +5,6 @@
  * (rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf), not synthetic data, and by a different
  * author than the fix. Independent verification against the failure that
  * actually happened IS the discipline this bug family demands.
- *
- * What the real history proves — and what it does NOT:
- * The rehearsal produced 31 validated txs, 6 of them tec-class. But the two
- * EscrowCreate + two EscrowFinish + one DIDSet all succeeded, and every signer of
- * a failed tx also signed a successful one. So for THIS account the guarded and
- * the blind reads are IDENTICAL — the catastrophic misread (a tec EscrowCreate
- * counted as a completed rehearsal → offer to disable the master key against an
- * escrow that never settled) did not occur. It missed only by luck of which tx
- * type drew the tecINSUFFICIENT_RESERVE (it hit TicketCreate 4×, not the escrow).
- *   · Tests 1–3 lock that the guard does not BREAK the real (good) reading.
- *   · Test 4 relocates the exact real failure code onto an EscrowCreate — the
- *     shot that missed — and proves the guard is what prevents the phantom.
  */
 import * as fs from 'fs';
 import * as path from 'path';

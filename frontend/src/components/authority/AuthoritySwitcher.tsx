@@ -184,8 +184,8 @@ export default function AuthoritySwitcher({ onNavigate }: { onNavigate?: () => v
                           {a.pendingSignatures > 9 ? '9+' : a.pendingSignatures}
                         </span>
                       ) : a.proposalsUnread && typeof a.pendingSignatures !== 'number' ? (
-                        // it. 34 (agente D): «?» = la lectura se intentó y falló
-                        // (it. 27 §6) — nunca el silencio de un cero que no se leyó.
+                        // «?» = la lectura se intentó y falló
+                        // — nunca el silencio de un cero que no se leyó.
                         <span
                           className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-black"
                           title={`${t('Waiting for your signature')}: ${t('could not read')}`}

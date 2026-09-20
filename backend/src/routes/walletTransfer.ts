@@ -1,43 +1,6 @@
 /**
  * Wallet transfer routes — native-asset transfers between the user's own
  * wallets or to an external address, prepared from the Wallets page.
- *
- *   POST /wallet-transfer/prepare
- *     rail 'evm'  → asset 'FLR' (default): native transfer on Flare mainnet
- *                   (chainId 14). asset 'FXRP': plain ERC-20 transfer(to,amount)
- *                   on the FXRP token (resolved live, never hardcoded). Both
- *                   return the same `calls[]` shape the Earn E2 flow uses, so
- *                   the frontend hands it to useWalletPartner().sendIntentCalls
- *                   unchanged.
- *     rail 'xrpl' → XRP Payment. Returns the same `xrplPayment` shape E1 uses
- *                   (no Account field — XamanWalletService injects the signer).
- *
- * Astryum stays PREPARE-ONLY (invariant #1): the response is an unsigned
- * payload + a fee disclosure (#6, disclosedToUser). It never signs, never
- * broadcasts. A native wallet-to-wallet payment is NOT DeFi execution, so this
- * route does not sit behind FLARE_DEFI_ENABLED / the DeFi geofence (#5) — the
- * same way fiat and monitoring stay available everywhere.
- *
- * Cross-ecosystem XRP moves are NOT raw payments — they ride the FAssets
- * bridge, prepared here as well (both prepare-only, user always signs):
- *
- *   POST /wallet-transfer/bridge/xrpl-to-flare/prepare
- *     XRP → FXRP direct minting: ONE XRPL Payment to the Core Vault with the
- *     32-byte recipient memo (prefix 4642505266410018 + padding + EVM address,
- *     dev.flare.network/fassets/developer-guides/fassets-direct-minting). Fees
- *     (minting + executor) are deducted from the payment; a permissionless
- *     executor finalizes on Flare. Signed in Xaman.
- *
- *   POST /wallet-transfer/bridge/flare-to-xrpl/prepare
- *     FXRP → XRP redemption: redeemAmount(amountUBA, xrplAddress, 0x0) on
- *     AssetManagerFXRP (dev.flare.network/fassets/developer-guides/
- *     fassets-redeem-amount). Burns FXRP; the FAssets agent pays XRP to the
- *     destination. Signed in the user's EVM wallet.
- *
- * Both bridge routes touch the FAssets protocol, so both sit behind the
- * FLARE_DEFI_ENABLED flag (#8/#10). Only the MINT (xrpl-to-flare, an entry) sits
- * behind the jurisdiction geofence (#5): the REDEMPTION (flare-to-xrpl) is the way
- * home, and THE EXIT IS NEVER GATED (see gateFlareBridgeExit).
  */
 import { Router, Request, Response } from 'express';
 import { ethers } from 'ethers';
@@ -95,14 +58,14 @@ function gateFlareBridge(region: string | null): { status: number; error: string
 }
 
 /**
- * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13).
+ * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA»).
  *
  * FXRP → XRP (redeemAmount) burns the signer's OWN FXRP and brings the value back
  * to XRPL — the way home the DERISK flow (PaActionsModal) and WalletTransferModals
  * send people down. The geofence (#5) exists to stop OPENING DeFi exposure from a
  * blocked region, never to hold capital already there: under it a holder could
  * enter FXRP and then be refused the way out. So this direction is flag-only (#10);
- * the flag stays (module kill-switch, pending founder decision). The mint direction
+ * the flag stays. The mint direction
  * (xrpl-to-flare) is an entry and keeps `gateFlareBridge(region)`.
  */
 function gateFlareBridgeExit(): { status: number; error: string } | null {
@@ -145,16 +108,6 @@ function parseAmount(amount: unknown, decimals: number): bigint | null {
  * Dos cosas DISTINTAS que el rail XRPL sabe llevar, las dos OPCIONALES y las
  * dos palabras del usuario — se validan, jamás se inventan, y viajan a la
  * pantalla de revisión antes de la firma (#6):
- *
- *   DestinationTag  el número de cuenta DENTRO del destino. Un exchange
- *                   custodial acredita por él; sin él, el dinero llega a la
- *                   cuenta madre y nadie sabe de quién es.
- *   Memos           texto libre. Queda PÚBLICO en el ledger para siempre.
- *
- * ⚠ Ninguno de los dos existe en EVM: allí un envío nativo no tiene dónde
- * meter texto. Por eso el rail 'evm' los RECHAZA en vez de tragárselos — que
- * el servidor ignore en silencio una nota que el usuario escribió le haría
- * creer que viajó (familia «éxito no ganado»).
  */
 const MEMO_MAX_BYTES = 128;
 const XRPL_MAX_DESTINATION_TAG = 4_294_967_295; // uint32
@@ -347,7 +300,7 @@ router.post('/prepare', async (req: Request, res: Response) => {
 
     return res.json({
       rail: 'xrpl',
-      // productizer-it17 (it16 R3 3.2) — el estado REAL del executor de Astryum,
+      // El estado REAL del executor de Astryum,
       // con el mismo nombre que usan las órdenes de consejo, para que la pantalla
       // deje de dar por supuesto lo peor. Aquí, además, nada depende de él: un
       // Payment XRP nativo firmado entra en el ledger solo.
@@ -415,7 +368,7 @@ router.post('/bridge/xrpl-to-flare/prepare', async (req: Request, res: Response)
     const gate = gateFlareBridge(region);
     if (gate) return res.status(gate.status).json({ error: gate.error });
 
-    // §3 — the same cap + fuel frontier flareDemo has had since 2026-07-25.
+    // §3 — the same cap + fuel frontier flareDemo has had.
     // This rail mints too: without it, the XRP leaves and parks with no reclaim
     // when the executor cannot pay for the attestation.
     const { demoCapFromBody } = await import('../config/demoCap');
@@ -448,7 +401,7 @@ router.post('/bridge/xrpl-to-flare/prepare', async (req: Request, res: Response)
 
     return res.json({
       rail: 'xrpl',
-      // productizer-it17 (it16 R3 3.2) — este SÍ lo finaliza un executor en Flare:
+      // Este SÍ lo finaliza un executor en Flare:
       // la pantalla necesita saber si el de Astryum está corriendo en vez de
       // avisar siempre de lo mismo. Mismo nombre que las órdenes de consejo.
       serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },
@@ -498,7 +451,7 @@ router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response)
       destinationTag?: string | number;
       region?: string | null;
       /**
-       * it. 34 — the caller composes this redeem AFTER another call of the same
+       * The caller composes this redeem AFTER another call of the same
        * signature that puts the FXRP in the wallet (PaActionsModal «Convert to
        * XRP»: Kinetic withdraw → redeem). Dry-run against TODAY's state the burn
        * would revert for lack of balance — a FALSE negative. `true` marks the
@@ -544,13 +497,13 @@ router.post('/bridge/flare-to-xrpl/prepare', async (req: Request, res: Response)
       tagRead.value !== undefined
         ? am.interface.encodeFunctionData('redeemWithTag', [amountUBA, toXrpl, ZERO_ADDR, tagRead.value])
         : am.interface.encodeFunctionData('redeemAmount', [amountUBA, toXrpl, ZERO_ADDR]);
-    // productizer-it13 §4.2 — the FAssets redemption fee as a LIVE figure on the
+    // The FAssets redemption fee as a LIVE figure on the
     // amount this call redeems (invariants #6/#9). Unreadable → null plus a line
     // that says so: never rendered as a 0% fee.
     const redemptionFee = estimateRedemptionFee(amountUBA, await readRedemptionFeeBips(provider));
 
     // Invariant #11 — dry-run BEFORE the wallet opens, `from` = the wallet that
-    // signs. it. 34: this route was the second half of «Convert to XRP» in
+    // signs. This route was the second half of «Convert to XRP» in
     // PaActionsModal and carried no verdict at all, so the screen composed the
     // pair with no `preflight` to show. A redeem that reverts (not enough FXRP,
     // below the agent's lot, paused) is a CALL_EXCEPTION here — a proven

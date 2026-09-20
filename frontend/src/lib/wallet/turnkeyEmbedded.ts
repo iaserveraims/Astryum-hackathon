@@ -6,13 +6,6 @@
  *   2. POST /wallets/embedded/create with the PUBLIC attestation → backend creates a
  *      Turnkey sub-org whose root authenticator is THIS passkey (exclusive user control)
  *   3. exportEmbeddedKey()      → client-side export (sovereignty test)
- *
- * The private key is generated in Turnkey's TEE and is NEVER seen by Astryum
- * (backend or client). We only move the public passkey attestation around.
- *
- * The passkey + export steps require `@turnkey/sdk-browser` + NEXT_PUBLIC_TURNKEY_ORG_ID.
- * Until those are present these throw a typed error and the UI keeps the gate disabled
- * — we never fabricate an embedded wallet.
  */
 
 import { getApiBase } from '../env';

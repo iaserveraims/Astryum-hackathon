@@ -4,33 +4,6 @@
  * El stop-loss que teníamos es `sign-at-trigger`: el tick detecta, avisa, y el
  * dueño tiene que despertarse y firmar. De madrugada eso es infinito, y el
  * mercado de Morpho liquida en minutos.
- *
- * Morpho publica la pieza que lo resuelve y **no hay que escribirla**:
- * `PreLiquidation` + `PreLiquidationFactory`, desplegados en Ethereum y Base,
- * con auditorías de Spearbit y ABDK. El prestatario configura sus propios
- * umbrales, autoriza el contrato UNA vez, y a partir de ahí **cualquiera** puede
- * ejecutar la pre-liquidación cuando la posición cruza el umbral — sin firma
- * del dueño, sin gas suyo, sin munición suya.
- *
- * Por qué esto NO rompe el invariante 8: los límites viven en el código del
- * contrato, no en una promesa. `preLltv < LLTV` obliga a que salte ANTES de la
- * liquidación real; los factores de incentivo están acotados por arriba; y
- * Morpho lo dice explícito: los parámetros «garantizan que una pre-liquidación
- * no puede empeorar la salud de la posición». Es exactamente «el usuario firma
- * una vez, la lógica trustless ejecuta dentro de los límites firmados» — salvo
- * que la lógica ni siquiera es nuestra.
- *
- * VERIFICADO ON-CHAIN 2026-08-29:
- *   · factory 0x6FF33615…3476 · MORPHO() = el singleton correcto
- *   · 6 instancias vivas en Ethereum (thBILL/USDT, svZCHF/ZCHF, beraSTONE/WETH,
- *     USD0++/USD0, LBTC/WBTC, ynETHx/WETH) — está en producción, no en teoría
- *   · el factory despliega con `new PreLiquidation{salt: 0}` ⇒ CREATE2
- *     DETERMINISTA: el mismo (mercado, params) SIEMPRE da la misma dirección, y
- *     crear una que ya existe REVIERTE SIN DATOS. Por eso aquí primero se busca
- *     la instancia existente y solo se crea si no la hay.
- *
- * Prepare-only: se componen patas sin firmar. Astryum no arma nada por su
- * cuenta — el usuario firma la autorización, y puede retirarla cuando quiera.
  */
 import { Interface } from 'ethers';
 import { MORPHO_BLUE_SINGLETON, FXRP_RLUSD_MARKET_ID, EvmLeg } from '../connectors/protocols/adapters/MorphoBlueEthAdapter';

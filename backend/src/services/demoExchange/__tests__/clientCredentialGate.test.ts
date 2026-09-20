@@ -1,5 +1,5 @@
 /**
- * El KYC del exchange, UNA CREDENCIAL POR CASILLA (fundador 14-sep, «solo B»):
+ * El KYC del exchange, UNA CREDENCIAL POR CASILLA:
  * emisor = la raíz del run, sujeto = el omnibus, tipo = `KYC-<tag>`.
  *
  * Lo que se fija: qué casilla pasa y cuál no; que la credencial de OTRA casilla

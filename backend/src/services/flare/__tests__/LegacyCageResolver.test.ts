@@ -1,17 +1,12 @@
 /**
  * LegacyCageResolver — whose cage is this?
  *
- * The bug this pins (founder, 2026-08-05): the stack came from env, so EVERY
+ * The bug this pins: the stack came from env, so EVERY
  * Legacy in the install resolved to the same cage. Reading it was cosmetic;
  * funding it was not — `/vault-fund/prepare` composes a mint that deposits into
  * the vault, and the vault has no function that pays principal to an address.
  * A second council would have signed its own XRP into the first council's cage
  * for good.
- *
- * So the contract under test is blunt: a cage belongs to the ONE council whose
- * address hash the bridge carries as `immutable`, and to nobody else. Every
- * other answer is "this Legacy has no cage" — never a throw, never a fallback
- * to the configured one.
  */
 
 const COUNCIL = 'rsmvJMhhh8Bhr2cTLDbXKrGoCCLptKDmrf';
@@ -184,7 +179,7 @@ describe('cages born from the factory (per-Legacy stacks)', () => {
   });
 
   it('consults the mainnet registry even when NOBODY set the variable', async () => {
-    // The staging bug (2026-08-22): with LEGACY_FACTORY_ADDRESS unset the
+    // The staging bug: with LEGACY_FACTORY_ADDRESS unset the
     // registry was not asked at all, so a council whose cage was born from the
     // factory resolved to "no cage" — and its principal vanished from the
     // portfolio without a single error. The mainnet registry's address is

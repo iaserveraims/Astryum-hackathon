@@ -1,7 +1,7 @@
 /**
  * La marca local no contradice al servidor.
  *
- * El fallo que fija esto (2026-09-14): el mismo Legacy, activo en el registro,
+ * El fallo que fija esto: el mismo Legacy, activo en el registro,
  * se veía en el preview y no en producción, porque el navegador de producción
  * lo tenía marcado como «quitado» y el filtro del sábado escondía todo lo
  * marcado. Una cuenta que el servidor tiene activa se enseña; se quita

@@ -20,7 +20,7 @@ export default function WalletRoot({ children }: { children: React.ReactNode }) 
             position="top-right"
             // Por encima de TODO el sistema de operaciones (overlay flotante
             // z-50, píldoras z-60): el aviso de «ya hay tres» nace justamente
-            // con una card abierta delante (fundador 2026-08-28).
+            // con una card abierta delante.
             style={{ zIndex: 2147483000 }}
             toastOptions={{
               duration: 4000,

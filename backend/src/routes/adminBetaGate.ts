@@ -1,26 +1,9 @@
 /**
- * Beta-gate writes — approve / revoke waitlist emails (founder 2026-08-01).
+ * Beta-gate writes — approve / revoke waitlist emails.
  *
  * The ONLY writes of the closed beta's door, in their own router behind
  * adminPanel's requireAdmin (same rule as platformStatus: adminPanel itself
  * stays read-only by construction).
- *
- *   POST /api/admin-beta/approve  { email, sendInvite? }  founders only
- *        → sets waitlist_signups.approvedAt (idempotent: the FIRST approval
- *          instant is kept), creates the row when the email never signed the
- *          public form (source 'admin' — how judges get their seat for the
- *          08-05 mainnet review), and sends the boarding-pass email unless
- *          sendInvite === false. invitedAt records the LAST successful send,
- *          so re-approving is the natural "resend the invite" gesture.
- *
- *   POST /api/admin-beta/revoke   { email }               founders only
- *        → clears approvedAt: the email can no longer CREATE an account.
- *          Deliberately does NOT touch any existing User row — suspending a
- *          live account is a different power (User.isActive) with its own
- *          consequences, and this door must never silently exercise it.
- *
- * The gate itself (fail-closed BETA_REGISTRATION_OPEN) lives in
- * config/betaGate.ts; the enforcement sits in the account-creation paths.
  */
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';

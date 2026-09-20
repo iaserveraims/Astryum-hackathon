@@ -2,17 +2,7 @@
  * OmnibusWatcher — reads the exchange's omnibus XRPL account and tells the demo
  * ledger what arrived (by destination tag) and what left. Read-only by
  * construction: only `account_tx`, through the one XRPL transport that refuses
- * a frozen rippled (`xrplJsonRpc(..., {requireFresh:true})` — incident
- * 2026-07-31).
- *
- * Classification is honest and simple:
- *   - incoming Payment WITH a tag that belongs to a client of the run →
- *       'deposit' when the sender is that client's registered XRPL wallet,
- *       'return' otherwise (a FAssets agent paying the client's redemption back
- *       to the omnibus lands here — the tag comes from the on-chain registry).
- *   - outgoing Payment from the omnibus to a client's registered XRPL wallet →
- *       'withdraw'.
- *   - everything else is reported as 'other' so nothing silently disappears.
+ * a frozen rippled (`xrplJsonRpc(..., {requireFresh:true})` — incident).
  */
 
 import { xrplJsonRpc } from '../flare/DirectMintExecutorService';
@@ -179,7 +169,7 @@ export function servedLedgerIndex(raw: unknown): number | null {
 
 /**
  * The range the node says it searched. A missing / malformed bound is UNREADABLE
- * (productizer it. 12, 2.6d): `Number(undefined)` is NaN and every `NaN > min`
+ * (2.6d): `Number(undefined)` is NaN and every `NaN > min`
  * comparison is false, so a node that did not state its range used to pass the
  * «full history» check and a partial history read as «absent».
  */
@@ -204,7 +194,7 @@ function assertServedRange(result: unknown, min: number | undefined, max: number
  * Live, EXHAUSTIVE: every omnibus Payment validated in [ledgerIndexMin,
  * ledgerIndexMax], paginating until the marker is gone. What the page-capped
  * `scanOmnibus` cannot give — «this payment is NOT on the ledger» — is only
- * ever concluded from this read (productizer it. 8: with >400 omnibus txs since
+ * ever concluded from this read (with >400 omnibus txs since
  * a payout's ledger, a 2-page scan missed a validated payout and its
  * reservation was released → the client was paid again).
  *
@@ -250,8 +240,8 @@ export async function scanOmnibusWindow(
 
 /**
  * Live, BOUNDED and FORWARD: the omnibus Payments validated in [ledgerIndexMin,
- * ledgerIndexMax], oldest first, stopping at the first row `stop` accepts
- * (productizer it. 10). A put-to-work proof asks one question of its window — «is
+ * ledgerIndexMax], oldest first, stopping at the first row `stop` accepts.
+ * A put-to-work proof asks one question of its window — «is
  * THIS memo there?» / «is there an 0xFE nobody explains?» — so it never needs the
  * whole history: the first match answers it, and the window itself is bounded by
  * the caller (a LastLedgerSequence, or a fixed search width).

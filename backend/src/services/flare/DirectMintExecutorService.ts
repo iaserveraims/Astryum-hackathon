@@ -5,26 +5,8 @@
  * Vault cuyo memo compromete `keccak256(userOpData)`, y un EXECUTOR entrega los
  * bytes completos a `AssetManagerFXRP.executeDirectMintingWithData(proof, data)`
  * con un proof FDC `XRPPayment`. Hoy no existe canal publicado hacia el operator
- * de Flare, así que Astryum corre su propio executor (decisión fundador
- * 2026-07-12: "hay que automatizar este script") para TODOS los flujos 0xFE —
+ * de Flare, así que Astryum corre su propio executor (decisión) para TODOS los flujos 0xFE —
  * e1, e3, vaults (Firelight/earnXRP/Monarq), supply-usdt0, pa-withdraw.
- *
- * Línea de custodia (invariantes #1/#8): el executor NO toca fondos de usuario
- * ni decide nada — el contrato solo acepta los bytes EXACTOS que la firma de
- * Xaman comprometió (keccak256(_data) == hash del memo + sender + nonce). Quien
- * ejecuta tiene CERO discreción: o ejecuta lo firmado, o revierte. La clave del
- * executor (FLARE_EXECUTOR_PK, solo env — invariante #2) firma únicamente
- * (1) la solicitud de attestation al FDC Hub y (2) la llamada de ejecución —
- * gas propio de Astryum, jamás claves de usuario. El watcher vive tras doble
- * flag (FLARE_EXECUTOR_ENABLED + la propia PK) — invariante #10 — y simula
- * SIEMPRE antes de firmar (#11); la verificación post-settlement queda en el
- * proof on-chain + la fila de auditoría del handoff.
- *
- * Los bytes a ejecutar salen del DirectMintHandoffStore (persistidos en el
- * prepare, casados por userOpHash). Fallback si no hay fila: reconstrucción
- * determinista probando cada shape conocido (vaults + lend-only) contra el
- * hash del memo — e1 y demás batches con parámetros libres solo son
- * ejecutables desde el store o con override manual (scripts/execute-direct-mint.ts).
  */
 
 import { ethers } from 'ethers';
@@ -82,7 +64,7 @@ export class ExecutorAbort extends Error {
    * true = los bytes firmados son estructuralmente inejecutables (sender que no
    * es el PA del pagador, nonce ya consumido…): NINGÚN executor podrá ejecutarlos
    * jamás. El watcher los aparca en vez de reintentar — y estos abortos saltan
-   * ANTES de pagar la fee de attestation (lección 2026-07-18: 244 attestations
+   * ANTES de pagar la fee de attestation (lección: 244 attestations
    * de 20 FLR quemadas reintentando 3 Payments imposibles).
    */
   readonly permanent: boolean;
@@ -157,7 +139,7 @@ export const DEFAULTS = {
   // fallback. Se conserva el nombre `wssUrl` por compat con el CLI/watcher.
   // NO es xrplcluster: ese cluster responde 402 a IPs de datacenter (Railway) y
   // además rota nodos amendment-blocked. Se queda de último recurso.
-  // OJO (incidente 2026-07-31): s1/s2 también pueden congelarse respondiendo
+  // OJO: s1/s2 también pueden congelarse respondiendo
   // `success` — el barrido exige frescura del ledger antes de fiarse (ver
   // xrplEndpointFresh); si todos los endpoints están viejos, el tick FALLA
   // en voz alta en vez de barrer una ventana muerta.
@@ -252,7 +234,7 @@ function httpsify(url: string): string {
 
 /** Endpoints JSON-RPC en orden de fallback: el que pasó el llamador (coaccionado
  *  ws→https), luego los overrides de entorno, luego los públicos de Ripple —
- *  ambos con historia completa, verificado 2026-07-12 (ledger 32570→105.5M).
+ *  ambos con historia completa, verificado (ledger 32570→105.5M).
  *  xrplcluster va el ÚLTIMO a propósito: 402 a IPs de datacenter y nodos
  *  amendment-blocked rotando en su pool. Sirve de red, no de primera opción. */
 export function xrplHttpEndpoints(preferred?: string): string[] {
@@ -285,9 +267,7 @@ const FRESH_PROBE_TTL_MS = 60_000;
 /**
  * Un rippled atascado (amendment-blocked, sin peers…) responde `success` con
  * una vista CONGELADA: `account_tx` simplemente omite lo firmado después del
- * atasco y la rotación por error jamás salta. Incidente 2026-07-31: s1 y s2
- * de Ripple sirvieron una ventana ~4h vieja y el watcher quedó ciego a los
- * 0xFE nuevos mientras el XRP de los usuarios esperaba en el Core Vault.
+ * atasco y la rotación por error jamás salta.
  * Antes de fiarse de un endpoint para BARRER, su último ledger validado debe
  * haber cerrado hace menos de MAX_VALIDATED_LEDGER_AGE_S.
  */
@@ -362,7 +342,7 @@ export async function xrplWsRequest(
  * (xrplWsRequest); si tampoco, sube el último error HTTP — el que describe el
  * problema de transporte real (p.ej. `txnNotFound` o `xrpl_http_402`).
  */
-// Exported 2026-08-16 (panel métricas SourceTag): the generic XRPL JSON-RPC
+// Exported (panel métricas SourceTag): the generic XRPL JSON-RPC
 // with endpoint rotation + freshness guard is exactly what any account_tx
 // consumer needs — one transport, not two.
 export async function xrplJsonRpc(
@@ -517,7 +497,7 @@ export async function resolveUserOpData(
   const stored = await findHandoffByUserOpHash(input.memo.userOpHash);
   if (stored?.userOpData) {
     if (ethers.keccak256(stored.userOpData).toLowerCase() === input.memo.userOpHash) {
-      // VERDAD DEL LEDGER (incidente 2026-08-21, gemelo nonce 19): estar aquí
+      // VERDAD DEL LEDGER: estar aquí
       // significa que el Payment de este memo EXISTE validado en XRPL — el
       // usuario firmó, diga lo que diga su navegador. Se marca `signedAt` sin
       // depender del aviso del cliente: el guard del asiento queda cerrado
@@ -582,22 +562,12 @@ export interface PendingRow {
 }
 
 /**
- * ¿Es NUESTRO este Payment de instrucción? (14-sep)
+ * ¿Es NUESTRO este Payment de instrucción?
  *
- * Hasta hoy «mío» era solo «lleva la SourceTag del proyecto». Pero desde el ciclo
- * productizer (it. 12) las cuentas OPERATIVAS — el omnibus del exchange, el
- * consejo — firman SIN la etiqueta a propósito (T&C Make Waves §7: la operativa
- * no cuenta como actividad de usuario). Con el filtro viejo, TODO 0xFE operativo
+ * Hasta hoy «mío» era solo «lleva la SourceTag del proyecto». Con el filtro viejo, TODO 0xFE operativo
  * era invisible al executor: el put-to-work del autopilot, el de la mesa, el
  * nacimiento de un pote por el consejo. Visto en staging: 11 XRP de un cliente
  * validados en el Core Vault y ningún executor los tocaba.
- *
- * Ahora es nuestro si (a) lleva la etiqueta, o (b) es 0xFE y su userOpHash tiene
- * fila en NUESTRO store — lo compusimos aquí. Un 0xFE de otra app que comparte el
- * Core Vault no tiene fila y sigue ignorándose (no se ejecuta lo ajeno). Si el
- * store no se puede leer, NO es nuestro en este tick: no se ejecuta lo que no se
- * puede probar, y el siguiente tick lo vuelve a mirar. `onlyTag` null = modo
- * FLARE_EXECUTOR_ALL (todo).
  */
 export async function isOwnInstruction(
   row: { tag?: number; opcode: string; memoHex: string },
@@ -821,7 +791,7 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
   const userOpData = resolved.userOpData;
   log(`[3] userOpData resuelto (${resolved.source}) — keccak256 == hash del memo ✓`);
 
-  // EL EXECUTOR NO PONE DINERO EN EL BATCH DEL USUARIO (28-ago-2026).
+  // EL EXECUTOR NO PONE DINERO EN EL BATCH DEL USUARIO.
   //
   // La guía de Flare dice que el executor «debe adjuntar msg.value = Σ call.value».
   // Es media verdad, y la media que falta cuesta dinero: el contrato
@@ -832,11 +802,6 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
   // a cero revierte). Adjuntarlo aquí no habilita nada — solo hace que la wallet
   // caliente de Astryum financie el envío del usuario y deje ese FLR aparcado
   // en la PA.
-  //
-  // Hasta hoy daba igual: todos los batches tenían Σ call.value = 0. Deja de dar
-  // igual con `pa-transfer` de FLR nativo, que es exactamente una pierna con
-  // `value` — y sin este 0, cada FLR que un usuario enviase lo pagaría Astryum.
-  // Se sigue calculando para poder AVISAR, nunca para pagarlo.
   const EXECUTOR_ATTACHED_VALUE = 0n;
   const decodedOp = ethers.AbiCoder.defaultAbiCoder().decode(
     ['tuple(address sender, uint256 nonce, bytes initCode, bytes callData, bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes paymasterAndData, bytes signature)'],
@@ -953,7 +918,7 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
     roundId = reusable.roundId;
     log(`[6] Attestation ya pagada en un intento anterior → ronda ${roundId} — se reutiliza SIN pagar fee`);
   } else {
-    // Freno de mano global (incidente 2026-07-18): la fee solo se firma si cabe
+    // Freno de mano global: la fee solo se firma si cabe
     // en el presupuesto diario — lanza FeeBudgetExceeded sin firmar nada. Este
     // carril (0xFE) CEDE la reserva de Legacy: una fuga aquí no puede dejar al
     // consejo sin combustible para relayar sus órdenes (suelo intocable).
@@ -1017,9 +982,7 @@ export async function executeDirectMint(input: ExecuteInput): Promise<ExecuteOut
     // finalizada SIN proof no es un proof caducado: o es un parpadeo transitorio
     // del DA layer (reintentar — el proof está ahí), o el request NUNCA se
     // confirmó (fee corta / peso insuficiente → fee QUEMADA, no habrá proof).
-    // `passesWithoutProof` tolera 2 pasadas para descartar el parpadeo; a la 2ª
-    // se concluye "nunca confirmado" y — porque es dinero quemado, la versión
-    // lenta del incidente 0xFE — se AVISA y se re-paga. El contador se PERSISTE
+    // `passesWithoutProof` tolera 2 pasadas para descartar el parpadeo; El contador se PERSISTE
     // para que la tolerancia no se resetee a 0 en cada redeploy.
     if (reusable) {
       reusable.passesWithoutProof++;
@@ -1290,7 +1253,7 @@ export class DirectMintExecutorWatcher {
 
   /** Carga los aparcados persistidos ('0xfe-parked') en memoria — una vez.
    *  Sin esto un redeploy vaciaría la lista y los aparcados por tope de
-   *  fallos volverían a reintentar desde cero (hueco #2 del recon 26-jul). */
+   *  fallos volverían a reintentar desde cero (hueco #2 del recon). */
   private parkedHydrated = false;
   private async hydrateParked(): Promise<void> {
     if (this.parkedHydrated) return;
@@ -1322,7 +1285,7 @@ export class DirectMintExecutorWatcher {
       dateISO: row?.dateISO ?? null,
       memoHex: row?.memoHex ?? null,
     });
-    // Aparcar LIBERA el asiento de nonce (incidente 12-sep): estos bytes ya no
+    // Aparcar LIBERA el asiento de nonce: estos bytes ya no
     // van a ejecutar, así que el usuario puede re-preparar/firmar en ese nonce.
     // Sin esto, el guard NONCE_SEAT_TAKEN seguía viendo el handoff 'queued' y el
     // re-claim quedaba en bucle. La fila no se borra: si el Payment se firmó, el
@@ -1440,7 +1403,7 @@ export class DirectMintExecutorWatcher {
     }
 
     if (op === 'dismiss') {
-      // Descartar = archivar una LÁPIDA (fundador 2026-08-22): solo se ofrece
+      // Descartar = archivar una LÁPIDA: solo se ofrece
       // sobre lo APARCADO — jamás sobre algo que aún podría ejecutar. La fila
       // pasa al namespace '0xfe-dismissed' (auditoría intacta: qué era, por qué
       // murió, cuánto carrier quedó en el Core Vault) y el barrido, la lista de
@@ -1524,7 +1487,7 @@ export class DirectMintExecutorWatcher {
   }
 
   /**
-   * Tick bookkeeping + the alert the 31-jul blindness was missing: a watcher
+   * Tick bookkeeping + the alert the blindness was missing: a watcher
    * failing every tick only wrote lastTickError into /executor-health, and
    * nobody looks there until it is too late. Alert on the TRANSITION into
    * error (dedup'd by key so a persistent failure does not spam) and once on
@@ -1760,7 +1723,7 @@ export class DirectMintExecutorWatcher {
   async handleAttemptError(row: PendingRow, e: unknown): Promise<'parked' | 'deferred' | 'backoff'> {
     // Bytes estructuralmente inejecutables (sender ajeno, nonce consumido):
     // aparcar YA — reintentarlos es quemar fees por un revert garantizado
-    // (lección 2026-07-18: 244 attestations × 20 FLR por 3 txs imposibles).
+    // (lección: 244 attestations × 20 FLR por 3 txs imposibles).
     if (e instanceof ExecutorAbort && e.permanent) {
       await this.parkTx(row.hash, (e as Error).message, 'permanent', row);
       console.error(`[0xFE-executor] ⛔ ${row.hash} INEJECUTABLE — aparcado sin coste: ${(e as Error).message}`);

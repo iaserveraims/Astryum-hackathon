@@ -1,5 +1,5 @@
 /**
- * El vigía ante una orden CADUCADA (fundador 2026-09-16): dos órdenes con el
+ * El vigía ante una orden CADUCADA: dos órdenes con el
  * nonce superado se reintentaron 185 veces en un día. Un veredicto `stale`
  * del relé la saca de la cola para siempre y la anota como abandonada — y la
  * pasada del vigía no la vuelve a adoptar aunque siga en la lista.

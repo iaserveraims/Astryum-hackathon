@@ -1,5 +1,4 @@
 /**
- * productizer 13-sep — the alert inbox had no owner.
  *
  * GET matched the wallet by address alone (any session read anyone's inbox by
  * typing a public address) and PATCH /:id/read acknowledged any alert id.

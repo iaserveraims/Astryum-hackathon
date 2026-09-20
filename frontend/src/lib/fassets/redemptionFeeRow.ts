@@ -1,30 +1,6 @@
 /**
  * redemptionFeeRow — the FAssets redemption fee of ANY unmint/redeem, said
  * before the signature with the figure the backend read live (invariant #6).
- *
- * WHAT WAS WRONG (productizer it. 12, finding 4.2). Seven surfaces composed an
- * unmint without the figure — PoteExitCard, VaultEntryModal, TicketsBoard,
- * PaActionsModal (unmint / withdraw to XRPL), VaultClaimModal (to XRPL),
- * WalletTransferModals (redeem) and the Legacy yield claim — and some promised a
- * GROSS «≈ X XRP» that the agent never sends: the protocol keeps its share
- * (18 bips on mainnet today) out of the XRP it pays.
- *
- * One reader, one sentence, everywhere:
- *  - a figure the server stated → «FAssets redemption fee: 0.18% ≈ X FXRP, paid
- *    out of the XRP the agent sends», and the amount becomes the NET estimate;
- *  - nothing stated → «could not be read — it is not zero», and the amount keeps
- *    the gross with that caveat. Never a number that was not read.
- *
- * NEVER SUBTRACTED TWICE (productizer it. 14, finding R3 3.2). The institutional
- * exit routes started sending `exit.xrpOutHuman` already NET of the fee (flag
- * `xrpOutNetOfRedemptionFee`, read by nobody) and every screen took it as the
- * gross and subtracted the fee again: two different nets on one screen. The
- * gross and the net are now read by ONE function (`exitXrpOut`), which knows the
- * three shapes a response can have, and the net the server stated is the net
- * shown — it is never recomputed beside it.
- *
- * Strings are English sources for `t()`; `{placeholders}` are filled by the caller
- * (`fillFeeText`).
  */
 
 import { finiteOrNull, readPaDispatchFees, type FeeText } from '../wallet/paDispatchDisclosure';
@@ -73,7 +49,7 @@ export interface ExitXrpOut {
  * The gross and the net of a pote-exit / pote-claim-exit response.
  *
  * The three shapes, in the order they are recognised:
- *  1. TRANSITION (it. 13 backend): `xrpOutNetOfRedemptionFee: true` and no usable
+ *  1. TRANSITION (backend): `xrpOutNetOfRedemptionFee: true` and no usable
  *     `xrpOutNetHuman` → `xrpOutHuman` is already NET. It is shown as the net and
  *     never has the fee taken out again; the gross is `exit.unmintUBA` (what the
  *     route actually unmints), or null. (A half-migrated response that repeats
@@ -150,7 +126,7 @@ export function redemptionFeeView(response: unknown, grossFxrp: number | null): 
   if (bips == null && fxrp == null) return { kind: 'unreadable', grossFxrp: gross };
   const feeFxrp = fxrp ?? (gross != null && bips != null ? (gross * bips) / 10_000 : null);
   // The server's net IS the net: recomputing gross − fee beside it put a second,
-  // slightly different figure on the same screen (it. 14, R3 3.2).
+  // slightly different figure on the same screen (R3 3.2).
   const serverNet = readServerNetXrp(response);
   const netXrp =
     serverNet ?? (gross != null && feeFxrp != null ? Math.max(0, Math.round((gross - feeFxrp) * 1e6) / 1e6) : null);

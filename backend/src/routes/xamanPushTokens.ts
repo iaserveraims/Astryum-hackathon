@@ -6,29 +6,6 @@
  * something it created (`application.issued_user_token` in the payload result)
  * — and Astryum was throwing it away, so every signature in a family ceremony
  * meant scanning a QR, even for the member whose phone was already paired.
- *
- * What is stored: an opaque token that lets THIS app (holding its own API key
- * and secret) deliver a push to that user. It cannot sign and cannot move
- * money — but it CAN put a branded sign request on somebody's phone, which is
- * exactly what a phishing push needs. So both doors have an ownership floor
- * (productizer 13-sep, H2b):
- *
- *  - POST never trusts the client for WHO or WHAT. It takes a payload uuid,
- *    reads that payload from Xaman with the server's own credentials, and
- *    stores the token Xaman issued for the account that ACTUALLY signed it.
- *    Before, any session could post `{ xrplAddress: <a member>, userToken:
- *    <its own token> }` and receive every ceremony push meant for that member.
- *
- *  - GET hands a token back only to a session that proves it may push to that
- *    address: the address is one of the session's PROVEN addresses (its own
- *    phone), or the session proves a seat in the SignerList of `account` and
- *    `address` holds another seat there (the ceremony asking a co-signer, on a
- *    multisign request). Anything else answers `{ userToken: null }` — which
- *    only costs a QR. Before, any session could push an arbitrary txjson
- *    (Payment, SetRegularKey…) to anyone whose token was on file.
- *
- * Storage is the same background_jobs KV every other small persistent fact
- * uses: no migration, and losing the row only costs a QR.
  */
 
 import { Router, Request, Response } from 'express';

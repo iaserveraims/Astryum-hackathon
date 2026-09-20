@@ -7,26 +7,6 @@ import { cancelPayloadAndDecide, type XamanCancelAction } from '@/lib/xaman/payl
 /**
  * consejo-superficies 3 + 4 — LO QUE LA BANDEJA SE TRAGABA, Y A QUIEN LE OFRECE
  * PUERTAS QUE EL SERVIDOR VA A CERRAR.
- *
- * 3. «Sign as …» was not disabled while the previous payload's DELETE was in
- *    flight. Press it and the sign box became a different session; the late
- *    answer then found another uuid and was DROPPED — including a Xaman that
- *    had REFUSED the kill, or never answered. The request stayed signable on
- *    that member's phone for the rest of its 24 hours with nothing on screen
- *    to say so, which is the exact silence this rail exists to end.
- *
- * 4. `myAddrs` counts the Xaman connected in this tab, registered or not. The
- *    server does not: `sessionIsCouncilMember` (backend routes/councilProposals.ts)
- *    asks `prisma.wallet`. It does not bite on signing (`POST /:id/signatures`
- *    gates on the signer list and the blob), it bites on the two doors of an
- *    UNRESOLVED seat — `/:id/submitted` and `/:id/withdraw` — the one place
- *    where the refusal arrives AFTER the money moved: the transaction is on the
- *    ledger, the row cannot be told so, it expires, and the family composes the
- *    payment again.
- *
- * Extraction, not import: the vitest env is `node` and importing the .tsx drags
- * the wallet stack in (`Cannot find package 'got'`). The functions are pulled
- * out of the SHIPPING source and executed — never matched as substrings.
  */
 
 const inboxSrc = readFileSync(join(__dirname, '..', 'ProposalInbox.tsx'), 'utf8');

@@ -3,25 +3,10 @@
 /**
  * /app/exchange — LA PORTADA DEL EXCHANGE, y detrás el sitio del cliente.
  *
- * 15-sep (fundador): lo primero que se ve es una WELCOME con dos recuadros
+ * Lo primero que se ve es una WELCOME con dos recuadros
  * grandes — Entrar y Crear — y dentro de cada uno sus dos patas: el exchange
- * (la mesa del operador) y el cliente (esta cuenta). La portada SALE SIEMPRE
- * (decisión del fundador el mismo día): no se recuerda la última puerta.
- *
- * NADA SE MUDA DE RUTA (decisión del fundador, mismo día): el sitio del cliente
- * sigue siendo esta página — la portada es un estado suyo, no otra URL. Así el
- * componente no cambia de layout, de providers ni de props, que es donde viven
- * los bugs de las mudanzas (CLAUDE.md §Cómo se construye lo nuevo).
- *
- * Antes (11→14 sep): esta página abría directamente la cuenta del cliente
- * (ExchangeClientApp), con el sitio anterior (ExchangeClientSite) a un clic.
- * Las dos siguen enteras, ahora tras la pata «cliente» de la portada.
- *
- * PUBLICADA (fundador, 13-sep: «todo visible sin flags para la ventana»): el
- * PreviewOnly se borró — publicar es borrar el envoltorio. El interruptor de
- * entorno NEXT_PUBLIC_INSTITUTIONAL_ENABLED queda (config por entorno, #10);
- * en la ventana va a true. Las rutas de LECTURA del backend abren con la
- * página (anillo VER del 9-sep); las mutaciones siguen tras admin.
+ * (la mesa del operador) y el cliente (esta cuenta). La portada SALE SIEMPRE:
+ * no se recuerda la última puerta.
  */
 
 import { useEffect, useState } from 'react';

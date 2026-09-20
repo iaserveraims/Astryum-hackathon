@@ -6,39 +6,6 @@
  * 'use client' en un componente de servidor devuelve una referencia, no el
  * valor — por eso esto vive aparte. Es la misma partición que
  * lib/motion/level.ts, y por la misma razón.
- *
- * ── DOS EJES, NO UNO (fundador 2026-09-13) ───────────────────────────────
- * «El toggle de temas que hay en settings quiero que no solo cambie los
- * dibujitos… déjalo todo como está y llámalo tema Astryum, y que los demás
- * temas sean versiones modificadas… un tema más reglamentario para
- * instituciones, no uno soso: que cambie los colores, dibujos y layouts.»
- *
- *   · TEMA (`skin`)  — QUÉ MATERIAL es la interfaz. Es el eje nuevo.
- *   · LUZ  (`theme`) — oscuro, claro o el del dispositivo. El de siempre.
- *
- * Son ORTOGONALES a propósito: cada tema tiene su cara clara y su cara
- * oscura, igual que cada uno tiene su versión Personal y su versión Legacy
- * (data-authority). Cuatro atributos en <html> — data-skin, data-theme,
- * data-authority, data-motion — y globals.css los cruza.
- *
- * ── LOS TEMAS ────────────────────────────────────────────────────────────
- *   · astryum       — LO QUE HAY HOY, intacto: espacio profundo, oro cálido,
- *                     esquinas generosas, escenas vivas, auras y campo de
- *                     estrellas. Es el valor por defecto y la línea base
- *                     contra la que se define cualquier otro.
- *   · institutional — LA LÁMINA: grafito neutro y bronce antiguo en vez de
- *                     oro; sin halos, sin auras, sin brillo; esquinas
- *                     cuadradas; titulares en serif y etiquetas en
- *                     versalitas; el fondo es una retícula grabada, no un
- *                     cielo; las puertas van SIEMPRE en grabado monolínea;
- *                     las tarjetas pierden la sombra y ganan un doble filete
- *                     de lámina; el menú va a hueso con filete lateral.
- *                     Serio, pero no soso: es Astryum de etiqueta.
- *
- * NO ES UN AJUSTE DE NAVEGADOR, ES DE LA CUENTA. La verdad vive en el
- * servidor (User.preferences.appearance, el raíl de `legal` y de
- * `managerMode`): así el mismo correo se ve igual en el Chrome de la oficina
- * y en el móvil. Lo local es caché de arranque — ver stores/themeStore.ts.
  */
 
 export type Skin = 'astryum' | 'institutional';

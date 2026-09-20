@@ -15,35 +15,8 @@ import { UnconfirmedSignatureNotice } from '../../../components/settlement/Uncon
 import { describeStaleSignature } from '../../../components/wallet/SeatRefusalNotice';
 
 /**
- * familia-no-pude-leer (2026-08-20) — the most expensive failure family in this
+ * familia-no-pude-leer — the most expensive failure family in this
  * repo, closed outside the vault.
- *
- * «No pude leer» NO es «falló». A read failure AFTER a payload reached the
- * wallet must never lead back to the sign button: on the 0xFE rail a second
- * signature is a second dispatch — a second carrier fee in XRP, a second nonce
- * seat, a second movement of real money.
- *
- * The vault twins learned this in `settling-residuos` / `settling-final`; three
- * surfaces had not: `positions/PaActionsModal` (the 0xFE rail itself),
- * `positions/FtsoExitModal` and `earn/FlareDemoEarn`, all three ending their
- * sign() catch with "the prepared payload is still valid, retry the signature".
- * The decision moved out of `components/positions/vaultModalTruth.ts` and into
- * `lib/wallet/signOutcome.ts` — five surfaces, one implementation — and two
- * residues left by the vault's own sceptic were closed on the way:
- *
- *  A. `NEVER_REACHED_WALLET` was tested BEFORE `READ_AS_FAILED`, and two of its
- *     patterns ("insufficient funds", "exceeds the balance of the account") are
- *     ordinary revert reasons: a revert we actually read was answered "nothing
- *     left — sign it again", over calldata the chain had already refused.
- *
- *  B. `unconfirmedTrace` refused sentences that invite a retry but not
- *     sentences that pronounce a VERDICT — and this state's dominant arrival is
- *     Xaman's "Transaction submission failed: Failed to retrieve transaction
- *     hash from payload", quoted verbatim under "do NOT sign it again".
- *
- * Everything below RUNS the shipping code: the pure functions are imported, the
- * three catches are extracted from the shipping .tsx and executed, and the
- * panel is really rendered. No assertion here is a substring search over source.
  */
 
 // translateError writes the raw failure to console.error by design.
@@ -230,7 +203,7 @@ describe('applySignFailure — one catch for every signing surface', () => {
   });
 
   /**
-   * it. 31 (§4) — THE QUORUM CEREMONY'S OWN CLOSE, THROUGH THE SAME CATCH.
+   * THE QUORUM CEREMONY'S OWN CLOSE, THROUGH THE SAME CATCH.
    *
    * `sendIntent` routes a quorum account to the ceremony bus, and closing the
    * dialog before anything was broadcast rejects with `QUORUM_CEREMONY_ABANDONED`
@@ -319,7 +292,7 @@ function runSignCatch(file: string, e: unknown, handedToPartner: boolean): Ui {
   const ui: Ui = { error: null, unconfirmed: undefined, phase: null, preparedCleared: 0 };
   const deps: Record<string, unknown> = {
     applySignFailure,
-    // it.17 (R5 5.2): las superficies 0xFE preguntan PRIMERO si el ledger ya dio
+    // Las superficies 0xFE preguntan PRIMERO si el ledger ya dio
     // veredicto (tefMAX_LEDGER / tefPAST_SEQ) — «prepáralo otra vez», no el
     // ámbar «no pude confirmarlo». Se inyecta la función REAL: este arnés
     // ejecuta el código que se despliega, nunca una copia.
@@ -451,7 +424,7 @@ describe('UnconfirmedSignatureNotice — the ending the three surfaces now share
   });
 
   it('quotes the diagnostic only when there is something honest to quote', () => {
-    // batch-evm (2026-08-20): the label no longer says «What the wallet
+    // batch-evm: the label no longer says «What the wallet
     // reported». On a partial execution the quoted line is OUR OWN sentence
     // (partialExecutionError), written precisely so no wallet wording survives
     // into it — attributing it to the wallet invited «well, the wallet is wrong,

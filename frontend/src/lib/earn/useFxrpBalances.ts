@@ -7,13 +7,6 @@
  * Ethereum y el endpoint de saldo nativo solo sabe leer Flare, así que la línea
  * de disponible y el botón MAX se ocultaban a propósito (una cifra de Flare bajo
  * una etiqueta de Ethereum sería mentira). El carril lee ahora sus dos cadenas.
- *
- * Es también lo que permite decidir el camino sin preguntarlo: con el saldo en
- * la mano, `decideRoute` dice si esto cruza cadenas o no.
- *
- * `null` en un saldo significa NO SE PUDO LEER, y viaja como null hasta la
- * pantalla: pintar un 0 mandaría a puentear a quien ya tenía el dinero, o a
- * firmar una entrada que revierte.
  */
 import { useEffect, useState } from 'react';
 import { getApiBase } from '../env';

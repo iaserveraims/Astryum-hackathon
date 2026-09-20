@@ -2,25 +2,6 @@
  * DemoExchangeAutopilot — the "exchange backend" of the Demo Exchange: a loop
  * that watches the omnibus, credits deposits by tag, and fulfils client
  * requests by signing with THE SIMULATED EXCHANGE KEY (`DemoExchangeSigner`):
- *
- *   put-to-work  →  0xFE from the omnibus to the Core Vault carrying
- *                   [approve, pote.deposit(supplyUBA, receiver = client account)]
- *                   → the executor mints FXRP and deposits; shares to the client
- *   withdraw     →  Payment omnibus → the client's registered own XRPL wallet
- *
- * With this loop the custodial flow needs two human actions in total: the
- * client deposits (their wallet, their signature) and taps "put to work" —
- * or none after the deposit when they set auto-invest. Everything else is
- * what a real exchange backend does with its hot key.
- *
- * Discipline (BuildSpec §, founder 2026-08-26):
- *   · the key refuses (see the signer's policy) — every refusal is a receipt;
- *   · a signed 0xFE is NEVER re-sent (DirectMintingDelayed / slow executor =
- *     wait): the request goes 'signed' with its hash and only flips to 'done'
- *     when the MasterAccountController reports the XRPL tx consumed;
- *   · a NonceSeatTaken from the handoff builder means "an earlier 0xFE of this
- *     omnibus is still in flight" → the request stays pending, with the reason;
- *   · heartbeat for the Sentinel on every tick.
  */
 
 import { ethers } from 'ethers';
@@ -35,7 +16,7 @@ import { flareProvider } from './DemoRunVerifier';
 
 const SOURCE = 'demo-exchange-autopilot';
 /**
- * Ledgers the autopilot's own 0xFE stays signable (it. 14, R1 1.1). The builder
+ * Ledgers the autopilot's own 0xFE stays signable (R1 1.1). The builder
  * stamps it on the Payment AND on the nonce-seat record, so the seat lives exactly
  * as long as the payment can land: the loop signs and submits within seconds, and
  * a submission that never enters a ledger is provably dead ~80 s later, instead of
@@ -69,12 +50,12 @@ function intervalMs(): number {
 }
 
 /**
- * it. 27 — UNA PETICIÓN PUEDE ENVEJECER PARA SIEMPRE Y EL AGENTE SEGUÍA VERDE.
+ * UNA PETICIÓN PUEDE ENVEJECER PARA SIEMPRE Y EL AGENTE SEGUÍA VERDE.
  *
  * `refuse(final=false)` deja la petición `pending` con su motivo y no avisa a
  * nadie: ni al canal de ops, ni al latido (que se declara `ok` mientras el tick
- * no lance). Sí toca un reloj —pone `updatedAt` a «ahora» en cada rechazo—, y
- * por eso la edad se mide desde `createdAt` (it. 29, `noteStaleRequests`). Un
+ * no lance). Sí toca un reloj —pone `updatedAt` a «ahora» en cada rechazo, y
+ * por eso la edad se mide desde `createdAt` (`noteStaleRequests`). Un
  * cliente cuya entrada murió en `NO_CLIENT_ACCOUNT`,
  * o cuya salida no se pudo firmar, podía quedarse ahí días sin que nadie se
  * enterara: el bucle «funcionaba» perfectamente, sirviendo a nadie.
@@ -89,10 +70,10 @@ function staleRequestMs(): number {
 
 /**
  * Today's spend of the exchange key, and whether we could read it at all
- * (it. 23, 1.7). `unreadable` carries the reason so the refusal — or the receipt
+ * (1.7). `unreadable` carries the reason so the refusal — or the receipt
  * of a payout that went anyway — can name it. Never «0 spent today».
  *
- * it. 25 (B.3) — Y AHORA TAMPOCO UN CERO DE MENTIRA HACIA DENTRO. Devolvía
+ * Y AHORA TAMPOCO UN CERO DE MENTIRA HACIA DENTRO. Devolvía
  * `0n` al fallar la lectura, y ese cero viajaba hasta la política como si fuera
  * un hecho: durante una caída de base de datos el tope quedaba SUSPENDIDO
  * entero, sin ninguna cota — ni de importe ni de número de pagos — y sin que
@@ -108,7 +89,7 @@ async function readSpendBudget(now = new Date()): Promise<{ spentDrops: bigint |
 }
 
 /**
- * it. 31 — ¿queda algo VIVO en esta toma que el ledger o la llave deban
+ * ¿queda algo VIVO en esta toma que el ledger o la llave deban
  * resolver? Es lo único que justifica leer el ledger por una toma cerrada:
  * peticiones pendientes o firmadas sin final, y reservas de mesa abiertas.
  */
@@ -118,7 +99,7 @@ export function hasLiveWork(run: Pick<DemoRun, 'requests' | 'deskPayments'>): bo
 }
 
 /**
- * it. 33 — is there a desk reservation the ledger can close on its own? Only a
+ * Is there a desk reservation the ledger can close on its own? Only a
  * `prepared` row with a LastLedgerSequence: a payout the desk composed, or a
  * put-to-work the server composed (memo + LLS). Anything else has its own door.
  */
@@ -133,7 +114,7 @@ export class DemoExchangeAutopilot {
   private lastTickAt: string | null = null;
   private lastError: string | null = null;
   private fulfilled: AutopilotStatus['fulfilled'] = [];
-  /** Peticiones que llevan demasiado esperando, recogidas en el tick en curso (it. 27). */
+  /** Peticiones que llevan demasiado esperando, recogidas en el tick en curso. */
   private staleThisTick: string[] = [];
 
   start(): void {
@@ -182,7 +163,7 @@ export class DemoExchangeAutopilot {
       attribution: cfg.attribution,
       maxTxXrp: Number(cfg.maxTxDrops) / 1e6,
       dailyCapXrp: Number(cfg.dailyCapDrops) / 1e6,
-      // it. 21: the daily spend is read STRICTLY now (a swallowed error used to
+      // The daily spend is read STRICTLY now (a swallowed error used to
       // read as «0 spent today» and hand the key its whole cap back). A status
       // panel must not 500 because of that: it says «unknown» and the SIGNING
       // path, which is the one that matters, still refuses when it cannot read.
@@ -199,8 +180,8 @@ export class DemoExchangeAutopilot {
   /**
    * One pass over every open run with autopilot on. Safe to call by hand.
    *
-   * it. 21 (3.1) — A TICK THAT COULD NOT EVEN READ ITS LIST IS NOT A GREEN TICK.
-   * Since `listRuns` reads STRICTLY (it. 19), a database outage makes this method
+   * A TICK THAT COULD NOT EVEN READ ITS LIST IS NOT A GREEN TICK.
+   * Since `listRuns` reads STRICTLY, a database outage makes this method
    * THROW before the loop starts. The `try/finally` had no `catch`, so `errors`
    * stayed empty, `markAgentTick` reported **ok** for a pass that served nobody,
    * and the rejection died as an `unhandledRejection` (the interval calls this
@@ -219,7 +200,7 @@ export class DemoExchangeAutopilot {
     const errors: string[] = [];
     try {
       const cfg = readSignerConfig();
-      // it. 25 (B.4) — LAS RESERVAS HUÉRFANAS SE DEVUELVEN ANTES DE SERVIR A
+      // LAS RESERVAS HUÉRFANAS SE DEVUELVEN ANTES DE SERVIR A
       // NADIE. Una reserva que nadie liquidó ni devolvió (un reinicio entre la
       // firma y el veredicto del ledger) se come el tope para siempre y deja la
       // operativa propia estrangulada al día siguiente. Esto solo ABRE tope: no
@@ -231,7 +212,7 @@ export class DemoExchangeAutopilot {
       // with what this tick signed (withRunLock, single-instance assumption).
       const all = await listRuns();
       for (const listed of all) {
-        // it. 31 — UNA TOMA CERRADA NO ES UN INTERRUPTOR SOBRE LA SALIDA.
+        // UNA TOMA CERRADA NO ES UN INTERRUPTOR SOBRE LA SALIDA.
         // Este bucle saltaba toda toma `closed` ANTES de servir y antes de
         // mirar su cola: `PATCH /runs/:id {status:'closed'}` dejaba una
         // retirada aceptada con 201 («the autopilot will fulfil it on its next
@@ -244,7 +225,7 @@ export class DemoExchangeAutopilot {
         // lectura del ledger por ella.
         if (listed.status !== 'open' && !hasLiveWork(listed)) continue;
         if (!listed.autopilot) {
-          // it. 29 — LA TOMA MANUAL TAMBIÉN ENVEJECE, Y ES LA QUE MÁS OJOS PIDE.
+          // LA TOMA MANUAL TAMBIÉN ENVEJECE, Y ES LA QUE MÁS OJOS PIDE.
           // El comentario del paso 4 de `serveRun` prometía «se mira SIEMPRE,
           // tenga o no este backend la llave», pero este `continue` saltaba la
           // toma entera antes de llegar allí: una petición olvidada en una toma
@@ -253,7 +234,7 @@ export class DemoExchangeAutopilot {
           // su cola no cuesta ninguna lectura más. No se firma nada ni se guarda
           // nada: `noteStaleRequests` no muta.
           this.noteStaleRequests(listed);
-          // it. 33 (agente C, 3) — EL BARRIDO DE MESA CORRE TAMBIÉN AQUÍ. La
+          // EL BARRIDO DE MESA CORRE TAMBIÉN AQUÍ. La
           // reserva de mesa con memo existe SOLO en tomas que sirve una persona
           // (la compone `prepare-put-to-work`, la puerta del escritorio), y el
           // 409 del dueño (`DESK_PAYMENT_NOT_RELEASABLE_HERE`) le promete sin
@@ -300,7 +281,7 @@ export class DemoExchangeAutopilot {
     } finally {
       this.ticking = false;
       try {
-        // it. 27: un tick que no lanzó pero que dejó a alguien esperando media
+        // Un tick que no lanzó pero que dejó a alguien esperando media
         // hora NO es un tick verde. La cola envejecida entra en el latido con el
         // mismo peso que un error: es el Sentinel quien tiene que verlo, no el
         // cliente descubriendo que su dinero lleva ahí desde ayer.
@@ -320,13 +301,13 @@ export class DemoExchangeAutopilot {
 
   private async serveRun(run: DemoRun, signerAddress: string | null): Promise<number> {
     let actions = 0;
-    // it. 31 — una toma cerrada se sirve SOLO PARA SALIR: retiradas y lo que ya
+    // Una toma cerrada se sirve SOLO PARA SALIR: retiradas y lo que ya
     // estaba firmado (el ledger decide). Ninguna entrada nueva, ninguna
     // operativa propia (auto-invest, aceptación de credenciales).
     const exitOnly = run.status !== 'open';
     // 0. a prepared desk payout closes by its LastLedgerSequence only against a
     //    ledger index read BEFORE the scan (availableBalance.LedgerView).
-    //    it. 31: y una reserva de mesa de put-to-work CON memo pasada de su LLS
+    // y una reserva de mesa de put-to-work CON memo pasada de su LLS
     //    también se prueba aquí (antes solo la cerraba el DELETE de admin).
     const view: LedgerView = {};
     if ((run.deskPayments ?? []).some((p) => p.status === 'prepared' && typeof p.lastLedgerSequence === 'number')) {
@@ -339,7 +320,7 @@ export class DemoExchangeAutopilot {
     if (sync.credited.length) actions += sync.credited.length;
     // A prepared desk payout past its LLS closes only on an EXHAUSTIVE read of
     // its window (the 2-page scan above can miss it on a busy omnibus).
-    // it. 31 — LA RESERVA DE MESA CON MEMO RETENÍA LA SALIDA INDEFINIDAMENTE.
+    // — LA RESERVA DE MESA CON MEMO RETENÍA LA SALIDA INDEFINIDAMENTE.
     // `deskPaymentOpen` jamás cierra un put-to-work por ledger, y su única
     // prueba (`provePutToWorkRelease`) solo la pedía el DELETE de admin: desde
     // que caducaba su payload (~6 min) hasta que un fundador se acordara, el
@@ -347,7 +328,7 @@ export class DemoExchangeAutopilot {
     // prueba y barre payouts pasados de LLS; ahora hace lo mismo con los
     // put-to-work de mesa compuestos (memo + LLS) cuya ventana pasó: la
     // ventana se lee ENTERA (hasta su LLS), y solo un «absent» probado suelta.
-    // it. 33: la misma pieza corre en las tomas manuales (`sweepDeskOnly`).
+    // la misma pieza corre en las tomas manuales (`sweepDeskOnly`).
     actions += await this.proveAndSweepDesk(run, view);
     // 2. standing instructions: a credited deposit of an auto-invest client becomes a request
     for (const m of sync.credited) {
@@ -395,7 +376,7 @@ export class DemoExchangeAutopilot {
     // 3. requests → the key (only if this backend holds THIS run's omnibus key)
     if (signerAddress && run.omnibusAddress === signerAddress) {
       for (const req of requestsOf(run)) {
-        // it. 25 (B.2) — UNA PETICIÓN QUE REVIENTA NO SE LLEVA POR DELANTE A LAS
+        // UNA PETICIÓN QUE REVIENTA NO SE LLEVA POR DELANTE A LAS
         // DEMÁS. Sin esto, cualquier excepción subía hasta el `catch` POR TOMA
         // del tick: los clientes que iban detrás en la cola no se servían, y el
         // `saveRun` del final de este método ni se ejecutaba, así que también se
@@ -403,7 +384,7 @@ export class DemoExchangeAutopilot {
         // con su frase, y la cola sigue.
         try {
           if (req.status === 'pending' && exitOnly && req.kind === 'put-to-work') {
-            // it. 31: en una toma cerrada una ENTRADA no se ejecuta. Cerrar la
+            // En una toma cerrada una ENTRADA no se ejecuta. Cerrar la
             // petición (final) libera lo que retuviera y deja recibo; el XRP
             // sigue en la casilla y sale por la puerta de siempre.
             actions += await this.refuseClosedEntry(run, req);
@@ -444,8 +425,8 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * The post-scan half of step 0, shared by `serveRun` and the manual-run sweep
-   * (it. 33): prove prepared payouts past their LLS over their whole window,
+   * The post-scan half of step 0, shared by `serveRun` and the manual-run sweep:
+   * prove prepared payouts past their LLS over their whole window,
    * settle/release what the ledger decided, and prove desk put-to-works past
    * their LLS. Needs `view.validatedLedgerIndex` read BEFORE any scan; without
    * it nothing closes. Mutates `run`; returns how many actions it took.
@@ -465,7 +446,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 33 (agente C, 3) — the desk sweep for a run this backend does NOT serve
+   * The desk sweep for a run this backend does NOT serve
    * (no autopilot): no scan, no signature, no entries. It reads the validated
    * ledger, proves what is past its LastLedgerSequence over its whole window and
    * closes only what the ledger decided. Saves only when something changed.
@@ -475,20 +456,20 @@ export class DemoExchangeAutopilot {
     const view: LedgerView = {};
     const { currentValidatedLedgerIndex } = await import('./OmnibusWatcher');
     const idx = await currentValidatedLedgerIndex();
-    if (!idx) return 0; // no ledger read, no proof, nothing released (it. 8)
+    if (!idx) return 0; // no ledger read, no proof, nothing released
     view.validatedLedgerIndex = idx;
     const actions = await this.proveAndSweepDesk(run, view);
     if (actions > 0) await saveRun(run);
     return actions;
   }
 
-  /** Is the live loop running (a timer armed by `start()`)? What a 201 may promise depends on it (it. 33). */
+  /** Is the live loop running (a timer armed by `start()`)? What a 201 may promise depends on it. */
   isRunning(): boolean {
     return this.timer !== null;
   }
 
   /**
-   * it. 27 — LO QUE ENVEJECE SE DICE EN VOZ ALTA.
+   * LO QUE ENVEJECE SE DICE EN VOZ ALTA.
    *
    * No cambia ningún estado y no puede negar nada: solo mira la edad de lo que
    * sigue abierto y lo cuenta. Una SALIDA parada es `critical` (el dinero de una
@@ -501,7 +482,7 @@ export class DemoExchangeAutopilot {
     const ttl = staleRequestMs();
     for (const req of requestsOf(run)) {
       if (req.status !== 'pending' && req.status !== 'submitting') continue;
-      // it. 29 — LA EDAD SE MIDE DESDE QUE LA PETICIÓN EXISTE, no desde el
+      // LA EDAD SE MIDE DESDE QUE LA PETICIÓN EXISTE, no desde el
       // último rechazo. Medía por `updatedAt`, y `refuse()` lo pone a «ahora» en
       // su primera línea SIEMPRE, también con `final === false` — que es
       // exactamente lo que le pasa a todos los estados que esta alarma nombra
@@ -514,7 +495,7 @@ export class DemoExchangeAutopilot {
       const ageMin = Math.round((now - since) / 60_000);
       const exit = req.kind === 'withdraw';
       this.staleThisTick.push(`${req.kind} ${req.id} (${run.label}) waiting ${ageMin} min: ${req.reason ?? 'no reason recorded'}`);
-      // it. 31: el latido la lleva cada tick; el aviso, una vez por media hora.
+      // El latido la lleva cada tick; el aviso, una vez por media hora.
       if (!this.alertGate(`stale:${req.id}`, now)) continue;
       void this.alertOps(exit ? 'critical' : 'warn', `a ${req.kind} request has been waiting ${ageMin} min without being served`, {
         key: `request-stale:${req.id}`,
@@ -530,9 +511,7 @@ export class DemoExchangeAutopilot {
   private readonly acceptWindows = new Map<string, number>();
 
   /**
-   * El KYC por casilla que la RAÍZ ya emitió lo ACEPTA la caja (fundador 14-sep:
-   * «darle la credencial KYC cuando se crea la cuenta… el exchange siempre en
-   * autopilot»). La raíz firma UNA vez en Xaman y jamás vive en caliente;
+   * El KYC por casilla que la RAÍZ ya emitió lo ACEPTA la caja. La raíz firma UNA vez en Xaman y jamás vive en caliente;
    * aceptar es un acto de la propia caja, con la llave que este backend ya
    * tiene. La puerta es `assessCredentialAccept`: solo un CredentialAccept
    * exacto, de la raíz del run, del tipo de una casilla suya. Emitir, jamás.
@@ -541,9 +520,9 @@ export class DemoExchangeAutopilot {
     if (process.env.DEMO_EXCHANGE_AUTO_ACCEPT_KYC === 'false' || run.clients.length === 0) return 0;
     const gate = await import('./clientCredentialGate');
     if (!gate.clientCredentialGateEnabled()) return 0;
-    // it. 25 (B.3) — EL RADIO DE LA OPERATIVA PROPIA CUANDO EL TOPE ES ILEGIBLE.
+    // EL RADIO DE LA OPERATIVA PROPIA CUANDO EL TOPE ES ILEGIBLE.
     //
-    // it. 29 — POR QUÉ ESTA CEREMONIA NO SE APUNTA EN EL LIBRO DEL DÍA, DICHO.
+    // POR QUÉ ESTA CEREMONIA NO SE APUNTA EN EL LIBRO DEL DÍA, DICHO.
     // El comentario anterior afirmaba que «cuesta reserva del ledger», y de ahí
     // se leía que este acto pasaba por `reserveSpend`/`recordSpend`. No lo hace,
     // y no debe: el libro del día cuenta lo que esta llave PAGA (`assessPayment`
@@ -554,11 +533,6 @@ export class DemoExchangeAutopilot {
     // pago, así que `spentToday()` es «lo que esta llave ha pagado hoy», no «lo
     // que le ha costado a la casa». La auditoría de la ceremonia vive donde
     // corresponde: un recibo E3_CREDENTIAL con su hash, más abajo.
-    //
-    // Lo que sí depende del libro: mientras no se pueda leer NI ESCRIBIR no hay
-    // cota alguna sobre lo que esta llave firma, y la operativa propia espera al
-    // siguiente tick. Las entradas ya fallan cerradas por su cuenta en `fulfil`.
-    // Por aquí no pasa ninguna salida de ningún cliente, y ninguna se detiene.
     const budget = await readSpendBudget();
     if (budget.unreadable || budget.spentDrops === null) {
       console.error(`[demo-exchange-autopilot] libro de gasto ilegible (${budget.unreadable ?? 'unknown'}) — la caja no acepta credenciales este tick; las salidas de clientes siguen saliendo`);
@@ -629,7 +603,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 23 (1.7) — «I COULD NOT READ MY OWN CAP» IS A FACT THAT MUST BE VISIBLE.
+   * «I COULD NOT READ MY OWN CAP» IS A FACT THAT MUST BE VISIBLE.
    *
    * A payout is never held for it (the cap protects our key, not the client's
    * way out), so the only honest alternative to stopping it is saying it out
@@ -641,7 +615,7 @@ export class DemoExchangeAutopilot {
     const already = run.receipts.some((r) => r.step === 'NOTE' && r.note === note && r.clientId === req.clientId);
     if (!already) run.receipts.push(makeReceipt(run, { step: 'NOTE', chain: 'none', clientId: req.clientId, note, expect: { code: 'SPEND_LEDGER_UNREADABLE', kind: req.kind, drops: req.drops } }));
     console.error(`[demo-exchange-autopilot] spend ledger unreadable (${detail}) — ${consequence} (${req.kind} ${req.id})`);
-    // it. 25 (B.3) — EL RASTRO NO PUEDE VIVIR SOLO EN LA BASE DE DATOS QUE NO
+    // EL RASTRO NO PUEDE VIVIR SOLO EN LA BASE DE DATOS QUE NO
     // CONTESTA. El recibo de arriba se guarda con la toma, en la misma base que
     // acaba de fallar: si el fallo es ese, el único aviso se pierde con él. Sale
     // además por el canal de ops, que no depende de ella.
@@ -668,19 +642,8 @@ export class DemoExchangeAutopilot {
 
   /**
    * The reservation becomes a settled spend once the ledger says the payment
-   * entered (it. 23, 1.4). Idempotent per hash, so a replay from the journal
+   * entered (1.4). Idempotent per hash, so a replay from the journal
    * never counts the same XRP twice.
-   *
-   * It must not THROW here: the payment has already moved the client's money and
-   * the receipts below are the record of it. A write that fails is said out loud
-   * instead of aborting the bookkeeping of something that already happened.
-   *
-   * it. 29 — Y SE DICE LO QUE DE VERDAD QUEDA ATRÁS. Esto hablaba del «lado
-   * estrecho del tope» para los dos casos, y de un PAYOUT no es cierto desde la
-   * it. 27: un payout reserva CERO contra el tope (`countsAgainstCap`), así que
-   * no hay drops de más reteniendo nada — lo único que falta es la fase del
-   * apunte de auditoría. En una ENTRADA sí: sus drops siguen contados como
-   * 'reserved' hasta que un barrido los devuelva, que es el lado seguro.
    */
   private async settleSpend(run: DemoRun, req: ClientRequest, drops: bigint, hash: string, purpose: 'put-to-work' | 'payout'): Promise<void> {
     try {
@@ -692,7 +655,7 @@ export class DemoExchangeAutopilot {
 
   /**
    * Gives a RESERVED spend back when the ledger proved the payment never moved
-   * the XRP (it. 23, 1.4). Best-effort on purpose: this runs after the ledger
+   * the XRP (1.4). Best-effort on purpose: this runs after the ledger
    * has already spoken, and a reconciliation that throws must not undo the
    * bookkeeping of a settled — or provably dead — payment. A reservation that
    * survives is the SAFE side (the cap stays tighter) and dies at midnight UTC.
@@ -707,7 +670,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 25 (B.4) — EL BARRIDO DE RESERVAS HUÉRFANAS, una vez por tick.
+   * EL BARRIDO DE RESERVAS HUÉRFANAS, una vez por tick.
    *
    * Best-effort y jamás fatal: si el libro del día no se puede leer, el tick
    * sigue (las entradas ya fallan cerradas por su cuenta, y ninguna salida
@@ -733,7 +696,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 31 — UNA PETICIÓN QUE NO SE PUEDE SEGUIR SE DICE, UNA VEZ POR MEDIA HORA.
+   * UNA PETICIÓN QUE NO SE PUEDE SEGUIR SE DICE, UNA VEZ POR MEDIA HORA.
    * Un 'submitting' sin hash (o un entry del journal sin hash/ventana) no se
    * puede resolver contra el ledger ni firmar de nuevo: reservaba en silencio.
    * `opsAlert` deduplica por `key`; el log de proceso lo acota `alertGate`.
@@ -751,7 +714,7 @@ export class DemoExchangeAutopilot {
   private readonly alertedAt = new Map<string, number>();
 
   /**
-   * it. 31 — LA COTA DEL CRÍTICO PERMANENTE. Un estado legítimo y largo (una
+   * LA COTA DEL CRÍTICO PERMANENTE. Un estado legítimo y largo (una
    * entrada en `NO_CLIENT_ACCOUNT` puede durar días) volvía a llamar a
    * `opsAlert` en cada tick: el canal deduplicaba, pero cada llamada escribía
    * su línea, su runbook y «alerta repetida» — ~13k líneas de log al día por
@@ -768,7 +731,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 31 — el paso 0 barre también los put-to-work DE MESA pasados de su LLS.
+   * El paso 0 barre también los put-to-work DE MESA pasados de su LLS.
    * Solo filas `prepared` de `put-to-work` con memo Y LastLedgerSequence (las
    * que el servidor compuso), y solo cuando el ledger validado leído ANTES del
    * scan ya pasó esa ventana. La prueba es la misma que la del DELETE de admin
@@ -776,7 +739,7 @@ export class DemoExchangeAutopilot {
    * suelta (y libera el asiento del ómnibus por la lectura del propio store),
    * «executed» asienta y debita una vez. Cualquier otro veredicto — ilegible,
    * firmado fuera del ledger, un 0xFE sin explicar — deja la reserva como está:
-   * nada se suelta sin prueba (it. 8). Mutates; returns how many closed.
+   * nada se suelta sin prueba. Mutates; returns how many closed.
    */
   private async sweepDeskPutToWorkPastLls(run: DemoRun, validatedLedgerIndex: number): Promise<number> {
     const due = (run.deskPayments ?? []).filter(
@@ -790,7 +753,7 @@ export class DemoExchangeAutopilot {
       try {
         verdict = await provePutToWorkRelease(run, p);
       } catch (e) {
-        // it. 33 (7): un estado que dura se dice una vez por media hora, y llega
+        // Un estado que dura se dice una vez por media hora, y llega
         // a ops — antes, una línea de log por tick y nadie avisado.
         this.noteDeskReservationStuck(run, p, `could not be proven: ${(e as Error).message.slice(0, 120)}`);
         continue;
@@ -801,7 +764,7 @@ export class DemoExchangeAutopilot {
         closed++;
       } else if (verdict.kind === 'release') {
         p.status = 'released';
-        // 18-sep: el autopilot sale de la vista, y este barrido corre también en
+        // El autopilot sale de la vista, y este barrido corre también en
         // exchanges a los que no sirve (sweepDeskOnly): solo LEE el ledger y
         // suelta, no firma nada. Se dice así, no «el autopilot».
         p.closedBy = `${verdict.proof} — swept by the exchange backend (it signs nothing)`;
@@ -814,7 +777,7 @@ export class DemoExchangeAutopilot {
           expect: { kind: p.kind, drops: p.drops, lastLedgerSequence: p.lastLedgerSequence ?? '', memoHex: String(p.memoHex) },
         }));
         // The seat: the dispatch WAS handed to Xaman, so the store frees it only
-        // on its own reading of the memo's window (it. 20, R1 B1) — best-effort.
+        // on its own reading of the memo's window (R1 B1) — best-effort.
         try {
           const { releaseQueuedHandoffByMemo } = await import('../flare/DirectMintHandoffStore');
           await releaseQueuedHandoffByMemo(String(p.memoHex));
@@ -831,7 +794,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 33 (agente C, 7) — a desk reservation past its window that the sweep
+   * A desk reservation past its window that the sweep
    * could NOT close (unreadable window, an unexplained 0xFE, signed off-ledger)
    * keeps holding its client's XRP — including against their withdrawal. That
    * was a `console.error` per tick and nothing else: ~4k lines a day and no
@@ -849,7 +812,7 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 31 — UN ENTRY `failed` DEL JOURNAL ES UN PAGO QUE EL LEDGER RECHAZÓ: los
+   * UN ENTRY `failed` DEL JOURNAL ES UN PAGO QUE EL LEDGER RECHAZÓ: los
    * drops nunca salieron, y aun así se agrupaba con «lo firmado» en la puerta
    * del dueño (409). Con el bucle apagado no había reconciliador ni puerta de
    * admin. Esto es la reconciliación que el tick haría (`finishSubmission` con
@@ -869,8 +832,8 @@ export class DemoExchangeAutopilot {
   }
 
   /**
-   * it. 31 — una ENTRADA pendiente en una toma cerrada. `pending` no es prueba
-   * (it. 29): un guardado concurrente devuelve a 'pending' una petición YA
+   * Una ENTRADA pendiente en una toma cerrada. `pending` no es prueba:
+   * un guardado concurrente devuelve a 'pending' una petición YA
    * firmada, y cerrarla «final» perdería el rastro de un pago vivo. Primero el
    * journal, como en `fulfil`: si dice que se firmó, se sigue el ledger; si no se
    * puede leer, se espera; solo lo que nadie firmó se cierra con RUN_CLOSED.
@@ -919,12 +882,12 @@ export class DemoExchangeAutopilot {
     // What is already in flight for this client (a submitting request whose
     // outcome is unread, a desk payment handed to Xaman, a pending request ahead
     // in the queue) is not debited yet but is spoken for: the raw balance let
-    // «withdraw X» and «put X to work» both be signed (productizer it. 6).
-    // `req.kind` viaja a propósito (it. 27): una ENTRADA cuya falta de firma se
+    // «withdraw X» and «put X to work» both be signed.
+    // `req.kind` viaja a propósito: una ENTRADA cuya falta de firma se
     // puede PROBAR no retiene la SALIDA de su dueño. Al revés sí: una salida
     // pendiente retiene la entrada, esté donde esté en la cola (`reservedDrops`).
     //
-    // it. 29 — la prueba es el JOURNAL, no el `status`. `replayJournal`, arriba,
+    // La prueba es el JOURNAL, no el `status`. `replayJournal`, arriba,
     // ya se niega a firmar ESTA petición sin poder leerlo; sería incoherente
     // eximir a las DEMÁS entradas de la cola por lo que diga un run que un
     // guardado concurrente puede haber devuelto a 'pending'. Mismo fallo cerrado.
@@ -940,25 +903,12 @@ export class DemoExchangeAutopilot {
     }
     const cfg = readSignerConfig();
     const provider = flareProvider();
-    // it. 23 (1.7) — THE CAP IS READ AFTER THE BRANCH, AND ITS FAILURE MEANS
+    // THE CAP IS READ AFTER THE BRANCH, AND ITS FAILURE MEANS
     // DIFFERENT THINGS ON EACH SIDE.
-    //
-    // it. 21 made this read STRICT (a swallowed error read as «0 spent today»
-    // and handed a signing key its whole cap back). But it sat HERE, above the
-    // branch, so the throw reached the PAYOUT too: it died in the tick's
-    // `errors.push`, the client's withdrawal stayed pending with no refusal and
-    // no sentence, and every other client of the run waited behind it.
-    //
-    // The daily cap bounds OUR key. It is not, and can never be, a gate on a
-    // client's way out. So:
-    //   · put-to-work (an entry, our key spending) → fails CLOSED, visibly: a
-    //     refusal with its reason on the request, retried next tick;
-    //   · payout (the client's money going home) → PROCEEDS, and the fact that
-    //     we could not read our own ledger is written into the run's receipts.
     const budget = await readSpendBudget();
 
     if (req.kind === 'put-to-work') {
-      // it. 25 (B.3): `null` es «no lo sé», y sin el número no hay tope que
+      // `null` es «no lo sé», y sin el número no hay tope que
       // honrar. Antes viajaba un 0 de mentira hasta la política.
       if (budget.unreadable || budget.spentDrops === null) {
         return this.refuse(
@@ -1060,17 +1010,6 @@ export class DemoExchangeAutopilot {
       try {
         // The omnibus seed signs this 0xFE below: operational, never the project tag.
         // The builder stamps the LastLedgerSequence and records it on the seat (R1 1.1).
-        //
-        // it. 19 (R1 1.1, REGRESIÓN) — `serverComposed` EN LOS DOS LADOS. Este
-        // tick es «flujo servidor de una cuenta operativa», y desde la it. 17 eso
-        // le daba derecho a apartar SOLA, sin 409 y sin aviso, cualquier fila que
-        // nadie probado hubiera preparado — incluida la de la MESA, que el
-        // fundador puede tener abierta en Xaman en ese mismo instante. Dos
-        // Payments firmables en el mismo nonce, con el XRP del cliente ya en el
-        // Core Vault. Marcando también esta fila como compuesta por el servidor,
-        // ninguna de las dos desplaza a la otra: la que llegue segunda espera
-        // (NONCE_SEAT_TAKEN → 'an earlier 0xFE … is still in flight'), que es lo
-        // que hacía antes de la it. 17 y lo que debe hacer.
         handoff = await buildDirectMintHandoff(
           provider,
           {
@@ -1130,7 +1069,7 @@ export class DemoExchangeAutopilot {
         return this.refuse(run, req, 'SIGN_FAILED', `the signed payment carries LastLedgerSequence ${signed.lastLedgerSequence}, not the ${handoffLls} its nonce seat records — nothing was submitted`, false);
       }
       await this.persistSubmission(run, req, signed, { memoHex: handoff.memoHex, userOpHash: handoff.userOpHash, supplyUBA: net.supplyUBA.toString() });
-      // it. 23 (1.4) — THE SPEND IS WRITTEN BEFORE THE BLOB LEAVES.
+      // THE SPEND IS WRITTEN BEFORE THE BLOB LEAVES.
       // It used to be written by `finishSubmission`, AFTER `submitSignedBlob`,
       // with a `kvUpsert` that swallows its own failure: a lost write handed the
       // cap back and the next tick signed over it. The reservation is written
@@ -1173,7 +1112,7 @@ export class DemoExchangeAutopilot {
     const tx = withSourceTag({ TransactionType: 'Payment', Account: run.omnibusAddress, Destination: client.xrplAddress, Amount: req.drops }, 'operational');
     const { readDirectMintParams } = await import('../../connectors/protocols/flare/FlareDirectMintService');
     const params = await readDirectMintParams(provider).catch(() => null);
-    // it. 25 (B.1) — NI `spentTodayDrops` NI `spendLedgerPersisted` VIAJAN AQUÍ,
+    // NI `spentTodayDrops` NI `spendLedgerPersisted` VIAJAN AQUÍ,
     // y su ausencia es la afirmación: el tope diario y el tope por transacción
     // son protecciones de la llave operativa de Astryum —aplican a ENTRADAS y
     // operativa propia— y el payout del cliente es su dinero y sale. La política
@@ -1188,8 +1127,8 @@ export class DemoExchangeAutopilot {
       appointment: await readOmnibusAppointment(run.omnibusAddress, run.councilAddress),
     });
     if (!verdict.ok) {
-      // it. 27 — ESTA LÍNEA ESTÁ MUERTA, Y SE QUEDA DICHO AQUÍ EN LUGAR DE
-      // BORRARLA. Desde la it. 25 `appointmentApplies('payout')` es `false`, así
+      // ESTA LÍNEA ESTÁ MUERTA, Y SE QUEDA DICHO AQUÍ EN LUGAR DE
+      // BORRARLA. Desde la `appointmentApplies('payout')` es `false`, así
       // que `assessPayment` no puede devolver `APPOINTMENT_UNREADABLE` en una
       // salida: `retryable` vale SIEMPRE `false`. El comentario anterior seguía
       // explicando un reintento que ya no existe.
@@ -1203,35 +1142,10 @@ export class DemoExchangeAutopilot {
       const retryable = verdict.code === 'APPOINTMENT_UNREADABLE';
       return this.refuse(run, req, verdict.code ?? 'REFUSED', verdict.reason ?? '', !retryable);
     }
-    // it. 23 (1.7) — A FAILED READ OF OURS NEVER HOLDS A CLIENT'S MONEY. It is
+    // A FAILED READ OF OURS NEVER HOLDS A CLIENT'S MONEY. It is
     // recorded instead: the run's receipt book says the payout went out while
     // our own daily ledger was unreadable, so the desk can reconcile the cap by
     // hand. Silence here would be the worst of both — no cap and no trace.
-    //
-    // it. 27 — PERO EL RECIBO SE ESCRIBE CUANDO EL PAGO SALE, NO ANTES. Estaba
-    // aquí, encima de la firma, afirmando «the payout went out anyway» sobre un
-    // pago que todavía no existía: si `signForSubmission` o `persistSubmission`
-    // fallaban un renglón más abajo —y los dos tienen su propia rama de fallo—
-    // el libro de recibos, que es el rastro que leen `/proof` y el verificador,
-    // quedaba afirmando un pago que NUNCA salió. Y como `noteCapUnread`
-    // deduplica por texto exacto, la mentira se quedaba fija: ningún tick
-    // posterior la corregía. Se escribe abajo, después de que el blob se entregue
-    // al nodo, y con la frase que corresponda a lo que de verdad pasó.
-    // Same reliable submission as put-to-work: sign, persist, then submit.
-    //
-    // it. 25 (B.2) — UN `throw` AQUÍ PARABA LA COLA ENTERA. El tramo de
-    // put-to-work captura cada paso por petición; este no capturaba ninguno, así
-    // que un nodo XRPL que no contesta al firmar, o un `writeSubmission` que no
-    // puede escribir, lanzaba desde `fulfil` hasta el `catch` POR TOMA del tick:
-    // la retirada se quedaba `pending` SIN frase (nadie sabía por qué) y los
-    // demás clientes de esa toma no se servían ese tick — ni siquiera se
-    // guardaba lo que el vigía acababa de acreditar, porque el `saveRun` del
-    // final de `serveRun` no llegaba a ejecutarse.
-    //
-    // Se captura por petición, con motivo legible, y el tick sigue con los
-    // demás. Nada de esto es un gate: no hay ninguna regla negando la salida —
-    // es un reintento mecánico del siguiente tick, y suena el canal de ops
-    // porque el dinero de una persona está esperando a nuestra infraestructura.
     const { signForSubmission, submitSignedBlob } = await import('./DemoExchangeSigner');
     let signed;
     try {
@@ -1258,19 +1172,9 @@ export class DemoExchangeAutopilot {
       });
       return this.refuse(run, req, 'PAYOUT_NOT_RECORDED', `the payout was signed but could not be recorded (${(e as Error).message.slice(0, 120)}), so it was NOT submitted — ${signed.hash.slice(0, 12)}… dies at LastLedgerSequence ${signed.lastLedgerSequence} and the next tick signs it again`, false);
     }
-    // The spend is reserved BEFORE the blob leaves (it. 23, 1.4) — but on the way
+    // The spend is reserved BEFORE the blob leaves (1.4) — but on the way
     // OUT a ledger we cannot write is OUR problem, not the client's: it is noted
     // and the payment goes. (An entry, above, does not.)
-    //
-    // it. 31 — Y ESE APUNTE TAMBIÉN SE ESCRIBE CUANDO EL PAGO SALE, NO ANTES.
-    // La it. 29 dejó aquí un `noteCapUnread(... "and was submitted anyway")`
-    // ANTES de `submitSignedBlob`, cuarenta líneas debajo del párrafo que
-    // explica por qué eso no puede ser (it. 27): si el nodo no conecta, el pago
-    // nunca sale, el siguiente tick lo declara `expired` y firma otro hash — y
-    // el libro de recibos (`/proof`, documento de due diligence) y la alerta
-    // crítica de ops quedan afirmando un envío que no existió, fijos, porque
-    // `noteCapUnread` deduplica por texto exacto. El fallo se GUARDA aquí y se
-    // dice abajo, con la frase que corresponda a lo que de verdad pasó.
     let spendNotReserved: string | null = null;
     try {
       await reserveSpend(drops, signed.hash, 'payout');
@@ -1283,17 +1187,17 @@ export class DemoExchangeAutopilot {
       sent = await submitSignedBlob(signed.txBlob);
     } catch (e) {
       // El envío lanzó: puede haber entrado o no, y el recibo dice exactamente
-      // eso — jamás que el pago salió (it. 27). El ledger lo resuelve en el
+      // eso — jamás que el pago salió. El ledger lo resuelve en el
       // siguiente tick (`resolveSubmitting`).
-      // it. 29: NO «no se contó contra el tope» — un payout no lo engorda nunca
-      // (it. 27). Lo que falló es su APUNTE de auditoría, que es otra cosa.
+      // NO «no se contó contra el tope» — un payout no lo engorda nunca.
+      // Lo que falló es su APUNTE de auditoría, que es otra cosa.
       if (spendNotReserved) this.noteCapUnread(run, req, spendNotReserved, `the payout ${short}… left no audit entry in today's spend ledger (a payout never counts against the cap, so no total is short); it was signed and handed to the XRPL node, and its outcome is not read yet`);
       if (budget.unreadable) this.noteCapUnread(run, req, budget.unreadable, `the payout ${short}… was signed and handed to the XRPL node, and its outcome is not read yet`);
       req.reason = `handed to the XRPL node; whether it entered is not read yet (${(e as Error).message.slice(0, 80)}) — the ledger decides on the next tick`;
       req.updatedAt = new Date().toISOString();
       return 1;
     }
-    // El pago ya está en el nodo: AHORA el recibo puede afirmarlo (it. 27).
+    // El pago ya está en el nodo: AHORA el recibo puede afirmarlo.
     if (spendNotReserved) this.noteCapUnread(run, req, spendNotReserved, `the payout ${short}… left no audit entry in today's spend ledger (a payout never counts against the cap, so no total is short) and was submitted anyway`);
     if (budget.unreadable) this.noteCapUnread(run, req, budget.unreadable, `the payout ${short}… was submitted anyway`);
     try {
@@ -1324,7 +1228,7 @@ export class DemoExchangeAutopilot {
       await this.markJournal(req, 'failed', result);
       await this.releaseSeat(req);
       // The ledger refused it: the Amount never left the omnibus, so the drops
-      // reserved before submitting go back to today's cap (it. 23, 1.4).
+      // reserved before submitting go back to today's cap (1.4).
       await this.giveSpendBack(hash);
       return this.refuse(run, req, 'XRPL_' + result, `the ledger answered ${result} (${hash})`, true);
     }
@@ -1363,7 +1267,7 @@ export class DemoExchangeAutopilot {
   private async resolveSubmitting(run: DemoRun, req: ClientRequest): Promise<number> {
     // Without its hash and LastLedgerSequence a submission cannot be followed;
     // it stays put rather than be re-signed on a guess.
-    // it. 31: y se DICE por qué se queda — antes reservaba en silencio para
+    // y se DICE por qué se queda — antes reservaba en silencio para
     // siempre, sin frase ni alerta.
     if (!req.txHash || typeof req.lastLedgerSequence !== 'number') {
       this.noteUnfollowable(run, req);
@@ -1381,7 +1285,7 @@ export class DemoExchangeAutopilot {
       await this.releaseSeat(req);
       // Proven dead (searched in full, past its LastLedgerSequence): the drops
       // reserved before submitting never left, so the cap gets them back
-      // (it. 23, 1.4). This is also the path of a reservation whose blob was
+      // (1.4). This is also the path of a reservation whose blob was
       // never submitted at all (a write that failed after the journal).
       await this.giveSpendBack(req.txHash);
       const dead = req.txHash;
@@ -1408,7 +1312,7 @@ export class DemoExchangeAutopilot {
     if (!memoHex) return;
     try {
       const { releaseQueuedHandoffByMemo } = await import('../flare/DirectMintHandoffStore');
-      // it. 19 — same reason as the desk's: the autopilot's 0xFE is signed here
+      // Same reason as the desk's: the autopilot's 0xFE is signed here
       // with Astryum's own seed and was never handed to a wallet, so no twin can
       // come from freeing it at once (DirectMintHandoffStore.neverHandedOut).
       await releaseQueuedHandoffByMemo(memoHex, { neverHandedOut: true });
@@ -1422,7 +1326,7 @@ export class DemoExchangeAutopilot {
    * can erase it), then the request fields, then the RUN, and only once the run
    * is stored, the nonce seat is marked signed.
    *
-   * The seat is marked LAST on purpose (it. 14, R1 1.5): marking it first and
+   * The seat is marked LAST on purpose (R1 1.5): marking it first and
    * then failing the save (P2028 with `connection_limit=1`) left a seat declared
    * SIGNED — which no supersede may ever displace — holding a blob that was never
    * sent and that this loop could not follow. With this order a failed save
@@ -1478,7 +1382,7 @@ export class DemoExchangeAutopilot {
     const entry = await readSubmission(req.id);
     const plan = journalPlan(entry);
     if (plan === 'fulfil' || !entry) return null;
-    // it. 31 — UN ENTRY MALFORMADO NO SE CONVIERTE EN UN 'submitting' SIN HASH.
+    // UN ENTRY MALFORMADO NO SE CONVIERTE EN UN 'submitting' SIN HASH.
     // Sin hash o sin ventana nadie puede seguirlo en el ledger ni probarlo
     // muerto; restaurarlo como 'submitting' lo dejaba reservando para siempre
     // y mudo. Se queda 'pending' con su motivo (no se firma: el journal dice

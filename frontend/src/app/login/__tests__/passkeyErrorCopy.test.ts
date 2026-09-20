@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { extract } from '../../../components/legacy/__tests__/extractFromSource';
 
 /**
- * productizer it. 14, R5 1.5 — LOS 401 DE LA PASSKEY, EN CRUDO.
+ * R5 1.5 — LOS 401 DE LA PASSKEY, EN CRUDO.
  *
  * `/auth/passkey/auth/verify` answers 401 with `credentials_changed`,
  * `credential_revoked` or `account_disabled` when the credential lock refuses to

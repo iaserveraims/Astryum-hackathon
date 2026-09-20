@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { describeSeatRefusal, freeSeatOfRefusal, seatRefusalCode, serverDetailIfEnglish } from '../seatRefusal';
 
 /**
- * productizer it.16 (R5 5.4) — CINCO SUPERFICIES MUDAS.
+ * CINCO SUPERFICIES MUDAS.
  *
  * El usuario veía `NONCE_SEAT_TAKEN` crudo y, debajo, un párrafo EN CASTELLANO
  * con hashes, sobre una pantalla en inglés, y ~604 s de espera sin ninguna

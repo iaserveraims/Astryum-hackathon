@@ -58,7 +58,7 @@ describe('XrplEcosystemWatch — amendments', () => {
 });
 
 describe('XrplEcosystemWatch — gated issuer escrow flags (RLUSD + EURØP)', () => {
-  test('flag OFF (live mainnet state 2026-07-13, both issuers) → not escrowable', async () => {
+  test('Flag OFF (live mainnet state, both issuers) → not escrowable', async () => {
     mockFetchRoutes({ '/account/': { Flags: 0x819a0000 } });
     const res = await fetchIssuerEscrowStatuses(CFG);
     expect(res.map((r) => r.label)).toEqual(['RLUSD', 'EURØP']);

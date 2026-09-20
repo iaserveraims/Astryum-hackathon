@@ -1,5 +1,5 @@
 /**
- * productizer-it6 — A COUNCIL RULE WAS A BACK DOOR INTO ANY COUNCIL'S INBOX.
+ * A COUNCIL RULE WAS A BACK DOOR INTO ANY COUNCIL'S INBOX.
  *
  * `POST /api/rules` only asked that the rule's wallet be the caller's; a
  * 'councilPayment' / 'councilOrder' action carries a free `params.council`, and
@@ -12,7 +12,7 @@
  */
 const mockWalletFindFirst = jest.fn();
 const mockWalletFindMany = jest.fn();
-/** it. 17: the PROVEN half — signature-backed bindings (see the fake below). */
+/** The PROVEN half — signature-backed bindings (see the fake below). */
 const mockBindingFindMany = jest.fn();
 const mockProtocolFindFirst = jest.fn();
 const mockRuleCreate = jest.fn();
@@ -26,7 +26,7 @@ jest.mock('../../database/prismaClient', () => {
       findMany: (...a: unknown[]) => mockWalletFindMany(...a),
     },
     /**
-     * productizer it. 17 (finding 2.1): membership is decided by a PROVEN address —
+     * Membership is decided by a PROVEN address —
      * an active binding whose challenge the user signed — never by a `wallet` row
      * (anyone can write one naming a council's public signer address). `POST
      * /api/rules` has a session but hands the helper no address, so a binding is the
@@ -125,7 +125,7 @@ beforeEach(() => {
     const wanted: string[] = where.address?.in ?? [];
     return WALLETS.filter((w) => w.userId === where.userId && wanted.includes(w.address)).map((w) => ({ address: w.address }));
   });
-  // it. 17: and what it actually reads is the PROOF — u1 signed for every address
+  // And what it actually reads is the PROOF — u1 signed for every address
   // they hold here, so the ordinary case is unchanged; a stranger has no binding.
   process.env.DATABASE_URL = 'postgres://test';
   mockBindingFindMany.mockImplementation(async ({ where }: any) =>

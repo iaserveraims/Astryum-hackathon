@@ -5,16 +5,6 @@
  * prepares intents on today:
  *   - Flare (chainId 14): eth_gasPrice + latest block via the public RPC.
  *   - XRPL: `fee` JSON-RPC (base fee + open-ledger fee in drops) + ledger index.
- *
- * GET /api/network/balance?kind=evm|xrpl&address=… → native balance of ONE
- * public address (FLR on Flare, XRP on XRPL). Feeds the Wallets cards, which
- * previously pointed at a non-existent /api/data/balance and always rendered
- * "Balance not loaded".
- *
- * Only public chain data is read — no user context, no auth, no secrets
- * (public RPC endpoints, overridable via FLARE_RPC_URL / XRPL_RPC_URL).
- * Status is cached in-process for 30s so a dashboard full of tabs cannot
- * hammer the public endpoints.
  */
 import { Router, Request, Response } from 'express';
 import { ethers } from 'ethers';

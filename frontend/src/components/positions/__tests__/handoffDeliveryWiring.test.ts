@@ -4,21 +4,8 @@ import { join } from 'node:path';
 import { extract } from '../../legacy/__tests__/extractFromSource';
 
 /**
- * productizer it. 19 (R5 R7 / R3 N4) — LA PALABRA DE LA ENTREGA EN LAS
+ * LA PALABRA DE LA ENTREGA EN LAS
  * SUPERFICIES INSIGNIA.
- *
- * El banner de peticiones en vuelo solo puede prometer «Flare actuará sobre
- * esto» cuando ALGUIEN dijo que el executor corre; sin esa palabra habla la
- * frase prudente («nada aquí confirmó que el executor esté funcionando»). Los
- * clientes tipados (`lib/institutional/api`, `services/v1Api`) ya la
- * registraban, pero las superficies que más se ven — transferir, salir de un
- * vault, reclamar, el runner de préstamo, las acciones del PA — hablan con el
- * backend por `fetch` crudo y NINGUNA registraba nada: el aviso prudente salía
- * sobre salidas perfectamente legítimas, una y otra vez.
- *
- * Se ejecuta lo que se puede ejecutar (el adaptador que cada pantalla usa) y se
- * comprueba el cableado donde no hay nada ejecutable sin montar React: que cada
- * superficie importe el registro y lo llame con el 0xFE que acaba de recibir.
  */
 
 const src = (...p: string[]) => readFileSync(join(__dirname, '..', '..', ...p), 'utf8');

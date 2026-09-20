@@ -1,7 +1,7 @@
 /**
  * ContractRegistry — pool persistence + lookup layer.
  *
- * Block F (2026-06-01). Single source of truth for "what contract does
+ * Block F. Single source of truth for "what contract does
  * CalldataBuilder call for this pool?". Backed by the existing `protocol_pools`
  * table extended with the contract-resolution fields (migration:
  * 20260601000000_contract_registry_fields).

@@ -8,25 +8,7 @@
  * `/vault-fund/prepare` composed a mint that deposits FXRP into that vault,
  * and the vault has no function that pays principal to an address. A second
  * council would have signed its own XRP into the first council's cage, with no
- * way back, while the UI reported success (founder, 2026-08-05).
- *
- * The contract already states the rule: XrplCouncilBridge stores
- * COUNCIL_ADDRESS_HASH as `immutable`, so one bridge obeys one XRPL council
- * for ever, and the vault obeys one bridge. "One Legacy = one stack" is not a
- * preference — it is the only shape the deployed code admits.
- *
- * This module is the ONE place that answers "the cage of THIS council". It
- * asks, in order:
- *   1. the LegacyStackFactory registry on-chain (`vaultOf(councilHash)`) —
- *      every cage born from XRPL registers itself there, and the chain, not a
- *      database, is what the product trusts;
- *   2. the configured env stack, but ONLY if its bridge names this account —
- *      the founder's Legacy was deployed by hand before the factory existed,
- *      and it keeps its cage without a migration.
- * Anything else is "this Legacy has no cage".
- *
- * Callers must not read `legacyStackConfig()` directly for anything that
- * touches capital: the env stack is nobody's cage until an account claims it.
+ * way back, while the UI reported success.
  */
 
 import { ethers } from 'ethers';
@@ -58,12 +40,12 @@ let warnedNoFactory = false;
 
 /**
  * The cage registry on Flare MAINNET — LegacyStackFactory, deployed and
- * verified on 2026-08-05 at block 66707923 (contracts/README.md). It is public,
+ * verified at block 66707923 (contracts/README.md). It is public,
  * immutable chain state, not a secret and not a choice: every cage born from
  * XRPL writes itself into THIS contract.
  *
  * It is a default rather than a required env var because of what its absence
- * did (staging, 2026-08-22): a council whose cage was born from the factory
+ * did (staging): a council whose cage was born from the factory
  * resolved to "this Legacy has no cage", so the portfolio scan attributed
  * NOTHING to it and 3.69 FXRP of real principal simply stopped appearing on the
  * Home — no error, no zero, just capital missing from the totals. A read path
@@ -122,7 +104,7 @@ export async function cageForCouncil(account: string): Promise<LegacyStackConfig
   // (institutional potes). A council belongs to exactly one, so try both.
   const legacy = legacyFactoryAddress();
   const astryum = astryumFactoryAddress();
-  // Tercer registro (26-ago): la factory de JAULAS v2 (`AstryumCageFactory`).
+  // Tercer registro: la factory de JAULAS v2 (`AstryumCageFactory`).
   // Misma interfaz `vaultOf`/`bridgeOf` a propósito: para su bridge, la jaula ES
   // su «vault». Así el relay sirve las órdenes de una jaula sin tocar una línea —
   // resuelve por el remitente, encuentra su bridge, y el bridge ejecuta contra lo
@@ -145,12 +127,7 @@ export async function cageForCouncil(account: string): Promise<LegacyStackConfig
  * `directTo(uint256,uint256,bytes32)` contra la jaula — un selector que la jaula
  * NO tiene — y el consejo firmaría una orden condenada: quórum gastado, prueba
  * FDC pagada (~20 FLR), revert. Esa familia de fallos («éxito no ganado») ya
- * costó una sesión entera el 23-ago; la pregunta se contesta ANTES de componer.
- *
- * La contesta el registro de la factory, no una sonda: si la factory de jaulas
- * conoce a este consejo, sus órdenes van por la ruta de la jaula y solo por ahí.
- * Nunca lanza: sin factory configurada la respuesta es «no», que es la que deja
- * el comportamiento v1 intacto.
+ * costó una sesión entera; la pregunta se contesta ANTES de componer.
  */
 export async function isCageV2Council(account: string): Promise<boolean> {
   if (!R_ADDRESS.test(account)) return false;

@@ -4,22 +4,15 @@ import { join } from 'node:path';
 import { extract } from './extractFromSource';
 
 /**
- * productizer it. 19 (R2 N6) — «REGÍSTRALA» YA NO ABRE NADA.
+ * «REGÍSTRALA» YA NO ABRE NADA.
  *
- * Hasta la it. 17 el servidor leía la pertenencia de `prisma.wallet`, así que
+ * Hasta la el servidor leía la pertenencia de `prisma.wallet`, así que
  * «link it in Wallets — the inbox opens as soon as it is registered» era verdad.
- * Desde la it. 17 la pertenencia la decide una dirección PROBADA (la wallet con
+ * Desde la la pertenencia la decide una dirección PROBADA (la wallet con
  * la que se firmó la sesión, o una que firmó su reto de binding), porque las
  * direcciones del SignerList de un consejo son públicas y cualquiera podría
  * teclear una. La frase vieja manda a una persona real a registrar su wallet,
  * volver, y estrellarse contra el mismo muro sin saber por qué.
- *
- * Lo que se prueba aquí, ejecutando el código que envía la pantalla:
- *   · la causa que la bandeja añade ya no es «regístrala», y nombra la FIRMA;
- *   · cuando el servidor ya lo explica él mismo (PROVE_MEMBERSHIP_HINT /
- *     READ_MEMBERSHIP_HINT viajan en `detail` y ganan a cualquier frase local),
- *     la pantalla NO añade una segunda versión que pueda contradecirla;
- *   · un rechazo que no es de pertenencia no recibe ninguna de las dos.
  */
 
 const INBOX = join(__dirname, '..', 'ProposalInbox.tsx');

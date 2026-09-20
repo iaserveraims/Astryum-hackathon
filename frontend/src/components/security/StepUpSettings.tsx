@@ -30,7 +30,7 @@ interface ConfigResponse {
 const STEP_UP_ENABLED = process.env.NEXT_PUBLIC_STEP_UP_ENABLED === 'true';
 
 /**
- * WHY THE SAVE WAS REFUSED, IN THIS CARD (productizer it. 19, R5 R6).
+ * WHY THE SAVE WAS REFUSED, IN THIS CARD (R5 R6).
  *
  * The matrix is an AUTHORITY write, so the backend refuses one whose session
  * predates a change of ownership on the account: 401 `session_revoked`. The

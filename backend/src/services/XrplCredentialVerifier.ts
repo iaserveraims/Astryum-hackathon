@@ -1,25 +1,6 @@
 /**
  * XrplCredentialVerifier — la lectura de credenciales XLS-70 (I2 del plan,
- * construida 2026-08-16).
- *
- * Astryum JAMÁS emite una credencial (guardarraíl §6.2 del Build Book; única
- * excepción declarada: el emisor de DEMO etiquetado del nivel-2 de Make
- * Waves). Lo que sí hace, y es lo que capitaliza hacia el carril de
- * identidad, es LEER: `account_objects` de la cuenta → qué credenciales
- * sostiene, de qué emisor, de qué tipo, y en qué estado.
- *
- * Reglas duras que este módulo codifica:
- *  - **Issuer-agnostic**: el emisor aceptado es CONFIGURACIÓN, jamás una
- *    constante de código. Sin allowlist configurada, ninguna credencial es
- *    "aceptada" — se leen y se listan, pero no desbloquean nada.
- *  - **Jamás pintar verde un estado no leído del ledger** (familia «éxito no
- *    ganado»): una credencial sin `Accepted` NO es válida por mucho que
- *    exista; una expirada NO es válida por mucho que siga ocupando reserva.
- *  - **Nada de datos personales**: se leen tipos y fechas, nunca documentos.
- *    El `CredentialType` viaja en hex y se decodifica solo para mostrarlo.
- *
- * El estado se deriva en una función PURA (classifyCredential) para que la
- * regla sea testeable sin red — el mismo patrón que checkSetPayees.
+ * construida).
  */
 
 import { xrplProvider } from '../integrations/providers/chain/XRPLProvider';
@@ -176,7 +157,7 @@ export interface CredentialsSummary {
 /**
  * Lee las credenciales que sostiene una cuenta. Read-only de punta a punta:
  * ni firma, ni emite, ni acepta — eso último lo firma el sujeto en su Xaman
- * (prepare-only, post-21-sep).
+ * (prepare-only, post).
  */
 export async function readAccountCredentials(
   account: string,

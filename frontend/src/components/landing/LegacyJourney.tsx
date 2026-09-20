@@ -3,28 +3,9 @@
 /**
  * EL VIAJE LEGACY — el arco.
  *
- * Encargo del fundador (2026-09-18): «tenemos que hacer algo con el Legacy que
- * esté entre narrativa espacial y narrativa de tierra como en el
- * institucional». Y sobre la primera respuesta a eso: «el legacy es una mierda
+ * Y sobre la primera respuesta a eso: «el legacy es una mierda
  * jaja, no se entiende el concepto… le falta concepto y personalidad. Cásate
  * con una idea y ejecuta».
- *
- * La idea, una sola, está en art/ThresholdScene.tsx: SE CONSTRUYE UN ARCO.
- * Un hueco, una cimbra que lo sostiene todo mientras estás, las dovelas
- * colocadas una a una, la clave, y entonces el descimbrado — se retira el
- * soporte y el arco se queda de pie. Eso es un legado, contado con el único
- * objeto que lo cuenta entero: construyes el soporte en vida, y el día que el
- * soporte se va la estructura tiene que aguantar sola.
- *
- * Y es literalmente lo que está entre el cielo y la tierra: un arco se apoya en
- * la roca y se recorta contra la noche, y por su ojo se ve el cielo.
- *
- * ── LO QUE ESTE VIAJE NO DICE ────────────────────────────────────────────
- * Ni una cifra de rendimiento, ni una promesa, ni un «cuando tú faltes» — el
- * producto es una jaula con consejo y quórum, no un seguro de vida. El quórum,
- * los pesos iguales y la clave maestra deshabilitada son MECANISMO. El aviso
- * honesto del conmutador sigue siendo la pieza que impide que una narrativa
- * bonita se lea como una puerta abierta.
  */
 
 import { useRef } from 'react';
@@ -95,31 +76,10 @@ const STATIONS: readonly JourneyStation[] = [
 /**
  * LA ENTRADA AL MUNDO — el fotograma en que se LLEGA aquí.
  *
- * Fundador, 2026-09-19: «cuando se entra en el legacy, el personal tiene
- * animado el texto y artefactos como aparición pero el legacy no, aparece tal
- * cual». Cierto, y no es un detalle de gusto: Personal entra escalonado —el
+ * Cierto, y no es un detalle de gusto: Personal entra escalonado —el
  * distintivo, el titular, la entradilla, la escena, cada uno con su retardo— y
  * eso es lo que convierte un cambio de producto en una llegada en vez de en un
  * corte de plano. Legacy montaba de golpe, con todo puesto en el fotograma uno.
- *
- * Los tiempos son los de `HeroContent` (LandingPage) con su mismo orden, para
- * que los mundos se sientan de la misma casa. Tres reglas que no se tocan:
- *
- *   · Va en `initial`/`animate` —montaje— y NUNCA en `whileInView`: esto está
- *     sobre el pliegue, y un `whileInView` sobre el pliegue dispara o no
- *     dispara según cómo restaure el navegador el scroll.
- *   · Va en los HIJOS y no en el bloque del portadillo, que ya lleva `opacity`
- *     e `y` del scroll: framer escribe UN transform por elemento y la entrada
- *     le pisaría la salida (o al revés) sin decir nada.
- *   · NO lleva `scale`. La cámara de la escena mide el SVG con
- *     `getBoundingClientRect` en el layout (craftHooks.useAspectViewBox) y un
- *     ancestro escalado le da un ancho falso que además no se corrige NUNCA,
- *     porque el ResizeObserver no ve los transforms. Opacidad y traslación son
- *     transparentes para esa medida; una escala, no.
- *
- * En movimiento reducido no hay nada que apagar: el `MotionConfig` de la app
- * corta cada `motion.*` a su estado final, y este mundo ya se va a la versión
- * quieta antes de llegar aquí.
  */
 const ENTER = {
   badge: { duration: 0.6, ease: EASE },

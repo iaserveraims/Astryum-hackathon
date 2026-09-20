@@ -1,31 +1,12 @@
 'use client';
 
 /**
- * ProductTour — interactive coachmarks, first run only (founder 2026-07-18;
- * rebuilt 2026-07-19 after the first cut rendered UNDER the Summary cards).
+ * ProductTour — interactive coachmarks, first run only.
  *
  * Two tours by design, never more: 'summary' walks the sidebar the first time
  * the dashboard opens; 'earn' explains the doors the first time Earn opens.
  * Skippable at any moment; replayable from Settings → Initial setup → Run
  * again (which resets both).
- *
- * Why a portal: the tour mounts inside page trees whose ancestors animate
- * with transforms (RevealItem/Spotlight). A transformed ancestor becomes the
- * containing block for position:fixed AND caps the child's stacking context —
- * which is exactly the "appears behind the boxes" bug. Rendering through
- * createPortal(document.body) puts the overlay outside every page stacking
- * context; z-index then works against the root like it should.
- *
- * Choreography: ONE persistent spotlight element springs between target
- * rects (the giant box-shadow both dims the page and carves the hole, so the
- * dim travels with it), and ONE popover glides to each step while its text
- * crossfades. Nothing remounts between steps — that is what makes the motion
- * read as a guide moving through the ship rather than cards popping in.
- *
- * The dim now also blurs the rest of the page — but a box-shadow can't clip
- * backdrop-filter, so the blur is a four-rect frame (above/below/left/right
- * of the same hole) riding the same spring as the spotlight. The hole itself
- * never gets a blurred layer over it, so the highlighted element stays sharp.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

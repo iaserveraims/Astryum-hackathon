@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * demoMode — the public demo's client-side switch (founder 2026-07-18).
+ * demoMode — the public demo's client-side switch.
  *
  * Accounts created through the landing's "Launch demo" flag this device: the
  * dashboard then runs on FIXTURE data (previewData intercepts the reads) so

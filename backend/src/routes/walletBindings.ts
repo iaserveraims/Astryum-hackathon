@@ -40,12 +40,6 @@ function normalizeAddress(address: string, chainType: string): string {
  *   2. re-derive the signing data and verify the signature is valid,
  *   3. confirm the signer (deriveAddress(SigningPubKey)) IS the claimed account,
  *   4. confirm the Memo commits to our nonce (replay protection).
- *
- * This is fully self-contained — no Xaman secret, no network call. Astryum never
- * signs: the user signed in their own Xaman app; we only verify the proof.
- *
- * NOTE: master-key signing only. An account that delegated signing to a XRPL
- * RegularKey would derive a different address and is intentionally rejected.
  */
 function verifyXrplOwnershipProof(
   signedTxHex: string,
@@ -281,7 +275,7 @@ router.post('/confirm', async (req: Request, res: Response) => {
     if (!signature) {
       return res.status(400).json({ error: 'SIGNATURE_REQUIRED', detail: 'EVM binding needs a signature.' });
     }
-    // productizer-it6 — THE SIGNATURE MUST BE OVER *THIS* CHALLENGE.
+    // THE SIGNATURE MUST BE OVER *THIS* CHALLENGE.
     //
     // WHAT FAILED IN SILENCE: `message` comes from the body and was only
     // checked to recover to the address. Any personal_sign the victim ever made
@@ -325,7 +319,7 @@ router.post('/confirm', async (req: Request, res: Response) => {
   // 4. Upsert binding
   const userId = req.siwe!.userId;
   try {
-    // THE SESSION IS RE-CHECKED INSIDE THE WRITE (productizer it. 14, 4.4).
+    // THE SESSION IS RE-CHECKED INSIDE THE WRITE (4.4).
     // The ownership proof above is a window of seconds: an account takeover can
     // commit while it runs, and a binding written after it is born with
     // `linkedAt > takeoverAt` and a `signatureProof` — which provenAddresses
@@ -406,7 +400,7 @@ router.post('/confirm', async (req: Request, res: Response) => {
   } catch (err: any) {
     if (isSessionRevoked(err)) return respondSessionRevoked(res);
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) return respondBusyRetry(res);
     return res.status(500).json({ error: 'BINDING_CREATE_FAILED', detail: err?.message });
   }

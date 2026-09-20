@@ -3,24 +3,6 @@
 /**
  * RequestRefusalActions — the doors a refused client request leaves open, as
  * buttons, right under the button that was refused.
- *
- * productizer it. 31 (agente C, 3) — LA PUERTA DEL DUEÑO NO LLEGABA AL DUEÑO.
- * `DELETE …/requests/:rid` (it. 27) and `DELETE …/clients/:cid/desk-payments/:pid`
- * (it. 29) existed for `curl` only: the client console had no method and no
- * button for either, `POST …/requests` named neither, and `describeRefusal`
- * printed the server's English `detail` and stopped. A person whose entry died
- * in `NO_CLIENT_ACCOUNT` read «reserved by payments still in flight» and had
- * nothing to press.
- *
- * What this renders, and only this:
- *   · one button per door the SERVER named (`withdrawableRequestIds`,
- *     `releasableDeskPaymentIds`) — never a lever the server did not offer; the
- *     DELETE behind it re-checks the journal and cedes only if nothing was signed;
- *   · a «Try again» when the refusal is retryable (a read of ours failed);
- *   · nothing at all otherwise (a signed payment is the ledger's to decide).
- *
- * Its own file, so a test can render the consumer against a real 409 body and
- * see the buttons (react-dom/server; the app's import graph pulls the wallet stack).
  */
 
 import { useT } from '../../../i18n/LanguageProvider';

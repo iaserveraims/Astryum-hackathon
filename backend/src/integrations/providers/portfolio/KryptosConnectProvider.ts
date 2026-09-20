@@ -5,14 +5,6 @@
  * (Binance, Coinbase, Kraken, etc.), self-custody wallets, and DeFi protocols
  * into CanonicalPosition[]. Alternative/complement to Zerion for users with
  * significant off-chain holdings.
- *
- * Requires: KRYPTOS_API_KEY (from kryptos.io dashboard)
- * Optional: KRYPTOS_API_URL (default: https://api.kryptos.io)
- *
- * Capabilities:
- *   portfolio.getPositions        — all positions (wallet + DeFi + exchange combined)
- *   portfolio.getExchangeBalances — CEX balances only
- *   portfolio.getChains           — active chains found for a wallet address
  */
 import type {
   IProvider,

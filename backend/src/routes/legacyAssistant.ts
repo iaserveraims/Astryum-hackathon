@@ -27,7 +27,7 @@ const router = Router();
 
 // Model: default to the latest capable model; a deployment can switch to a cheaper
 // tier via env (LEGACY_ASSISTANT_MODEL) if answer quality ever needs it.
-// Haiku by default (founder 2026-08-08 — maximum savings; no tools, same cage).
+// Haiku by default.
 const MODEL = process.env.LEGACY_ASSISTANT_MODEL || 'claude-haiku-4-5';
 
 // Rate limiting — PUBLIC endpoint spending Astryum's Anthropic key. Same limiter
@@ -100,11 +100,6 @@ export function renderJourneyContext(j: z.infer<typeof JourneySchema>): string {
 // preflight (#11) verify it against the ledger, and the user signs. The LLM has
 // no tools and its output is zod-validated: an intent it cannot express cannot
 // happen.
-//
-// PRIVACY: the client scrubs XRPL addresses into {{DIR_n}} tokens BEFORE the
-// message leaves the browser and re-substitutes locally on the way back. The
-// schema below only admits 'SELF' or a token as destination — a raw address in
-// the model's output is structurally rejected.
 
 export const CompiledIntentSchema = z.discriminatedUnion('action', [
   z.object({

@@ -1,5 +1,5 @@
 /**
- * FeeBudgetExceeded is NOT a failure (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13).
+ * FeeBudgetExceeded is NOT a failure (doctrine «LA SALIDA JAMÁS SE GATEA»).
  *
  * The daily FDC fee budget refuses BEFORE signing the attestation: nothing is spent and
  * the user's signed bytes are executable. Counting that as a failure parked the 0xFE

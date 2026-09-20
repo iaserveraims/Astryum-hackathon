@@ -10,7 +10,7 @@ import { ethers } from 'ethers';
 import { UpshiftVaultAdapter } from '../UpshiftVaultAdapter';
 import { resetAddressCache } from '../../../../config/protocolAddresses';
 
-// Mainnet constants verified on-chain 2026-07-10 (see .env.example).
+// Mainnet constants verified on-chain (see .env.example).
 const FXRP = '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE';
 const EARNXRP_VAULT = '0x373D7d201C8134D4a2f7b5c63560da217e3dEA28';
 const EARNXRP_TOKEN = '0xE533E447fD7720b2F8654da2B1953Efa06b60bfA';
@@ -131,7 +131,7 @@ describe('UpshiftVaultAdapter', () => {
     expect(withdraw.warnings.some((w) => /requestRedeem/.test(w))).toBe(true);
   });
 
-  /* ── it. 27 — «nobody passed the fee» is not «there is no fee» ─────────── */
+  /* ── «nobody passed the fee» is not «there is no fee» ─────────── */
 
   test('withdraw with NO fee input says the figure is the gross, instead of netting a zero', async () => {
     // `?? 0` used to read the missing input as a fee of zero, and then

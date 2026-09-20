@@ -68,7 +68,7 @@ module.exports = {
         // panels so the UI reads as "lit surfaces in orbit", not a cave.
         // HSL-component CSS vars (like --volt) so the WHOLE ladder re-tints
         // under [data-authority='governed'] — the boxes must flip with the
-        // product, not stay warm on an indigo shell (founder 2026-07-19) —
+        // product, not stay warm on an indigo shell —
         // and so a light theme can flip the same four vars.
         surface: {
           0: "hsl(var(--surface-0) / <alpha-value>)",   // canvas / void

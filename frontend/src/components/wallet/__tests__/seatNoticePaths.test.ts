@@ -13,35 +13,17 @@ import {
 import type { HandoffPostResult } from '@/lib/wallet/handoffRelease';
 
 /**
- * productizer it. 23 — LAS DOS MITADES DEL 3.6, EL 3.7 Y LOS DOS 409 DEL 2.5.
+ * LAS DOS MITADES DEL 3.6, EL 3.7 Y LOS DOS 409 DEL 2.5.
  *
  * Tres cosas que una pantalla de salida no puede hacer, y que la re-revisión de
- * la it. 22 encontró haciendo:
- *
- *  · 3.6 (a) OFRECER UN BOTÓN QUE SOLO PUEDE FALLAR. «Free the seat» se ofrecía
- *    también sobre `taken-window-open` — el servidor diciendo «su ventana de
- *    firma sigue abierta, no se puede desplazar desde aquí» — y
- *    `/handoff/release` contesta a eso un 409 por diseño. El botón vivía bajo
- *    un párrafo que lo desmentía.
- *
- *  · 3.6 (b) DEJAR UN ESTADO SIN NADA QUE HACER. Tras rechazar en Xaman con el
- *    payload todavía en pantalla, el aviso escondía las TRES acciones: prosa y
- *    punto. Ahora ese estado tiene su camino — preguntar al servidor, que es lo
- *    único que sabe medir la ventana y que jamás libera algo que aún se firma.
- *
- *  · 2.5 LOS DOS 409 DETERMINISTAS. `ACCOUNT_RECORD_MISSING` y
- *    `PROOF_FLOOR_UNREADABLE` degradaban a «The server refused this operation»,
- *    tirando las dos únicas salidas reales que el servidor nombra.
- *
- * Y el 3.7: ninguna de estas pantallas pinta el `detail` del servidor sin
- * filtrarlo, porque parte de esas frases se componen en castellano.
+ * la encontró haciendo:
  */
 
 const t = (s: string) => s;
 
 /* ── 3.6 (a): el botón solo donde el release puede hacer algo ─────────────── */
 
-describe('it. 23 · 3.6a — «Free the seat» solo donde libera', () => {
+describe('3.6a — «Free the seat» solo donde libera', () => {
   it('la ventana abierta no se libera desde aquí, lo diga quien lo diga el memo', () => {
     // El servidor manda el memo solo a quien preparó o prueba la cuenta: tener
     // el memo no es poder desplazar. Lo que decide es lo que el servidor dijo.
@@ -76,7 +58,7 @@ describe('it. 23 · 3.6a — «Free the seat» solo donde libera', () => {
 
 /* ── 3.6 (b): el payload que aún se firma tiene camino ────────────────────── */
 
-describe('it. 23 · 3.6b — el aviso del asiento abandonado no deja a nadie parado', () => {
+describe('3.6b — el aviso del asiento abandonado no deja a nadie parado', () => {
   const SRC = readFileSync(join(__dirname, '..', 'SeatRefusalNotice.tsx'), 'utf8');
 
   it('el botón ya no se esconde por el simple hecho de que el payload siga firmable', () => {
@@ -112,7 +94,7 @@ describe('it. 23 · 3.6b — el aviso del asiento abandonado no deja a nadie par
 
 /* ── 2.5: los dos 409 que ninguna pantalla sabía leer ─────────────────────── */
 
-describe('it. 23 · 2.5 — los dos 409 deterministas, con su frase y sus dos puertas', () => {
+describe('Los dos 409 deterministas, con su frase y sus dos puertas', () => {
   for (const code of ['ACCOUNT_RECORD_MISSING', 'PROOF_FLOOR_UNREADABLE']) {
     it(`${code}: se reconoce, venga en \`error\`, en \`code\` o dentro del \`detail\``, () => {
       expect(normalizeSeatRefusal({ error: code })).not.toBeNull();
@@ -129,7 +111,7 @@ describe('it. 23 · 2.5 — los dos 409 deterministas, con su frase y sus dos pu
       // Esperar no arregla esto, y ofrecerlo sería una promesa que nadie cumple.
       expect(view?.mayTryAgain).toBe(false);
       expect(view?.mayFreeSeat).toBe(false);
-      // La frase puede venir del lector compartido (agente D ya la escribió)
+      // La frase puede venir del lector compartido
       // o del respaldo de aquí: las dos dicen que esperar no arregla esto.
       expect(view?.text).toMatch(/(does not fix this|will not fix itself)/i);
       // Las dos puertas reales: firmar con esa wallet, o que un admin repare.
@@ -172,7 +154,7 @@ describe('it. 23 · 2.5 — los dos 409 deterministas, con su frase y sus dos pu
 
 /* ── 3.7: el `detail` del servidor, nunca en crudo ────────────────────────── */
 
-describe('it. 23 · 3.7 — ninguna superficie de salida pinta el `detail` sin filtrar', () => {
+describe('Ninguna superficie de salida pinta el `detail` sin filtrar', () => {
   const read = (...p: string[]) => readFileSync(join(__dirname, '..', '..', ...p), 'utf8');
   const SURFACES: Array<[string, string]> = [
     ['PoteExitCard', read('institutional', 'user', 'PoteExitCard.tsx')],
@@ -185,7 +167,7 @@ describe('it. 23 · 3.7 — ninguna superficie de salida pinta el `detail` sin f
     ['FlareDemoEarn', read('earn', 'FlareDemoEarn.tsx')],
     ['BorrowFlowRunner', read('earn', 'BorrowFlowRunner.tsx')],
     ['LegacyYieldPanel', read('legacy', 'LegacyYieldPanel.tsx')],
-    // it. 25 (§1): las dos que faltaban en «las diez superficies» de la it. 23 —
+    // Las dos que faltaban en «las diez superficies» de la —
     // la salida del pote y el panel de la bóveda del cliente de email.
     ['PoteExitModal', read('institutional', 'PoteExitModal.tsx')],
     ['UserVaultPanel', read('institutional', 'user', 'UserVaultPanel.tsx')],
@@ -203,7 +185,7 @@ describe('it. 23 · 3.7 — ninguna superficie de salida pinta el `detail` sin f
         .join(' ');
       expect(code, name).not.toMatch(/\{\s*[\w.]*refusal\.detail\s*\}/);
       expect(code, name).not.toMatch(/\w+\.detail \|\| \w+\.error/);
-      // it. 25: y su gemelo con `??`, que es el que sobrevivió en UserVaultPanel.
+      // Y su gemelo con `??`, que es el que sobrevivió en UserVaultPanel.
       expect(code, name).not.toMatch(/\w+\.detail \?\? \w+\.error/);
       expect(code, name).toMatch(/serverDetailIfEnglish/);
     });

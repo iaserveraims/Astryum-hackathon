@@ -5,21 +5,6 @@
  * Position/PositionSnapshot tables so PositionPerformanceService (already
  * built + tested) can light the historical P&L and debt-growth panels once
  * ≥2 snapshots of a live position exist.
- *
- * Model decision (Opción A refined to fit the PositionKind enum): per
- * (user wallet, protocol, chain) we persist up to TWO aggregate rows —
- *   kind SUPPLY → amountUSD = totalCollateralUSD  (P&L series)
- *   kind BORROW → amountUSD = totalDebtUSD        (debt-growth series;
- *                 PositionPerformanceService keys debt growth on kind BORROW)
- * with `asset = 'aggregate'` (the scan is per-protocol, no single token) and
- * the full scan detail in metadata/metricsJson.
- *
- * Defensive by spec (Cierre 2026-07-07 §2.6): every FK is resolved with
- * findFirst and MISSING links SKIP the row (reason reported) — never throw
- * into the read path. Gated behind POSITION_PERSISTENCE_ENABLED (off by
- * default) so nothing writes to prod until the first live position validates
- * the mapping. Read-only invariants untouched: this writes OUR OWN DB rows,
- * never the chain.
  */
 
 import { prisma } from '../database/prismaClient';

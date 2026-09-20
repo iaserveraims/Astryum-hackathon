@@ -5,15 +5,6 @@
  * savings rules + native DEX buy/sell) behind a single button, deployable from
  * anywhere: each wallet card in Astryum Personal, and the Movements tab in
  * Astryum Legacy's governance.
- *
- * It is a thin overlay shell around <MovementsPanel/>: the panel already carries
- * every rail and its own invariants (prepare-only; Astryum never signs). This
- * shell only frames it, scopes it to ONE wallet, and handles the close.
- *
- * Rendered through a portal to <body> so the fixed overlay covers the viewport
- * regardless of any ancestor that became a containing block (a card's residual
- * `filter` traps `position: fixed` otherwise — same fix as the dashboard's
- * PerformanceModal).
  */
 
 import { X, ArrowLeftRight } from 'lucide-react';

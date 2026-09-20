@@ -1,18 +1,6 @@
 /**
- * UNA ORDEN FIRMABLE POR ASIENTO (2026-09-14) — las órdenes que firma una cuenta de
+ * UNA ORDEN FIRMABLE POR ASIENTO — las órdenes que firma una cuenta de
  * consejo en Xaman salen con la Sequence fijada.
- *
- * Sin Sequence, desmontar el componente de firma dejaba componer una segunda orden
- * con la primera aún firmable (un payload ALREADY_OPENED no se cancela), y las dos
- * validaban. Aquí se fija, por ruta:
- *  · dos prepares seguidos devuelven la MISMA Sequence (solo uno puede validar) y
- *    LastLedgerSequence = ledger validado + 150 en firma simple;
- *  · una cuenta con SignerList lleva la Sequence pero NO LastLedgerSequence (la
- *    ceremonia multisig vive días; su coordinador fija lo suyo);
- *  · sin `account_info` legible → 503 ORDER_SEQUENCE_UNREADABLE y nada compuesto —
- *    en el nacimiento, sin llegar a tomar el asiento de nonce del 0xFE.
- *
- * Hermético: el transporte XRPL, los resolvers y los compositores van mockeados.
  */
 import express from 'express';
 import request from 'supertest';
@@ -117,7 +105,7 @@ jest.mock('../../services/dryRun/DryRunExecutor', () => ({ dryRunRigActive: jest
 
 // The Prisma client loads backend/.env when first required (e.g. by the exit-token
 // MAC via SiweAuth). Load it now, before ENV is captured, so beforeEach can keep this
-// suite database-free (it. 13: the composed-order record reads the table directly).
+// suite database-free (the composed-order record reads the table directly).
 import '../../database/prismaClient';
 import institutionalRouter from '../institutional';
 import { xrplProvider } from '../../integrations/providers/chain/XRPLProvider';

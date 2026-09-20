@@ -3,17 +3,6 @@
  *
  *   npx ts-node src/scripts/check-sentinel.ts          # ensayo: no entrega nada
  *   npx ts-node src/scripts/check-sentinel.ts --send   # entrega por los canales reales
- *
- * Por defecto es un ENSAYO: desarma los canales externos (webhooks/Telegram) y
- * la persistencia en la bandeja, de modo que probar la vigilancia desde un
- * portátil no escriba en el Discord del equipo ni en la base de datos de
- * producción. Con `--send` se comporta exactamente como el vigía del backend.
- *
- * Sirve para dos cosas: ver de un vistazo qué está roto sin abrir el panel, y
- * comprobar que un probe nuevo hace lo que dice antes de desplegarlo.
- *
- * Read-only: los probes solo leen (salud del executor, frescura de nodos, RPC,
- * filas de la DB). Nada firma ni mueve capital.
  */
 import path from 'path';
 import dotenv from 'dotenv';

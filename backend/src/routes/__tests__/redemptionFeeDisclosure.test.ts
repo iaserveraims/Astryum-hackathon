@@ -1,5 +1,5 @@
 /**
- * productizer-it9 §3.4 — the two unmint doors disclose the FAssets redemption fee
+ * The two unmint doors disclose the FAssets redemption fee
  * as a figure (invariant #6), read live (#9); an unreadable fee is null plus a line
  * that says so — never 0, never a silent omission.
  *

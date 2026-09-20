@@ -1,12 +1,12 @@
 /**
- * productizer it. 31 (agente D, 4.3) — LOS DOS CLIENTES DE LA PUERTA DEL
+ * LOS DOS CLIENTES DE LA PUERTA DEL
  * RECONOCIMIENTO DE LA JAULA LEEN `cause`.
  *
- * El servidor dice desde it. 27 POR QUÉ falta el reconocimiento (`cause`), y
+ * El servidor dice POR QUÉ falta el reconocimiento (`cause`), y
  * ni CageBirthCard ni CouncilVaultEntry lo leían: abrían el modal por el
  * código a secas y reintentaban al confirmar. Para tres de las cuatro causas
  * confirmar no arregla nada (la ficha no parsea, está adelantada al reloj del
- * servidor — it. 31 la separa —, o la base no contestó): la persona confirmaba,
+ * servidor — la separa, o la base no contestó): la persona confirmaba,
  * volvía el mismo 409 y se reabría el modal. La regla es pura y se prueba aquí;
  * el cable a las dos pantallas se fija en fuente.
  */

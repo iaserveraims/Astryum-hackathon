@@ -4,17 +4,6 @@
  * Canonical map of every chain Astryum supports or plans to support.
  * Single source of truth for: chainId, name, tier, RPC, explorer URL, CAIP-2,
  * DefiLlama slug, and feature flags.
- *
- * Tiers:
- *   1 — EVM fully supported (data + pool discovery + position detection)
- *   2 — Non-EVM with dedicated provider (Solana via Helius + Jupiter)
- *   3 — Non-EVM partial (XRPL via xrpl.js, P16)
- *
- * Rules (never remove):
- *   - Flare (14) always present; FLARE_DEFI_ENABLED gates protocol adapters only
- *   - Solana uses pseudo chainId 900 internally (not an EVM chainId)
- *   - XRPL uses pseudo chainId 1440002 internally
- *   - No chain is removed from this registry; disabled chains get enabled:false
  */
 
 export type ChainTier = 1 | 2 | 3;
@@ -301,7 +290,7 @@ export const CHAIN_REGISTRY: Readonly<Record<number, ChainMeta>> = Object.freeze
     explorerUrl: 'https://stellar.expert/explorer/public',
     explorerName: 'Stellar Expert',
     defiLlamaSlug: 'Stellar',
-    enabled: true, // Soroswap provider + /api/swap/stellar route + Freighter wired (2026-06-07)
+    enabled: true, // Soroswap provider + /api/swap/stellar route + Freighter wired
     requiresCustomProvider: 'soroswap',
   },
   // ── Tier 2: Algorand (non-EVM) — ISO 20022 basket (PROD-1c) ────────────────
@@ -322,7 +311,7 @@ export const CHAIN_REGISTRY: Readonly<Record<number, ChainMeta>> = Object.freeze
     enabled: false, // pendiente provider Algorand (#3)
     requiresCustomProvider: 'algorand-defi',
   },
-  // ── Plume (EVM, Tier 1, RWA L2) — added 2026-06-07 ─────────────────────────
+  // ── Plume (EVM, Tier 1, RWA L2) ─────────────────────────
   98866: {
     chainId: 98866,
     name: 'Plume',
@@ -336,7 +325,7 @@ export const CHAIN_REGISTRY: Readonly<Record<number, ChainMeta>> = Object.freeze
     defiLlamaSlug: 'Plume Mainnet', // ⚠️ confirmar slug exacto en DefiLlama
     enabled: true,
   },
-  // ── Sei EVM (Tier 1) — added 2026-06-07 ────────────────────────────────────
+  // ── Sei EVM (Tier 1) ────────────────────────────────────
   1329: {
     chainId: 1329,
     name: 'Sei',
@@ -350,7 +339,7 @@ export const CHAIN_REGISTRY: Readonly<Record<number, ChainMeta>> = Object.freeze
     defiLlamaSlug: 'Sei', // ⚠️ confirmar slug exacto en DefiLlama
     enabled: true,
   },
-  // ── HyperEVM (Hyperliquid, EVM Tier 1, chainId 999) — added 2026-06-07 ─────
+  // ── HyperEVM (Hyperliquid, EVM Tier 1, chainId 999) ─────
   999: {
     chainId: 999,
     name: 'HyperEVM',

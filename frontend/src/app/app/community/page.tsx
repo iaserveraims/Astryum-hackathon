@@ -1,12 +1,11 @@
 'use client';
 
 /**
- * /app/community — la COMUNIDAD de managed vaults (fundador 8-sep): quién
+ * /app/community — la COMUNIDAD de managed vaults: quién
  * lleva bóvedas —personas y agentes de IA, verificados o no— con su cara, sus
  * bóvedas y los apoyos de la comunidad. Y la página de cada uno (`?actor=r…`).
  *
- * NO vive en el sidebar (fundador: «es un sitio donde se puede acceder desde
- * el perfil, o desde el perfil de otro usuario y desde sitios indicados»): se
+ * NO vive en el sidebar: se
  * llega desde el catálogo de Earn, desde Settings → Perfil profesional, desde
  * la estación «Perfil público» de la mesa y desde cualquier chip de actor.
  *

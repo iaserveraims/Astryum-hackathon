@@ -5,23 +5,12 @@
  * `xrplAddress` controls. Releasing that seat, or displacing it with a new
  * prepare (`supersede`), decides whether a Payment the owner may already hold
  * in Xaman can still execute — so neither may be decided by the request body.
- *
- * Two independent grounds, each read server-side:
- *   - the session PROVED the XRPL account (session login or a signature-backed
- *     binding — never the unsigned `wallet` table), or is a founder whose
- *     allowlisted email is verified (the same two conditions `requireAdmin`'s
- *     email door applies): `sessionMayActOnXrplAccount`;
- *   - the session is the Astryum user who prepared that very handoff
- *     (`preparedByUserId` persisted on the row): `isSameHandoffPreparer`.
- *
- * Every failed read answers false: «could not read» is never permission.
- * Astryum signs nothing here; this only gates which drafts a session may retire.
  */
 import type { Request } from 'express';
 import type { ProofPurpose, ProofRefusal, ProofStoreFailure, ProofOutcome } from '../identity/provenAddresses';
 
 /**
- * productizer-it19 §M3 3.1 — QUÉ SE LE DEBE A QUIEN NO PUDIMOS COMPROBAR.
+ * QUÉ SE LE DEBE A QUIEN NO PUDIMOS COMPROBAR.
  *
  * `mayAct` es lo único que hace falta para dejar pasar. Cuando es false, la ruta
  * tiene además el cuerpo exacto que debe responder: 403 «no lo has probado», o
@@ -34,7 +23,7 @@ export interface XrplAccountAuthority {
   /** null exactamente cuando `mayAct` es true; si no, la respuesta a enviar. */
   refusal: ProofRefusal | null;
   /**
-   * productizer-it21 §P2 2.4 — POR QUÉ no se pudo leer, para quien necesite
+   * POR QUÉ no se pudo leer, para quien necesite
    * distinguir. `'read-failed'` es transitorio (BD caída, pool agotado): ahí un
    * «vuelve a intentarlo» es verdad. `'no-user-row'` y `'unreadable-floor'` son
    * DETERMINISTAS: repetir no las arregla, así que un 503 perpetuo sería un muro
@@ -42,7 +31,7 @@ export interface XrplAccountAuthority {
    */
   failure: ProofStoreFailure | null;
   /**
-   * productizer-it21 §P1 1.1/1.4 (contrato del agente E) — LAS TRES RESPUESTAS
+   * §P1 1.1/1.4 — LAS TRES RESPUESTAS
    * QUE HAY. `mayAct: false` arrastraba dos estados muy distintos: «esta sesión
    * no tiene esa cuenta» y «no pude leer si la tiene». El segundo marcaba la fila
    * como desplazable, que es cómo un parpadeo de BD se convertía en el asiento de
@@ -112,7 +101,7 @@ export async function sessionAuthorityOnXrplAccount(
   }
   return {
     mayAct: false,
-    // productizer-it23 §Q1 1.6 — EL DEFECTO DE ESTA COSTURA ERA UN 403, INCLUSO
+    // EL DEFECTO DE ESTA COSTURA ERA UN 403, INCLUSO
     // EN UNA SALIDA. Si el `import()` del módulo de pruebas falla (build rota,
     // ciclo de módulos, OOM), el `catch` de arriba deja `refusal` en null y aquí
     // se devolvía un 403 `ADDRESS_NOT_PROVEN` NO reintentable: un fallo nuestro
@@ -133,7 +122,7 @@ const PROOF_MODULE_UNREADABLE_DETAIL =
   'Try again in a moment; if it keeps failing, sign in again with the wallet that controls this account.';
 
 /**
- * productizer-it23 §Q1 1.6 — la respuesta que se debe cuando NI SIQUIERA se pudo
+ * La respuesta que se debe cuando NI SIQUIERA se pudo
  * preguntar (el módulo de pruebas no cargó), y por tanto no hay `refusal` suyo
  * que propagar. Misma regla que `refusalForUnreadableStore` para el fallo
  * transitorio, escrita aquí porque este caso es justo aquel en que ese módulo no
@@ -148,27 +137,8 @@ function fallbackRefusalFor(outcome: ProofOutcome, purpose: ProofPurpose): Proof
 }
 
 /**
- * productizer it. 31 (agente D, 4.1) — EL REFUSAL QUE UNA PUERTA DEL ASIENTO
+ * EL REFUSAL QUE UNA PUERTA DEL ASIENTO
  * REENVÍA, TAL CUAL, HASTA LA RESPUESTA.
- *
- * QUÉ FALLABA. Las tres puertas del asiento 0xFE (`seatClaimOf` en flareDemo,
- * `seatProofFieldsFor` en institutional y en xrplDefi) hacían
- * `if (claim.refusal?.retryable) throw new SeatStateUnreadableError('PROOF_STORE_UNREADABLE: …
- * try again in a moment …')`. Desde it. 29 hay DOS refusals reintentables, y el
- * segundo — `PROOF_FLOOR_AHEAD_OF_CLOCK`, la marca de toma de posesión
- * adelantada a nuestro reloj — entraba por esa rama y salía como el primero:
- * se perdían el código, `headline`, `ways` y las dos verdades («re-linking will
- * not help», «an administrator can check that date»), y se afirmaba «could not
- * read» sobre una fila que SE LEYÓ y «in a moment» sobre un instante que puede
- * ser 2099. It. 29 probó las piezas (`provenAddresses`, `takeoverAtOf`) y no la
- * cadena hasta estas puertas; por eso pasó.
- *
- * QUÉ HACE. `SeatStateUnreadableError.fromProofRefusal(refusal)` guarda el
- * refusal entero en el error; estas dos funciones lo leen por duck typing (dos
- * de los tres routers cargan aquel módulo perezosamente y serializan en
- * síncrono) y devuelven el cuerpo y el status que el refusal ya eligió. Sin
- * refusal reenviado devuelven null y el router construye el cuerpo de asiento
- * de siempre — así un `NONCE_SEAT_*` no cambia ni una coma.
  */
 export function forwardedProofRefusalBody(e: unknown): Record<string, unknown> | null {
   const r = (e as { proofRefusal?: ProofRefusal } | null)?.proofRefusal;
@@ -190,41 +160,8 @@ export function forwardedProofRefusalStatus(e: unknown): number | null {
 }
 
 /**
- * productizer-it23 §Q1 1.1 (contrato A→C) — LAS DOS MARCAS DEL ASIENTO, LLENADAS
+ * §Q1 1.1 (contrato A→C) — LAS DOS MARCAS DEL ASIENTO, LLENADAS
  * EN UN SOLO SITIO.
- *
- * Una fila de handoff lleva DOS booleanos sobre la prueba de quien la compuso, y
- * la combinación `preparedByProven: false` + `preparedByProofUnreadable: false`
- * significa una cosa muy concreta: «pregunté, y esta sesión NO tiene esa cuenta»
- * — una fila que el dueño probado puede apartar aunque su payload siga vivo. Un
- * llamador que olvida la segunda marca escribe esa frase sin haberla dicho: con
- * la tienda parpadeando, la fila nace desplazable y el propio dueño, al
- * reintentar cuando la BD sana, aparta su PROPIO borrador vivo (it22 Q1 1.1,
- * cuatro revisores).
- *
- * Así que esta función es la única forma de llenar las dos, y su regla es: **si
- * no consta que se preguntara, el estado es DESCONOCIDO**, nunca «no probada».
- *
- *     import { seatProofFieldsFrom } from '../services/flare/handoffAuthority';
- *
- *     const authority = await sessionAuthorityOnXrplAccount(req, account, 'exit');
- *     if (!authority.mayAct && authority.refusal && authority.refusal.status !== 403) {
- *       return res.status(authority.refusal.status).json(authority.refusal); // 503/409 tal cual
- *     }
- *     const handoff = await buildDirectMintHandoff(provider, {
- *       ...,
- *       ...seatProofFieldsFrom(authority),   // ← las dos marcas, siempre coherentes
- *     });
- *
- * Acepta las cuatro formas que hay por el repo, para que nadie tenga que
- * convertir nada a mano:
- *   · `XrplAccountAuthority` (lo que devuelve `sessionAuthorityOnXrplAccount`);
- *   · el veredicto de `proveAddress` (`{ proven, storeReadable }`);
- *   · un `SeatProofClaim` ya hecho por `seatProofFromVerdict` (pasa tal cual);
- *   · un **booleano** — el de `sessionMayActOnXrplAccount`. Un `true` es prueba;
- *     un `false` de esa forma NO distingue «no la tiene» de «no pude leer», así
- *     que se lee como DESCONOCIDO. Es a propósito: quien quiera una fila
- *     desplazable tiene que haber preguntado de verdad, con la forma completa.
  */
 export interface SeatProofFields {
   /** true SOLO con prueba. Jamás true sobre una lectura que no se pudo hacer. */
@@ -275,7 +212,7 @@ export function seatProofFieldsFrom(
 /**
  * May this session act on a handoff owned by `xrplAddress`? Only if the address
  * is one it has PROVEN, or the session is a verified founder. Moved verbatim from
- * routes/flareDemo.ts (`sessionMayActOnHandoff`, productizer-it9) so the prepare
+ * routes/flareDemo.ts (`sessionMayActOnHandoff`) so the prepare
  * routes of every module share one verdict.
  *
  * Forma booleana de `sessionAuthorityOnXrplAccount`: pierde el 503 de una tienda
@@ -305,7 +242,7 @@ export function isSameHandoffPreparer(sessionUserId: unknown, preparedByUserId: 
   );
 }
 
-// ── How long the Xaman payload of a 0xFE stays signable (productizer-it17 §L1) ──
+// ── How long the Xaman payload of a 0xFE stays signable (§L1) ──
 //
 // The seat of a nonce is not held by a clock and not held by a row: it is held
 // by a PAYLOAD that somebody can still sign. Two independent deadlines bound it:
@@ -315,7 +252,7 @@ export function isSameHandoffPreparer(sessionUserId: unknown, preparedByUserId: 
 //     signed Payment can no longer enter.
 // The window must therefore COVER the payload expiry, and a seat may only be
 // freed once the payload can no longer be signed. Both numbers come from here so
-// they can never drift apart again (it16 R1 1.1/1.5).
+// they can never drift apart again (/1.5).
 
 /** Minutes a Xaman 0xFE payload stays signable when `HANDOFF_PAYLOAD_EXPIRY_MIN` is unset. */
 export const DEFAULT_HANDOFF_PAYLOAD_EXPIRY_MIN = 5;
@@ -339,31 +276,8 @@ export function handoffPayloadExpiryMin(): number {
 }
 
 /**
- * productizer-it23 §Q1 1.3 — LA VENTANA DE UNA CEREMONIA SE MIDE CON SU PROPIO
+ * LA VENTANA DE UNA CEREMONIA SE MIDE CON SU PROPIO
  * PAYLOAD, NO CON EL DE UNA FIRMA SIMPLE.
- *
- * Un 0xFE que firma un QUÓRUM no lo firma nadie en cinco minutos: sus payloads
- * de Xaman se crean con `expire: 1440` (24 h) porque un consejo firma a
- * velocidad humana. El servidor, en cambio, componía ese dispatch con la
- * caducidad y la ventana de ledger de una firma simple (~5-6 min), así que a los
- * seis minutos pasaban DOS cosas: el asiento de nonce se daba por libre (y el
- * prepare siguiente componía otro userOp encima, en silencio) y —lo que mata la
- * salida— el `LastLedgerSequence` de aquel Payment quedaba atrás: **el quórum
- * acababa firmando bytes que ya no pueden entrar en el ledger**. Una salida
- * institucional multifirma no podía completarse (it22 Q1 1.3).
- *
- * El arreglo, y por qué este y no el otro: el `LastLedgerSequence` se fija al
- * COMPONER y va dentro de los bytes que se firman — no hay forma de alargarlo
- * después, así que sellar la caducidad más tarde (`/handoff/payload-opened`) no
- * puede salvar una ceremonia lenta. La decisión tiene que tomarse al componer:
- * quien compone para un quórum declara la vida REAL de su payload y el builder
- * estira las DOS cosas a la vez (caducidad y ventana de ledger), que es lo que
- * las mantiene coherentes. Marcar la fila para «esperar al ledger en vez de al
- * reloj» habría evitado el gemelo pero no habría salvado la salida: pasada la
- * LLS el Payment no entra ni firmado.
- *
- * El coste es honesto y acotado: ese asiento de nonce queda ocupado mientras el
- * payload pueda firmarse, que es exactamente lo que el asiento significa.
  */
 export function handoffCeremonyExpiryMin(): number {
   const raw = Number(process.env.HANDOFF_CEREMONY_EXPIRY_MIN);
@@ -401,8 +315,8 @@ export function rowPayloadExpiryMin(row: { payloadExpiryMin?: number | null }): 
 /**
  * When this row's payload stops being signable, in ms — the persisted
  * `payloadExpiresAt` when the row carries one (contrato C3), else the row's own
- * creation time plus the expiry it declared (`payloadExpiryMin`, it23 §Q1 1.3) or
- * the configured one (rows composed before it17), else null: with nothing to date
+ * creation time plus the expiry it declared (`payloadExpiryMin` §Q1 1.3) or
+ * the configured one (rows composed before), else null: with nothing to date
  * the payload by, no clock may free its seat.
  */
 export function handoffPayloadExpiryMsOf(row: {
@@ -427,12 +341,12 @@ function rowCreatedAtMs(row: { createdAt?: Date | string | null }): number | nul
   return Number.isFinite(ms) ? ms : null;
 }
 
-// ── LA CADUCIDAD REAL LA FIJA QUIEN CREA EL PAYLOAD (productizer-it19, C2) ──
+// ── LA CADUCIDAD REAL LA FIJA QUIEN CREA EL PAYLOAD (C2) ──
 //
 // `payloadExpiresAt` se estampaba al COMPONER, pero el `expire` de Xaman corre
 // desde que se CREA el payload (cuando el usuario abre el modal, a veces un
-// minuto después). El asiento se declaraba libre mientras una firma seguía viva
-// (it18 R1 1.3). Ahora quien crea el payload lo dice al servidor y el reloj se
+// minuto después). El asiento se declaraba libre mientras una firma seguía viva.
+// Ahora quien crea el payload lo dice al servidor y el reloj se
 // mueve — solo HACIA ADELANTE, nunca más allá de lo que la ventana de ledger
 // permite: pasada la LastLedgerSequence el Payment no entra ni firmado, así que
 // una caducidad posterior sería mentira y congelaría el asiento por nada.
@@ -455,7 +369,7 @@ export function defaultSeatWindowLedgers(expiryMin?: number | null): number {
 }
 
 /**
- * productizer-it23 §Q1 1.3 — los ledgers que hacen falta para cubrir ENTERA la
+ * Los ledgers que hacen falta para cubrir ENTERA la
  * vida de un payload de `expiryMin` minutos. Es el SUELO de la ventana de una
  * fila: si la ventana no cubre el payload, quien firme al final firma bytes que
  * ya no pueden entrar (y el asiento se habría soltado antes con el payload vivo).
@@ -479,7 +393,7 @@ export function seatWindowLedgersOf(
   return known ? lls - composed : fallbackLedgers;
 }
 
-/** Minutos de más allá de su ventana que un asiento ilegible debe llevar para poder desplazarse (it17 §1.3). */
+/** Minutos de más allá de su ventana que un asiento ilegible debe llevar para poder desplazarse. */
 export const DEFAULT_UNREADABLE_DISPLACE_MIN = 30;
 
 /** `HANDOFF_UNREADABLE_DISPLACE_MIN` en ms, con suelo de 5 min: nunca un desplazamiento «rápido». */
@@ -490,7 +404,7 @@ export function unreadableDisplaceGraceMs(): number {
 }
 
 /**
- * productizer-it17 §1.3 — ¿la ventana de esta fila quedó MUY atrás? Se mide por
+ * ¿la ventana de esta fila quedó MUY atrás? Se mide por
  * tiempo porque este caso es justo aquel en que el ledger no se puede leer: la
  * fila lleva viva más que su propia ventana MÁS el margen. Sin `createdAt` no se
  * puede fechar nada y la respuesta es no. Puro (el llamador pasa su ventana por
@@ -523,19 +437,10 @@ export function seatWindowClosesAtMs(
 }
 
 /**
- * productizer-it19 (C2) — la caducidad que el servidor acepta de quien CREA el
+ * La caducidad que el servidor acepta de quien CREA el
  * payload. Puro. Solo se mueve hacia adelante, nunca más allá del cierre de la
  * ventana de ledger, y nunca más de lo que un payload vive desde ahora: así una
  * llamada repetida no puede sostener un asiento indefinidamente.
- *
- * POR QUÉ EL TECHO NO ES NEGOCIABLE (aviso del agente D, it19): la ceremonia
- * multifirma pide sus payloads a Xaman con `expire: 1440` — 24 horas, porque un
- * consejo tarda en juntar firmas. Estampar eso en un 0xFE dejaría su asiento de
- * nonce ocupado un día entero, y sobre una SALIDA eso es tapiarla. No hace falta
- * confiar en que nadie llame: pasada la `LastLedgerSequence` ese Payment no entra
- * ni firmado, así que una caducidad más larga sería una mentira aritmética. Se
- * acota aquí, en el servidor, y el cliente no puede alargar un asiento diga lo
- * que diga su `expire`.
  */
 export function clampStampedPayloadExpiry(
   row: {
@@ -551,7 +456,7 @@ export function clampStampedPayloadExpiry(
   const requested = Date.parse(requestedIso);
   if (!Number.isFinite(requested)) return { accepted: false, reason: 'unparseable' };
   const current = handoffPayloadExpiryMsOf(row);
-  // it23 §Q1 1.3 — el techo «una vida de payload desde ahora» es el de ESTA fila:
+  // El techo «una vida de payload desde ahora» es el de ESTA fila:
   // una ceremonia declaró 24 h al componer, y medirla con los 5 min de una firma
   // simple la dejaba sin poder sellar jamás la caducidad real que Xaman devuelve.
   const ceilings = [ctx.nowMs + rowPayloadExpiryMin(row) * 60_000];
@@ -562,19 +467,14 @@ export function clampStampedPayloadExpiry(
   return { accepted: true, expiresAt: new Date(capped).toISOString() };
 }
 
-// ── EL PREDICADO ÚNICO DEL ASIENTO (productizer-it19 §M1 1.1/1.2/1.3) ─────────
+// ── EL PREDICADO ÚNICO DEL ASIENTO (§M1 1.1/1.2/1.3) ─────────
 //
 // Tres puertas decidían por separado si un asiento podía soltarse: el release
 // (`classifyHandoffRelease`), el supersede del mismo preparador (`mayDisplaceRow`
 // rama b) y el desplazamiento automático del builder. La rama (b) desplazaba una
 // fila con la ventana VIVA que el release se negaba a soltar — el mismo gemelo
-// por la otra puerta (it18 R1 1.2) — y el release decidía por reloj sin leer
+// por la otra puerta — y el release decidía por reloj sin leer
 // jamás la ventana del memo (1.3). Ahora las tres preguntan aquí.
-//
-// LA REGLA, EN UNA FRASE: un asiento se suelta cuando su payload YA NO PUEDE
-// FIRMARSE **y** la ventana leída dice que ningún Payment con ese memo entró.
-// Ni el reloj solo (una firma del último segundo aún puede aterrizar), ni la
-// física sola (un Payment que entró antes de la LLS consumió el asiento).
 
 /** Lo que dijo la lectura de la ventana del memo, si se leyó (`HandoffWindowVerdict.state`). */
 export type SeatWindowState = 'signed' | 'failed' | 'absent' | 'unreadable';
@@ -593,7 +493,7 @@ export type SeatSignabilityReason =
   /** El payload caducó sin firma y la ventana se leyó entera sin su memo. */
   | 'payload-expired'
   /**
-   * it25 §4 — el TITULAR dio por terminada la ceremonia que iba a firmar esta
+   * El TITULAR dio por terminada la ceremonia que iba a firmar esta
    * fila y la ventana se leyó entera sin su memo. No es una caducidad: es una
    * decisión suya, y por eso se apunta con su propio nombre.
    */
@@ -602,11 +502,11 @@ export type SeatSignabilityReason =
   | 'window-passed'
   /** Entró y falló (tec*): no entregó XRP, el mint no puede ejecutarse — asiento libre. */
   | 'ledger-failed'
-  /** Ventana ilegible en todos los nodos y muy pasada (it17 §1.3): la única puerta. */
+  /** Ventana ilegible en todos los nodos y muy pasada: la única puerta. */
   | 'window-long-past'
   /**
    * El payload caducó pero ALGUIEN dijo haberlo firmado y el ledger no lo ha
-   * desmentido. No gatea como un informe que cuenta (it14 §1.3: el informe de un
+   * desmentido. No gatea como un informe que cuenta (el informe de un
    * extraño no puede cerrar la salida de nadie), pero tampoco deja que el RELOJ
    * suelte el asiento: si aquel Payment aterriza, el gemelo ya estaría compuesto.
    */
@@ -634,7 +534,7 @@ export function classifySeatSignability(
     lastLedgerSequence?: number | null;
     composedLedgerIndex?: number | null;
     payloadExpiresAt?: string | null;
-    /** it23 §Q1 1.3 — la vida declarada del payload (una ceremonia, 24 h). */
+    /** La vida declarada del payload (una ceremonia, 24 h). */
     payloadExpiryMin?: number | null;
     createdAt?: Date | string | null;
   },
@@ -654,34 +554,8 @@ export function classifySeatSignability(
     /** Ventana por defecto (ledgers) para fechar una fila sin sus dos índices. */
     fallbackWindowLedgers?: number;
     /**
-     * productizer-it25 §4 — EL TITULAR DIO POR TERMINADA LA CEREMONIA QUE IBA A
+     * EL TITULAR DIO POR TERMINADA LA CEREMONIA QUE IBA A
      * FIRMAR ESTA FILA. Sustituye SOLO la mitad del RELOJ, jamás la física.
-     *
-     * Por qué hace falta: con la ventana de una ceremonia (24 h, §2.1) el asiento
-     * de nonce de esa cuenta queda ocupado un día entero, y sin una puerta la
-     * SEGUNDA salida del mismo consejo choca con un 409 durante 24 h. Eso es
-     * tapiar una salida con código nuestro, que es exactamente lo que no puede
-     * pasar («LA SALIDA JAMÁS SE GATEA»).
-     *
-     * Por qué NO debilita la regla: los bytes de una ceremonia los compone el
-     * coordinador multisig con la `Sequence` de la cuenta FIJADA
-     * (`prepareCouncilMultisig`: `Sequence: sequence`, el siguiente hueco del
-     * ledger). Dos ceremonias compuestas sobre la misma cuenta mientras esa
-     * Sequence no se ha gastado llevan EL MISMO número, así que como mucho UNA
-     * puede aplicar: la otra muere `tefPAST_SEQ` y ni siquiera llega al Core
-     * Vault. El gemelo — dos Payments que entran y dejan uno de los dos userOps
-     * en `InvalidNonce` con el XRP del cliente dentro — es imposible ahí. Y si la
-     * Sequence YA se gastó, aquellos bytes están muertos por definición.
-     *
-     * Y lo que esta marca NO toca: la otra mitad del predicado sigue entera — el
-     * asiento solo se suelta si la ventana del memo se leyó ENTERA y dice que
-     * aquel Payment no entró (`windowState === 'absent'`). Una ventana ilegible,
-     * una firma marcada, un informe pendiente: todo eso sigue reteniendo el
-     * asiento igual que antes. «No pude leer» nunca libera nada.
-     *
-     * Quién la pone: la puerta del titular, con su prueba de sesión, NUNCA el
-     * cuerpo de una petición ni un barrido automático — un barrido no sabe si un
-     * consejo sigue juntando firmas, y adivinarlo sería inventar el hecho.
      */
     holderEndedCeremony?: boolean;
   },
@@ -708,7 +582,7 @@ export function classifySeatSignability(
   if (lls === null) return free('no-window'); // sin ventana rige la regla de it13
 
   const expiresAtMs = handoffPayloadExpiryMsOf(row);
-  // it25 §4 — el reloj, o el titular que dio por terminada la ceremonia. Una cosa
+  // El reloj, o el titular que dio por terminada la ceremonia. Una cosa
   // O la otra: nunca se salta la lectura de la ventana que viene después.
   const ceremonyEnded = ctx.holderEndedCeremony === true;
   const payloadDead = ceremonyEnded || (expiresAtMs !== null && ctx.nowMs >= expiresAtMs);

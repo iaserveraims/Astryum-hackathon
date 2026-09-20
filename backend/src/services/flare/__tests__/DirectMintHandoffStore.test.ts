@@ -1,11 +1,6 @@
 /**
  * DirectMintHandoffStore — la attestation 0xFE persistida (sobrevive a un redeploy).
  *
- * Espejo del test del carril Legacy, portado con las dos condiciones del fundador:
- * jobType propio '0xfe-attestation' (invisible al poller '0xfe-handoff'+'queued')
- * y `passesWithoutProof` PERSISTIDO — sin él, un redeploy resetea la tolerancia a 0 y el guard
- * de expiración del DA layer nunca borraría un registro "pagado" sobre un proof
- * muerto (el mismo bug que el guard cierra en Legacy).
  */
 
 const mockRows: Array<{ id: number; jobType: string; payload: Record<string, unknown>; createdAt: Date }> = [];

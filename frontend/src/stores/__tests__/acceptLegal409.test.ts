@@ -1,18 +1,15 @@
 /**
- * productizer it. 34 (agente D) — EL 409 LEGAL TRAÍA SU VEREDICTO Y EL STORE LO TIRABA.
+ * EL 409 LEGAL TRAÍA SU VEREDICTO Y EL STORE LO TIRABA.
  *
  * `POST /auth/legal-accept` contesta, cuando la columna `preferences` no se puede
  * leer, 409 `PREFERENCES_UNREADABLE` con `retryable: false` Y con
  * `legal: { unreadable: true, required: false }` — el MISMO estado que /auth/me
- * reporta para esa fila, y que desde it. 25 es la instrucción de retirar el modal
+ * reporta para esa fila, y que es la instrucción de retirar el modal
  * y enseñar la nota del tercer estado. `acceptLegal` solo miraba `res.ok` y
  * `body.error`: guardaba `legalAcceptRefusal: 'server'`, la puerta —un modal NO
  * descartable— pintaba «The server could not record your signature — try again in
  * a moment» sobre un rechazo que el servidor acababa de declarar no reintentable,
  * y hacía falta un segundo viaje (`refreshMe`) para que el modal se fuera.
- *
- * Aquí se ejerce el CONSUMIDOR: el store real, con `fetch` fingido devolviendo el
- * cuerpo del backend (routes/auth.ts + config/legalAcceptance.unreadableLegalStatus).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

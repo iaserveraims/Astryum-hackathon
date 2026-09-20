@@ -3,28 +3,11 @@
 /**
  * ServerRefusalBody — LO QUE EL SERVIDOR DIJO, ENTERO, CON ALGO QUE PULSAR.
  *
- * productizer it. 27 (3). `lib/errors/serverRefusal` es el UN lector de «el
+ * . `lib/errors/serverRefusal` es el UN lector de «el
  * servidor dijo que no», y hasta esta iteración devolvía una cadena: el
  * `headline`, las `ways[]` y el `retryAfterSeconds` que `provenAddresses.ts`
  * construye y las rutas mandan verbatim se perdían en el camino. La única
  * pantalla que ofrecía una puerta era `SeatRefusalNotice`, la del carril 0xFE.
- *
- * QUÉ SE VEÍA. El usuario de email/Google —el ÚNICO perfil que se encuentra
- * estos rechazos, porque van sobre un registro de cuenta y una wallet firmada no
- * necesita ninguno— abría la bandeja del consejo, leía «Sign in with the wallet
- * that controls this address» y no tenía nada que pulsar. Lo mismo con
- * `NOT_A_COUNCIL_MEMBER` («Register the wallet that holds your seat»).
- *
- * POR QUÉ UN COMPONENTE Y NO OCHO ARREGLOS. Los consumidores de
- * `serverRefusalText` son ocho y crecen; el arreglo va donde está el lector.
- * Esto NO decide nada y no llama a nadie: pinta la frase, pinta las salidas que
- * el servidor nombró y, cuando la cura es iniciar sesión con la wallet, pinta un
- * ENLACE a la superficie donde eso se hace. Un rechazo sigue siendo del
- * servidor; lo único que cambia es que deja de ser un callejón sin salida.
- *
- * «No pude leer» no es permiso, ni castigo, ni un hecho: por eso el reintento
- * solo se ofrece cuando el servidor dijo que reintentar sirve, y la espera se
- * pinta como los segundos que él mismo declaró, jamás como una promesa nuestra.
  */
 
 import type { ReadableRefusal } from '../../lib/errors/serverRefusal';

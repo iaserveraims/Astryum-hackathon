@@ -4,18 +4,6 @@
  * Real-time threat detection via Hypernative's security intelligence platform.
  * Covers: protocol exploits, oracle manipulation, rug pulls, governance attacks,
  * whale exits, and abnormal on-chain patterns.
- *
- * Integration model:
- *   - Pull: `security.getAlerts` / `security.getActiveThreats` — REST API polling
- *   - Push: `security.processWebhookPayload` — called by the webhook route
- *     (`POST /api/webhooks/hypernative`) after HMAC signature verification.
- *
- * On threat detection → persists an Alert row in Prisma + fires push notification.
- *
- * Env vars:
- *   HYPERNATIVE_API_KEY        — API key (Bearer token). Required for poll capabilities.
- *   HYPERNATIVE_WEBHOOK_SECRET — HMAC-SHA256 secret for webhook signature verification.
- *   HYPERNATIVE_API_URL        — base URL (default: https://api.hypernative.xyz)
  */
 
 import { createHmac } from 'crypto';

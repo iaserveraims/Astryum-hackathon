@@ -24,8 +24,7 @@ import { loadChats, newChatId, saveChat, type StoredChat } from '../../lib/agent
 import { AgentHistoryPanel } from './AgentHistory';
 
 /**
- * SmoothMarkdown — el texto del stream, alisado (fundador 2026-08-29: «va
- * popeando el texto»). Los deltas llegan a golpes de chunk; esto revela el
+ * SmoothMarkdown — el texto del stream, alisado. Los deltas llegan a golpes de chunk; esto revela el
  * contenido a caudal constante (rAF, acelerando si se queda atrás) y pinta
  * el markdown sobre la parte revelada — la máquina de escribir de antes,
  * pero con formato. Solo lo usa el mensaje VIVO; los terminados renderizan
@@ -226,14 +225,13 @@ export function StrategyLLMChat({
   /** True when the active authority is a council (governed account). */
   governed?: boolean;
   /**
-   * Ir al catálogo. UN enlace, no una lista (fundador 2026-08-23: «tal vez lo
-   * mejor sea quitarlas ya que ya aparecen en el otro menú»). Las rutas vivas
+   * Ir al catálogo. UN enlace, no una lista. Las rutas vivas
    * han estado dentro del chat y en un raíl al lado, y ninguna de las dos
    * gustó: son el contenido de OTRA pantalla, y meterlas aquí obliga al chat a
    * competir con ellas por el mismo alto. Queda la puerta, no el escaparate.
    */
   onBrowseRoutes?: () => void;
-  /** La frase de la barra de mando (2026-08-29): se envía sola como primer
+  /** La frase de la barra de mando: se envía sola como primer
    *  mensaje al montar — el usuario ya la escribió, repetírsela sería burla. */
   seed?: string;
   /** Una nueva frase de la barra con el chat YA montado (operación viva):
@@ -257,7 +255,7 @@ export function StrategyLLMChat({
   const [mode, setMode] = useState<ChatMode>('carry');
   // CMF pending user review — the modal owns edit + activate.
   const [reviewCmf, setReviewCmf] = useState<CanonicalMoneyFlow | null>(null);
-  // ── Historial local (fundador 2026-08-29): 30 días en ESTE navegador ──
+  // ── Historial local: 30 días en ESTE navegador ──
   const chatIdRef = useRef<string | null>(null);
   const chatStartedRef = useRef<number>(0);
   /** Espejo de `messages` para el flush de desmontaje (un cleanup no ve el
@@ -297,7 +295,7 @@ export function StrategyLLMChat({
     if (streaming || messages.length === 0) return;
     persistNow();
   }, [streaming, messages, persistNow]);
-  // FLUSH al desmontar (revisión 2026-08-29): la X del agente cierra a la
+  // FLUSH al desmontar (revisión): la X del agente cierra a la
   // primera con la promesa de que «la conversación queda en el historial» —
   // pero cerrada A MEDIA RESPUESTA no se había guardado nada (el efecto de
   // arriba calla mientras streaming) y, si era el primer turno, el chat ni
@@ -311,16 +309,16 @@ export function StrategyLLMChat({
     },
     [persistNow],
   );
-  // Cambiar de conversación LIMPIA el contexto numérico acumulado (revisión
-  // 2026-08-29: amount/target/HF sobrevivían al «Nueva conversación» y la
+  // Cambiar de conversación LIMPIA el contexto numérico acumulado (revisión:
+  // amount/target/HF sobrevivían al «Nueva conversación» y la
   // siguiente pregunta calculaba la tabla —y prellenaba el prepare— con los
   // 10.000 XRP de un chat abandonado). El precio honesto: en un chat
   // restaurado el agente vuelve a preguntar la cantidad en vez de heredar
   // una que quizá era de OTRA conversación.
   const resetConversationContext = () => {
     // Un stream en vuelo pertenece a la conversación que se abandona: sin
-    // esto, su cola de deltas caía dentro de la recién abierta (revisión
-    // 2026-08-29). El catch de send traga el AbortError sin tocar nada.
+    // esto, su cola de deltas caía dentro de la recién abierta (revisión).
+    // El catch de send traga el AbortError sin tocar nada.
     abortRef.current?.abort();
     setAmountXrp(undefined);
     setTargetUsd(undefined);
@@ -343,7 +341,7 @@ export function StrategyLLMChat({
     resetConversationContext();
     setHistoryOpen(false);
   };
-  // Restauración pedida DESDE FUERA (relojito del héroe, 2026-08-30): por
+  // Restauración pedida DESDE FUERA (relojito del héroe): por
   // key, como el seed — dos toques a la misma conversación restauran igual.
   const lastRestoreKey = useRef<number | null>(null);
   useEffect(() => {
@@ -369,7 +367,7 @@ export function StrategyLLMChat({
     };
   }, []);
   // Every rule a CMF activates binds to the wallet that HOLDS the position and
-  // transacts on Flare (founder 2026-07-24): the Smart Account of each linked
+  // transacts on Flare: the Smart Account of each linked
   // Xaman (deterministic resolution — the same read registers it as this
   // user's wallet server-side) or a linked Flare EVM wallet. NEVER the login
   // address: the engine evaluates HF/rewards on the rule wallet's own
@@ -390,7 +388,7 @@ export function StrategyLLMChat({
           seen.add(pa.toLowerCase());
           out.push({
             address: pa,
-            // La dueña con la regla canónica de nombres (2026-08-22): apodo →
+            // La dueña con la regla canónica de nombres: apodo →
             // marca → dirección corta. El walletType crudo jamás es un nombre.
             label: `Smart Account · ${walletDisplayName(w, t)}`,
             kind: 'smart-account',
@@ -454,7 +452,7 @@ export function StrategyLLMChat({
       if (nextTarget !== targetUsd) setTargetUsd(nextTarget);
       if (nextHF !== targetHF) setTargetHF(nextHF);
 
-      // Capada y sin vacíos ANTES de viajar (revisión 2026-08-29): el schema
+      // Capada y sin vacíos ANTES de viajar (revisión): el schema
       // rechaza content vacío (min 1) y más de 20 turnos (max 20) — sin este
       // filtro, un turno del asistente sin texto envenenaba TODAS las
       // peticiones siguientes, y la conversación nº12 devolvía 400 a secas.
@@ -634,7 +632,7 @@ export function StrategyLLMChat({
   const lastSeedKey = useRef<number | null>(null);
   useEffect(() => {
     const key = seedKey ?? 0;
-    // La key se consume SOLO al despachar de verdad (revisión 2026-08-29: se
+    // La key se consume SOLO al despachar de verdad (revisión: se
     // estampaba antes de saber si send haría algo, y send calla mientras
     // `streaming` — la frase de la barra se perdía sin rastro). Con streaming
     // en las dependencias, la frase pendiente sale sola al liberarse el chat;
@@ -647,8 +645,7 @@ export function StrategyLLMChat({
   }, [seed, seedKey, streaming]);
 
   return (
-    /* EL CHAT ES LA PANTALLA (fundador 2026-08-23: «no me gusta el chat así
-       pequeño»). Antes era una tarjeta de 700px de alto flotando en una página
+    /* EL CHAT ES LA PANTALLA. Antes era una tarjeta de 700px de alto flotando en una página
        mucho más grande, con el catálogo dentro peleando por ese mismo alto.
        Ahora ocupa el viewport menos el encabezado, con un suelo para que en una
        ventana baja siga siendo un espacio de trabajo y no una ranura. La tabla
@@ -689,8 +686,8 @@ export function StrategyLLMChat({
             <History className="h-3.5 w-3.5" />
           </button>
           {historyOpen && (
-            /* La MISMA lista que abre el relojito del héroe (AgentHistory,
-               2026-08-30) — una pieza, no dos que se parecen. */
+            /* La MISMA lista que abre el relojito del héroe (AgentHistory,)
+               — una pieza, no dos que se parecen. */
             <div className="absolute right-0 z-30 mt-1.5">
               <AgentHistoryPanel onRestore={restoreChat} onNew={startNewChat} />
             </div>
@@ -857,8 +854,7 @@ export function StrategyLLMChat({
       </div>
 
       {/* Composer */}
-      {/* Ideas de prompt A MANO también en conversación (fundador
-          2026-08-29): tres chips discretos sobre el compositor, solo con el
+      {/* Ideas de prompt A MANO también en conversación: tres chips discretos sobre el compositor, solo con el
           input vacío y el agente callado — tocar una la envía. */}
       {messages.length > 0 && !streaming && input.trim() === '' && (
         <div className="flex flex-wrap gap-1.5 px-4 pb-1.5">

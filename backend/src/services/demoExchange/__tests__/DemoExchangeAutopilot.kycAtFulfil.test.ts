@@ -1,5 +1,5 @@
 /**
- * El KYC de la casilla se relee AL EJECUTAR (14-sep), no solo al pedir.
+ * El KYC de la casilla se relee AL EJECUTAR, no solo al pedir.
  *
  * El gate de las rutas mira la credencial cuando el cliente pide «poner a
  * trabajar»; el autopilot firma ticks después. Si entre medias la credencial
@@ -66,7 +66,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   spentToday: async () => BigInt(0),
   sweepStaleReservations: async () => [],
   recordSpend: async () => undefined,
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -101,7 +101,7 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => ({
   }),
 }));
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
 
 import { DemoExchangeAutopilot } from '../DemoExchangeAutopilot';

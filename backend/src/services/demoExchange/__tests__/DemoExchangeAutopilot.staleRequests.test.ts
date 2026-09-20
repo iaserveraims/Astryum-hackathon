@@ -1,20 +1,6 @@
 /**
- * productizer it. 29 — LA ALARMA DE ENVEJECIMIENTO NO PODÍA SONAR PARA LOS CASOS
+ * LA ALARMA DE ENVEJECIMIENTO NO PODÍA SONAR PARA LOS CASOS
  * QUE LA MOTIVARON.
- *
- * `noteStaleRequests` (it. 27) medía la antigüedad con `updatedAt`, y
- * `refuse()` pone `updatedAt = ahora` en su primera línea SIEMPRE, también con
- * `final === false`. Todos los estados que su docstring nombra como motivo de
- * existir (`NO_CLIENT_ACCOUNT`, `NO_POTE`, `ABOVE_DAILY_CAP`, `NONCE_SEAT_TAKEN`,
- * `INSUFFICIENT_LEDGER_BALANCE`…) pasan por `refuse(..., false)` en el MISMO tick
- * que la alarma: la edad volvía a cero cada veinte segundos. Y `tick()` saltaba
- * toda toma con `!autopilot`, así que una toma MANUAL —la que por definición
- * espera a una persona— no sonaba nunca, pese a que el comentario del paso 4
- * prometía «se mira SIEMPRE, tenga o no este backend la llave».
- *
- * Lo que se fija aquí (cadena c): una petición vieja SUENA en ops y apaga el
- * verde del latido, aunque el tick la acabe de rechazar sin cerrar; y una toma
- * manual suena igual, sin que nadie firme ni guarde nada en ella.
  */
 process.env.INSTITUTIONAL_POTES_ENABLED = 'true';
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
@@ -199,7 +185,7 @@ describe('cadena (c): una petición vieja suena en ops y apaga el verde', () => 
   });
 
   /**
-   * it. 31 — LA CUARTA MUDANZA DE LA CÁRCEL ERA UN INTERRUPTOR DE ADMINISTRADOR.
+   * LA CUARTA MUDANZA DE LA CÁRCEL ERA UN INTERRUPTOR DE ADMINISTRADOR.
    * Este test afirmaba lo contrario («una toma cerrada no se mira»): una
    * retirada en una toma `closed` envejecía en silencio, con el latido verde.
    * Cerrar una mesa no gatea la salida de nadie: su cola suena igual.
@@ -226,7 +212,7 @@ describe('cadena (c): una petición vieja suena en ops y apaga el verde', () => 
   });
 
   /**
-   * it. 31 — la cota del crítico permanente: el latido lo lleva cada tick, el
+   * La cota del crítico permanente: el latido lo lleva cada tick, el
    * canal de ops recibe la llamada UNA vez por ventana (30 min), no una por tick.
    */
   it('la misma petición vieja no vuelve a llamar a ops en el tick siguiente; el latido sí la sigue llevando', async () => {

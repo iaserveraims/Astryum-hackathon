@@ -7,14 +7,6 @@
  *   1. lee del ledger lo que la cuenta sostiene (emisor, tipo, caducidad, estado),
  *   2. para las pendientes, compone sin firmar el `CredentialAccept`,
  *   3. lo firma el sujeto en su Xaman — esa firma ES el consentimiento.
- *
- * Astryum no emite y no firma. Aquí no hay botón de emitir a propósito: si lo
- * hubiera, esta pantalla se podría confundir con «Astryum verifica». El emisor
- * se nombra siempre («Verificado por X»), jamás Astryum.
- *
- * Y lo más serio, dicho antes de firmar: una credencial en el ledger ata una
- * identidad a una cuenta, en público y para siempre. Aceptar es irreversible en
- * la práctica. El disclosure del backend lo trae; aquí se enseña entero.
  */
 'use client';
 
@@ -56,13 +48,12 @@ export function CredentialTray({
 }) {
   const { t } = useT();
   const [read, setRead] = useState<Read>({ kind: 'loading' });
-  // Secuencia de lecturas + temporizador (revisión 10-sep): una respuesta
+  // Secuencia de lecturas + temporizador (revisión): una respuesta
   // lenta de la cuenta ANTERIOR no puede pintarse bajo la nueva, y el
   // «relee en 6 s» tras aceptar muere con el componente.
   const seqRef = useRef(0);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // LA FIRMA, ARRIBA Y A LA VISTA (fundador 9-sep: «no me gusta que aparezca
-  // abajo… que se pueda ver mejor la petición de firmar»): lo pendiente de
+  // LA FIRMA, ARRIBA Y A LA VISTA: lo pendiente de
   // firmar se pinta PRIMERO como tarjeta destacada, y el QR de Xaman entra ahí
   // mismo y se trae a pantalla.
   const signRef = useRef<HTMLDivElement | null>(null);

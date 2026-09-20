@@ -1,19 +1,6 @@
 /**
  * shipLog — how the Orbit card's "Bitácora de a bordo" folds the CHANGELOG
  * into a readable history (pure; the card only renders what this returns).
- *
- * Founder 2026-08-26: «aglomera todos los behaviour juntos entre cada
- * improvement defi» — DeFi milestones keep their full line; everything
- * generic between two milestones collapses into ONE row of counters.
- *
- * Founder 2026-09-15: «el log de updates… se abre, pero no funciona el
- * scroll». Since 0.9.176 not one release carried a DeFi item, so the rule
- * above folded THIRTY-EIGHT versions into a single row: nothing to scroll,
- * nothing to read. A clump now also closes when the DAY changes — the log
- * reads as a diary (one row per day of work, milestones in full) instead of
- * a single line that swallows a month. And the whole log is folded, not a
- * window of 40: with day rows the row count is bounded by days, not
- * releases, so the scroller finally has something to scroll.
  */
 
 import { KIND_LABEL, type ChangeKind, type ChangelogEntry } from './changelog';
@@ -93,7 +80,7 @@ export function clumpLine(c: Clump, lang: 'es' | 'en'): string {
     .join(' · ');
 }
 
-/** "v0.9.213 · 2026-09-14" or "v0.9.205–v0.9.213 · 2026-09-14" */
+/** "v0.9.213 · " or "v0.9.205–v0.9.213 · " */
 export function clumpSpan(c: Clump): string {
   const versions =
     c.newest.version === c.oldest.version

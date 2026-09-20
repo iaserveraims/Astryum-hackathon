@@ -6,12 +6,6 @@
  * store). This persists orderData at prepare time, keyed by orderHash, so the
  * relayer can match the memo of the validated XRPL tx and deliver the exact
  * committed bytes to the XrplCouncilBridge.
- *
- * Same properties as DirectMintHandoffStore: `background_jobs` table (jobType
- * 'legacy-council-order'), records are payload material, never a queue — the
- * trigger is ALWAYS the quorum-signed XRPL Payment. A prepared order the
- * council never signs stays 'queued' and is inert. Losing a row is recoverable:
- * the client can re-supply orderData (the hash protects fidelity).
  */
 
 import { kvGet, kvUpsert, kvDelete } from '../persistence/backgroundJobKv';
@@ -57,7 +51,7 @@ export async function saveCouncilOrderRecord(record: CouncilOrderRecord): Promis
       `[legacy-order-store] persist FAILED for ${record.orderHash}: ${(e as Error).message} — ` +
         'the relayer will need the orderData re-supplied by the client',
     );
-    // Al canal (2026-08-03): sin esta fila, una orden que el consejo firme no
+    // Al canal: sin esta fila, una orden que el consejo firme no
     // se puede relayar salvo que el navegador que la preparó vuelva a aportar
     // los bytes. Enterarse ANTES de la ceremonia lo cambia todo.
     try {
@@ -121,8 +115,8 @@ export async function markCouncilOrderExecuted(
 //
 // The FDC attestation fee (~FLR) is paid once per order. Remembering (txId →
 // round) in RAM is fragile: a Railway redeploy between the payment and the
-// execute wipes it, and the retry re-pays — the exact 0xFE lesson (244 re-pays,
-// 2026-07-18). Persisting the round lets any restart REUSE the already-paid
+// execute wipes it, and the retry re-pays — the exact 0xFE lesson (244 re-pays,).
+// Persisting the round lets any restart REUSE the already-paid
 // attestation (its proof stays retrievable from the DA layer forever) instead
 // of paying again. Keyed by txId; best-effort (no DB ⇒ falls back to RAM only).
 

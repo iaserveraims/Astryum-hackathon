@@ -5,41 +5,6 @@
  * components/earn/icons.tsx: not icons in boxes but SCENES that live inside their
  * panels, drawn from the landing's world (deep space, accent sun, orbits, stars).
  * Each one is a little world tuned to what its page is FOR:
- *
- *   RadarSweep     — a sweeping radar finding blips: your live on-chain
- *                    positions, watched in real time (Estrategias · footprint).
- *   MonumentScene  — a gilded asteroid enthroned in a very slow ceremonial ring
- *                    under a fixed north star: permanence, the constitution (Legacy).
- *   CapitalField   — asset-planets sized by weight drifting over deep space: the
- *                    Capital Map as a small galaxy (Portfolio).
- *   SignalBeacon   — satellites (your wallets) linked to a central node, a pulse
- *                    travelling the signal lines (Wallets).
- *   ConsoleDials   — concentric calibration arcs with a tuning notch that sweeps:
- *                    control and configuration, the quietest scene (Settings).
- *
- * The Legacy family — each card of the Legacy surface gets its OWN world
- * (no recycled orbits; permanence deserves its own iconography):
- *
- *   CouncilScene     — signer-stars standing guard in an arc over the account-sun;
- *                      hovering draws the quorum arc through the required members.
- *   TimeVaultScene   — a sealed vault on a timeline rail: a pulse travels toward
- *                      the delivery star; a dotted recovery arc curves home.
- *   LedgerScrollScene— the constitution as a ruled document with its seal, and the
- *                      amendment anchors as a chain of stars that draws itself.
- *   MirrorOrbitsScene— two orbits face to face (XRPL accent · Flare rose) with a
- *                      sync beam between them: the two councils, mirrored.
- *   SignatureScene   — a signature stroke that writes itself over the baseline:
- *                      "you always sign" made visible (Settings · the promise).
- *
- * COLOUR: every brand-accent mark is token-driven (product re-tint, founder
- * 2026-07-17). The svg root carries `text-volt`; accent marks use currentColor
- * (+ opacity), soft marks switch the element to `text-volt-soft`, and gradient
- * stops read --volt-hi / --volt / --volt-deep via style (presentation
- * attributes cannot hold var()). Non-brand colours (emerald deliveries, silver
- * signers, Flare rose, XRP blue, white dust) stay literal on purpose.
- *
- * All animation is CSS (globals.css `.escene-*`), constant-speed, disabled under
- * prefers-reduced-motion. Self-drawing paths use pathLength=100 + `.escene-sign`.
  */
 
 const HI = { stopColor: 'hsl(var(--volt-hi))' } as const;
@@ -91,8 +56,7 @@ export function RadarSweep({ size = 168 }: { size?: number }) {
 
 /* ── Legacy · permanence, the constitution ─────────────────────────────────── */
 /**
- * PantheonScene — el panteón del Legacy, dibujándose (fundador 2026-08-25:
- * «the legacy logo (pantheon) animated and representing the legacy» en la
+ * PantheonScene — el panteón del Legacy, dibujándose (en la
  * estación de la cuenta). El templo se traza a sí mismo al montar (CSS
  * stroke-dashoffset, escalonado), la estrella del norte titila con la clase
  * de la casa y el conjunto flota apenas. Índigo SIEMPRE (--product-legacy):

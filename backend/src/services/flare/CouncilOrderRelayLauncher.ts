@@ -3,15 +3,10 @@
  *
  * Two callers share it: POST /xrpl-defi/council-order/relay (the live
  * ceremony) and POST /council/proposals/:id/submitted (the async inbox). The
- * 2026-07-29 incident — an order validated on XRPL that never executed on
+ * incident — an order validated on XRPL that never executed on
  * Flare because the browser was the only trigger — is why the launch lives
  * server-side: once the broadcast is reported, the relay no longer depends on
  * any browser staying open.
- *
- * The launcher also absorbs the broadcast→validation gap: a browser reports
- * the hash seconds before the ledger validates the tx, and the relay rightly
- * answers "not validated yet". That answer is a WAIT, not a verdict — the
- * launcher retries for a bounded window before surfacing the error state.
  */
 
 import { kvDelete, kvList, kvListStrict, kvUpsert } from '../persistence/backgroundJobKv';
@@ -35,16 +30,14 @@ const launchedAtByHash = new Map<string, number>();
  * executed. This memory is what makes the delivery survive us: the in-process
  * map dies with the process, so a backend restart mid-round — or a launch that
  * exhausted its retries — used to leave a quorum-signed order waiting for a
- * human to notice an alert and press a button (founder, 2026-08-03: "si es un
- * botón para que el user lo arregle solo, no debe de ser así").
+ * human to notice an alert and press a button.
  */
 const PENDING_JOB = 'legacy-order-pending';
 /**
  * Las órdenes ABANDONADAS: el puente ya no puede ejecutarlas (nonce superado).
  * Persistente, porque el vigía re-adopta desde la bandeja (`emittedCouncilOrders`)
  * cualquier orden emitida en 14 días — sin esta lista volvería a la cola en la
- * siguiente pasada (fundador 2026-09-16: dos órdenes caducadas reintentadas
- * 185 veces en un día).
+ * siguiente pasada.
  */
 const ABANDONED_JOB = 'legacy-order-abandoned';
 
@@ -63,28 +56,13 @@ interface PendingOrder extends Record<string, unknown> {
 }
 
 /**
- * UN PARPADEO DE LA BASE NO PUEDE REJUVENECER UNA ORDEN (productizer it. 27).
+ * UN PARPADEO DE LA BASE NO PUEDE REJUVENECER UNA ORDEN.
  *
  * Esta función leía con `kvList`, que es BLANDO: se traga el error y devuelve
  * `[]`. Con la base caída un instante, `existing` salía `undefined` y la fila se
  * reescribía como si la orden fuese nueva — `firstSeenAt` volvía a «ahora»,
  * `attempts` a 1, y `orderData` se caía del payload porque su único respaldo era
  * justo ese `existing`.
- *
- * `firstSeenAt` NO es decoración: es contra lo que se mide la ventana de
- * atestación del FDC (14 días, con aviso a los 11 en `retryPendingCouncilOrders`).
- * Al reescribirse, el reloj se desliza en silencio y el consejo no recibe a
- * tiempo el único aviso que importa: que hay que volver a firmar. Y el vigía
- * relanza cada pasada, así que un blip durante una pasada rejuvenecía TODAS las
- * órdenes pendientes a la vez.
- *
- * Regla del repo: quien decide un asiento, una autoridad, un tope o UN RELOJ lee
- * con la variante estricta y se hace cargo del error (backgroundJobKv,
- * `kvListStrict`). Aquí hacerse cargo es NO ESCRIBIR: sin saber si ya había
- * reloj, cualquier escritura o lo inventa o lo pisa. Lo que se pierde es la
- * persistencia de esta pasada, y eso ya tiene red — el relé sigue vivo en este
- * proceso, y `retryPendingCouncilOrders` re-adopta la orden desde
- * `emittedCouncilOrders()` con su FECHA REAL, no con «ahora».
  */
 async function rememberPending(hash: string, orderData?: string): Promise<void> {
   let existing: PendingOrder | undefined;
@@ -158,14 +136,9 @@ function isStaleVerdict(e: unknown): e is Error & { stale: true } {
  * like a verdict:
  *  · the XRPL node — "the tx is not validated yet" (seconds);
  *  · the FDC VERIFIER — `INVALID: TRANSACTION DOES NOT EXIST`, because it
- *    answers from its OWN index of XRPL, which is minutes behind. On
- *    2026-08-03 a council order validated at 15:04 was refused by the verifier
+ *    answers from its OWN index of XRPL, which is minutes behind. A council order validated at 15:04 was refused by the verifier
  *    at 15:05 with those words, and the relay gave up on a transaction that
  *    was sitting on mainnet with its three signatures.
- *
- * Treating either as final is the same mistake the 31-jul `txnNotFound`
- * incident taught: only an authority that CAN see the transaction gets to say
- * it is wrong.
  */
 const RETRYABLE_PATTERNS = [
   /not validated yet/i,
@@ -228,7 +201,7 @@ export function launchCouncilOrderRelay(
       if (isStaleVerdict(e)) {
         // VEREDICTO, no espera: el puente ya va por delante de esta orden. Se
         // deja de reintentar para siempre y se dice como tarea humana — hay que
-        // componerla de nuevo y firmarla (fundador 2026-09-16).
+        // componerla de nuevo y firmarla.
         relayState.set(key, { state: 'error', detail, stale: true });
         void forgetPending(key);
         void rememberAbandoned(key, detail);
@@ -441,45 +414,8 @@ export async function retryPendingCouncilOrders(): Promise<{ checked: number; re
 }
 
 /**
- * EL VIGÍA DE LAS ÓRDENES COMPUESTAS (2026-09-14) — la entrega que ya no depende
+ * EL VIGÍA DE LAS ÓRDENES COMPUESTAS — la entrega que ya no depende
  * de que la pantalla que firmó siga abierta.
- *
- * `/pote-council-order/prepare` y `/cage-order/prepare` recuerdan cada orden que
- * componen (`ComposedCouncilOrderStore`). Aquí, en el mismo intervalo que los
- * reintentos, por cada cuenta con órdenes recordadas:
- *   · se lee su `account_tx` VALIDADO desde el ledger en que se compuso (o desde
- *     donde llegó la pasada anterior), de forma EXHAUSTIVA — sin marcador
- *     agotado no se concluye nada;
- *   · un Payment tesSUCCESS enviado por esa cuenta con el memo de la orden →
- *     se lanza el MISMO relé idempotente de POST relay, con sus bytes (el relé
- *     corta en seco si el puente ya la consumió: nunca una fee nueva);
- *   · el memo validado con otro resultado → aplicó con fallo: nada que entregar;
- *   · su LastLedgerSequence ya quedó cubierto sin encontrarla → nunca podrá
- *     validar: se olvida;
- *   · más de 14 días → el FDC ya no la atestiguaría: se olvida.
- * Una orden lanzada se sigue hasta que el relé la da por ejecutada; mientras,
- * también la vigila la lista de pendientes.
- *
- * it. 15 — CON EL RELAYER APAGADO EL VIGÍA SIGUE MIRANDO, pero no entrega. Antes
- * volvía en seco: nada se podaba (la tabla crecía sin límite, hallazgo 2.5) y la
- * guarda de duplicados se quedaba ciega justo cuando importa. Ahora, apagado:
- *   · se poda igual lo caducado (14 días) y lo que ya no puede validar (su ventana
- *     leída entera sin él);
- *   · una orden que YA validó se marca (`launchedXrplTxHash`) para que la guarda de
- *     duplicados la vea y para que, al encender el flag, se entregue sola;
- *   · pero NO se lanza ningún relé: sin `FLARE_EXECUTOR_ENABLED` no se entrega nada.
- *
- * it. 13 — lo que el vigía no veía:
- *   · lee TODOS los registros vivos, del más viejo al más nuevo (antes, los 200
- *     más recientes: 200 composiciones sacaban de la ventana una orden legítima);
- *   · un escaneo que topa con su límite de páginas GUARDA lo que leyó entero
- *     (`scannedThroughLedger`) en vez de no concluir nada para siempre;
- *   · una entrada sin resultado legible ('unknown') es ILEGIBLE, jamás un tec: no
- *     se olvida, y el progreso se queda por debajo de ella para releerla;
- *   · actualizar y olvidar son CAS sobre el registro tal como se leyó: una
- *     recomposición durante el escaneo se deja para la pasada siguiente;
- *   · antes de olvidar por veredicto se deja su DESTINO (`rememberComposedOrderFate`)
- *     para `GET /council-order/fate`.
  */
 export async function sweepComposedCouncilOrders(opts?: {
   now?: number;
@@ -510,7 +446,7 @@ export async function sweepComposedCouncilOrders(opts?: {
         ...(fate.xrplTxHash ? { xrplTxHash: fate.xrplTxHash } : {}),
         ...(fate.detail ? { detail: fate.detail } : {}),
         at: new Date(now).toISOString(),
-        // it. 15: lo que la orden ERA viaja con su destino, para que la guarda de
+        // Lo que la orden ERA viaja con su destino, para que la guarda de
         // duplicados siga viendo «esta orden ya salió» cuando el registro ya no está.
         ...(r.action ? { action: r.action } : {}),
         ...(r.contentKey ? { contentKey: r.contentKey } : {}),
@@ -644,7 +580,7 @@ export interface RecentSameOrder {
   launchedAt: string;
   /**
    * Where its delivery to Flare stands: 'executed' is NOT safety, it is the danger.
-   * it. 17 (copy): 'error' is told apart from 'relaying' — a delivery that did not
+   * 'error' is told apart from 'relaying' — a delivery that did not
    * finish is a RECOVERY, and telling that person «composing it again would move the
    * capital a second time» describes the opposite of what happened.
    */
@@ -653,23 +589,8 @@ export interface RecentSameOrder {
 }
 
 /**
- * productizer it. 15 (findings 2.2 / 2.3) — THE DUPLICATE GUARD LOOKS AT THE ORDER,
+ * THE DUPLICATE GUARD LOOKS AT THE ORDER,
  * NOT AT ITS RELAY.
- *
- * The it. 13 guard asked «is a relay in flight?», which protected the wrong half of
- * the problem: before A executes, the bridge nonce makes a re-composition harmless
- * (at most one of them ever applies), and the moment A is `executed` the guard
- * disappeared — which is exactly when composing the same thing again moves the
- * capital twice. It also fired on unrelated orders (two different `direct-to`s) and
- * on a relay sitting in `error`.
- *
- * So: the same council + the same ACTION + the same PARAMS (`contentKey`), seen
- * VALIDATED on XRPL less than 30 minutes ago, in ANY relay state — including
- * executed, and including a record the sweep has already forgotten (its fate keeps
- * the content key). Different orders in sequence never collide.
- *
- * Best-effort by construction: a store it could not read answers null. It never
- * refuses anything by itself — the caller decides, and an EXIT is only ever warned.
  */
 export async function recentSameCouncilOrder(
   council: string,
@@ -733,23 +654,13 @@ export async function recentSameCouncilOrder(
 }
 
 /**
- * it. 17 (finding 2.3) — THE COMPOSE DOOR WAS BLIND FOR FIVE MINUTES.
+ * THE COMPOSE DOOR WAS BLIND FOR FIVE MINUTES.
  *
  * `recentSameCouncilOrder` only sees what the SWEEP marked: a record grows
  * `launchedXrplTxHash` / `launchedAt` when the background scan finds its Payment on
  * XRPL, and that scan runs every five minutes. Inside that window — precisely the
  * minutes in which a family re-composes after a stalled QR — the guard answered «no
  * duplicate» about an order that was already on the ledger and on its way to Flare.
- *
- * So before concluding «nothing like this went out», the records of THIS council
- * with THIS content key that the sweep has not marked are looked up ON THE LEDGER,
- * through the very same bounded, cached and rate-limited read the fate endpoint uses
- * (`readCouncilOrderFateLimited`: one chain read per memo per 15 s, a budget per
- * session). At most `LEDGER_DUP_MAX_MEMOS` memos, newest first.
- *
- * It never refuses anything by itself: a read it could not finish comes back as
- * `unreadable`, and the caller turns that into a WARNING — never into a refusal, and
- * never into a silent pass.
  */
 export const LEDGER_DUP_MAX_MEMOS = 3;
 
@@ -785,7 +696,7 @@ export async function ledgerDuplicateCheck(
   if (candidates.length === 0) return { recent: null, unreadable: null };
 
   const read = opts?.read ?? readCouncilOrderFateLimited;
-  // ── it. 19 (finding 2.5) — THE COMPOSE READS HAVE THEIR OWN ALLOWANCE ────────
+  // ── THE COMPOSE READS HAVE THEIR OWN ALLOWANCE ────────
   //
   // The budget is per SESSION KEY, and the routes hand this check the very key the
   // screen's `GET /council-order/fate` polling spends: a page that polls a couple of
@@ -796,7 +707,7 @@ export async function ledgerDuplicateCheck(
   const sessionKey = `compose:${opts?.sessionKey ?? council}`;
   let unreadable: string | null = null;
   /**
-   * it. 21 (finding 2.7): WHEN the check could run again. The commonest reason this
+   * WHEN the check could run again. The commonest reason this
    * read fails is our OWN allowance (`CouncilOrderFateRateLimitedError`), and it
    * knows exactly how many seconds are left — the number that turns «the manager is
    * blocked for about a minute with no button» into a countdown the screen can show
@@ -844,7 +755,7 @@ export type CouncilDuplicateVerdict =
       body:
         | { error: 'SAME_ORDER_RECENTLY_LAUNCHED'; detail: string; xrplTxHash: string; memoHex: string; launchedAt: string; state: string }
         /**
-         * it. 19 (finding 2.5) — the check itself could not run (the fate budget is
+         * The check itself could not run (the fate budget is
          * spent, the node is down, the store threw). A NON-exit does not pass as
          * «checked»; the caller is told what happened and offered the one escape a
          * person can take: `confirmAnotherOrder`.
@@ -855,7 +766,7 @@ export type CouncilDuplicateVerdict =
             retryable: true;
             confirmAnotherOrder: true;
             /**
-             * it. 21 (finding 2.7): seconds until the check can run again, when the
+             * Seconds until the check can run again, when the
              * reason it could not run is OUR OWN read allowance. Present only then —
              * a store that threw has no schedule, and inventing one would be a
              * promise. The screen shows it as a countdown beside the two real exits
@@ -866,7 +777,7 @@ export type CouncilDuplicateVerdict =
     };
 
 /**
- * it. 17 (copy, it. 16 §Copy) — WHAT A SECOND ORDER WOULD ACTUALLY DO.
+ * WHAT A SECOND ORDER WOULD ACTUALLY DO.
  *
  * «Composing it again would move the capital a second time» was served for every
  * repeat, and for two families of order it is simply false:
@@ -914,14 +825,14 @@ export async function councilDuplicateOrderVerdict(input: {
   council: string;
   contentKey: string;
   isExit: boolean;
-  /** The action being composed (it. 17 copy): what the second order would actually do. */
+  /** The action being composed (copy): what the second order would actually do. */
   action?: string;
   confirmAnotherOrder?: boolean;
   now?: number;
   /** Injectable so a route's tests can stand in for the store read. */
   find?: typeof recentSameCouncilOrder;
   /**
-   * it. 17 (2.3): the ledger half of the question, for the minutes the sweep has not
+   * The ledger half of the question, for the minutes the sweep has not
    * covered. `null` disables it (a caller that has already asked).
    */
   ledgerCheck?: typeof ledgerDuplicateCheck | null;
@@ -944,20 +855,14 @@ export async function councilDuplicateOrderVerdict(input: {
   }
   if (!recent) {
     if (unreadable) {
-      // ── it. 19 (finding 2.5) — «NO PUDE COMPROBARLO» NO ES «COMPROBADO» ──────
+      // ── «NO PUDE COMPROBARLO» NO ES «COMPROBADO» ──────
       //
-      // WHAT it.17 SHIPPED: a failed check came back as a WARNING and the order was
+      // WHAT SHIPPED: a failed check came back as a WARNING and the order was
       // composed. On the exact scenario this guard exists for — the family
       // re-composing minutes after a stalled QR, with the fate budget already spent
       // by the screen's own polling — the second order went out with a sentence
       // nobody had to acknowledge. A duplicate that moves capital twice is not a
       // warning-shaped risk.
-      //
-      // So the three answers are separated: an EXIT proceeds with the warning (it is
-      // never gated, and bringing capital back twice takes nothing from the holder);
-      // a person who explicitly confirms proceeds, warned; anything else is refused,
-      // says the check could not run, and offers `confirmAnotherOrder` — a refusal
-      // about OUR failure, which is why it is retryable and names its own escape.
       const line =
         `${unreadable}. So this door cannot promise that the same order did not already go out minutes ago — check ` +
         'the account on an explorer, or check the order you last composed, before signing.';
@@ -1003,11 +908,11 @@ export async function councilDuplicateOrderVerdict(input: {
 }
 
 /**
- * ⛔ SUPERSEDED by `recentSameCouncilOrder` (it. 15, finding 2.2) and no longer
+ * ⛔ SUPERSEDED by `recentSameCouncilOrder` (finding 2.2) and no longer
  * asked by any compose door — kept, never deleted: it is the only reader of the
- * in-process `launchedAtByHash` map and the shape the it. 13 tests pin.
+ * in-process `launchedAtByHash` map and the shape the tests pin.
  *
- * productizer it. 13 (finding 3.1) — THE DOUBLE ORDER AFTER 'stale'. Payload A
+ * THE DOUBLE ORDER AFTER 'stale'. Payload A
  * validates and is relayed; payload B (same seat) dies tefPAST_SEQ; «prepare it
  * again» composes C with the NEXT nonce — the capital moves twice. This answers,
  * for one council, the most recent order whose relay was LAUNCHED less than 30 min
@@ -1135,7 +1040,7 @@ export async function readCouncilOrderFate(
         memo,
         state: 'validated',
         xrplTxHash: hash,
-        // it. 15: with the relayer off the server is NOT delivering it — saying so is
+        // With the relayer off the server is NOT delivering it — saying so is
         // the difference between «wait» and «nothing is coming unless you relay it».
         detail:
           process.env.FLARE_EXECUTOR_ENABLED === 'true'
@@ -1209,7 +1114,7 @@ export async function readCouncilOrderFate(
   return { memo, state: 'composed', detail: 'not on the validated ledger yet' };
 }
 
-/* ── The fate read, bounded (it. 15, finding 2.5) ─────────────────────────── */
+/* ── The fate read, bounded (finding 2.5) ─────────────────────────── */
 
 /** One CHAIN read per memo per this window; everyone else gets the cached answer. */
 export const FATE_CACHE_MS = 15_000;
@@ -1254,7 +1159,7 @@ function pruneFateMaps(now: number): void {
  * `GET /council-order/fate` behind a budget. The read costs an `account_info` plus
  * up to five `account_tx` pages on a FRESH node, and it was open to any session at
  * any rate: one loop could push the XRPL node into 429 and take the pins down with
- * it (it. 14, finding 2.5).
+ * it (finding 2.5).
  *
  * Two bounds, both in memory:
  *   · per MEMO: one chain read per `FATE_CACHE_MS`; concurrent askers join the same

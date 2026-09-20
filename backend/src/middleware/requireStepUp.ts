@@ -24,13 +24,13 @@ export function requireStepUp(feature: StepUpFeature, action: StepUpAction) {
     try {
       locked = await isLocked(userId, feature, action);
     } catch {
-      // it. 23 (it. 22 «Menor») — A FAILED READ WAS GRANTING THE PERMISSION.
+      // A FAILED READ WAS GRANTING THE PERMISSION.
       // «Never brick the app» was the right instinct in the wrong place: an
       // unreadable lock table let someone edit the very protection they could
       // not be shown to have, so a failed read stopped granting and started
       // refusing.
       //
-      // it. 25 — THE RADIUS IN THAT COMMENT WAS WRONG, AND THE CORRECTION
+      // THE RADIUS IN THAT COMMENT WAS WRONG, AND THE CORRECTION
       // MATTERS. It claimed «the only door this guards is the one that CHANGES
       // the step-up matrix». It is not. With STEP_UP_ENABLED=1 this middleware
       // also sits in front of four whole routers, reads included, mounted with

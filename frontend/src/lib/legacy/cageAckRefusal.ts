@@ -1,9 +1,8 @@
 /**
  * cageAckRefusal — what a screen does with a 409 `CAGE_ACK_REQUIRED`.
  *
- * productizer it. 31 (agente D, 4.3). The server has said WHY the
- * acknowledgement is missing since it. 27 (`cause`, machine-readable, so «a
- * client never has to parse prose»), and neither of the two screens that meet
+ * . The server has said WHY the
+ * acknowledgement is missing, and neither of the two screens that meet
  * this gate ever read it: CageBirthCard and CouncilVaultEntry opened the
  * disclosure modal on the code alone and retried the prepare on confirm. For
  * three of the four causes confirming cannot clear the gate — the account's
@@ -12,11 +11,6 @@
  * (`read_failed`) — so the person confirmed, got the same 409, and the modal
  * opened again: the loop, with the server's honest sentence written for it and
  * never shown.
- *
- * ONE rule, pure so it can be tested: the modal opens only for the cause that
- * reading and confirming actually fixes (`no_record`) — and for a server old
- * enough to send no `cause` at all, which is the same thing. Every other cause
- * is shown as the sentence the server wrote for it.
  */
 
 export type CageAckCause = 'no_record' | 'unreadable_mark' | 'ahead_of_clock' | 'read_failed';

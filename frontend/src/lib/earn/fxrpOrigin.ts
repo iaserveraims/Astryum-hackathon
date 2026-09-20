@@ -6,23 +6,6 @@
  * esa decisión está repartida entre un selector que solo sabe de «rails», un
  * enlace suelto al puente y un aviso del backend; el usuario tiene que
  * ensamblar el plan mentalmente. Este módulo lo hace explícito y testeable.
- *
- * Los tres orígenes, y por qué son tres y no dos:
- *
- *   · `evm-ethereum`  — el FXRP ya está donde se usa. Camino directo.
- *   · `evm-flare`     — misma wallet, otra cadena: hace falta el puente.
- *   · `smart-account` — el FXRP vive en la Personal Account. La PA NO firma en
- *                       EVM: solo ejecuta userOps firmados desde XRPL, así que
- *                       quien firma es la wallet Xaman dueña, y hace falta
- *                       sacarlo a una wallet EVM antes de poder puentear.
- *
- * Sobre la misma dirección en dos cadenas: una wallet EVM enlazada es UNA fila
- * (la conexión fija Flare), pero la misma clave firma en ambas — el cambio de
- * cadena lo hace la propia firma, leyendo la calldata. Por eso los orígenes se
- * DERIVAN aquí en vez de registrarse: una segunda fila no desbloquearía ninguna
- * lectura (lo de Ethereum se lee por dirección) y sí traería duplicados, con dos
- * trampas reales — borrar la fila de Ethereum revoca la firma de la de Flare, y
- * hacerla primaria puede sacar la dirección del escaneo de Flare.
  */
 
 /** La cadena donde el mercado FXRP/RLUSD vive. */

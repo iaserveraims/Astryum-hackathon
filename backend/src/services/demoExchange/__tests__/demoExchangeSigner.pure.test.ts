@@ -22,7 +22,7 @@ describe('assessPayment — put-to-work (0xFE to the Core Vault)', () => {
     expect(assessPayment({ ...base, tx: mint(), onChainGate: { configured: true, approved: true } })).toEqual({ ok: true });
   });
 
-  // ── Lo que la llave no firma «por defecto» (endurecido 28-ago) ────────────
+  // ── Lo que la llave no firma «por defecto» (endurecido) ────────────
   //
   // Las tres de abajo son negativas que faltaban en un firmante DESATENDIDO.
   // Ninguna cambia lo que el fundador quiso poder hacer: cambian que hacerlo
@@ -87,7 +87,7 @@ describe('assessPayment — put-to-work (0xFE to the Core Vault)', () => {
     expect(assessPayment({ ...base, tx: mint({ Amount: '20000000' }), spentTodayDrops: BigInt(190_000_000) }).code).toBe('ABOVE_DAILY_CAP');
   });
 
-  test('it. 25 — un gasto de hoy AUSENTE no es cero: una entrada sin el número no se firma', () => {
+  test('Un gasto de hoy AUSENTE no es cero: una entrada sin el número no se firma', () => {
     expect(assessPayment({ ...base, tx: mint(), spentTodayDrops: undefined }).code).toBe('SPEND_TODAY_UNKNOWN');
   });
   test('refuses a malformed amount', () => {
@@ -106,7 +106,7 @@ describe('assessPayment — la DESIGNACIÓN (Enmienda §10: la caja solo opera n
   test('required + SIN nombramiento → OMNIBUS_NOT_APPOINTED en la ENTRADA', () => {
     expect(assessPayment({ ...base, tx: mint(), appointment: { required: true, held: false } }).code).toBe('OMNIBUS_NOT_APPOINTED');
   });
-  // it. 25 — este test afirmaba lo contrario, y afirmaba de paso un comentario
+  // Este test afirmaba lo contrario, y afirmaba de paso un comentario
   // que era falso («las salidas van por passkey y no pasan por aquí»: pasan,
   // con purpose 'payout' y esta misma llave). Una designación caducada es
   // papeleo NUESTRO; congelar con ella la retirada de alguien que no hizo nada
@@ -155,9 +155,9 @@ describe('assessPayment — payout (omnibus → client own wallet)', () => {
     expect(assessPayment({ ...base, tx: { TransactionType: 'Payment', Account: OMNIBUS, Destination: 'rSomebodyElse1111111111111111111111', Amount: '5000000' } }).code).toBe('DESTINATION_NOT_ALLOWED');
   });
 
-  // it. 25 (B.1) — el tope diario y el tope por transacción son protecciones de
+  // El tope diario y el tope por transacción son protecciones de
   // la llave operativa de Astryum: aplican a ENTRADAS y operativa propia. El
-  // payout del cliente es SU dinero y sale. La it. 23 arregló solo la lectura.
+  // payout del cliente es SU dinero y sale. La arregló solo la lectura.
   const payout = (over: Record<string, unknown> = {}) => ({ TransactionType: 'Payment', Account: OMNIBUS, Destination: CLIENT_R, Amount: '5000000', ...over });
 
   test('el tope POR TRANSACCIÓN no habla en una salida', () => {

@@ -1,24 +1,13 @@
 'use client';
 
 /**
- * ProductPanel — la ficha entera de una ruta, por la derecha (fundador,
- * 23-ago-2026: «debe aparecer toda la info de la card por la derecha»).
+ * ProductPanel — la ficha entera de una ruta, por la derecha.
  *
  * POR QUÉ A LA DERECHA Y NO DEBAJO. El detalle desplegado bajo la mano de cards
  * empuja la página hacia abajo, y al cerrarlo el navegador CLAMPA el scroll —
  * el «me manda arriba de golpe» que hubo que parchear con un scrollIntoView
  * correctivo. Un panel al lado no mueve nada: se salta de card en card
  * comparando, que es justo lo que uno hace antes de elegir.
- *
- * PRIMERO LA INFORMACIÓN, EL BOTÓN AL FINAL. El orden no es estético: es que
- * nadie debería poder empezar sin haber pasado por delante de qué hace con su
- * dinero, qué puede pasarle y cómo se sale.
- *
- * LOS HECHOS SALEN DEL DATO, NO DE LA PROSA. Quién decide, si puede liquidarte,
- * cómo es la salida y si hay auditoría publicada vienen de `lib/earn/protocols`
- * — así una card no puede prometer algo que el catálogo no sostiene. Y cuando
- * no hay informe de auditoría localizable, lo dice: «no publicada» es un hecho
- * verdadero y útil; un sello sin enlace sería peor que nada (#9).
  */
 
 import { ArrowRight, ExternalLink, ShieldCheck, X } from 'lucide-react';

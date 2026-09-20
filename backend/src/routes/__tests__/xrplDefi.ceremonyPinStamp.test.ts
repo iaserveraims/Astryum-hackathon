@@ -1,10 +1,10 @@
 /**
- * productizer it. 27 (§4) — LA CADENA DEL CERROJO: QUIEN PINA, MARCA.
+ * LA CADENA DEL CERROJO: QUIEN PINA, MARCA.
  *
  * `releaseAbandonedCeremonySeat` solo puede soltar el asiento de nonce de un 0xFE
  * antes de tiempo si esos bytes llevan la `Sequence` FIJADA por el coordinador
  * multifirma — es el argumento entero (dos Payments con el mismo número no pueden
- * entrar los dos). Desde it. 27 la puerta EXIGE esa marca, así que la marca tiene
+ * entrar los dos). La puerta EXIGE esa marca, así que la marca tiene
  * que existir: la escribe el único sitio que pina, `POST /multisign/prepare`.
  *
  * Probar la puerta sin probar quién escribe la marca es el fallo recurrente de
@@ -18,7 +18,7 @@ import request from 'supertest';
 const mockCacheUpsert = jest.fn();
 const mockCacheDeleteMany = jest.fn();
 const mockCacheFindUnique = jest.fn();
-/** it. 29: la lectura de cualquier estado del 0xFE va directa a `background_jobs`. */
+/** La lectura de cualquier estado del 0xFE va directa a `background_jobs`. */
 const mockBackgroundJobFindMany = jest.fn();
 jest.mock('../../database/prismaClient', () => ({
   prisma: {
@@ -50,7 +50,7 @@ jest.mock('../../services/identity/provenAddresses', () => ({
 }));
 
 /**
- * ── productizer it. 29 — AQUÍ YA NO SE SUSTITUYE AL CLASIFICADOR ───────────────
+ * ── AQUÍ YA NO SE SUSTITUYE AL CLASIFICADOR ───────────────
  *
  * Esta suite mockeaba `classifyCouncilExitByMemo` (y `verifyCouncilExitToken`), así
  * que probaba la puerta con la función que decide si estos bytes son una SALIDA
@@ -177,7 +177,7 @@ describe('el prepare marca los bytes que acaba de pinar', () => {
   });
 
   /**
-   * it. 34 (E) — EL NOMBRE DEL SITTING NACE AQUÍ Y VIAJA A LOS TRES SITIOS. El
+   * EL NOMBRE DEL SITTING NACE AQUÍ Y VIAJA A LOS TRES SITIOS. El
    * servidor genera un id por prepare y lo escribe en el pin, en el arriendo y en
    * la respuesta: el MISMO en los tres. Sin eso, la liberación tardía de un
    * sitting no se distingue de la del siguiente (la carrera del bus). Un segundo
@@ -229,12 +229,12 @@ describe('el prepare marca los bytes que acaba de pinar', () => {
     expect(res.status).toBe(200);
     expect(mockCacheUpsert).not.toHaveBeenCalled(); // no arrendó
     expect(mockStamp).toHaveBeenCalledWith(MEMO, COUNCIL, 11, { sittingId: expect.any(String) }); // pero marcó
-    // it. 34 (E): y el id viaja igual — quien no arrienda también libera por él.
+    // Y el id viaja igual — quien no arrienda también libera por él.
     expect(res.body.sittingId).toBe(mockStamp.mock.calls[0][3].sittingId);
   });
 
   /**
-   * it. 29 — LA CLASIFICACIÓN CORRE, Y CORRE SOBRE ESTE MEMO. Con la regla de 64
+   * LA CLASIFICACIÓN CORRE, Y CORRE SOBRE ESTE MEMO. Con la regla de 64
    * hex el clasificador soltaba `no-single-memo` antes de preguntarle nada a nadie:
    * ningún store llegaba a verse. Que se pregunte por ESTOS 84 hex es la prueba de
    * que la rama está viva.
@@ -260,8 +260,7 @@ describe('el prepare marca los bytes que acaba de pinar', () => {
 
   /**
    * Una marca que no se puede escribir NUNCA tira la ceremonia: la puerta de
-   * liberación queda tan cerrada como antes de it25 §4 (el asiento se suelta solo,
-   * por su ventana), que es prudente — pero el consejo firma igual.
+   * liberación queda tan cerrada como antes, que es prudente — pero el consejo firma igual.
    */
   it('un store caído no impide componer la ceremonia', async () => {
     mockStamp.mockRejectedValue(new Error('db down'));
@@ -275,11 +274,11 @@ describe('el prepare marca los bytes que acaba de pinar', () => {
 describe('zeroFeMemoOf — el memo de un 0xFE no tiene la forma de una orden de consejo', () => {
   it('lee la instrucción entera del Smart Account, no solo un keccak de 32 bytes', () => {
     expect(zeroFeMemoOf(zeroFeTx())).toBe(MEMO);
-    expect(MEMO.length).toBeGreaterThan(64); // por esto `singleMemoHex` daba null hasta it. 29
+    expect(MEMO.length).toBeGreaterThan(64); // por esto `singleMemoHex` daba null hasta
   });
 
   /**
-   * it. 29 — LAS DOS LECTURAS DEL MISMO MEMO NO PUEDEN VOLVER A SEPARARSE. La it. 27
+   * LAS DOS LECTURAS DEL MISMO MEMO NO PUEDEN VOLVER A SEPARARSE. La
    * escribió `zeroFeMemoOf` con el rango bueno JUSTO AL LADO de `singleMemoHex`, que
    * seguía en 64 hex — y el clasificador, que usa el segundo, quedó muerto un ciclo
    * entero sin que nadie lo notara. Este test es el cable entre los dos.

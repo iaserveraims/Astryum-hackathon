@@ -3,17 +3,6 @@
  *
  * Read-only access to XRP Ledger via xrpl.js (wss://xrplcluster.com, public, free).
  * Covers: XRP balance, trust lines (IOUs), DEX offers, AMM LP positions, Soil vaults.
- *
- * XRPL uses pseudo chainId 1440002 internally (not a real EVM chainId).
- * Signing is done by Xaman (XUMM) — Astryum never signs or submits XRPL transactions.
- *
- * Soil/RLUSD:
- *   - RLUSD is Ripple's USD stablecoin (IOU on XRPL, ERC-20 on Ethereum).
- *   - Soil vaults deposit RLUSD into AMM pools (XLS-30d) for yield.
- *   - SOIL_VAULT_ISSUER env var enables Soil position detection.
- *   - XLS-66 is pending mainnet; this implementation is forward-compatible.
- *
- * BROADCAST_FORBIDDEN — Astryum never signs or broadcasts XRPL transactions.
  */
 
 import { Client, getBalanceChanges } from 'xrpl';
@@ -59,7 +48,7 @@ const XRPL_HTTP_URLS: string[] = [
  * `err.data`, which is how callers distinguish them.
  *
  * Not theoretical: xrplcluster.com is a round-robin pool that currently rotates
- * amendment-blocked nodes — verified 2026-07-12, the same query returned
+ * amendment-blocked nodes — verified, the same query returned
  * `amendmentBlocked` on one call and succeeded on the next.
  */
 const SERVER_STATE_ERRORS = new Set([

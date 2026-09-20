@@ -12,21 +12,12 @@ import { describeUnreadableRows, serverRefusalText } from '../../../lib/errors/s
  * truth". Empty is not a degradation, it is a STATEMENT — the card then prints
  * "Nothing waiting for your signature", which is a verdict about a family's
  * decisions, over a read that never happened.
- *
- * The round-4 permission floor makes that routine rather than rare:
- * `GET /council/proposals` answers 403 NOT_A_COUNCIL_MEMBER to any session with
- * no REGISTERED wallet on the account's signer list — an XRP-Identity login
- * whose Xaman was never registered earns it on its own Legacy. The tray then
- * told that councillor, on every paint, that there was nothing to decide, while
- * a proposal counted down its seven days and the seat it pinned went unsettled.
- *
- * `mayClaimNothingWaiting` is that decision, pulled out so it can be RUN.
  */
 
 const CARD = join(__dirname, '..', 'SidebarIntents.tsx');
 const cardSrc = readFileSync(CARD, 'utf8');
 
-// it. 31 — the guard grew a third eye (the claim queue); the two-argument
+// The guard grew a third eye (the claim queue); the two-argument
 // calls below still hold, the default keeps them meaningful.
 const mayClaimNothingWaiting = extract<
   (hasAnything: boolean, councilUnreadable: boolean, claimsUnreadable?: boolean) => boolean
@@ -91,9 +82,9 @@ describe('prosa-y-lectores — what the tray says instead', () => {
 });
 
 /**
- * productizer it. 25 (1) — UN 200 QUE TRAE FILAS ILEGIBLES BORRABA EL AVISO.
+ * UN 200 QUE TRAE FILAS ILEGIBLES BORRABA EL AVISO.
  *
- * it. 23 hizo que la fila que el servidor no pudo decidir viajase NOMBRADA en
+ * Hizo que la fila que el servidor no pudo decidir viajase NOMBRADA en
  * `unreadable[]` DENTRO del 200, con su código y su frase. El `then` del éxito de
  * esta bandeja hacía `setUnreadable(null)` a secas: tiraba esas filas y, de paso,
  * apagaba cualquier advertencia que hubiera puesta. La tarjeta volvía a decir «nada
@@ -113,7 +104,7 @@ const councilTrayUnreadable = extract<
   { describeUnreadableRows },
 );
 
-describe('it. 25 — la fila que no se pudo leer SE PINTA, y no borra el aviso anterior', () => {
+describe('La fila que no se pudo leer SE PINTA, y no borra el aviso anterior', () => {
   const unreadableRow = {
     id: 'p2',
     account: 'rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf',

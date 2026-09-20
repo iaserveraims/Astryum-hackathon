@@ -3,14 +3,12 @@
 /**
  * EL VIAJE VENUES — la ficha: el protocolo como destino.
  *
- * Fundador (2026-09-20): «una sola página para la gente que son los admins de
- * venues, para que puedan entrar, revisar cómo funciona y aplicar para uno».
  * Hasta aquí la landing hablaba a quien pone capital; esta habla a quien lo
  * recibe. Misma carcasa (journeyShell), misma maqueta que las otras puertas
  * —texto a la izquierda, escena a la derecha desde el primer fotograma— y
  * el material de Empresa: un venue es una entidad.
  *
- * Lo que cuenta sale de la arquitectura del perfil del protocolo (15-sep) y
+ * Lo que cuenta sale de la arquitectura del perfil del protocolo y
  * está EN DISEÑO; lo dice en la primera línea. Astryum no recomienda venues:
  * certifica, enseña y se aparta.
  */

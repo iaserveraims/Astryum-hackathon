@@ -2,23 +2,6 @@
  * Flare explorer API — la ÚNICA fuente de verdad del endpoint Etherscan-compatible
  * que lee el carril de actividad (timeline + export fiscal + descubrimiento de
  * interacciones en chain 14).
- *
- * 2026-08-03: `flare-explorer.flare.network/api` (Blockscout) devolvió 503
- * "no healthy upstream" en TODAS sus rutas /api durante varios minutos — la web
- * del explorador seguía en pie, su API no. Con una sola puerta, el carril entero
- * se quedó ciego y el panel marcó `flarescan` caído. Recuperó solo, pero la
- * fragilidad no era el corte: era no tener segunda puerta.
- *
- * Routescan sirve la misma API con sabor Etherscan para chain 14 y responde las
- * cuatro acciones que usamos (txlist, tokentx, txlistinternal, getsourcecode),
- * así que va primera; Blockscout se queda de reserva — no se borra nada, se
- * degrada el orden. Para invertirlo o apuntar a otro indexador basta
- * FLARESCAN_API_URL (admite lista separada por comas, en orden de preferencia).
- *
- * OJO al elegir el ping de salud: `module=block&action=eth_block_number` es una
- * acción propia de Blockscout y Routescan la rechaza con HTTP 200 + status "0",
- * así que un chequeo que solo mire el código HTTP canta "healthy" sobre un
- * error. El ping común a los dos es `account/balance`, y hay que leer el cuerpo.
  */
 
 /** Routescan (el indexador que hay detrás de flarescan.com) para Flare = chain 14. */

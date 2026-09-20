@@ -32,10 +32,10 @@ export interface OmnibusHandoff {
   signedTxHash?: string | null;
   /**
    * The XRPL ledger after which this 0xFE Payment can never enter a ledger (the
-   * builder stamps it, it. 15 §K1). It is the PHYSICS of the reservation: while
+   * builder stamps it §K1). It is the PHYSICS of the reservation: while
    * it is ahead, the payment is still signable and nothing may be released
    * (`putToWorkWindow` → `wait`). null = the row was composed without one (an
-   * unreadable ledger, or a row older than it. 15) — then the old TTL rule
+   * unreadable ledger, or a row older than) — then the old TTL rule
    * governs and the window falls back to its search bound.
    */
   lastLedgerSequence?: number | null;
@@ -46,7 +46,7 @@ export interface OmnibusHandoff {
 /**
  * The hand-off that committed THIS memo (the server-side copy every
  * `buildDirectMintHandoff` persists). Read by memo — never a time-window list
- * capped at N rows, which read a busy omnibus as «no hand-off» (it. 10). STRICT:
+ * capped at N rows, which read a busy omnibus as «no hand-off». STRICT:
  * a database error throws. Without DATABASE_URL there is no store: null.
  */
 export async function findHandoffByMemo(memoHex: string): Promise<OmnibusHandoff | null> {

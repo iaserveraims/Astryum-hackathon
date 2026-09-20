@@ -1,8 +1,6 @@
 /**
  * Smart-Account entry (fromSmartAccount) — validation contract of the three
- * strategy prepares (founder 2026-08-12: "si yo tengo FXRP ya convertidos,
- * la plataforma me obliga a tener primero XRP — hay que permitir usar la
- * Flare Smart Account con FXRP para iniciar las estrategias").
+ * strategy prepares.
  *
  * Hermetic like flareDemo.validation.test.ts: every guard here runs BEFORE
  * the FLARE_DEFI_ENABLED gate, so malformed input → stable 400 code and

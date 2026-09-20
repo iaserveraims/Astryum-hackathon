@@ -3,42 +3,6 @@
 /**
  * LOS ARTEFACTOS DEL MUNDO LEGACY: el consejo, la constitución, el quórum y el
  * relevo.
- *
- * ── LO QUE CAMBIA EN ESTA PASADA ─────────────────────────────────────────
- * Eran CAPTURAS CON CORTINILLA. Se montaban con una animación de entrada de una
- * sola pasada y se quedaban quietas: medido en captura, a 0,42 y a 0,90 las
- * láminas del consejo y del relevo ya estaban resueltas ANTES de que el lector
- * llegase a su parada. Un panel así no forma parte del recorrido; está pegado
- * encima de él. Las tres del institucional ya recibían `progress` y estas
- * cuatro no.
- *
- * Ahora las cuatro SE LEEN CON EL SCROLL, y cada fila resuelve en el MISMO
- * fotograma en que la escena hace lo que esa fila dice, porque las dos leen la
- * misma tabla (`councilTiming`, `constitutionTiming`, `quorumTiming`,
- * `STRIKE_MOMENT`, `handoverTiming`, en ThresholdScene):
- *
- *   · EL CONSEJO: cada asiento se marca cuando se COLOCA su dovela, y el
- *     recuento de la cabecera va detrás. Los que no firman no se apagan: laten.
- *   · LA CONSTITUCIÓN: las cuatro cláusulas se escriben mientras entra la clave
- *     —que es literalmente lo que la clave significa— y la firma se traza al
- *     final, con la clave ya asentada.
- *   · EL QUÓRUM: las celdas se llenan mientras se descimbra, y el UMBRAL se
- *     clava en el instante exacto en que la cimbra deja de estar. La lámina
- *     dice «ninguna firma sola» en el fotograma en que el arco se queda solo.
- *   · EL RELEVO: la columna «cambia» ENTRA moviéndose y la columna «no cambia»
- *     no se mueve ni un píxel, mientras la vasija cruza el tablero.
- *
- * Y al subir con la rueda todo se deshace igual de bien, porque el estado sale
- * del progreso y no de un temporizador disfrazado de `delay`.
- *
- * ── EL MATERIAL, A MEDIO CAMINO ──────────────────────────────────────────
- * Personal redondea a 14 px y flota; Institucional va a 3 y se imprime. Legacy
- * vive entre los dos mundos y su lámina lo dice: 8 px. Es el único sitio de la
- * portada donde el material TIENE que leerse como intermedio, porque eso es
- * literalmente lo que cuenta el producto.
- *
- * Reglas: nada crece, ninguna cifra de rendimiento, y el quórum, los pesos y la
- * clave maestra deshabilitada son MECANISMO de la jaula, no resultado.
  */
 
 import { motion, useTransform, type MotionValue } from 'framer-motion';

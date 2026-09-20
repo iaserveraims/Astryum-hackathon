@@ -2,7 +2,7 @@
 
 /**
  * /app/admin/institutional — la demo institucional COMPLETA, en admin, con dos
- * secciones (decisión del fundador 22-ago): «Exchange» y «Usuario».
+ * secciones: «Exchange» y «Usuario».
  *
  *  · Exchange = la consola del operador: emitir credencial (KYC), dar de alta
  *    clientes en modo B, dirigir capital, cosechar — y el DENIED de la escena 4.
@@ -27,7 +27,7 @@ import { UserVaultPanel } from '../../../../components/institutional/user/UserVa
 import { useCatalogPolicies } from '../../../../lib/institutional/useCatalogPolicies';
 import LegacyPanel from '../../../../components/legacy/LegacyPanel';
 
-// deploy trigger 2026-08-23: pote A vivo en 0x21d4ccf29EEB61E573c2037F2B29B727168c3da9
+// deploy trigger: pote A vivo en 0x21d4ccf29EEB61E573c2037F2B29B727168c3da9
 const ENABLED = process.env.NEXT_PUBLIC_INSTITUTIONAL_ENABLED === 'true';
 type Section = 'guided' | 'exchange' | 'user' | 'council';
 
@@ -42,7 +42,7 @@ export default function AdminInstitutionalPage() {
     );
   }
 
-  // Gate de admin (28-ago, cerrado 8-sep): esta página compone gobierno y
+  // Gate de admin (cerrado): esta página compone gobierno y
   // capital reales; la flag sola dejaba entrar a cualquier usuario logueado que
   // tecleara la URL. PreviewOnly es fail-closed con veredicto de SERVIDOR
   // (isAdmin de /auth/me) — igual que sus hermanas /exchange y /client.
@@ -68,7 +68,7 @@ function AdminInstitutionalDemo() {
         </p>
       </header>
 
-      {/* Product surfaces (26-ago): the two sides, separated — built beside this page. */}
+      {/* Product surfaces: the two sides, separated — built beside this page. */}
       <p className="text-[11px] text-ink/50">
         <a href="/app/admin/institutional/exchange" className="underline hover:text-ink">{t('Exchange console →')}</a>
         {' · '}

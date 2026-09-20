@@ -106,15 +106,14 @@ jest.mock('../../connectors/protocols/adapters/KineticAdapter', () => {
           asset: '0xusdt0',
           amount: 500n * 10n ** 18n,
           // The REAL on-chain ERC-20 symbol uses ₮ (U+20AE) — the fixture
-          // mirrors the chain so the ₮→T canonicalisation (incidente
-          // 2026-07-25, deuda a $0 en todos los paneles) stays exercised
+          // mirrors the chain so the ₮→T canonicalisation stays exercised
           // end-to-end.
           raw: { symbol: 'USD₮0', cToken: '0xcusdt0' },
           discoveredAt: new Date(),
         },
       ];
     }
-    // it. 34 — the engine now reads adapters through `discoverWithUnreadable`,
+    // The engine now reads adapters through `discoverWithUnreadable`,
     // which PREFERS `discoverPositionsPartial` (degrade per read, not per
     // protocol). A double that only overrides the legacy all-or-nothing method
     // would inherit the REAL partial reader, which runs against no node here

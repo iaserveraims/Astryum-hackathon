@@ -1,5 +1,5 @@
 /**
- * productizer-it13 — the flare-demo prepare routes hand the 0xFE builder WHO is
+ * The flare-demo prepare routes hand the 0xFE builder WHO is
  * preparing and whether that session may displace somebody else's draft; the
  * preparer can release their own draft; a pending signature report is kept; and
  * every prepare that redeems FXRP to XRP discloses the redemption fee (§4.2, C3)
@@ -15,7 +15,7 @@ const mockFeeBips = jest.fn();
 const mockBuild = jest.fn();
 jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => ({
   ...jest.requireActual('../../connectors/protocols/flare/FlareDirectMintService'),
-  // it. 29 — `seatClaimOf` asks the SignerList before every 0xFE composition;
+  // `seatClaimOf` asks the SignerList before every 0xFE composition;
   // unmocked that is a LIVE account_info. `{}` = ordinary single-sig account.
   signingCeremonyFor: jest.fn(async () => ({})),
   readRedemptionFeeBips: (...a: unknown[]) => mockFeeBips(...a),
@@ -49,7 +49,7 @@ jest.mock('../../connectors/protocols/adapters/FirelightAdapter', () => {
         currentPeriod: 224,
         currentPeriodEnd: null,
         pending: [{ period: 223, claimable: true, claimableAt: null, queuedFxrpBase: '5000000', estFxrpBase: '5000000' }],
-        // it. 31 — the sweep now MARKS unread periods instead of throwing.
+        // The sweep now MARKS unread periods instead of throwing.
         unreadablePeriods: [],
         scannedPeriods: [223],
       };
@@ -97,25 +97,25 @@ jest.mock('../../services/identity/provenAddresses', () => {
 
 const mockFind = jest.fn();
 const mockRelease = jest.fn();
-/** it21 §P1 1.2 — veredicto forzado de `releaseQueuedHandoffDetailed`; undefined = la regla real. */
+/** Veredicto forzado de `releaseQueuedHandoffDetailed`; undefined = la regla real. */
 const mockReleaseVerdict = jest.fn();
 const mockReport = jest.fn();
 const mockMarkFailed = jest.fn();
-/** it25 §R1 1.3 — controlable: hace falta un `false` (escritura que no entró). */
+/** Controlable: hace falta un `false` (escritura que no entró). */
 const mockMark = jest.fn();
-/** it. 33 (cierre, B1) — las ENTRADAS del SignerList que la ruta del informe lee del ledger. */
+/** Las ENTRADAS del SignerList que la ruta del informe lee del ledger. */
 const mockSignerEntries = jest.fn();
 jest.mock('../../services/flare/DirectMintHandoffStore', () => ({
   ...jest.requireActual('../../services/flare/DirectMintHandoffStore'),
   findQueuedHandoffByMemo: (...a: unknown[]) => mockFind(...a),
   releaseQueuedHandoffByMemo: (...a: unknown[]) => mockRelease(...a),
-  // it19 §M1 1.3 — la ruta ya no clasifica por su cuenta: el veredicto (y la
+  // La ruta ya no clasifica por su cuenta: el veredicto (y la
   // lectura de la ventana del memo que haga falta) los da el store, en un sitio.
   // Aquí se finge esa función con la REGLA REAL sobre la fila que `mockFind`
   // devuelve, con la ventana leída y vacía — que es el mundo de estas pruebas.
   releaseQueuedHandoffDetailed: async (memo: string, opts?: { reportBlocks?: boolean }) => {
     const store = jest.requireActual('../../services/flare/DirectMintHandoffStore');
-    // it21 §P1 1.2 — un veredicto forzado (la BD caída) para probar el mapeo 503.
+    // Un veredicto forzado (la BD caída) para probar el mapeo 503.
     const forced = await mockReleaseVerdict(memo, opts);
     if (forced) return forced;
     const row = await mockFind(memo);
@@ -135,7 +135,7 @@ jest.mock('../../services/flare/DirectMintHandoffStore', () => ({
   markHandoffSignedByMemo: (...a: unknown[]) => mockMark(...a),
   readXrplSignerEntries: (...a: unknown[]) => mockSignerEntries(...a),
 }));
-/** it. 33 — «¿esta sesión pertenece a ESTE consejo?», el mismo predicado de las otras cuatro puertas. */
+/** «¿esta sesión pertenece a ESTE consejo?», el mismo predicado de las otras cuatro puertas. */
 const mockIsMember = jest.fn();
 jest.mock('../councilProposals', () => ({
   sessionIsCouncilMember: (...a: unknown[]) => mockIsMember(...a),
@@ -241,7 +241,7 @@ describe('0xFE prepares — who prepares, and whether supersede may displace (§
     expect(mockBuild.mock.calls[0][1]).toMatchObject({ supersedePendingNonce: true, preparedByUserId: 'u-owner', supersedeAuthorized: true });
   });
 
-  // productizer-it15 §K1 (contrato C2): la prueba se lee SIEMPRE y viaja al
+  // §K1 (contrato C2): la prueba se lee SIEMPRE y viaja al
   // registro — un borrador de quien no prueba la cuenta lo desplaza el dueño
   // probado, y la UI necesita saber si reintentar tiene sentido.
   it('no supersede asked → the proof still rides the row as preparedByProven', async () => {
@@ -274,7 +274,7 @@ describe('0xFE prepares — who prepares, and whether supersede may displace (§
   });
 });
 
-// productizer-it15 §K1 (contrato C3) — cada tipo de asiento sale con su código:
+// §K1 (contrato C3) — cada tipo de asiento sale con su código:
 // la consola ya no ofrece «Retry, freeing the seat» sobre lo que no puede liberar.
 describe('0xFE prepares — the seat error carries its machine code (C3)', () => {
   const unmint = () =>
@@ -401,7 +401,7 @@ describe('POST /handoff/release — the preparer may release their own draft (§
     expect(mockRelease).not.toHaveBeenCalled();
   });
 
-  // productizer-it19 §M3 3.1 — liberar TU asiento es una SALIDA: si la tienda de
+  // Liberar TU asiento es una SALIDA: si la tienda de
   // pruebas no se pudo leer, la respuesta es 503 «vuelve a intentarlo», nunca un
   // 403 que le quita a alguien su llave por un fallo transitorio nuestro.
   it('an unreadable proof store answers 503 on this exit, never a 403', async () => {
@@ -420,7 +420,7 @@ describe('POST /handoff/release — the preparer may release their own draft (§
     expect(mockProveVerdict).toHaveBeenCalledWith('u-other', expect.anything(), XRPL, 'exit');
   });
 
-  // productizer-it17 §L1 (it16 R1 1.1) — esta puerta miraba `signedAt` e informes
+  // §L1 — esta puerta miraba `signedAt` e informes
   // y NUNCA la ventana: el preparador cancelaba, el prepare siguiente componía
   // otro userOp en el mismo nonce, y el payload viejo seguía firmable en el móvil.
   // Soltar el asiento mientras el payload vive ES lo que crea el gemelo.
@@ -471,10 +471,10 @@ describe('POST /handoff/release — the preparer may release their own draft (§
 });
 
 /**
- * productizer-it19 (contrato C2) — EL RELOJ DEL ASIENTO LO PONE QUIEN CREA EL
+ * EL RELOJ DEL ASIENTO LO PONE QUIEN CREA EL
  * PAYLOAD. Se estampaba al componer, pero el `expire` de Xaman corre desde que el
  * payload se crea: una firma viva a los 4:30 se daba por muerta a los 5:01 y su
- * asiento se entregaba a un segundo 0xFE (it18 R1 1.3).
+ * asiento se entregaba a un segundo 0xFE.
  */
 describe('POST /handoff/payload-opened — la caducidad real, de quien la sabe', () => {
   const MEMO_ROW = {
@@ -551,7 +551,7 @@ describe('POST /handoff/signed — a pending signature is remembered, never mark
     expect(mockReport).toHaveBeenCalledWith(MEMO, HASH, { userId: 'u-owner', proven: true });
   });
 
-  // productizer-it15 §K1 (it14 §1.2): el memo viaja en la vista pública de una
+  // §K1: el memo viaja en la vista pública de una
   // run. Ocho informes falsos llenaban la lista y el aviso real se descartaba;
   // a los 15 min, sustitución y gemelo. Un extraño ya no escribe NADA — y la
   // respuesta es la misma que la del legítimo: no se le confirma el memo.
@@ -575,7 +575,7 @@ describe('POST /handoff/signed — a pending signature is remembered, never mark
     expect(mockReport).not.toHaveBeenCalled();
   });
 
-  // it14 §1.4: un tec* se marcaba firmado para siempre — bloqueaba el nonce por
+  // Un tec* se marcaba firmado para siempre — bloqueaba el nonce por
   // algo que no entrega XRP y que FAssets no puede ejecutar jamás.
   it('a VALIDATED tec* frees the seat instead of taking it for good', async () => {
     mockRpc.mockResolvedValue({
@@ -607,7 +607,7 @@ describe('POST /handoff/signed — a pending signature is remembered, never mark
 });
 
 /**
- * productizer-it21 §P1 1.2 / §P2 2.2 (contrato C1) — «NO PUDE LEER» YA NO SE
+ * §P1 1.2 / §P2 2.2 (contrato C1) — «NO PUDE LEER» YA NO SE
  * DISFRAZA DE HECHO EN NINGUNA DE LAS TRES PUERTAS DEL HANDOFF.
  *
  * Un 200 `{released:false}` la pantalla lo lee «no había asiento que liberar» y
@@ -615,7 +615,7 @@ describe('POST /handoff/signed — a pending signature is remembered, never mark
  * datos no contesta, las dos afirmaciones son falsas y la única honesta es 503.
  */
 /**
- * it. 33 (cierre, B1) — EL EMISOR DEL TEMPO ASÍNCRONO ES UN TERCER REPORTERO.
+ * EL EMISOR DEL TEMPO ASÍNCRONO ES UN TERCER REPORTERO.
  *
  * En la bandeja de propuestas, el miembro que combina y emite el 0xFE rara vez
  * es la sesión que lo preparó, y prueba SU dirección, no la del consejo. Con
@@ -624,7 +624,7 @@ describe('POST /handoff/signed — a pending signature is remembered, never mark
  * La puerta que ya contesta «¿esta sesión pertenece a ESTE consejo?» en las
  * otras cuatro contesta aquí, sobre el SignerList leído del ledger.
  */
-describe('POST /handoff/signed — a proven SignerList member may report (it. 33, B1)', () => {
+describe('POST /handoff/signed — a proven SignerList member may report (B1)', () => {
   const MEMBER = 'rMemberXXXXXXXXXXXXXXXXXXXXXXXXXXX';
   const post = (user: string, wallet = '') =>
     request(app)
@@ -724,21 +724,18 @@ describe('las tres puertas del handoff con la BD caída → 503, jamás 200 ni 4
 });
 
 /**
- * productizer-it25 §R1 — LA TERCERA PUERTA: `/handoff/signed` LEÍA BLANDO.
+ * §R1 — LA TERCERA PUERTA: `/handoff/signed` LEÍA BLANDO.
  *
  * Era la única de las tres que seguía leyendo con la forma tolerante (anotado
- * «Menor» en la it. 22 y abierto desde entonces), y es la que sostiene el asiento:
+ * «Menor» en la y abierto desde entonces), y es la que sostiene el asiento:
  * un parpadeo de base de datos convertía el aviso de una firma REAL en un 200
  * «marked:false» — el informe se perdía en silencio, nada sostenía el asiento y el
  * TTL podía retirarlo con el Payment firmado todavía vivo en el móvil de alguien.
  * Y su puerta de autoridad pedía la forma BOOLEANA, que colapsa «no la ha
  * probado» y «no pude leer» en el mismo `false`: el informe del DUEÑO acababa
  * descartado con la misma cara que el de un extraño.
- *
- * Regla: con la lectura caída, ni se marca la fila como no probada, ni se retira
- * el asiento, ni se contesta «recibido». Se contesta 503 reintentable.
  */
-describe('POST /handoff/signed con la BD caída — 503 reintentable, jamás un asiento retirado (it25 §R1)', () => {
+describe('POST /handoff/signed con la BD caída — 503 reintentable, jamás un asiento retirado (§R1)', () => {
   const dbDown = () =>
     Object.assign(new Error('the 0xFE queued under memo … could not be read: db down'), { code: 'SEAT_STATE_UNREADABLE' });
   const queued = (over: Record<string, unknown> = {}) => ({
@@ -905,7 +902,7 @@ describe('POST /handoff/signed con la BD caída — 503 reintentable, jamás un 
 });
 
 /**
- * productizer-it21 §P2 2.2 — LA SALIDA NO SE CASTIGA CON UNA LECTURA FALLIDA, Y
+ * LA SALIDA NO SE CASTIGA CON UNA LECTURA FALLIDA, Y
  * TAMPOCO SE QUEDA MARCADA «DE QUIEN NO PRUEBA».
  *
  * `seatClaimOf` usaba la forma booleana, que colapsa «no pude leer» y «no lo has
@@ -938,9 +935,7 @@ describe('seatClaimOf — el 503 de la tienda de pruebas sobrevive hasta la resp
     expect(mockProveVerdict).toHaveBeenCalledWith('u-1', expect.anything(), XRPL, 'exit');
   });
 
-  // …y una causa DETERMINISTA no promete «vuelve a intentarlo» para siempre: el
-  // agente E la clasifica 409 no reintentable (esperar no la cura), así que la
-  // salida NO se tapia — se compone. Lo que no puede pasar es que esa fila quede
+  // Lo que no puede pasar es que esa fila quede
   // marcada «de quien no prueba» y por tanto desplazable: viaja
   // `preparedByProofUnreadable`, que es «no pude preguntar», no «no la probó».
   it.each([
@@ -980,7 +975,7 @@ describe('seatClaimOf — el 503 de la tienda de pruebas sobrevive hasta la resp
 });
 
 /**
- * productizer-it23 §Q1 1.6 — NINGUNA PUERTA COLAPSA EL CÓDIGO DE OTRA.
+ * NINGUNA PUERTA COLAPSA EL CÓDIGO DE OTRA.
  *
  * Las dos puertas del handoff miraban solo el 503 y convertían todo lo demás en
  * un 403 `NOT_THE_HANDOFF_OWNER` cuya frase —«lo preparó otra sesión, para una
@@ -1052,9 +1047,9 @@ describe('los 409 deterministas del veredicto salen con su código (§Q1 1.6)', 
 });
 
 /**
- * productizer-it23 §Q1 1.2 — LA VENTANA DE FIRMA VIAJA CON CADA 0xFE.
+ * LA VENTANA DE FIRMA VIAJA CON CADA 0xFE.
  *
- * El frontend ya sabe aprender `payloadExpiryMin` (it21 §3.9), pero ningún
+ * El frontend ya sabe aprender `payloadExpiryMin`, pero ningún
  * prepare de este router lo contestaba: el cliente se quedaba con su constante de
  * 5 min escrita a mano y, el día que el servidor baje la suya, el asiento se
  * suelta con el payload aún firmable — el gemelo. Ahora sale en la respuesta, y

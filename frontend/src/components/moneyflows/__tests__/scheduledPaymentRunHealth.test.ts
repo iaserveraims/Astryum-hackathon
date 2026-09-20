@@ -5,20 +5,8 @@ import { join } from 'node:path';
 import { RULE_PILL_TONE, rulePillState } from '@/lib/rules/runHealth';
 
 /**
- * G4-strategies (auditoría 2026-08-17 §G4) — la domiciliación que juraba estar
+ * G4-strategies (auditorí §G4) — la domiciliación que juraba estar
  * en pie.
- *
- * `ScheduledPaymentCard` es la superficie de pagos recurrentes de /app/strategies
- * (y del carril personal). Decidía el estado de la regla con `r.enabled` a secas
- * — `<Pill tone={r.enabled ? 'success' : 'neutral'}>` — y una regla
- * `scheduledPayment` cuyo tick NO puede validar el pago se guarda como
- * `status: 'error'` con `scheduled_payment_invalid: …` en `notes`, sin
- * incrementar `totalTimesTriggered` y sin push (guarda del «éxito no ganado»).
- * Resultado: verde «active» sobre una domiciliación que en su última fecha no
- * preparó NADA que firmar — el único fallo que una domiciliación no puede tener.
- *
- * Fuente-nivel por la misma razón que el resto de la familia: vitest corre en
- * `environment: 'node'` y tsconfig deja `jsx: "preserve"`.
  */
 
 const CARD = join(__dirname, '..', 'ScheduledPaymentCard.tsx');

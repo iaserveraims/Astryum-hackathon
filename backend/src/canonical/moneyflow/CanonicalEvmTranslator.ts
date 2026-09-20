@@ -8,10 +8,6 @@
  * IntentEngine.createIntent (prepare-only) → push → THE USER SIGNS. The
  * translator opens no new path toward a wallet; it only writes vocabulary the
  * engine already speaks.
- *
- * Degradation is explicit: anything outside the chain capability (stub
- * triggers, unsupported verbs, non-absolute amounts, multi-action steps)
- * FAILS with a readable error — never a silent approximation (§2.3).
  */
 
 import {

@@ -1,7 +1,7 @@
 /**
  * managedReadState — what the «Managed by a third party» shelf may say.
  *
- * Why this exists (reviewer, 14-sep): with a failed read the shelf printed the
+ * Why this exists (reviewer): with a failed read the shelf printed the
  * headline «You have no managed vaults» and tucked the failure into a footnote.
  * The headline is what gets read. «Could not read» is never «you have none»:
  * a failed or partial read with no positions gets its own headline and a Retry.
@@ -39,11 +39,10 @@ export const MANAGED_SNAPSHOT_MAX_AGE_MS = 60_000;
 /**
  * ¿Hay que releer las posiciones gestionadas al montar la estantería?
  *
- * Fundador 2026-09-17: «me he vuelto a cambiar de cuenta… y no me aparecen».
  * La instantánea compartida vivía a nivel de módulo y solo se releía si nunca
  * se había leído o si la última pasada falló: al cambiar de cuenta sin
  * recargar la página, la estantería de la cuenta nueva enseñaba la pasada de
- * la anterior (los registros del 17-sep lo muestran: tras el login de la
+ * la anterior (los registros lo muestran: tras el login de la
  * cuenta que tenía las participaciones no hubo NINGUNA lectura de pote-state).
  * Reglas: nunca leída · con error · de OTRA cuenta · o más vieja de un minuto.
  */

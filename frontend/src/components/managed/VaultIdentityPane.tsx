@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * VaultIdentityPane — la pestaña «Identidad» del puente (11-sep): lo que NO
+ * VaultIdentityPane — la pestaña «Identidad» del puente: lo que NO
  * es capital ni reglas — la imagen de la carta, el enlace de captación y la
  * página pública. Antes la imagen colgaba al final de Capital, entre la
  * consola y nada; aquí tiene su sitio y Capital queda para mover dinero.

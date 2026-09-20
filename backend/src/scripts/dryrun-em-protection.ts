@@ -4,20 +4,6 @@
  * El equivalente en MoneyFlows (W5) del ensayo en seco del carril: en vez de
  * crear una regla, esperar 60 s y ver si llega un aviso, pregunta directamente
  * las tres cosas de las que depende que la red exista de verdad:
- *
- *   1. ¿Está ABIERTO el carril? — flag (#10) + geofence (#5). Una regla puede
- *      estar impecable y no vigilar nada si el módulo está cerrado; desde el
- *      17-ago el tick respeta esa frontera, así que hay que poder verla.
- *   2. ¿Qué dice el MERCADO de tu posición? — el HF que decide el disparo se lee
- *      del mercado vivo, no del snapshot de cartera (que no sabe leer Morpho y
- *      llegaba vacío, dejando la protección muerta en silencio: el bug H6).
- *   3. Con tu umbral, ¿dispararía HOY? — y si dispara, QUÉ aviso sale y a qué
- *      puerta lleva. Un aviso que no abre nada es un aviso que miente.
- *
- * Solo lecturas: no crea reglas, no manda avisos, no firma nada.
- *
- * Uso:
- *   npm run dryrun:em-protection -- --user 0xTuWallet --threshold 1.1
  */
 import { emRepayFireCheck, makeEthersMorphoReader } from '../services/EthMorphoMarketService';
 import { getRpcForChain } from '../utils/rpcForChain';

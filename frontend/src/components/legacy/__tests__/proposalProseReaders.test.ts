@@ -13,29 +13,6 @@ import {
  *
  * Three hardcoded copies stood between the server and the family, and every one
  * of them still carried the wording the backend RETIRED this round:
- *
- *   · ProposeToCouncil matched `err.message === 'LIVE_PROPOSAL_EXISTS'` — the
- *     slug `jpost` puts in `Error.message` — printed "emit it, withdraw it or
- *     let it expire first", and DISCARDED `err.body.detail`;
- *   · GovernedMovements.proposeError collapsed EVERY `status === 409` into the
- *     same sentence, on a route whose 409 is NOT_A_COUNCIL and whose seat
- *     refusals are 422 (backend/src/routes/xrplDefi.ts says so in its own
- *     comment, naming this collapse as the reason it moved off 409);
- *   · the reserve in serverRefusal.ts said it too.
- *
- * "Let it expire" is the wrong door: inside its deadline `POST /:id/withdraw`
- * reads no ledger and issues no verdict, and expiry is the seven-day wait that
- * then meets the unresolved-seat guard. On a rail whose only job is that a
- * council must not pay twice, the copy was sending people to the least-checked
- * exit.
- *
- * WHY EXTRACTION, AND WHY `deps`. The vitest bootstrap is `environment: 'node'`
- * and importing either .tsx drags the wallet stack in (`Cannot find package
- * 'got'`), so the shipping functions are pulled out of the source and RUN — the
- * assertions are never a substring of the file. The fix makes them DELEGATE, so
- * the real reader is injected: a call site that stopped delegating throws here
- * instead of passing, which is the only way "there is ONE source" can be an
- * executed claim rather than a comment.
  */
 
 const PROPOSE = join(__dirname, '..', 'ProposeToCouncil.tsx');
@@ -58,7 +35,7 @@ function httpError(status: number, body: unknown): Error {
 type Reader = (e: unknown, t: (s: string) => string) => string | ReadableRefusal;
 
 /**
- * productizer it. 27 (3) — LOS DOS QUE AHORA DEVUELVEN EL RECHAZO ENTERO.
+ * LOS DOS QUE AHORA DEVUELVEN EL RECHAZO ENTERO.
  *
  * `serverRefusalText` devolvía UNA CADENA, así que `headline`, `ways[]` y
  * `retryAfterSeconds` —los tres campos que `services/identity/provenAddresses.ts`
@@ -205,7 +182,7 @@ const inboxRefusalCause = extract<
 const SEAT = 'rNaFfKeGDXFFEUqcCJdcgRfDjXfnq5Aoh6';
 
 /**
- * it. 19 (R2 N6) — LA DISTINCIÓN QUE ESTE BLOQUE PROTEGE, ACTUALIZADA.
+ * LA DISTINCIÓN QUE ESTE BLOQUE PROTEGE, ACTUALIZADA.
  *
  * Lo que no puede pasar sigue siendo lo mismo: afirmar algo SOBRE LAS WALLETS DE
  * LA PERSONA a partir de una lista que nadie consiguió leer («la que tienes
@@ -213,7 +190,7 @@ const SEAT = 'rNaFfKeGDXFFEUqcCJdcgRfDjXfnq5Aoh6';
  * devolvió `[]`). Eso sigue exigiendo evidencia positiva.
  *
  * Lo que sí cambió: cuando no hay esa evidencia, callar ya no es lo correcto —
- * desde la it. 17 la pertenencia la decide una dirección PROBADA, y quedarse sin
+ * desde la la pertenencia la decide una dirección PROBADA, y quedarse sin
  * decirlo deja a la persona con la frase de reserva, que todavía manda a
  * REGISTRAR. `prove-membership` no afirma nada sobre sus wallets: explica la
  * regla. Decir la regla no es emitir un veredicto sobre lo que no se ha leído.
@@ -258,15 +235,15 @@ describe('prosa-y-lectores — no verdict over a list nobody read', () => {
 });
 
 /**
- * productizer it. 25 (1) — LOS TRES CONSUMIDORES TIRABAN `unreadable[]`.
+ * LOS TRES CONSUMIDORES TIRABAN `unreadable[]`.
  *
- * it. 23 hizo que la fila indecidible viajase NOMBRADA en el 200 con su código y su
+ * Hizo que la fila indecidible viajase NOMBRADA en el 200 con su código y su
  * frase, «para que la pantalla diga: estas N no las pude leer». Ninguna pantalla lo
  * decía: los tres sitios que leen `GET /council/proposals` desestructuraban solo
  * `proposals`. El cableado es lo único que ninguna función pura puede sujetar, así
  * que se lee del fuente que se envía — igual que `seatUnresolved={tray === …}`.
  */
-describe('it. 25 (1) — `unreadable[]` llega a las tres pantallas', () => {
+describe('`unreadable[]` llega a las tres pantallas', () => {
   const FEED = join(__dirname, '..', 'LegacyActivityFeed.tsx');
   const TRAY = join(__dirname, '..', '..', 'intents', 'SidebarIntents.tsx');
   const feedSrc = readFileSync(FEED, 'utf8');
@@ -291,22 +268,17 @@ describe('it. 25 (1) — `unreadable[]` llega a las tres pantallas', () => {
 });
 
 /**
- * productizer it. 27 (1) — EL HISTORIAL SE TRAGABA EL RECHAZO ENTERO.
+ * EL HISTORIAL SE TRAGABA EL RECHAZO ENTERO.
  *
  * `LegacyActivityFeed` leía las propuestas con `.catch(() => [])`: un 403
- * `NOT_A_COUNCIL_MEMBER`, o el 503 `PROPOSALS_READ_UNREADABLE` que la it. 25 acaba de
+ * `NOT_A_COUNCIL_MEMBER`, o el 503 `PROPOSALS_READ_UNREADABLE` que la acaba de
  * crear, se iban sin una palabra. El comentario de al lado decía que «un rechazo
  * entero deja el aviso anterior EN PIE» — y es cierto salvo en el caso normal: en la
  * PRIMERA carga no hay aviso anterior, hay silencio. La familia abría el historial de
  * su Legacy, veía sus reglas y sus compromisos y ninguna propuesta, y leía un registro
  * completo de una lectura que no ocurrió.
- *
- * Y el test que lo daba por arreglado (arriba, it. 25) solo miraba la línea del
- * ÉXITO. Así que aquí se sujetan LAS DOS mitades: el cableado que se envía —la única
- * parte que ninguna función pura puede sujetar— y, ejecutada de verdad, la frase que
- * esos dos rechazos producen.
  */
-describe('it. 27 (1) — un rechazo entero se dice, también en la primera carga', () => {
+describe('Un rechazo entero se dice, también en la primera carga', () => {
   const FEED = join(__dirname, '..', 'LegacyActivityFeed.tsx');
   const feedSrc = readFileSync(FEED, 'utf8');
 
@@ -352,14 +324,14 @@ describe('it. 27 (1) — un rechazo entero se dice, también en la primera carga
 });
 
 /**
- * productizer it. 27 (3) — LA PROSA LLEGABA Y EL BOTÓN NO.
+ * LA PROSA LLEGABA Y EL BOTÓN NO.
  *
  * El arreglo va en el lector compartido, no en ocho pantallas: `serverRefusal` trae
  * ahora `headline`, `ways[]`, `retryAfterSeconds` y la puerta, y `ServerRefusalBody`
  * es la única pieza que los pinta. Lo que ningún test puro puede sujetar es que las
  * pantallas la MONTEN — así que se lee del fuente que se envía.
  */
-describe('it. 27 (3) — las pantallas ofrecen el camino que el servidor nombró', () => {
+describe('Las pantallas ofrecen el camino que el servidor nombró', () => {
   const POSITIONS = join(__dirname, '..', 'FormalPositions.tsx');
   const surfaces: Array<[string, string]> = [
     ['ProposeToCouncil', proposeSrc],

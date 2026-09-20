@@ -2,27 +2,7 @@
 
 /**
  * UnconfirmedSignatureNotice — the ending that exists so nobody signs twice.
- * Frente `familia-no-pude-leer` (2026-08-20).
- *
- * A signature we could not follow is neither a success nor a failure, and the
- * screen that pretends otherwise is the most expensive screen in the product:
- * after a 0xFE dispatch, a second signature is a second carrier fee in XRP, a
- * second nonce seat and a second movement of real money. The two vault modals
- * grew this panel inline during `settling-final` (2026-08-19); it is the same
- * amber block, the same sentences and the same rule in all of them, so it is
- * one component now — the surfaces that adopt it cannot drift, and the sentence
- * that prevents the double dispatch is reviewed in ONE place.
- *
- * The rules the shape encodes:
- *  - amber, never red: nothing here says the operation failed;
- *  - NO route back to the sign button — the only offer is to close and look;
- *  - the hash when there is one, so "check it yourself" is actionable;
- *  - the wallet's VERBATIM words or none at all (`unconfirmedTrace` already
- *    dropped anything that reads as a retry invitation or as a verdict).
- *
- * The 0xFE nonce seat is deliberately never released from this state either:
- * the dispatch may already have consumed it. Callers keep `abandonable` gated
- * on the review phase, so reaching this panel is enough.
+ * Frente `familia-no-pude-leer`.
  */
 
 import { AlertTriangle } from 'lucide-react';
@@ -74,7 +54,7 @@ export function UnconfirmedSignatureNotice({
             : xrplKind === 'transaction'
             ? t('The transaction went to Xaman and we could not confirm how it ended. Do NOT sign it again — it may already be on the ledger. Check the hash and your account history first.')
             : t('The order went to Xaman and we could not read what happened next. Do NOT sign it again: a second dispatch pays a second carrier fee in XRP and takes a second nonce seat. Check your XRPL account and your position first.')
-          :/* batch-evm (2026-08-20): this panel is ALSO the ending of a PARTIAL
+          :/* batch-evm: this panel is ALSO the ending of a PARTIAL
                execution (`PARTIAL_EXECUTION` → `signOutcome` → 'unconfirmed'),
                and there the receipts of the earlier steps WERE read — they came
                back successful. Claiming «we could not read its receipt» over
@@ -99,8 +79,8 @@ export function UnconfirmedSignatureNotice({
           verdict here ("nothing moved — try again in a minute", which is what a
           timeout translates to) told the reader the opposite of the paragraph
           above and sent them to sign a second time.
-
-          batch-evm (2026-08-20): the label lied about the SOURCE. On a partial
+      { *
+          batch-evm: the label lied about the SOURCE. On a partial
           execution the trace is OUR OWN diagnostic — `partialExecutionError`'s
           "Step 2 of 2 did not complete. 1 earlier step is already on the
           chain…" — deliberately written so no wallet wording survives into it.

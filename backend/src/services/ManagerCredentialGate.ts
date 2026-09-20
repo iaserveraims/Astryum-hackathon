@@ -6,26 +6,6 @@
  * jaula / abrir un pote / mandar órdenes si sostiene una **credencial de gestor
  * vigente** (XLS-70) de un **emisor acreditado** — un tercero regulado, JAMÁS
  * Astryum.
- *
- * ── DÓNDE MANDA DE VERDAD: EL LEDGER, NO ESTO ──────────────────────────────
- *
- * La comprobación fuerte la hace XRPL: el ancla lleva
- * `DepositPreauth{AuthorizeCredentials}` y una orden sin la credencial que case
- * la tumba el CONSENSO con `tecNO_PERMISSION`, antes de que este código la vea.
- * Esta clase es solo el PRE-FLIGHT: dice «no» ANTES de firmar, para no hacer
- * firmar una orden condenada (doctrina del 23-ago). El emisor verifica el título
- * OFF-ledger; en el ledger va solo la atestación mínima (tipo, sin PII) — «esta
- * cuenta tiene credencial OK», y Astryum permite la tx sin ver el documento.
- *
- * ── LOS GUARDARRAÍLES (recon 29-ago, Parte E) ──────────────────────────────
- *  1. Astryum JAMÁS emite ni verifica el título. Solo ELIGE qué emisores acepta
- *     — filtro técnico uniforme, como el registro de venues. Sin ranking.
- *  2. `Expiration` es la revocación (30–90 días). Una licencia se retira y el
- *     ledger no se entera: la única salida es que caduque y no se reemita.
- *  3. Jamás PII on-ledger.
- *  4. Sin `lsfAccepted` la credencial existe pero NO vale.
- *
- * Feature-flag: `MANAGER_GATE_ENABLED`. Apagada por defecto (nada se rompe).
  */
 
 import type { CredentialRead } from './XrplCredentialVerifier';
@@ -42,7 +22,7 @@ export interface ManagerGateConfig {
    * Cada entrada puede ser un grupo OR con `|`: `AIFM|CASP,KYC` exige
    * (AIFM **o** CASP) **y** KYC — cada raíz sostiene la licencia de SU sector
    * (el gestor de vehículos agrupados la AIFM, el exchange la CASP) más su
-   * identidad. El tipo de cuenta ES la credencial (decisión 9-sep).
+   * identidad. El tipo de cuenta ES la credencial (decisión).
    */
   credentialTypes: string[];
   /** Los emisores acreditados (r-addresses). Vacío ⇒ la puerta NO deja pasar a nadie. */
@@ -78,27 +58,15 @@ export function verificationPartners(): VerificationPartner[] {
 }
 
 /**
- * ¿ESTÁ PUESTA LA PUERTA? — en código, no en una variable (fundador 2026-09-20:
- * «el producto se podrá probar solo si tienes las credenciales»).
+ * ¿ESTÁ PUESTA LA PUERTA? En código, no en una variable.
  *
  * Hasta hoy era `MANAGER_GATE_ENABLED === 'true'`: apagada salvo que alguien se
  * acordara de encenderla. Con el módulo institucional abierto y esa variable sin
  * definir, cualquier cuenta con sesión hacía nacer una jaula y componía órdenes de
  * consejo SIN que nadie mirase su título — la puerta existía y no estaba puesta.
- * Es la misma lección del 14-sep leída al revés: si una variable que se clona entre
+ * Es la misma lección leída al revés: si una variable que se clona entre
  * entornos no puede PUBLICAR nada, tampoco puede ser lo único que sostiene una
  * exigencia regulatoria.
- *
- *   · en producción (NODE_ENV=production, que es también el de staging) la puerta
- *     está SIEMPRE puesta: ninguna variable la apaga;
- *   · fuera de producción —local y tests— está puesta por defecto y
- *     `MANAGER_GATE_ENABLED=false` la apaga, para poder ensayar el resto del
- *     circuito sin un emisor a mano.
- *
- * Puesta y sin emisores (`MANAGER_CREDENTIAL_ISSUERS` vacío) no pasa nadie
- * (`NO_ISSUERS_CONFIGURED`): falla cerrada, que es el lado correcto del error. Para
- * que el rodaje siga funcionando, la cuenta del notario de demo tiene que estar en
- * esa lista en el entorno donde se ruede.
  */
 export function managerGateEnforced(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.NODE_ENV === 'production') return true;
@@ -146,7 +114,7 @@ export type ManagerGateVerdict =
 export function evaluateManagerCredential(
   credentials: CredentialRead[],
   cfg: ManagerGateConfig,
-  /** EL TÍTULO ES DEL SUJETO (2026-09-13). El directorio de un EMISOR lleva
+  /** EL TÍTULO ES DEL SUJETO. El directorio de un EMISOR lleva
    *  las credenciales que EMITIÓ (issuer = él, subject = otros): sin este
    *  filtro el emisor pasaba su propio gate como si estuviera licenciado —
    *  visto en vivo, el ancla emisora aterrizó en el estante Manager. Con la

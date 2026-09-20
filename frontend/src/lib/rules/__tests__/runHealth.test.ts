@@ -18,7 +18,7 @@ import {
 } from '../runHealth';
 
 /**
- * G4-strategies (auditoría 2026-08-17 §G4) — la fuente ÚNICA del veredicto.
+ * G4-strategies (auditorí §G4) — la fuente ÚNICA del veredicto.
  *
  * El reductor vivía TRIPLICADO literalmente (LegacyActivityFeed,
  * DefiPositionsBoard, MoneyFlowsPanel) y las tres copias solo se probaban
@@ -143,7 +143,7 @@ describe('loadRunHealth — «no pude leer» NO es «nunca disparó» y NO es «
 });
 
 /**
- * REUSE (auditoria 2026-08-18) - la sexta superficie entra en casa.
+ * REUSE (auditoria) - la sexta superficie entra en casa.
  *
  * `DefiPositionsBoard` era la unica de las seis que seguia leyendo
  * GET /rules/:id/runs por su cuenta (`fetch` + sus propios headers), con la
@@ -328,11 +328,11 @@ describe('summarizeRuns · `expired` — el motor se rindió con la ocurrencia; 
  * G4-pildoras (ronda 3) — el tono de la píldora sale del veredicto LEÍDO.
  *
  * Las seis superficies escribían a mano
- * `tone={!enabled ? 'neutral' : failing ? 'danger' : 'success'}` con
+ * `tone={!enabled ? 'neutral': failing ? 'danger': 'success'}` con
  * `failing = isFailing(health)`. `isFailing` solo es cierto para `failed`, así
  * que `unread` y `unreadable` caían en el brazo VERDE: el primer pintado decía
  * «active» antes de leer un solo run, y un timeout de /runs devolvía a verde una
- * regla que ya sabíamos FALLANDO. Doctrina CLAUDE.md: «no pude leer» no es «va
+ * regla que ya sabíamos FALLANDO. Doctrina: «no pude leer» no es «va
  * bien».
  */
 describe('rulePillState — el verde EXIGE una historia de runs leída', () => {

@@ -85,7 +85,7 @@ contract AstryumVaultDeployer {
  * @title AstryumStackFactory — one policy, one pote, born from XRPL
  *
  * @notice Clone of the proven LegacyStackFactory pattern (deployed & verified
- * on Flare mainnet 2026-08-05), with the institutional pote's eternal params.
+ * on Flare mainnet), with the institutional pote's eternal params.
  * The Legacy factory stays untouched; this one births AstryumVaults.
  *
  * WHO MAY CREATE (the whole security model in one line): only the Personal

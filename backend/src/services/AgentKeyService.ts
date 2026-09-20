@@ -14,7 +14,7 @@ const TAG_BYTES = 16;
 // the default. Dev/test keep the default so local flows work.
 // ⚠ OPS: if user keys were ALREADY stored under the dev default, re-encrypt them
 // with the new secret BEFORE setting it (read old → write new), or they become
-// undecryptable. See docs/context/Astryum_BuildSpec_3_Componentes §C3.
+// undecryptable.
 const DEV_MASTER_SECRET = 'astryum-dev-secret-32bytes!!!!!';
 
 function getMasterKey(): Buffer {
@@ -66,20 +66,13 @@ export class AgentKeyService {
   }
 
   /**
-   * `session` is MANDATORY (productizer it. 18, 3.2). This row decides WHOSE
+   * `session` is MANDATORY (3.2). This row decides WHOSE
    * Anthropic account receives the copilot's prompts — the user's portfolio,
    * their addresses, the text they type at it. A request already in flight when
    * the account is taken over would re-plant the previous holder's key on the
-   * owner and quietly forward the owner's context to it (it. 16, 4.1), and the
+   * owner and quietly forward the owner's context to it (4.1), and the
    * validation round-trip before this call (`validateKey`) is a network hop, so
    * that window is wide.
-   *
-   * It used to be optional, with an unguarded `prisma.userAnthropicKey.upsert`
-   * fallback that a test asserted was correct. Optional is not a guard: the next
-   * caller omits it and writes authority with no check at all, in silence and
-   * without a compile error. The parameter is now positional-required (so every
-   * call site is a type error until it passes one) AND falsy at runtime is a
-   * refusal, so the unguarded path is unreachable from JavaScript too.
    */
   async saveUserAPIKey(
     userId: string,

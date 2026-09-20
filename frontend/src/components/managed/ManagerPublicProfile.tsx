@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ManagerPublicProfile — la ficha PÚBLICA del gestor (fundador 6-sep): lo que
+ * ManagerPublicProfile — la ficha PÚBLICA del gestor: lo que
  * un cliente revisa ANTES de poner capital en un vault suyo.
  *
  * Dos mitades, y la etiqueta lo deja claro:
@@ -35,7 +35,7 @@ export function ManagerPublicProfile({
   role = 'manager',
 }: {
   account: string;
-  /** La MISMA zona de credencial sirve a las dos raíces (13-sep): 'manager'
+  /** La MISMA zona de credencial sirve a las dos raíces: 'manager'
    *  (AIFM) o 'exchange' (CASP). Solo cambia el copy del vacío — los hechos
    *  del ledger, el link de la licencia y el disclaimer son neutrales. */
   role?: 'manager' | 'exchange';
@@ -43,8 +43,7 @@ export function ManagerPublicProfile({
   const { t } = useT();
   const [data, setData] = useState<ManagerPublicProfileData | null>(null);
   const [failed, setFailed] = useState(false);
-  // Los emisores que la puerta ACEPTA (fundador 11-sep: «mi cuenta muestra dos
-  // KYC y dos AIFM»): una credencial que la cuenta se emitió a sí misma es un
+  // Los emisores que la puerta ACEPTA: una credencial que la cuenta se emitió a sí misma es un
   // objeto válido del ledger, pero NO una verificación — y decir «Verified»
   // igual para las dos era mentir por omisión.
   const [accepted, setAccepted] = useState<Set<string> | null>(null);
@@ -158,7 +157,7 @@ export function ManagerPublicProfile({
             })}
           </ul>
         )}
-        {/* El encuadre para EL QUE MIRA (fundador 13-sep): los enlaces de arriba
+        {/* El encuadre para EL QUE MIRA: los enlaces de arriba
             —el que el gestor pegó de su registro, o el que trae su credencial
             aceptada en Xaman— son la EVIDENCIA que este otro user abre y juzga.
             Astryum los trae on-chain, no los certifica: la decisión de confiar

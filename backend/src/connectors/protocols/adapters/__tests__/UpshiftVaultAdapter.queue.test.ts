@@ -5,7 +5,7 @@
  * app) parks the shares on a future calendar-day epoch. `lpToken.balanceOf`
  * stops counting them right away, so without this read the vault position just
  * vanished until the user claimed. Shape verified against the vault impl ABI
- * (proxy 0x373D7d20… → impl 0xc689cC64…) and probed live 2026-08-01: earnXRP
+ * (proxy 0x373D7d20… → impl 0xc689cC64…) and probed live: earnXRP
  * runs a 1-day lag, Monarq 7.
  */
 jest.mock('../../../../services/FlareProvider', () => ({
@@ -23,7 +23,7 @@ const state: {
   lpBalance: bigint;
   served: [number, number, number];
   queued: Record<string, bigint>;
-  /** it. 31 — epoch days whose `getBurnableAmountByReceiver` answers 429. */
+  /** Epoch days whose `getBurnableAmountByReceiver` answers 429. */
   down: Set<string>;
 } = {
   lpBalance: 0n,
@@ -124,8 +124,8 @@ describe('UpshiftVaultAdapter — epoch withdrawal queue', () => {
   });
 
   /**
-   * it. 31 — the `.catch(() => 0n)` on `getBurnableAmountByReceiver` sat in the
-   * same function where it. 29 removed the one on `lagDuration`. A 429 on the
+   * The `.catch(() => 0n)` on `getBurnableAmountByReceiver` sat in the
+   * same function where removed the one on `lagDuration`. A 429 on the
    * day that HELD the queued exit read as «nothing queued that day»: the row
    * vanished and the LP balance next to it looked complete. An unread day now
    * rises; the engine drops the adapter from THIS sweep and names it.
@@ -135,7 +135,7 @@ describe('UpshiftVaultAdapter — epoch withdrawal queue', () => {
     state.queued['2026-08-02'] = 100_000_000n;
     state.down.add('2026-08-02');
 
-    // Before it. 31: resolved to [SUPPLY] only — the 100 shares in flight gone.
+    // Before: resolved to [SUPPLY] only — the 100 shares in flight gone.
     await expect(new UpshiftVaultAdapter().discoverPositions(WALLET)).rejects.toThrow(/UPSHIFT_QUEUE_UNREADABLE/);
   });
 

@@ -119,22 +119,10 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Why the launch switch is not opening the gate (2026-08-07).
+ * Why the launch switch is not opening the gate.
  *
  * "Lo he puesto en Vercel" + `open:false` had no way to tell three very
  * different problems apart, and each has a different fix:
- *
- *   switch.seen=false → this deployment cannot see ACCESS_GATE_OPEN at all.
- *       Vercel binds env vars to a BUILD: setting one does not touch the
- *       deployment already running. Redeploy — or the var is scoped to
- *       Preview/Development instead of Production, or sits on another project.
- *   switch.seen=true, accepted=false → the deployment sees it but the VALUE is
- *       not an affirmative (a stray quote, a pasted `ACCESS_GATE_OPEN=1`, an
- *       invisible character). Accepted: 1 / true / yes / on.
- *
- * Leaks nothing: `open` was already public here, the code and the secret are
- * never read, and only the length of the switch value is reported so a
- * trailing space or a wrapping quote is visible without printing it.
  */
 function switchDiagnostics() {
   const raw = process.env.ACCESS_GATE_OPEN;

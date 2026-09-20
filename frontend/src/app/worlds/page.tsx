@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 /**
  * LOS TRES MUNDOS, para seguir puliéndolos. La portada del preview pasó a ser
- * la de «a los mandos» (fundador 2026-09-19); el conmutador Personal · Legacy ·
+ * la de «a los mandos»; el conmutador Personal · Legacy ·
  * Institucional y sus viajes no se borran: viven aquí, fuera de producción,
  * hasta que se decida qué se queda y qué no.
  */

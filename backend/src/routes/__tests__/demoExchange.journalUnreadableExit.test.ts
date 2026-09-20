@@ -1,23 +1,6 @@
 /**
- * productizer it. 33 (agente C, 1) — «NO PUDE LEER» NUESTRO JOURNAL NO NIEGA UNA
+ * «NO PUDE LEER» NUESTRO JOURNAL NO NIEGA UNA
  * SALIDA QUE CABE.
- *
- * Lo que fallaba (R2/R4 de la it. 32, con escenario propio): `POST …/requests
- * withdraw` y `POST /runs/:id/withdraw/prepare` pasaban por `journalBackedAgainst`,
- * que contestaba 409 `SUBMISSION_JOURNAL_UNREADABLE` ANTES de comparar saldos si
- * `againstFor` lanzaba. Persona real: 50 XRP en la casilla, una entrada
- * pendiente de 2 que nadie firmó, retirada de 10 → negada. No había ningún doble
- * pago que evitar: lo único que esa lectura decide es si la entrada queda
- * EXIMIDA de retener la salida; sin leerla, la entrada retiene sus 2 XRP y
- * quedan 48. Era la única violación viva de «la salida jamás se gatea».
- *
- * FASE, contra el router real: el journal lanza (como con la base caída), y
- *   · la retirada que cabe contando la entrada como reservada → 201;
- *   · la que NO cabe así → 409 INSUFFICIENT_AVAILABLE_BALANCE, `retryable`,
- *     `journalUnreadable: true`, y la frase dice que se contó así y por qué;
- *   · el pago a mano (`/withdraw/prepare`) con la entrada delante → 409
- *     PAYMENT_IN_FLIGHT que la nombra (esa ruta no compone con NADA en vuelo),
- *     jamás SUBMISSION_JOURNAL_UNREADABLE; sin entradas delante ni lee el journal.
  */
 import express from 'express';
 import request from 'supertest';
@@ -27,7 +10,7 @@ import type { OmnibusTx } from '../../services/demoExchange/OmnibusWatcher';
 
 let ledgerIndex: number | null = 1000;
 let journalDown = false;
-/** it. 33 (6): the single-entry read (`REQUEST_PENDING`, the DELETE) fails too. */
+/** The single-entry read (`REQUEST_PENDING`, the DELETE) fails too. */
 let readSubmissionDown = false;
 
 jest.mock('../../services/demoExchange/submissionJournal', () => {
@@ -137,7 +120,7 @@ afterEach(() => _resetKeyFailuresForTests());
 const ask = (kind: string, amountXrp: string) => request(app).post('/api/demo-exchange/runs/run1/clients/c1/requests').set(as('alice')).send({ kind, amountXrp });
 const prepare = (amountXrp: string) => request(app).post('/api/demo-exchange/runs/run1/withdraw/prepare').set(admin).send({ clientId: 'c1', amountXrp });
 
-describe('it. 33 (1): la salida con el journal ilegible', () => {
+describe('La salida con el journal ilegible', () => {
   it('LA PERSONA REAL: 50 en la casilla, entrada pendiente de 2, retirada de 10 → 201 (la entrada retiene sus 2; caben 48)', async () => {
     const res = await ask('withdraw', '10');
     expect(res.status).toBe(201);
@@ -166,7 +149,7 @@ describe('it. 33 (1): la salida con el journal ilegible', () => {
     expect((await ask('withdraw', '48')).status).toBe(201);
   });
 
-  it('con el journal legible la misma entrada queda EXIMIDA (la asimetría de la it. 27/29 no cambia): 50 caben', async () => {
+  it('Con el journal legible la misma entrada queda EXIMIDA (la asimetría de la /29 no cambia): 50 caben', async () => {
     journalDown = false;
     const res = await ask('withdraw', '50');
     expect(res.status).toBe(201);
@@ -201,12 +184,12 @@ describe('it. 33 (1): la salida con el journal ilegible', () => {
 });
 
 /**
- * it. 33 (agente C, 6) — `REQUEST_PENDING` NOMBRA LA PUERTA SOLO SI EL JOURNAL
+ * `REQUEST_PENDING` NOMBRA LA PUERTA SOLO SI EL JOURNAL
  * DICE QUE VA A CEDER. Antes: `withdrawableRequestIds` con `pending && !txHash`,
  * sin journal — un botón para una petición que el journal declara `submitting`,
  * y 409 al pulsarlo. La misma regla que `againstFor`/`journalPlan`.
  */
-describe('it. 33 (6): REQUEST_PENDING consulta el journal antes de nombrar la puerta', () => {
+describe('REQUEST_PENDING consulta el journal antes de nombrar la puerta', () => {
   const FE_HASH = 'D'.repeat(64);
   const entry = (status: 'submitting' | 'failed' | 'expired') =>
     writeSubmission({ requestId: 'rqEntry', runId: 'run1', kind: 'put-to-work', clientId: 'c1', drops: '2000000', txHash: FE_HASH, lastLedgerSequence: 1100, submittedAtLedger: 1000, status, code: status === 'failed' ? 'tecPATH_DRY' : undefined, updatedAt: T0 });

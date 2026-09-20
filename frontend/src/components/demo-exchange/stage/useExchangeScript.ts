@@ -47,8 +47,7 @@ export interface ScriptStep {
 }
 
 /**
- * «Poner a trabajar el XRP del cliente» DESDE LA MESA (E5), apagado (fundador
- * 14-sep: «si el cliente ya pone él mismo su XRP a trabajar, no hace falta»).
+ * «Poner a trabajar el XRP del cliente» DESDE LA MESA (E5), apagado.
  *
  * El motivo de fondo no es solo de interfaz: E5 dejaba al OPERADOR elegir un
  * cliente y un importe y meter su dinero en el pote sin que el cliente lo
@@ -97,7 +96,7 @@ export function useExchangeScript(): ScriptStep[] {
         lede: t('One XRPL account commands everything: it anchors the rules, births the cage and signs every order. Read the contracts here — what they permit and what they refuse is the product.'),
         ready: [{ label: t('A take is open'), check: 'run' }],
         // Una LECTURA: hecha cuando los hechos de la cadena de esta toma se han
-        // leído (12-sep: antes se ponía verde solo por existir la toma).
+        // leído (antes se ponía verde solo por existir la toma).
         learn: [
           t('The council is the exchange itself, as a signer: nothing moves capital without its signature in Xaman. Astryum only composes what it signs and never holds a key.'),
           t('The contracts on the page are live on Flare. The vault has no function to extract the principal; the bridge only executes orders proven by the FDC; the passkey factory gives each client an account of their own.'),
@@ -214,7 +213,7 @@ export function useExchangeScript(): ScriptStep[] {
         tab: 'exchange',
         station: 'AUTO',
         side: 'exchange',
-        // 18-sep: el autopilot fuera de la vista (AUTOPILOT_UI) — la estación sirve
+        // El autopilot fuera de la vista (AUTOPILOT_UI) — la estación sirve
         // las peticiones con el QR del omnibus.
         ...(AUTOPILOT_UI
           ? {

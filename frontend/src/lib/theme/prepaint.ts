@@ -8,22 +8,6 @@
  * justo el destello que el ajuste existe para evitar. Con un tema que cambia
  * el fondo, el radio, la tipografía y las sombras, ese frame no es un
  * detalle. Es la misma pieza, y por la misma razón, que lib/motion/prepaint.ts.
- *
- * De paso tapa un agujero viejo: `data-theme` nunca se estampó antes del
- * primer frame, así que quien tenía la luz CLARA veía un fogonazo de espacio
- * oscuro en cada carga del panel. Ahora los dos ejes llegan a tiempo.
- *
- * SOLO EN EL PANEL. La landing, el login y las páginas legales llevan su
- * aspecto fijo (pathWearsAppearance): estampar ahí la preferencia de la
- * cuenta haría que la web pública cambiara de cara según quién hubiera usado
- * el navegador. ThemeApplier defiende esta misma frontera montándose solo
- * dentro de /app y retirando los sellos al desmontar.
- *
- * Sin dependencias del bundle a propósito: es JS de navegador puro, ES5, en
- * un IIFE, con try/catch porque localStorage lanza en modo privado en
- * algunos navegadores y eso no puede romper la carga. Vive como cadena
- * exportada (no como fichero .js suelto) para que el test lo ejecute tal cual
- * se inyecta, y para que la clave de storage no se duplique a mano.
  */
 
 import {

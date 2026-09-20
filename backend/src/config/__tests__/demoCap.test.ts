@@ -2,7 +2,7 @@
 // demoCap.ts). Mock the client so the lookup never touches a real DB; backgroundJob
 // no-ops keep the (DATABASE_URL-guarded) daily layer quiet in the account tests.
 const mockUserFindUnique = jest.fn();
-/** it. 29 — the daily-spend row read; a test can make it FAIL like a dead Postgres. */
+/** The daily-spend row read; a test can make it FAIL like a dead Postgres. */
 const mockBackgroundJobFindFirst = jest.fn().mockResolvedValue(null);
 jest.mock('../../database/prismaClient', () => ({
   prisma: {
@@ -87,7 +87,7 @@ describe('demoCap — exemption is the EXPLICIT list, never the execution allowl
   });
 });
 
-describe('demoCap — ACCOUNT-based exemption (DEMO_CAP_EXEMPT_EMAILS, 2026-07-25)', () => {
+describe('DemoCap — ACCOUNT-based exemption (DEMO_CAP_EXEMPT_EMAILS)', () => {
   const FOUNDER = 'founder@astryum.xyz';
 
   it('exempts the authenticated account whichever wallet it pays from (case-insensitive)', async () => {
@@ -120,7 +120,7 @@ describe('demoCap — ACCOUNT-based exemption (DEMO_CAP_EXEMPT_EMAILS, 2026-07-2
     expect(await isDemoCapExemptUser('user-1')).toBe(false);
   });
 
-  it('a listed email that was never VERIFIED (plain password sign-up) does not exempt — productizer it. 8', async () => {
+  it('A listed email that was never VERIFIED (plain password sign-up) does not exempt', async () => {
     process.env.DEMO_CAP_EXEMPT_EMAILS = FOUNDER;
     process.env.DATABASE_URL = 'postgres://mocked';
     mockUserFindUnique.mockResolvedValue({ email: FOUNDER, emailVerified: false });
@@ -169,14 +169,14 @@ describe('demoCap — per-address daily volume (persisted; in-memory in tests)',
   });
 
   /**
-   * it. 29 — «NO PUDE LEER EL GASTO DE HOY» NO ES «NO HA GASTADO NADA».
+   * «NO PUDE LEER EL GASTO DE HOY» NO ES «NO HA GASTADO NADA».
    * `readDailyEntries` leía con `kvGet`, que devuelve `null` también cuando
    * Postgres falla; ese `null` caía al espejo en memoria — vacío tras cada
    * redeploy — y el cupo diario volvía ÍNTEGRO a cada dirección justo cuando
    * la BD parpadeaba. Ahora un fallo de BD es un 503 retryable que no reserva
    * nada y no afirma nada sobre lo gastado.
    */
-  it('it. 29 · with the database DOWN the cap is neither granted nor invented: 503, no reservation', async () => {
+  it('With the database DOWN the cap is neither granted nor invented: 503, no reservation', async () => {
     process.env.DEMO_MAX_XRP_PER_ADDRESS_PER_DAY = '2';
     process.env.DATABASE_URL = 'postgres://unreachable/test';
     mockBackgroundJobFindFirst.mockRejectedValue(new Error("Can't reach database server"));
@@ -198,7 +198,7 @@ describe('demoCap — per-address daily volume (persisted; in-memory in tests)',
     expect((await checkDemoCap(0.6, 'rErin'))?.body.error).toBe('DEMO_DAILY_CAP_EXCEEDED');
   });
 
-  it('it. 29 · the executor never OVERWRITES a row it could not read (confirm is skipped, not clobbered)', async () => {
+  it('The executor never OVERWRITES a row it could not read (confirm is skipped, not clobbered)', async () => {
     process.env.DATABASE_URL = 'postgres://unreachable/test';
     mockBackgroundJobFindFirst.mockRejectedValue(new Error("Can't reach database server"));
     const { confirmDailySpendXrp: confirmSpend } = require('../demoCap') as {
@@ -268,7 +268,7 @@ describe('demoCapFromBody / isXrplMintBody — self-select the mint rail', () =>
   });
 });
 
-describe('demoCap v2 — reserva → confirmación (incidente del gauge, 2026-07-25)', () => {
+describe('DemoCap v2 — reserva → confirmación', () => {
   const { confirmDailySpendXrp, getDemoCapStatus } = require('../demoCap');
   const T0 = 1_700_000_000_000;
   const MIN = 60_000;

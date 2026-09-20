@@ -1,25 +1,7 @@
 /**
  * FxrpOftBridgeAdapter — B6 (plan §13): pure calldata builder for bridging
  * FXRP from the user's FLARE EOA to their own address on ETHEREUM via the
- * canonical LayerZero OFT Adapter (lockbox). Founder decision 15-ago: direct
- * calldata in-app, everything disclosed before the signature — never a
- * handoff to an external site.
- *
- * Verificado ON-CHAIN y REPETIBLE: `npm run verify:fxrp-bridge`
- * (src/scripts/verify-fxrp-oft-bridge.ts) — comprueba las DOS direcciones y
- * confirma el EID de Flare contra `peers()`. Última corrida: 2026-08-17.
- * [Antes se citaba `verify-fxrp-oft-bridge.js`, que no existía.] Hechos:
- *   - adapter 0xd70659…E07E wraps the canonical FXRP ERC-20 0xAd552A…c5bE
- *   - approvalRequired() = true → finite approve leg
- *   - sharedDecimals = 6 (== local decimals: exact amounts, no dust rounding)
- *   - peers(30101) == FXRP OFT on Ethereum 0xCE6170…0110 → EID confirmed
- *   - quoteSend ≈ 98 FLR native fee — REAL money: quoted live per prepare,
- *     shown before signing, excess auto-refunds to the user.
- *
- * The user signs ON FLARE (chainId 14, their own EOA). If the FXRP sits in
- * the PersonalAccount, the PA→EOA step (`pa-withdraw-transfer`, already live)
- * comes FIRST — binding adjustment #1 of the infra review. Rail D (OFT from
- * the PA via 0xFE) is post-21-sep and is NOT this.
+ * canonical LayerZero OFT Adapter (lockbox).
  */
 import { Interface } from 'ethers';
 import { EvmLeg } from './MorphoBlueEthAdapter';
@@ -29,7 +11,7 @@ export const ETHEREUM_EID = 30101;
 /**
  * EID de LayerZero de Flare — CONFIRMADO contra la cadena, no de memoria:
  * `peers(30295)` en el OFT de Ethereum devuelve el adapter de Flare
- * (verify-fxrp-oft-bridge, 2026-08-17). Un EID equivocado en un `send` no
+ * (verify-fxrp-oft-bridge). Un EID equivocado en un `send` no
  * falla ruidosamente: los tokens salen del origen y no llegan a ningún sitio.
  */
 export const FLARE_EID = 30295;
@@ -116,16 +98,6 @@ export function buildBridgeLegs(
  * Sin esto el puente era de ida y el recorrido del runbook («repagar → sacar
  * colateral → puentear de vuelta») moría en el paso 3: el FXRP salía del
  * mercado y se quedaba varado en Ethereum.
- *
- * Dos diferencias verificadas on-chain respecto a la ida (verify-fxrp-oft-
- * bridge, 2026-08-17), y las dos importan:
- *   · en Ethereum el FXRP es un OFT NATIVO (`approvalRequired() == false`):
- *     quemas tus propios tokens, así que NO hay pata de approve. Meter un
- *     approve aquí sería una firma extra que no autoriza nada.
- *   · la comisión nativa se paga en ETH (no en FLR), y el gas de Ethereum es
- *     otro orden de magnitud — la cifra se cotiza viva y se enseña antes.
- * `sharedDecimals == 6` en los dos lados, así que minAmountLD puede ser
- * exacto: cualquier desvío revierte en vez de perder polvo en silencio.
  */
 export function buildBridgeBackLegs(
   user: string,

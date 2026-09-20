@@ -6,25 +6,6 @@
  * La decisión que acompaña: cuánto pedir, y dónde poner el stop-loss. Las dos se
  * toman mirando lo mismo — cuánto puede caer el XRP antes de que duela — así que
  * las dos viven en el mismo dibujo.
- *
- * Por qué UN solo relleno y no tres franjas de colores, que es lo que pide el
- * ojo: los tres tonos de estado del producto NO se distinguen entre sí. Medido
- * con el validador de la skill `dataviz` sobre los tokens reales:
- *
- *   · tema claro:  aviso #b35309 ↔ peligro #ba1c1c → ΔE 4,5 deutan · 9,1 normal
- *   · tema oscuro: éxito #6ee7b7 ↔ peligro #fca6a6 → ΔE 3,3 deutan
- *
- * El suelo es 15 con visión normal y 8 bajo daltonismo, así que pintar las tres
- * zonas a la vez daría un gráfico donde las bandas que más importa separar son
- * justo las que se confunden. La forma correcta para un ratio contra un límite
- * es un medidor: el RELLENO lleva la severidad (uno solo a la vez, así que nunca
- * hay dos tonos que comparar) y la pista es un paso más claro de ese mismo tono.
- * Las zonas se marcan con líneas y ETIQUETAS, que es lo que de verdad se lee.
- *
- * El color nunca es el único canal: el estado va dicho en palabras al lado, cada
- * zona lleva su icono, y la cifra que decide («aguanta una caída del X %») está
- * escrita. Un daltónico, una impresión en gris y un lector de pantalla obtienen
- * lo mismo.
  */
 import { useId } from 'react';
 import { ShieldCheck, AlertTriangle, Flame, Slash } from 'lucide-react';

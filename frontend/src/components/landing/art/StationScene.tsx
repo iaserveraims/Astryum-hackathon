@@ -8,15 +8,6 @@
  * hueco si no lo tiene—, y el pote en Flare acoplado por un tubo por el que
  * cruzan las acuñaciones. Platino frío, denso, sin brillo: la sobriedad de un
  * panel de operaciones, que es lo que un exchange mira.
- *
- * Se lee con el scroll y sus láminas (ExchangeArtifacts) se atan a los MISMOS
- * tiempos: los muelles se ocupan mientras se leen las casillas, las motas
- * cruzan el tubo mientras se lee el flujo, el arco de la reserva se cierra
- * mientras se lee la reserva y las marcas de conciliación se dibujan mientras
- * se lee la conciliación.
- *
- * Decorativa (`aria-hidden`). Las cantidades son maqueta y se rotulan así en
- * las láminas; aquí no hay ni una cifra de rendimiento.
  */
 
 import { memo } from 'react';
@@ -80,7 +71,7 @@ function StationSceneImpl({ progress, lang, level, still = false }: StationScene
   const reconcile = useBeat(src, STATION_BEATS.reconcile);
   const close = useBeat(src, STATION_BEATS.close);
 
-  // EN REPOSO LA ESTACIÓN ESTÁ ENTERA (fundador 2026-09-20): hub, anillo,
+  // EN REPOSO LA ESTACIÓN ESTÁ ENTERA: hub, anillo,
   // muelles, tubo y pote se ven al abrir; cada parada añade su capa.
   const hubO = useTransform(hub, [0.1, 0.8], [0.6, 1], { clamp: true });
   const hubLbl = useTransform(hub, [0.6, 1], [0.7, 1], { clamp: true });

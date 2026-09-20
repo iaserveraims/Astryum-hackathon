@@ -33,7 +33,7 @@ describe('linkedManagerWallets', () => {
 });
 
 describe('managerCandidates', () => {
-  it('a wallet linked to the account but not connected in this browser IS a candidate (the 15-sep bug)', () => {
+  it('A wallet linked to the account but not connected in this browser IS a candidate (the bug)', () => {
     const out = managerCandidates([], [linked(R1)]);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ address: R1, live: false, session: null });

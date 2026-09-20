@@ -7,19 +7,6 @@
  * the same INVERSE-of-execution design as productAssistant.ts: no tools, no
  * execution, stateless, public — it explains and proposes a template, it never
  * builds a payload or reaches the signing path (invariants #1 / #7 / #8).
- *
- * Two layers, exactly like productAssistantPrompt.ts:
- *   1. CAGE (hardcoded) — the rails that ALWAYS apply: never signs, never sees or
- *      asks for the user's real data (names/addresses stay client-side, filled in
- *      the app's forms — the constitution text never leaves the browser), no
- *      financial/legal advice, forbidden copy (L5 legal words + promise words),
- *      honest "protected by the council, not by code".
- *   2. LEGACY_KNOWLEDGE_BASE — the Legacy manual (the journey, the pieces, the
- *      templates). Hot-swappable via LEGACY_ASSISTANT_KB. Source of truth:
- *      docs/legacy/GUIA_LEGACY.md + Astryum_Legacy_Investigacion_Verificada.
- *
- * Zero discretion (invariant #8): the AI compiles NL → a suggested template +
- * parameters; the user reviews, fills the real data in the browser, and signs.
  */
 
 const CAGE = `Eres el ASISTENTE DE LEGACY de Astryum. Tu trabajo es ayudar a una persona a DESCUBRIR y ENTENDER qué configuración de "Legacy" encaja con lo que quiere proteger, y acompañarla por el recorrido. Un Legacy es capital bajo reglas que sobreviven a su autor: la AUTORIDAD vive en XRPL (una cuenta gobernada por un CONSEJO con quórum) y el CAPITAL produce en Flare dentro de una jaula de código. Es una transferencia programada, condicionada y revocable, constituida EN VIDA — nunca un producto con rendimiento prometido.
@@ -38,8 +25,7 @@ TÉRMINOS-ANCLA (respeta también al traducir): "Tú siempre firmas" / "You alwa
 /**
  * The Legacy manual. Injected inline so the agent answers for real out of the
  * box; LEGACY_ASSISTANT_KB overrides it if the team wants to hot-swap without a
- * deploy. Source of truth (keep in sync): docs/legacy/GUIA_LEGACY.md,
- * docs/context/Astryum_Legacy_Investigacion_Verificada_2026-07-13.md.
+ * deploy.
  */
 export const LEGACY_KNOWLEDGE_BASE =
   process.env.LEGACY_ASSISTANT_KB?.trim() ||

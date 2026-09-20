@@ -1,23 +1,6 @@
 /**
- * it. 34 — POST /api/wallet-transfer/bridge/flare-to-xrpl/prepare attaches its
+ * POST /api/wallet-transfer/bridge/flare-to-xrpl/prepare attaches its
  * dry-run verdict (invariant #11).
- *
- * WHY. «Convert to XRP» from an EVM wallet (PaActionsModal, unmint branch) joins
- * two prepares into one signature: `/iso-withdraw/prepare` (Kinetic) and THIS
- * route (the FAssets redeem). The first attached `preflight` since it. 31; this
- * one attached nothing, and the screen composed the pair with no verdict to
- * show. A redeem that would revert (not enough FXRP, paused) is a proven
- * failure the person deserves to read BEFORE the wallet opens.
- *
- * THE CONSUMER UNDER TEST: the route with the GENUINE `preflightEvmCalls` (no
- * stub) over a fake node — its eth_call answers `0x` (ok), throws a
- * CALL_EXCEPTION (a revert = proven failure), or dies on transport (dry-run
- * unavailable, never a block). And `dependsOnPrior: true` — what the modal sends
- * when the redeem rides after the Kinetic withdraw in the same signature — marks
- * the step 'unverified' WITHOUT an eth_call (a burn dry-run against today's
- * balance would be a false negative).
- *
- * Hermetic: ethers.Contract and JsonRpcProvider are fakes; nothing is signed.
  */
 import express from 'express';
 import request from 'supertest';

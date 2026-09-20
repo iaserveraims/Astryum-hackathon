@@ -4,23 +4,6 @@
  * Wraps the Squid Router v2 API for cross-chain swaps and bridges via Axelar.
  * Complementary to Li.Fi: use Squid for routes where Axelar-based bridging
  * provides better rates or is preferred by the user (esp. Cosmos ↔ EVM paths).
- *
- * Revenue model:
- *   - SQUID_FEE_BPS (default 15 = 0.15%) passed as `feeBps` in every request.
- *   - Squid routes the fee to ASTRYUM_FEE_WALLET via `integratorAddress`.
- *   - disclosedToUser: true — always disclosed before user signs.
- *
- * Regulatory invariants (never remove):
- *   authorization.astryumRelays: false
- *   referralAttribution.disclosedToUser: true
- *   Astryum never calls sendTransaction / broadcastTransaction
- *
- * Supported chains: ETH (1), Polygon (137), Arbitrum (42161), Optimism (10),
- *   Avalanche (43114), Base (8453), BSC (56), Gnosis (100), Fantom (250),
- *   Celo (42220), Linea (59144), Scroll (534352), zkSync Era (324),
- *   Polygon zkEVM (1101), Mantle (5000), Blast (81457), Mode (34443).
- * NOT Flare (14) — use internal protocol adapters for Flare DeFi.
- * Requires: SQUID_INTEGRATOR_ID (register free at axelar.network/squid).
  */
 
 import { randomUUID } from 'crypto';

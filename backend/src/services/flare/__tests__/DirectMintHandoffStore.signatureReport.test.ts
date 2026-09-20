@@ -1,5 +1,5 @@
 /**
- * productizer-it13 §1.1 — a client's «Xaman signed it» is REMEMBERED on the queued
+ * A client's «Xaman signed it» is REMEMBERED on the queued
  * row while the ledger has not validated the Payment, so the seat guard can look
  * the hash up before the TTL retires the seat. The report marks nothing and grants
  * nothing; its window starts at the FIRST report and a repeat cannot extend it.
@@ -111,8 +111,8 @@ describe('recordHandoffSignatureReport', () => {
     expect(update()).not.toHaveBeenCalled();
   });
 
-  // productizer-it15 §K1 — EL TOPE YA NO DESCARTA EL AVISO REAL. Con «primero que
-  // llega», ocho informes llenaban la lista y el del dueño se perdía (it14 §1.2).
+  // §K1 — EL TOPE YA NO DESCARTA EL AVISO REAL. Con «primero que
+  // llega», ocho informes llenaban la lista y el del dueño se perdía.
   it(`keeps at most ${MAX_REPORTED_TX_HASHES} hashes, and the NEWEST one always gets in`, async () => {
     const full = Array.from({ length: MAX_REPORTED_TX_HASHES }, (_, i) => i.toString(16).toUpperCase().repeat(64));
     const row = queuedRow({ reportedTxHashes: full, reportedTxHash: full[full.length - 1], reportedAt: '2026-09-14T10:00:00.000Z' });

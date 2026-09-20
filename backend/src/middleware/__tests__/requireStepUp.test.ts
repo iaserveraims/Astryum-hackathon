@@ -1,7 +1,7 @@
 /**
- * productizer it. 25 — EL RADIO DEL STEP-UP, Y POR QUÉ LA LECTURA NO SE CIERRA.
+ * EL RADIO DEL STEP-UP, Y POR QUÉ LA LECTURA NO SE CIERRA.
  *
- * it. 23 turned a failed read of the step-up lock table from «grant» into
+ * Turned a failed read of the step-up lock table from «grant» into
  * «refuse», which was right: an unreadable lock table must not let someone edit
  * the very protection they could not be shown to have. The comment justifying
  * it said «the only door this guards is the one that CHANGES the step-up

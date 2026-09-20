@@ -3,20 +3,6 @@
  *
  * Astryum's main entrance is the XRPL ecosystem's own OpenID Connect provider.
  * This module runs authorization_code + PKCE (S256):
- *
- *   1. generate a code verifier + state, keep them in sessionStorage,
- *   2. redirect to the provider's /auth with the S256 challenge,
- *   3. the callback page reads `code`, checks `state`, and hands both the code
- *      and the verifier to the backend, which does the token exchange.
- *
- * The browser never holds a token and never holds a secret: the client is
- * PUBLIC, so there is no secret to hold (invariant 2 intact). The client id is
- * fetched from our backend rather than baked in as NEXT_PUBLIC_*, so Railway
- * env stays the single source of truth.
- *
- * What this door establishes: WHO the person is. Which XRPL account they
- * control is a separate, stronger claim, proven by signature on the
- * wallet-binding rail — this never replaces that.
  */
 import { getApiBase } from '../env';
 
@@ -39,16 +25,7 @@ const ASK_ACCOUNT_KEY = 'xrplid_ask_account';
  * marker, the PKCE material, all of it — lands in the opener only. The popup
  * comes home to a storage that is a snapshot of a moment before any of it
  * existed. A marker kept there is therefore always missing exactly when it is
- * read. (Cost us a broken production login on 2026-08-18.)
- *
- * `state` has none of that problem: the provider returns it verbatim in the
- * callback URL, so the page that lands can read it with no storage at all. The
- * opener still compares the WHOLE string against what it stored — the prefix
- * says which door to use, it proves nothing on its own.
- *
- * The marker also separates a real popup from a /login tab that merely HAS an
- * opener (landing → target=_blank → full redirect). Without it, that tab would
- * post its code into the landing page and close itself.
+ * read. (Cost us a broken production login.)
  */
 const POPUP_STATE_PREFIX = 'p-';
 const REDIRECT_STATE_PREFIX = 'r-';
@@ -68,7 +45,7 @@ export const XRPLID_MESSAGE = 'xrplid_callback';
  * or not now". Calling this makes the next authorize request carry
  * `prompt=login`, so the door asks again.
  *
- * Probed against the provider (2026-08-17): `prompt=login` and `prompt=consent`
+ * Probed against the provider: `prompt=login` and `prompt=consent`
  * are accepted; `prompt=select_account` is rejected with
  * `unsupported prompt value requested` — node-oidc-provider only ships the
  * default prompt set, so `login` is the strongest re-ask we have.
@@ -199,7 +176,7 @@ async function prepareAuthorizeUrl(
 
 // ─── Popup journey ───────────────────────────────────────────────────────────
 // The provider forbids framing outright (`X-Frame-Options: DENY`,
-// `frame-ancestors 'none'`, checked 2026-08-17) and offers no password grant —
+// `frame-ancestors 'none'`, checked) and offers no password grant —
 // so an in-page login is impossible, and would be phishing training even if it
 // weren't: the user must SEE account.xrpl.in in the address bar. A popup is the
 // honest middle ground — their door, on top of our page, which never unloads.

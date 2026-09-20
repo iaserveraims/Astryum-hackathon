@@ -1,42 +1,9 @@
 'use client';
 
 /**
- * StrategyFan v3 — the routes as ONE overlapping hand, laid horizontally
- * (founder 2026-08-19: v2's flat grid "sigue ocupando poco espacio y sigue
- * siendo un poco soso"). The cards are BIGGER and stack across the width,
+ * StrategyFan v3 — the routes as ONE overlapping hand, laid horizontally.
+ * The cards are BIGGER and stack across the width,
  * each partly covering the next like cards pushed together on a table:
- *
- *   - resting: a calm overlapped spread, later cards on top;
- *   - hover: the hand SEPARATES slightly around the cursor's card (neighbours
- *     step aside a few px, the hovered one lifts and comes forward) — the
- *     3D cursor tilt physics survive from v2;
- *   - selected: the chosen card steps IN FRONT of the table (lift + scale +
- *     volt ring) while every other route blurs and dims behind it. The blur
- *     is a CSS transition on a plain wrapper — framer must never animate
- *     `filter` (documented stuck-blur bug, AuthorityCrossing).
- *
- * Below md the hand would be unusable overlapped, so the SAME cards fall
- * back to the v2 grid; reduced motion keeps the grid at every width (no
- * overlap, no tilt, no lift — selection still rings and dims).
- *
- * TRES ARTEFACTOS, UNO POR NIVEL DE MOVIMIENTO (stores/motionStore.ts,
- * fundador 2026-09-10: «se me generan problemas de concentración con las
- * animaciones de los botones del Earn… quiero estilos nuevos y distintos»):
- *   · full    — la MANO: todo lo de arriba.
- *   · calm    — la ESTANTERÍA (ShelfCard): las mismas caras, en una rejilla
- *               plana de cartas iguales, sin solape ni tilt. Con vida LENTA
- *               (fundador, tercera pasada: «quiero que lo animes»): las cartas
- *               se posan una tras otra al llegar, suben tres píxeles bajo el
- *               cursor en un tween suave —sin muelle, sin inclinación— y la
- *               elegida enciende su barra lateral y su tinte en un fundido.
- *               Nunca sigue al ratón. Es el nivel para comparar sin ruido.
- *   · minimal — la LISTA (RouteRow): una fila por ruta —icono, título, frase,
- *               tasa y un radio— separadas por filetes. Sin cartas, sin
- *               sombras: texto primero.
- * La mano conserva su propio modo «quieto» (calm=true en HandCard) por si
- * algún consumidor la monta directamente; el catálogo ya no lo usa.
- *
- * Data arrives as props from FlareDemoEarn — same contract as v2.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -47,7 +14,7 @@ import { EASE_OUT } from '../ui/motion';
 import { TokenLogo } from '@/components/ui/TokenLogo';
 import type { VaultKind } from './FlareDemoEarn';
 
-/** Genérica desde el 29-ago (bóvedas con gestor): `kind` es la CLAVE de la
+/** Genérica (bóvedas con gestor): `kind` es la CLAVE de la
  *  carta — para Earn sigue siendo VaultKind (el default, así ningún consumidor
  *  cambia), para el catálogo de managed vaults es la dirección del pote. Solo
  *  tipos: el render no distingue. */
@@ -57,7 +24,7 @@ export interface FanCard<K extends string = VaultKind> {
   title: string;
   action: string;
   icon: React.ReactNode;
-  /** Una CABECERA propia en lugar del icono con logo en la esquina (8-sep,
+  /** Una CABECERA propia en lugar del icono con logo en la esquina (
    *  bóvedas con gestor): la foto del gestor a tamaño de verdad y el token que
    *  usa, bien visible. Earn no lo usa: sus cartas siguen igual. */
   tile?: React.ReactNode;
@@ -65,11 +32,11 @@ export interface FanCard<K extends string = VaultKind> {
   /** Council-blocked routes stay on the table, dimmed and honest. */
   blocked: boolean;
   /** The market this route SHARES with another one (strategyTaxonomy.KINSHIP,
-   *  founder 2026-08-22): worn on the face so two look-alike cards explain
+   *  founder): worn on the face so two look-alike cards explain
    *  themselves before being opened. Undefined = the route stands alone. */
   market?: string;
-  /** The regulatory line the face wears (assetDisclosure.face, founder
-   *  2026-09-17): a real product that does not comply with MiCA says so ON the
+  /** The regulatory line the face wears (assetDisclosure.face, founder):
+   * a real product that does not comply with MiCA says so ON the
    *  card, not only once opened. Same posture as the fee disclosure — said
    *  before, never after. Undefined = nothing to disclose, nothing rendered. */
   notice?: string;
@@ -78,19 +45,17 @@ export interface FanCard<K extends string = VaultKind> {
 const MAX_TILT_DEG = 4;
 /** How far neighbours step aside when the hand opens around a hovered card. */
 const SPREAD_PX = 16;
-/** El SANGRADO de la fila (fundador 2026-08-29: «las cards siguen saliendo del
- *  límite, corrígelo ya»). La fila es un scroll container y CORTA en su borde:
+/** El SANGRADO de la fila. La fila es un scroll container y CORTA en su borde:
  *  la elegida (scale) quedaba amputada contra el filo izquierdo, y el abanico
  *  del hover empujaba la primera carta 16px dentro de la guillotina. El patrón
  *  es el de siempre: padding para el teatro + margen negativo igual, así el
  *  filo del recorte se aleja 20px pero las cartas EN REPOSO siguen empezando
- *  donde empieza todo lo demás de la página (regla del 25-ago). 20px = el
+ *  donde empieza todo lo demás de la página (regla). 20px = el
  *  abanico (16) + el crecimiento del scale + el ring; no más, porque el hueco
  *  hasta la ficha abierta es gap-5 (20px) y el sangrado no debe colarse bajo
  *  ella. fit() lo descuenta del ancho útil. */
 const BLEED_PX = 20;
-/** La cara visible de cada carta solapada (fundador 2026-08-28: «siguen
- *  chocando con el límite de la caja»): el solape deja de ser fijo — la mano
+/** La cara visible de cada carta solapada: el solape deja de ser fijo — la mano
  *  MIDE su caja y reparte lo que hay, entre estos topes. El máximo es la
  *  holgura de siempre; el mínimo aún deja leer icono y arranque del título.
  *  Solo por debajo del mínimo (cajas absurdas) entra el scroll de seguridad. */
@@ -103,7 +68,7 @@ const FACE_MIN = 44;
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 /**
- * Lo que se pinta DENTRO del marco. Exportada (26-ago) junto con `frameClass`
+ * Lo que se pinta DENTRO del marco. Exportada junto con `frameClass`
  * para que las bovedas con gestor usen esta misma cara en vez de una copia:
  * la card es identidad de producto y dos que se parecen acaban divergiendo.
  *
@@ -163,7 +128,7 @@ export function CardFace({ card, chip, t, big }: { card: CardFaceData; chip: Rea
 
 /**
  * Border/ring/shadow recipe shared by both layouts here — and EXPORTADA
- * (25-ago) para que la card del gestor la use en vez de copiarla.
+ * para que la card del gestor la use en vez de copiarla.
  *
  * La leccion es de ayer mismo: cuando el catalogo v2 dejo de importar esta cara
  * y describio la suya, aparecieron dos cards que se parecen y se mantienen por
@@ -179,7 +144,7 @@ export function frameClass(selected: boolean, blocked: boolean): string {
 }
 
 /** v2 survivor — the flat grid card with cursor tilt (mobile + reduced motion).
- *  Exportada porque StrategyColumns la reutiliza (24-ago): una sola card, no
+ *  Exportada porque StrategyColumns la reutiliza: una sola card, no
  *  dos que se parecen. Nada del render de esta mano cambia por exportarla. */
 export function GridCard({
   card,
@@ -235,7 +200,7 @@ export function GridCard({
       animate={{ scale: selected ? 1.02 : 1, opacity: dimmed ? 0.6 : 1 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       style={{ rotateX: tiltX, rotateY: tiltY, transformPerspective: 900 }}
-      // min-h, no h (17-sep): la cara puede llevar el aviso regulatorio y una
+      // min-h, no h: la cara puede llevar el aviso regulatorio y una
       // carta de alto fijo lo escupiría por debajo. La rejilla estira la fila
       // entera a la carta más alta, así que siguen alineadas.
       className={`min-h-56 ${frameClass(selected, card.blocked)}`}
@@ -319,22 +284,19 @@ function HandCard({
       aria-pressed={selected}
       aria-label={`${card.title} — ${t(card.action)}`}
       // Dealt once onto the table (opacity/y from initial), then everything
-      // moves on ONE calm spring — softer than v3's first cut (founder
-      // 2026-08-19: "la animación se ve un poco tosca").
+      // moves on ONE calm spring — softer than v3's first cut.
       initial={calm ? { opacity: 0 } : { opacity: 0, y: 18 }}
       animate={{
         opacity: 1,
         x: spread,
-        // COMPRIMIDA, la elevación se modera (fundador 2026-08-27: «se salen
-        // del recuadro de margen»): con la ficha al lado la mano vive en una
+        // COMPRIMIDA, la elevación se modera: con la ficha al lado la mano vive en una
         // caja más justa, y los -18px de la elegida la sacaban por arriba del
         // marco de su sección. Elevarse sigue diciendo «elegida»; asomarse por
         // fuera del marco solo dice descuido.
         y: selected ? (compressed ? -7 : -18) : lifted ? (compressed ? -4 : -10) : 0,
         scale: selected ? (compressed ? 1.02 : 1.05) : lifted ? 1.015 : anotherSelected ? 0.975 : 1,
       }}
-      // AL PRESIONAR, la carta se hunde (fundador 2026-08-27: «mejora el
-      // comportamiento al reaccionar con el ratón y al ser presionadas»): el
+      // AL PRESIONAR, la carta se hunde: el
       // clic tiene peso — baja y encoge un punto y el muelle la devuelve. Es
       // la diferencia entre pulsar un botón y pulsar una carta de verdad.
       whileTap={calm ? { scale: 0.985 } : { scale: 0.965, y: compressed ? 0 : -12 }}
@@ -355,7 +317,7 @@ function HandCard({
         marginLeft: overlapPx != null && index > 0 ? -overlapPx : undefined,
       }}
       // Overlap: every card after the first slides over its neighbour.
-      // COMPRESSED (26-ago, ficha abierta al lado; segunda pasada el mismo
+      // COMPRESSED (ficha abierta al lado; segunda pasada el mismo
       // día: «tampoco quiero que se colapsen tanto, así se puede seguir
       // leyendo»). La carta conserva SU ancho y solo el solape se hunde — cada
       // una deja una franja de ~72-80px a la vista: el icono y el arranque del
@@ -371,8 +333,7 @@ function HandCard({
         overlapPx == null ? (compressed ? '-ml-[7.5rem] xl:-ml-[7.75rem]' : '-ml-16 xl:-ml-14') : ''
       } ${frameClass(selected, card.blocked)}`}
     >
-      {/* El panel de blur/atenuado de las no elegidas MURIÓ (fundador
-          2026-08-26: «probamos también a quitar el blur de las demás»). Existía
+      {/* El panel de blur/atenuado de las no elegidas MURIÓ. Existía
           para empujar el foco hacia la elegida cuando el detalle flotaba
           encima; con la ficha en su propia columna ese trabajo ya lo hace el
           layout, y el blur solo impedía LEER las otras rutas — que es
@@ -502,7 +463,7 @@ export function StrategyFan<K extends string = VaultKind>({
   onSelect: (kind: K) => void;
   /** The route's live protocol rate chip (LiveYieldChip — invariant #9). */
   chip: (kind: K) => React.ReactNode;
-  /** Hay una ficha abierta a la derecha (fundador, 26-ago): la mano APRIETA —
+  /** Hay una ficha abierta a la derecha: la mano APRIETA —
    *  cartas más estrechas, solapamiento más profundo — para caber entera en la
    *  columna izquierda y que se sigan viendo todas mientras se compara. */
   compressed?: boolean;
@@ -516,7 +477,7 @@ export function StrategyFan<K extends string = VaultKind>({
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const selectedIdx = selected ? cards.findIndex((c) => c.kind === selected) : -1;
 
-  // ── La mano cabe en su caja SIEMPRE (fundador 2026-08-28) ──
+  // ── La mano cabe en su caja SIEMPRE ──
   // Se mide el ancho real de la fila y de una carta (offsetWidth ignora los
   // transforms del tilt/lift) y el solape se reparte para que la última carta
   // termine dentro del marco, con holgura para el abanico del hover (±SPREAD).
@@ -552,7 +513,7 @@ export function StrategyFan<K extends string = VaultKind>({
   const grid = (
     <div
       className={`grid gap-4 ${
-        // Alineadas a la IZQUIERDA (fundador, 25-ago): con pocas cards, el
+        // Alineadas a la IZQUIERDA: con pocas cards, el
         // centrado las dejaba flotando en medio y la vista perdía su margen de
         // lectura. Empiezan donde empieza todo lo demás de la página.
         cards.length <= 3 ? 'grid-cols-2 sm:grid-cols-3 max-w-3xl' : 'grid-cols-2 sm:grid-cols-3'

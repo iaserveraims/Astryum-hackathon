@@ -1,7 +1,7 @@
 /**
  * CouncilOrderRelayLauncher — the shared start of every council-order relay.
  *
- * Pins the three behaviours the 2026-08-01 fix introduced:
+ * Pins the three behaviours the fix introduced:
  *  1. one launch per tx while relaying (a duplicate join never re-runs),
  *  2. "not validated yet" is a WAIT (bounded retries), not an error verdict,
  *  3. isCouncilOrderPayment detects the pinned order Payment and NEVER throws
@@ -20,7 +20,7 @@ jest.mock('../LegacyOrderRelayService', () => ({
 // El almacén persistente del vigía: sin DB los helpers son no-op, así que se
 // simulan para poder fijar QUÉ se recuerda y qué se olvida.
 const kvRows: Record<string, unknown>[] = [];
-/** Cuando es true, la LECTURA ESTRICTA revienta — el parpadeo de base del it. 27. */
+/** Cuando es true, la LECTURA ESTRICTA revienta — el parpadeo de base. */
 let kvStrictFails = false;
 jest.mock('../../persistence/backgroundJobKv', () => ({
   kvList: async () => kvRows.slice(),
@@ -90,7 +90,7 @@ describe('launchCouncilOrderRelay', () => {
   });
 
   /**
-   * CADENA (productizer it. 27): un parpadeo de la base NO puede rejuvenecer una
+   * CADENA: un parpadeo de la base NO puede rejuvenecer una
    * orden ya firmada. `firstSeenAt` es contra lo que se mide la ventana de 14
    * días del FDC; si se reescribe a «ahora», el reloj se desliza en silencio y
    * el consejo no recibe a tiempo el aviso de que hay que volver a firmar.
@@ -152,9 +152,7 @@ describe('launchCouncilOrderRelay', () => {
   });
 
   it('the FDC verifier saying "TRANSACTION DOES NOT EXIST" is a WAIT — its index lags the ledger', async () => {
-    // Incidente 2026-08-03: una orden validada a las 15:04 con sus 3 firmas fue
-    // rechazada por el verifier a las 15:05 con esas palabras, y el relé se
-    // rindió sobre una transacción que estaba en mainnet.
+
     relayCouncilOrder
       .mockRejectedValueOnce(
         new RelayAbort('verifier prepareRequest failed (200): {"status":"INVALID: TRANSACTION DOES NOT EXIST"}'),

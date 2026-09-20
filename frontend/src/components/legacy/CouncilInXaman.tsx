@@ -3,32 +3,13 @@
 /**
  * CouncilInXaman — step 2 of the constitution: creating the council.
  *
- * WHY THIS REPLACES THE IN-APP BUILDER (2026-08-03). The panel used to offer
+ * WHY THIS REPLACES THE IN-APP BUILDER. The panel used to offer
  * "Prepare the council" and hand the composed `SignerListSet` to Xaman. Xaman
  * answers **401 / code 1217, "No permission to create this type of sign
  * request"**: it gates account-security transaction types PER APP, and the
  * permission is granted case by case by its support. There is nothing to fix in
  * our code — the button led a family to a dead end at the single most
  * irreversible moment of the ceremony.
- *
- * What DOES work is the path this project's own council already walked: the
- * **Xaman Multisign xApp**. Verified on-ledger (forensics 2026-08-03): the
- * constitution of 14-jul and the 3-of-4 amendment of 15-jul carry NO SourceTag,
- * fee 800 drops and Xaman's own WARNING/DANGER memos — i.e. they were composed
- * inside Xaman, not by Astryum. The capability was never blocked; only our
- * route to it was.
- *
- * So Astryum's role in this step is the one it can actually keep: be the place
- * where the plan is DECIDED and CHECKED (F10 and a mistyped address are both
- * "account locked forever"), hand over the exact values to type, walk the
- * person through the wallet screen by screen, and — when they come back — read
- * the ledger and tell them whether what exists is what they meant.
- *
- * Everything after this step IS in Astryum: the rehearsal, closing the door
- * (`AccountSet asfDisableMaster` — that type Xaman DOES serve us; it went
- * through on 15-jul with SourceTag 2607090002) and the constitution anchor.
- *
- * Astryum never holds a key, never signs, never broadcasts (invariant #1).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -181,8 +162,7 @@ function Hint({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * A real screenshot of the Xaman screen this step lands on (founder 2026-08-05:
- * the four captures of the actual flow live in /public/legacy/xaman/). If the
+ * A real screenshot of the Xaman screen this step lands on. If the
  * file is not there yet, the frame stays visible as a labelled placeholder —
  * the slot is part of the tutorial, with or without the image.
  */
@@ -220,11 +200,11 @@ export default function CouncilInXaman({
   unsignedSlot?: React.ReactNode;
 }) {
   const { t } = useT();
-  // El tutorial paginado (Know how, 2026-08-25).
+  // El tutorial paginado (Know how).
   const [knowHowOpen, setKnowHowOpen] = useState(false);
   const [knowHowPage, setKnowHowPage] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  // The plan form is OPTIONAL and folded (founder 2026-08-05): the council is
+  // The plan form is OPTIONAL and folded: the council is
   // created in Xaman, so the tutorial is the protagonist. The fold opens
   // itself when a saved plan exists — half-written work is never hidden.
   const [planOpen, setPlanOpen] = useState(false);
@@ -269,7 +249,7 @@ export default function CouncilInXaman({
 
   return (
     <div className="space-y-5">
-      {/* ── The frame (restructure 2026-08-05, founder): one job per card.
+      {/* ── The frame (restructure, founder): one job per card.
           The old single column stacked intro + plan + tutorial + check inside
           one giant rectangle, leaving the council scene floating mid-height in
           reserved emptiness. This card is COMPACT, so the scene sits where it
@@ -357,9 +337,8 @@ export default function CouncilInXaman({
         </ul>
       </Card>
 
-      {/* ── B. The tutorial — the protagonist (founder 2026-08-05: the council
-          is made in Xaman, so this page's job is to teach that, illustrated
-          with the real screens; the plan form moved to an optional fold). ── */}
+      {/* ── B. The tutorial — the protagonist. ──
+      { */}
       <Card className="p-5 space-y-3">
         <MicroLabel>{t('The steps in Xaman, illustrated')}</MicroLabel>
         <p className="text-[12px] leading-relaxed text-ink/50">
@@ -368,8 +347,7 @@ export default function CouncilInXaman({
           )}
         </p>
 
-        {/* KNOW HOW (fundador 2026-08-25: «un botón grande que ponga know
-            how y aparece el popup del tutorial con páginas») — los ocho pasos
+        {/* KNOW HOW — los ocho pasos
             dejan de ser una pared inline: uno por página, con su captura
             grande, al ritmo del que aprende. El aviso rojo de abajo se queda
             AQUÍ, a la vista siempre: la seguridad no se pagina. */}
@@ -428,10 +406,8 @@ export default function CouncilInXaman({
         </div>
       </Card>
 
-      {/* ── D. The plan form, OPTIONAL and folded (founder 2026-08-05: it read
-          as "enter the wallets here" when the wallets are entered in Xaman —
-          this is only a checked scratchpad to copy from, and the comparison
-          source for CouncilPlanCheck once the council exists). ── */}
+      {/* ── D. ──
+      { */}
       <section className="space-y-2">
         <button
           type="button"

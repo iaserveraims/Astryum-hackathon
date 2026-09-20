@@ -1,27 +1,9 @@
 /**
  * XrplCredentialCeremony — composición SIN FIRMAR de las dos transacciones
  * XLS-70 del circuito de consentimiento/KYC (escena 2 de la demo).
- *
- * La línea que este módulo respeta a rajatabla (guardarraíl §6.2 del Build
- * Book, y la cabecera de XrplCredentialVerifier): **Astryum JAMÁS emite ni
- * acepta una credencial.** Aquí solo se componen los txjson; el
- * `CredentialCreate` lo firma el EMISOR (en la demo: el emisor de DEMO
- * etiquetado del rodaje — la excepción declarada) y el `CredentialAccept` lo
- * firma el SUJETO en su Xaman. Ese accept ES el consentimiento (§5-bis del
- * canónico): una firma del usuario en el ledger, con caducidad.
- *
- * Reglas duras codificadas:
- *  - **La credencial lleva `Expiration` SIEMPRE** (Build Book §4, I5 del
- *    canónico: la autoridad caduca, fail-closed). No existe la versión sin
- *    caducidad de esta función.
- *  - Nada de datos personales: el `CredentialType` es una etiqueta corta
- *    («KYC»), jamás un documento. El resultado del KYC vive en el emisor;
- *    el ledger solo dice «verificado hasta tal fecha».
- *
- * Todo es lógica pura (fechas inyectables) — testeable sin red, sin Xaman.
  */
 
-/** Ripple epoch = Unix epoch − 946684800 (segundos desde 2000-01-01). */
+/** Ripple epoch = Unix epoch − 946684800 (segundos). */
 const RIPPLE_EPOCH_OFFSET = 946_684_800;
 
 /** Cotas de la caducidad: nunca sin fecha, nunca a más de un año vista. */

@@ -6,15 +6,6 @@
  * semana") and spot stop-loss ("si XRP toca $X vende a RLUSD") compose in
  * Fase 3 — each execution is one N1 signature in Xaman, never a stored
  * pre-signed blob.
- *
- * Flag semantics (verified against xrpl.js 4.5 OfferCreateFlags):
- *   - tfImmediateOrCancel → market-style swap: fill what crosses now, cancel
- *     the rest, never rests on the book.
- *   - tfFillOrKill        → all-or-nothing: full fill now or the tx does nothing.
- *   - tfPassive           → rests on the book without crossing equal-priced offers.
- *   - tfSell              → spend all of TakerGets even if it fills better than asked.
- *
- * Unsigned txjson → Xaman. Astryum signs nothing. SourceTag always.
  */
 
 import { isValidClassicAddress, isoTimeToRippleTime, validate, OfferCreateFlags } from 'xrpl';

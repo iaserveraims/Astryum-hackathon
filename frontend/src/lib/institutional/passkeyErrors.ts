@@ -1,7 +1,6 @@
 /**
  * passkeyErrors — lo que la persona lee cuando el alta con Face ID / Windows
- * Hello no llega a su cuenta (fundador 2026-09-14: «pongo el código, sale un
- * error y no se crea la cuenta»).
+ * Hello no llega a su cuenta.
  *
  * Antes la lectura de la cuenta contrafactual pintaba `HTTP 401`: el JWT dura
  * 24 h y nada lo refresca, así que quien abría el sitio del cliente con la

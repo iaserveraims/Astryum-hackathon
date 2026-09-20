@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { notePayloadOpenedResult } from '../handoffRelease';
 
 /**
- * productizer it. 19 (R1 1.3 — parte de cliente) — EL RELOJ DEL ASIENTO EMPIEZA
+ * EL RELOJ DEL ASIENTO EMPIEZA
  * CUANDO SE CREA EL PAYLOAD, NO CUANDO SE COMPUSO EL 0xFE.
  *
  * `payloadExpiresAt` se estampaba al COMPONER, y el `expire: 5` de Xaman corre
@@ -73,10 +73,10 @@ describe('el cable: quien crea el payload es quien lo dice', () => {
   });
 
   /**
-   * it. 21 (it. 20 3.9) — UNA constante, y encima solo el SUELO.
+   * UNA constante, y encima solo el SUELO.
    *
    * Hasta aquí el `5` estaba escrito a mano en este fichero Y en el backend
-   * (`HANDOFF_PAYLOAD_EXPIRY_MIN`), y el servidor lleva desde la it. 19
+   * (`HANDOFF_PAYLOAD_EXPIRY_MIN`), y el servidor lleva desde la
    * contestando el suyo (`payloadExpiryMin`) en cada prepare: el frontend nunca
    * lo leía. Dos copias a mano de un mismo número divergen el día que alguien
    * toca una, y la dirección que duele es muda (un asiento que sobrevive a su
@@ -85,7 +85,7 @@ describe('el cable: quien crea el payload es quien lo dice', () => {
   it('el `expire` de Xaman y la caducidad del asiento salen del MISMO número', () => {
     // El mismo valor alimenta el payload y el sello del asiento.
     //
-    // it. 25 (§2): …y ese número es el de ESTA fila. `payloadExpiryMin()` a secas
+    // …y ese número es el de ESTA fila. `payloadExpiryMin()` a secas
     // leía un global de módulo, así que la última respuesta leída en la pestaña
     // decidía el `expire` de todo lo que se firmara después — y desde la §2.1 una
     // salida de consejo contesta 1440. El memo del 0xFE nombra la fila.
@@ -101,14 +101,14 @@ describe('el cable: quien crea el payload es quien lo dice', () => {
     const lib = read('lib/wallet/handoffRelease.ts');
     expect(lib).toContain('export const XAMAN_PAYLOAD_EXPIRY_MIN_DEFAULT = 5');
     // Y se aprende de la respuesta del servidor, también la de `payload-opened`
-    // — contra el memo por el que se preguntó (it. 25, §2: la ventana de una
+    // — contra el memo por el que se preguntó (§2: la ventana de una
     // ceremonia es de su fila, no de la pestaña).
     expect(lib).toContain('notePayloadExpiryMin(parsed.payloadExpiryMin, body.memoHex)');
-    // it. 27 (§3): …y las OTRAS TRES puertas también lo pasan. Hasta aquí lo
+    // …y las OTRAS TRES puertas también lo pasan. Hasta aquí lo
     // aprendían SIN memo, y como 1440 pasa del clamp ordinario la rama de
     // pestaña lo descartaba: el número del servidor no llegaba a ningún payload
     // y lo que hacía funcionar la ceremonia era un `expire: 1440` a mano.
-    // it. 31 (§5): …junto con si esa ventana fue LEÍDA (`signerListRead`) — sin
+    // …junto con si esa ventana fue LEÍDA (`signerListRead`) — sin
     // eso una ventana corta pasaba por veredicto «firma sola» (prueba ejecutable
     // en `useXrplWalletPartner.quorumRouting.test.ts`).
     expect(read('lib/institutional/api.ts')).toContain(
@@ -119,7 +119,7 @@ describe('el cable: quien crea el payload es quien lo dice', () => {
   });
 });
 
-describe('it. 19 (R3 N4 / R5 R7) — la entrega solo se afirma cuando el servidor la dice', () => {
+describe('La entrega solo se afirma cuando el servidor la dice', () => {
   it('lib/institutional/api la lee en TODA respuesta compuesta, en las dos formas', () => {
     const src = read('lib/institutional/api.ts');
     expect(src).toContain('noteFlareInstructionDelivery(composed, declared)');
@@ -148,7 +148,7 @@ describe('it. 19 (R3 N4 / R5 R7) — la entrega solo se afirma cuando el servido
   });
 });
 
-describe('it. 19 — el candado stale es UN hecho, no uno por instancia montada', () => {
+describe('El candado stale es UN hecho, no uno por instancia montada', () => {
   const src = read('components/xrpl/XamanSingleSign.tsx');
 
   it('vive en el módulo y las instancias se suscriben', () => {

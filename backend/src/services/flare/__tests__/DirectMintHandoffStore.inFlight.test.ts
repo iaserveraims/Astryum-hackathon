@@ -1,5 +1,5 @@
 /**
- * inFlightHandoffOf — «ya firmaste, no hay nada que firmar» (fundador 2026-09-15).
+ * inFlightHandoffOf — «ya firmaste, no hay nada que firmar».
  * Pura: de las filas en cola, la orden FIRMADA de esta cuenta y acción.
  */
 jest.mock('../../../database/prismaClient', () => ({ prisma: {} }));

@@ -150,7 +150,7 @@ router.get('/canonical', async (req: Request, res: Response) => {
  * Every block of `results[]` is one adapter. Three shapes, all HTTP 200:
  *  · `{ positions }` — every read answered;
  *  · `{ positions, unreadable: [{ what, reason, market }] }` — SOME reads did
- *    not answer (ola 0, 15-sep: a market's probe, a queue period). The rows
+ *    not answer. The rows
  *    are what WAS read — a lower bound — and the board paints the rest as
  *    «could not be read», never as absent;
  *  · `{ positions: [], error }` — the adapter fell entirely. The board used to

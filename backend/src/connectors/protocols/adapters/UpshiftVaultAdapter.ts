@@ -12,24 +12,6 @@ import type { EncodedAction } from '../IProtocolAdapter';
 /**
  * Upshift (August Digital) multiAssetVault v2 vaults on Flare — the XRP yield
  * vaults distributed by Flare's wallet partners (Xaman, D'CENT):
- *
- *   earnXRP — "Flare XRP Yield Vault", curated by Clearstar. Fully on-chain.
- *   monarq  — "Monarq XRP Yield Vault" (MXRPY). Off-chain strategies (options,
- *             basis) run by Monarq Asset Management → CeDeFi risk profile.
- *
- * Shape (verified on-chain 2026-07-10 via the vault proxy's implementation ABI):
- *   - the vault proxy is NOT the ERC-20: shares live on a separate LP token
- *     (`lpTokenAddress()`), 6 decimals, same as FXRP;
- *   - `getSharePrice()` returns the FXRP-per-share NAV scaled 1e6;
- *   - `deposit(address token, uint256 amount, address receiver)` — multi-asset
- *     deposit; token MUST be the vault's `asset()` (FXRP) in our flow;
- *   - `sendersWhitelistAddress() == 0x0` on both vaults → deposits are
- *     permissionless (checked 2026-07-10; the route re-checks pause state live);
- *   - withdrawals: `instantRedeem` (fee in bips) or `requestRedeem` + epoch
- *     claim after `lagDuration` seconds.
- *
- * APY is NEVER computed here: the route surfaces the live share price and the
- * Upshift API's historical figure, each labelled with its source (invariant #9).
  */
 
 const LP_TOKEN_ABI = ['function balanceOf(address) view returns (uint256)'];
@@ -46,14 +28,14 @@ const VAULT_DEPOSIT_ABI = [
   'function deposit(address token, uint256 amount, address receiver)',
 ];
 // Verified against the vault implementations' VERIFIED SOURCE on Flarescan
-// (2026-07-13, impls 0xc689CC…/0x8AA89f…): instantRedeem(shares, receiverAddr)
+// (impls 0xc689CC…/0x8AA89f…): instantRedeem(shares, receiverAddr)
 // burns the LP shares from msg.sender (no approve needed — the vault has burn
 // rights on its own LP token) and transfers the reference asset (FXRP) minus
 // instantRedemptionFee to the receiver.
 const VAULT_REDEEM_ABI = [
   'function instantRedeem(uint256 shares, address receiverAddr)',
 ];
-// The epoch queue, READ-ONLY (added 2026-08-01, ABI verified against the impl
+// The epoch queue, READ-ONLY (ABI verified against the impl
 // and probed live): the fee-free `requestRedeem` path parks shares on a future
 // calendar day, and until they're claimed the LP balance no longer shows them.
 const VAULT_EPOCH_ABI = [
@@ -68,7 +50,7 @@ export interface UpshiftPendingRedemption {
   sharesBase: string;
   /** FXRP those shares are worth at the live NAV; null if unreadable. */
   estFxrpBase: string | null;
-  /** it. 29 — true = `getSharePrice()` did not answer: the amount is UNREAD, not zero. */
+  /** True = `getSharePrice()` did not answer: the amount is UNREAD, not zero. */
   estFxrpUnreadable: boolean;
   /** true once the vault is serving that epoch (or an earlier one). */
   claimable: boolean;
@@ -144,8 +126,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
 
     for (const d of this.getVaultDescriptors()) {
       const lp = new ethers.Contract(d.lpToken, LP_TOKEN_ABI, provider);
-      // UN ERROR DE LECTURA NO ES SALDO CERO (fundador 2026-09-09: «he hecho
-      // la operación y no se muestra»). Esto tragaba cualquier fallo del RPC
+      // UN ERROR DE LECTURA NO ES SALDO CERO. Esto tragaba cualquier fallo del RPC
       // —los 429 del nodo público son el pan de estos días— como `0n`, y la
       // posición desaparecía del snapshot SIN señal de degradación… y ese
       // snapshot se cacheaba cinco minutos. Ahora el error sube: el engine
@@ -156,7 +137,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
       if (balance <= 0n) continue;
 
       // NAV per share, live from the vault (protocol data — invariant #9).
-      // it. 31 — a failed price read keeps the row (the shares ARE the money)
+      // — a failed price read keeps the row (the shares ARE the money)
       // and says the amount is unread, instead of a silent `0n` → null.
       const vault = new ethers.Contract(d.vault, VAULT_READ_ABI, provider);
       const sharePriceRead = await (vault.getSharePrice() as Promise<bigint>).then(
@@ -218,7 +199,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
               ...(q.estFxrpBase
                 ? { underlying: { symbol: 'XRP', amount: q.estFxrpBase, decimals: 6 } }
                 : {}),
-              // it. 29 — the amount is UNREAD, not absent: the row stays, and
+              // The amount is UNREAD, not absent: the row stays, and
               // carries the admission for whoever renders it.
               estFxrpUnreadable: q.estFxrpUnreadable,
               exiting: true,
@@ -242,7 +223,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
           });
         }
       } catch (e) {
-        // it. 29 — this catch used to swallow the queue: a 429 on the epoch or
+        // This catch used to swallow the queue: a 429 on the epoch or
         // lag read left the LP balance in the snapshot and the queued exit
         // OUT of it, and the engine cached that absence for five minutes.
         // Same rule as the balance read above: the error rises, the engine
@@ -261,8 +242,8 @@ export class UpshiftVaultAdapter extends BaseAdapter {
    * Open epoch-withdrawal requests for `wallet` in one vault.
    *
    * Shape verified against the vault implementation ABI (proxy
-   * 0x373D7d20… → impl 0xc689cC64…) and probed live on Flare mainnet
-   * 2026-08-01: requests are indexed by CALENDAR DAY (year, month, day) and
+   * 0x373D7d20… → impl 0xc689cC64…) and probed live on Flare mainnet:
+   * requests are indexed by CALENDAR DAY (year, month, day) and
    * `getBurnableAmountByReceiver(y, m, d, receiver)` returns the shares waiting
    * on that day. `getWithdrawalEpoch()` gives the day currently being served,
    * `lagDuration()` how far ahead a fresh request is scheduled (earnXRP 1 day,
@@ -280,7 +261,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
       [...VAULT_READ_ABI, ...VAULT_EPOCH_ABI],
       provider ?? this.provider.getHttpProvider(),
     );
-    // it. 29 — `lagDuration().catch(() => 0n)` made `lagDays = 0` and shrank
+    // `lagDuration().catch(() => 0n)` made `lagDays = 0` and shrank
     // the scan window to -3..+1 days. Monarq's lagDuration is 7 DAYS (probed
     // on-chain), so one failed read hid its queued exit for up to a week. An
     // unread lag now RISES: the caller (discoverPositions) lets it take the
@@ -309,7 +290,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
       days.push(new Date(servedUTC + offset * 86_400_000));
     }
 
-    // it. 31 — the same `.catch(() => 0n)` that it. 29 removed from
+    // The same `.catch(() => 0n)` that removed from
     // `lagDuration` in this very function was still here, on the read that
     // holds the MONEY: a 429 on one day's `getBurnableAmountByReceiver` read
     // as «nothing queued that day», and the queued exit vanished from the
@@ -372,18 +353,6 @@ export class UpshiftVaultAdapter extends BaseAdapter {
    * V1 simulation for FXRP vault deposits/withdrawals.
    *  - supply   → user provides FXRP, receives LP shares. netUSD = -amountUSD.
    *  - withdraw → instantRedeem path; fee (bips) disclosed as a warning.
-   *
-   * Inputs (action.inputs):
-   *   amount: bigint (6-dec FXRP/share base units)
-   *   priceUSD: number (XRP/USD via FTSO)
-   *   instantRedemptionFeeBps?: number (live read, passed by the caller)
-   *   flrPriceUSD?: number (gas)
-   *
-   * it. 27 — AN ABSENT FEE IS NOT A FEE OF ZERO. `?? 0` read «the caller did
-   * not pass it» as «this vault charges nothing», and then `if (fee > 0)`
-   * DELETED the warning that exists to show it: the one input that could not
-   * be read was also the one the simulation stopped mentioning. Both states
-   * are now said out loud (invariant #6).
    */
   async simulateAction(action: ProtocolAction): Promise<SimulationResult> {
     this.assertActive();
@@ -396,7 +365,7 @@ export class UpshiftVaultAdapter extends BaseAdapter {
     const human = Number(amount) / 10 ** decimals;
     const amountUSD = priceUSD * human;
     // null = the caller did not pass a fee, i.e. NOBODY READ IT. Never folded
-    // into 0 (it. 27).
+    // into 0.
     const feeBpsRaw = action.inputs?.instantRedemptionFeeBps;
     const feeBps =
       feeBpsRaw != null && Number.isFinite(Number(feeBpsRaw)) ? Number(feeBpsRaw) : null;

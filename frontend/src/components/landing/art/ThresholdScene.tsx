@@ -6,62 +6,6 @@
  * La idea no se toca: un hueco, una cimbra, las dovelas, la clave, el
  * descimbrado y algo que cruza. Lo que se rehace es la EJECUCIÓN, porque medido
  * en captura a 1440×900 el dibujo contaba otra cosa:
- *
- *   · el arco ocupaba el 28 % del cuadro, abajo a la derecha, con media
- *     pantalla de estrellas vacías a su izquierda;
- *   · el tajo era un rectángulo del ANCHO EXACTO del arco con un panel más
- *     claro y cinco rayas horizontales dentro, o sea una puerta de garaje: el
- *     lector veía un ojo de cerradura, no una garganta;
- *   · la cimbra era un abanico de pelos rectos —papel pautado—, no un armazón
- *     de madera;
- *   · las dovelas colocadas flotaban como dos cuñas azules giradas, sin lecho,
- *     sin junta y sin sombra sobre lo que supuestamente las sostenía;
- *   · y el descimbrado, que es la escena entera, empezaba un 10 % TARDE: el
- *     texto decía «se retira la cimbra» con la cimbra entera todavía puesta.
- *
- * ── LAS CUATRO DECISIONES QUE ARREGLAN ESO ───────────────────────────────
- *
- * 1. UNA SOLA LUZ, CON REGLA DE CARA ILUMINADA. `LIGHT` (35° desde la derecha)
- *    ya existía y nadie la obedecía: el anillo llevaba un degradado que barría
- *    de izquierda a derecha sin mirar la orientación de cada pieza. Ahora el
- *    brillo de cada dovela sale del producto escalar de SU normal por la luz,
- *    calculado a nivel de módulo. El máximo cae en el riñón derecho, que es
- *    exactamente donde cae con una luz alta por la derecha. Lo mismo gobierna
- *    los sillares de los estribos y el canto de los dos bancos.
- *
- * 2. LA GARGANTA SE ABRE AL BAJAR Y NO MIDE LO QUE EL ARCO. Las dos paredes
- *    salen del labio y se separan con el cuadrado de la profundidad, la pared
- *    del fondo es un PERFIL DE TERRENO —no un rectángulo— y dentro del corte se
- *    ve la cara escorzada de cada pared con su estriado. Un ojo de cerradura es
- *    una silueta simétrica de lados paralelos; esto ya no lo es por
- *    construcción.
- *
- * 3. LA CIMBRA ES MADERA. Durmiente con canto, siete montantes con ANCHO —dos
- *    aristas cada uno—, tirantes en triángulo, trece tablas de tablero y las
- *    CUÑAS de descimbrar al pie de los montantes de fuera. Se sigue dibujando
- *    con trazo discontinuo, que es la convención de obra provisional y aquí es
- *    además el argumento. Y se retira EN ORDEN INVERSO al de montaje: primero
- *    saltan las cuñas —y el arco se asienta—, después el tablero, los tirantes,
- *    los montantes y por último el durmiente.
- *
- * 4. LA CÁMARA ENCUADRA. `targetPx` pasa de 1024 a 1680 y el arco crece a
- *    RI 160 / RE 210: medido, el arco pasa del 28 % al 42 % del ancho del
- *    cuadro a 1440, con el arranque al 72 % de la altura y una banda de cielo
- *    del 19 % encima. Y por encima de escala 1,08 se enciende un SEGUNDO NIVEL
- *    DE DETALLE (filos labrados, marcas de cantero, clavos del tablero,
- *    pasadores de los lechos): acercarse gana algo en vez de ampliar píxeles.
- *
- * ── RENDIMIENTO ──────────────────────────────────────────────────────────
- * CERO `<filter>`. Toda la geometría se genera UNA vez a nivel de módulo con
- * ruido de semilla fija: determinista, idéntica en servidor y cliente, coste de
- * ejecución cero. Lo único que cambia por fotograma son transformadas y alfas
- * de grupo.
- *
- * ── LO QUE ESTA ESCENA NO DICE ───────────────────────────────────────────
- * Ni una cifra, ni una promesa. El quórum, los pesos iguales y la clave maestra
- * deshabilitada son MECANISMO. Y Astryum no firma: lo que cruza el tablero es
- * la vasija del usuario, que entra y sale IDÉNTICA — ni crece, ni cambia de
- * color, ni la toca nada por el camino.
  */
 
 import { memo, useId, useMemo, useRef, type ReactNode } from 'react';
@@ -114,8 +58,7 @@ export const constitutionTiming = (i: number, n = 4): [number, number] =>
 /**
  * LA PÉNDOLA i — y la celda i de la lámina del quórum, que son lo mismo.
  *
- * El fundador pidió que «los puntos que representan el quórum sean lo que
- * sustenta el puente». Para que eso sea verdad y no un parecido, la celda de la
+ * Para que eso sea verdad y no un parecido, la celda de la
  * lámina y la péndola de la escena tienen que encenderse en el MISMO fotograma,
  * y por eso las dos leen esta función. Llegan cuando el arco ya está de pie:
  * primero se sostiene solo, después se le cuelga el paso.
@@ -530,32 +473,10 @@ const CENTRING = (() => {
    ══════════════════════════════════════════════════════════════════════ */
 
 /**
- * Fundador, 2026-09-19, sobre la primera versión del puente: «quiero que pase
+ * Fundador, sobre la primera versión del puente: «quiero que pase
  * normal por debajo, que los puntos que se ponen que representan el quórum sean
  * lo que sustenta el puente, el puente cruza recto por debajo, no sube por
  * encima».
- *
- * La primera versión era un puente de LOMO DE ASNO: la calzada montaba sobre el
- * trasdós y la vasija subía y bajaba con ella. Se leía como un adorno encima del
- * arco y, sobre todo, tapaba el argumento.
- *
- * Esto es un puente de TABLERO INFERIOR —la familia del arco atirantado— y es
- * la forma que el producto necesitaba desde el principio:
- *
- *   · EL TABLERO CRUZA RECTO, a la cota de los dos labios. El camino no sube
- *     ni baja: entra por un banco y sale por el otro a la misma altura. Lo que
- *     cruza, cruza en línea recta.
- *   · EL ARCO QUEDA ENTERO POR ENCIMA, libre y con su ojo abierto. No hay
- *     relleno de tímpano que lo tape: el trasdós se recorta contra la noche de
- *     canto a canto, que es la imagen que este mundo tiene desde el primer día.
- *   · Y LO QUE SOSTIENE EL TABLERO SON CINCO PÉNDOLAS —los cinco asientos del
- *     consejo— que cuelgan del intradós. Tres firman y las cinco están puestas.
- *     El tablero no se apoya en ninguna: cuelga de todas.
- *
- * Eso último es el producto entero dicho en estructura, y es literalmente
- * comprobable en el dibujo: quita una péndola y el tablero sigue. Quita tres y
- * no. «Tres de cinco bastan. Ninguna sola.» El quórum deja de ser un rótulo en
- * una lámina y pasa a ser lo que aguanta el peso.
  */
 
 /** LA MESA DEL CONSEJO, y es la ÚNICA. La escena, las cuatro láminas y las

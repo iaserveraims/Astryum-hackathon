@@ -1,42 +1,11 @@
 /**
  * legalGateMode — LA PUERTA LEGAL TIENE TRES ESTADOS, Y SOLO UNO ES UNA PUERTA.
- * (productizer it. 25)
  *
  * `LegalAcceptGate` mounts a NON-DISMISSABLE ceremony in front of the whole
  * /app tree: no X, no backdrop click, no Escape, and the command palette
  * swallowed in the capture phase. That is correct for the state it was built
  * for — «you have not signed the current texts yet» — and catastrophic for the
  * state it was accidentally handed: «we could not read your record».
- *
- * WHAT WENT WRONG (the loop, end to end):
- *   1. `readTakeoverAtStrict` fails closed on an unparseable
- *      `preferences.security` — correct: a takeover mark nobody can read must
- *      never let a previous holder's click-wrap pass as this person's;
- *   2. the backend collapsed that into «nothing counts as signed» ⇒
- *      `required: true` ⇒ this modal, undismissable;
- *   3. the modal's only action posts /auth/legal-accept, which answers 409
- *      `PREFERENCES_UNREADABLE`, `retryable: false` — because writing that row
- *      would drop `security` and resurrect the previous holder's bindings.
- *   ⇒ the person could not enter the app, and the legal gate sits in front of
- *     every capital route, so they could not reach their EXITS either.
- *
- * The rule of this repo is that «no pude leer» is not permission, not a
- * punishment, not a fact — and not a cage. So the three states are named here,
- * as data, and the component only ever renders what this function returns:
- *
- *   · 'sign'       — the record READ cleanly and says the texts are stale or
- *                    absent. The ceremony, blocking, as before;
- *   · 'unreadable' — the record did not parse. NOT a door: the app opens and a
- *                    sentence explains that we could not check, in words that
- *                    never claim the person failed to sign;
- *   · 'closed'     — signed, or nothing known yet (the server has not answered,
- *                    or an older backend has no `legal` field). Renders nothing:
- *                    silence beats a flash of a modal nobody needs.
- *
- * `unreadable` is checked BEFORE `required` on purpose. If some future server
- * ever sends both true, the non-blocking reading wins: a wrong `sign` costs a
- * person their app, a wrong `unreadable` costs us one presentation of a text we
- * can present again on the next load.
  */
 
 /** The subset of GET /auth/me `legal` that decides what is on screen. */
@@ -75,10 +44,6 @@ export function legalGateBlocks(gate: LegalGateFacts | null | undefined): boolea
  *   · say what happens next — we look again every time the app opens, and a
  *     human can repair the row if it persists (the backend's own 409 detail
  *     says «waiting will not fix it», so we do not promise a self-heal).
- *
- * And NEVER «you have not accepted the terms». We do not know that. Telling
- * somebody they failed to sign, because WE cannot read our own row, is the lie
- * this whole state exists to avoid.
  */
 export const LEGAL_RECORD_UNREADABLE_EN =
   'We could not read your acceptance record, so we cannot confirm which versions of the terms and the privacy ' +

@@ -70,8 +70,7 @@ ACCESS_GATE_SECRET=<openssl rand -hex 32>
   Vercel y el gate entero se aparta. Comprobación desde fuera, sin cookies:
   `curl -s https://astryum.xyz/api/access-gate` → `{"access":true,"open":true}`.
   Si devuelve `open:false`, el interruptor **no** está puesto y los seis CTAs
-  dorados de la landing rebotan a la portada (2026-08-07: parecía "el botón no
-  funciona en el móvil" — el escritorio del fundador aún tenía la cookie).
+  dorados de la landing rebotan a la portada.
 
 ## 3. Panel admin — qué cambió y cómo entrar
 

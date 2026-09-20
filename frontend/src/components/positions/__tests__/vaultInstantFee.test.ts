@@ -5,7 +5,7 @@ import { instantFeeQuote } from '../vaultModalTruth';
 import { describeRetryableRefusal, refusalHeadline } from '../../../lib/xaman/seatRefusal';
 
 /**
- * it. 27 — UNA COMISIÓN QUE NO SE PUDO LEER NO ES UN CERO.
+ * UNA COMISIÓN QUE NO SE PUDO LEER NO ES UN CERO.
  *
  * WHAT SHIPPED. `/vault-withdraw/prepare` read the vault's
  * `instantRedemptionFee()` with `.catch(() => null)` and then priced that null
@@ -14,14 +14,6 @@ import { describeRetryableRefusal, refusalHeadline } from '../../../lib/xaman/se
  * thing was stamped `disclosedToUser: true`. Invariant #6 says the fee is
  * visible BEFORE the signature; affirming the absence of a fee that nobody
  * managed to look at is the opposite of disclosing it.
- *
- * The screen was the second half of the failure: a bare `!= null` guard on the
- * fee row rendered NOTHING for all three states at once, and an empty fee row
- * reads as free.
- *
- * This suite covers the client half: the three states survive to the person,
- * and the server's refusal arrives as a sentence that names what could not be
- * read — not as the generic «the server refused this operation».
  */
 
 describe('instantFeeQuote — three states, never one silence', () => {
@@ -50,8 +42,8 @@ describe('instantFeeQuote — three states, never one silence', () => {
     expect(instantFeeQuote(undefined)).toEqual({ kind: 'unreadable' });
   });
 
-  it('it. 29 — the shape /vault-withdraw now SENDS for an unread fee is «unreadable», and the row is live code again', () => {
-    // it. 27 refused this exit; it. 29 composes it (the fee is disclosure
+  it('The shape /vault-withdraw now SENDS for an unread fee is «unreadable», and the row is live code again', () => {
+    // Refused this exit; Composes it (the fee is disclosure
     // there, not payload — the contract charges it either way) and says the
     // unknown out loud: `instantFeeKnown: false`, no bps, no net.
     const q = instantFeeQuote({
@@ -97,7 +89,7 @@ describe('the refusal the person reads when the fee could not be read', () => {
 
   it('neither falls through to the generic «the server refused this operation»', () => {
     // Nobody refused anything: a read of OURS failed. The generic is both
-    // wrong and a dead end (no retry) — it. 21's lesson, applied to it. 27.
+    // wrong and a dead end (no retry) — 's lesson, applied to.
     for (const error of ['VAULT_FEE_UNREADABLE', 'VAULT_STATE_UNREADABLE']) {
       const head = refusalHeadline({ error, status: 502, retryable: true }, t);
       expect(head).not.toBeNull();

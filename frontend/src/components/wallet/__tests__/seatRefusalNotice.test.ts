@@ -15,7 +15,7 @@ import {
 import type { HandoffPostResult } from '@/lib/wallet/handoffRelease';
 
 /**
- * productizer it. 17 — R5 5.4 (el asiento tomado) y R5 5.2 (la firma tardía).
+ * R5 5.4 (el asiento tomado) y R5 5.2 (la firma tardía).
  *
  * Las dos cosas que ninguna pantalla puede enseñar: el código crudo del servidor
  * (`NONCE_SEAT_TAKEN`) y su párrafo en castellano con hashes. Y la que ninguna
@@ -75,7 +75,7 @@ describe('seatRefusalSentence — ni el código ni el castellano del servidor', 
 
 describe('seatReleaseOffer', () => {
   /**
-   * it. 19 (R3 N2) — LA PROMESA QUE MIENTE. Este test consagraba lo contrario:
+   * LA PROMESA QUE MIENTE. Este test consagraba lo contrario:
    * con el memo del servidor se ofrecía «Free the seat» TAMBIÉN sobre un asiento
    * FIRMADO. El servidor contesta a esa liberación 200 `{released:false}` — no
    * libera nada, porque liberar un firmado es exactamente el gemelo — así que el
@@ -93,7 +93,7 @@ describe('seatReleaseOffer', () => {
   });
 
   /**
-   * it. 22 (Q3 3.6) — EL BOTÓN QUE SOLO PODÍA FALLAR. Este test consagraba lo
+   * EL BOTÓN QUE SOLO PODÍA FALLAR. Este test consagraba lo
    * contrario: con el memo del servidor se ofrecía «Free the seat» también
    * sobre `taken-window-open`, que es el servidor diciendo «su ventana de firma
    * sigue abierta, no se puede desplazar desde aquí» — y `/handoff/release`
@@ -110,7 +110,7 @@ describe('seatReleaseOffer', () => {
 
   it('sin memo del servidor, vale el borrador que ESTA pantalla abandonó — solo si nadie lo firmó', () => {
     expect(seatReleaseOffer({ error: 'NONCE_SEAT_TAKEN', retryable: true }, 'DEADBEEF')).toEqual({ memoHex: 'DEADBEEF' });
-    // it. 22 (Q3 3.6): sin `retryable`, el servidor dijo que su ventana sigue
+    // Sin `retryable`, el servidor dijo que su ventana sigue
     // abierta — el memo propio no cambia lo que el release va a contestar.
     expect(seatReleaseOffer({ error: 'NONCE_SEAT_TAKEN' }, 'DEADBEEF')).toBeNull();
     // Firmado, reportado o ilegible: se espera. «No pude leer» jamás es permiso.
@@ -170,7 +170,7 @@ describe('describeSeatRelease — un 409 es la física del asiento, no un fallo'
   });
 
   /**
-   * it. 19 (R3 N2) — UN 200 `{released:false}` NO ES «AÚN SE PUEDE FIRMAR».
+   * UN 200 `{released:false}` NO ES «AÚN SE PUEDE FIRMAR».
    *
    * `/handoff/release` contesta 200 con `released:false` en tres situaciones
    * distintas y las tres se traducían a la frase de la espera. Sobre un pago YA
@@ -289,16 +289,15 @@ describe('describeStaleSignature — «prepárala otra vez», nunca «no pude co
   });
 });
 
-/* ── it. 21 · 1.2 (la mitad del dinero): el tercer veredicto ──────────────── */
+/* ── · 1.2 (la mitad del dinero): el tercer veredicto ──────────────── */
 
 /**
- * it. 21 (it. 20 §1.2) — «NO PUDE COMPROBARLO» NO ES «NO HABÍA NADA».
+ * «NO PUDE COMPROBARLO» NO ES «NO HABÍA NADA».
  *
  * `/handoff/release` se tragaba el fallo de BD y contestaba 200 `{released:false}`;
  * esta pantalla lo leía «no había nada que liberar» y ofrecía PREPARAR OTRA VEZ,
  * que es el gemelo: un segundo 0xFE sobre un nonce que quizá sigue ocupado por un
- * payload firmable. El agente A contesta ahora 503, y aquí hay un tercer
- * veredicto para él — con reintento, jamás con permiso.
+ * payload firmable.
  */
 describe('describeSeatRelease — «no pude comprobarlo» es su propio veredicto', () => {
   it('un 503 del release no es «nada que liberar» ni promete nada', () => {
@@ -362,7 +361,7 @@ describe('describeSeatRelease — «no pude comprobarlo» es su propio veredicto
   });
 });
 
-/* ── it. 21 · 2.3: el asiento ilegible tiene salida ──────────────────────── */
+/* ── · El asiento ilegible tiene salida ──────────────────────── */
 
 describe('NONCE_SEAT_UNREADABLE — camino, nunca callejón', () => {
   it('ofrece reintentar y jamás liberar: «no pude leer» no es «está libre»', () => {
@@ -382,7 +381,7 @@ describe('NONCE_SEAT_UNREADABLE — camino, nunca callejón', () => {
   });
 });
 
-/* ── it. 21 · 3.5: los 503 que no tenían lector ──────────────────────────── */
+/* ── · Los 503 que no tenían lector ──────────────────────────── */
 
 describe('ACCOUNT_BUSY y PROOF_STORE_UNREADABLE — prosa y reintento', () => {
   it('se reconocen como rechazo legible, vengan en `error`, en `code` o dentro del `detail`', () => {
@@ -421,7 +420,7 @@ describe('ACCOUNT_BUSY y PROOF_STORE_UNREADABLE — prosa y reintento', () => {
   it('una tienda ilegible no se cuenta como «no tienes nada»', () => {
     const said = seatRefusalSentence({ error: 'PROOF_STORE_UNREADABLE' }, t);
     expect(said).toMatch(/could not read/i);
-    // Da igual si la frase la pone el lector compartido (agente D) o el
+    // Da igual si la frase la pone el lector compartido o el
     // respaldo de aquí: las dos dicen que no se compuso nada y que se reintente.
     expect(said).toMatch(/nothing (was|moved)/i);
     expect(said).toMatch(/try again/i);

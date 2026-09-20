@@ -1,30 +1,9 @@
 /**
  * ExecutorFuelService — la economía de combustible del executor 0xFE.
  *
- * El executor es un agente económicamente autónomo DENTRO de la economía B
- * (doctrina: Astryum_Economia_Agentica_Mapa_Procesos_2026-07-13 §0/§3.4):
- * cobra su fee en FXRP (comprometida en el memo firmado, disclosed), paga la
- * atestación FDC y el gas en FLR, y cuando el depósito baja del umbral hace
- * él solo el swap FXRP→WFLR→FLR para seguir vivo. TODO con fondos PROPIOS de
+ * TODO con fondos PROPIOS de
  * Astryum — jamás capital de usuario (misma línea que TurnkeyTreasuryService:
  * revenue propia, no custodia). Invariantes #1/#8 intactos por construcción.
- *
- * Tres modos de fallo que este módulo cierra:
- *  1. Espiral de muerte de gas — el swap se dispara ANTES de estar en rojo
- *     (umbral de refuel ≫ fee FDC de ~20 FLR/mint) y existe una reserva dura
- *     de rescate: si el saldo no cubre ni el gas del propio swap, se alerta
- *     CRITICAL en vez de quemar lo que queda.
- *  2. Piñata de FXRP — la fee acumulada se barre a la treasury/Safe
- *     (FLARE_EXECUTOR_SWEEP_TO) por encima de un umbral, dejando solo el
- *     buffer de trabajo para futuros refuels.
- *  3. Operador a oscuras — executorAlert() empuja info/warn/critical a un
- *     webhook (EXECUTOR_ALERT_WEBHOOK_URL, Discord/Slack-compatible) además
- *     del log; el watcher publica sus gauges en /flare-demo/executor-health.
- *
- * Cero discreción también aquí: umbrales, venue (SparkDEX V3, allowlist) y
- * slippage máximo son config determinista; el agente aplica la fórmula, no
- * decide. Flag propio (FLARE_EXECUTOR_REFUEL_ENABLED, invariante #10) y
- * simulación SIEMPRE antes de firmar (#11) — approve, swap y unwrap incluidos.
  */
 
 import { ethers } from 'ethers';
@@ -94,10 +73,7 @@ export async function executorAlert(
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Presupuesto diario de fees FDC — el freno de mano GLOBAL del gasto         */
 /* ────────────────────────────────────────────────────────────────────────── */
-//
-// Lección del incidente 2026-07-18 (~4.880 FLR quemados en attestations
-// repetidas): aunque todos los guards fallen a la vez, el gasto en fees FDC de
-// la clave del executor queda ACOTADO por diseño. Ventana rodante de 24h,
+// Ventana rodante de 24h,
 // compartida por TODOS los pagadores de attestation (executor 0xFE + relayer
 // del consejo — misma clave, mismo presupuesto). En memoria: un restart abre
 // ventana nueva; el tope sigue acotando cada ventana.
@@ -106,7 +82,7 @@ export async function executorAlert(
 export class FeeBudgetExceeded extends Error {}
 
 /**
- * it. 29 — EL LIBRO DE FEES DE HOY NO SE PUDO LEER. Subclase de
+ * EL LIBRO DE FEES DE HOY NO SE PUDO LEER. Subclase de
  * FeeBudgetExceeded a propósito: para quien lo atrapa es lo mismo (DIFERIR,
  * no aparcar, no contar), y se cura solo en cuanto la BD conteste. Lo que NO
  * es, es un presupuesto entero: «no sé cuánto llevo gastado hoy» no restaura
@@ -137,9 +113,7 @@ function rollWindow(now: number): void {
   }
 }
 
-// ── Persistencia (§1) — el tope que nació del incidente de los 244 re-pagos ──
-// En RAM el tope era "120 FLR por VIDA DEL PROCESO", no por día: cada redeploy (a diario)
-// lo reseteaba y la protección financiera se evaporaba en silencio. Persistido vía el
+// Persistido vía el
 // bg-kv compartido (jobType propio 'fee-ledger', fila única 'global') con write-through
 // al gastar + una carga en boot, de modo que el gasto acumulado SOBREVIVE al reinicio.
 // Write-through single-instance (Railway); multi-instancia exigiría un contador atómico
@@ -148,7 +122,7 @@ function rollWindow(now: number): void {
 const FEE_LEDGER_JOB_TYPE = 'fee-ledger';
 let feeLedgerLoaded = false;
 /**
- * it. 29 — true = la lectura del libro en el arranque FALLÓ (Postgres no
+ * True = la lectura del libro en el arranque FALLÓ (Postgres no
  * contestó). Hasta que un reintento la complete, el presupuesto se trata
  * como AGOTADO: un gasto que no pudimos leer no es un gasto de cero.
  */
@@ -168,12 +142,9 @@ function persistFeeLedger(): void {
  * que el executor pague ninguna attestation). Si la ventana persistida ya está caduca
  * (>24h) rollWindow la resetea. Idempotente. Sin DB ⇒ no-op (arranca limpio como antes).
  *
- * it. 29 — SE MARCA CARGADO DESPUÉS DE LEER, NO ANTES. La versión anterior
+ * SE MARCA CARGADO DESPUÉS DE LEER, NO ANTES. La versión anterior
  * ponía `feeLedgerLoaded = true` antes del `await`, y leía con `kvGet`, que
- * devuelve `null` tanto si no hay fila como si Postgres falló. Un parpadeo de
- * la BD en el arranque = `spentWei` a 0 y el tope de 120 FLR/día restaurado
- * ENTERO para toda la vida del proceso, sin reintento y sin log — el mismo
- * agujero del incidente de los 244 re-pagos, por otra puerta. Ahora:
+ * devuelve `null` tanto si no hay fila como si Postgres falló. Ahora:
  *   · `kvGetStrict`: `null` significa sólo «la BD contestó y no hay fila».
  *   · Un fallo de BD deja `feeLedgerLoaded = false` y levanta
  *     `feeLedgerUnread`: `assertDailyFeeBudget` DIFIERE todo pago
@@ -247,7 +218,7 @@ export function assertDailyFeeBudget(
   now: number = Date.now(),
   reserveForOthersWei: bigint = 0n,
 ): void {
-  // it. 29 — un libro que no pudimos leer NO es un libro en blanco. Se
+  // Un libro que no pudimos leer NO es un libro en blanco. Se
   // difiere (misma familia que agotar el tope: reintentable, nada firmado) y
   // se reintenta la carga sin bloquear a nadie; en cuanto la BD conteste,
   // `feeLedgerUnread` cae y este guard vuelve a la aritmética normal.
@@ -362,12 +333,10 @@ export function _resetFeeLedgerForTests(): void {
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Guardián FTSO del margen — Tramo 1 de la secuencia de solvencia (doc       */
-/* Astryum_Keeper_Fee_Capitalizacion_Tabla_Precios_2026-07-25)                */
 /* ────────────────────────────────────────────────────────────────────────── */
-//
 // El ingreso del executor está en XRP (fee del protocolo, ~0,2) y el coste en
 // FLR (~20 attestation + ~0,4 gas): la fee fija lleva el riesgo FLR/XRP
-// DENTRO. Breakeven medido 2026-07-25: ratio XRP/FLR ≈ 102 (aquel día ~170).
+// DENTRO. Breakeven medido: ratio XRP/FLR ≈ 102 (aquel día ~170).
 // Este guardián convierte "fee fija con fe" en "fee fija con termómetro":
 // cada tick calcula el margen sobre coste con precios FTSO vivos y avisa
 // (una vez por ventana de 24h) cuando cae del umbral.
@@ -404,7 +373,7 @@ function marginWarnPct(): number {
   return Number.isFinite(n) ? n : 20;
 }
 
-/** Gas estimado del deliver tx en FLR (medido 0,39 FLR a 650 gwei, 2026-07-25). */
+/** Gas estimado del deliver tx en FLR (medido 0,39 FLR a 650 gwei). */
 function deliverGasFlr(): number {
   const n = Number(process.env.FLARE_EXECUTOR_DELIVER_GAS_FLR || 0.4);
   return Number.isFinite(n) && n >= 0 ? n : 0.4;

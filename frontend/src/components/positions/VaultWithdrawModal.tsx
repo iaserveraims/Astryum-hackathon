@@ -4,16 +4,6 @@
  * VaultWithdrawModal — exit rail of the partner vaults (Firelight stXRP,
  * Upshift earnXRP / Monarq MXRPY), driven from the Positions board and the
  * Estrategias hub.
- *
- * Backend: POST /flare-demo/vault-withdraw/prepare (mirror of /vault/prepare).
- * Two rails, chosen by WHO holds the shares:
- *   - the user's EVM wallet   → one unsigned EVM call (instantRedeem / redeem),
- *   - the Personal Account    → 0xFE userOp signed in Xaman (mint-coupled).
- *
- * The form always shows the vault balance ("what's in the vault") with a MAX
- * button that fills the exact share balance — the user never types blind.
- * Prepare → review (full disclosure, invariant #6) → the USER signs → done.
- * Astryum never signs, never broadcasts.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -143,17 +133,6 @@ function Row({ label, value }: { label: string; value: string }) {
  * UI-settling (W2-F2 · R8.1) — WHEN the money is really available after this
  * signature, decided from the vault and from the date the prepare READ
  * on-chain (`disclosure.queuedExit.claimableAt` = Firelight `currentPeriodEnd()`).
- *
- * Firelight does not liquidate on the redeem: it burns the stXRP now, queues
- * the FXRP and releases it on a DATE. The done-view used to say "Withdrawal
- * settled on Flare" there — contradicting this same modal's warning three
- * screens earlier and telling the user their money had landed when nothing
- * had arrived at all.
- *
- * The date is never invented: when the on-chain read fails the prepare answers
- * `claimableAt: null` and the copy SAYS it could not be read, instead of
- * printing an approximation ("nunca inventar una cifra: si una fuente falla,
- * se DICE").
  */
 export type ExitTiming =
   | { kind: 'instant' }
@@ -200,7 +179,7 @@ export function VaultWithdrawModal({
   }, [holders, position]);
   const [ownerSel, setOwnerSel] = useState(position.owner);
   const selected = allHolders.find((h) => h.owner.toLowerCase() === ownerSel.toLowerCase()) ?? position;
-  // LA regla canónica de nombres (2026-08-22): la copia local label??dirección
+  // LA regla canónica de nombres: la copia local label??dirección
   // saltaba el fallback de marca — una wallet sin apodo se llamaba por su
   // código. walletNameResolver numera («MetaMask 2») y jamás usa la dirección
   // como nombre para una fila conocida; una dirección ajena sigue en corto.
@@ -247,7 +226,7 @@ export function VaultWithdrawModal({
     if (prepared?.rail === 'xrpl' && phase === 'review') releaseHandoffSeat(prepared.memoHex);
   };
 
-  // it. 19 (R5 R5) — ESTA PANTALLA NO ENSEÑABA NADA SOBRE EL ASIENTO. It frees a
+  // ESTA PANTALLA NO ENSEÑABA NADA SOBRE EL ASIENTO. It frees a
   // seat on abandon and then meets `NONCE_SEAT_TAKEN` on the next prepare, and
   // the only thing the person saw was the server's raw code inside the red box
   // (or, worse, its Spanish paragraph). The refusal body is kept so the shared
@@ -261,7 +240,7 @@ export function VaultWithdrawModal({
   const [amount, setAmount] = useState('');
   // MAX sends the EXACT scanned base units — no float round-trip dust.
   const [maxBase, setMaxBase] = useState<string | null>(null);
-  // Carrier auto (founder 2026-08-17): live fees + margin from the backend
+  // Carrier auto: live fees + margin from the backend
   // — no user knob; can never block the operation (lib/flare/carrier).
   const xrpForMint = useCarrierXrp();
   const [evmDest, setEvmDest] = useState(evm.address ?? '');
@@ -290,7 +269,7 @@ export function VaultWithdrawModal({
 
   // Which XRPL account CONTROLS this Smart Account. The prepare must pin THAT
   // account (the executor rejects any other sender), never whichever Xaman
-  // happens to be connected — the 2026-07-19 "INSUFFICIENT_SHARES with every
+  // happens to be connected — the "INSUFFICIENT_SHARES with every
   // amount" was exactly this mismatch resolving an empty PA.
   const xrplCandidates = useMemo(
     () => [
@@ -367,7 +346,7 @@ export function VaultWithdrawModal({
         if (code === 'FLARE_DEFI_DISABLED') throw new Error(t('Flare DeFi execution is disabled on this server (feature flag).'));
         if (code === 'INSUFFICIENT_SHARES') {
           // Say WHICH account was checked and the exact numbers — the bare
-          // code left the user blind (incidente 2026-07-19).
+          // code left the user blind.
           const holderShort = typeof resBody.holder === 'string'
             ? `${resBody.holder.slice(0, 8)}…${resBody.holder.slice(-6)}`
             : '?';
@@ -377,7 +356,7 @@ export function VaultWithdrawModal({
             t('Use MAX to withdraw the exact balance.'),
           );
         }
-        // EL ASIENTO DE NONCE (it. 17, R5 5.4): ni el código crudo ni el
+        // EL ASIENTO DE NONCE (R5 5.4): ni el código crudo ni el
         // párrafo en castellano del servidor. El cuerpo se guarda para poder
         // ofrecer «Free the seat» sobre el borrador que esta pantalla dejó.
         const seat = seatRefusalSentence(resBody, t);
@@ -385,7 +364,7 @@ export function VaultWithdrawModal({
           setSeatRefusal(resBody);
           throw new Error(seat);
         }
-        // it. 22 (Q3 3.7): ni el slug ni el castellano del servidor por esta
+        // Ni el slug ni el castellano del servidor por esta
         // puerta tampoco — una frase, y el `detail` solo si está en inglés.
         throw new Error(
           [refusalHeadline(resBody, t), serverDetailIfEnglish(resBody.detail)]
@@ -400,7 +379,7 @@ export function VaultWithdrawModal({
       ) {
         throw new Error(t('The connected Xaman wallet does not control this Smart Account.'));
       }
-      // it. 19 (R5 R7) — LA PALABRA DE LA ENTREGA SE REGISTRA AQUÍ. This prepare
+      // LA PALABRA DE LA ENTREGA SE REGISTRA AQUÍ. This prepare
       // uses raw `fetch`, so nothing ever told the live banner whether the
       // server's executor carries this 0xFE; with no word at all the banner fell
       // back to the prudent sentence over a perfectly legitimate exit. Read
@@ -541,7 +520,7 @@ export function VaultWithdrawModal({
   // fees are quoted or their absence is SAID — a failed read used to render
   // nothing at all, and an empty fee row reads as "free".
   const feeQuote = prepared?.rail === 'xrpl' ? dispatchFeeQuote(disclosure) : null;
-  // it. 27: the VAULT's own exit fee, in the three states it really has — a
+  // The VAULT's own exit fee, in the three states it really has — a
   // fee, no fee, or a fee nobody could read. The `!= null` guard below used to
   // render nothing for all three at once.
   const instantFee = instantFeeQuote(disclosure);
@@ -571,7 +550,7 @@ export function VaultWithdrawModal({
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {/* Un asiento tomado se cuenta en inglés y, cuando el borrador es el
-              que esta pantalla abandonó, con la salida (it. 19, R5 R5). */}
+              que esta pantalla abandonó, con la salida (R5 R5). */}
           {seatRefusal ? (
             <SeatRefusalNotice
               refusal={seatRefusal}
@@ -593,7 +572,7 @@ export function VaultWithdrawModal({
               {allHolders.length > 1 ? (
                 <div>
                   <label className="text-xs text-ink/40 block mb-2">{t('Withdraw from wallet')}</label>
-                  {/* Con la cara de cada wallet (fundador 2026-08-30): de
+                  {/* Con la cara de cada wallet: de
                       aquí sale el dinero, así que la wallet se reconoce por
                       su color y su marca, no por una ristra de texto. */}
                   <WalletSelect
@@ -653,7 +632,7 @@ export function VaultWithdrawModal({
                 </div>
               )}
 
-              {/* Firelight pays in TWO steps (verified on-chain 2026-07-14):
+              {/* Firelight pays in TWO steps (verified on-chain):
                   the redeem burns now and QUEUES the FXRP; nothing arrives in
                   that tx. Said BEFORE preparing, not discovered after.
                   Reads `selected` (the wallet actually being withdrawn from),
@@ -769,7 +748,7 @@ export function VaultWithdrawModal({
                 {disclosure?.sharePrice != null && (
                   <Row label={t('Share price (live)')} value={`${fmt(Number(disclosure.sharePrice))} FXRP`} />
                 )}
-                {/* it. 27 — THREE STATES, NOT ONE SILENCE. The old `!= null`
+                {/* THREE STATES, NOT ONE SILENCE. The old `!= null`
                     guard rendered nothing for «this vault has no instant fee»,
                     for «the fee is zero» and for «the fee could not be read»
                     alike, and an empty fee row reads as free (invariant #6).
@@ -793,7 +772,7 @@ export function VaultWithdrawModal({
                 {disclosure?.estimatedFxrpOut != null ? (
                   <Row label={t('You receive (est.)')} value={`${fmt(Number(disclosure.estimatedFxrpOut), 4)} FXRP`} />
                 ) : (
-                  /* it. 27: no estimate is not «nothing to say». The live share
+                  /* No estimate is not «nothing to say». The live share
                      price failed, so this row admits it instead of leaving the
                      person to read the amount above as what arrives. */
                   <Row label={t('You receive (est.)')} value={t('could not be read on-chain')} />
@@ -877,12 +856,12 @@ export function VaultWithdrawModal({
                   {t('send it ~2 XRP (from an exchange or another wallet) and come back. Your money on Flare is untouched.')}
                 </div>
               )}
-              {/* it. 21 (it. 20 §3.3): tras cancelar en Xaman, el 0xFE preparado
+              {/* Tras cancelar en Xaman, el 0xFE preparado
                   sigue sentado en el nonce. Se dice y se dice CUÁNDO se suelta;
                   el botón de soltarlo no aparece mientras siga firmable aquí
                   (soltarlo mataría la firma que esta persona aún puede dar). */}
               {error && prepared.rail === 'xrpl' && prepared.memoHex ? (
-                /* it. 22 (Q3 3.6): …y con salida. El estado «aun firmable»
+                /* …y con salida. El estado «aun firmable»
                    escondia las TRES acciones, asi que quien rechazaba en Xaman
                    se quedaba con un parrafo y nada que hacer. */
                 <AbandonedSeatNotice

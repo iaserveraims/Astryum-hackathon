@@ -45,19 +45,6 @@ type PushOutcome = { sent: number; failed: number; skipped: number };
 /**
  * G3-final (blocker 4) — how long the tick is willing to WAIT for a push whose
  * result decides an occurrence stamp.
- *
- * The tormenta commit turned three fire-and-forget pushes into awaited ones
- * (R4: "I tried to notify" is not "the notice landed"), and
- * `PushNotificationService.sendToUser` calls `fetch(EXPO_PUSH_URL)` with NO
- * AbortSignal and no timeout. A stuck Expo therefore held the 60s tick for
- * undici's ~300s default and let the next tick overlap this one — two ticks
- * reading the same `lastArtefactAt: null` can compose two proposals. The wait
- * is bounded HERE, in the caller that chose to wait.
- *
- * Still owed OUTSIDE this front, and reported: the AbortSignal inside
- * `backend/src/services/PushNotificationService.ts:sendToUser`, and the
- * re-entrancy guard on `backend/src/index-simple.ts` (`automationTimer`,
- * `setInterval(…, 60_000)` with nothing stopping an overlap).
  */
 const PUSH_AWAIT_TIMEOUT_MS = 10_000;
 
@@ -101,8 +88,6 @@ async function awaitPushBounded(
  *     b. (best-effort) Prepare TransactionIntent via IntentEngine
  *     c. Persist AutomationRun(status='intent_prepared' | 'triggered' | 'error')
  *     d. NEVER broadcast. NEVER sign.
- *
- * V2 addition: prepareFlowNode() — see method doc below.
  */
 export class AutomationEngine {
   private static instance: AutomationEngine | null = null;
@@ -161,7 +146,7 @@ export class AutomationEngine {
 
     // Group by wallet to avoid recomputing portfolio per rule.
     //
-    // Chain resolution (bug 2026-07-25): the rule stores NO chainId of its own —
+    // Chain resolution (bug): the rule stores NO chainId of its own —
     // and the Wallet row keeps its CONNECT-time chain (EVM connects store 1 or
     // null), so grouping by wallet.chainId scanned the WRONG chain for a Flare
     // rule on an Ethereum-linked wallet: empty portfolio → HF undefined →
@@ -194,18 +179,6 @@ export class AutomationEngine {
     // trabajaba el carril de Ethereum aunque el interruptor estuviera apagado
     // (una lectura por wallet cada 60 s) y empujaba al usuario a abrir una
     // acción que la ruta le va a negar.
-    //
-    // LA SALIDA JAMÁS SE GATEA (doctrina 2026-09-13): `emRepay` es un repago
-    // PROTECTOR — un unwind que devuelve deuda y libera el colateral propio. La
-    // ruta que abre su aviso (repay / close en /api/eth-morpho) es flag-only
-    // (`gateEthMorphoExit`), así que aquí manda SOLO el flag (#10). El geofence
-    // (#5) existe para no ABRIR exposición; bajo allowlist el tick (sin región
-    // → `null`) callaba la red de una posición apalancada que ya existe, con la
-    // liquidación corriendo. Una regla futura del carril que ABRA posición debe
-    // preguntar `jurisdictionService.isDefiExecutionAllowed(null)` — fail-closed.
-    //
-    // El precio de cerrar es que la protección NO vigila; se dice en voz alta
-    // porque una red que no está y no avisa es peor que no tener red.
     const EM_ENTRY_RULE_KINDS = new Set<string>(); // hoy ninguna: emRepay es salida
     const emRailGate = (() => {
       if (process.env.ETH_RLUSD_FXRP_ENABLED !== 'true') return 'ETH_RLUSD_FXRP_DISABLED';
@@ -437,7 +410,7 @@ export class AutomationEngine {
           | Promise<{ sent: number; failed: number; skipped: number } | undefined>
           | null = null;
         /**
-         * LA PUERTA, también dentro de la app (25-ago-2026). El deep-link vivía
+         * LA PUERTA, también dentro de la app. El deep-link vivía
          * SOLO en el push: quien abre Astryum en vez de tocar la notificación
          * —o quien no tiene push activo, que es el caso normal en escritorio—
          * leía «repay ready to prepare» en una fila de texto muerta y tenía que
@@ -481,7 +454,7 @@ export class AutomationEngine {
                   type: 'INTENT_READY',
                   title: `MoneyFlow: ${rule.name} — council proposal ready`,
                   body: `${composed.summary} — the quorum reviews and signs in the inbox. Nothing moves without those signatures.`,
-                  // G5 (auditoría 17-ago) — el aviso decía «firma en la bandeja»
+                  // G5 (auditorí) — el aviso decía «firma en la bandeja»
                   // y abría `/app/wallets`, que hoy redirige al mazo de wallets:
                   // la bandeja (ProposalInbox) SOLO se monta en /app/legacy.
                   // Se abría una página válida sin la propuesta, y a los 7 días
@@ -495,7 +468,7 @@ export class AutomationEngine {
               runStatus = 'triggered';
               runNotes = `${runNotes ?? 'trigger fired'} — council busy (one live proposal per account); retries after cooldown`;
               cooldownService.markBroadcast(rule.id, now);
-              // G3 (auditoría 17-ago) — el consejo ocupado NO produjo propuesta:
+              // G3 (auditorí) — el consejo ocupado NO produjo propuesta:
               // contar este disparo pintaba «fired ×1» en la bandeja para un mes
               // en el que la familia no tiene NADA que firmar. Es la misma
               // familia «éxito no ganado» que el guard de `error` ya cubría; le
@@ -676,13 +649,6 @@ export class AutomationEngine {
          * floor was written to prevent was still there, only at 60 minutes
          * instead of 60 seconds. The first failure is the news; 36 repeats of
          * the SAME barren outcome are noise.
-         *
-         * A retry is NOT silenced when it produced the artefact (that is the
-         * good news the family is waiting for), nor when the artefact IS the
-         * nudge — a nudge branch only ever retries because nothing reached
-         * anybody last time (R4), so its notice must be attempted again.
-         * The abandonment of the occurrence is still announced, once, by
-         * `announceExpiredOccurrence`.
          */
         const cronRetry = evalResult.data?.retry === true;
         const producedNow = runStatus !== 'error' && artefactProduced;
@@ -766,35 +732,6 @@ export class AutomationEngine {
         // cooldown (it did fire) but do NOT inflate totalTimesTriggered, which
         // the MoneyFlows / Movements / Legacy surfaces read verbatim as
         // "fired ×N" / "N nudges". Counting errors there is the disease.
-        //
-        // G3 (auditoría 17-ago) — el guard se extiende a `artefactProduced`: el
-        // consejo ocupado dispara sin producir propuesta y hasta hoy contaba.
-        //
-        // G3, second half (CLOSED here — schema field `lastArtefactAt`): the
-        // stamp served TWO masters. It was the DB cooldown AND the cron
-        // occurrence marker, and it was written UNCONDITIONALLY: for a
-        // TIME_TRIGGER, a fire that errored (or found the council busy) left
-        // `due <= lastTriggeredAt`, so the evaluator filed that occurrence as
-        // served FOREVER — that month's payment never happened, nobody said
-        // so, and the next chance was a month away. Releasing the stamp was NOT
-        // the fix (the cooldown went with it and the rule would retry every 60s
-        // in an alert loop), so the two uses are split: `lastTriggeredAt` =
-        // pure cooldown, always written; `lastArtefactAt` = served occurrence,
-        // only with an artefact. Same predicate as the counter: no artefact,
-        // no occurrence served.
-        //
-        // G3-tormenta (R4) — a nudge-only branch counts as served ONLY when the
-        // notice actually landed somewhere the owner can see it: the Alert row
-        // (what GET /alerts returns) or a push that reported at least one
-        // device. `skipped` — no device registered — is NOT delivery, and a
-        // rejected push is not delivery either. If neither landed, the
-        // occurrence stays owed and is retried instead of being burnt.
-        //
-        // G3-final (blocker 4) — the wait is BOUNDED. This await is what the
-        // tormenta commit added, and Expo has no timeout of its own: an
-        // unanswered push used to hold the whole 60s loop and let the next tick
-        // overlap. A timed-out push is "delivery unread", which is NOT
-        // delivered — the occurrence stays owed and is retried.
         let nudgeLanded = alertCreated;
         if (nudgeDelivery) {
           const outcome = await awaitPushBounded(nudgeDelivery, () =>
@@ -844,35 +781,6 @@ export class AutomationEngine {
    * dead occurrence, so `lastArtefactAt` is stamped when (and only when) it
    * lands somewhere the owner can see it; an unsaid closure is not a closure
    * and is retried on the next tick.
-   *
-   * It is NOT a success: `totalTimesTriggered` — which the MoneyFlows /
-   * Movements / Legacy surfaces read verbatim as "fired ×N" — is left alone.
-   *
-   * G3-final (blocker 3) — THE CLOSING NOTICE WAS ITSELF A STORM. Round 2
-   * created the `AutomationRun` FIRST and then returned unstamped whenever
-   * neither the Alert row nor a delivered push could be confirmed — and
-   * `sendToUser` answers `{sent:0, skipped:1}` for any user with no registered
-   * device, which is the normal case on a web product, so `pushed` was false by
-   * construction. One failing `alert.create` therefore inserted one `expired`
-   * run EVERY 60s tick (1.440/day on a monthly rule, burying the `take: 50`
-   * history in 50 minutes). Two caps, both here:
-   *
-   *  1. The RUN counts as delivery. It is not a consolation prize: the run row
-   *     is what `GET /rules/:id/runs` returns and what the surfaces reduce
-   *     through `frontend/src/lib/rules/runHealth.ts:summarizeRuns`, so a
-   *     written run IS the notice reaching a screen the owner reads. (That
-   *     reducer must treat `expired` as a FAILURE for this to be visible — it
-   *     is the sibling front of this same round; the exact value written below
-   *     is the string `'expired'` in `AutomationRun.status`, plus
-   *     `triggerData.abandoned === true`.)
-   *  2. `announcedExpiry` — one notice per (rule, occurrence) per process, so
-   *     even the degenerate case where the run lands and the STAMP keeps
-   *     failing cannot re-announce; that path retries the stamp alone, never
-   *     another row.
-   *
-   * The doctrine is intact: nothing is stamped unless something was written or
-   * delivered. An announcement that reached NOTHING at all still stamps
-   * nothing and is retried.
    */
   private async announceExpiredOccurrence(
     rule: {

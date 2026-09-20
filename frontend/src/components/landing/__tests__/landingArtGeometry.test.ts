@@ -255,8 +255,7 @@ describe('la fábrica del arco — lo que un comentario ya no garantiza', () => 
   });
 
   it('las cinco péndolas cuelgan del INTRADÓS, dentro del vano, y son el consejo', () => {
-    // El fundador, 2026-09-19: «que los puntos que representan el quórum sean lo
-    // que sustenta el puente». Para que eso sea verdad y no un parecido, las
+    // Para que eso sea verdad y no un parecido, las
     // péndolas tienen que ser EXACTAMENTE la lista del consejo y tienen que
     // agarrar el intradós de verdad, no terminar cerca de él.
     expect(HANGERS).toHaveLength(COUNCIL_SEATS.length);

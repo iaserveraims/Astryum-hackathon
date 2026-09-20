@@ -11,15 +11,6 @@ import { join } from 'node:path';
  * "receipts, not screenshots" — so the last real council order could read
  * «La última orden real: set-max-venue-bps». Our field name, shown to a
  * stranger as if it were a fact about the ledger.
- *
- * The four venue doors shipped in G12 made `propose-venue`, `retire-venue` and
- * `set-max-venue-bps` reachable for real; `set-payees`, `cede`, `end-cession`
- * and `set-constitution-ref` had doors already, so they leaked too.
- *
- * This test reads the BACKEND enum, not a copy of it: a thirteenth action added
- * to `councilOrderSchema` turns it red instead of shipping a slug to the world.
- * Source-level (like councilOrderCard.venueDoors) because the vitest bootstrap
- * is `environment: 'node'` and ProofPage's module graph is the whole landing.
  */
 
 const PAGE = join(__dirname, '..', 'ProofPage.tsx');

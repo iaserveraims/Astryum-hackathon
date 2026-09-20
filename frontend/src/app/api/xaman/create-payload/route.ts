@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     // without a token the payload is identical and the QR is the way in.
     //
     // The backend decides whether THIS session may ring THAT phone for THIS
-    // account (productizer 13-sep, H2b): its own proven address, or a co-signer
+    // account: its own proven address, or a co-signer
     // of `txjson.Account`'s SignerList on a multisign request. A null answer
     // injects nothing.
     const requested = (body ?? {}) as Record<string, unknown> & { pushPayloadFor?: unknown };
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     if (!upstream.ok) {
       // Xaman answers with its own {error:{code,reference}} envelope. A refusal
       // here breaks signing, so name the cause instead of bubbling a bare status
-      // the browser console has to decode (2026-08-03: "Xaman payload failed
+      // the browser console has to decode ("Xaman payload failed
       // (401)" cost a debugging session for what was a documented permission).
       const err = (data as { error?: { code?: unknown; reference?: unknown } } | null)?.error;
       const xamanCode = typeof err?.code === 'number' ? err.code : null;

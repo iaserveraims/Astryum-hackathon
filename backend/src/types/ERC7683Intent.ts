@@ -3,21 +3,6 @@
  *
  * ERC-7683 (Uniswap Labs + Across, ratified 2025) is the standard for cross-chain
  * intents in DeFi — swaps, deposits, staking between chains.
- *
- * IMPORTANT DISTINCTION (common confusion):
- *   ERC-7683 = cross-chain DeFi intents (swaps, bridges, deposits) — THIS FILE
- *   ERC-7824  = Yellow state channels for micropayments / HFT P2P — does NOT access
- *               DeFi pools, does NOT substitute Li.Fi/Enso/Across, not here.
- *
- * CanonicalIntent: high-level user intent that enters ERC-7683 solver competition.
- * Solvers that compete: Li.Fi · Across · UniswapX · CoW · 1inch Fusion+
- *
- * Flow:
- *   1. User expresses intent (CanonicalIntent)
- *   2. Multiple solvers receive it and return SolverQuote[]
- *   3. Best quote (highest outputAmount, canFill=true) wins
- *   4. Winning solver's IntentPayload (with erc7683 extension) goes to WalletSignTab
- *   5. User signs. Astryum never signs.
  */
 
 /** Constraints that the user places on intent execution */

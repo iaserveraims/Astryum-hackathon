@@ -6,12 +6,6 @@
  *   getRequestFee → requestAttestation (SIGNATURE 1, executor gas) → wait round
  *   finalization → DA-layer proof → sanity checks → bridge.execute(proof,
  *   orderData) (SIGNATURE 2) — after simulating first (invariant #11).
- *
- * ZERO discretion (invariants #1/#8): the bridge only accepts the bytes whose
- * keccak256 the quorum committed in the memo. This relayer either delivers the
- * signed order or reverts — it cannot alter, reorder, or invent anything. Its
- * key (FLARE_EXECUTOR_PK, env-only) pays gas + the FDC attestation fee — never
- * a user key, never user funds. Gated by FLARE_EXECUTOR_ENABLED (#10).
  */
 
 import { ethers } from 'ethers';
@@ -28,8 +22,7 @@ import { assertDailyFeeBudget, recordFeeSpend, executorAlert } from './ExecutorF
 export class RelayAbort extends Error {}
 
 /**
- * Una orden que el puente YA NO PUEDE ejecutar nunca (fundador 2026-09-16: «el
- * backend se quedó esperando el dinero»): su nonce va por detrás del siguiente
+ * Una orden que el puente YA NO PUEDE ejecutar nunca: su nonce va por detrás del siguiente
  * del puente, así que otra orden la adelantó (o era un duplicado firmado dos
  * veces). Reintentarla cada 5 min durante 14 días —lo que hacía el vigía, con
  * su fetch de prueba FDC y su simulación cada vez— no la va a entregar jamás.
@@ -141,8 +134,7 @@ function resolveVerifierKey(): string {
  * Attestations YA pagadas por txId (proofOwner = el bridge, fijo por config):
  * si un intento anterior pagó la fee y falló después (ronda lenta, DA, revert),
  * el reintento reutiliza la ronda y recoge el proof gratis — la fee del FDC se
- * paga UNA vez por orden, no una por intento (lección del executor 0xFE,
- * 2026-07-18).
+ * paga UNA vez por orden, no una por intento (lección del executor 0xFE,).
  */
 const paidAttestations = new Map<string, { abiEncodedRequest: string; roundId: number; passesWithoutProof: number }>();
 
@@ -154,7 +146,7 @@ async function fetchXrplMemo(
   log: Log,
 ): Promise<{ memo: string; account: string }> {
   // Un rippled congelado o sin full-history responde `txnNotFound` para una tx
-  // que OTRO nodo sí tiene (incidente 2026-07-31: s1 llevaba horas parado) —
+  // que OTRO nodo sí tiene —
   // eso es "prueba el siguiente nodo", jamás un veredicto. Solo un nodo que
   // DEVUELVE la tx decide; si todos dicen not-found, el consejo espera.
   let sawNotFound = false;
@@ -224,7 +216,7 @@ export async function relayCouncilOrder(input: {
   const log: Log = input.log ?? ((m) => console.log(`[legacy-relay] ${m}`));
   // Network first, stack later: WHICH bridge this order belongs to is decided
   // by its SENDER, not by configuration. Reading the env stack here was the
-  // per-Legacy gap of 2026-08-05 — a second council's order would abort on the
+  // per-Legacy gap of — a second council's order would abort on the
   // founding bridge's WrongCouncil guard after the quorum had already signed.
   const net = legacyNetworkConfig();
   const infra = FDC_INFRA[net.chain];
@@ -336,7 +328,7 @@ export async function relayCouncilOrder(input: {
     roundId = reusable.roundId;
     log(`[4] attestation already paid on a previous attempt → round ${roundId} — reusing, no fee`);
   } else {
-    // Global handbrake (2026-07-18 incident): the fee is only signed if it fits
+    // Global handbrake (incident): the fee is only signed if it fits
     // the shared daily budget — throws FeeBudgetExceeded before signing.
     assertDailyFeeBudget(requestFee);
     log('[4] requestAttestation (SIGNATURE 1)…');
@@ -398,8 +390,7 @@ export async function relayCouncilOrder(input: {
       // proof está ahí), o el request NUNCA se confirmó (fee corta / peso
       // insuficiente → la fee se QUEMÓ, no habrá proof jamás). `passesWithoutProof`
       // tolera 2 pasadas para descartar el parpadeo sin dejar la orden atascada
-      // mucho rato; a la 2ª se concluye "nunca confirmado" y — porque eso es
-      // dinero quemado, la versión lenta del incidente 0xFE — se AVISA y se re-paga.
+      // mucho rato;
       reusable.passesWithoutProof++;
       if (reusable.passesWithoutProof >= 2) {
         paidAttestations.delete(txId);
@@ -649,7 +640,7 @@ export async function rehearseAttestationPipeline(input: { xrplTxHash: string; l
 /** On-chain settlement truth for the UI tracker (no relayer state needed).
  *  `account` names the Legacy whose bridge holds the truth — without it the
  *  read falls back to the env stack, which is only right for the founding
- *  council (per-Legacy cages, 2026-08-05). */
+ *  council (per-Legacy cages). */
 export async function councilOrderStatus(
   xrplTxHash: string,
   account?: string,

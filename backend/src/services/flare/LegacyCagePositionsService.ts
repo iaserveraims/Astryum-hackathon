@@ -3,7 +3,7 @@
  *
  * The council's principal lives in a CONTRACT (LegacyVault), not in a wallet,
  * so the wallet-sum aggregator never saw it: the Summary showed the council's
- * XRP and called the cage's capital invisible (founder, 2026-08-01). This
+ * XRP and called the cage's capital invisible. This
  * service attributes the vault's capital to the XRPL account the vault OBEYS —
  * verified against the bridge's immutable COUNCIL_ADDRESS_HASH (keccak256 of
  * the r-address bytes), never assumed — and emits it as normal
@@ -11,9 +11,6 @@
  * counts as earning), idle principal ('free'), yield owed to payees
  * ('reward'). Net worth, the earning ring and the strategies shelf then count
  * the cage with zero special cases, exactly like a personal position.
- *
- * Read-only. FXRP is valued at the XRP price (1:1 FAssets backing) — the same
- * price the XRPL balance reader already fetched for the account's own XRP.
  */
 
 import type { CanonicalPosition } from '../../canonical/types/Position';
@@ -34,8 +31,7 @@ const vaultStateCache = new Map<
 >();
 
 /**
- * The abstraction layer for the person (founder 2026-08-01: "la familia no
- * debe conocer el smart contract"): a venue names the PROTOCOL it works in —
+ * The abstraction layer for the person: a venue names the PROTOCOL it works in —
  * the same slug Personal positions use, so the strategy card reads "kinetic"
  * with the same logo and words — never a receipt-token symbol or a venue id.
  * The naming itself lives in LegacyVaultStateService (one answer, shared with
@@ -56,7 +52,7 @@ function venueProtocolSlug(target: string, targetSymbol: string | null, venueId:
  * False (never a throw) when the legacy stack is unset or unreadable — a
  * portfolio scan must not fail because the cage cannot be resolved.
  *
- * This was the ONE surface that asked the question at all; since 2026-08-05 it
+ * This was the ONE surface that asked the question at all; It
  * is asked everywhere, so the answer lives in LegacyCageResolver (the seam for
  * per-Legacy stacks) and this stays as its portfolio-facing name.
  */

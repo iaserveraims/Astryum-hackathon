@@ -1,19 +1,6 @@
 /**
  * exchangeConstitutionTemplate — la constitución de un EXCHANGE custodial
- * sobre el raíl (fundador 13-sep: «en la constitución también debe aparecer la
- * r-address que la cuenta raíz acredita como omnibus donde viven los users»).
- *
- * La pieza clave es el Artículo 3: el omnibus aparece como REGLA + dirección
- * inicial — «la caja es la cuenta que sostenga la designación OMNIBUS vigente
- * emitida por esta raíz» — de modo que ROTAR la caja es un acto de designación
- * (visible en el ledger, anunciado a los clientes), no una enmienda
- * constitucional. La jerarquía hecha derecho.
- *
- * Mismas líneas rojas que la del gestor: nada de rentabilidades, Astryum no es
- * parte, jamás pedir aprobaciones sobre participaciones (inv. #18), y solo se
- * promete lo que el contrato hace cumplir o lo que el exchange se obliga.
- * Reutiliza literalmente las cláusulas del gestor que aplican igual (mismas
- * claves de dict); las específicas del exchange son nuevas.
+ * sobre el raíl.
  */
 
 export function buildExchangeConstitution(

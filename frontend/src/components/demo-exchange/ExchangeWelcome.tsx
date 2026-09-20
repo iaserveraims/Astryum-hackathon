@@ -1,52 +1,11 @@
 'use client';
 
 /**
- * ExchangeWelcome — LA PORTADA DEL EXCHANGE (fundador 2026-09-15: «una welcome
- * page que deja escoger entre entrar o create; son dos recuadros grandes donde
- * en cada uno hay entrar to exchange or client y crear exchange or client»).
+ * ExchangeWelcome — LA PORTADA DEL EXCHANGE.
  *
- * DOS RECUADROS GRANDES QUE NO SON BOTONES (fundador, misma tarde: «que sean
- * envoltorios donde dentro de cada uno haya las dos opciones a escoger»). El
+ * DOS RECUADROS GRANDES QUE NO SON BOTONES. El
  * recuadro no se pulsa: enmarca. Lo que se pulsa son las DOS opciones que viven
  * dentro, y por eso las cuatro puertas están a la vista de un golpe:
- *
- *   ┌ Entrar ───────────────────┐   ┌ Crear ────────────────────┐
- *   │ · Entrar al exchange      │   │ · Crear un exchange       │
- *   │ · Entrar como cliente     │   │ · Crear cuenta de cliente │
- *   └───────────────────────────┘   └───────────────────────────┘
- *
- * LO QUE NO HACE: no mueve nada de sitio. La mesa del operador sigue en
- * /app/exchange/operator, el alta sigue siendo la MISMA ventana de siempre
- * (openExchangeSetupOp → ExchangeSetupOperation) y la cuenta del cliente sigue
- * siendo ExchangeClientApp en esta misma página. Esto solo es la puerta.
- *
- * SALE SIEMPRE (fundador, mismo día): entrar a /app/exchange enseña la portada,
- * no la última elección. Elegir es un clic; adivinar mal, un rodeo.
- *
- * QUÉ ES ESTO — Y QUÉ NO ES (fundador 2026-09-15, rama de la ventana): antes de
- * las dos puertas, una descripción que deja claro que ASTRYUM NO ES UN
- * EXCHANGE. El producto es la ESTRUCTURA de uno, sobre la red, para que una
- * empresa con la credencial (y la autorización, que es suya) para atender
- * clientes cree aquí su propio exchange y lo opere con ellos. Astryum construye
- * y prepara; el operador firma con sus llaves, aprueba a sus clientes y lleva
- * sus libros. Cada frase de ese bloque afirma solo lo construido (el gate de
- * credencial del cliente corta en el backend — refuseWithoutCredential en
- * routes/demoExchange.ts; la credencial de la raíz es un objeto XLS-70 en el
- * ledger que la estación del alta lee; la salida del vault la firma la passkey
- * del cliente). Guardarraíl de copy de la casa: jamás «licenciado» ni
- * «regulado» como adjetivo de nadie en público — se dice DE QUIÉN es la
- * autorización, no que alguien la tenga.
- *
- * UNA SOLA PANTALLA, SIN SCROLL (fundador, misma tarde: «estática sin scroll…
- * el mismo tipo de UI —bordes, espacios y todo— pero más agrupado»). El mismo
- * contrato que el Home (app/page.tsx): en lg+ la columna toma el viewport
- * menos el py-8 del shell (min-h, no h — con pantalla baja la página crece y
- * hace scroll antes que recortar nada). Y para que quepa, todo se AGRUPA sin
- * cambiar de lenguaje: la cabecera es una línea (título a la izquierda, la
- * frase de las dos puertas a la derecha); la descripción es UN recuadro de
- * celdas con filete (HairlineGroup) — la declaración arriba, los tres hechos
- * debajo — en vez de una tarjeta con tres tarjetas dentro; y en cada puerta el
- * icono va en línea con el título y las opciones se aprietan un punto.
  */
 
 import { useRouter } from 'next/navigation';

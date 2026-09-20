@@ -1,5 +1,5 @@
 /**
- * flareProvider — UN JsonRpcProvider por URL, con red fija (2026-09-11).
+ * flareProvider — UN JsonRpcProvider por URL, con red fija.
  *
  * Cada ruta de lectura creaba `new ethers.JsonRpcProvider(url)` por petición;
  * sin `staticNetwork`, ethers pregunta `eth_chainId` antes de la primera

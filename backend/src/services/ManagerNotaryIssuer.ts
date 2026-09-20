@@ -1,24 +1,8 @@
 /**
  * ManagerNotaryIssuer — el ROBOT del notario: verifica y EMITE, sin juicio.
  *
- * El X3 de la revisión 2-sep («al PASS, un servicio firma la CredentialCreate
+ * El X3 de la revisión («al PASS, un servicio firma la CredentialCreate
  * con la llave emisora»), aplicado al carril del gestor. Dos emisiones:
- *
- *  · KYC  — el gestor pega su atestación de Coinbase (EAS en Base) y firma un
- *    reto con la wallet EVM atestada. El robot LEE la atestación on-chain
- *    (emisor Coinbase, schema, no revocada), verifica la firma del reto
- *    (binding EVM↔r-address) y firma la XLS-70 con el `URI` apuntando a la
- *    atestación. Cero documentos, cero juicio: hechos verificables.
- *  · AIFM — el robot re-ejecuta los checks del notario (Domain + toml +
- *    registro, `ManagerNotaryVerifier`) y solo emite si TODOS pasan.
- *
- * La llave emisora es de SERVICIO (como el ómnibus/executor — jamás una llave
- * de usuario): vive en `MANAGER_ISSUER_SEED`, se usa en UN solo sitio, nunca
- * se loguea, y el robot se niega tipado a firmar nada que no sea una
- * CredentialCreate de los tipos configurados. La ACEPTACIÓN sigue siendo del
- * gestor en su Xaman — es su consentimiento y no se automatiza jamás.
- *
- * Feature-flag: `MANAGER_NOTARY_ISSUER_ENABLED` (apagado por defecto).
  */
 
 import { ethers } from 'ethers';
@@ -162,8 +146,7 @@ export async function readEasAttestation(uid: string, cfg: NotaryIssuerConfig): 
   }
 }
 
-/* ── DESCUBRIR la atestación sin pegar nada (fundador 9-sep: «siempre que se
- * pueda reducir el proceso, hacerlo, mientras no afecte a lo legal») ────────
+/* ── DESCUBRIR la atestación sin pegar nada ────────
  *
  * Antes el gestor tenía que buscar su atestación en easscan y pegar la URL.
  * Ahora se pregunta al indexador de EAS por la wallet EVM que tiene conectada:
@@ -385,8 +368,7 @@ async function signAndSubmitAsIssuer(txjson: Record<string, unknown>, cfg: Notar
 }
 
 /**
- * RENOVACIÓN (fundador 5-sep: «cuando el KYC se revoque, poder volverlo a
- * establecer con una firma»). El mismo triple (emisor, sujeto, tipo) no puede
+ * RENOVACIÓN. El mismo triple (emisor, sujeto, tipo) no puede
  * re-emitirse mientras el objeto viejo exista (`tecDUPLICATE`): si el sujeto
  * sostiene una del MISMO emisor y tipo caducada / a punto / sin aceptar, el
  * robot la BORRA primero (CredentialDelete, firma del emisor) y emite fresca.
@@ -479,8 +461,7 @@ export async function issueAifmFromChecks(input: { subject: string; expirationDa
   const { xrplWalletFromSecret } = await import('../utils/xrplSecret');
   const issuerAddress = xrplWalletFromSecret(cfg.seed).classicAddress;
 
-  // TENER no es EMITIR (fundador 9-sep: el panel decía «falta Domain» a un
-  // gestor que YA sostiene la AIFM). Los checks del notario (Domain + toml +
+  // TENER no es EMITIR. Los checks del notario (Domain + toml +
   // registro) son la prueba para EMITIR una nueva; una credencial ya aceptada y
   // vigente vale por sí misma — la lee el gate del ledger, no necesita nada más.
   // Así que si el sujeto ya la sostiene vigente de ESTE emisor, no hay nada que
@@ -533,26 +514,13 @@ export async function issueAifmFromChecks(input: { subject: string; expirationDa
  * seed que ya usa para la KYC, SALTÁNDOSE los checks del notario (Domain + toml
  * + registro). Cada raíz recibe la de su sector: AIFM el gestor, CASP el
  * exchange — el gate lee `AIFM|CASP,KYC` como (una de las dos) y (identidad).
- *
- * Es una excepción CONSCIENTE al guardarraíl «el robot no emite licencias sin
- * checks», acotada a: (1) su propio flag, apagado por defecto
- * (`MANAGER_DEMO_AIFM_ENABLED`); (2) la ruta ata el sujeto a una wallet de la
- * PROPIA cuenta y pone tope por cuenta y por día — desde el 15-sep ya NO exige
- * admin: el jurado tiene que poder recorrer la mesa entera con su cuenta
- * (fundador); (3) la lista cerrada `DEMO_LICENSE_TYPES` — la KYC jamás sale de
- * aquí. Existe SOLO para el rodaje: probar los carriles sin que la cuenta demo
- * declare un Domain real (que no tiene). JAMÁS es una atestación regulatoria — en producción el
- * AIFM sale únicamente de `issueAifmFromChecks`. La aceptación sigue siendo del
- * sujeto en su Xaman (su consentimiento no se automatiza).
  */
 /**
  * Lo que la emisión de DEMO puede firmar con el modelo paste-link→URI — cada
  * raíz la licencia de SU sector, y la identidad de su VEHÍCULO:
  *  · AIFM — gestor de vehículos agrupados
  *  · CASP — exchange (MiCA)
- *  · KYB  — el registro del vehículo legal (el asiento de la SL en el registro
- *    mercantil; fundador 13-sep: la raíz de un exchange es una SOCIEDAD — su
- *    identidad es el registro público, no un KYC personal). El link al asiento
+ *  · KYB  — el registro del vehículo legal. El link al asiento
  *    viaja como URI y se enseña: quien confíe, lo comprueba.
  * Lista CERRADA a propósito: la KYC PERSONAL jamás sale de aquí (esa exige la
  * atestación real de Coinbase, `issueKycFromCoinbase`).
@@ -571,7 +539,7 @@ export async function issueAifmDemo(input: { subject: string; expirationDays?: n
   if (!DEMO_LICENSE_TYPES.includes(licenseType)) {
     throw new NotaryIssuerError('INVALID_SUBJECT', `credentialType debe ser una licencia de la lista cerrada (${DEMO_LICENSE_TYPES.join(', ')}) — la KYC no sale de aquí`);
   }
-  // V1 del link (fundador, 13-sep): el user pega el enlace de su licencia y la
+  // V1 del link: el user pega el enlace de su licencia y la
   // credencial lo lleva como URI — el LINK ES la credencial. Astryum no lo
   // verifica: por eso el link tiene que enseñarse siempre al depositante
   // («compruébalo tú»). Solo https, y con el tope de la XLS-70 (256 bytes).

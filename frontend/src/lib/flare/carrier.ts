@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * carrier — the LIVE minimum carrier of every 0xFE dispatch (founder
- * 2026-08-17: the carrier stops being a user knob). The backend computes it
+ * carrier — the LIVE minimum carrier of every 0xFE dispatch. The backend computes it
  * from live protocol fees (minting floor + executor fee + 0.05 margin,
  * floored at 0.35 XRP) so it can never block an operation; the flows send
  * this figure as `amountXrpForMint` and show it read-only.

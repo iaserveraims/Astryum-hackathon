@@ -40,7 +40,7 @@ describe('shouldRefreshManagedSnapshot — la estantería relee cuando toca', ()
     expect(shouldRefreshManagedSnapshot(base)).toBe(false);
   });
 
-  it('ANOTHER account signed in (the 17-sep bug): the previous pass is not theirs', () => {
+  it('ANOTHER account signed in (the bug): the previous pass is not theirs', () => {
     expect(shouldRefreshManagedSnapshot({ ...base, currentAccount: 'tok-B' })).toBe(true);
     expect(shouldRefreshManagedSnapshot({ ...base, currentAccount: null })).toBe(true);
   });

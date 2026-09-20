@@ -1,5 +1,5 @@
 /**
- * El escáner KWYH también en las dos salidas que no lo corrían (2026-09-14).
+ * El escáner KWYH también en las dos salidas que no lo corrían.
  *
  * `/vault/prepare` (vault_withdraw) y `/bridge/prepare` (to-flare) son SALIDAS: solo
  * flag, sin geovalla. Sus modales (EmExitModal, EmBridgeModal) pintan

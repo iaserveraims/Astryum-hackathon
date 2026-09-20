@@ -10,17 +10,6 @@
  * builds a payload or reaches the signing path (invariants #1 / #7 / #8), and it
  * works on abstract intent only — real names/addresses stay in the browser and go
  * into the forms, never to the model.
- *
- * Reuses the exact SSE mechanics of ProductAssistant.tsx (proven), inlined here so
- * the discovery agent lives at the top of the Legacy entry instead of a floating
- * corner widget.
- *
- * UNMOUNTED from LegacyPanel (founder 2026-08-04): the embedded card's left
- * column ate a third of the ceremony's width. The Guía now lives inside the
- * global co-pilot — ProductAssistant in Legacy product mode talks to the same
- * endpoint with the same journey context (lib/legacy/guideContext bus) and the
- * suggested starters exported below. This component is preserved; re-mount it
- * if an embedded surface ever earns its place back.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -5,18 +5,6 @@
  * signs: the create button keeps going through the existing SIWE+step-up-gated
  * POST /api/rules (one call per translated rule) so the agent gains no new
  * path toward a wallet. What lives here:
- *
- *   POST /translate — deterministic dry-run: validated CMF in → AutomationRule
- *                     payloads out (or readable errors). No DB writes.
- *   GET  /?address= — list a wallet's rules GROUPED by canonicalRef so a flow
- *                     can be shown/paused/deleted as a unit.
- *   GET  /capability — the honest per-chain matrix (the UI/agent read it,
- *                     they never guess).
- *   POST /:ref/pause · /:ref/resume · DELETE /:ref — flow-level revocation
- *                     (guardarraíl: revocación del dueño instantánea). These
- *                     flip/delete the flow's OWN AutomationRules only — pure
- *                     vigilancia; no signed anything is touched because in
- *                     sign-at-trigger mode nothing signed exists to revoke.
  */
 
 import { Router, Request, Response } from 'express';
@@ -29,7 +17,7 @@ import { FLARE_EVM_CAPABILITY, XRPL_CAPABILITY } from '../canonical/moneyflow/Ch
 
 const router = Router();
 
-// ── Ownership (productizer 13-sep) ───────────────────────────────────────────
+// ── Ownership ───────────────────────────────────────────
 // A public address is not a key. The wallet lookups here used to match the
 // address ALONE, so any session could list, pause, resume or delete another
 // user's flows by typing their address. Every lookup is now the session user's
@@ -58,7 +46,7 @@ const translateBodySchema = z.object({
 });
 
 // POST /api/moneyflows/translate — CMF → rule payloads (dry-run, no writes).
-// chainId 1440002 compiles through the XRPL translator (M4, 2026-08-16);
+// chainId 1440002 compiles through the XRPL translator (M4);
 // anything else keeps the Flare/EVM path. Price floors need a LIVE read to
 // become drop-from-baseline rules — the route reads it (best-effort) so the
 // translator stays pure; a failed read surfaces as its readable error.
@@ -106,7 +94,7 @@ router.post('/translate', asyncHandler(async (req: Request, res: Response) => {
 // GET /api/moneyflows?address= — the wallet's rules grouped by canonicalRef.
 // The address can be EVM (0x…) or XRPL (r…): the strategies page lists flows
 // for whatever wallet is active, and the EVM-only regex used to 400 every
-// XRPL wallet (console spam, 2026-07-19). Same loose schema as the flow-level
+// XRPL wallet (console spam). Same loose schema as the flow-level
 // routes; unknown addresses simply return an empty list.
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const userId = sessionUserId(req);

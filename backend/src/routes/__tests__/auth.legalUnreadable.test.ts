@@ -1,31 +1,6 @@
 /**
- * productizer it. 25 — UNA LECTURA ILEGIBLE JAMÁS ENCIERRA A NADIE FUERA DE SU
+ * UNA LECTURA ILEGIBLE JAMÁS ENCIERRA A NADIE FUERA DE SU
  * APLICACIÓN.
- *
- * The pure logic is proved next door (config/__tests__/legalAcceptance.test.ts).
- * THIS file exists because testing the pieces does not prove the chain exists —
- * the lesson this repo keeps re-learning. The bug was never in one function: it
- * was in the JOIN between three correct decisions.
- *
- *   1. `readTakeoverAtStrict` fails closed on an unparseable
- *      `preferences.security` — right, and it stays;
- *   2. `applyPreferencesUpdate` refuses to write over a `preferences` column
- *      that is not an object (409 `PREFERENCES_UNREADABLE`, not retryable) —
- *      right, and it stays: the object it would write has no `security` key,
- *      and a row with no `security` key resurrects every binding the previous
- *      holder attached;
- *   3. the client mounts a NON-DISMISSABLE modal whenever `legal.required` is
- *      true, in front of the whole /app tree.
- *
- * Joined: GET /auth/me said `required: true` for a row nobody could read, the
- * modal opened, its only button posted /auth/legal-accept, and that answered
- * 409 for ever. The person could not enter — and the legal gate sits in front
- * of every capital route, so their EXITS were behind it too.
- *
- * So these tests drive the two real endpoints over a corrupt column and assert
- * the two halves of the way out: /auth/me does NOT ask for a signature, and
- * /auth/legal-accept still refuses (it must) but hands back the same
- * «unreadable» verdict instead of leaving the caller in a loop.
  */
 
 const mockUserFindUnique = jest.fn();

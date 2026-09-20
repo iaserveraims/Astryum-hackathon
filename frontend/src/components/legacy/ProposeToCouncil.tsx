@@ -29,13 +29,9 @@ import { councilProposalsApi, type MultisigPrepare } from '../../services/v1Api'
  * issues no verdict, and expiry lands on the unresolved-seat guard — so the
  * newest, longest and most specific sentence was the one being discarded, and
  * the family kept reading the retired one.
- *
- * One reader now (`serverRefusal`, the superset of the six twins). Named, and
- * module-level, so the rule can be EXECUTED by a test instead of read off the
- * source; the twin in GovernedMovements (`proposeError`) has the same shape.
  */
 /**
- * productizer it. 27 (3) — Y EL LECTOR COMPARTIDO TIRABA LAS SALIDAS.
+ * Y EL LECTOR COMPARTIDO TIRABA LAS SALIDAS.
  *
  * Delegar arregló la FRASE en la it. «prosa-y-lectores», pero `serverRefusalText`
  * devolvía una cadena: el `headline`, las `ways[]` y el `retryAfterSeconds` que el
@@ -64,7 +60,7 @@ export default function ProposeToCouncil({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(defaultTitle ?? '');
   const [busy, setBusy] = useState(false);
-  // it. 27 (3): una frase nuestra, o un rechazo LEÍDO con sus salidas y su puerta.
+  // Una frase nuestra, o un rechazo LEÍDO con sus salidas y su puerta.
   const [error, setError] = useState<string | ReadableRefusal | null>(null);
   const [done, setDone] = useState<{ id: string; preflight: MultisigPrepare['preflight'] } | null>(null);
 
@@ -103,7 +99,7 @@ export default function ProposeToCouncil({
 
   // The ASYNC tempo. Twinned with CouncilMultisigFlow's idle block above it: the
   // pair has to contrast in WHERE each member signs, not only in how long it
-  // takes (2026-08-04).
+  // takes.
   if (!open) {
     return (
       <div className="space-y-1">

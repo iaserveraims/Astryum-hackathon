@@ -1,27 +1,11 @@
 'use client';
 
 /**
- * ExchangeClientApp — la cuenta del cliente en su exchange, PRODUCTIZADA
- * (fundador 14-sep: «una ui como la de un exchange para un user… para entrar
- * pide passkey, para hacer acciones de movimiento de assets pide passkey…
- * perfil de usuario donde pone que tiene el KYC… sitio para entrar a vault con
- * su xrp… sitio para depositar xrp en la cuenta del exchange… sitio para sacar
- * fxrp del vault y retirar a su cuenta particular»).
+ * ExchangeClientApp — la cuenta del cliente en su exchange, PRODUCTIZADA.
  *
  * Cinco pantallas sobre UNA cuenta: Inicio · Depositar · Vault · Retirar · Perfil.
  * La lógica es la de siempre (useExchangeClient ⇐ ClientInner); aquí solo cambia
- * la casa. La maqueta de referencia: claude.ai/code/artifact/ffc46fca-….
- *
- * LA PASSKEY, dicho con precisión:
- *   · ENTRAR: la pestaña Exchange pide la passkey del dispositivo (una firma
- *     WebAuthn local) antes de abrir la cuenta. Es un cerrojo de pantalla, NO
- *     una sesión de servidor: la propiedad de la fila la sigue decidiendo la
- *     sesión de Astryum en el backend. El resto de Astryum no se toca.
- *   · MOVER: sacar del vault lo firma la passkey (es la llave de la cuenta de
- *     las participaciones). Meter en el vault y retirar XRP del exchange los
- *     ejecuta el exchange desde su omnibus a petición del cliente.
- *   · DEPOSITAR: lo firma la wallet XRPL donde está el XRP. Una passkey
- *     (WebAuthn P-256) no firma en el XRP Ledger — y se dice en pantalla.
+ * la casa.
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -130,8 +114,7 @@ function PasskeyEntry({ children }: { children: (account: string) => ReactNode }
           {t('Sign in with passkey')}
         </PrimaryButton>
         {error ? <p className="mt-3 text-[12px] text-tone-warning">{t(error)}</p> : null}
-        {/* LA SALIDA DEL CERROJO (fundador 14-sep: «no puedo acceder al exchange
-            creado»). Con una llave guardada que en ESTE navegador no firma (en el
+        {/* LA SALIDA DEL CERROJO. Con una llave guardada que en ESTE navegador no firma (en el
             PC, la de un intento de Windows; la buena vive en el móvil), el único
             botón la volvía a pedir para siempre. Olvidar es solo el material
             PÚBLICO local: la llave sigue en su dispositivo. */}
@@ -179,13 +162,13 @@ function ClientPortal({ account, intent = 'create' }: { account: string; intent?
     | { phase: 'error'; refusal: Refusal }
   >({ phase: 'resolving' });
   const [chosen, setChosen] = useState<string | null>(null);
-  // it. 21 (3.2): «try again» has to actually try again — a counter the effect
+  // «try again» has to actually try again — a counter the effect
   // depends on, so the button re-asks instead of only re-wording the wall.
   const [attempt, setAttempt] = useState(0);
-  // ENTRAR NO ES CREAR (15-sep, la portada): al que viene a entrar y no tiene
+  // ENTRAR NO ES CREAR (la portada): al que viene a entrar y no tiene
   // ficha se le dice que aún no tiene cuenta — no se le mete un alta que no
   // pidió. Al que viene a crearla, el alta es exactamente lo que pidió.
-  // Y CREAR NO ES ENTRAR (18-sep): la llave que ya es cliente de un exchange
+  // Y CREAR NO ES ENTRAR: la llave que ya es cliente de un exchange
   // viene a pedir acceso a OTRO — la regla entera en lib/demo-exchange/clientPortalView.
   const [opening, setOpening] = useState(intent === 'create');
 
@@ -197,7 +180,7 @@ function ClientPortal({ account, intent = 'create' }: { account: string; intent?
       if (!r.ok) return setState({ phase: 'error', refusal: r.refusal });
       setState({ phase: 'ready', data: portalDataFrom(r.data) });
     }).catch((e: unknown) => {
-      // it. 33 (7): `fetch` itself can throw (offline, DNS, CORS); without this
+      // `fetch` itself can throw (offline, DNS, CORS); without this
       // the portal stayed on «Finding your exchange…» forever. A network failure
       // is a retryable «could not read», never «no exchange».
       if (cancelled) return;
@@ -208,13 +191,13 @@ function ClientPortal({ account, intent = 'create' }: { account: string; intent?
 
   if (state.phase === 'resolving') return <EmptyState variant="loading" title={t('Finding your exchange…')} />;
   if (state.phase === 'error') {
-    // it. 21 (3.2) — «NO PUDE LEER» NO ES «NO EXISTE». The strict run read (it. 19)
+    // «NO PUDE LEER» NO ES «NO EXISTE». The strict run read
     // turned a database blink into a 500 and this screen into «your exchange could
     // not be found», which tells a client their account is gone. A retryable
     // refusal (503 RUN_UNREADABLE and friends) says what it is — nothing changed —
     // and offers the only useful action.
     //
-    // it. 31 (4.2) — and this is now ALSO where a takeover mark the server could
+    // And this is now ALSO where a takeover mark the server could
     // not use lands (503 OWNERSHIP_UNREADABLE from `for-account`), instead of the
     // `heldElsewhere.reclaimRequired` branch below, which has no button. The
     // phase is its own component so a test can render it against the real
@@ -226,7 +209,7 @@ function ClientPortal({ account, intent = 'create' }: { account: string; intent?
   const view = portalView({ mode: opening ? 'create' : 'enter', data, chosen });
   if (view.kind === 'run') return <ClientRunView runId={view.runId} account={account} />;
 
-  // La llave YA es cliente, pero su ficha no es de esta sesión (14-sep). Antes caía
+  // La llave YA es cliente, pero su ficha no es de esta sesión. Antes caía
   // en «abrir una cuenta» — con un solo exchange, directo a crear una SEGUNDA
   // ficha para la misma llave. Se dice qué pasa, sin decir de quién es.
   const heldNote = data.heldElsewhere ? (
@@ -390,7 +373,7 @@ function ClientDashboard({ demo, account }: { demo: DemoRunApi; account: string 
     return () => window.clearInterval(id);
   }, [scan]);
 
-  // it. 33 (2) — «NO PUDE LEER SI ESTA CUENTA ES TUYA» NO ES «ABRE UNA». The
+  // «NO PUDE LEER SI ESTA CUENTA ES TUYA» NO ES «ABRE UNA». The
   // book reloads every 20 s; with the viewer's takeover mark unusable the server
   // answers every row `mine:false` and `c.me` went undefined — a person with XRP
   // at the exchange saw «Open an account» (and a 409 if they tried). The server
@@ -487,7 +470,7 @@ function ClaimCard({ c }: { c: ExchangeClientApi }) {
 interface ActivityRow { key: string; at: string; title: string; detail: string; amount: string; tone: 'success' | 'info' | 'warning' | 'neutral' | 'danger'; status: string; href?: string }
 
 /**
- * 18-sep — LA MESA LA TOMÓ PARA FIRMARLA POR QR. En el backend es una cesión
+ * LA MESA LA TOMÓ PARA FIRMARLA POR QR. En el backend es una cesión
  * ('refused' con `TAKEN_BY_THE_DESK`), pero para el cliente no es una negativa:
  * su movimiento sigue, ahora como pago de la mesa (ver `deskPaymentStatus`).
  */
@@ -536,7 +519,7 @@ function useActivity(c: ExchangeClientApi, demo: DemoRunApi): ActivityRow[] {
         href: r.txHash ? `https://xrpscan.com/tx/${r.txHash}` : undefined,
       });
     }
-    // Los pagos que la mesa firma por QR desde el omnibus (18-sep): sin ellos,
+    // Los pagos que la mesa firma por QR desde el omnibus: sin ellos,
     // una retirada servida a mano no llegaba nunca a «Hecho» en esta lista.
     for (const p of c.run.deskPayments ?? []) {
       if (p.clientId !== c.me?.id) continue;
@@ -604,8 +587,7 @@ function HomePanel({ c, demo, kyc, go }: { c: ExchangeClientApi; demo: DemoRunAp
   const exchangeDrops = BigInt(c.me?.xrpOnExchangeDrops || '0');
   // FXRP y XRP van a 6 decimales: la suma es exacta en unidades base.
   const total = c.dec === 6 ? exchangeDrops + c.estValue : exchangeDrops;
-  // 18-sep (fundador: «pone +13 XRP are on the way… y no se hace ningún
-  // payload»). Sin autopilot, una petición PENDIENTE no va de camino: espera a
+  // . Sin autopilot, una petición PENDIENTE no va de camino: espera a
   // que el exchange la firme desde su omnibus con un QR. «En camino» es solo lo
   // que ya lleva firma (la petición firmada o el pago de la mesa firmado).
   const myDesk = (c.run.deskPayments ?? []).filter((p) => p.clientId === c.me?.id && p.kind === 'put-to-work');
@@ -903,7 +885,7 @@ function VaultPanel({ c }: { c: ExchangeClientApi }) {
             >
               {c.busy === 'ask' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />} {t('Put it into the vault')}
             </PrimaryButton>
-            {/* it. 31 — el rechazo JUNTO AL BOTÓN, y con su puerta: una entrada
+            {/* El rechazo JUNTO AL BOTÓN, y con su puerta: una entrada
                 muerta delante (409 REQUEST_PENDING) o una salida/reserva que
                 retiene el saldo (409 INSUFFICIENT_AVAILABLE_BALANCE) traen los
                 ids que el propio dueño puede soltar; aquí se pulsan. */}
@@ -1114,8 +1096,7 @@ function WithdrawPanel({ c, demo }: { c: ExchangeClientApi; demo: DemoRunApi }) 
               >
                 {c.busy === 'exit-prepare' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpFromLine className="h-4 w-4" />} {t('Review the exit')}
               </PrimaryButton>
-              {/* UN BOTÓN APAGADO SIN MOTIVO ES UN BUG (fundador 15-sep: «no me
-                  funciona»). El motivo se dice siempre: sin participaciones no
+              {/* UN BOTÓN APAGADO SIN MOTIVO ES UN BUG. El motivo se dice siempre: sin participaciones no
                   hay nada que redimir, y eso no se adivina mirando un botón
                   gris. */}
               {blockedReason ? <p className="mt-2 text-[12px] text-tone-warning">{blockedReason}</p> : null}
@@ -1149,7 +1130,7 @@ function WithdrawPanel({ c, demo }: { c: ExchangeClientApi; demo: DemoRunApi }) 
                 <PrimaryButton onClick={() => { void c.askWithdraw(xrpAmount).then((ok) => { if (ok) setXrpAmount(''); }); }} disabled={c.busy !== null || !XRP_RE.test(xrpAmount)} className="mt-4 w-full py-3">
                   {c.busy === 'withdraw' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpFromLine className="h-4 w-4" />} {t('Withdraw to my wallet')}
                 </PrimaryButton>
-                {/* it. 31 — LA SALIDA JAMÁS SE GATEA, y cuando el servidor la
+                {/* LA SALIDA JAMÁS SE GATEA, y cuando el servidor la
                     retiene por algo en vuelo, la puerta del dueño se pulsa aquí
                     (o «Try again» si lo que falló fue una lectura nuestra). */}
                 {c.error && c.requestRefusal?.kind === 'withdraw' ? <p className="mt-2 text-[12px] text-tone-warning">{c.error}</p> : null}
@@ -1220,7 +1201,7 @@ function ProfilePanel({ c, demo }: { c: ExchangeClientApi; demo: DemoRunApi }) {
 }
 
 /**
- * `intent` — con qué puerta de la portada se llegó (15-sep). «create» es el
+ * `intent` — con qué puerta de la portada se llegó. «create» es el
  * comportamiento de siempre (si no hay ficha, se abre una); «enter» dice antes
  * que aquí no hay cuenta todavía. Ninguna de las dos cambia una regla de dinero.
  */

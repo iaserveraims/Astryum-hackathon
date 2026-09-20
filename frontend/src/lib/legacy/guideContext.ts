@@ -3,8 +3,7 @@
 /**
  * guideContext — the bridge between the Legacy panel and the global co-pilot.
  *
- * The embedded Guía chat (LegacyDiscovery) was UNMOUNTED from the Legacy panel
- * (founder 2026-08-04: its left column ate a third of the ceremony's width).
+ * The embedded Guía chat (LegacyDiscovery) was UNMOUNTED from the Legacy panel.
  * Its brain moved into ProductAssistant, which in Legacy product mode IS the
  * Guía. What the panel still owns is the CONTEXT: the abstract journey state
  * of the Legacy under inspection — public ledger flags and small counters

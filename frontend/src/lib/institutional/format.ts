@@ -1,6 +1,6 @@
 /**
  * format — los DOS formateos que toda la superficie de managed vaults repetía
- * a mano en trece ficheros (revisión 10-sep): la dirección abreviada y la
+ * a mano en trece ficheros (revisión): la dirección abreviada y la
  * ventana de salida. Una sola regla, para que la misma cuenta no se trunque a
  * tres anchuras distintas y un plazo de 10 minutos no salga como «0 h».
  */

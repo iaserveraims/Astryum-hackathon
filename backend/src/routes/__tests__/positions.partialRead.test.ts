@@ -1,17 +1,13 @@
 /**
- * Ola 0 (15-sep) — `GET /api/positions/:wallet` UNDER ONE 429.
+ * `GET /api/positions/:wallet` UNDER ONE 429.
  *
  * THE FAILURE (two reviewers). The carry holder (FXRP supplied + USDT0
  * borrowed on Kinetic ISO) opens Positions while the public gateway 429s ONE
  * of the ~20 reads the Kinetic adapter makes — the `balanceOf` probe of a
- * market they never touched. it. 31 made that probe throw; the adapter's two
+ * market they never touched. Made that probe throw; the adapter's two
  * `Promise.all`s carried the throw up; this route answered HTTP 200 with
  * `{ protocolId: 'kinetic', error, positions: [] }`; the board only read
  * `positions`. Result: zero Kinetic rows, zero «Repay» door, zero sentence.
- *
- * THE CONSUMER UNDER TEST: the real router, the real KineticAdapter and the
- * real FirelightAdapter, over a fake node that refuses exactly the reads we
- * name. Assertions are over the JSON the board receives.
  */
 import express from 'express';
 import request from 'supertest';
@@ -149,7 +145,7 @@ describe('ola 0 · GET /api/positions/:wallet degrades per market, and says what
     ]);
   });
 
-  it('an adapter that falls ENTIRELY keeps the it. 29 shape — `error` + no rows — still HTTP 200 beside the ones that answered', async () => {
+  it('An adapter that falls ENTIRELY keeps the shape — `error` + no rows — still HTTP 200 beside the ones that answered', async () => {
     const res = await request(app).get(`/api/positions/${WALLET}`);
     const firelight = (res.body.results as Block[]).find((b) => b.protocolId === 'firelight')!;
     expect(firelight.positions).toEqual([]);

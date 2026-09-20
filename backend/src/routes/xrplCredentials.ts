@@ -5,16 +5,6 @@
  *   1. LEER del ledger las credenciales que sostiene una cuenta (público).
  *   2. COMPONER, sin firmar, el `CredentialAccept` que el SUJETO firma en su
  *      Xaman — esa firma ES el consentimiento (invariante #1).
- *
- * No hay endpoint de emisión aquí a propósito: el título lo concede un tercero
- * (decisión del fundador 24-ago y 27-ago). Si algún día hiciera falta componer
- * el `CredentialCreate` de un emisor que use nuestra UI, vive en la ceremonia
- * institucional, no aquí — para que esta superficie no pueda confundirse con
- * «Astryum verifica».
- *
- * Una credencial sin `Accepted` existe pero NO vale: mientras no se acepta, la
- * reserva la sostiene el emisor y ninguna puerta del ledger la reconoce. Por eso
- * hace falta la bandeja: aceptar es del sujeto, y hasta hoy no tenía dónde.
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -332,7 +322,7 @@ router.post('/notary/issue-kyc', guarded(async (req, res) => {
 
 /**
  * GET /notary/discover?subject=r…&evmAddress=0x… — encuentra la atestación de
- * Coinbase de ESA wallet sin que el gestor pegue nada (9-sep). Solo lectura:
+ * Coinbase de ESA wallet sin que el gestor pegue nada. Solo lectura:
  * indexador de EAS como pista, la cadena como verdad. Devuelve el uid, la URL
  * canónica y el RETO ya compuesto para que la wallet lo firme — la emisión
  * sigue siendo POST /notary/renew con esa firma, como siempre.
@@ -413,33 +403,6 @@ export const demoLicenseLimiter = createSlidingWindowLimiter({
  * ManagerNotaryIssuer.issueAifmDemo). La aceptación sigue siendo del sujeto en su
  * Xaman. Jamás es una atestación regulatoria real: el link viaja como URI y quien
  * confíe lo comprueba.
- *
- * QUIÉN PUEDE PEDIRLA (fundador 2026-09-20: «quitemos los botones de issue
- * credential demo para que la gente no pueda probarlo así como así … el producto
- * se podrá probar solo si tienes las credenciales»; y, al aprobar el cierre: «hay
- * que reubicar los issuing de credentials demo en la consola admin»).
- *
- * Del 15-sep al 20-sep esta puerta estuvo abierta a CUALQUIER cuenta con sesión
- * para que el jurado pudiera recorrer la mesa entera. Tenía dos problemas que el
- * tope por cuenta no resolvía: (1) este router NO va tras el interruptor del
- * módulo (`INSTITUTIONAL_POTES_ENABLED`), así que en producción lo único entre un
- * usuario cualquiera y una CASP firmada en mainnet era UNA variable de Railway;
- * (2) una credencial que cualquiera se emite a sí mismo deja de decir nada, y es
- * justo lo que abre la jaula. Vuelve la puerta de los fundadores, entera
- * (`requireAdmin`: sesión del panel, llave, o email de la allowlist verificado).
- *
- * Lo que queda en pie, y por qué:
- *   1. `requireAdmin` — 404 si el panel no está configurado, 403 `NOT_AN_ADMIN`
- *      para una cuenta corriente. La interfaz que la pedía desde el producto se
- *      retiró; vive en /app/admin.
- *   2. el flag `MANAGER_DEMO_AIFM_ENABLED` (kill-switch; lo comprueba el
- *      servicio) — en un entorno con el flag apagado nada de esto existe;
- *   3. el tope por cuenta y por día de arriba: protege la reserva del emisor
- *      también de un fundador con prisa.
- * El sujeto YA NO tiene que ser una wallet de la cuenta que pide: desde la
- * consola, el fundador emite para la cuenta que va a rodar (la suya, la del
- * socio, la de un jurado). Esa regla existía para que un extraño no gastara
- * reserva apuntando a r-addresses ajenas; con la puerta de admin, sobra.
  */
 router.post('/notary/issue-aifm-demo', requireAdmin, guarded(async (req, res) => {
   const userId = req.siwe?.userId;

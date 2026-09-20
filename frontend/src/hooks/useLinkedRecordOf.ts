@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * useLinkedRecordOf — EL NOMBRE DEL DUEÑO EN TODO SELECTOR (fundador
- * 2026-09-13: «en todos los sitios que haya que escoger wallet debe aparecer
- * el nickname y la dirección — y no aparece»).
+ * useLinkedRecordOf — EL NOMBRE DEL DUEÑO EN TODO SELECTOR.
  *
  * Las wallets de SESIÓN (walletStore) llevan la etiqueta autogenerada del
  * conector («Xaman 1 (rwc9…)»), no el apodo que el usuario puso en Wallets —

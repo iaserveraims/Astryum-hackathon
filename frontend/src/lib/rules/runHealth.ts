@@ -1,30 +1,6 @@
 /**
  * runHealth — the ONE reducer that turns GET /rules/:id/runs into a verdict a
  * human can read, plus the loader that fetches it honestly.
- *
- * WHY THIS FILE EXISTS (G4-strategies, auditoría 2026-08-17 §G4):
- *
- * When an AutomationRule fires, the engine records an AutomationRun
- * (backend/src/engines/automation/AutomationEngine.ts). If the ACTION could not
- * be composed — `NoCageForLegacy`, `NOT_A_COUNCIL`, `council_compose_failed`,
- * `scheduled_payment_invalid`, a failed prepare — the run is stored with
- * `status: 'error'` and the reason in `notes`, and then, BY DESIGN (the «éxito
- * no ganado» guard), `totalTimesTriggered` is NOT incremented and NO push is
- * sent. Correct on the engine side, catastrophic on every surface that decides
- * a rule's state from its ROW: with no counter and no push, a rule that failed
- * every single fire rendered exactly like a healthy one — green «active»,
- * «expires in 87d» — and an owner read that as protection.
- *
- * Round 1 fixed three surfaces (MoneyFlowsPanel, LegacyActivityFeed,
- * DefiPositionsBoard) by pasting the SAME reducer into each of them, each copy
- * carrying a comment promising that the shared home «is a follow-up». This is
- * that home. Three literal copies were one accident away from four, and four
- * copies of a verdict is four chances for two surfaces to disagree about the
- * same rule — which is the failure mode this whole front exists to kill.
- *
- * DOCTRINE (CLAUDE.md): never paint green over a state we did not read. «I
- * could not read it» is NOT «it never fired», and neither of them is «it works».
- * That is why `unreadable` is a first-class verdict and not a silent catch.
  */
 
 /** One row of GET /rules/:id/runs (backend/src/routes/rules.ts, newest first). */
@@ -63,10 +39,6 @@ export const UNREAD: RunHealth = { state: 'unread' };
  * engine gave up on it — the abandonment notice was invisible AND inverted.
  * `expired` is not a state of the world we merely failed to read: it is the
  * engine saying, in its own row, that nothing was sent and nothing was signed.
- *
- * `triggered` / `intent_prepared` / `proposal_created` / `user_acted` stay out:
- * they cover the honest cases the engine retries after the cooldown (a busy
- * council, a debt already repaid).
  */
 const FAILED_RUN_STATUSES: ReadonlySet<string> = new Set(['error', 'expired']);
 
@@ -100,32 +72,9 @@ export type RulePillTone = 'neutral' | 'success' | 'warning' | 'danger';
 export type RulePillState = 'paused' | 'failing' | 'unreadable' | 'unread' | 'active';
 
 /**
- * G4-pildoras (round 3) — THE BUG THIS CLOSES.
+ * G4-pildoras — THE BUG THIS CLOSES.
  *
  * Every surface wrote the same expression by hand:
- *
- *   tone={!r.enabled ? 'neutral' : failing ? 'danger' : 'success'}
- *
- * with `failing = isFailing(health)`. `isFailing` is true ONLY for `failed`, so
- * `unread` and `unreadable` both fell into the green `success` arm. Two
- * consequences, both verified on screen:
- *
- *   · first paint of EVERY surface: each enabled rule reads a green «active»
- *     for the whole round-trip to /runs, before a single run was read;
- *   · worse, when the read BREAKS (500 / timeout), a rule already known to be
- *     FAILING flips back to green «active» — a failed read served as a verdict
- *     of health, which is the exact inversion CLAUDE.md forbids: «never paint
- *     green over a state we did not read; "I could not read it" is NOT "it
- *     works"».
- *
- * So the verdict gets its own tone. `unread` is a NO-CLAIM (neutral, like a
- * paused rule: we are saying nothing about its health because we know nothing
- * yet) and `unreadable` is a FACT about us (warning — we tried and failed, the
- * same amber the RunHealthNote already uses for it). Green now requires a run
- * list we actually read.
- *
- * Pure and primitive-only on purpose: this is the piece a test can hold, and
- * the six surfaces can no longer drift apart about the same rule.
  */
 export function rulePillState(enabled: boolean, health: RunHealth | undefined): RulePillState {
   if (!enabled) return 'paused';
@@ -210,7 +159,7 @@ export type RunsReader = (id: string) => Promise<{ count?: number; runs?: unknow
  * The run history of ONE rule for a surface that also PRINTS it: the verdict
  * plus the counters the endpoint returned.
  *
- * REUSE (auditoría 2026-08-18) — why this exists. Five of the six surfaces only
+ * REUSE (auditorí) — why this exists. Five of the six surfaces only
  * need the verdict, and `loadRunHealth` gives them exactly that. The sixth,
  * DefiPositionsBoard, ALSO writes a history line under each rule's name («N
  * triggers · last …»), so it kept a hand-rolled fetch of /rules/:id/runs — the

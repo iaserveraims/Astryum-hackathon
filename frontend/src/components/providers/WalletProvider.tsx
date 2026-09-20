@@ -203,7 +203,7 @@ function WalletProviderInner({ children }: WalletProviderProps) {
       {/* Su hermana para las cuentas que firman POR QUÓRUM: un QR por llave,
           todos a la vez. Montada aquí y no en cada pantalla porque hay
           diecisiete llamadas a `sendIntent` y una copia en cada una es cómo se
-          desincronizan (fundador 22-ago-2026). */}
+          desincronizan. */}
       <QuorumCeremonyModal />
     </WalletContext.Provider>
   );

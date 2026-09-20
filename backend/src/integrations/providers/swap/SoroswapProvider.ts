@@ -5,30 +5,6 @@
  * swap quotes and build UNSIGNED XDR transactions across SDEX, Soroswap, Aqua
  * and Phoenix. The XDR is signed by the user's Stellar wallet (Freighter/Lobstr);
  * Astryum never signs.
- *
- * This mirrors JupiterSwapProvider (Solana) — same "aggregator returns an
- * unsigned tx, the native wallet signs" pattern that lets Astryum execute DeFi
- * on a non-EVM chain without ever holding keys or broadcasting.
- *
- * Contract (Soroswap SDK, github.com/soroswap/sdk):
- *   quote({ assetIn, assetOut, amount, tradeType, protocols, slippageBps, maxHops, feeBps })
- *   build({ quote, from, to, referralId }) → { xdr }
- *   base: https://api.soroswap.finance · apiKey starts with `sk_`
- *
- * ⚠️ The exact REST paths (`/quote`, `/build`) and auth header are inferred from
- * the SDK and should be confirmed against api.soroswap.finance/docs (Postman) on
- * first live smoke-test. Astryum never broadcasts and the user signs in their
- * wallet, so a contract mismatch fails the API call / reverts — never loses funds.
- *
- * Revenue model:
- *   - SOROSWAP_FEE_BPS (default 30 = 0.30%) sent as `feeBps` in every quote.
- *   - `referralId` = ASTRYUM_FEE_WALLET (Stellar address) on build.
- *   - disclosedToUser: true — always disclosed before the user signs.
- *
- * Regulatory invariants (never remove):
- *   astryumRelays: false · Astryum never calls sign / submit · fee disclosed.
- *
- * Chain: Stellar (pseudo chainId 1500001). NOT EVM.
  */
 
 import type {

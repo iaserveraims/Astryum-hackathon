@@ -1,12 +1,9 @@
 'use client';
 
 /**
- * ProtectRuleCard — the ONE embeddable Protect MoneyFlow creation card
- * (founder 2026-07-25: every creation path shows the SAME manual card,
- * embedded directly in its modal — the entry modal, the agent-launched entry,
- * and the position board's Protect modal all build the identical rules).
+ * ProtectRuleCard — the ONE embeddable Protect MoneyFlow creation card.
  *
- * Two shapes (founder 2026-07-25 tarde):
+ * Two shapes:
  *   · SIMPLE — one HF threshold; repay 'restore' (live minimum) or fixed
  *     amount, with 25/50/100%-of-debt quick chips when the entry's debt is
  *     known.
@@ -15,11 +12,6 @@
  *     frozen at creation) or a fixed USDT0 amount. The N rules share ONE
  *     canonicalRef, so every surface shows/pauses/deletes the ladder as one
  *     flow.
- *
- * Rules go through the SAME gated POST /api/rules and bind to the wallet that
- * HOLDS the position (PA on the XRPL rail, the signing EVM wallet on the
- * direct rail) — never the login address. Vigilance only: the engine prepares
- * on trigger; the USER signs (invariants #1/#8).
  */
 
 import { useMemo, useState } from 'react';
@@ -229,7 +221,7 @@ export function ProtectRuleCard({
         </div>
       </div>
 
-      {/* Escalonado on/off — the founder's staircase (2026-07-25). */}
+      {/* Escalonado on/off — the founder's staircase. */}
       <label className="flex items-center justify-between gap-3 bg-ink/5 border border-ink/10 rounded-lg px-3 py-2 cursor-pointer">
         <div className="flex items-center gap-2">
           <Layers className="w-3.5 h-3.5 text-ink/45" />
@@ -322,8 +314,8 @@ export function ProtectRuleCard({
                       className="flex-1 min-w-0 px-3 py-2 bg-ink/5 border border-ink/10 rounded-lg text-ink text-[12px] focus:outline-none focus:border-volt/50"
                     />
                   </div>
-                  {/* 25/50/100% of the ENTRY's debt — quick-set for the fixed mode
-                      (founder 2026-07-25: importes calculados, no a ojo). */}
+                  {/* 25/50/100% of the ENTRY's debt — quick-set for the fixed mode.
+                  { */}
                   {f.key === 'repay' && debtHuman != null && vals.restore !== 'true' && (
                     <div className="mt-1 flex gap-1.5 pl-40">
                       {[25, 50, 100].map((pct) => (

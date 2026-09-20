@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * vaultEmblems — las «imágenes tontas» de una bóveda (fundador 8-sep): un
+ * vaultEmblems — las «imágenes tontas» de una bóveda: un
  * emblema de la casa que el gestor elige para su vault, como llevan las
  * bóvedas de demostración. Doce, dibujados con la misma familia de iconos que
  * el resto de la app, cada uno con su tono — reconocibles de un vistazo en la

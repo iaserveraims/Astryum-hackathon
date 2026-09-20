@@ -1,5 +1,5 @@
 /**
- * productizer it. 13 (finding 3.5) — the Legacy door REMEMBERS what it composes.
+ * The Legacy door REMEMBERS what it composes.
  *
  * `/xrpl-defi/council-order/prepare` did not record the composed order, so a reload
  * between broadcast and `onSettled` left a quorum-signed order with no relay. It now
@@ -55,7 +55,7 @@ jest.mock('../../services/flare/CouncilOrderRelayLauncher', () => ({
   recentSameCouncilOrder: (...a: unknown[]) => mockRecent(...a),
 }));
 /**
- * it. 17: this door now spends TWO cheap database reads before it composes — the
+ * This door now spends TWO cheap database reads before it composes — the
  * queue pre-check (the cap, decided before the chain reads) and the ledger half of
  * the duplicate guard (what the 5-minute sweep has not marked yet). Both are
  * best-effort, but an unmocked Prisma here would try to dial a real postgres and
@@ -141,7 +141,7 @@ describe('council-order/prepare records the composed order', () => {
     expect(String(exit.body.recoveryWarning)).toContain('TOO_MANY_PENDING_ORDERS');
   });
 
-  it('records WHO composed it and the content key (it. 15: the cap counts by preparer)', async () => {
+  it('Records WHO composed it and the content key (the cap counts by preparer)', async () => {
     await request(app).post(URL).send(RECALL);
     expect(mockRecord.mock.calls[0][0]).toMatchObject({
       preparedByUserId: null,
@@ -169,7 +169,7 @@ describe('council-order/prepare records the composed order', () => {
   });
 
   /**
-   * it. 19 (finding 2.6) — THE CHEAP CHECK GOES FIRST, IN ALL THREE DOORS.
+   * THE CHEAP CHECK GOES FIRST, IN ALL THREE DOORS.
    *
    * The duplicate guard spends LEDGER reads (up to three memos through the fate
    * budget); the queue pre-check is one database read and no chain read. Asking the

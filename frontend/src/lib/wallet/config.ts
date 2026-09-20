@@ -1,21 +1,9 @@
 /**
  * Wallet Partner Configuration (wagmi v2 + viem + AppKit)
  *
- * REGULATORY BOUNDARY (CLAUDE.md §0):
+ * REGULATORY BOUNDARY:
  *   Astryum PREPARES unsigned calldata. The WALLET PARTNER (MetaMask, WalletConnect,
  *   Coinbase, Bifrost, Safe, etc.) TRANSMITS. The user AUTHORIZES. The blockchain EXECUTES.
- *
- * This file configures the wallet partner connection layer. It does NOT execute or
- * relay transactions on behalf of the user. All sendTransaction calls flow through
- * the user's wallet partner via wagmi's eth_sendTransaction abstraction.
- *
- * CONNECTABLE CHAIN (this beta):
- *   - Flare Mainnet (14) — the only network wagmi/AppKit expose, reached with
- *     MetaMask alone. See MULTI_VM_CONNECT_ENABLED below.
- *
- * The other seven EVM chains stay in EVM_NETWORKS_ALL, built and unwired.
- * XRPL (Xaman) is the second accepted wallet and never passes through wagmi;
- * Solana and Aptos keep their own adapters, currently without an entry point.
  */
 
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
@@ -40,7 +28,7 @@ export const WALLET_CONNECT_PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'defibro-dev-placeholder';
 
 /**
- * ─── The connect rail of this beta (founder 2026-08-04) ──────────────────────
+ * ─── The connect rail of this beta ──────────────────────
  * Only TWO wallets may be connected: MetaMask on Flare Mainnet (chain 14) and
  * Xaman on XRPL. XRPL never touches wagmi/AppKit (it has its own service), so
  * on this layer the rule reads: MetaMask, Flare, nothing else.
@@ -103,7 +91,7 @@ export const BITCOIN_NETWORKS = [bitcoin] as [AppKitNetwork, ...AppKitNetwork[]]
 /**
  * Networks offered by the connect modal. Flare only: the picker can't hand back
  * a session on a chain this beta refuses to link (connect rail = MetaMask@Flare
- * + Xaman, founder 2026-08-04 — unchanged). Ethereum is deliberately NOT here
+ * + Xaman, founder — unchanged). Ethereum is deliberately NOT here
  * even though wagmi registers it: it is a signing-time switch inside the
  * eth-morpho flow, never a connect/link surface. Solana/Bitcoin are appended
  * only when the multi-VM rail is switched back on — their adapters stay built
@@ -140,20 +128,6 @@ export const APP_METADATA = {
 /**
  * EL RPC QUE LEE LOS RECIBOS. Sin esto, wagmi cae al endpoint público que viem
  * trae por defecto para cada cadena — y ahí es donde muerde.
- *
- * El carril de Ethereum firma en dos o tres patas, y entre pata y pata se
- * espera un recibo REAL antes de mandar la siguiente. Un 429 o un timeout en
- * esa lectura no rompe la transacción (ya salió), pero corta la secuencia y
- * obliga a decir «EN VUELO». `ETHEREUM_RPC_URL` en Railway NO cubre esto: es
- * del backend. Esta lectura la hace el navegador.
- *
- * ⚠ Sobre `NEXT_PUBLIC_` (invariante #2): esta URL es visible para cualquiera
- * por construcción — la usa el navegador. Por eso **no puede ser la misma clave
- * que el backend**: usa una clave APARTE, de sólo lectura y restringida por
- * dominio (Alchemy/Infura permiten allowlist de referrer). Una clave así no es
- * un secreto: es una cuota con tu nombre, que es justo lo que hace falta para
- * no depender de la IP compartida. Si no se pone, se cae al nodo público, que
- * funciona para leer pero es exactamente el riesgo descrito arriba.
  */
 const ETHEREUM_HTTP =
   process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || 'https://ethereum-rpc.publicnode.com';

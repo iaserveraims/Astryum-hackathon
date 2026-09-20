@@ -2,31 +2,7 @@
 
 /**
  * EarnCatalog — el selector de activos y las dos tipologías, en el sitio que
- * antes ocupaban el camino interactivo y su menú de orden (fundador, 24-ago).
- *
- * QUÉ SUSTITUYE Y POR QUÉ. El recuadro de «What do you want to happen? / With
- * what?» ocupaba un tercio de la pantalla para hacer de filtro, y las cards —lo
- * único que el usuario ha venido a mirar— empezaban por debajo del pliegue. Aquí
- * el filtro cabe en una línea: los activos que el usuario TIENE, y un botón de
- * filtros para reordenar. Todo lo que se ahorra arriba se lo quedan las cards.
- *
- * SOLO LOS ACTIVOS DE SU WALLET. Ofrecer los tres del catálogo cuando alguien
- * solo tiene XRP es ofrecer dos filtros que llevan a pantallas vacías. Se leen
- * del agregado que el shell ya tiene cargado —ni una petición nueva— y si no se
- * pudo leer ninguno, se ofrecen todos: sin saldo leído, esconder es peor que
- * mostrar de más.
- *
- * DOS TIPOLOGÍAS, EL MISMO FORMATO. «Make it earn» y «Get cash without selling»
- * se dibujan igual: misma cabecera, misma rejilla, mismas cards. La delegación
- * al FTSO vive dentro de la primera (fundador: «al final es lo mismo»).
- *
- * LAS CARDS NO CAMBIAN: cada tipología monta un StrategyFan COMPLETO, con su
- * mano solapada, su tilt, su lift y su rejilla de repuesto en móvil. Aquí no se
- * dibuja ni una card a mano: lo único que decide este fichero es QUÉ cards van
- * en cada mano y en qué orden.
- *
- * ORDENAR ES UN GESTO, NO UN RANKING (invariante #9): el orden por defecto es el
- * del catálogo, así que la pantalla nunca abre con «la mejor» arriba.
+ * antes ocupaban el camino interactivo y su menú de orden.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -40,8 +16,7 @@ import { TYPOLOGIES, actionOfKind, riskBand, type TypologyId } from '@/lib/earn/
 // La mano de siempre, COMPLETA: su solapamiento, su tilt, su lift y su rejilla
 // de repuesto en móvil. Antes se usaba aquí GridCard —la variante plana que
 // StrategyFan reserva para pantallas estrechas y para reduced-motion— y eso se
-// llevaba por delante justo lo que hace que la mano sea la mano (fundador,
-// 25-ago: «formato, símbolo, movimiento, estructuración entre cards, igual»).
+// llevaba por delante justo lo que hace que la mano sea la mano.
 import { StrategyFan, type FanCard } from './StrategyFan';
 import type { VaultKind } from './FlareDemoEarn';
 
@@ -65,9 +40,9 @@ export interface EarnCatalogProps {
   rateOf: (kind: VaultKind) => number | null;
   t: (s: string) => string;
   /** Hay una ficha abierta a la derecha: la mano aprieta su solapamiento para
-   *  caber entera en la columna izquierda (fundador, 26-ago). */
+   *  caber entera en la columna izquierda. */
   compressed?: boolean;
-  /** El MENÚ abierto (fundador 2026-08-28: dos menús, earn y cash): acota las
+  /** El MENÚ abierto: acota las
    *  secciones a una tipología. null/undefined = el catálogo entero, como
    *  siempre (retro-compatible con el deep-link ?view=pick). */
   only?: TypologyId | null;

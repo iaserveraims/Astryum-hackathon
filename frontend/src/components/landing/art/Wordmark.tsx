@@ -4,47 +4,8 @@
  * ASTRYUM, LETRA A LETRA — el cimiento de la narrativa Institucional.
  *
  * El nombre que cierra la landing es UN solo `<text>ASTRYUM</text>` (Inter 800,
- * `textLength=1000` sobre un lienzo `0 0 1000 150`). Para el viaje
- * institucional eso no basta: el fundador pidió que se vea el nombre entero,
- * que la cámara se acerque a la Y, que las demás letras se aparten, y que al
- * final el nombre vuelva a estar completo. Cada letra tiene que poder moverse
+ * `textLength=1000` sobre un lienzo `0 0 1000 150`). Cada letra tiene que poder moverse
  * sola.
- *
- * ── POR QUÉ NO SE TRAZAN LAS LETRAS A MANO ────────────────────────────────
- * Este repo YA trazó a mano el asteroide (scripts/trace-logo.mjs: marching
- * squares sobre el PNG + simplificación RDP) y costó lo suyo. Con las letras
- * no hace falta: el navegador ya sabe dónde está cada una.
- * `SVGTextContentElement.getExtentOfChar(i)` devuelve la caja del carácter y
- * `getStartPositionOfChar(i)` su posición de PLUMA. Medido en la landing real
- * el 2026-09-18 con el navegador sin cabeza:
- *
- *     A x=0      w=146.7        R x=404.3  w=123.6        U x=673.5  w=142.5
- *     S x=145.7  w=127.7        Y x=527.0  w=147.4        M x=815.1  w=184.9
- *     T x=272.5  w=132.6
- *
- * ── EL FALLO QUE COSTÓ ESTA REESCRITURA ──────────────────────────────────
- * Fundador, 2026-09-18: «el nombre de astryum se ve bugeado al principio, se
- * ven los contornos de las demás letras». Cada letra se pintaba como la PALABRA
- * ENTERA recortada a una ventana. Con holgura, las ventanas se solapaban y dos
- * grupos pintaban el mismo trazo (dos capas del mismo color al 60 % dan 84 %:
- * el «contorno»). Sin holgura, el solape desaparece pero queda una muesca de
- * antialiasing en cada una de las seis junturas, que empeora linealmente con la
- * densidad de píxeles del panel — invisible en una captura a 1×, visible en un
- * portátil moderno. Es un defecto del fotograma EN REPOSO, o sea justo de los
- * dos fotogramas que llevan la marca.
- *
- * La ventana se ha ido entera. Cada letra es su PROPIO `<text>` colocado en su
- * posición de pluma medida, sin `textLength` y sin recorte: no hay juntura que
- * pueda tener muesca a ninguna escala ni a ninguna densidad. El interletraje se
- * conserva exacto porque los pares de kerning ya están horneados en las plumas
- * medidas, y ASTRYUM no tiene ligaduras.
- *
- * ── LA RED ────────────────────────────────────────────────────────────────
- * Medir exige DOM, fuente cargada y layout. Cuando falta cualquiera de las tres
- * —servidor, fuente sin cargar, navegador sin la API, o una letra que mide
- * cero— `measured` vale `false` y se pinta el `<text>` de una pieza de siempre.
- * Ese respaldo no es un modo degradado: es el render correcto del servidor, y
- * es exactamente con lo que la versión partida tiene que ser idéntica al pixel.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -150,11 +111,6 @@ export function letterSeams(letters: readonly LetterBox[]): number[] {
  * letras — que con la entrada puesta arrancan en opacidad CERO. El fundador lo
  * describió exacto: «la carga de la palabra Astryum está rota». Lo estaba: la
  * palabra aparecía, desaparecía y volvía letra a letra.
- *
- * `settled` dice si la medición ya terminó —con éxito o rindiéndose— para que
- * quien pinta pueda esperar en vez de enseñar un fotograma que va a retirar. Y
- * lleva red: a los 1500 ms se da por terminada pase lo que pase, porque un
- * nombre invisible es peor fallo que un nombre de una pieza.
  */
 export function useLetterBoxes(): { letters: readonly LetterBox[]; measured: boolean; settled: boolean } {
   const [state, setState] = useState<{ letters: readonly LetterBox[]; measured: boolean; settled: boolean }>({
@@ -295,12 +251,11 @@ export function WordmarkMaterialDefs({
   return (
     <defs>
       {/* 1 · EL CUERPO, PLANO. Y es una corrección, no una simplificación.
-          Fundador, 2026-09-19: «tiene como un rollo 3D que no me pega nada,
-          parece muy cutre». La rampa de antes iba de `--volt-hi` arriba a
+          La rampa de antes iba de `--volt-hi` arriba a
           `--volt-deep` abajo a lo largo de toda la caja, que es EXACTAMENTE el
           degradado del oro de WordArt: un cuerpo que se aclara arriba y se
           oscurece abajo se lee como una letra EXTRUIDA, no como una letra.
-
+      { *
           Una lámina de oro estampada no tiene ese degradado: es un tono plano
           con una sola banda de luz donde la pilla. Así que el cuerpo es casi un
           solo tono —`--volt-soft` hasta el 58 %— y solo el pie se hunde un
@@ -339,9 +294,7 @@ export function WordmarkMaterialDefs({
           desplazado) apareció el segundo fallo: en SVG un atributo de
           presentación del HIJO gana al del padre, y los glifos de la máscara
           llevan `fill="#fff"` clavado, así que la copia que debía perforar salía
-          blanca. Las dos curas funcionaron y el nombre recuperó su oro, y
-          entonces el fundador dijo lo que importaba de verdad: que un bisel es
-          un efecto y no un material. Con eso, la pieza correcta no era arreglar
+          blanca. Con eso, la pieza correcta no era arreglar
           el labio — era no tenerlo. */}
     </defs>
   );
@@ -535,17 +488,6 @@ export function WordmarkSplit({ letters, measured, uid, rest, sweepOn, subscribe
  * esconderlo: es enseñar por dónde cortó el instrumento. Seis filetes finísimos
  * en las costuras, arriba y abajo de la banda de caja alta, y dos cruces de
  * registro en los márgenes.
- *
- * Reglas duras, y son las que impiden que esto se convierta en adorno:
- *   · NUNCA dentro de la banda de caja alta (y ∈ [0, 142]). El nombre no se
- *     toca.
- *   · Techo de opacidad 0,28. Se intuyen, no se leen.
- *   · Ni una cifra, ni una cota, ni muescas contables: un número en una página
- *     pública es un dato, y un dato sin fuente no se pinta.
- *   · Todo desaparecido cuando el nombre vuelve a estar entero.
- *
- * Vive en la capa de anotación SIN acercar, así que conserva
- * `non-scaling-stroke`: es un dibujo sobre el dibujo y mide siempre lo mismo.
  */
 export function RegisterMarks({ letters, away }: { letters: readonly LetterBox[]; away: MotionValue<number> }) {
   const seams = letterSeams(letters);

@@ -1,7 +1,7 @@
 /**
  * ProviderHealthService — transition alerts.
  *
- * Pins the 2026-08-01 rule: a StubProvider (real provider not wired yet) is
+ * Pins the rule: a StubProvider (real provider not wired yet) is
  * 'down' BY CONSTRUCTION and can never recover — it must never page the ops
  * channel. Real providers keep the 3-consecutive-ticks alert and the recovery
  * notice. (The stubs' state stays visible in the admin panel either way.)

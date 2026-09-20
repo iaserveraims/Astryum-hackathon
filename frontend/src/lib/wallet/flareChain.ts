@@ -2,7 +2,7 @@
  * Flare Mainnet chain parameters — the SINGLE source of truth for every
  * wallet_switchEthereumChain / wallet_addEthereumChain surface (NetworkSwitcher
  * banner, SIWE login's ensureFlareNetwork). Verified against the official
- * Network Configuration page at dev.flare.network on 2026-07-29.
+ * Network Configuration page at dev.flare.network.
  *
  * Explorer note: the dev hub lists flare-explorer.flare.network; this app links
  * flarescan.com everywhere (both are canonical Flare explorers), so the wallet

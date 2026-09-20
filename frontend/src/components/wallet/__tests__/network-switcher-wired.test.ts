@@ -12,19 +12,14 @@ import {
 import { translate } from '../../../i18n/dict';
 
 /**
- * Wiring guard for the "Switch to Flare" surfaces (2026-07-29 recon,
- * docs/context/Astryum_Recon_Boton_Cambiar_A_Flare_2026-07-29.md §4):
- * chain params had THREE sources of truth, the banner leaked raw wallet
- * errors + appeared for Xaman-only visitors, and the switch engine must stay
- * in ONE hook now that two surfaces render it (global banner + the active
- * wallet's card). Pinned here so none regress.
+ * Pinned here so none regress.
  */
 
 const SRC = join(__dirname, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
 
 describe('flareChain.ts is the single source of chain params', () => {
-  // authStore left this list on 2026-08-22: login stopped touching the network
+  // authStore left this list: login stopped touching the network
   // altogether (see the "login must NOT ask for a network switch" test below),
   // so it no longer consumes chain params from anywhere.
   const CONSUMERS = [
@@ -43,7 +38,7 @@ describe('flareChain.ts is the single source of chain params', () => {
     });
   }
 
-  it('params match the values verified against dev.flare.network (2026-07-29)', () => {
+  it('Params match the values verified against dev.flare.network', () => {
     expect(FLARE_CHAIN_ID).toBe(14);
     expect(FLARE_CHAIN_ID_HEX).toBe('0xe');
     expect(parseInt(FLARE_ADD_CHAIN_PARAMS.chainId, 16)).toBe(FLARE_CHAIN_ID);
@@ -84,8 +79,7 @@ describe('useSwitchToFlare is the ONE switch engine', () => {
   });
 
   it('login must NOT ask for a network switch — identity works on any EVM chain', () => {
-    // Founder 2026-08-22: entering astryum.xyz from a fresh browser met a
-    // MetaMask "switch network" dialog. Root cause: siweLogin() forced Flare
+    // Root cause: siweLogin() forced Flare
     // before signing. It protected nothing — the server states that identity
     // works on ANY EVM chain (SiweAuth.issueNonce) and the client never sends
     // a chainId anyway. A first-time visitor (fresh MetaMask = Ethereum) must
@@ -103,7 +97,7 @@ describe('useSwitchToFlare is the ONE switch engine', () => {
   });
 
   it('the banner lives INSIDE the app — public routes never wear it', () => {
-    // Same 2026-08-22 pass: a visitor on /login, /privacy or /proof cannot sign
+    // Same pass: a visitor on /login, /privacy or /proof cannot sign
     // anything, so a red network bar there is pure noise. The old guard exempted
     // the landing alone.
     const src = read('components/wallet/NetworkSwitcher.tsx');

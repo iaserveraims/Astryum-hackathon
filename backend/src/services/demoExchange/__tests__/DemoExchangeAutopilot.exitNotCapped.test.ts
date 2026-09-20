@@ -1,18 +1,6 @@
 /**
- * it. 25 (B.1 y B.2) — LA SALIDA DE UN CLIENTE NO LA PARA NI NUESTRO TOPE NI
+ * LA SALIDA DE UN CLIENTE NO LA PARA NI NUESTRO TOPE NI
  * NUESTRA COLA.
- *
- * Esta prueba usa la POLÍTICA DE VERDAD (`assessPayment` real, vía
- * `requireActual`), no un `() => ({ ok: true })`: el fallo que arregla vivía
- * exactamente ahí. La it. 23 movió la LECTURA del tope debajo de la bifurcación
- * por propósito pero dejó la APLICACIÓN arriba, así que `ABOVE_DAILY_CAP`,
- * `ABOVE_MAX_TX` y `SPEND_LEDGER_NOT_PERSISTED` seguían cayendo sobre el payout
- * y una retirada por encima del tope medido quedaba `refused` — el dinero de esa
- * persona retenido hasta la medianoche UTC. Probar las piezas no prueba que la
- * cadena exista.
- *
- * Y B.2: el tramo de payout no capturaba nada, así que un `throw` al firmar se
- * llevaba por delante a todos los clientes que venían detrás en el mismo tick.
  */
 import type { DemoRun } from '../DemoExchangeStore';
 
@@ -51,7 +39,7 @@ jest.mock('../DemoExchangeSync', () => ({
 jest.mock('../submissionJournal', () => ({
   readSubmission: jest.fn(async () => null),
   writeSubmission: jest.fn(async () => undefined),
-  // it. 29: el journal vacío no exime ni acusa a nadie (`againstFor`).
+  // El journal vacío no exime ni acusa a nadie (`againstFor`).
   againstFor: jest.fn(async (_run: unknown, _cid: string, kind: string) => ({ kind, provenUnsigned: new Set<string>(), provenSigned: new Set<string>() })),
   _resetSubmissionJournal: jest.fn(),
 }));

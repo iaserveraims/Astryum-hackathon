@@ -9,17 +9,6 @@
  * opciones (wallet + con qué paga), y este componente los recorre — prepara la
  * transacción de cada uno contra su endpoint, la pone a firmar en la wallet que
  * toca (Xaman o EVM), espera lo que haya que esperar, y pasa al siguiente.
- *
- * El caso Xaman completo: paso 1 un Payment de Xaman mintea FXRP directo en la
- * wallet EVM de destino (las comisiones salen del pago → lo que llega es el
- * NETO, y ese neto es lo que los pasos siguientes puentean y aportan); paso 2
- * el puente LayerZero se firma en Flare; paso 3 colateral+préstamo en Ethereum.
- *
- * Lo que este componente NO hace, a propósito:
- *   · no firma nada por su cuenta — cada paso lo confirma el usuario en SU wallet;
- *   · no avanza sobre un paso que no terminó (la máquina lo impide);
- *   · no reintenta un paso que salió sin recibo legible: cada tramo mueve dinero
- *     de verdad, así que reintentar a ciegas es pagarlo dos veces.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Check, AlertTriangle, ArrowRight, Clock } from 'lucide-react';
@@ -48,7 +37,7 @@ import { ETHEREUM_CHAIN_ID, type FxrpOrigin } from '../../lib/earn/fxrpOrigin';
 const API_BASE = getApiBase();
 
 /**
- * it. 22 (Q3 3.7) — LO QUE ESTE PASO PUEDE ENSEÑAR DE UN RECHAZO.
+ * LO QUE ESTE PASO PUEDE ENSEÑAR DE UN RECHAZO.
  *
  * El paso pinta su `detail` en la fila que falló, y hasta aquí ese texto era
  * `body.detail || body.error`: el párrafo en castellano del servidor (con
@@ -173,10 +162,10 @@ export function BorrowFlowRunner({
           }),
         });
         const body = await res.json().catch(() => ({}));
-        // EL ASIENTO DE NONCE, EN INGLÉS (it. 17, R5 5.4): el paso enseña su
+        // EL ASIENTO DE NONCE, EN INGLÉS (R5 5.4): el paso enseña su
         // `detail`, y el del servidor viene en castellano y con hashes.
         if (!res.ok) throw new Error(refusalSentence(body, res.status, t));
-        // it. 19 (R5 R7): the executor word the server sent with this 0xFE, so
+        // The executor word the server sent with this 0xFE, so
         // the live banner stops falling back to the prudent sentence over a step
         // the server does carry. Read defensively — no field, no promise.
         noteFlareInstructionDelivery(body.xrplPayment, body.serverDelivery);
@@ -259,7 +248,7 @@ export function BorrowFlowRunner({
       // tras construir la tx sería fallar con la wallet abierta.
       if (s.rail === 'xrpl') {
         // No session in this browser is fine: the prepared payload pins the
-        // signer and Xaman asks for it (2026-09-17). A DIFFERENT live account is
+        // signer and Xaman asks for it. A DIFFERENT live account is
         // still refused before anything is built.
         if (xrpl.isConnected && xrpl.address && xrpl.address.toLowerCase() !== s.signer.toLowerCase()) {
           throw new Error(t('Open Xaman with this exact account to sign this entry.'));
@@ -279,7 +268,7 @@ export function BorrowFlowRunner({
       if (prepared.rail === 'xrpl') {
         handedToPartner = true;
         const { txHash } = await xrpl.sendIntent({ tx: prepared.xrplPayment as never });
-        // El backend aprende «firmado» (incidente 2026-08-21): el asiento de
+        // El backend aprende «firmado»: el asiento de
         // nonce queda intocable hasta ejecutar o aparcar — sin gemelos.
         notifyHandoffSigned(prepared.memoHex, txHash);
         setFlow((f) => setStatus(f, 'settling'));
@@ -297,7 +286,7 @@ export function BorrowFlowRunner({
       // peaje del puente (o el gas de la entrada) por segunda vez. Y un «Failed
       // to fetch» o un timeout DESPUÉS de entregar el paso a la wallet tampoco
       // (signOutcome): 'unconfirmed', que ni avanza ni ofrece reintentar.
-      // FIRMADO TARDE (it. 17, R5 5.2): tefMAX_LEDGER / tefPAST_SEQ es un
+      // FIRMADO TARDE (R5 5.2): tefMAX_LEDGER / tefPAST_SEQ es un
       // veredicto LEÍDO — ese payload no entra en ningún ledger — así que el
       // paso queda 'failed' con «prepáralo otra vez» y su botón de reintento,
       // no 'unconfirmed', que congela el flujo prohibiendo la única salida.

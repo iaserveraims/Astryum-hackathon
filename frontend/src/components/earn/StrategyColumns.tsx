@@ -2,29 +2,7 @@
 
 /**
  * StrategyColumns — the catalogue as VERTICAL stacks, grouped by what the
- * route does for you (founder 2026-08-24: «ponlas apiladas en vertical, ahora
- * están en horizontal … make it earn a la izquierda, en el medio get cash»).
- *
- * WHAT WAS WRONG WITH THE HAND. StrategyFan lays the eight routes across the
- * width, each card partly covering the next. It is a lovely object and it
- * costs the thing the screen exists for: at eight cards every title is cut
- * mid-word ("FXRP → Kinetic (carry", "Supply FXRP + borrow USD…"), so the one
- * gesture the page asks for — compare the routes, then pick one — has to
- * happen through cards you cannot read. A stack has no such ceiling: adding a
- * ninth route makes the column longer, never the words narrower.
- *
- * THE CARD IS NOT REDRAWN. It imports `GridCard` from StrategyFan, the same
- * face the v2 catalogue uses. Three surfaces, one card: two cards that merely
- * look alike and are maintained apart always drift, and here the card face is
- * product identity.
- *
- * ORDER INSIDE A COLUMN IS THE CALLER'S. `cards` arrives already sorted by the
- * catalogue's sort chips, and this component only partitions — it never
- * re-ranks. Which matters beyond tidiness: an ordering the user did not ask
- * for reads as a recommendation, and Astryum does not recommend (invariant #9).
- *
- * The fan is NOT deleted — StrategyFan stays exported and imported, so
- * restoring the hand is swapping this element back.
+ * route does for you.
  */
 
 import { GridCard, type FanCard } from './StrategyFan';

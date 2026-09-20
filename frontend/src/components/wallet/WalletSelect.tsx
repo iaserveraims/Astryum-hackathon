@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * WalletSelect — el selector de wallet con la CARA de cada wallet (fundador
- * 2026-08-30: «que el selector muestre la selección respetando el estilo que
- * tiene cada wallet... como está en la pantalla de wallets»).
+ * WalletSelect — el selector de wallet con la CARA de cada wallet.
  *
  * EL PROBLEMA: todos los selectores de la app eran `<select>` nativos, y un
  * `<option>` no admite estilo — ni color, ni marca, ni glifo. La lista salía
@@ -11,17 +9,6 @@
  * CON QUÉ WALLET SE FIRMA: el sitio donde más ayuda reconocer la tuya de un
  * vistazo. La identidad que el usuario se ha molestado en poner —su color, su
  * glifo, su apodo— existía en Wallets y se perdía aquí.
- *
- * LA PIEZA: un listbox propio con la MISMA receta de identidad que la tarjeta
- * de Wallets (chip 18%/33% + WalletGlyphIcon o WalletBrandIcon, el índigo del
- * consejo con su placa cuadrada). Una sola pieza para todas las pantallas: si
- * mañana cambia la cara de una wallet, cambia en todas a la vez.
- *
- * ACCESIBILIDAD: role=listbox/option con aria-selected, navegación con
- * flechas + Home/End, Enter/Espacio elige, Escape cierra, foco devuelto al
- * botón. Un `<select>` nativo daba esto gratis; sustituirlo obliga a
- * reponerlo — sin eso, el cambio sería una mejora estética que rompe a quien
- * navega con teclado.
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';

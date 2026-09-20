@@ -13,7 +13,7 @@ import {
 import { __resetLiveRequests, deliversToFlareAutomatically } from '../../xaman/liveRequests';
 
 /**
- * productizer it.13 — the council-order contracts the consoles code against:
+ * The council-order contracts the consoles code against:
  * the fate read (after a stale verdict), the in-flight 409, and the delivery
  * word registered at prepare time for the banner.
  */
@@ -67,7 +67,7 @@ describe('prepare clients register what the server took on (the banner reads it)
     expect(deliversToFlareAutomatically(key)).toBe(false);
   });
 
-  it('a composed 0xFE registers the EXECUTOR word — absent, the banner stays prudent (it.14, R2 2.6)', async () => {
+  it('A composed 0xFE registers the EXECUTOR word — absent, the banner stays prudent (R2 2.6)', async () => {
     const instruction = { TransactionType: 'Payment', Account: 'rOwner', Memos: [{ Memo: { MemoData: `FE${'0c'.repeat(40)}` } }] };
     const key = JSON.stringify(instruction);
     vi.stubGlobal('fetch', respond(200, { account: 'rOwner', xrplPayment: instruction, disclosure: {} }));
@@ -79,7 +79,7 @@ describe('prepare clients register what the server took on (the banner reads it)
     expect(deliversToFlareAutomatically(key)).toBe(true);
   });
 
-  it('409 SAME_ORDER_RECENTLY_LAUNCHED is the it.14 name of the confirmable refusal — both are read', async () => {
+  it('409 SAME_ORDER_RECENTLY_LAUNCHED is the name of the confirmable refusal — both are read', async () => {
     for (const error of [SAME_ORDER_RECENTLY_LAUNCHED, COUNCIL_ORDER_IN_FLIGHT]) {
       vi.stubGlobal('fetch', respond(409, { error, detail: 'the same recall went out', minutesAgo: 4 }));
       const r = await prepareCageOrder({ council: 'rCouncil', action: 'recall', params: {} });

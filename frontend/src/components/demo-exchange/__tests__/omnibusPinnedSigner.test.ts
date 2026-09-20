@@ -1,9 +1,7 @@
 /**
- * 18-sep — EL QR SE CREA PARA EL OMNIBUS, ESTÉ CONECTADA LA CUENTA QUE ESTÉ.
+ * EL QR SE CREA PARA EL OMNIBUS, ESTÉ CONECTADA LA CUENTA QUE ESTÉ.
  *
- * Captura del fundador: «Put 13 XRP of Charles to work in the pote… Signs:
- * r4yp47… · Connected in Xaman: rP49… · Connect the omnibus account in Xaman to
- * sign this», y el botón muerto. El 0xFE ya lleva el omnibus en `Account`, y un
+ * Captura del y el botón muerto. El 0xFE ya lleva el omnibus en `Account`, y un
  * Account fijado no necesita sesión (98900df6): el payload se crea para esa
  * cuenta y Xaman la pide al escanear. Esta puerta seguía exigiendo que la
  * cuenta CONECTADA fuera el omnibus.

@@ -1,5 +1,5 @@
 /**
- * Fallback WebSocket del transporte XRPL (incidente 2026-07-31, parte 2): con
+ * Fallback WebSocket del transporte XRPL: con
  * s1/s2 congelados y el HTTP de xrplcluster cerrado por el gate 402 a IPs de
  * datacenter, el barrido se quedaba sin transporte en Railway. El WS de
  * xrplcluster SÍ pasa el gate (AnchorFeedingService/XrplEscrowKeeper lo usan

@@ -1,18 +1,6 @@
 /**
- * it. 31 — the snapshot SAYS which adapter could not be read (to the person,
+ * The snapshot SAYS which adapter could not be read (to the person,
  * not only to the log).
- *
- * it. 29 made Firelight/Upshift THROW instead of swallowing a failed queue
- * read, with the comment «the engine drops this adapter from THIS sweep (and
- * says so)». It said so to `console.warn`. The snapshot the screen received
- * had no Firelight rows at all — identical to the snapshot of someone who
- * holds nothing there — while shares already burned waited in the queue.
- *
- * THE CONSUMER UNDER TEST: `PortfolioEngine.computeEvmPortfolio` with a real
- * registry holding one healthy adapter and one that throws, asserting on the
- * snapshot it returns (what /api/portfolio serialises as-is).
- *
- * All I/O is mocked: no RPC, no Redis, no Prisma, no FTSO.
  */
 
 jest.mock('../../../services/FlareProvider', () => ({
@@ -36,7 +24,7 @@ jest.mock('../../../database/prismaClient', () => ({
 
 const WALLET = '0x000000000000000000000000000000000000abcd';
 
-/** Two adapters: one answers (with one row), one does NOT (the it. 29 throw). */
+/** Two adapters: one answers (with one row), one does NOT (the throw). */
 const healthy = {
   protocolId: 'kinetic-fake',
   chainId: 14,
@@ -102,7 +90,7 @@ jest.mock('../../../integrations/providers/portfolio/DeBankPortfolioProvider', (
 
 import { PortfolioEngine } from '../PortfolioEngine';
 
-describe('it. 31 · the snapshot names the adapter that could not be read', () => {
+describe('The snapshot names the adapter that could not be read', () => {
   test('a throwing adapter lands in snapshot.unreadable with its reason; the healthy one still contributes', async () => {
     const snapshot = await PortfolioEngine.getInstance().getPortfolio(WALLET, 14, {
       forceRefresh: true,

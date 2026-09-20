@@ -26,7 +26,7 @@ export const ES: Record<string, string> = {
 
   // ── Sidebar destinations ──
   Overview: 'Resumen',
-  // The /app overview is named "Home" since 2026-08-04 ("Summary" stays for
+  // The /app overview is named "Home" ("Summary" stays for
   // stray consumers); Inicio is its Spanish face.
   Home: 'Inicio',
   Summary: 'Resumen',
@@ -299,7 +299,7 @@ export const ES: Record<string, string> = {
   'Needs attention': 'Requiere atención',
   'All clear': 'Todo en orden',
   'Recent alerts': 'Alertas recientes',
-  // La puerta de cada aviso accionable, en la propia lista (25-ago).
+  // La puerta de cada aviso accionable, en la propia lista.
   'Open it': 'Abrirlo',
   'View all': 'Ver todo',
   'Open portfolio': 'Abrir cartera',
@@ -345,7 +345,7 @@ export const ES: Record<string, string> = {
   Theme: 'Tema',
   Dark: 'Oscuro',
   Light: 'Claro',
-  // ── Apariencia: el TEMA (material) y la LUZ (2026-09-13) ──
+  // ── Apariencia: el TEMA (material) y la LUZ ──
   // «Tema» deja de significar claro/oscuro y pasa a significar de qué material
   // está hecho el panel. La luz se llama por su nombre.
   Astryum: 'Astryum',
@@ -498,24 +498,24 @@ const PAGES: Record<string, string> = {
   Rename: 'Renombrar',
   'Close goal': 'Cerrar objetivo',
   'Copy address': 'Copiar dirección',
-  // Puertas de Earn a una línea + HelpDot (2026-09-07): el texto largo vive
+  // Puertas de Earn a una línea + HelpDot: el texto largo vive
   // en el interrogante (claves largas ya existentes, reutilizadas).
   'Your tokens work. No debt.': 'Tus tokens trabajan. Sin deuda.',
   'Borrow — your tokens stay yours.': 'Pide prestado — tus tokens siguen siendo tuyos.',
   'A third party runs it, inside your limits.': 'Lo dirige un tercero, dentro de tus límites.',
   'Describe what you want in your own words and the agent compiles it into a strategy for you to review. You always sign — it never signs or moves funds on its own.':
     'Describe lo que quieres con tus palabras y el agente lo compila en una estrategia para que la revises. Firmas siempre tú — él nunca firma ni mueve fondos por su cuenta.',
-  // PortfolioSyncBadge (2026-09-07): el total parcial se declara parcial.
+  // PortfolioSyncBadge: el total parcial se declara parcial.
   'Still reading your wallets — the figure keeps growing':
     'Aún leyendo tus wallets — la cifra sigue creciendo',
   // Dorso de la tarjeta compacta ('Wallet' ya existía en Orbit): la etiqueta
-  // de la segunda dirección y su copia (2026-08-29).
+  // de la segunda dirección y su copia.
   'Copy the Smart Account address': 'Copiar la dirección de la Smart Account',
-  // ── Tarjetas compactas de Wallets (2026-08-27) ──
+  // ── Tarjetas compactas de Wallets ──
   'Open this card': 'Abre esta tarjeta',
   'Flip the card — quick actions on the back': 'Gira la tarjeta — acciones rápidas en el dorso',
   'Flip back': 'Girar de vuelta',
-  // La pestaña de la invitación al giro (2026-09-10) — una palabra, cabe en la píldora.
+  // La pestaña de la invitación al giro — una palabra, cabe en la píldora.
   'Turn': 'Girar',
   'Turn back': 'Volver',
   'Collapse this card': 'Contrae esta tarjeta',
@@ -1049,7 +1049,7 @@ const PAGES: Record<string, string> = {
   'Invalid EVM address (must start with 0x and be 42 chars)':
     'Dirección EVM inválida (debe empezar por 0x y tener 42 caracteres)',
   'Add Wallet': 'Añadir wallet',
-  // ── El alta dice SIEMPRE en qué acabó (fundador 2026-09-13) ──
+  // ── El alta dice SIEMPRE en qué acabó ──
   'Checking what this address is…': 'Mirando qué es esta dirección…',
   'This account is governed by a council': 'Esta cuenta está gobernada por un consejo',
   'The ledger says its signatures come from a quorum, not from a single key. Adding it is fine — it lands on the Legacy shelf as read-only, and the council keeps signing.':
@@ -1189,7 +1189,7 @@ const PAGES: Record<string, string> = {
   'Your Wallets': 'Tus wallets',
   'No wallets yet': 'Aún no hay wallets',
 
-  // ── Wallets — organizer v2: origin shelves + list default (2026-08-03) ──
+  // ── Wallets — organizer v2: origin shelves + list default ──
   'Connected wallets': 'Wallets conectadas',
   'Watch-only': 'Solo observación',
   'Login wallet': 'Wallet de acceso',
@@ -1327,7 +1327,7 @@ const PAGES: Record<string, string> = {
   'Value (USD)': 'Valor (USD)',
   'Health factor': 'Factor de salud',
   'Price (USD)': 'Precio (USD)',
-  // ── xrplTxTypeLabel (Fase 1, 2026-07-30): tipos XRPL en palabras ──
+  // ── xrplTxTypeLabel (Fase 1): tipos XRPL en palabras ──
   'Payment — sends XRP': 'Pago — envía XRP',
   'Set XRP aside until a date': 'Apartar XRP hasta una fecha',
   'Release money that was set aside': 'Liberar dinero apartado',
@@ -1879,7 +1879,7 @@ const PAGES: Record<string, string> = {
   'The FXRP stays on Flare — going back to native XRP needs a 5 XRP protocol minimum and is not yet available from this account (roadmap)':
     'El FXRP se queda en Flare — la vuelta a XRP nativo exige un mínimo de protocolo de 5 XRP y aún no está disponible desde esta cuenta (roadmap)',
 
-  // ── Dashboard 2026-07-03: capital performance band + earn hub v2 ───────────
+  // ── Dashboard: capital performance band + earn hub v2 ───────────
   'Capital Performance': 'Rendimiento del capital',
   'Ready to Use Strategy': 'Estrategias listas para usar',
 
@@ -1924,7 +1924,7 @@ const PAGES: Record<string, string> = {
   'Connection, network and account preferences. No private keys are ever stored here.':
     'Preferencias de conexión, red y cuenta. Aquí nunca se guardan claves privadas.',
 
-  // ── Portfolio header (2026-07-04 aesthetics pass) ───────────────────────────
+  // ── Portfolio header (aesthetics pass) ───────────────────────────
   Your: 'Tu',
   portfolio: 'cartera',
   'Every wallet and position in one live view — filter by wallet, network or range.':
@@ -1945,7 +1945,7 @@ const PAGES: Record<string, string> = {
   // ── Aviso regulatorio del activo prestado (assetDisclosure.ts): el carry
   //    de Kinetic pide USDT0, que es justo el activo que el invariante #9
   //    deja fuera de las estrategias dirigidas a la UE. Se dice en la CARA de
-  //    la card (17-sep), en el detalle, en la ficha y en la pantalla previa a
+  //    la card, en el detalle, en la ficha y en la pantalla previa a
   //    la firma. ──
   'Real product · not MiCA-compliant: it borrows USDT0':
     'Producto real · no cumple MiCA: pide prestado USDT0',
@@ -2106,7 +2106,7 @@ const PAGES: Record<string, string> = {
   'cushion': 'colchón',
   'Your cushion at entry': 'Tu colchón al empezar',
   'liquidation at 1.00': 'liquidación en 1,00',
-  // ── translateError (Fase 1, 2026-07-30): un fallo → una frase ──
+  // ── translateError (Fase 1): un fallo → una frase ──
   'You cancelled the signature. Nothing moved — try again whenever you like.':
     'Has cancelado la firma. No se ha movido nada — vuelve a intentarlo cuando quieras.',
   'Not enough XRP in the account for this payment.':
@@ -2159,7 +2159,7 @@ const PAGES: Record<string, string> = {
   'Net P&L per strategy appears once your position accumulates history.':
     'El P&L neto por estrategia aparece cuando tu posición acumula histórico.',
 
-  // ── Estrategias · shelves + registro (reorg UI 2026-07-12) ────────────────
+  // ── Estrategias · shelves + registro (reorg UI) ────────────────
   'Working right now': 'Funcionando ahora',
   'Running · Online': 'Funcionando · Online',
   'The strategies working on-chain: real positions with their MoneyFlows, plus your active savings.':
@@ -2177,7 +2177,7 @@ const PAGES: Record<string, string> = {
   'The registry of every manual and agent-created strategy. Each card keeps the words that created it; Run reactivates it through the same review-and-sign flow.':
     'El registro de todas las estrategias manuales y creadas con el agente. Cada card conserva las palabras que la crearon; Ejecutar la reactiva por el mismo flujo de revisar y firmar.',
 
-  // ── Earn · puertas Ahorro y Crear manualmente (reorg UI 2026-07-12) ───────
+  // ── Earn · puertas Ahorro y Crear manualmente (reorg UI) ───────
   'Set XRP aside on the ledger until a date you choose, with rules that nudge you to save. You sign everything in Xaman.':
     'Aparta XRP en el ledger hasta la fecha que elijas, con reglas que te animan a ahorrar. Todo lo firmas tú en Xaman.',
   'Do it yourself': 'Hazlo tú mismo',
@@ -2321,7 +2321,7 @@ const PAGES: Record<string, string> = {
   "Browser notifications are blocked — enable them in your browser's site settings if you'd like to be alerted here.":
     'Las notificaciones del navegador están bloqueadas — actívalas en los ajustes del sitio de tu navegador si quieres recibir avisos aquí.',
 
-  // ── Fix pass 2026-07-10: vault actions (now t()-wrapped) ──
+  // ── Fix pass: vault actions (now t()-wrapped) ──
   'Supply FXRP + borrow USDT0': 'Aporta FXRP + pide USDT0',
   'Put your XRP to work': 'Pon tu XRP a trabajar',
   'Wrap + delegate to FTSO': 'Wrap + delegar a FTSO',
@@ -2437,7 +2437,7 @@ const PAGES: Record<string, string> = {
     '¿Descartar para siempre? Sus bytes firmados jamás podrán ejecutar; el registro queda en el archivo de auditoría.',
   'The FXRP leaves your Astryum account to the Flare destination — one atomic order you sign in Xaman.':
     'El FXRP sale de tu cuenta Astryum al destino Flare — una orden atómica que firmas en Xaman.',
-  // ── FLR nativo de la Smart Account: enviar y recibir (fundador 2026-08-28) ──
+  // ── FLR nativo de la Smart Account: enviar y recibir ──
   'That FLR already lives in that account — nothing to move.':
     'Ese FLR ya vive en esa cuenta — no hay nada que mover.',
   'Native on Flare, in your account': 'Nativo en Flare, en tu cuenta',
@@ -2489,7 +2489,7 @@ const PAGES: Record<string, string> = {
   'The remaining signatures will be requested on their own — you can leave this open.':
     'Las firmas que quedan se piden solas — puedes dejar esto abierto.',
   'Position open. Your RLUSD is in your wallet.': 'Posición abierta. Tu RLUSD está en tu wallet.',
-  // — el RLUSD prestado va a Sentora en la misma firma (25-ago) —
+  // el RLUSD prestado va a Sentora en la misma firma —
   'Position open. Your borrowed RLUSD is lent in the Sentora vault.':
     'Posición abierta. Tu RLUSD prestado está trabajando en la bóveda de Sentora.',
   'Supply the collateral, borrow, and lend the RLUSD in the Sentora vault':
@@ -2500,7 +2500,7 @@ const PAGES: Record<string, string> = {
     'El RLUSD no se queda en tu wallet: se presta en la bóveda RLUSD de Sentora (Morpho, Ethereum) en esta misma firma. Sentora decide la asignación — exposición agregada. Cuando repagues, la puerta de repago retira primero de la bóveda lo que haga falta.',
   'Off: the borrowed RLUSD stays in your wallet.': 'Apagado: el RLUSD pedido se queda en tu wallet.',
   'RLUSD lent in Sentora': 'RLUSD prestado en Sentora',
-  // — el repago saca la munición de Sentora (25-ago) —
+  // el repago saca la munición de Sentora —
   'Taken from your Sentora vault': 'Sacado de tu bóveda de Sentora',
   'your wallet holds': 'tu wallet tiene',
   'The shortfall is redeemed from your Sentora lend position as the first leg of this signature — the rest of your lent RLUSD stays lent.':
@@ -2508,7 +2508,7 @@ const PAGES: Record<string, string> = {
   "Your wallet and your Sentora lend position together don't hold enough RLUSD on Ethereum for this repay.":
     'Tu wallet y tu posición prestada en Sentora, juntas, no tienen RLUSD suficiente en Ethereum para este repago.',
   'See it in Positions →': 'Verla en Posiciones →',
-  // ── Cerrar la posición entera (29-ago): el hueco del interés lo paga
+  // ── Cerrar la posición entera: el hueco del interés lo paga
   //    el propio colateral sobrante, dentro del mismo lote.
   'Close it all': 'Cerrarlo todo',
   'Close the whole position': 'Cerrar la posición entera',
@@ -2841,7 +2841,7 @@ const PAGES: Record<string, string> = {
   'Fixed repay amount': 'Importe fijo a repagar',
   'This rule has no editable threshold — only its cooldown can change here.':
     'Esta regla no tiene umbral editable — aquí solo puede cambiar cada cuánto te avisa.',
-  // ── RuleEditModal humanizado (F1/F2/F9, 2026-07-30) ──
+  // ── RuleEditModal humanizado (F1/F2/F9) ──
   'Alert me when my cushion (health factor) drops below':
     'Avísame cuando mi colchón (factor de salud) baje de',
   '1.00 = liquidation. When it fires, we prepare the repayment for YOU to sign.':
@@ -2935,7 +2935,7 @@ const PAGES: Record<string, string> = {
     'XRPL mantiene bloqueada una reserva base de 1 XRP en la cuenta emisora.',
   'Prepare transfer': 'Preparar transferencia',
   'Network fee': 'Comisión de red',
-  // ── R5: todos los cargos antes de firmar (2026-07-30) ──
+  // ── R5: todos los cargos antes de firmar ──
   'your wallet shows the exact figure before signing':
     'tu wallet muestra la cifra exacta antes de firmar',
   'The withdrawal period ended — this releases the FXRP straight to your wallet. The only cost is the network fee (cents; your wallet shows the exact figure before signing). The exit fee was already taken when you requested the withdrawal — nothing else is charged.':
@@ -2943,7 +2943,7 @@ const PAGES: Record<string, string> = {
   'Astryum fee': 'Comisión de Astryum',
   'we charge nothing': 'no cobramos nada',
   'Real money · product in testing': 'Dinero real · producto en pruebas',
-  // ── Withdraw con destino XRPL en el selector + dispatch explicado (30-jul) ──
+  // ── Withdraw con destino XRPL en el selector + dispatch explicado ──
   'This account is steered from your XRPL wallet, so every order travels on a small XRP payment — that payment IS your signature.':
     'Esta cuenta se gobierna desde tu wallet XRPL, así que cada orden viaja en un pequeño pago de XRP — ese pago ES tu firma.',
   'It is not lost: it comes back to you as FXRP. Net cost ≈ 0.3 XRP — exact figures before signing. Nothing goes to Astryum.':
@@ -2961,7 +2961,7 @@ const PAGES: Record<string, string> = {
     'de transporte (tu firma) — coste neto ≈ 0,3 XRP; el resto vuelve a tu cuenta como FXRP.',
   'Keep it on Flare (instant)': 'Dejarlo en Flare (al instante)',
   'To my XRP wallet (minutes to hours)': 'A mi wallet XRP (minutos a horas)',
-  // ── Reserva de gobierno XRPL (trampa del mint-total, 30-jul) ──
+  // ── Reserva de gobierno XRPL (trampa del mint-total) ──
   'This would leave your XRPL wallet almost empty. Your Astryum account is steered FROM it — every order needs ~1 XRP of carrier payment. Keep at least ~2 XRP or you will not be able to withdraw or convert until you refund it from outside.':
     'Esto dejaría tu wallet XRPL casi vacía. Tu cuenta Astryum se gobierna DESDE ella — cada orden necesita ~1 XRP de transporte. Deja al menos ~2 XRP o no podrás retirar ni convertir hasta que la fondees desde fuera.',
   'MAX keeps ~2 XRP back — your Astryum account is steered from this wallet and every order needs a small XRP payment.':
@@ -2970,17 +2970,17 @@ const PAGES: Record<string, string> = {
     'La cuenta que firma es tu wallet XRPL',
   'send it ~2 XRP (from an exchange or another wallet) and come back. Your money on Flare is untouched.':
     'envíale ~2 XRP (desde un exchange u otra wallet) y vuelve. Tu dinero en Flare sigue intacto.',
-  // ── CmfReviewModal humanizado (Fase 3, 2026-07-30) ──
+  // ── CmfReviewModal humanizado (Fase 3) ──
   'Drafted by the assistant. Watching is free and touches nothing — when it fires, we will ask YOU to sign.':
     'Redactado por el asistente. Vigilar es gratis y no toca nada — cuando salte, te pediremos que firmes TÚ.',
   'Turn on the watch (nothing is signed now)': 'Activar la vigilancia (ahora no se firma nada)',
-  // ── R9 APY como dato (Fase 3, 2026-07-30) ──
+  // ── R9 APY como dato (Fase 3) ──
   'current protocol figure': 'dato actual del protocolo',
   'If the rate held (it is not guaranteed — it changes constantly), this is what simple interest would add, before fees and price moves. It is not an offer, a promise, or an Astryum yield.':
     'Si el tipo se mantuviera (no está garantizado — cambia constantemente), esto es lo que sumaría el interés simple, antes de comisiones y movimientos de precio. No es una oferta, ni una promesa, ni un rendimiento de Astryum.',
   'Ready-made strategies live on mainnet. Open one to see exactly what it does with your tokens before you sign anything.':
     'Estrategias listas funcionando en mainnet. Abre una para ver exactamente qué hace con tus tokens antes de firmar nada.',
-  // ── templateCatalog por t() (Fase 3, 2026-07-30) ──
+  // ── templateCatalog por t() (Fase 3) ──
   'Defends your position: if your cushion (health factor) drops below your threshold, Astryum prepares the repayment for you to sign.':
     'Defiende tu posición: si tu colchón (factor de salud) baja de tu umbral, Astryum te prepara el pago para que lo firmes.',
   'Repay only just enough to restore the cushion': 'Devolver solo lo justo para restaurar el colchón',
@@ -2999,7 +2999,7 @@ const PAGES: Record<string, string> = {
   'Automatically reinvest what you earn': 'Reinvertir automáticamente lo que ganes',
   'Your rewards go back into the position, already working and voting again — nothing for you to do.':
     'Tus recompensas vuelven a la posición, ya trabajando y votando otra vez — sin que tengas que hacer nada.',
-  // ── describeRule compartido (Fase 3, 2026-07-30) ──
+  // ── describeRule compartido (Fase 3) ──
   'If your cushion (health factor) drops below': 'Si tu colchón (factor de salud) baja de',
   'If the borrowed share goes above': 'Si la parte prestada supera el',
   'When your rewards exceed': 'Cuando tus recompensas superen',
@@ -3022,7 +3022,7 @@ const PAGES: Record<string, string> = {
   'a vault order proposal goes to the council to sign': 'una propuesta de orden al vault va al consejo para firmar',
   'you get an alert — nothing is prepared': 'recibes un aviso — no se prepara nada',
   'we prepare it for you to sign': 'te lo preparamos para que lo firmes',
-  // ── PreflightNotice sin jerga (Fase 2b, 2026-07-30) ──
+  // ── PreflightNotice sin jerga (Fase 2b) ──
   "We couldn't test this operation in advance — double-check the figures before signing.":
     'No hemos podido probar esta operación por adelantado — repasa las cifras antes de firmar.',
   'We tested this operation without signing it — it would FAIL:':
@@ -3034,7 +3034,7 @@ const PAGES: Record<string, string> = {
     'lo que se pudo simular saldría bien — una parte no se pudo comprobar.',
   'steps verifiable before signing': 'pasos verificables antes de firmar',
   'the simulation reported a failure': 'la simulación devolvió un fallo',
-  // ── settlementReasonText (Fase 2b, 2026-07-30) ──
+  // ── settlementReasonText (Fase 2b) ──
   'The batch failed on the network — your money did not move.':
     'El lote falló en la red — tu dinero no se ha movido.',
   'Your wallet does not let us confirm automatically — open it and check with the receipt below.':
@@ -3044,9 +3044,9 @@ const PAGES: Record<string, string> = {
   'Batch step': 'El paso',
   'of the batch was rejected by the network — nothing was applied.':
     'del lote fue rechazado por la red — no se aplicó nada.',
-  // ── Léxico R3 de intenciones y CTAs (Fase 2b, 2026-07-30) ──
+  // ── Léxico R3 de intenciones y CTAs (Fase 2b) ──
   'Review before signing': 'Ver el resumen antes de firmar',
-  // ── El porqué del botón gris (2026-08-27): el tooltip del bloqueo ──
+  // ── El porqué del botón gris: el tooltip del bloqueo ──
   'Enter an amount above zero to continue': 'Introduce una cantidad mayor que cero para continuar',
   'Your balance does not cover this amount — lower it or top up the wallet':
     'Tu saldo no cubre esta cantidad — bájala o recarga la wallet',
@@ -3074,7 +3074,7 @@ const PAGES: Record<string, string> = {
   'into XRP, on its way to your XRPL wallet.': 'a XRP, en camino a tu wallet XRPL.',
   'You are about to withdraw': 'Vas a retirar',
   'from Kinetic to your wallet.': 'de Kinetic a tu wallet.',
-  // ── Éxitos veraces + settling (Fase 2, 2026-07-30) ──
+  // ── Éxitos veraces + settling (Fase 2) ──
   'Keep waiting in the background': 'Seguir esperando en segundo plano',
   'Claim confirmed — your XRP is on its way to your XRPL wallet (minutes to hours).':
     'Cobro confirmado — tu XRP está en camino a tu wallet XRPL (de minutos a horas).',
@@ -3087,12 +3087,12 @@ const PAGES: Record<string, string> = {
   'See how your position looks now': 'Ver cómo queda tu posición',
   'Your XRP will appear on Flare as FXRP in a few minutes. Sometimes it takes a little longer — it is never lost.':
     'Tu XRP aparecerá en Flare como FXRP en unos minutos. A veces tarda algo más — nunca se pierde.',
-  // ── Intents/firma (Fase 2, 2026-07-30) ──
+  // ── Intents/firma (Fase 2) ──
   'Being prepared': 'Preparándose',
   'Sending to the network': 'Enviándose a la red',
   'On its way to the network': 'En camino a la red',
   'This operation cannot be signed yet.': 'Esta operación todavía no se puede firmar.',
-  // ── Settlement en-vuelo (Fase 2, 2026-07-30): titulares que faltaban en ES ──
+  // ── Settlement en-vuelo (Fase 2): titulares que faltaban en ES ──
   'Settled on Flare — confirmed on-chain.': 'Confirmado en la red de Flare.',
   'The signed operation failed on-chain.': 'La red rechazó la operación firmada.',
   'Taking longer than normal — still watching the chain. Nothing is lost.':
@@ -3105,12 +3105,12 @@ const PAGES: Record<string, string> = {
     'Resultado de lo que firmaste antes de recargar:',
   'Only hides this notice — the operation keeps going on-chain.':
     'Solo oculta este aviso — la operación sigue su curso en la red.',
-  // ── DispatchXrpField (F12, 2026-07-30) ──
+  // ── DispatchXrpField (F12) ──
   'The order travels on a small XRP payment': 'La orden viaja en un pequeño pago de XRP',
   'it comes back to you as FXRP minus the protocol fees. You will see the exact figures before signing. Nothing goes to Astryum.':
     'te vuelve como FXRP menos las comisiones del protocolo. Verás las cifras exactas antes de firmar. Nada va a Astryum.',
   'Adjust the carrier payment (advanced)': 'Ajustar el pago de transporte (avanzado)',
-  // ── Swap-fill: elección obligatoria (founder 2026-07-31) ──
+  // ── Swap-fill: elección obligatoria ──
   'You are short': 'Te faltan',
   'choose how to cover it: swap YOUR own asset inside the same batch you sign (wallet → pool → wallet; Astryum only compiles), or repay without the swap and cover the rest yourself. The transaction is built one way or the other — the signature unlocks when you pick:':
     'elige cómo cubrirlo: swapear TU propio activo dentro del mismo lote que firmas (wallet → pool → wallet; Astryum solo compila), o repagar sin swap y poner tú el resto. La transacción se construye de una forma o de otra — la firma se desbloquea al elegir:',
@@ -3129,7 +3129,7 @@ const PAGES: Record<string, string> = {
   'Remove the fill (repay only what you hold)': 'Quitar el swap (repagar solo con lo que tienes)',
   "NOT a fee and NOT the amount of your operation: the order must ride an XRPL Payment to the FAssets Core Vault (Xaman will show it). It returns to your account as FXRP minus the protocol's fees — minting max(0.1%, 0.1 XRP) + 0.2 XRP for the executor.":
     'NO es una comisión ni el importe de tu operación: la orden viaja en un Payment XRPL al Core Vault de FAssets (Xaman lo mostrará). Vuelve a tu cuenta como FXRP menos las comisiones del protocolo — mint máx(0,1 %, 0,1 XRP) + 0,2 XRP del executor.',
-  // ── XamanQRModal (F6, 2026-07-30): estados terminales + countdown + i18n ──
+  // ── XamanQRModal (F6): estados terminales + countdown + i18n ──
   'Review the operation in the app and approve it. It reaches the network only with your signature.':
     'Revisa la operación en la app y apruébala. Se envía a la red solo con tu firma.',
   'Connect Xaman': 'Conectar Xaman',
@@ -3158,7 +3158,7 @@ const PAGES: Record<string, string> = {
   'Time left before this code expires': 'Tiempo restante antes de que caduque este código',
   'Astryum never signs and never holds custody. The key is yours and the signature happens in Xaman.':
     'Astryum no firma ni custodia. La clave es tuya y la firma ocurre en Xaman.',
-  // ── Fijar beneficiarios del rendimiento (F5, 2026-07-30) ──
+  // ── Fijar beneficiarios del rendimiento (F5) ──
   'Set the payees (who receives the yield)': 'Fijar los beneficiarios (quién recibe el rendimiento)',
   'Payee (Flare 0x…)': 'Beneficiario (Flare 0x…)',
   'Share (%)': 'Parte (%)',
@@ -3169,7 +3169,7 @@ const PAGES: Record<string, string> = {
   'The shares add up to more than 100%': 'Las partes suman más del 100 %',
   'The yield is shared out in these proportions. What is not assigned keeps capitalizing into the principal.':
     'El rendimiento se reparte en estas proporciones. Lo que no se asigne sigue capitalizando en el principal.',
-  // E6 (2026-08-15): endurecimiento del formulario — suma exacta, endowment, duplicados.
+  // E6: endurecimiento del formulario — suma exacta, endowment, duplicados.
   'The shares must add up to exactly 100%': 'Las partes deben sumar exactamente el 100 %',
   'The same address appears twice in the payees.': 'La misma dirección aparece dos veces entre los beneficiarios.',
   'No payees — every harvest capitalizes into the principal (endowment)':
@@ -3261,7 +3261,7 @@ const PAGES: Record<string, string> = {
   'The FAssets agent now pays the XRP to the XRPL destination (minus the protocol redemption fee).':
     'El agente de FAssets paga ahora el XRP a la dirección XRPL (menos la fee de redención del protocolo).',
 
-  // ── Unmint PA → XRP nativo (2026-07-26) — todos los caminos de vuelta ──
+  // ── Unmint PA → XRP nativo — todos los caminos de vuelta ──
   'Unmint — FXRP → native XRP': 'Unmint — FXRP → XRP nativo',
   'Unmint → XRP': 'Unmint → XRP',
   'Free FXRP in the Smart Account': 'FXRP libre en el Smart Account',
@@ -3344,7 +3344,7 @@ const PAGES: Record<string, string> = {
     'Guarda las direcciones a las que envías a menudo — aparecen como destinos de un toque en el flujo de envío.',
   'Show QR': 'Ver QR',
 
-  // ── Movimientos — puerta de Generar (ex-Ahorro, reorg 2026-07-12):
+  // ── Movimientos — puerta de Generar (ex-Ahorro, reorg):
   //    enviar/recibir entre wallets + ahorro XRPL, y modales reutilizables ──
   Movements: 'Movimientos',
   'Between your wallets': 'Entre tus wallets',
@@ -3545,7 +3545,7 @@ const PAGES: Record<string, string> = {
   // Dos superficies (ADR-008 / prompt Fable) + la salud que gobierna las acciones (§2).
   'Constitute': 'Constituir',
   'Govern': 'Gobernar',
-  // Reorganización pre-gate 2026-08-04: conmutador de superficie en cabecera,
+  // Reorganización pre-gate: conmutador de superficie en cabecera,
   // tab Info (antes "Information"), rail/tabs accesibles y estado de la
   // constitución en la tira de identidad de Gobernar.
   'Info': 'Info',
@@ -3563,7 +3563,7 @@ const PAGES: Record<string, string> = {
   // 'Previous' / 'Next' ya existen arriba (~1467) con la misma traducción.
   'A Legacy is an XRPL account governed by a council of real people — a quorum the ledger itself enforces. Constitute a new one, or open the address of one you already govern in the first step: it will appear here.':
     'Un Legacy es una cuenta XRPL gobernada por un consejo de personas reales — un quórum que el propio ledger hace cumplir. Constituye uno nuevo, o abre en el primer paso la dirección de uno que ya gobiernes: aparecerá aquí.',
-  // La puerta del lobby (2026-08-04): en modo Legacy sin cuenta gobernada,
+  // La puerta del lobby: en modo Legacy sin cuenta gobernada,
   // las páginas compartidas enseñan el lobby — nunca el capital Personal.
   'No Legacy constituted yet': 'Aún no hay ningún Legacy constituido',
   'This is the Legacy side of Astryum: it shows a council-governed account, and this profile has none yet. Personal capital stays on the Personal side — nothing is shown here until a council exists.':
@@ -3571,7 +3571,7 @@ const PAGES: Record<string, string> = {
   'Constitute a Legacy': 'Constituir un Legacy',
   'Back to Personal': 'Volver a Personal',
   'Loading': 'Cargando',
-  // Briefs por estación (2026-08-04, del propio onboarding del fundador):
+  // Briefs por estación (del propio onboarding del fundador):
   // cada slide abre diciendo QUÉ SE HACE físicamente, en pasos numerados.
   'Before you start': 'Antes de empezar',
   'What you do here': 'Qué se hace aquí',
@@ -3581,7 +3581,7 @@ const PAGES: Record<string, string> = {
     'Fondéala con un poco de XRP — unos 15 XRP cubren las reservas del ledger y las comisiones de la ceremonia. La cifra exacta se comprueba aquí en cuanto la cuenta esté abierta.',
   'Paste its r… address below: that account becomes the Legacy — the main account the council will govern. Astryum reads it from the ledger and never touches its keys.':
     'Pega su dirección r… aquí abajo: esa cuenta se convierte en el Legacy — la cuenta principal que gobernará el consejo. Astryum la lee del ledger y jamás toca sus llaves.',
-  // Council, acortado (2026-08-04, "demasiado texto junto"): el brief nombra
+  // Council, acortado ("demasiado texto junto"): el brief nombra
   // los tres movimientos; CouncilInXaman los explica debajo.
   'Gather 3 to 7 people (5 with a quorum of 3 is the standard), each with their OWN Xaman wallet.':
     'Reúne de 3 a 7 personas (5 con quórum de 3 es el estándar), cada una con SU wallet Xaman.',
@@ -3589,7 +3589,7 @@ const PAGES: Record<string, string> = {
     'Escribe primero el plan: quién firma, con qué peso y el quórum.',
   'Create it in the Xaman Multisign xApp — guided below, screen by screen — and come back to compare the ledger against your plan.':
     'Créalo en el xApp Multisign de Xaman — guiado abajo, pantalla a pantalla — y vuelve para comparar el ledger con tu plan.',
-  // Inmersión del wizard (2026-08-05): cabecera de estación, orientación de
+  // Inmersión del wizard: cabecera de estación, orientación de
   // primera vez, ayuda de primera wallet y los «Continuar» del éxito.
   'A fresh Xaman account becomes the vessel of the Legacy.':
     'Una cuenta Xaman nueva se convierte en el recipiente del Legacy.',
@@ -3626,7 +3626,7 @@ const PAGES: Record<string, string> = {
   'Continue: the rehearsal': 'Continuar: el ensayo',
   'Continue: close the door': 'Continuar: cerrar la puerta',
   'Continue: the capital': 'Continuar: el capital',
-  // Placeholders de las plantillas de constitución (2026-08-08): eran
+  // Placeholders de las plantillas de constitución: eran
   // literales en español y se colaban en la UI inglesa; ahora son claves
   // inglesas y este bloque es su español de siempre.
   'ipfs://… / "the safe at home"': 'ipfs://… / "caja fuerte de casa"',
@@ -3653,7 +3653,7 @@ const PAGES: Record<string, string> = {
   'That the business keeps producing for…': 'Que el negocio siga produciendo para…',
   'Only council-approved destinations…': 'Solo destinos aprobados por el consejo…',
   'The kids’ savings': 'Ahorro de los niños',
-  // Council reestructurado (2026-08-05): tarjetas separadas, tutorial
+  // Council reestructurado: tarjetas separadas, tutorial
   // ilustrado con las capturas reales de Xaman, plan plegado como opcional.
   'created in Xaman, not here': 'creado en Xaman, no aquí',
   'No council governs this account yet. It is created in the Xaman Multisign xApp — from the phone that holds this account’s key — following the illustrated steps below; then you come back and Astryum reads it from the ledger. Astryum never holds a key.':
@@ -3676,7 +3676,7 @@ const PAGES: Record<string, string> = {
   'Optional: write the plan here first — a checked list to copy into the phone, compared against the ledger afterwards':
     'Opcional: escribe antes el plan aquí — una lista verificada para copiar al móvil, comparada luego contra el ledger',
   'Write the list here first': 'Escribe la lista aquí primero',
-  // El copiloto ES la Guía en modo Legacy (2026-08-04).
+  // El copiloto ES la Guía en modo Legacy.
   'Reads this Legacy’s step from the ledger · never signs':
     'Lee del ledger el paso de este Legacy · nunca firma',
   'Explains Legacy and finds your setup · never sees your data':
@@ -3725,7 +3725,7 @@ const PAGES: Record<string, string> = {
   'Tell me what you want to protect and for whom…': 'Cuéntame qué quieres proteger y para quién…',
   'This assistant only explains and suggests. It never signs, never sees your data, and gives no financial or legal advice.':
     'Este asistente solo explica y sugiere. Nunca firma, nunca ve tus datos y no da consejo financiero ni legal.',
-  // ── Constitute slide deck + My Legacies cards (redesign 2026-07-16) ──
+  // ── Constitute slide deck + My Legacies cards (redesign) ──
   'Already govern a Legacy? Open its address here — it is remembered in My Legacies. Observing is just opening.':
     '¿Ya gobiernas un Legacy? Abre su dirección aquí — queda guardado en Mis Legacies. Observar es simplemente abrir.',
   'The capital': 'El capital',
@@ -3837,7 +3837,7 @@ const PAGES: Record<string, string> = {
   'One per line: "device/key — rADDRESS — where its backup lives". All of them are YOURS — this is protection from a single point of failure, with no third parties.':
     'Una por línea: «dispositivo/llave — rDIRECCIÓN — dónde vive su backup». Todas son TUYAS — es protección contra el punto único de fallo, sin terceros.',
   'Total keys': 'Llaves totales',
-  // ── Cuenta personal reforzada (21-ago-2026): la puerta «Reinforce it» de
+  // ── Cuenta personal reforzada: la puerta «Reinforce it» de
   //    cada card XRPL y la plantilla que abre. Las dos claves de arriba
   //    ('Personal patrimony (one person)' y su descripción) quedan INERTES:
   //    la plantilla se renombró, pero no se borran.
@@ -3947,7 +3947,7 @@ const PAGES: Record<string, string> = {
   'Survival folder URI': 'URI de la carpeta de supervivencia',
   'Where the offline instructions live (IPFS/Drive/paper location) — how to operate without Astryum.':
     'Dónde viven las instrucciones offline (IPFS/Drive/papel) — cómo operar sin Astryum.',
-  // ── E4 (2026-08-16): plantillas matrimonial (T4) y socios (T6) ──
+  // ── E4: plantillas matrimonial (T4) y socios (T6) ──
   'Couple patrimony (matrimonial)': 'Patrimonio de pareja (matrimonial)',
   'Shared capital of a couple, governed 2-of-3: both partners plus a referee whose only job is breaking a deadlock. The matrimonial property regime — not this document — says who owns what.':
     'El capital común de una pareja, gobernado 2-de-3: los dos cónyuges más un árbitro cuyo único papel es deshacer un bloqueo. Quién es dueño de qué lo dice el régimen económico matrimonial — no este documento.',
@@ -4017,7 +4017,7 @@ const PAGES: Record<string, string> = {
   'could not read': 'no se pudo leer',
   'not a council yet': 'aún no es un consejo',
   'signers': 'firmantes',
-  // Organismo Legacy del Summary (coherencia de producto, 2026-07-18).
+  // Organismo Legacy del Summary (coherencia de producto).
   'No Legacy loaded': 'Sin Legacy cargado',
   'Constitute one — or observe one you govern — and it will live here.':
     'Constituye uno — u observa uno que gobiernes — y vivirá aquí.',
@@ -4028,32 +4028,32 @@ const PAGES: Record<string, string> = {
   'next': 'próxima',
   'In this product you propose — the council signs. Astryum never signs, never holds custody.':
     'En este producto propones — firma el consejo. Astryum nunca firma ni custodia.',
-  // E2 (2026-08-16): el tercer estado — cuenta simple con llaves de quórum.
+  // E2: el tercer estado — cuenta simple con llaves de quórum.
   // ('Quorum' ya existe como clave más abajo — el pill la reutiliza.)
   'This is my reinforced personal account, not a Legacy — keep it with my wallets':
     'Es mi cuenta personal reforzada, no un Legacy — que se quede con mis wallets',
-  // La corona de la reforzada (2026-09-06): el quórum en la cabecera, como un Legacy pero en oro.
+  // La corona de la reforzada: el quórum en la cabecera, como un Legacy pero en oro.
   'Reinforced': 'Reforzada',
   'a quorum of your keys signs': 'firma un quórum de tus llaves',
-  // La puerta de VUELTA de la marca (2026-09-13): reforzada → Legacy.
+  // La puerta de VUELTA de la marca: reforzada → Legacy.
   'Marked as YOUR reinforced account': 'Marcada como TU cuenta reforzada',
   'It is a Legacy': 'Es un Legacy',
   'Remove the mark: the ledger-confirmed council takes over and the account moves to the Legacy shelf':
     'Retira la marca: manda el consejo confirmado por el ledger y la cuenta pasa al estante Legacy',
-  // El estante Manager de Wallets (2026-09-06): las wallets que sirven a los managed vaults.
+  // El estante Manager de Wallets: las wallets que sirven a los managed vaults.
   'The wallets you run managed vaults with: the XRPL account that governs and, while ceded, the director key on Flare.':
     'Las wallets con las que llevas tus bóvedas gestionadas: la cuenta XRPL que gobierna y, mientras dure la cesión, la llave de director en Flare.',
   'Open the manager desk': 'Abrir la mesa del gestor',
-  // Banda de estructuras del Summary (E1, 2026-08-15): una firma, N estructuras.
+  // Banda de estructuras del Summary (E1): una firma, N estructuras.
   'Structures': 'Estructuras',
   'in progress': 'en curso',
   'programmed': 'programadas',
-  // Personal = solo wallets normales; los consejos viven en su Legacy (2026-07-18).
+  // Personal = solo wallets normales; los consejos viven en su Legacy.
   '1 council account (multisig) lives in Astryum Legacy — switch the product toggle to see it inside its Legacy.':
     '1 cuenta de consejo (multisig) vive en Astryum Legacy — cambia el toggle de producto para verla dentro de su Legacy.',
   'council accounts (multisig) live in Astryum Legacy — switch the product toggle to see them inside their Legacy.':
     'cuentas de consejo (multisig) viven en Astryum Legacy — cambia el toggle de producto para verlas dentro de su Legacy.',
-  // Toggle de producto (2026-07-18): Personal ↔ Legacy, en el sidebar.
+  // Toggle de producto: Personal ↔ Legacy, en el sidebar.
   'Product': 'Producto',
   'Personal': 'Personal',
   'Astryum product active': 'Producto Astryum activo',
@@ -4062,7 +4062,7 @@ const PAGES: Record<string, string> = {
   'No Legacy yet — constitute it in its tab': 'Aún sin Legacy — constitúyelo en su pestaña',
   'wallet connected': 'wallet conectada',
   'wallets connected': 'wallets conectadas',
-  // Switcher de autoridad (2026-07-17): la barra de contexto del shell.
+  // Switcher de autoridad: la barra de contexto del shell.
   'Operating as': 'Operando como',
   'You execute — you sign directly': 'Ejecutas — firmas tú directamente',
   'You propose — the council signs': 'Propones — firma el consejo',
@@ -4090,7 +4090,7 @@ const PAGES: Record<string, string> = {
   'Prefer your own multisign tool?': '¿Prefieres tu propia herramienta de multifirma?',
   'Hide manual signing': 'Ocultar firma manual',
   'Gather the council’s signatures': 'Reunir las firmas del consejo',
-  // Los dos tempos, nombrados (2026-08-04): síncrono aquí, asíncrono en la
+  // Los dos tempos, nombrados: síncrono aquí, asíncrono en la
   // bandeja. Cada botón dice DÓNDE firma cada miembro, no solo cuánto tarda.
   'Sign now, all together': 'Firmar ahora, todos juntos',
   'Everyone signs in this sitting: one QR per member on this screen, and a notification to the Xaman of anyone who has signed here before. Nothing is stored — if this screen closes, the signatures are lost.':
@@ -4137,7 +4137,7 @@ const PAGES: Record<string, string> = {
   'Constitute it below: 1–32 signers with weights and a quorum. The form starts at 3 signers, quorum 2 (a simple majority); a larger family may prefer 5 with quorum 3. Astryum composes the SignerListSet; you sign it with THIS account’s key. Astryum never holds a key.':
     'Constitúyelo abajo: 1–32 firmantes con pesos y un quórum. El formulario arranca con 3 firmantes y quórum 2 (mayoría simple); una familia grande puede preferir 5 con quórum 3. Astryum compone el SignerListSet; tú lo firmas con la llave de ESTA cuenta. Astryum nunca guarda una llave.',
   // ── Paso 2 de la constitución: el consejo se crea en el xApp Multisign de
-  //    Xaman (2026-08-03). Xaman rechaza un SignerListSet compuesto por
+  //    Xaman. Xaman rechaza un SignerListSet compuesto por
   //    cualquier app (401 / 1217); Astryum prepara la lista, la revisa, guía
   //    pantalla a pantalla y después lee el ledger para confirmarla. ──
   'Constitute it in three moves: write the list of signers here (1–32, with weights and a quorum — 5 signers with quorum 3 is the recommended family setup), create it in the Xaman Multisign xApp following the steps below, and come back so Astryum reads it from the ledger. Astryum never holds a key.':
@@ -4249,7 +4249,7 @@ const PAGES: Record<string, string> = {
   'Xaman refuses to show a QR for this transaction type when an app composes it (error 1217), so the signature rail below may not work today. What does work: the members sign it in the Xaman Multisign xApp, or paste their signed blob into the proposal inbox. The council can always be amended — the route through this screen is what is blocked.':
     'Xaman se niega a enseñar un QR de este tipo de transacción cuando la compone una app (error 1217), así que el carril de firma de abajo puede no funcionar hoy. Lo que sí funciona: que los miembros la firmen en el xApp Multisign de Xaman, o que peguen su blob firmado en la bandeja de propuestas. El consejo se puede enmendar siempre — lo bloqueado es el camino por esta pantalla.',
 
-  // ── Validación del consejo (F10, 2026-07-30) ──
+  // ── Validación del consejo (F10) ──
   'Add at least one signer address.': 'Añade al menos una dirección de firmante.',
   'This is not an XRPL address (r…)': 'Esto no es una dirección XRPL (r…)',
   'The account cannot be one of its own signers.': 'La cuenta no puede ser uno de sus propios firmantes.',
@@ -4397,7 +4397,7 @@ const PAGES: Record<string, string> = {
   'Proposal inbox': 'Bandeja de propuestas',
   'A quorum signs asynchronously: propose, each member signs when they can, combine and broadcast from the browser once the quorum is met. Proposals expire after 7 days.':
     'Un quórum firma de forma asíncrona: se propone, cada miembro firma cuando puede, y al alcanzarse el quórum se combina y emite desde el navegador. Las propuestas caducan a los 7 días.',
-  // Un asiento por cuenta (2026-08-04): la bandeja solo emite TU QR.
+  // Un asiento por cuenta: la bandeja solo emite TU QR.
   'A quorum signs asynchronously: propose, and each member signs from THEIR OWN account with their own linked wallet, whenever they can. You only ever sign your own seat here. Once the quorum is met, anyone combines and broadcasts from the browser. Proposals expire after 7 days.':
     'Un quórum firma de forma asíncrona: se propone, y cada miembro firma desde SU PROPIA cuenta con su propia wallet enlazada, cuando pueda. Aquí solo firmas tu asiento. Al alcanzarse el quórum, cualquiera combina y emite desde el navegador. Las propuestas caducan a los 7 días.',
   'No signature of yours is pending here: none of this council’s seats belongs to a wallet linked to this account. Each councillor signs from their own Astryum — if one of these addresses is yours, connect it in Xaman. To sign together in one sitting, use the live ceremony instead.':
@@ -4558,7 +4558,7 @@ const PAGES: Record<string, string> = {
   'Recent users': 'Usuarios recientes',
   'Copy emails': 'Copiar correos',
   'No signups yet.': 'Aún no hay inscritos.',
-  // Static login card (founder 2026-07-19 — the panel's only door for now)
+  // Static login card
   'Founders panel': 'Panel de fundadores',
   'Enter the panel key to open the overview.': 'Introduce la clave del panel para abrir el resumen.',
   'That key was not accepted.': 'Esa clave no ha sido aceptada.',
@@ -4569,7 +4569,7 @@ const PAGES: Record<string, string> = {
 
   // AuthorityCrossing reuses the shared 'Personal' key (ProductToggle block).
 
-  // ── MoneyFlows (superficie unificada Personal + Legacy, 2026-07-18) ──
+  // ── MoneyFlows (superficie unificada Personal + Legacy) ──
   'MoneyFlows · your rules': 'MoneyFlows · tus reglas',
   'quorum signs': 'firma el quórum',
   'you sign': 'firmas tú',
@@ -4598,7 +4598,7 @@ const PAGES: Record<string, string> = {
   trigger: 'disparador',
   'propose payment of': 'propone pago de',
   'propose vault order': 'propone orden al vault',
-  // ── Pago recurrente personal (M1, 2026-08-16): la domiciliación de una wallet normal ──
+  // ── Pago recurrente personal (M1): la domiciliación de una wallet normal ──
   'prepare payment of': 'prepara pago de',
   // ── H3: la VUELTA del puente (Ethereum → Flare) ──
   'Bring FXRP back to Flare': 'Traer el FXRP de vuelta a Flare',
@@ -4618,7 +4618,7 @@ const PAGES: Record<string, string> = {
   // ('Borrow rate' ya existe como clave más arriba — se reutiliza.)
   'unavailable right now — not invented': 'no disponible ahora mismo — no se inventa',
   'Rate source': 'Fuente del tipo',
-  // ── H2 (2026-08-16): la puerta de SALIDA del carril de Ethereum ──
+  // ── H2: la puerta de SALIDA del carril de Ethereum ──
   'Withdraw RLUSD from the vault': 'Retirar RLUSD de la bóveda',
   'Take FXRP collateral out': 'Sacar el colateral FXRP',
   'Take collateral out': 'Sacar colateral',
@@ -4637,7 +4637,7 @@ const PAGES: Record<string, string> = {
   "That is more than the vault can pay out right now — its live liquidity decides, not your balance.":
     'Eso es más de lo que la bóveda puede pagar ahora mismo — manda su liquidez viva, no tu saldo.',
   'That amount is not valid for this position.': 'Ese importe no es válido para esta posición.',
-  // M2 (2026-08-16): el carril gobernado se nombra «domiciliación» — con día
+  // M2: el carril gobernado se nombra «domiciliación» — con día
   // del mes explícito y la diferencia con el banco dicha en voz alta.
   'Council standing order': 'Domiciliación del consejo',
   'Every month, on the day you pick (12:00 UTC)': 'Cada mes, el día que elijas (12:00 UTC)',
@@ -4645,7 +4645,7 @@ const PAGES: Record<string, string> = {
     'Una domiciliación que firma el consejo: Astryum vigila la fecha y COMPONE el pago exacto en la bandeja de arriba; el quórum lo revisa y lo firma, todas las veces; la regla caduca sola. No es una domiciliación bancaria — nada se envía jamás sin esas firmas, y ese es justamente el punto.',
   'Days run 1–28 so the payment exists in every month (a 29–31 rule would silently skip the short ones).':
     'Los días van del 1 al 28 para que el pago exista en todos los meses (una regla del 29–31 se saltaría en silencio los cortos).',
-  // Trigger de precio (M3, 2026-08-16): caída desde la línea base de la regla.
+  // Trigger de precio (M3): caída desde la línea base de la regla.
   'If the price of': 'Si el precio de',
   'falls': 'cae un',
   'from': 'desde',
@@ -4707,7 +4707,7 @@ const PAGES: Record<string, string> = {
   'Compose the rotation order (vault)': 'Componer la orden de rotación (vault)',
   'From venue #': 'Desde venue #',
   'To venue #': 'Hacia venue #',
-  // ── Rotación gobernada con venues reales (F4, 2026-07-30) ──
+  // ── Rotación gobernada con venues reales (F4) ──
   'Move the money from': 'Mover el dinero de',
   'to': 'a',
   'Pick the two venues of the rotation.': 'Elige los dos sitios de la rotación.',
@@ -4721,7 +4721,7 @@ const PAGES: Record<string, string> = {
   'The rotation order needs the deployed Legacy stack (bridge + vault): until then it fails with a readable error at fire time; the alert variant works today. Machine execution happens only AFTER the quorum signs.':
     'La orden de rotación necesita el stack Legacy desplegado (bridge + vault): hasta entonces falla con error legible al disparar; la variante de aviso funciona hoy. La ejecución por máquina ocurre solo DESPUÉS de que firme el quórum.',
 
-  // ── De-AI pass 2026-07-21: claves reportadas por los agentes de páginas ──
+  // ── De-AI pass: claves reportadas por los agentes de páginas ──
   'Xaman or Flare wallet': 'Xaman o wallet Flare',
   'EVM direct': 'EVM directo',
   'Xaman · Smart Account': 'Xaman · Smart Account',
@@ -4768,7 +4768,7 @@ const PAGES: Record<string, string> = {
   'Block explorer': 'Explorador',
   'Open Chainlist': 'Abrir Chainlist',
 
-  // ── LegalAcceptGate (aceptación de condiciones + aviso, 2026-07-30) ──
+  // ── LegalAcceptGate (aceptación de condiciones + aviso) ──
   'Before you continue': 'Antes de continuar',
   'One minute, once — so you know exactly what you are using.':
     'Un minuto, una sola vez — para que sepas exactamente qué estás usando.',
@@ -4791,7 +4791,7 @@ const PAGES: Record<string, string> = {
   'Version': 'Versión',
   'Recorded with date on your account': 'Se registra con fecha en tu cuenta',
 
-  // ── Desplegable de proveedores FTSO en Wrap + delegate (2026-07-31) ──
+  // ── Desplegable de proveedores FTSO en Wrap + delegate ──
   'FTSO data provider': 'Proveedor de datos FTSO',
   'Delegation %': '% de delegación',
   'Choose a provider…': 'Elige un proveedor…',
@@ -4804,7 +4804,7 @@ const PAGES: Record<string, string> = {
   'Delegate to': 'Delegar a',
   'FLR/USD now': 'FLR/USD ahora',
 
-  // ── Salida de la posición FTSO: FtsoExitModal (2026-07-31) ──
+  // ── Salida de la posición FTSO: FtsoExitModal ──
   'Withdraw & unwrap': 'Retirar y desenvolver',
   'Amount · WFLR': 'Cantidad · WFLR',
   'Available:': 'Disponible:',
@@ -4830,7 +4830,7 @@ const PAGES: Record<string, string> = {
   'Partial unwrap: the delegation percentages stay on the remaining WFLR. FTSO rewards already accrued stay claimable afterwards.':
     'Unwrap parcial: los porcentajes de delegación se mantienen sobre el WFLR restante. Las recompensas FTSO ya acumuladas siguen siendo reclamables después.',
 
-  // ── Earn bajo un consejo: lo que la vasija no sabe hacer (2026-08-04) ──
+  // ── Earn bajo un consejo: lo que la vasija no sabe hacer ──
   // "Unsupported" se queda en inglés a propósito: es la etiqueta corta, igual
   // en los dos idiomas. La explicación sí habla castellano.
   'Unsupported for a council': 'No disponible para un consejo',
@@ -4840,7 +4840,7 @@ const PAGES: Record<string, string> = {
   'The vault on Flare has no borrow function, so a council cannot run the borrowing route. The lend-only route does the same supply without debt.':
     'La vasija en Flare no tiene función de préstamo, así que un consejo no puede usar la ruta con préstamo. La ruta de solo supply hace el mismo depósito sin deuda.',
 
-  // ── Pasada i18n 2026-08-08 (auditoría completa): 352 claves t() que caían
+  // ── Pasada i18n (auditoría completa): 352 claves t() que caían
   // al inglés en modo ES — Legacy (vasija/jaula/quórum), panel de fundadores,
   // posiciones, movimientos y sueltas. Generadas contra el inventario AST
   // (scripts en la sesión); la re-auditoría debe dar 0 claves faltantes. ──
@@ -5046,7 +5046,7 @@ const PAGES: Record<string, string> = {
     "Una orden spot en el DEX nativo de XRPL — el precio sale del libro abierto, Astryum no cotiza nada.",
   "Proposal created — it is in the council inbox for the quorum to sign.":
     "Propuesta creada — está en la bandeja del consejo para que la firme el quórum.",
-  // El Send gobernado con la gramática del genérico (2026-09-11).
+  // El Send gobernado con la gramática del genérico.
   "Native": "Nativo",
   "This door moves native XRP on XRPL. The FXRP held by the council’s Flare Smart Account does not move from here.":
     "Esta puerta mueve XRP nativo en XRPL. El FXRP de la Smart Account de Flare del consejo no se mueve desde aquí.",
@@ -5413,7 +5413,7 @@ const PAGES: Record<string, string> = {
     "Difusión aceptada — aún esperando la validación del ledger. Mira XRPScan en un momento; si no se aplicó, ancla de nuevo.",
   "Nickname": "Apodo",
 
-  // ── Pasada i18n 2026-08-08, parte B: textos que estaban DUROS en el código
+  // ── Pasada i18n, parte B: textos que estaban DUROS en el código
   // (sin t()) — seguridad, capacidades por cadena, error boundary, a11y del
   // shell y gráficas — envueltos en t() en el mismo cambio que estas entradas. ──
   "Something went wrong on this page": "Algo salió mal en esta página",
@@ -5496,7 +5496,7 @@ const PAGES: Record<string, string> = {
   'How much RLUSD arrives in your wallet, borrowed against the FXRP you supply. The review shows the health factor this leaves BEFORE you sign — at 1.0 the market can liquidate the position. The server blocks amounts past the liquidation limit or past what the market can lend right now.':
     'Cuánto RLUSD llega a tu wallet, prestado contra el FXRP que depositas. La revisión muestra el health factor que deja ANTES de firmar — en 1.0 el mercado puede liquidar la posición. El servidor bloquea importes que pasen del límite de liquidación o de lo que el mercado puede prestar ahora mismo.',
 
-  // ── Claves ES que faltaban en CMF/consejo (auditoría AST a 0, 2026-08-17) ──
+  // ── Claves ES que faltaban en CMF/consejo (auditoría AST a 0) ──
   'Protect me if the price falls below': 'Protégeme si el precio cae por debajo de',
   'On this schedule (UTC)': 'Con este horario (UTC)',
   'The floor is anchored to the live price when you activate — it must be below today’s price, and if the price cannot be read the flow is not created and we say why.':
@@ -5518,17 +5518,17 @@ const PAGES: Record<string, string> = {
   'Careful: the ledger says this would fail. It is in the inbox and holds the account’s only live slot — do not sign it; let it expire and compose it again fixed.':
     'Cuidado: el ledger dice que esto fallaría. Está en la bandeja y ocupa el único hueco vivo de la cuenta — no lo firmes; deja que caduque y compónlo de nuevo corregido.',
 
-  // ── Plegado visual de la Smart Account (paFold, 2026-08-17) ──
+  // ── Plegado visual de la Smart Account (paFold) ──
   'Includes your Flare Smart Account — operated from this wallet':
     'Incluye tu Flare Smart Account — operada desde esta wallet',
 
-  // ── Claves ES que faltaban (consejo/feed, auditoría a 0, 2026-08-18) ──
+  // ── Claves ES que faltaban (consejo/feed, auditoría a 0) ──
   'Choose the venue kind…': 'Elige el tipo de venue…',
   'its last run FAILED — it is watching nothing': 'su última ejecución FALLÓ — no está vigilando nada',
   'armed — its run history could not be read': 'armado — su historial de ejecuciones no se pudo leer',
   'Reading its run history…': 'Leyendo su historial de ejecuciones…',
 
-  // ── Claves ES que faltaban (ceremonia multisig, auditoría a 0, 2026-08-20) ──
+  // ── Claves ES que faltaban (ceremonia multisig, auditoría a 0) ──
   'The sign requests on the members’ phones were dealt with, but the record of that sitting could not be reached, so we cannot tell you the Sequence it pinned is free again. Filing a proposal here may still be refused until it is — which happens as soon as the transaction reaches the ledger, and in any case within 30 minutes of the sitting being opened.':
     'Las peticiones de firma en los móviles de los miembros se atendieron, pero el registro de esa sesión no se pudo alcanzar, así que no podemos decirte que la Sequence que fijó esté libre de nuevo. Presentar una propuesta aquí puede seguir rechazándose hasta que lo esté — lo que ocurre en cuanto la transacción llega al ledger y, en todo caso, a los 30 minutos de abrirse la sesión.',
   'That sitting is either waiting for an answer or has already sent a transaction from this browser, so the Sequence it pinned is spoken for and there is nothing left here to cancel: a proposal filed now would pin the same one, and only one of the two can ever reach the ledger. The seat is freed as soon as that transaction reaches the ledger, and in any case within 30 minutes of being pinned.':
@@ -5544,16 +5544,16 @@ const PAGES: Record<string, string> = {
   'The server does not recognise you as a member of this council. It reads membership from the wallets registered in your account — not from the one connected in this tab — and none of them is on this signer list. Register the wallet that holds your seat, and this inbox opens.':
     'El servidor no te reconoce como miembro de este consejo. Lee la membresía de las wallets registradas en tu cuenta — no de la conectada en esta pestaña — y ninguna está en esta lista de firmantes. Registra la wallet que tiene tu asiento, y esta bandeja se abre.',
 
-  // ── La pantalla del agente v2 (2026-08-20): raíl fuera, rutas dentro ──
+  // ── La pantalla del agente v2: raíl fuera, rutas dentro ──
   'Or start from a ready route': 'O empieza desde una ruta lista',
   'Or browse the ready-made routes': 'O echa un vistazo a las rutas ya hechas',
   'See this route on the strategy table': 'Ver esta ruta en la mesa de estrategias',
 
-  // ── La mesa de cartas de estrategias (v2 2026-08-18) ──
+  // ── La mesa de cartas de estrategias (v2) ──
   'Pick a route — its full detail unfolds below.':
     'Elige una ruta — su detalle completo se despliega debajo.',
 
-  // ── Carrier automático + ⓘ en fees + tema sistema (2026-08-17) ──
+  // ── Carrier automático + ⓘ en fees + tema sistema ──
   'set automatically': 'fijado automáticamente',
   'It is not lost: it comes back to you as FXRP. Exact figures before signing. Nothing goes to Astryum.':
     'No se pierde: vuelve a ti como FXRP. Cifras exactas antes de firmar. Nada va a Astryum.',
@@ -5571,7 +5571,7 @@ const PAGES: Record<string, string> = {
   'Dark space, light paper, or follow your device.':
     'Espacio oscuro, papel claro, o seguir a tu dispositivo.',
 
-  // ── Home v3 (2026-08-22, quinta pasada): una línea por cuenta, sin lente ──
+  // ── Home v3 (quinta pasada): una línea por cuenta, sin lente ──
   'Manage your accounts': 'Gestiona tus cuentas',
   'Every account you own, at a glance — including the ones a council governs: how much of each is working, how it stands, what it is worth. Click any row to manage it.':
     'Todas tus cuentas de un vistazo — también las que gobierna un consejo: cuánto trabaja cada una, cómo está y cuánto vale. Pulsa cualquier fila para gestionarla.',
@@ -5582,7 +5582,7 @@ const PAGES: Record<string, string> = {
   'A Legacy is one of your accounts held by a council: a quorum signs, not a single key. It appears in this same list, and you govern it from its own card.':
     'Un Legacy es una de tus cuentas sostenida por un consejo: firma un quórum, no una sola llave. Aparece en esta misma lista, y lo gobiernas desde su propia tarjeta.',
 
-  // ── Banda de cuentas del Summary (2026-08-22, cuarta pasada): UNA lista,
+  // ── Banda de cuentas del Summary (cuarta pasada): UNA lista,
   //    los Legacy dentro, y la lente que reparte el total de arriba ──
   'Show the capital of every account together': 'Enseña el capital de todas las cuentas juntas',
   'Open this Legacy — governance, council and proposals':
@@ -5592,7 +5592,7 @@ const PAGES: Record<string, string> = {
   'A Legacy is one of your accounts held by a council: a quorum signs, not a single key. It lives with the rest of your wallets — this is the room where you govern it or constitute a new one.':
     'Un Legacy es una de tus cuentas sostenida por un consejo: firma un quórum, no una sola llave. Vive con el resto de tus wallets — esta es la sala donde la gobiernas o constituyes una nueva.',
 
-  // ── Banda de flotas del Summary (2026-08-22): Personal | Legacy, y la
+  // ── Banda de flotas del Summary: Personal | Legacy, y la
   //    lente que reparte el total de arriba ──
   'The whole fleet': 'Toda la flota',
   'Show the capital of the whole fleet — personal and Legacy together':
@@ -5607,7 +5607,7 @@ const PAGES: Record<string, string> = {
   'Open this wallet in Portfolio': 'Abre esta wallet en Portfolio',
   'Open this Legacy': 'Abre este Legacy',
 
-  // ── Home hub v2 (2026-08-16): bienvenida + dos tarjetas + selección=tema ──
+  // ── Home hub v2: bienvenida + dos tarjetas + selección=tema ──
   'Good morning': 'Buenos días',
   'Good afternoon': 'Buenas tardes',
   'Good night': 'Buenas noches',
@@ -5669,19 +5669,19 @@ const PAGES: Record<string, string> = {
   'Council, constitution and proposals of this account':
     'Consejo, constitución y propuestas de esta cuenta',
 
-  // ── Anclaje de operaciones + Know how (2026-08-25) ──
+  // ── Anclaje de operaciones + Know how ──
   'operations settling on-chain': 'operaciones liquidándose on-chain',
   'Minimize — it waits at the bottom, exactly as you left it':
     'Minimizar — espera abajo, exactamente como la dejaste',
   'Pin to the side — the dashboard stays live': 'Anclar al lado — el dashboard sigue vivo',
   'Back to a window': 'Volver a ventana',
-  // Constituir como operación (2026-08-26) — el subtítulo del host.
+  // Constituir como operación — el subtítulo del host.
   'Six stations — pin this panel and the dashboard stays live beside it.':
     'Seis estaciones — ancla este panel y el dashboard sigue vivo al lado.',
   'Know how — the 8 steps, illustrated': 'Know how — los 8 pasos, ilustrados',
-  // Multi-op (2026-08-27): hasta tres a la vez + cierre en dos pasos.
+  // Multi-op: hasta tres a la vez + cierre en dos pasos.
   'Close the operation': 'Cerrar la operación',
-  // Reinforce como operación en oro (2026-08-27) — copy propia, sin Legacy.
+  // Reinforce como operación en oro — copy propia, sin Legacy.
   'Your own keys guard it — it stays a personal wallet throughout.':
     'La guardan tus propias llaves — sigue siendo una wallet personal de principio a fin.',
   'Rules (optional)': 'Reglas (opcional)',
@@ -5696,10 +5696,10 @@ const PAGES: Record<string, string> = {
   'Close one from its pill at the bottom and try again — none is closed for you, they all hold live state.':
     'Cierra una desde su píldora de abajo y vuelve a intentarlo — ninguna se cierra sola: todas guardan estado vivo.',
 
-  // ── Crossing v3 (2026-08-25): wallet → flecha → panteón ──
+  // ── Crossing v3: wallet → flecha → panteón ──
   signs: 'firma',
 
-  // ── Posiciones: una estrategia = una tarjeta + stepper saneado (2026-08-24) ──
+  // ── Posiciones: una estrategia = una tarjeta + stepper saneado ──
   'This step WITHDRAWS your collateral — the FXRP comes back to you. You are not depositing anything.':
     'Este paso RETIRA tu colateral — el FXRP vuelve a ti. No estás depositando nada.',
   'A crumb of debt remains': 'Queda una migaja de deuda',
@@ -5722,7 +5722,7 @@ const PAGES: Record<string, string> = {
   'Moving on…': 'Pasando al siguiente…',
   'How it runs, exactly': 'Cómo se ejecuta, exactamente',
 
-  // ── Portfolio lavado de cara: Overview + Activity (2026-08-24) ──
+  // ── Portfolio lavado de cara: Overview + Activity ──
   type: 'tipo',
   types: 'tipos',
   // ('All types', 'Clear filters' y 'By Kind' ya existen arriba.)
@@ -5730,7 +5730,7 @@ const PAGES: Record<string, string> = {
   'Your history has events outside the selected dates — widen the range or clear the filters.':
     'Tu historial tiene movimientos fuera de las fechas elegidas — amplía el rango o quita los filtros.',
 
-  // ── Wallets v2: identidad delante, gestión detrás (2026-08-22) ──
+  // ── Wallets v2: identidad delante, gestión detrás ──
   'My Legacy': 'Mi Legacy',
   'Legacy governance': 'Gobernanza del Legacy',
   'Rename this Legacy': 'Renombrar este Legacy',
@@ -5738,13 +5738,13 @@ const PAGES: Record<string, string> = {
   'Balance visible on this card': 'Saldo visible en esta tarjeta',
   'Signing wallet options': 'Opciones de la wallet firmante',
   'Stop tracking this wallet': 'Dejar de seguir esta wallet',
-  // ── La confirmación clásica de borrado (fundador 2026-09-13) ──
+  // ── La confirmación clásica de borrado ──
   'Remove this Legacy from your list?': '¿Quitar este Legacy de tu lista?',
   'Remove this wallet from your list?': '¿Quitar esta wallet de tu lista?',
   'This is the wallet connected right now, so removing it also releases that connection — otherwise it would come straight back to the list.':
     'Es la wallet que tienes conectada ahora mismo, así que al quitarla también se suelta esa conexión: si no, volvería a la lista enseguida.',
   '— governed by a council, a quorum signs': '— gobernada por un consejo, firma un quórum',
-  // ── El distintivo amplificado de una cuenta gobernada (2026-08-24) ──
+  // ── El distintivo amplificado de una cuenta gobernada ──
   sign: 'firman',
   'the council signs': 'firma el consejo',
   'Accounts governed by a council: a quorum signs, never a single key.':
@@ -5752,7 +5752,7 @@ const PAGES: Record<string, string> = {
   // (llega por variable — la auditoría AST no la ve, pero se pinta)
   'XRPL wallet': 'Wallet XRPL',
 
-  // ── El panel de la derecha: la ficha entera de una ruta (2026-08-23) ──
+  // ── El panel de la derecha: la ficha entera de una ruta ──
   'The journey': 'El viaje',
   'What can happen to you': 'Qué puede pasarte',
   Liquidation: 'Liquidación',
@@ -5789,7 +5789,7 @@ const PAGES: Record<string, string> = {
   'The Flare network itself': 'La propia red de Flare',
   'Read from the chain': 'Leido de la cadena',
 
-  // ── La copy de las cards, curada para cualquiera (2026-08-25) ──
+  // ── La copy de las cards, curada para cualquiera ──
   // Los nombres nombran el SITIO y lo que hace allí: en una rejilla, lo que uno
   // busca es el sitio. Las dos de «saca efectivo» conservan su frase de
   // beneficio, porque ahí lo que se elige es un resultado, no un lugar.
@@ -5846,14 +5846,14 @@ const PAGES: Record<string, string> = {
   'same place': 'mismo sitio',
   'Not for this account': 'No disponible en esta cuenta',
 
-  // ── El selector de activos y sus filtros (2026-08-25) ──
+  // ── El selector de activos y sus filtros ──
   'Market data and calculator': 'Datos de mercado y calculadora',
   'Nothing here with': 'Aquí no hay nada con',
   'Ordering is yours — the default keeps the catalogue order, and nothing here is a recommendation.':
     'El orden lo eliges tú: por defecto se mantiene el del catálogo, y nada de esto es una recomendación.',
-  // Estas dos vienen de la otra sesión (puerta del gestor, 25-ago) y se
+  // Estas dos vienen de la otra sesión (puerta del gestor) y se
   // quedaron sin traducir: sin ellas el CI de i18n deja la rama roja.
-  // REVISADAS por su autor el 25-ago: la primera se queda tal cual. La segunda
+  // REVISADAS por su autor: la primera se queda tal cual. La segunda
   // decía «bóveda gestionada» y pasa a «bóveda con gestor», que es el nombre
   // que eligió el fundador para el producto («Managed vaults» / «Bóvedas con
   // gestor»). Dos palabras para lo mismo en dos pantallas es como empiezan las
@@ -5862,7 +5862,7 @@ const PAGES: Record<string, string> = {
     'Un gestor pone tus activos a trabajar. Tú eliges la bóveda y el riesgo — y es el código, no la confianza, quien lo sujeta a los parámetros que firmaste: jamás puede llevarse tus activos.',
   'How a managed vault works': 'Cómo funciona una bóveda con gestor',
 
-  // ── El catálogo v2: asset → tipología → producto (2026-08-23) ──
+  // ── El catálogo v2: asset → tipología → producto ──
   Assets: 'Activos',
   'See all strategies': 'Ver todas las estrategias',
   'Back to venues': 'Volver a los sitios',
@@ -5899,7 +5899,7 @@ const PAGES: Record<string, string> = {
   'Earn the fees of a market, carrying impermanent loss while you do.':
     'Cobra las comisiones de un mercado, cargando con la pérdida impermanente mientras.',
 
-  // ── El camino interactivo del catálogo (2026-08-22) ──
+  // ── El camino interactivo del catálogo ──
   'What do you want to happen?': '¿Qué quieres que pase?',
   'With what?': '¿Con qué?',
   '— only one asset reaches this outcome': '— solo un activo llega a este resultado',
@@ -5912,30 +5912,30 @@ const PAGES: Record<string, string> = {
     'Elige una para acotar la lista de abajo — o baja y léelas todas. Nada de esto es una recomendación.',
   // Resultados (el primer paso del camino)
   'Make it earn, simply': 'Que rente, sin complicaciones',
-  // Dos menús + el agente dentro (2026-08-28).
+  // Dos menús + el agente dentro.
   'Against your tokens': 'Contra tus tokens',
-  // La barra de mando del agente (2026-08-29).
+  // La barra de mando del agente.
   'Tell the agent what you want with your tokens…': 'Dile al agente qué quieres con tus tokens…',
   'Tell the agent what your tokens should earn…': 'Dile al agente qué tienen que rentar tus tokens…',
   'Tell the agent the cash you need without selling…': 'Dile al agente el dinero que necesitas sin vender…',
   'It compiles — you sign': 'Él compila — tú firmas',
   'Send to the agent': 'Enviar al agente',
   'Fold the agent': 'Plegar el agente',
-  // Ideas de prompt de la barra (2026-08-29) — mismas frases que el estado
+  // Ideas de prompt de la barra — mismas frases que el estado
   // vacío del chat donde ya existían; preguntas del usuario, jamás consejo.
   'Try:': 'Prueba:',
-  // Historial local del agente (2026-08-29) — 30 días en este navegador.
+  // Historial local del agente — 30 días en este navegador.
   'New conversation': 'Nueva conversación',
-  // Etiquetas de la tarjeta de opciones, derivadas en cliente (2026-08-29).
+  // Etiquetas de la tarjeta de opciones, derivadas en cliente.
   'Supply only (no loan)': 'Solo supply (sin préstamo)',
-  // La lente Tokens recupera todos los detalles (2026-08-30).
+  // La lente Tokens recupera todos los detalles.
   'Quantity': 'Cantidad',
-  // El selector de wallet con cara (2026-08-30).
+  // El selector de wallet con cara.
   'Choose a wallet': 'Elige una wallet',
-  // Los filtros de alcance del Portfolio, ahora selectores (2026-09-07).
+  // Los filtros de alcance del Portfolio, ahora selectores.
   'All networks': 'Todas las redes',
   'Show only this Legacy': 'Ver solo este Legacy',
-  // Wallets 2026-09-13: quitar en dos pasos (y el Legacy con su casilla).
+  // Wallets: quitar en dos pasos (y el Legacy con su casilla).
   'Keep it': 'Dejarla',
   'Remove…': 'Quitar…',
   'This is a Legacy governed by a council. Removing it here only stops tracking it in Astryum: the account, its council and its capital stay on XRPL exactly as they are, and nothing is signed. To see it again you will have to add it back.': 'Esto es un Legacy gobernado por un consejo. Quitarlo aquí solo deja de seguirlo en Astryum: la cuenta, su consejo y su capital siguen en XRPL exactamente igual, y no se firma nada. Para volver a verlo tendrás que añadirlo de nuevo.',
@@ -5943,12 +5943,12 @@ const PAGES: Record<string, string> = {
   'I understand the Legacy stays on the ledger — I am only removing it from this list.': 'Entiendo que el Legacy sigue en el ledger: solo lo quito de esta lista.',
   'Remove this Legacy from my list': 'Quitar este Legacy de mi lista',
   'Remove this wallet': 'Quitar esta wallet',
-  // Wallets 2026-09-11: sello de gestor y chip de lectura.
+  // Wallets: sello de gestor y chip de lectura.
   'Your own keys — one signature, yours to move.': 'Tus propias llaves: una firma, y se mueve lo tuyo.',
   'Runs managed vaults': 'Gestiona bóvedas',
   'Reading wallets': 'Leyendo wallets',
   'Some vaults could not be read right now — the list may be incomplete. Try again in a moment.': 'Algunas bóvedas no se pudieron leer ahora mismo — la lista puede estar incompleta. Prueba de nuevo en un momento.',
-  // Exchange 2026-09-11 (segunda pasada): sitio del cliente aparte del operador, dos cuentas nuevas, alta que se esconde.
+  // Exchange (segunda pasada): sitio del cliente aparte del operador, dos cuentas nuevas, alta que se esconde.
   'Your XRP, at the exchange': 'Tu XRP, en el exchange',
   'You deposit with your tag, like at any exchange. The exchange keeps the XRP in its omnibus account.': 'Depositas con tu tag, como en cualquier exchange. El exchange guarda el XRP en su cuenta ómnibus.',
   'Working, in your name': 'Trabajando, a tu nombre',
@@ -5977,7 +5977,7 @@ const PAGES: Record<string, string> = {
   '72h cooldown exit': 'salida con cooldown de 72 h',
   'Your exchange could not be found right now': 'Tu exchange no se pudo encontrar ahora mismo',
   'Which exchange do you want an account with?': '¿En qué exchange quieres abrir cuenta?',
-  // 18-sep — cliente POR exchange: la misma llave pide acceso a cada uno.
+  // Cliente POR exchange: la misma llave pide acceso a cada uno.
   'Each exchange verifies its own clients: you are inside an exchange only once it has registered your KYC. Your account at one exchange does not open another.': 'Cada exchange verifica a sus propios clientes: estás dentro de un exchange solo cuando ha registrado tu KYC. Tu cuenta en un exchange no te abre otro.',
   'Go to my account': 'Ir a mi cuenta',
   'One account per exchange, each with its own deposit tag and its own verification. Which one do you want to open?': 'Una cuenta por exchange, cada una con su tag de depósito y su propia verificación. ¿Cuál quieres abrir?',
@@ -5985,7 +5985,7 @@ const PAGES: Record<string, string> = {
   'This passkey already has an account at every exchange taking clients': 'Esta passkey ya tiene cuenta en todos los exchanges que admiten clientes',
   'You already have an account at:': 'Ya tienes cuenta en:',
   'Your exchange accounts': 'Tus cuentas de exchange',
-  // 18-sep — sin autopilot: cada movimiento lo firma el omnibus con un QR de Xaman.
+  // Sin autopilot: cada movimiento lo firma el omnibus con un QR de Xaman.
   'Signed by the omnibus ({hash}). Recording it against the ledger…': 'Firmado por el omnibus ({hash}). Registrándolo contra el ledger…',
   'Signed and validated ({hash}); the mint lands in the pote in ~2–5 min. Its record is still catching up with the ledger — if it has not settled in a few minutes, use «Record again» below. The client is debited once.': 'Firmado y validado ({hash}); el mint llega al pote en ~2–5 min. Su registro aún se está poniendo al día con el ledger: si en unos minutos no se ha liquidado, usa «Registrar otra vez» abajo. Al cliente se le descuenta una sola vez.',
   'The ledger node the exchange reads does not show it validated yet — nothing is lost; try «Record again» in a moment.': 'El nodo del ledger que lee el exchange aún no lo muestra validado; no se pierde nada: prueba «Registrar otra vez» en un momento.',
@@ -6079,7 +6079,7 @@ const PAGES: Record<string, string> = {
   'The exchange adopts the whole rail with two NEW accounts — the root that governs and the omnibus where its clients deposit by tag — gets accredited, births its cage and operates. Astryum does not sign, custody or decide: it lays the rail and the mechanical doors.': 'El exchange adopta el raíl entero con dos cuentas NUEVAS —la raíz que gobierna y el ómnibus donde sus clientes depositan por tag—, se acredita, pare su jaula y opera. Astryum no firma, no custodia ni decide: pone el raíl y las puertas mecánicas.',
   'Client site': 'Sitio del cliente',
   'what your clients see, in the menu': 'lo que ven tus clientes, en el menú',
-  // El pie de estaciones y «¿por qué está hecha?» 2026-09-12 (StationProgress v2, StationDoneNotice).
+  // El pie de estaciones y «¿por qué está hecha?» (StationProgress v2, StationDoneNotice).
   'Why done?': '¿Por qué hecha?',
   'the account you pasted or connected': 'la cuenta que pegaste o conectaste',
   'the SignerList of the account, read from the ledger': 'el SignerList de la cuenta, leído del ledger',
@@ -6098,14 +6098,14 @@ const PAGES: Record<string, string> = {
   'Nothing to sign here. You can look around, or jump to the first station that is still pending.': 'Aquí no hay nada que firmar. Puedes mirar, o saltar a la primera estación que sigue pendiente.',
   'Stay here': 'Quedarme aquí',
   'Click again to close': 'Pulsa otra vez para cerrar',
-  // Alta del exchange 2026-09-12: de dónde sale cada check.
+  // Alta del exchange: de dónde sale cada check.
   'this root already governs a cage from another life — the exchange root must be a NEW account': 'esta raíz ya gobierna una jaula de otra vida: la raíz del exchange tiene que ser una cuenta NUEVA',
   'This account already has a history — it cannot be the exchange root.': 'Esta cuenta ya tiene historia: no puede ser la raíz del exchange.',
   'It governs a cage': 'Gobierna una jaula',
   'pote(s)': 'pote(s)',
   'born before this exchange existed (a manager root, most likely). One council governs one cage, for ever: attaching an exchange to it would mix two lives in one registry. Create a NEW account in Xaman for the root and pick it here.': 'nacida antes de que existiera este exchange (una raíz de gestor, seguramente). Un consejo gobierna una jaula, para siempre: colgarle un exchange mezclaría dos vidas en un registro. Crea una cuenta NUEVA en Xaman para la raíz y elígela aquí.',
   'This root already has a history from another life: what the ledger shows here belongs to that life, not to this exchange. Go back to station 1 and pick a NEW account.': 'Esta raíz ya tiene historia de otra vida: lo que el ledger enseña aquí es de esa vida, no de este exchange. Vuelve a la estación 1 y elige una cuenta NUEVA.',
-  // Alta del exchange 2026-09-18: la puerta de operador de la estación 7, en frase y con su paso.
+  // Alta del exchange: la puerta de operador de la estación 7, en frase y con su paso.
   'This is reserved to the operators of this deployment, and your Astryum session is not recognised as one. Nothing was changed.': 'Esto está reservado a los operadores de este despliegue, y tu sesión de Astryum no consta como una de ellas. No se ha cambiado nada.',
   'Your admin panel session expired. Nothing was changed.': 'Tu sesión del panel de admin ha caducado. No se ha cambiado nada.',
   'Open the admin panel again in this same tab and enter the panel key, then create the profile again. Everything you did at the other stations stays on the ledger.': 'Vuelve a abrir el panel de admin en esta misma pestaña y mete la llave del panel; después crea el perfil otra vez. Todo lo que hiciste en las otras estaciones sigue en el ledger.',
@@ -6118,7 +6118,7 @@ const PAGES: Record<string, string> = {
   'potes of the cage, read from Flare': 'potes de la jaula, leídos de Flare',
   'the order was sent — its hash is kept on this device; the contract confirms in ~2–5 min': 'la orden se envió: su hash se guarda en este dispositivo; el contrato la confirma en ~2–5 min',
   'a desk profile whose council is this root': 'un perfil de mesa cuyo consejo es esta raíz',
-  // Ceremonias de configuración 2026-09-12: una plantilla (SetupOperationShell), puertas (SetupDoorCard), hub /app/setup.
+  // Ceremonias de configuración: una plantilla (SetupOperationShell), puertas (SetupDoorCard), hub /app/setup.
   'Set up your exchange': 'Configura tu exchange',
   'Eight stations — pin this panel and the dashboard stays live beside it.': 'Ocho estaciones: ancla este panel y el dashboard sigue vivo al lado.',
   'desk': 'mesa',
@@ -6137,7 +6137,7 @@ const PAGES: Record<string, string> = {
   'stations': 'estaciones',
   'Open the setup': 'Abrir el alta',
   'Opens as a window you can pin to the side or minimize — the dashboard stays live beside it.': 'Se abre como una ventana que puedes anclar al lado o minimizar: el dashboard sigue vivo al lado.',
-  // Mesa del exchange 2026-09-11 (stage/): puerta de cuenta, alta por estaciones, tour, guion.
+  // Mesa del exchange (stage/): puerta de cuenta, alta por estaciones, tour, guion.
   'I don\'t have an XRPL account': 'No tengo cuenta XRPL',
   'Create one in Xaman in two minutes — the keys are born on your phone.': 'Créala en Xaman en dos minutos: las claves nacen en tu teléfono.',
   'I already have one in Astryum': 'Ya la tengo en Astryum',
@@ -6399,9 +6399,9 @@ const PAGES: Record<string, string> = {
   'Each receipt is a hash and a promise. Reading the chain measures the promise — then export the proof document.': 'Cada recibo es un hash y una promesa. Leer la cadena mide la promesa; después, exporta el documento de prueba.',
   'Receipts on the take': 'Recibos en la toma',
   'The backend never marks anything done by itself: every check is read from XRPL or Flare on demand. A failed check says why. The proof document is the same book, as markdown.': 'El backend nunca da nada por hecho por sí mismo: cada comprobación se lee de XRPL o Flare bajo demanda. Una comprobación fallida dice por qué. El documento de prueba es el mismo libro, en markdown.',
-  // El gráfico v2 del Portfolio (2026-09-07): scrub y tooltip.
+  // El gráfico v2 del Portfolio: scrub y tooltip.
   'vs start': 'vs inicio',
-  // El export de Actividad es la pantalla (2026-09-07).
+  // El export de Actividad es la pantalla.
   'Nothing to export in this window.': 'No hay nada que exportar en esta ventana.',
   'Exports exactly the list you see — same wallets, dates and types, one file. Astryum reports data; the filing is your advisor’s job.':
     'Exporta exactamente la lista que ves — mismas wallets, fechas y tipos, un solo fichero. Astryum reporta datos; la declaración es cosa de tu asesor.',
@@ -6515,9 +6515,9 @@ const PAGES: Record<string, string> = {
     'rutas pueden funcionar con tus respuestas — sus datos en vivo y riesgos están en las tarjetas.',
   'Change answers': 'Cambiar respuestas',
   'Show all six': 'Ver las seis',
-  // Settings › Preferences — fila de idioma (mudada del sidebar, 2026-08-08)
+  // Settings › Preferences — fila de idioma (mudada del sidebar)
   'Texts and number formats.': 'Los textos y el formato de los números.',
-  // ── Cierre auditoría silenciosos: bandeja del ledger (G1), cancel de Xaman y los dos modales de vault (2026-08-18) ──
+  // ── Cierre auditoría silenciosos: bandeja del ledger (G1), cancel de Xaman y los dos modales de vault ──
   '— we could not re-read it afterwards, so treat it as an estimate; your position shows the exact one.':
     '— no pudimos releerla después, así que tómala como estimación; tu posición muestra la exacta.',
   'a Claim button appears on your position when it is ready.':
@@ -6596,7 +6596,7 @@ const PAGES: Record<string, string> = {
     'No obtuvimos respuesta de Xaman, así que no podemos confirmar que esta petición esté muerta. Puede seguir siendo firmable en tu móvil — abre Xaman y recházala ahí.',
   'What the wallet reported:':
     'Lo que informó la wallet:',
-  // ── Ronda 3 del cierre: asiento sin resolver, cancel de Xaman y la fecha real de salida del vault (2026-08-19) ──
+  // ── Ronda 3 del cierre: asiento sin resolver, cancel de Xaman y la fecha real de salida del vault ──
   'and your exit joins the next one, so the FXRP is released after that — your position shows the exact date.':
     'y tu salida entra en el siguiente, así que el FXRP se libera después de esa fecha — tu posición muestra la exacta.',
   'checking…':
@@ -6633,16 +6633,16 @@ const PAGES: Record<string, string> = {
     'Xaman ya había respondido a esta petición antes de que pudiéramos cancelarla — puede haberse firmado en tu móvil. Abre Xaman para ver qué pasó.',
   'Your exit joins the NEXT withdrawal period, so the FXRP is released after that date, not on it. The vault fixes the exact date when the exit is queued, and your position shows it.':
     'Tu salida entra en el SIGUIENTE periodo de retirada, así que el FXRP se libera después de esa fecha, no en ella. La bóveda fija la fecha exacta cuando se encola la salida, y tu posición la muestra.',
-  // Recibir con plegado funcional (2026-08-19): el activo elige la pata
+  // Recibir con plegado funcional: el activo elige la pata
   'Which asset will you receive?': '¿Qué activo vas a recibir?',
   'FXRP lives on Flare, so it lands in this wallet’s Smart Account — operated from your own XRPL account. Same capital, shown inside this wallet.':
     'El FXRP vive en Flare, así que aterriza en la Smart Account de esta wallet — operada desde tu propia cuenta XRPL. El mismo capital, mostrado dentro de esta wallet.',
-  // ── Rechazos del servidor legibles en la ceremonia del consejo (2026-08-20) ──
+  // ── Rechazos del servidor legibles en la ceremonia del consejo ──
   'A previous proposal on this account is not settled yet, and composing another one now is how a council pays twice. Open the proposal inbox: register the transaction hash it produced, or file it — then compose again.':
     'Una propuesta anterior de esta cuenta todavía no está saldada, y componer otra ahora es como un consejo paga dos veces. Abre la bandeja de propuestas: registra el hash de la transacción que produjo, o archívala — y entonces compón de nuevo.',
   'The server refused this and did not explain why.':
     'El servidor lo rechazó y no explicó por qué.',
-  // ── El carril del dinero: «ya salió, no lo firmes otra vez» (2026-08-20) ──
+  // ── El carril del dinero: «ya salió, no lo firmes otra vez» ──
   'This council’s seat is committed to the sitting above':
     'El asiento de este consejo está comprometido con la sesión de arriba',
   'We could not confirm this council’s seat was handed back':
@@ -6666,7 +6666,7 @@ const PAGES: Record<string, string> = {
   'of the batch was rejected by the network. The steps before it already went through — do NOT sign this again, it would repeat them. Check the explorer and reload your position.':
     'del lote fue rechazado por la red. Los pasos anteriores ya pasaron — NO firmes esto otra vez, los repetiría. Compruébalo en el explorador y recarga tu posición.',
 
-  // ── Rail institucional (21-ago): F1-F3 + consola del operador ─────────────
+  // ── Rail institucional: F1-F3 + consola del operador ─────────────
   'Institutional potes': 'Potes institucionales',
   'The manager can work the capital; it can never decide whether you may leave.':
     'El gestor puede trabajar el capital; no puede decidir si te deja salir.',
@@ -6905,7 +6905,7 @@ const PAGES: Record<string, string> = {
     'Preparar el nacimiento',
   'Birth of the cage':
     'Nacimiento de la jaula',
-  // ── Demo Exchange · E2 en generación v2 (X4, 9-sep) ──
+  // ── Demo Exchange · E2 en generación v2 (X4) ──
   'Generation v2: first the CAGE is born (one 0xFE signature), then the pote opens by council order — same button, two acts.':
     'Generación v2: primero nace la JAULA (una firma 0xFE) y después el pote se abre por orden de consejo — mismo botón, dos actos.',
   'Birth the cage (one 0xFE signature)': 'Nacer la jaula (una firma 0xFE)',
@@ -7082,7 +7082,7 @@ const PAGES: Record<string, string> = {
   'This device does not support passkeys (Face ID / Touch ID). Open it on a phone or a modern browser.':
     'Este dispositivo no soporta passkeys (Face ID / Touch ID). Ábrelo en un móvil o un navegador moderno.',
   'Reading your account…': 'Leyendo tu cuenta…',
-  // El alta que no llega a su cuenta, en palabras (passkeyErrors.ts, 2026-09-14)
+  // El alta que no llega a su cuenta, en palabras (passkeyErrors.ts)
   'Your key is ready on this device': 'Tu llave ya está en este dispositivo',
   'We could not read the account that belongs to it. Nothing is lost — the key stays on this device.':
     'No pudimos leer la cuenta que le corresponde. No se ha perdido nada — la llave sigue en este dispositivo.',
@@ -7097,7 +7097,7 @@ const PAGES: Record<string, string> = {
     'Ahora mismo no se pudo leer tu cuenta en Flare — tu llave está a salvo en este dispositivo. Vuelve a intentarlo.',
   'No key was created — the window was closed, it timed out, or this computer had nowhere to keep this kind of key. Try again, or create it on your phone.':
     'No se creó ninguna llave — se cerró la ventana, caducó, o este ordenador no tenía dónde guardar este tipo de llave. Vuelve a intentarlo o créala en tu móvil.',
-  // PC sin Bluetooth / Windows Hello en RSA: la llave se crea en el móvil (PasskeyGate, 2026-09-14)
+  // PC sin Bluetooth / Windows Hello en RSA: la llave se crea en el móvil (PasskeyGate)
   'Create it on your phone instead': 'Créala en tu móvil',
   'This computer cannot reach your phone — that needs Bluetooth. You do not need it: open this page on the phone itself.':
     'Este ordenador no puede llegar a tu móvil — para eso hace falta Bluetooth. No lo necesitas: abre esta página en el propio móvil.',
@@ -7108,12 +7108,12 @@ const PAGES: Record<string, string> = {
   'Copy link': 'Copiar enlace',
   'The key then lives on that phone, so from then on you approve from the phone.':
     'La llave vivirá en ese móvil, así que a partir de ahí apruebas desde el móvil.',
-  // Depósito del cliente como QR de Xaman (ClientApp U1, 2026-09-14)
+  // Depósito del cliente como QR de Xaman (ClientApp U1)
   'Pay with Xaman (QR)': 'Pagar con Xaman (QR)',
   'Xaman will ask for the account {address}: this deposit is prepared for it.':
     'Xaman pedirá la cuenta {address}: este depósito está preparado para ella.',
   'Deposit {amount} XRP · tag {tag}': 'Depositar {amount} XRP · tag {tag}',
-  // La tarjeta de KYC del cliente (ClientKycCard, 14-sep)
+  // La tarjeta de KYC del cliente (ClientKycCard)
   'My KYC at the exchange': 'Mi KYC en el exchange',
   'Verified: the exchange registered the KYC of your account on the XRP Ledger.': 'Verificado: el exchange registró el KYC de tu cuenta en el XRP Ledger.',
   // 'expires' ya vive arriba (línea 886): una sola entrada por clave (TS1117).
@@ -7131,7 +7131,7 @@ const PAGES: Record<string, string> = {
   'see it on the ledger': 'verla en el ledger',
   'Taking your money out never needs this credential — if it expires, it is renewed and meanwhile your way out stays open.':
     'Sacar tu dinero no necesita nunca esta credencial — si caduca, se renueva, y mientras tanto tu salida sigue abierta.',
-  // El KYC del exchange, en palabras del cliente (14-sep, diseño B: el cliente no firma)
+  // El KYC del exchange, en palabras del cliente (diseño B: el cliente no firma)
   'The exchange has not registered the KYC of your account yet. It does it from its side — you sign nothing. Taking your money out never needs it.':
     'El exchange aún no ha registrado el KYC de tu cuenta. Lo hace desde su lado — tú no firmas nada. Sacar tu dinero no lo necesita nunca.',
   'The exchange issued the KYC of your account and is finishing registering it on the ledger. It works as soon as that is done.':
@@ -7142,7 +7142,7 @@ const PAGES: Record<string, string> = {
     'Registra antes tu propia wallet XRPL: las retiradas a autocustodia se pagan ahí.',
   'Your credential could not be checked against the XRP Ledger right now — this does not mean you have none. Nothing moved; try again.':
     'Ahora mismo no se pudo comprobar tu credencial en el XRP Ledger — eso no significa que no la tengas. No se movió nada; vuelve a intentarlo.',
-  // «Direct the capital»: qué hay, qué está libre y qué está en camino (ExchangeDesk E6, 14-sep)
+  // «Direct the capital»: qué hay, qué está libre y qué está en camino (ExchangeDesk E6)
   'Total in the pote': 'Total en el pote',
   'Free to direct (buffer)': 'Libre para dirigir (colchón)',
   'On its way to the pote: {xrp} XRP — the payment is signed and validated on XRPL; it becomes FXRP in the pote when an executor mints it.':
@@ -7152,7 +7152,7 @@ const PAGES: Record<string, string> = {
   'The pote is empty: capital arrives when a client puts XRP to work and an executor mints it. There is nothing to direct yet.':
     'El pote está vacío: el capital llega cuando un cliente pone XRP a trabajar y un executor lo acuña. Todavía no hay nada que dirigir.',
   'Fill with the most you can direct': 'Poner el máximo dirigible',
-  // El acceso a la cuenta del exchange (ExchangeClientApp, 14-sep)
+  // El acceso a la cuenta del exchange (ExchangeClientApp)
   'This key does not work here? Use another one': '¿Esta llave no funciona aquí? Usa otra',
   'It only forgets the key in this browser; the key itself stays on your device. If your account key lives on your phone, open this page there.':
     'Solo olvida la llave en este navegador; la llave sigue en tu dispositivo. Si la llave de tu cuenta está en tu móvil, abre esta página allí.',
@@ -7213,7 +7213,7 @@ const PAGES: Record<string, string> = {
   'Start over with a new account (demo)': 'Empezar de cero con una cuenta nueva (demo)',
   'Signed. The executor is minting the XRP and running the birth — the vault is usually live on Flare in about 2–5 minutes.':
     'Firmado. El executor está minteando el XRP y ejecutando el nacimiento — el vault suele estar vivo en Flare en 2-5 minutos.',
-  // ── Fusión Summary+Home (2026-08-22): scope de flotas + raíl del Portfolio ──
+  // ── Fusión Summary+Home: scope de flotas + raíl del Portfolio ──
   'Back to Summary': 'Volver al Summary',
   'Your fleets': 'Tus flotas',
   'Toggle what the page reads: everything together, your personal wallets, or your Legacies. The numbers re-scope in place — you never leave this screen.':
@@ -7225,13 +7225,13 @@ const PAGES: Record<string, string> = {
   'No readings yet for this fleet.': 'Aún no hay lecturas de esta flota.',
   'Scope': 'Ámbito',
   'Filters': 'Filtros',
-  // ── Fusión v2 (2026-08-22): el deck de flotas vuelve, estados sin wallet ──
+  // ── Fusión v2: el deck de flotas vuelve, estados sin wallet ──
   'Across all fleets': 'Entre todas las flotas',
   'Council-governed accounts: capital under rules that a quorum signs. Click one to govern it — the dashboard crosses to indigo without leaving this page.':
     'Cuentas gobernadas por consejo: capital bajo reglas que firma un quórum. Pulsa una para gobernarla — el dashboard cruza al índigo sin salir de esta página.',
   'Link MetaMask on Flare Mainnet or Xaman on XRPL — your open positions load here, read-only until you sign.':
     'Vincula MetaMask en Flare Mainnet o Xaman en XRPL — tus posiciones abiertas cargan aquí, solo-lectura hasta que firmas.',
-  // ── Sección de capital trabajando + tercera puerta de Earn (2026-08-24) ──
+  // ── Sección de capital trabajando + tercera puerta de Earn ──
   // OJO: el NOMBRE de la sección (la fila del menú) NO vive aquí — vive en
   // lib/nav/capitalSection.ts con sus dos idiomas juntos, porque un t(CONSTANTE)
   // es invisible para scripts/check-i18n.js y el castellano se publicaría en
@@ -7251,7 +7251,7 @@ const PAGES: Record<string, string> = {
   'Invest with a manager': 'Invierte con un gestor',
   'Put capital into a vault a professional runs. They choose the moves, inside limits the contract enforces — they can never withdraw your capital to themselves.':
     'Mete capital en una bóveda que lleva un profesional. Él elige los movimientos, dentro de los límites que impone el contrato — nunca puede sacar tu capital hacia sí mismo.',
-  // ── Columnas del catálogo (2026-08-24) ─────────────────────────────
+  // ── Columnas del catálogo ─────────────────────────────
   // El subtítulo de la columna «earn» NO reutiliza el del outcome: ese dice
   // «presta, stakea o deposita en una bóveda», y delegar al FTSO no es ninguna
   // de las tres — los tokens no salen de tu wallet. Lo que SÍ es cierto de las
@@ -7259,12 +7259,12 @@ const PAGES: Record<string, string> = {
   'No debt and nothing that can be liquidated — each card says what it does with your tokens.':
     'Sin deuda y sin nada que pueda liquidarse — cada card dice qué hace con tus tokens.',
   // Tres subtítulos del viaje de la ruta que se pintaban con t() y no tenían
-  // traducción — los cazó el checker al empezar a mirar el campo `sub`
-  // (24-ago). Salían en inglés en medio de una pantalla en castellano.
+  // traducción — los cazó el checker al empezar a mirar el campo `sub`.
+  // Salían en inglés en medio de una pantalla en castellano.
   'protocol rate': 'tipo del protocolo',
   'vault rate': 'tipo de la bóveda',
   'your wallet (Ethereum)': 'tu wallet (Ethereum)',
-  // ── La puerta del gestor, con su nombre cerrado (2026-08-25) ───────────
+  // ── La puerta del gestor, con su nombre cerrado ───────────
   // «Invest with a manager» se cayó por lo que incía: sonaba a producto de
   // inversión nuestro y no decía de quién era el gestor. El título nombra la
   // cosa y el eyebrow carga el hecho que le falta.
@@ -7272,7 +7272,7 @@ const PAGES: Record<string, string> = {
   'Run by a third party': 'Las lleva un tercero',
   'Vaults run by a professional who is not Astryum. They choose the moves, inside limits the contract enforces — they can never withdraw your capital to themselves.':
     'Bóvedas que lleva un profesional que no es Astryum. Él elige los movimientos, dentro de los límites que impone el contrato — nunca puede sacar tu capital hacia sí mismo.',
-  // ── Cómo funciona una bóveda con gestor (2026-08-25) ─────────────────
+  // ── Cómo funciona una bóveda con gestor ─────────────────
   // «buscando rendimiento», NO «para generar rendimiento»: el trabajo del gestor
   // es buscarlo; que llegue no es nuestro para afirmarlo (invariante 9).
   'A manager puts your assets to work': 'Un gestor pone tus activos a trabajar',
@@ -7297,7 +7297,7 @@ const PAGES: Record<string, string> = {
     'Lo que el código NO hace es evitar que pierdas dinero. Mantiene tus activos fuera del alcance del gestor; no puede impedir que caiga un sitio que la bóveda permite. Ese riesgo es justo la razón de que la bóveda la elijas tú y no él.',
   'What you will be able to check before entering: which venues the vault allows, how long the exit takes, what the manager charges, and who the director is. All of it read from the contract, not from a brochure.':
     'Lo que podrás comprobar antes de entrar: qué sitios permite la bóveda, cuánto tarda la salida, cuánto cobra el gestor y quién es el director. Todo leído del contrato, no de un folleto.',
-  // ── La card del gestor (2026-08-25) ────────────────────────────
+  // ── La card del gestor ────────────────────────────
   // El tick nombra SIEMPRE al emisor: «verificado» a secas invita a leer que lo
   // verificamos nosotros, y no somos verificador.
   'Verified by': 'Verificado por',
@@ -7314,7 +7314,7 @@ const PAGES: Record<string, string> = {
     'Ahora mismo no se pudo leer el catálogo. Que no es lo mismo que no haya ninguno — inténtalo en un momento.',
   'Listed in no particular order — Astryum does not rank managers.':
     'Sin orden particular — Astryum no clasifica gestores.',
-  // ── La mesa del gestor y las dos lentes de Bóvedas con gestor (25-ago) ──
+  // ── La mesa del gestor y las dos lentes de Bóvedas con gestor ──
   'Choose a manager': 'Elegir gestor',
   'Run a vault': 'Llevar una bóveda',
   'Your desk': 'Tu mesa',
@@ -7344,7 +7344,7 @@ const PAGES: Record<string, string> = {
     'Ahora mismo no se pudo leer el catálogo, así que esta mesa no puede saber si ya llevas una bóveda. Que no es lo mismo que no tengas ninguna.',
   'immediate': 'inmediata',
   'ready in': 'lista en',
-  // ── La consola del gestor: tres verbos (26-ago) ───────────────────
+  // ── La consola del gestor: tres verbos ───────────────────
   'What you can move': 'Lo que puedes mover',
   // 'In the vault' e 'Idle' NO se redefinen aqui: ya existen mas arriba
   // ('En el vault' y 'Libre'). Duplicarlas rompe el objeto — TS1117 — y ademas
@@ -7374,7 +7374,7 @@ const PAGES: Record<string, string> = {
   'The cage refused': 'La jaula lo rechazó',
   'The vault state could not be read right now, so this console cannot tell you what you may move. Nothing is broken — try again in a moment.':
     'Ahora mismo no se pudo leer el estado de la bóveda, así que esta consola no puede decirte qué puedes mover. No hay nada roto — inténtalo en un momento.',
-  // ── La constitución de una bóveda, en lectura (26-ago) ──────────────
+  // ── La constitución de una bóveda, en lectura ──────────────
   'Fixed at birth, forever': 'Fijado al nacer, para siempre',
   'How long a client waits after asking to leave. Neither the manager nor the council can change it.':
     'Lo que espera un cliente desde que pide salir. Ni el gestor ni el consejo pueden cambiarlo.',
@@ -7419,7 +7419,7 @@ const PAGES: Record<string, string> = {
   'after that, every action reverts until the council grants it again.':
     'a partir de ahí, cada acción revierte hasta que el consejo la ceda otra vez.',
 
-  // ── Demo Exchange v2 (26-ago) — exchange simulado, cadena real ──────────
+  // ── Demo Exchange v2 — exchange simulado, cadena real ──────────
   'A — conservative, immediate exit': 'A — conservadora, salida inmediata',
   'Allowlisted venues': 'Destinos permitidos',
   'Already born': 'Ya ha nacido',
@@ -7615,7 +7615,7 @@ const PAGES: Record<string, string> = {
   'new movements credited': 'movimientos nuevos abonados',
   'no pote yet': 'aún sin pote',
   'no transaction — refused before signing': 'sin transacción — rechazado antes de firmar',
-  // 18-sep: una nota del libro no es una negativa de la jaula.
+  // Una nota del libro no es una negativa de la jaula.
   'no transaction — a note in the book': 'sin transacción — nota del libro',
   'none — only the council': 'ninguno — solo el consejo',
   'not anchored': 'sin anclar',
@@ -7648,7 +7648,7 @@ const PAGES: Record<string, string> = {
   'venues': 'destinos',
   'when': 'cuándo',
   'with a failed check': 'con una comprobación fallida',
-  // --- Exchange console + client surface (29-ago, /app/admin/institutional/{exchange,client}) ---
+  // Exchange console + client surface (/app/admin/institutional/{exchange,client}) ---
   'Close profile': 'Cerrar perfil',
   'Close this exchange profile? Its ledger stays readable; the chain keeps its own record.': '¿Cerrar este perfil de exchange? Su libro sigue legible; la cadena guarda su propio registro.',
   'Council (governs the pote, signs every order)': 'Consejo (gobierna el pote, firma cada orden)',
@@ -7706,7 +7706,7 @@ const PAGES: Record<string, string> = {
   'seed unusable': 'seed inservible',
   'status': 'estado',
   'stopped': 'parado',
-  // ── Planificar la jaula: los dos inmutables (26-ago) ────────────────
+  // ── Planificar la jaula: los dos inmutables ────────────────
   // 'Of every' e 'in the vault, you could put' son fragmentos de UNA frase con
   // la cifra en medio. Si alguien los reescribe, que lea la frase entera en
   // VaultBirthPlanner antes de tocarlos. El resto son frases completas: se
@@ -7734,7 +7734,7 @@ const PAGES: Record<string, string> = {
   'Neither promise can be taken back.': 'Ninguna de las dos promesas se puede retirar.',
   'This screen decides, it does not sign: opening a vault with your own parameters is not wired yet, and a button here would open a cage you did not choose.':
     'Esta pantalla decide, no firma: abrir una bóveda con tus propios parámetros no está cableado todavía, y un botón aquí abriría una jaula que no elegiste.',
-  // ── Correccion 26-ago: los 30 dias son AVISO, no imposibilidad ────────
+  // ── Correccion: los 30 dias son AVISO, no imposibilidad ────────
   // El texto anterior prometia que el gestor «nunca puede quedarse con tus
   // activos». En el pote v1 eso es FALSO — proposeVenue de un vault falso + 31
   // dias + directTo se lleva la mitad (AstryumCage.t.sol). Y en Bovedas con
@@ -7750,7 +7750,7 @@ const PAGES: Record<string, string> = {
     'Un sitio nuevo espera 30 días antes de que pueda entrar capital. Lee esa espera como AVISO, no como imposibilidad: quien gobierna esta bóveda puede añadir un destino, y ese es el único poder que podría alcanzar tu capital. Los 30 días son el mes que tienes para salir antes.',
   'Careful: this vault’s exit window is as long as that notice, so the month to leave is exactly the month you would need. Noticing a day late means not getting out before the new destination opens.':
     'Ojo: la ventana de salida de esta bóveda dura lo mismo que ese aviso, así que el mes para salir es exactamente el mes que necesitarías. Enterarte un día tarde es no llegar a salir antes de que el destino nuevo se abra.',
-  // ── Bóvedas con gestor: catálogo, ficha y explicación (26-ago) ────────
+  // ── Bóvedas con gestor: catálogo, ficha y explicación ────────
   'Choose a vault': 'Elegir bóveda',
   'How managed vaults work': 'Cómo funcionan las bóvedas con gestor',
   'Worth two minutes before you put money anywhere near one.':
@@ -7759,9 +7759,9 @@ const PAGES: Record<string, string> = {
   'What the code does NOT do is stop you losing money. It keeps the manager inside the vault’s rules; it cannot keep a venue the vault allows from falling. That risk is exactly why you pick the vault and not them.':
     'Lo que el código NO hace es evitar que pierdas dinero. Mantiene al gestor dentro de las reglas de la bóveda; no puede impedir que caiga un sitio que la bóveda permite. Ese riesgo es justo la razón de que la bóveda la elijas tú y no él.',
   'Vaults open to new clients': 'Bóvedas abiertas a nuevos clientes',
-  // El mosaico del catálogo (13-sep): el dinero delante.
+  // El mosaico del catálogo: el dinero delante.
   'Yours': 'Tuyo',
-  // Ajustes → Tus firmas (13-sep): el recibo de la ceremonia legal.
+  // Ajustes → Tus firmas: el recibo de la ceremonia legal.
   'Your signatures': 'Tus firmas',
   'What you accepted and read, with the version and the date. The texts are public pages; if one changes materially you will be asked to read and sign it again.':
     'Lo que aceptaste y leíste, con la versión y la fecha. Los textos son páginas públicas; si uno cambia de forma material se te pedirá leerlo y firmarlo de nuevo.',
@@ -7776,11 +7776,11 @@ const PAGES: Record<string, string> = {
   'up to date': 'al día',
   'newer version pending': 'hay una versión nueva pendiente',
   'Read it again': 'Volver a leerlo',
-  // Operar en mosaico (13-sep): las tres puertas en columna.
+  // Operar en mosaico: las tres puertas en columna.
   'move it': 'moverlo',
   'read it': 'leerla',
   'image, link, public page': 'imagen, enlace, página pública',
-  // Mis Legacies como tarjetas de Wallets, con borrado en dos pasos (13-sep).
+  // Mis Legacies como tarjetas de Wallets, con borrado en dos pasos.
   'Manage this Legacy': 'Gestionar este Legacy',
   'Stop tracking this Legacy': 'Dejar de seguir este Legacy',
   'This Legacy is here because the connected wallet is its council — there is no pointer to remove.':
@@ -7820,7 +7820,7 @@ const PAGES: Record<string, string> = {
   'Signs': 'Firma',
   'nothing': 'nada',
   'the exchange omnibus (single signature, its own hot account)': 'el ómnibus del exchange (firma única, su propia cuenta caliente)',
-  // ── Entrar, salir y el aviso que no se cierra (27-ago) ───────────────
+  // ── Entrar, salir y el aviso que no se cierra ───────────────
   'This is not an ordinary vault.': 'Esto no es una bóveda normal.',
   'A person decides what happens to the capital inside it, day to day. The contract keeps them within the vault’s rules, but it cannot make their decisions good ones — you can lose money without anybody breaking a rule.':
     'Una persona decide qué pasa con el capital de dentro, día a día. El contrato la mantiene dentro de las reglas de la bóveda, pero no puede hacer que sus decisiones sean buenas — puedes perder dinero sin que nadie incumpla una regla.',
@@ -7862,7 +7862,7 @@ const PAGES: Record<string, string> = {
   'no cap': 'sin tope',
   'entries only; exits are never blocked': 'solo entradas; salir nunca se bloquea',
   'Set cap': 'Fijar tope',
-  // ── Cobrar la salida y los guardas del modal (27-ago) ───────────────
+  // ── Cobrar la salida y los guardas del modal ───────────────
   'Claim what is due': 'Cobrar lo que te toca',
   'This exit has matured. Claiming moves the capital to your wallet.':
     'Esta salida ha madurado. Cobrarla mueve el capital a tu wallet.',
@@ -7877,7 +7877,7 @@ const PAGES: Record<string, string> = {
     'Tu wallet está en otra red. Esta bóveda vive en Flare.',
   'You need the vault’s asset already in your Flare wallet. Coming from XRP on the XRPL means bridging first — that step does not live in this modal yet.':
     'Necesitas el activo de la bóveda ya en tu wallet de Flare. Si vienes con XRP en el XRPL hay que puentear antes — ese paso todavía no vive en este modal.',
-  // ── Los dos carriles para entrar: Flare o XRP (27-ago) ──────────────
+  // ── Los dos carriles para entrar: Flare o XRP ──────────────
   'I have it on Flare': 'Ya lo tengo en Flare',
   'I have XRP': 'Tengo XRP',
   'One signature in your Flare wallet. You need the vault’s asset already there.':
@@ -7899,7 +7899,7 @@ const PAGES: Record<string, string> = {
   'Which venues it allows — only from the Astryum registry —, how long its exit takes, how much may sit in any one place, how much any one account may hold. Once set, it binds you too.':
     'Qué sitios permite —solo del registro de Astryum—, cuánto tarda su salida, cuánto puede haber en un solo sitio y cuánto puede tener una sola cuenta. Una vez puesta, te ata a ti también.',
   'max per account': 'máx. por cuenta',
-  // ── El orden como GESTO del usuario, nunca de la pantalla (27-ago) ─────
+  // ── El orden como GESTO del usuario, nunca de la pantalla ─────
   'Catalogue order': 'Orden del catálogo',
   'Shortest exit': 'Salida más corta',
   'Fewest destinations': 'Menos destinos',
@@ -7916,7 +7916,7 @@ const PAGES: Record<string, string> = {
   'The manager keeps': 'El gestor se lleva',
   'of the realized yield — never your principal; capped at creation and read from the ledger, not a promise.':
     'del rendimiento realizado — nunca tu principal; con techo fijado al crearla y leído del ledger, no una promesa.',
-  // ── UI polish del lazo de managed vaults (13-sep): inglés colado en pantalla castellana ──
+  // ── UI polish del lazo de managed vaults: inglés colado en pantalla castellana ──
   'Already in your account': 'Ya en tu cuenta',
   'Claiming to': 'Cobrando a',
   'Connect your Flare wallet — or pick your XRPL wallet above to enter with XRP':
@@ -8019,7 +8019,7 @@ const PAGES: Record<string, string> = {
   'The XRPL credential («Verified by X») is a separate, XRPL-native label the manager accepts in their own account — it never gates deposits by itself and Astryum never issues it.': 'La credencial XRPL («Verificado por X») es una etiqueta aparte, nativa de XRPL, que el gestor acepta en su propia cuenta — por sí sola nunca cierra depósitos, y Astryum jamás la emite.',
   'The XRP rail mints FXRP through XRPL + FDC — a real-rail step a local fork cannot run. In the dry run, enter through the Flare rail (FXRP directly); the XRP on-ramp is for the mainnet rehearsal.': 'El carril XRP mintea FXRP por XRPL + FDC — un paso de carril real que un fork local no puede ejecutar. En el ensayo, entra por el carril Flare (FXRP directo); la rampa de XRP es para el rodaje en mainnet.',
 
-  // ── Contacto con el sitio (VenueContact, 28-ago) ──
+  // ── Contacto con el sitio (VenueContact) ──
   // El nombre del venue va FUERA de la clave, delante, en los dos idiomas:
   // «Kinetic built this — Astryum did not.» / «Kinetic lo construyó — Astryum
   // no.» Meterlo dentro obligaría a una clave por protocolo.
@@ -8058,7 +8058,7 @@ const PAGES: Record<string, string> = {
   'Your first client': 'Tu primer cliente',
   "The client opens your client site, creates their account with Face ID and appears on the desk with their deposit tag — you enrol nobody. Creating one by hand is there for an invite or a demo. KYC is the exchange's own business.":
     'El cliente entra en tu sitio de cliente, crea su cuenta con Face ID y aparece en la mesa con su tag de depósito — tú no das de alta a nadie. Crear uno a mano está para una invitación o una demo. El KYC es asunto del exchange.',
-  // ── La constitución del EXCHANGE (13-sep) — solo las cláusulas nuevas; las
+  // ── La constitución del EXCHANGE — solo las cláusulas nuevas; las
   // compartidas con la del gestor reutilizan sus claves de siempre. ──
   'CONSTITUTION OF A CUSTODIAL EXCHANGE ON THE RAIL': 'CONSTITUCIÓN DE UN EXCHANGE CUSTODIAL SOBRE EL RAÍL',
   'Root XRPL account (the exchange authority)': 'Cuenta XRPL raíz (la autoridad del exchange)',
@@ -8223,7 +8223,7 @@ const PAGES: Record<string, string> = {
   'You sign the AccountSet in Xaman. The other half is your firm’s website serving /.well-known/xrp-ledger.toml with this r-address — your web team does that; Astryum touches neither.':
     'El AccountSet lo firmas tú en Xaman. La otra mitad es que la web de tu firma sirva /.well-known/xrp-ledger.toml con esta r-address — eso lo hace tu equipo web; Astryum no toca ninguna de las dos.',
   'Declare domain': 'Declarar dominio',
-  // ── La mesa del gestor en SALAS (3-sep, patrón Legacy) + crear cuenta en Xaman ──
+  // ── La mesa del gestor en SALAS (patrón Legacy) + crear cuenta en Xaman ──
   'Manager title': 'Título de gestor',
   'Create the vault': 'Crear la bóveda',
   'Issuer setup (demo)': 'Setup del emisor (demo)',
@@ -8251,7 +8251,7 @@ const PAGES: Record<string, string> = {
   'Back in Astryum, connect the new account from Wallets. This desk reads the ledger and lights up with it.':
     'De vuelta en Astryum, conecta la cuenta nueva desde Wallets. Esta mesa lee el ledger y se enciende con ella.',
   'Connect it from Wallets': 'Conectarla desde Wallets',
-  // ── El registro de venues (scanner v2) — /app/admin/registry (X1, 3-sep) ──
+  // ── El registro de venues (scanner v2) — /app/admin/registry (X1) ──
   'Venue registry': 'Registro de venues',
   'The on-chain scanner every v2 pote consults. Propose, mature, activate — the governor signs each write.':
     'El scanner on-chain que todo pote v2 consulta. Proponer, madurar, activar — cada escritura la firma el governor.',
@@ -8289,12 +8289,12 @@ const PAGES: Record<string, string> = {
   'AIFM credential issued': 'Credencial AIFM emitida',
   'accept it in your tray below.': 'acéptala en tu bandeja, abajo.',
   'Which wallet is the manager?': '¿Qué wallet es la gestora?',
-  // ── Los dos apartados de la mesa + el wizard de configuración (6-sep) ──
+  // ── Los dos apartados de la mesa + el wizard de configuración ──
   'Configure the account': 'Configurar la cuenta',
   'Reading your vault from the chain…': 'Leyendo tu bóveda de la cadena…',
   'Your vault could not be read right now, so this desk cannot tell whether you already run one. That is not the same as you not having one.':
     'Tu bóveda no se pudo leer ahora mismo, así que esta mesa no sabe si ya llevas una. Eso no es lo mismo que no tenerla.',
-  // ── La mesa sin repeticiones (8-sep): un raíl, título en una línea, dos paneles ──
+  // ── La mesa sin repeticiones: un raíl, título en una línea, dos paneles ──
   'Required': 'Obligatoria',
   'Optional': 'Opcional',
   'Renew': 'Renovar',
@@ -8302,7 +8302,7 @@ const PAGES: Record<string, string> = {
   'Manager title pending': 'Título de gestor pendiente',
   'The ledger will refuse this account’s orders until it holds one.': 'El ledger rechazará las órdenes de esta cuenta hasta que lo tenga.',
   'Go to the Title station': 'Ir a la estación Título',
-  // ── El puente del gestor: capital de un vistazo, destinos con nombre, identidad (13-sep) ──
+  // ── El puente del gestor: capital de un vistazo, destinos con nombre, identidad ──
   'Bring your clients': 'Trae a tus clientes',
   'Connect your Flare wallet (this vault’s director) — or open this desk from the XRPL account that governs it to move capital by council order.': 'Conecta tu wallet de Flare (la directora de esta bóveda) — o abre esta mesa desde la cuenta XRPL que la gobierna para mover capital por orden de consejo.',
   'Copy vault link': 'Copiar enlace de la bóveda',
@@ -8324,7 +8324,7 @@ const PAGES: Record<string, string> = {
   'in the vault': 'en la bóveda',
   'no destination yet': 'aún sin destino',
   'of the vault': 'de la bóveda',
-  // ── Qué pasa con tus tokens en una bóveda gestionada (11-sep) ──
+  // ── Qué pasa con tus tokens en una bóveda gestionada ──
   'Accreditation: reading the ledger…': 'Acreditación: leyendo el ledger…',
   'vaults: reading…': 'bóvedas: leyendo…',
   'Self-issued — not a verification': 'Auto-emitida — no es una verificación',
@@ -8353,7 +8353,7 @@ const PAGES: Record<string, string> = {
   'no destination yet — capital would sit idle': 'aún sin destino — el capital estaría parado',
   'Not a loan, no collateral': 'Ni préstamo ni colateral',
   'You deposit the asset and receive shares of the vault in your own wallet. Nothing is borrowed and nothing of yours is pledged: the vault pools the capital and the manager moves it — only inside the rules — to destinations that produce something, which stays in the vault pro-rata to your shares.': 'Depositas el activo y recibes participaciones de la bóveda en tu propia wallet. Nada se pide prestado y nada tuyo se pignora: la bóveda junta el capital y el gestor lo mueve — solo dentro de las reglas — a destinos que producen algo, que se queda en la bóveda a prorrata de tus participaciones.',
-  // ── Robustez del flujo del gestor + creador personalizable (10-sep) ──
+  // ── Robustez del flujo del gestor + creador personalizable ──
   'Your vault is born and listed. It appears in Operate now.': 'Tu bóveda ha nacido y está listada. Ya aparece en Operar.',
   'Still not visible after ten minutes. The order is signed and relayed; the proof can take longer — open Operate later and press Refresh. Do not sign it again.': 'Sigue sin verse pasados diez minutos. La orden está firmada y relayada; la prueba puede tardar más — abre Operar más tarde y pulsa Refrescar. No la vuelvas a firmar.',
   'Waiting for the proof to land on Flare — usually 2 to 5 minutes. This screen checks every 15 seconds; you can leave and come back.': 'Esperando a que la prueba llegue a Flare — normalmente de 2 a 5 minutos. Esta pantalla comprueba cada 15 segundos; puedes salir y volver.',
@@ -8380,9 +8380,9 @@ const PAGES: Record<string, string> = {
   'Three days to leave; a tenth stays liquid.': 'Tres días para salir; una décima parte queda líquida.',
   'A week to leave; a twentieth stays liquid — room for slower venues.': 'Una semana para salir; una vigésima parte queda líquida — margen para destinos más lentos.',
   'Applied — the sliders are yours to fine-tune.': 'Aplicado — los deslizadores son tuyos para afinar.',
-  // ── La jaula avisa antes de pulsar si falta el Título (10-sep) ──
+  // ── La jaula avisa antes de pulsar si falta el Título ──
   'The ledger will refuse this birth until the Title station is complete: every required credential, from an accepted issuer, accepted in your Xaman.': 'El ledger rechazará este nacimiento hasta que la estación Título esté completa: todas las credenciales exigidas, de un emisor aceptado, aceptadas en tu Xaman.',
-  // ── La constitución completa, doce artículos (10-sep) ──
+  // ── La constitución completa, doce artículos ──
   'Article': 'Artículo',
   'CONSTITUTION OF A MANAGED GROUPED VEHICLE': 'CONSTITUCIÓN DE UN VEHÍCULO AGRUPADO GESTIONADO',
   'Manager (name or entity)': 'Gestor (nombre o entidad)',
@@ -8436,7 +8436,7 @@ const PAGES: Record<string, string> = {
   'This document is anchored by its SHA-256 fingerprint on the XRP Ledger, in the DID of the managing account (XLS-40). The text itself never goes on-chain.': 'Este documento se ancla por su huella SHA-256 en el XRP Ledger, en el DID de la cuenta gestora (XLS-40). El texto en sí nunca va a la cadena.',
   'The canonical copy of the text lives at the URI recorded next to the fingerprint. Any copy that does not match the fingerprint is not this constitution.': 'La copia canónica del texto vive en el URI registrado junto a la huella. Cualquier copia que no coincida con la huella no es esta constitución.',
   'Signed by anchoring from the managing account': 'Firmada por anclaje desde la cuenta gestora',
-  // ── Credencial válida pero de emisor no aceptado: decirlo (10-sep) ──
+  // ── Credencial válida pero de emisor no aceptado: decirlo ──
   'Held, but not from an accepted issuer': 'La tienes, pero no de un emisor aceptado',
   'The ledger holds this credential, issued by': 'El ledger tiene esta credencial, emitida por',
   'this very account — self-issued': 'esta misma cuenta — auto-emitida',
@@ -8445,7 +8445,7 @@ const PAGES: Record<string, string> = {
   'this very account': 'esta misma cuenta',
   'Accepted issuer — this one counts for the manager gate.': 'Emisor aceptado — esta cuenta para la puerta del gestor.',
   'Not an accepted issuer — the manager gate ignores this one.': 'Emisor no aceptado — la puerta del gestor no la tiene en cuenta.',
-  // ── La guía «Verifícate con Coinbase», paso a paso con capturas (10-sep) ──
+  // ── La guía «Verifícate con Coinbase», paso a paso con capturas ──
   'Create your Coinbase account': 'Crea tu cuenta de Coinbase',
   'At coinbase.com: email, password and the confirmation email. If you already have an account, skip to the next step.': 'En coinbase.com: correo, contraseña y el correo de confirmación. Si ya tienes cuenta, salta al siguiente paso.',
   'Create an account at Coinbase': 'Crear una cuenta en Coinbase',
@@ -8471,7 +8471,7 @@ const PAGES: Record<string, string> = {
   'Step by step: set up Coinbase': 'Paso a paso: configurar Coinbase',
   'Verify yourself with Coinbase': 'Verifícate con Coinbase',
   'Screen by screen — from creating the account to accepting the credential in Xaman.': 'Pantalla a pantalla — desde crear la cuenta hasta aceptar la credencial en Xaman.',
-  // ── La mesa en ventana anclable + la estación Título ordenada (10-sep) ──
+  // ── La mesa en ventana anclable + la estación Título ordenada ──
   'Opens your Manager desk from Earn → Managed vaults: the vaults you run and your certification. Off any time.': 'Abre tu mesa del gestor desde Earn → Managed vaults: las bóvedas que llevas y tu certificación. Se apaga cuando quieras.',
   'If you manage third-party capital as a certified financial manager, declare it and your desk opens from here — Earn → Managed vaults. You can switch it off any time from Settings.': 'Si gestionas capital de terceros como gestor financiero certificado, decláralo y tu mesa se abre desde aquí — Earn → Managed vaults. Puedes apagarlo cuando quieras desde Settings.',
   'Do you manage third-party capital?': '¿Gestionas capital de terceros?',
@@ -8495,14 +8495,14 @@ const PAGES: Record<string, string> = {
   'Your issuer grants the credentials to this account; when one arrives, it appears below to accept.': 'Tu emisor concede las credenciales a esta cuenta; cuando llegue una, aparece abajo para aceptarla.',
   'Accept it in your Xaman — that signature is what makes it count': 'Acéptala en tu Xaman — esa firma es la que la hace valer',
   'More: accepted issuers, partner credential, the certifier': 'Más: emisores aceptados, credencial del partner, la certificadora',
-  // ── La firma de la credencial, arriba y a la vista (9-sep) ──
+  // ── La firma de la credencial, arriba y a la vista ──
   'Your signature is needed': 'Hace falta tu firma',
   'credential to accept': 'credencial por aceptar',
   'credentials to accept': 'credenciales por aceptar',
   'An issuer granted this account a credential. It only counts once YOU accept it — one signature in your Xaman, nothing else.': 'Un emisor ha concedido una credencial a esta cuenta. Solo cuenta cuando TÚ la aceptas — una firma en tu Xaman, nada más.',
   'Nothing accepted yet — the credentials above are waiting for your signature.': 'Aún nada aceptado — las credenciales de arriba esperan tu firma.',
   'Issued. Now accept it: the signature card below is waiting for your Xaman.': 'Emitida. Ahora acéptala: la tarjeta de firma de abajo espera tu Xaman.',
-  // ── El notario encuentra la atestación solo: sin pegar (9-sep) ──
+  // ── El notario encuentra la atestación solo: sin pegar ──
   'KYC: Astryum finds the Coinbase attestation of the EVM wallet you have connected — the one you connected at Coinbase — and you sign one challenge with it. AIFM: the notary re-runs the domain and register checks. If the facts hold, the credential lands in your tray — accepting it is still your signature.': 'KYC: Astryum encuentra la atestación de Coinbase de la wallet EVM que tienes conectada — la misma que conectaste en Coinbase — y firmas un reto con ella. AIFM: el notario re-ejecuta los checks de dominio y registro. Si los hechos aguantan, la credencial cae en tu bandeja — aceptarla sigue siendo tu firma.',
   'Connected EVM wallet': 'Wallet EVM conectada',
   'EVM wallet linked to your account': 'Wallet EVM enlazada a tu cuenta',
@@ -8515,7 +8515,7 @@ const PAGES: Record<string, string> = {
   'Check my Coinbase verification & issue (KYC + AIFM)': 'Comprobar mi verificación de Coinbase y emitir (KYC + AIFM)',
   'Paste the attestation link yourself (if the automatic lookup fails)': 'Pegar el enlace de la atestación a mano (si la búsqueda automática falla)',
   'Issue from this link': 'Emitir desde este enlace',
-  // ── La comunidad de managed vaults: cara, persona/agente, apoyos e imagen de bóveda (8-sep) ──
+  // ── La comunidad de managed vaults: cara, persona/agente, apoyos e imagen de bóveda ──
   'A person': 'Una persona',
   'AI agent': 'Agente de IA',
   'AI agents': 'Agentes de IA',
@@ -8560,7 +8560,7 @@ const PAGES: Record<string, string> = {
   'station “Public profile”': 'estación «Perfil público»',
   'supporters': 'apoyos',
   'vault': 'bóveda',
-  // ── Operate como galería de potes (6-sep) ──
+  // ── Operate como galería de potes ──
   'Your vaults — pick one to move its capital, or open a new one': 'Tus bóvedas — elige una para mover su capital, o abre una nueva',
   'New vault': 'Nueva bóveda',
   'No vault yet — open your first with the + above, or finish setup in “Configure the account”.':
@@ -8611,7 +8611,7 @@ const PAGES: Record<string, string> = {
   'this one — set automatically': 'esta — puesta automáticamente',
   '(computes as you write)': '(se calcula mientras escribes)',
   'Anchor the fingerprint (DIDSet — 1 signature)': 'Anclar la huella (DIDSet — 1 firma)',
-  // El rail con detección real + la estación propia de la jaula (6-sep)
+  // El rail con detección real + la estación propia de la jaula
   'Setup stations': 'Estaciones del alta',
   'First vault': 'Primer vault',
   'Born with one 0xFE signature, obeying this account for ever': 'Nace con una firma 0xFE, obedeciendo a esta cuenta para siempre',
@@ -8640,7 +8640,7 @@ const PAGES: Record<string, string> = {
   'Signed. The network is proving it; this station will turn green on its own in a couple of minutes.':
     'Firmado. La red lo está probando; esta estación se pondrá en verde sola en un par de minutos.',
   'Compose the birth (1 signature)': 'Componer el nacimiento (1 firma)',
-  // La jaula a un botón + la estación 6: el perfil público (6-sep)
+  // La jaula a un botón + la estación 6: el perfil público
   'The cage locks NO capital, ever: from now on every order of this account passes through it, and that is all it does.':
     'La jaula NO bloquea capital, jamás: desde ahora cada orden de esta cuenta pasa por ella, y eso es todo lo que hace.',
   'The order carries a fixed': 'La orden lleva un fijo de',
@@ -8686,7 +8686,7 @@ const PAGES: Record<string, string> = {
   'accept what is pending in your tray below.': 'acepta lo pendiente en tu bandeja, abajo.',
   'A vault obeys ONE XRPL account. Pick which of your connected wallets acts as the manager — credentials, cage and orders on this desk all follow this choice.':
     'Una bóveda obedece a UNA cuenta XRPL. Elige cuál de tus wallets conectadas actúa como gestora — las credenciales, la jaula y las órdenes de esta mesa siguen esa elección.',
-  // ── Certificación del gestor: circuito real XLS-70 (corrección 3-sep — el FDC
+  // ── Certificación del gestor: circuito real XLS-70 (corrección — el FDC
   //    no puede llevar nada a XRPL; la credencial ES el raíl) ──
   'Astryum neither creates nor custodies certification documents. Your details and your identity document go directly to the independent certifying company, through their channels — they never touch Astryum. Once they certify you, the credential is issued to your XRPL account (XLS-70); you accept it in your tray, and the ledger itself enforces it on every vault you run.':
     'Astryum ni crea ni custodia documentos de certificación. Tus datos y tu documento de identidad van directamente a la certificadora independiente, por sus canales — jamás tocan Astryum. Cuando te certifica, la credencial se emite a tu cuenta XRPL (XLS-70); la aceptas en tu bandeja, y el propio ledger la hace cumplir en cada bóveda que llevas.',
@@ -8697,7 +8697,7 @@ const PAGES: Record<string, string> = {
   'The manager account must be an XRPL r-address.': 'La cuenta del gestor tiene que ser una r-address XRPL.',
   'The checks could not be read right now — that says nothing about the binding itself.': 'Los checks no se pudieron leer ahora mismo — eso no dice nada del binding en sí.',
 
-  // ── Reorg Managed vaults (2026-08-29): Earn = solo el catálogo; la mesa del
+  // ── Reorg Managed vaults: Earn = solo el catálogo; la mesa del
   //    gestor a /app/manager (sidebar condicional) y la auditora a /app/partner
   //    (solo URL). Perfil profesional en Settings + sub-paso del onboarding. ──
   'Professional': 'Profesional',
@@ -8748,7 +8748,7 @@ const PAGES: Record<string, string> = {
   'Fill the three fields and attach the document to complete the draft.':
     'Rellena los tres campos y adjunta el documento para completar el borrador.',
 
-  // ── El catálogo de bóvedas con la mano de Earn + perfil del gestor (2026-08-29) ──
+  // ── El catálogo de bóvedas con la mano de Earn + perfil del gestor ──
   'Pick a vault — its cage, its destinations and who runs it unfold beside it.':
     'Elige una bóveda — su jaula, sus destinos y quién la lleva se despliegan al lado.',
   'See profile': 'Ver perfil',
@@ -8783,7 +8783,7 @@ const PAGES: Record<string, string> = {
   'Copying failed here — select the link by hand:': 'Aquí no se pudo copiar — selecciona el enlace a mano:',
   'Delete draft': 'Borrar borrador',
   'Draft deleted from this browser.': 'Borrador borrado de este navegador.',
-  // ── Govern en CINCO salas (2026-08-30, 2ª pasada): cada pestaña responde
+  // ── Govern en CINCO salas (2ª pasada): cada pestaña responde
   //    una pregunta. 'Capital', 'Council' y 'Activity' ya existen arriba. ──
   'What is inside and what it produces': 'Qué hay dentro y qué produce',
   'Who commands, with which quorum': 'Quién manda, y con qué quórum',
@@ -8798,8 +8798,7 @@ const PAGES: Record<string, string> = {
     'Leído directamente de la cadena. Mover cualquier parte exige una orden y el quórum — jamás Astryum.',
   'Every entry here happened on-chain and can be opened at its proof.':
     'Cada entrada de aquí ocurrió on-chain y se puede abrir en su prueba.',
-  // ── Capital del Legacy, sin huecos mudos (fundador 2026-09-13: abrió la
-  //    sala Capital de un Legacy sin jaula y no vio NADA). ──
+  // ── Capital del Legacy, sin huecos mudos. ──
   'No cage — and that is the point': 'Sin jaula — y es justo lo que pediste',
   'This is your own wallet held by a quorum: its capital stays on the account, reachable by your signatures. A cage is a one-way door and reinforcing deliberately does not open it.':
     'Esta es tu propia wallet, sostenida por un quórum: su capital se queda en la cuenta, al alcance de tus firmas. Una jaula es una puerta de un solo sentido, y reforzar no la abre a propósito.',
@@ -8811,9 +8810,9 @@ const PAGES: Record<string, string> = {
   'Moving it takes an order and the quorum.': 'Moverlo exige una orden y el quórum.',
   'The account balance could not be read right now — that is not the same as it being zero.':
     'El saldo de la cuenta no se pudo leer ahora mismo — eso no es lo mismo que sea cero.',
-  // Gobernar como operación (2026-08-30) — el subtítulo del host.
+  // Gobernar como operación — el subtítulo del host.
   'the quorum signs — Astryum never does': 'firma el quórum — Astryum jamás',
-  // La certificación como REFERRAL (2026-08-30): ni creación ni custodia de
+  // La certificación como REFERRAL: ni creación ni custodia de
   // documentos — la tarjeta explica el circuito y la puerta va por env.
   'You get certified at the certifier — never at Astryum':
     'Te certificas en la certificadora — nunca en Astryum',
@@ -8827,9 +8826,8 @@ const PAGES: Record<string, string> = {
     'La empresa certificadora se está eligiendo — esta puerta se abre en cuanto exista.',
   'You leave Astryum: what you submit there is between you and the certifier.':
     'Sales de Astryum: lo que entregues allí queda entre tú y la certificadora.',
-  // ── VaultCreator (2026-08-30): el creador de vaults interactivo — cinco
-  //    estaciones, card viva del catálogo y hoja de promesas. El túnel de
-  //    fundador (?tunnel=1) lo enseña sin firma. ──
+  // ── VaultCreator: el creador de vaults interactivo — cinco
+  //    estaciones, card viva del catálogo y hoja de promesas. ──
   // ('Create a vault' ya existe arriba.)
   'Identity': 'Identidad',
   'The two promises': 'Las dos promesas',
@@ -8876,7 +8874,7 @@ const PAGES: Record<string, string> = {
     'destino que elegiste — añadir otro después tarda 30 días.',
   'destinations you chose — adding one later takes 30 days.':
     'destinos que elegiste — añadir otro después tarda 30 días.',
-  // El flag de gestor viaja a la cuenta (2026-08-30) — el aviso del fallo.
+  // El flag de gestor viaja a la cuenta — el aviso del fallo.
   'The change did not reach your account — it was undone. Try again in a moment; without it, other browsers would not see it.':
     'El cambio no llegó a tu cuenta — se ha deshecho. Prueba de nuevo en un momento; sin él, los demás navegadores no lo verían.',
   'You support this manager': 'Apoyas a este gestor',
@@ -8884,7 +8882,7 @@ const PAGES: Record<string, string> = {
   'Link copied': 'Enlace copiado',
   'The link opens Earn directly on this profile — how a manager brings their own clients.':
     'El enlace abre Earn directamente en este perfil — así trae un gestor a sus propios clientes.',
-  // ── El ajuste de movimiento (2026-09-10, components/settings/MotionSettings.tsx) ──
+  // ── El ajuste de movimiento (components/settings/MotionSettings.tsx) ──
   Motion: 'Movimiento',
   'How much the interface moves, and with which face. One setting, every screen.':
     'Cuánto se mueve la interfaz, y con qué cara. Un ajuste, todas las pantallas.',
@@ -8911,7 +8909,7 @@ const PAGES: Record<string, string> = {
   'Another route': 'Otra ruta',
 };
 
-// El exchange PRODUCTIZADO (14-sep): la cuenta del cliente (ExchangeClientApp) y
+// El exchange PRODUCTIZADO: la cuenta del cliente (ExchangeClientApp) y
 // la consola del exchange (ExchangeConsole). Bloque propio y extendido PRIMERO:
 // si una clave ya existía arriba, manda la de arriba (ni duplicados ni cambios
 // de copy ya publicada). Consola dice «pote»; cliente dice «vault».
@@ -9152,12 +9150,12 @@ const EXCHANGE_PRODUCT: Record<string, string> = {
   'Back to the console': 'Volver a la consola',
   'Station desk (setup, tour, v1)': 'Mesa por estaciones (alta, tour, v1)',
 
-  // ── La portada del exchange (15-sep): dos puertas, y dentro sus dos patas ──
+  // ── La portada del exchange: dos puertas, y dentro sus dos patas ──
   Create: 'Crear',
   'What do you want to do?': '¿Qué quieres hacer?',
   'Two doors, and behind each one the same two sides: the exchange that operates, and the client who uses it.':
     'Dos puertas, y detrás de cada una los mismos dos lados: el exchange que opera y el cliente que lo usa.',
-  // Qué es esto — y qué no es (15-sep): Astryum no es un exchange; es la estructura de uno
+  // Qué es esto — y qué no es: Astryum no es un exchange; es la estructura de uno
   'What this is — and what it is not': 'Qué es esto — y qué no es',
   'Astryum is not an exchange.': 'Astryum no es un exchange.',
   'It is the structure of one, built on the network, so that a company holding the credential to serve clients can create its own exchange here and operate it with them.':
@@ -9196,7 +9194,7 @@ const EXCHANGE_PRODUCT: Record<string, string> = {
   'Nothing is missing and nothing was lost: no account has been opened with this passkey. Opening one takes a name and a moment.':
     'No falta nada ni se ha perdido nada: con esta passkey no se ha abierto ninguna cuenta todavía. Abrir una es un nombre y un momento.',
 
-  // ── El ensayo guiado, recién nacido el exchange (15-sep) ──
+  // ── El ensayo guiado, recién nacido el exchange ──
   'Your exchange is born': 'Tu exchange ha nacido',
   'Rehearse it before you operate it': 'Ensáyalo antes de operarlo',
   'Walk the whole circuit here first — the setup stations, a deposit, the vault and an exit — with the guided tour beside you. It is the same desk you will operate with, so what works here works there.':
@@ -9241,7 +9239,7 @@ const EXCHANGE_PRODUCT: Record<string, string> = {
   'Free text that travels with the payment and stays public on the ledger forever. Never write anything private here.':
     'Texto libre que viaja con el pago y queda público en el ledger para siempre. No escribas aquí nada privado.',
 
-  // Exchange 2.0 (18-sep): las ESTRUCTURAS cautivas que nacen bajo un tenant —
+  // Exchange 2.0: las ESTRUCTURAS cautivas que nacen bajo un tenant —
   // una familia o una sociedad con su propia cuenta XRPL, gobernada por quorum y
   // sin llave de nadie cuando se cierra la puerta.
   'A family or a company that lives inside this exchange gets its own XRPL account, governed by a quorum. Once its door is closed, nobody holds a key to it — not its holder, not this exchange, not Astryum. Only the quorum acts.':
@@ -9297,7 +9295,7 @@ const EXCHANGE_PRODUCT: Record<string, string> = {
   'The ceremony is complete. This account has no key: only its quorum can act, and anyone can check it on the ledger.':
     'La ceremonia está completa. Esta cuenta no tiene llave: solo puede actuar su quórum, y cualquiera puede comprobarlo en el ledger.',
   'Signs: {account}': 'Firma: {account}',
-  // Exchange 2.0 (18-sep, encuadre corregido del fundador): la autoridad es del
+  // Exchange 2.0 (encuadre corregido del fundador): la autoridad es del
   // USUARIO — su cuenta personal se sienta en las demas y las comanda.
   'One person, several XRPL accounts: the personal one sits in the signer list of the others and commands them — alone, or as one of a quorum. Once an account closes its door, nobody holds a key to it at all: only whoever is seated can move it.':
     'Una persona, varias cuentas XRPL: la personal se sienta en la lista de firmantes de las demas y las comanda — sola, o como una de varias. Cuando una cuenta cierra su puerta, ya no hay llave de ella en ninguna parte: solo puede moverla quien esta sentado.',
@@ -9327,7 +9325,7 @@ const EXCHANGE_PRODUCT: Record<string, string> = {
   'Before you sign, what is true here': 'Antes de firmar, lo que aqui es verdad',
 };
 
-// ── Copy que la ventana escribió sin su entrada en castellano (release 2026-09-19) ──
+// ── Copy que la ventana escribió sin su entrada en castellano (release) ──
 // `npm run check:i18n` bloquea el CI de `main` y la rama build/ventana-21sep nunca
 // lo vio correr: al medirlo sobre el candidato del release salieron 157 cadenas en
 // inglés. Casi todas son de las que más importa que se entiendan — rechazos del

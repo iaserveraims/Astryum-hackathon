@@ -2,9 +2,7 @@
  * ¿Qué enseña el portal del cliente del exchange? Pura: la llave ya se resolvió
  * (`GET /runs/for-account`) y aquí solo se decide la pantalla.
  *
- * 18-sep — CLIENTE POR EXCHANGE (fundador: «cuando crea una cuenta a un exchange
- * es al que ha pedido acceso y le han dado la verificación, sino no está dentro
- * de ese exchange»). Antes una passkey era cliente de UN exchange para siempre:
+ * CLIENTE POR EXCHANGE. Antes una passkey era cliente de UN exchange para siempre:
  * «Crear una cuenta de cliente» con una llave que ya era cliente de otro
  * exchange te metía en ESA cuenta sin una palabra, y el alta del nuevo no
  * aparecía nunca. Ahora:
@@ -35,7 +33,7 @@ export type PortalView =
   | { kind: 'pick-join' }
   /** Viniste a crear y ya tienes cuenta en todos los exchanges abiertos. */
   | { kind: 'already-everywhere' }
-  /** La llave tiene ficha, pero de otra sesión de Astryum (14-sep). */
+  /** La llave tiene ficha, pero de otra sesión de Astryum. */
   | { kind: 'held-elsewhere' }
   /** Viniste a entrar y esta llave no tiene cuenta en ningún exchange. */
   | { kind: 'no-account-yet' }
@@ -64,7 +62,7 @@ export function portalView(input: { mode: 'enter' | 'create'; data: PortalData; 
 
 /**
  * La respuesta de `for-account`, en la forma del portal. Tolera un backend
- * anterior al 18-sep (sin `memberships` ni `joinable`): con cuenta, sin nada que
+ * anterior al (sin `memberships` ni `joinable`): con cuenta, sin nada que
  * unir (se dice dónde está la tuya); sin cuenta, los abiertos salvo el de la
  * ficha ajena, como antes.
  */

@@ -7,27 +7,6 @@ import { countProposals, type ProposalCounts } from '../../lib/authority/proposa
 /**
  * prosa-y-lectores — «un candidato ajeno borraba los badges de TODAS mis
  * autoridades».
- *
- * `useAuthorities` fed ONE bulk read: `councilProposalsApi.list(candidates,
- * true)`, where the candidates are the connected wallet PLUS the self-asserted
- * `GovernedAccount` pointers (`POST /governed-accounts` takes any r-address
- * with no proof). The permission floor added this round refuses that whole
- * listing with 403 NOT_A_COUNCIL_MEMBER when NONE of the rows it found belongs
- * to the session (backend/src/routes/councilProposals.ts, `GET /`), and the
- * hook's `.catch` was a comment. So one pointer the server does not tie to this
- * user took down the read for every authority at once and said nothing: every
- * "your signature is due" badge silently disappeared while the proposals it was
- * counting ran toward their seven-day deadline.
- *
- * The second half of the same family is quieter and always reachable: on a
- * MIXED listing the server returns only the readable rows and never names the
- * accounts it withheld, while `countProposals` seeds EVERY account it is handed
- * with 0. A withheld account was therefore counted as "nothing in flight" —
- * "I could not read" written down as data.
- *
- * The fix reads one account at a time and merges. These tests execute the merge
- * rule and the counting rule against those two shapes; both fail on the old
- * bulk shape, which is reproduced here as the control.
  */
 
 const HOOK = join(__dirname, '..', 'useAuthorities.ts');
@@ -126,7 +105,7 @@ describe('prosa-y-lectores — one refused account may not erase the others', ()
 });
 
 /**
- * productizer it. 27 (6) — LA AUSENCIA POR ILEGIBLE SE VEÍA IGUAL QUE EL CERO.
+ * LA AUSENCIA POR ILEGIBLE SE VEÍA IGUAL QUE EL CERO.
  *
  * El bloque de arriba cerró la mitad de dentro: una cuenta que no se pudo leer queda
  * `undefined` en vez de contarse como 0. La mitad de fuera seguía abierta: la banda
@@ -138,7 +117,7 @@ describe('prosa-y-lectores — one refused account may not erase the others', ()
  * El cableado es lo único que ninguna función pura sujeta, así que se lee del fuente
  * que se envía: quién pone la marca, quién la retira y dónde se pinta.
  */
-describe('it. 27 (6) — lo ilegible se ve como desconocido, jamás como cero', () => {
+describe('Lo ilegible se ve como desconocido, jamás como cero', () => {
   const HOOK = join(__dirname, '..', 'useAuthorities.ts');
   const BAND = join(__dirname, '..', '..', 'components', 'legacy', 'StructuresBand.tsx');
   const hookSrc = readFileSync(HOOK, 'utf8');

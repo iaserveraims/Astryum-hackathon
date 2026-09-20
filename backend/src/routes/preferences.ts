@@ -12,11 +12,8 @@ import { prisma } from '../database/prismaClient';
  * localStorage so the PROTECT template opens pre-filled — but localStorage
  * doesn't cross devices. This router lets that same value be read back on a
  * second device, best-effort. The values are pure form UX — never signed,
- * never executed (CLAUDE.md invariants #1/#8) — so every handler here reads
+ * never executed (invariants #1/#8) — so every handler here reads
  * or writes only the calling user's OWN row, keyed by `req.siwe.userId`.
- *
- * Mounted behind requireSiweAuth elsewhere (index-simple.ts), so req.siwe is
- * populated by the time these handlers run.
  */
 const router = Router();
 

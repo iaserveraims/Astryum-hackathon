@@ -3,27 +3,6 @@
 // Admin panel — hidden page (no nav entry, reached only via /app/admin) for
 // the 2 founders. Read-only: DB counts + the waitlist, so nobody needs to
 // open the database directly.
-//
-// Access, hardened 2026-07-23: the founder types the panel key ONCE into the
-// login card (captcha-gated when Turnstile is configured); the backend
-// verifies it (constant-time, per-IP failure limit) and answers with a 2h
-// scope-limited session token — THAT is what sessionStorage keeps and what
-// travels as x-admin-session on every call. The raw key never persists
-// client-side and never rides requests anymore, which shrinks what a
-// phishing page or an XSS could steal. A wrong key says so; every other
-// failure (403/404/network) collapses into the same sober "not available" so
-// the page never reveals what exists.
-//
-// v2 (founder 2026-07-23): reorganized into tabs — Overview / Waitlist /
-// Users / Sistema — and the waitlist separates signal from bot noise
-// (isNoiseEmail, backend/src/routes/waitlist.ts). The overview always fetches
-// clean rows by default; the "Show noise" toggle in the Waitlist tab is the
-// ONLY thing that asks for `?includeNoise=1`, and only for the table — the
-// counts and the 14-day chart stay signal-only regardless.
-//
-// Users tab separates OAuth users (Google/Apple) from plain-email users:
-// provider badges per row, a provider filter, and per-provider counts in
-// Overview — all fed by `authProviders` / `usersByProvider` from the backend.
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Copy, Eye, EyeOff, KeyRound, Loader2, Lock, RefreshCw, Search, Send, Wrench, X } from 'lucide-react';
 import {
@@ -68,7 +47,7 @@ import { MiniArea } from '../../../components/ui/charts';
 import { ModalOverlay } from '@/components/ui/ModalPortal';
 // La MISMA ceremonia de emisión de credencial que usa OperatorConsole — aquí,
 // en el overview de admin, para poder emitir KYC/AIFM a un sujeto sin depender
-// de tener una policy cargada en la pestaña Exchange (fundador 9-sep).
+// de tener una policy cargada en la pestaña Exchange.
 import { CredentialCeremonyModal } from '../../../components/institutional/CredentialCeremonyModal';
 import { AstryumLoader } from '../../../components/ui/AstryumLoader';
 import { AnchorGateCard } from '../../../components/admin/AnchorGateCard';
@@ -94,7 +73,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   google: 'Google',
   apple: 'Apple',
   wallet: 'Wallet',
-  // NOT a sign-in provider and NOT a person (productizer it. 17, R4 4.2).
+  // NOT a sign-in provider and NOT a person (R4 4.2).
   // `authProvider: 'quarantine'` is the row AuthService leaves behind when an
   // account is taken over: the previous holder's residue, parked so it still
   // proves what it proved, with an @invalid address nobody can use. Rendered as
@@ -189,10 +168,10 @@ export default function AdminPage() {
   // La ceremonia de emisión de credencial (KYC/AIFM) — abierta desde Herramientas.
   // false = cerrada · 'real' = firma el emisor en su Xaman · 'demo' = firma el
   // notario de rodaje en el servidor (solo aquí: la emisión de demo se retiró de
-  // todas las mesas del producto el 20-sep).
+  // todas las mesas del producto).
   const [credOpen, setCredOpen] = useState<false | 'real' | 'demo'>(false);
   // Session-door state: null = no live session (show the login card). The
-  // empty string '' is the SIWE door (2026-07-25): the logged-in account is on
+  // empty string '' is the SIWE door: the logged-in account is on
   // ADMIN_EMAILS, so calls travel with the app's own bearer token and no
   // x-admin-session header — check `session != null`, never truthiness.
   const [session, setSession] = useState<string | null>(null);
@@ -210,7 +189,7 @@ export default function AdminPage() {
   const [usersSearch, setUsersSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
 
-  // Beta gate (2026-08-01): approve/revoke seats from the Waitlist tab.
+  // Beta gate: approve/revoke seats from the Waitlist tab.
   // betaBusy = the email whose action is in flight (one at a time is plenty
   // for founder-scale batches); betaNote = the last outcome, incl. the honest
   // "invite did NOT send" case so nobody assumes a boarding pass went out.
@@ -223,8 +202,7 @@ export default function AdminPage() {
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
 
-  // Executor 0xFE gauges (regla fundador 2026-07-25: las métricas viven aquí,
-  // no en snippets de consola). Se cargan al entrar en Sistema y con su botón.
+  // Executor 0xFE gauges. Se cargan al entrar en Sistema y con su botón.
   const [executorHealth, setExecutorHealth] = useState<AdminExecutorHealth | null>(null);
   const [executorError, setExecutorError] = useState(false);
   const [executorLoading, setExecutorLoading] = useState(false);
@@ -251,7 +229,7 @@ export default function AdminPage() {
       .then(setAnchor)
       .catch(() => setAnchorError(true));
   }, []);
-  // La flota de jaulas (carril self-service, 2026-08-06): el factory probado
+  // La flota de jaulas (carril self-service): el factory probado
   // contra la cadena, el censo de jaulas nacidas, los nacimientos en vuelo y
   // los rechazos del prepare. Desde que las jaulas las crean los users, esto
   // es lo que responde «¿va bien el carril?» — aquí, no en una consola.
@@ -282,8 +260,7 @@ export default function AdminPage() {
       .catch(() => setSourceTagError(true))
       .finally(() => setSourceTagBusy(false));
   }, []);
-  // ¿Nos da XRP Identity la wallet? Diagnóstico de la pregunta abierta del
-  // 17-ago: su perfil enlaza una wallet XRPL firmando con Xaman, pero su
+  // ¿Nos da XRP Identity la wallet? Diagnóstico de la pregunta abierta: su perfil enlaza una wallet XRPL firmando con Xaman, pero su
   // id_token no la trae. Con XRPL_IDENTITY_PROFILE_SCOPE encendido, cada login
   // real deja aquí QUÉ claims llegaron — nombres y formas, jamás valores.
   const [identityProbe, setIdentityProbe] = useState<AdminIdentityProbe | null>(null);
@@ -362,7 +339,7 @@ export default function AdminPage() {
       .catch(() => setSentinelError(true))
       .finally(() => setSentinelBusy(false));
   }, []);
-  // Rastreo de una dirección hasta su cuenta (investigación del 3-ago).
+  // Rastreo de una dirección hasta su cuenta (investigación).
   const [whoisAddr, setWhoisAddr] = useState('');
   const [whois, setWhois] = useState<AdminWhois | null>(null);
   const [whoisBusy, setWhoisBusy] = useState(false);
@@ -471,7 +448,7 @@ export default function AdminPage() {
       setSession(stored);
       return load(stored);
     }
-    // SIWE door (2026-07-25): before showing the key card, probe the overview
+    // SIWE door: before showing the key card, probe the overview
     // with the app's own session — a founder account (ADMIN_EMAILS) walks
     // straight in, no key. Any failure (not logged in / not on the list /
     // panel unconfigured) falls back to the key card in silence: the page
@@ -717,7 +694,7 @@ export default function AdminPage() {
 
           {tab === 'overview' && (
             <div className="space-y-6">
-              {/* Herramientas de admin (fundador 6-sep): accesos a las páginas de
+              {/* Herramientas de admin: accesos a las páginas de
                   gobierno que viven fuera de este panel — el registro de venues
                   de la jaula v2 y las mesas institucionales (exchange/cliente). */}
               <section className="space-y-3">
@@ -726,7 +703,7 @@ export default function AdminPage() {
                   <a href="/app/admin/registry" className="inline-flex items-center gap-2 rounded-xl border border-volt/30 bg-volt/[0.06] px-4 py-2.5 text-sm font-medium text-volt transition-transform hover:-translate-y-0.5">
                     Registro de venues (jaula v2) ↗
                   </a>
-                  {/* La mesa del partner de KYC (fundador 20-sep): la herramienta
+                  {/* La mesa del partner de KYC: la herramienta
                       de quien administra un registro KYC y aprueba clientes. Solo
                       fundadores, y solo desde aquí — no es un paso de ninguna alta. */}
                   <a href="/app/partner" className="inline-flex items-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5">
@@ -735,8 +712,8 @@ export default function AdminPage() {
                   <a href="/app/admin/institutional" className="inline-flex items-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5">
                     Institucional (exchange / cliente) ↗
                   </a>
-                  {/* La mesa del exchange entera, con fila propia en el menú
-                      (11-sep): alta por estaciones + rodaje v2 + la v1. */}
+                  {/* La mesa del exchange entera, con fila propia en el menú:
+                      alta por estaciones + rodaje v2 + la v1. */}
                   <a href="/app/exchange/operator" className="inline-flex items-center gap-2 rounded-xl border border-volt/30 bg-volt/[0.06] px-4 py-2.5 text-sm font-medium text-volt transition-transform hover:-translate-y-0.5">
                     Mesa del operador del exchange ↗
                   </a>
@@ -750,9 +727,7 @@ export default function AdminPage() {
                   >
                     Emitir credencial (KYC / AIFM) →
                   </button>
-                  {/* LA EMISIÓN DE DEMO VIVE AQUÍ (fundador 2026-09-20: «hay que
-                      reubicar los issuing de credentials demo en la consola
-                      admin»). Antes colgaba de la mesa del exchange y de la
+                  {/* LA EMISIÓN DE DEMO VIVE AQUÍ. Antes colgaba de la mesa del exchange y de la
                       del gestor, a la vista de cualquier cuenta con sesión.
                       El notario de rodaje firma una AIFM / CASP / KYB real en
                       mainnet SIN comprobar dominio ni registro; el sujeto
@@ -1176,7 +1151,7 @@ export default function AdminPage() {
               </section>
 
               {/* Astryum Orbit System — the light the Summary card shows every
-                  user (founder 2026-07-25): flip it to Offline with a
+                  user: flip it to Offline with a
                   hand-written reason while working on the ship. */}
               <section className="space-y-3 md:col-span-2">
                 <SectionTitle>Astryum Orbit System</SectionTitle>
@@ -1184,8 +1159,7 @@ export default function AdminPage() {
               </section>
             </div>
 
-            {/* ── Executor 0xFE — gauges de solvencia (Tramo 1; regla fundador
-                2026-07-25: las métricas viven aquí, no en la consola). Todo es
+            {/* ── Executor 0xFE — gauges de solvencia. Todo es
                 información on-chain pública o booleanos de config. ── */}
             <section className="mt-4 space-y-3">
               <SectionTitle
@@ -1312,7 +1286,7 @@ export default function AdminPage() {
               )}
             </section>
 
-            {/* ── Make Waves · SourceTag (entregable §8 del T&C, 2026-08-16):
+            {/* ── Make Waves · SourceTag (entregable §8 del T&C):
                 lo que el tag 2607090002 atribuye al proyecto, LEÍDO del
                 ledger. Active User = dirección que FIRMÓ ≥1 tx con el tag
                 (T&C §6); en multisig, los miembros. Las cuentas operativas
@@ -1380,7 +1354,7 @@ export default function AdminPage() {
               )}
             </section>
 
-            {/* ── Puerta de alta (2026-08-19) — con la puerta única, crear
+            {/* ── Puerta de alta — con la puerta única, crear
                 cuenta pasa DENTRO del primer login por XRP Identity. Si está
                 cerrada, quien llegue de una campaña rebota con 403 en lugar de
                 entrar, y hasta hoy eso solo se veía abriendo Railway. ── */}
@@ -1427,7 +1401,7 @@ export default function AdminPage() {
               )}
             </section>
 
-            {/* ── Keeper de escrows XRPL · G11 (2026-08-20) — la mitad que
+            {/* ── Keeper de escrows XRPL · G11 — la mitad que
                 faltaba de este hallazgo no era el arranque, era poder MIRARLO. */}
             <section className="space-y-3">
               <SectionTitle
@@ -1487,7 +1461,7 @@ export default function AdminPage() {
               )}
             </section>
 
-            {/* ── XRP Identity · ¿viaja la wallet? (2026-08-17) — su perfil
+            {/* ── XRP Identity · ¿viaja la wallet? Su perfil
                 enlaza una wallet XRPL firmando con Xaman, pero su id_token no
                 la trae. Antes de pedirle una claim nueva al operador, la
                 pregunta barata: ¿la devuelve ya /userinfo con `profile:read`?
@@ -1620,7 +1594,7 @@ export default function AdminPage() {
               )}
             </section>
 
-            {/* ── Jaulas · factory (carril self-service, 2026-08-06) — desde
+            {/* ── Jaulas · factory (carril self-service) — desde
                 que las jaulas las crean los users, «¿va bien el carril?» se
                 responde aquí: config probada contra la cadena, censo, vuelos
                 y fricción. ── */}
@@ -1695,10 +1669,7 @@ export default function AdminPage() {
                           {cages.factory.capXrp != null ? `tope beta ${cages.factory.capXrp} XRP/jaula` : 'tope beta APAGADO'}
                         </Pill>
                       </div>
-                      {/* La economía del nacimiento — lo que el fundador pidió
-                          ver: el executor PAGA (FDC + gas, y un nacimiento
-                          quema ~5M de gas frente a ~1M de un mint normal) y
-                          COBRA la fee del AssetManager. La fee no es nuestra
+                      {/* La fee no es nuestra
                           — la fija el protocolo FAssets y se lee en vivo. */}
                       <InfoRow
                         label="Cobra por dispatch (AssetManager)"
@@ -1851,8 +1822,7 @@ export default function AdminPage() {
 
                 {testNote && <Card><p className="text-xs text-ink/60 leading-relaxed">{testNote}</p></Card>}
 
-                {/* ¿De quién es esta dirección? Nació de la investigación del
-                    3-ago: tres mints del carril 0xFE en un día con la beta
+                {/* ¿De quién es esta dirección? Nació de la investigación: tres mints del carril 0xFE en un día con la beta
                     cerrada, y ninguna forma de saber de quién eran sin abrir la
                     base de datos a mano. Una dirección que gasta presupuesto
                     del executor tiene que rastrearse DESDE AQUÍ. */}
@@ -2145,7 +2115,7 @@ export default function AdminPage() {
 
 // ─── Astryum Orbit System control (Sistema tab) ──────────────────────────────
 // The switch behind the Summary's status card: Online ⇄ Offline plus the
-// hand-written reason users read while we work (founder 2026-07-25). Writes
+// hand-written reason users read while we work. Writes
 // via PUT /api/platform/status under the SAME panel session as everything
 // else; reads the public GET so what the founder sees here is exactly what
 // users see on the card.
@@ -2338,8 +2308,7 @@ function UnstickModal({
             )}
           </GhostButton>
           {/* Descartar: SOLO lápidas (bytes permanentemente inejecutables) —
-              archiva en la auditoría y desaparece del panel y del barrido.
-              Fundador 2026-08-22: una lápida no puede vivir aquí para siempre. */}
+              archiva en la auditoría y desaparece del panel y del barrido. */}
           {kind === 'parked' && tx.source === 'permanent' && (
             <GhostButton
               onClick={() => {

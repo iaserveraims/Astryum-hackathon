@@ -6,12 +6,6 @@
  * CHAIN_REGISTRY but has no row in `chains` makes every write for that chain
  * fail with a foreign-key violation — which is exactly how non-EVM portfolio
  * history was silently lost (the DB had XRPL as -1, the code writes 1440002).
- *
- * The registry is the source of truth for which chains exist; this reconciles
- * the DB to it at boot so adding a chain to the registry is enough.
- *
- * Idempotent, and deliberately create-only: existing rows are never updated, so
- * an operator's curated rpc/explorer/blockTime values are never clobbered.
  */
 import { prisma } from './prismaClient';
 import { CHAIN_REGISTRY, type ChainMeta } from '../integrations/registry/ChainRegistry';

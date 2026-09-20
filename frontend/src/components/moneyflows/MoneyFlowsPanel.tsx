@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * MoneyFlowsPanel — the ONE MoneyFlows surface, shared by both authorities
- * (decisión fundador 2026-07-18: el MISMO sistema para Personal y Legacy).
+ * MoneyFlowsPanel — the ONE MoneyFlows surface, shared by both authorities.
  *
  * Same brain everywhere (CMF → AutomationRules → engine tick → trigger); the
  * mode only changes WHO signs when a rule fires:
@@ -10,11 +9,6 @@
  *    the OWNER signs it in their wallet. Nothing moves without that signature.
  *  - 'governed': the trigger composes a PROPOSAL into the council inbox — the
  *    QUORUM signs it there. The rule holds zero authority by construction.
- *
- * COPY IS LOAD-BEARING (blacklist §4): always "vigilada sin discreción,
- * preparada al dispararse, firmada por ti / por el quórum, con caducidad" —
- * never "automatización sin firmar". Expiry is ENFORCED server-side (≤90d);
- * this panel shows it and offers the instant owner-side revocation.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,7 +45,7 @@ interface LooseRule extends AutomationRule {
 }
 
 /**
- * G4 (auditoría 2026-08-17) — «watching» que no vigila.
+ * G4 (auditorí) — «watching» que no vigila.
  *
  * WHAT WAS FAILING IN SILENCE: when a rule fires, the engine records an
  * AutomationRun (backend/src/engines/automation/AutomationEngine.ts). If the
@@ -64,17 +58,6 @@ interface LooseRule extends AutomationRule {
  * rule that failed EVERY SINGLE fire rendered exactly like a healthy one —
  * green "active" pill, "expires in 87d" — so a family believed they were
  * protected by a rule that had never once produced anything to sign.
- *
- * The run history was already there: GET /rules/:id/runs (backend/src/routes/
- * rules.ts) returns status + notes, newest first. This panel READS it — one
- * read per mount/refresh, no polling — and says what the ledger of runs says.
- * If the read itself fails we SAY so; we never infer health from silence, and
- * we never paint green over a status we could not read.
- *
- * G4-strategies (round 2): the reducer and the loader now live in ONE place,
- * lib/rules/runHealth.ts. This file used to carry a literal copy of them (as
- * did LegacyActivityFeed and DefiPositionsBoard) — three copies of the same
- * verdict is three chances for two surfaces to disagree about the same rule.
  */
 
 function runAt(iso: string): string {
@@ -86,7 +69,7 @@ function runAt(iso: string): string {
  * The failure line. Loud on `failed`, honest on `unreadable`, silent otherwise
  * (a healthy rule already speaks through "fired ×N" and its expiry).
  *
- * G4-pildoras (round 3) — `enabled` arrived because this note never looked at
+ * G4-pildoras — `enabled` arrived because this note never looked at
  * it: a PAUSED rule with an old failed run claimed «this rule is armed» beside
  * a Resume button. The failure still shows (it happened); the tense follows the
  * rule's actual state.
@@ -181,7 +164,7 @@ export default function MoneyFlowsPanel({
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState('');
-  // In-place edit (founder 2026-07-25): threshold/amount/cooldown, PATCH-gated.
+  // In-place edit: threshold/amount/cooldown, PATCH-gated.
   const [editRule, setEditRule] = useState<AutomationRule | null>(null);
   // G4 — last run per rule id, READ from GET /rules/:id/runs. `unread` until
   // the read lands; the seq guard drops the answer of a superseded refresh so a
@@ -318,7 +301,7 @@ export default function MoneyFlowsPanel({
             const k = `flow:${f.canonicalRef}`;
             // G4 — an enabled flow whose last fire errored is NOT "active": the
             // green pill was the lie the family read as protection.
-            // G4-pildoras (round 3) — and a flow whose runs we have NOT READ is
+            // G4-pildoras — and a flow whose runs we have NOT READ is
             // not "active" either: `isFailing` is false for `unread` and for
             // `unreadable`, so both fell into the green arm and a /runs timeout
             // returned a failing flow to green. The worst verdict among its
@@ -405,7 +388,7 @@ export default function MoneyFlowsPanel({
             // they carry no canonicalRef, so this is the card that used to say
             // "active / expires in 87d" for a rule failing every single fire.
             const lastRun = lastRuns[r.id] ?? UNREAD;
-            // G4-pildoras (round 3) — `state === 'failed'` alone left `unread`
+            // G4-pildoras — `state === 'failed'` alone left `unread`
             // and `unreadable` in the green arm: a council rule read as
             // «active» before its first run was read, and went back to green
             // whenever /runs broke.

@@ -1,7 +1,6 @@
 /**
- * venueStory — qué HACE cada destino con el FXRP de la bóveda, en una frase
- * (fundador 11-sep: «me gustaría que se supiera qué te da dejar los tokens en
- * ese vault en concreto»). Un vault gestionado NO es un préstamo ni pone nada
+ * venueStory — qué HACE cada destino con el FXRP de la bóveda, en una frase.
+ * Un vault gestionado NO es un préstamo ni pone nada
  * en colateral: el gestor solo puede llevar el FXRP común a estos destinos, y
  * lo que produzcan queda en la bóveda a prorrata de las participaciones.
  *

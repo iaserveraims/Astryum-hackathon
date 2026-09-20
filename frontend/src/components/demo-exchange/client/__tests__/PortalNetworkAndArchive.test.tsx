@@ -1,5 +1,5 @@
 /**
- * productizer it. 33 (agente C, 7 — menores del lado del cliente).
+ * .
  *
  *  · `for-account` sin `.catch`: si `fetch` reventaba (sin red, DNS), el portal
  *    se quedaba en «Finding your exchange…» para siempre. Ahora la excepción es

@@ -64,19 +64,6 @@ function isExternal(p: DeduplicatablePosition): boolean {
  * 2. For each FREE position in a matching underlying (ETH, FLR), subtract the
  *    receipt-covered amount. If covered ≥ free amount → remove the free position.
  *    If covered < free amount → reduce free position amount (partial overlap).
- *
- * This is a best-effort heuristic for display purposes — it does not affect
- * on-chain accounting. The exact overlap depends on timing of snapshots from
- * external providers.
- *
- * WARNING — only EXTERNAL rows may be dropped (fixed 2026-08-01). Staking FLR
- * does NOT consume the FLR left in the wallet: they are two real, separate
- * balances. Applied to our own adapters this rule deleted live capital — a
- * wallet holding 1,000 FLR plus $X of sFLR had up to $X of its FREE FLR erased
- * from the dashboard, because NativeBalanceAdapter's eth_getBalance read was
- * mistaken for an indexer's duplicate of the staked underlying. Our adapters
- * read one balance each, straight from the chain; they never double-report, so
- * they are never the duplicate this function is here to remove.
  */
 export function deduplicateLSTPositions<T extends DeduplicatablePosition>(
   positions: T[],
@@ -109,7 +96,7 @@ export function deduplicateLSTPositions<T extends DeduplicatablePosition>(
         continue;
       }
       // Partially covered — reduce amount to the uncovered portion.
-      // La CANTIDAD se anula junto al valor (14-sep-2026): el resto en dólares
+      // La CANTIDAD se anula junto al valor: el resto en dólares
       // ya no se corresponde con el saldo que reportó el indexador, y dejar la
       // cantidad entera al lado de un valor recortado hace que la fila no
       // cuadre. Sin `qty`, la pantalla la deriva de valor ÷ precio — que es

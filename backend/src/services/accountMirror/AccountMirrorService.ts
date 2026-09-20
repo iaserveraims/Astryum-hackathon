@@ -2,41 +2,6 @@
  * EL ESPEJO DE CUENTAS — la parte que EJECUTA lo que `plan.ts` decidió.
  *
  *     producción ──(solo lectura)──▶ este proceso (el preview)
- *
- * Qué se refleja de cada cuenta en el ámbito: la fila de `users` (contraseña
- * incluida, así el email y la contraseña entran igual en los dos sitios), sus
- * wallets, sus vinculaciones firmadas, sus cuentas gobernadas (los punteros
- * de Legacy), sus passkeys, su configuración de step-up y su perfil de
- * gestor. Nada más: ni sesiones (el secreto JWT es de cada entorno), ni claves
- * de API ni de agentes, ni nada que no sea «quién es esta cuenta y qué tiene».
- *
- * CÓMO NO PUEDE HACER DAÑO — por construcción, no por cuidado:
- *
- *  1. `mirrorVerdict` se niega si la base PROPIA es la de producción. Este
- *     servicio no existe en el proceso de producción, diga lo que diga la
- *     variable.
- *  2. El origen se lee con un ROL DE SOLO LECTURA (el SQL está en
- *     .env.example). Ese es el cinturón. NO se usa ningún `SET` de sesión:
- *     a través de un Transaction Pooler un SET se queda en la conexión de
- *     servidor y contamina a quien la herede — así se envenenó producción el
- *     14-sep con un diagnóstico a mano. Ver openSource().
- *  3. Solo se emiten SELECT contra el origen. No hay ninguna otra sentencia en
- *     este fichero dirigida a él, y un SELECT no puede escribir.
- *
- * LA REGLA DE LA MISMA PERSONA (fundador, 14-sep por la tarde): si el preview
- * ya tiene una cuenta con el mismo email, se ADOPTA — conserva su id, y con
- * él su perfil de gestor, sus imágenes de bóveda, sus apoyos y sus checks— y
- * recibe encima los campos de producción. Las preferencias se funden: las
- * claves que producción no conoce (`managerMode`…) se quedan. Nada se borra.
- * Antes se sustituía la cuenta entera y cada pasada pisaba esos checks.
- *
- * LAS FILAS HIJAS se escriben por su CLAVE NATURAL (wallet = cuenta+dirección+
- * red, vinculación = cuenta+dirección+cadena, Legacy = cuenta+ecosistema+
- * dirección, passkey = credentialId…) bajo el id adoptado, nunca por el id de
- * producción, que en el preview puede ser otro. Las hijas que solo existen en
- * el preview se RESPETAN en la pasada programada — borrarlas cinco minutos
- * después de añadirlas sería un botón que parece no funcionar. Solo el modo
- * `prune`, a demanda, iguala el preview a producción también en eso.
  */
 
 import { Prisma, PrismaClient } from '@prisma/client';
@@ -125,8 +90,7 @@ async function openSource(url: string): Promise<PrismaClient> {
   const source = new PrismaClient({ datasources: { db: { url: withSingleConnection(url) } }, log: ['error'] });
   await source.$connect();
   // ⚠ NUNCA UN `SET` DE SESIÓN CONTRA EL ORIGEN. Aquí hubo un
-  // `SET default_transaction_read_only = on` como «segundo cinturón», y el
-  // 14-sep, ejecutado a mano contra el Transaction Pooler de Supabase (puerto
+  // `SET default_transaction_read_only = on` como «segundo cinturón», y, ejecutado a mano contra el Transaction Pooler de Supabase (puerto
   // 6543), envenenó producción: en modo transacción el SET no queda ligado a
   // este cliente, se queda en la conexión de SERVIDOR del pool, y cuando el
   // pooler se la presta al backend de producción sus UPDATE fallan con 25006

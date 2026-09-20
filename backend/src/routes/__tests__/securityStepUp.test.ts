@@ -1,5 +1,5 @@
 /**
- * productizer it. 22, «Menor» / it. 23 — THE CHALLENGE DOOR HAS A LIMIT, AND IT
+ * «Menor» / — THE CHALLENGE DOOR HAS A LIMIT, AND IT
  * SAYS SO IN ITS OWN WORDS.
  *
  * `POST /challenge` had no rate limit at all: a stolen session could mint

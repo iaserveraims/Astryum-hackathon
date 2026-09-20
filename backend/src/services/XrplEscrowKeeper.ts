@@ -1,6 +1,5 @@
 /**
- * XrplEscrowKeeper — el keeper de escrows propio (Ola 3 de la economía
- * agéntica; gate fundador §8.3 resuelto con la vía (a) de Legacy 2026-07-13).
+ * XrplEscrowKeeper — el keeper de escrows propio.
  *
  * Taxonomía: EJECUTOR puro. EscrowFinish y EscrowCancel son PERMISSIONLESS en
  * XRPL — cualquiera puede enviarlos cuando el tiempo lo permite, y el ledger
@@ -8,51 +7,6 @@
  * Cancel → SIEMPRE al Owner que lo creó). El keeper no puede desviar un drop:
  * dispara lo que cualquier tercero podría disparar, con SU PROPIA cuenta y su
  * propia fee (economía B — jamás capital de usuario).
- *
- * ── Frontera MiCA (leer antes de tocar) ──────────────────────────────────────
- * Este servicio FIRMA y TRANSMITE transacciones XRPL — las SUYAS. La seed de
- * XRPL_KEEPER_SEED es una cuenta operativa de Astryum (como la clave de gas
- * del executor 0xFE en Flare), JAMÁS una clave de usuario (invariante #1
- * intacto). No es "execution of orders on behalf of clients": no hay orden de
- * cliente — hay una operación permissionless cuyo resultado fija el ledger,
- * idéntico lo envíe Astryum, xrpl.services o un desconocido. La frontera
- * "Astryum never broadcasts" de MICA_BOUNDARIES §2.2 se refiere a TRANSACCIONES
- * DE USUARIO (las que mueven capital bajo autorización del usuario) y sigue
- * intacta: este módulo no toca XRPLProvider (que sigue lanzando
- * BROADCAST_FORBIDDEN) ni ningún carril prepare-only. Ver MICA_BOUNDARIES.md
- * §2 (nota del keeper) — actualizado en el mismo cambio que este archivo.
- *
- * ── Política determinista (cero discreción, reglas del ledger) ──────────────
- *   FinishAfter ≤ now < CancelAfter  y sin Condition → EscrowFinish
- *   now ≥ CancelAfter                                → EscrowCancel
- *   Condition presente                               → solo Cancel al expirar
- *     (el preimage lo custodia el consejo FUERA de Astryum — el backend no
- *     puede ni debe finalizar escrows condicionados)
- * El propio ledger hace de árbitro: Finish pasado CancelAfter y Cancel antes
- * de CancelAfter fallan con tecNO_PERMISSION.
- *
- * Config:
- *   XRPL_KEEPER_ENABLED=true         — flag (#10: nada sin flag)
- *   XRPL_KEEPER_SEED=s…              — cuenta PROPIA del keeper (paga sus fees);
- *                                      vale family seed o secret numbers de Xaman
- *   XRPL_KEEPER_ACCOUNTS=rA,rB       — cuentas cuyos escrows vigila
- *   XRPL_KEEPER_INTERVAL_MIN=60      — cadencia del tick
- *
- * Con el flag ENCENDIDO y la config rota (sin seed, seed que no abre cuenta, sin
- * cuentas válidas) el keeper NO arranca — pero tampoco se calla: avisa a ops y
- * late FALLANDO para el Sentinel. Ver `announceNotStarted` (G11).
- *
- * ── Atribución: estas tx van SIN el SourceTag del proyecto ──────────────────
- * Las firma una cuenta OPERATIVA de Astryum y las dispara un cron. Las bases
- * del Make Waves definen la unidad de actividad por el FIRMANTE — *«An Active
- * User means an XRPL address that has signed at least 1 transaction carrying
- * your Source Tag»* (T&C v1.0 §6) — y prohíben *«self-dealing, scripted
- * transactions or other forms of metric manipulation»* (§7) bajo pena de
- * descalificación. Etiquetar estas tx metería nuestra propia dirección en el
- * recuento de cuentas activas del proyecto: +1 dirección frente a un listón de
- * 300, a cambio de exponer el premio entero. Por eso los builders reciben
- * `attribution: 'operational'` (ver config/xrplSourceTag). La actividad real
- * del usuario ya está atribuida: el EscrowCreate lo firmó él, con tag.
  */
 
 import { rippleTimeToISOTime } from 'xrpl';
@@ -185,7 +139,7 @@ export class XrplEscrowKeeper {
   }
 
   /**
-   * G11 (auditoría 2026-08-17) — the operator asked for it and it did not run.
+   * G11 (auditorí) — the operator asked for it and it did not run.
    *
    * WHAT FAILED IN SILENCE: with XRPL_KEEPER_ENABLED=true but no seed, an
    * unusable seed or no valid accounts, start() did a console.error and RETURNED
@@ -196,19 +150,6 @@ export class XrplEscrowKeeper {
    * reality diverged with nothing but one boot line in the logs, and an escrow
    * that should have been finished (XRP to the Destination) or cancelled (XRP
    * back to the Owner) could sit unattended for weeks with every gauge green.
-   *
-   * THE SIGNAL, and why it is not just one alert:
-   *  · opsAlert once, at boot → ops inbox (persisted) + Discord, naming the env
-   *    var to fix. A log line is not a signal: nobody reads logs on a good day.
-   *  · a FAILING heartbeat that keeps beating on the keeper's own cadence → the
-   *    Sentinel `agentes` probe reports it as failing and escalates to critical
-   *    after 3 beats, for as long as the misconfiguration lasts. It MUST be
-   *    refreshed: a single stale heartbeat would trip the probe's other branch
-   *    and claim "su ciclo se ha parado — reinicia el servicio", which is false
-   *    (the cycle never started; a restart fixes nothing). Being loud is not
-   *    enough — the reason has to be true too.
-   *  · `timer` stays null on purpose: the keeper is NOT running and must not
-   *    look like it is. Only the alarm beats; nothing here signs anything.
    */
   private announceNotStarted(reason: string, runbook: string): void {
     console.error(`[${SOURCE}] ${reason}`);
@@ -258,7 +199,7 @@ export class XrplEscrowKeeper {
         console.error(`[xrpl-escrow-keeper] sweep de ${account} falló: ${(e as Error).message}`);
       }
     }
-    // Latido para el Sentinel (2026-08-03): este keeper avisaba de lo que hacía,
+    // Latido para el Sentinel: este keeper avisaba de lo que hacía,
     // pero no de que seguía vivo. Si su ciclo se para, nadie lo notaba.
     try {
       markAgentTick(SOURCE, {

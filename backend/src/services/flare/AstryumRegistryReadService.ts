@@ -3,8 +3,8 @@
  *
  * El `AstryumRegistry` es el scanner: la lista de destinos sin liquidación que
  * un pote puede tocar. El propio pote la consulta en `_addVenue`; aquí solo se
- * ENSEÑA, para que un gestor elija dentro de ella desde su pote (decisión
- * 27-ago) y para que un depositante vea contra qué se mide la jaula.
+ * ENSEÑA, para que un gestor elija dentro de ella desde su pote (decisión)
+ * y para que un depositante vea contra qué se mide la jaula.
  *
  * Lectura pública de estado público. Ningún juicio de Astryum sobre venues aquí:
  * lo que está, está porque pasó el scanner y el timelock; lo que se retiró, se

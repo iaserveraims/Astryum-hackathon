@@ -6,29 +6,6 @@
  * The agent DRAFTS a CanonicalMoneyFlow; nothing persists until the user
  * reviews, edits and confirms HERE — same UX contract as the PROTECT/HARVEST
  * template modal (editable thresholds/amounts/cooldown, honest N1 note).
- *
- * On confirm: (1) the edited CMF goes through the deterministic server-side
- * translator (POST /api/moneyflows/translate — dry-run, readable errors), and
- * (2) each returned AutomationRule payload is created through the SAME
- * rulesApi.create path the templates use (the agent gains no new path toward
- * a wallet). The untouched engine then prepares on trigger and the USER signs.
- *
- * BINDING (founder 2026-07-24): every rule binds to the wallet that HOLDS the
- * position and transacts — the Smart Account of a linked Xaman, or a linked
- * Flare EVM wallet — never the login address. The engine evaluates HF/LTV/
- * rewards against the rule wallet's OWN portfolio; a rule bound to a wallet
- * without the position reads no metrics and silently never fires.
- *
- * RAIL (G7, auditoría de los SILENCIOSOS 2026-08-17): this is the surface that
- * ACTIVATES a CMF, so it is where the rail is chosen. It used to translate
- * every flow as Flare/EVM (the hardcoded default of `moneyflows.translate`),
- * which meant the XRPL branch of POST /api/moneyflows/translate had no caller
- * in the whole product and PRICE_DROP_PCT — the price protection built in M3,
- * with its evaluator, zod schema, FTSO prefetch and tests — had NO creation
- * door at all. Now the rail comes from the flow itself (`cmfRailChainId`), the
- * wallet picker only offers wallets of THAT rail (an XRPL rule bound to a 0x
- * Smart Account composes a Payment nobody can sign), and the rail is named on
- * screen before the person activates anything.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -190,8 +167,8 @@ export function CmfReviewModal({
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   /**
-   * it. 34 (agente D): el rechazo del servidor, ENTERO. `serverRefusalText`
-   * conservaba la frase y tiraba `headline`, `ways[]` y la puerta (it. 27 §3):
+   * El rechazo del servidor, ENTERO. `serverRefusalText`
+   * conservaba la frase y tiraba `headline`, `ways[]` y la puerta:
    * un 403 «no eres miembro probado de este consejo» llegaba sin nada que
    * pulsar. Las validaciones (`errors`) siguen siendo su lista; esto es el otro
    * caso — «el servidor dijo que no» — y se pinta con el mismo cuerpo que la
@@ -269,7 +246,7 @@ export function CmfReviewModal({
       } else {
         // The server's `detail` (e.g. why you are not on this council), not the
         // bare code jpost puts in `message`; the code travels in parentheses
-        // when there is no prose (lib/errors/serverRefusal). it. 34: and its
+        // when there is no prose (lib/errors/serverRefusal). And its
         // `ways` and door with it, not the sentence alone.
         setRefusal(describeServerRefusal(e, t));
       }

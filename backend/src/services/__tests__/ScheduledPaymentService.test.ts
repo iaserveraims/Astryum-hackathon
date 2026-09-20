@@ -1,8 +1,7 @@
 /**
  * M1 — the personal Payment composer, pure logic (no RPC, no DB).
  *
- * What matters: `Account` is PINNED (incidente 2026-07-14 — an Account-less
- * Payment let Xaman sign from whatever account was active), the SourceTag
+ * What matters: `Account` is PINNED, the SourceTag
  * rides every composed tx, and every invalid rule fails with a sentence the
  * run can surface — never a half-composed payment.
  */

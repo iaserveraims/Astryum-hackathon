@@ -124,7 +124,7 @@ describe('the eternal params refuse to default silently', () => {
   });
 });
 
-describe('the beta cap on caged capital (founder 2026-08-06)', () => {
+describe('The beta cap on caged capital', () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { cageCapUBA, cageCapXrp, checkCageCap } = require('../LegacyCageCreationService') as
     typeof import('../LegacyCageCreationService');

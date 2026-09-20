@@ -1,26 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 /**
- * LA ENTRADA DE LA LÁMINA (2026-09-14) — las reglas que sostienen «la lámina
+ * LA ENTRADA DE LA LÁMINA — las reglas que sostienen «la lámina
  * se imprime» y que ningún test vigilaba:
- *
- *   1. EL MOVIMIENTO MANDA SOBRE EL TEMA. Quien pidió Mínimo pidió que nada se
- *      mueva, y un tema no puede devolverle una impresión: en minimal se funde
- *      sea cual sea el tema. Y en Sereno y Completo, el tema institucional
- *      imprime SIEMPRE — no hay versión posada de la lámina.
- *   2. LA PALETA GRABADA CONSERVA EL TONO. Atenuar un color de gráfico no
- *      puede cambiar de qué color es: el azul de XRP sigue siendo azul, que es
- *      lo que hace reconocible al activo en todos los anillos y lo único que
- *      sobrevive al daltonismo. Solo bajan saturación y contraste de luz.
- *   3. LA TINTA SE LEE SOBRE SU PAPEL. Cada porción de un anillo es contenido,
- *      y WCAG 1.4.11 pide 3:1 contra el fondo para los gráficos. Una sola luz
- *      para las dos caras fallaba en claro (astryum-73 midió 2,5–3,3:1); por
- *      eso la luz objetivo es por cara, y se comprueba aquí contra las
- *      superficies REALES del tema (globals.css), no contra un negro y un
- *      blanco de mentira.
- *   4. EL VELO. Las entradas esperan a que caiga el velo del arranque; la
- *      señal falla hacia «levantado»: nada puede quedarse recortado esperando
- *      a un velo que no existe.
  */
 
 import { resolveRevealStyle } from '../motion';
@@ -198,7 +180,7 @@ describe('el velo del arranque — la señal que espera la entrada', () => {
   });
 });
 
-/* ── El cambio de tema (2026-09-14): la regla que produjo «la página en gris» ─ */
+/* ── El cambio de tema: la regla que produjo «la página en gris» ─ */
 import { REVEAL_VARIANTS } from '../motion';
 import { bumpSkinEpoch, getSkinEpoch, subscribeSkinEpoch } from '../../../lib/theme/sweep';
 
@@ -212,7 +194,7 @@ describe('las variantes de entrada — mismas propiedades en todos los estados',
     // Cuando un componente montado cambia de juego de variantes (cambio de
     // tema), framer restaura a su valor inicial cualquier propiedad que
     // desaparezca del objetivo. Con las tres en todos los estados, nada
-    // desaparece: medido en el DOM el 14-sep (opacity 0.35 residual).
+    // desaparece: medido en el DOM (opacity 0.35 residual).
     for (const [name, v] of Object.entries(REVEAL_VARIANTS)) {
       const hidden = animatable(v.hidden);
       const shown = animatable(typeof v.shown === 'function' ? (v.shown as (d: number) => unknown)(0) : v.shown);

@@ -3,16 +3,6 @@
  *
  * This is the explicit boundary between Astryum (preparation)
  * and the regulated relay infrastructure (transmission).
- *
- * Astryum:
- *   prepares IntentPayload → creates IntentAuthorizationSession
- *   → receives authorizationProof from user → exports payload
- *
- * Regulated relay (Turnkey / partner / user wallet):
- *   receives signed payload → transmits → obtains receipt
- *
- * Astryum NEVER: tracks txHash operationally, selects mempools,
- * guarantees execution, or stores signed transactions.
  */
 
 import { Prisma } from '@prisma/client';

@@ -22,7 +22,7 @@ export interface TranslatedError {
   message: string;
   kind: 'user-rejection' | 'error';
   /**
-   * it. 23 (it. 22 §3.5) — THE FIELDS THIS TYPE USED TO THROW AWAY.
+   * THE FIELDS THIS TYPE USED TO THROW AWAY.
    *
    * The step-up's two 503s (`STEP_UP_UNAVAILABLE`, `ACCOUNT_BUSY`) are a failure
    * of OURS with a `Retry-After`, and they were flattened into «we couldn't
@@ -108,7 +108,7 @@ export function translateError(err: unknown, t: (s: string) => string): Translat
   }
 
   /**
-   * it. 23 (it. 22 §3.5) — OURS, NOT THE NETWORK'S, AND NOT YOUR SIGNATURE.
+   * OURS, NOT THE NETWORK'S, AND NOT YOUR SIGNATURE.
    *
    * BEFORE the connectivity branch, because `ApiError.message` is literally
    * «HTTP 503: Service Unavailable» and that regex swallowed every one of these:

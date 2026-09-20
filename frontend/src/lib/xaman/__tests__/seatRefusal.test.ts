@@ -2,13 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { describeSeatRefusal, isSeatRefusal, mayRetryFreeingSeat, seatRefusalKind } from '../seatRefusal';
 
 /**
- * productizer it.14 (R5 1.6) — «Retry, freeing the seat» EN BUCLE, Y SOBRE UNA
+ * «Retry, freeing the seat» EN BUCLE, Y SOBRE UNA
  * FIRMA QUE YA EXISTE.
  *
- * OperatorConsole ofrecía ese botón para CUALQUIER `NONCE_SEAT_TAKEN`. El botón
- * pide al servidor DESPLAZAR el borrador del asiento, así que:
- *   · sobre un asiento YA FIRMADO invitaba al gemelo condenado a InvalidNonce
- *     (con su carrier perdido) — el incidente del 21-ago, otra vez;
+ * OperatorConsole ofrecía ese botón para CUALQUIER `NONCE_SEAT_TAKEN`.
  *   · sobre el borrador de otro miembro (o anterior al deploy) el servidor
  *     rechaza el desplazamiento siempre: un bucle.
  * Ahora cada caso tiene su frase y solo el desplazable ofrece el reintento.

@@ -174,7 +174,7 @@ describe('ActivityService', () => {
     expect(events).toEqual([]);
   });
 
-  // Familia "éxito no ganado" (2026-08-03): el explorador de Flare se cayó, el
+  // Familia "éxito no ganado": el explorador de Flare se cayó, el
   // timeline devolvió [] y la pantalla dijo "No activity yet" — un hecho sobre
   // el capital del usuario que no podíamos saber. Un [] por ceguera tiene que
   // llegar a la UI marcado como tal.

@@ -1,7 +1,6 @@
 /**
  * Legal acceptance gate — the pure logic behind GET /me `legal` and
- * POST /auth/legal-accept (founder 2026-07-30: both published legal pages
- * must be presented at first dashboard entry and the acceptance recorded).
+ * POST /auth/legal-accept.
  */
 import {
   computeLegalStatus,
@@ -46,7 +45,7 @@ describe('computeLegalStatus — who gets the gate', () => {
     expect(computeLegalStatus(prefs, TERMS).required).toBe(false);
   });
 
-  it('says WHY the gate is open, so the client asks only for what changed (2026-09-13)', () => {
+  it('Says WHY the gate is open, so the client asks only for what changed', () => {
     expect(computeLegalStatus(null, TERMS).reason).toBe('first');
     expect(computeLegalStatus(null, TERMS).accepted).toBeNull();
     // Terms bumped, privacy current ⇒ only the terms are re-presented.
@@ -69,7 +68,7 @@ describe('computeLegalStatus — who gets the gate', () => {
     expect(computeLegalStatus(fine, TERMS).accepted?.acceptedAt).toBe('2026-09-13T10:00:00.000Z');
   });
 
-  // ── it. 15 (4.2) — a click-wrap is a PERSON's signature ───────────────────
+  // ── A click-wrap is a PERSON's signature ───────────────────
   describe('an account takeover re-opens the gate for the new holder', () => {
     const TAKEOVER = '2026-09-14T10:00:00.000Z';
     const security = { security: { credentialsEpoch: TAKEOVER, takeoverAt: TAKEOVER } };
@@ -107,9 +106,9 @@ describe('computeLegalStatus — who gets the gate', () => {
     });
   });
 
-  // ── it. 27 — LA OTRA PUERTA DEL MISMO BUCLE ───────────────────────────────
+  // ── LA OTRA PUERTA DEL MISMO BUCLE ───────────────────────────────
   //
-  // It. 25 cerró el bucle que entraba por la LEGIBILIDAD. Pero la condición que
+  // Cerró el bucle que entraba por la LEGIBILIDAD. Pero la condición que
   // abre la ceremonia no es «la marca parsea»: es `acceptedAt > takeoverAt`. Una
   // marca de toma de posesión que parsea LIMPIO y queda POR DELANTE del reloj
   // del servidor produce exactamente el mismo bucle —ninguna firma futura puede
@@ -134,7 +133,7 @@ describe('computeLegalStatus — who gets the gate', () => {
         prefs = withLegalAcceptance(prefs, TERMS, new Date(NOW.getTime() + intento * 1000));
         expect((prefs.legal as { acceptedAt: string }).acceptedAt).toBeTruthy();
       }
-      // Antes de it. 27, las tres vueltas devolvían `required: true` y la
+      // Antes, las tres vueltas devolvían `required: true` y la
       // ceremonia —no descartable— volvía en cada /auth/me, para siempre.
       expect(computeLegalStatus(prefs, TERMS, NOW).required).toBe(false);
     });
@@ -144,7 +143,7 @@ describe('computeLegalStatus — who gets the gate', () => {
       const status = computeLegalStatus(prefs, TERMS, NOW);
       expect(status.accepted).toBeNull();
       expect(status.reason).toBeNull();
-      // Misma forma exacta que el tercer estado de it. 25: una sola respuesta
+      // Misma forma exacta que el tercer estado: una sola respuesta
       // para «no pude establecer qué firmó esta cuenta».
       expect(status).toEqual(unreadableLegalStatus(TERMS));
     });
@@ -183,7 +182,7 @@ describe('computeLegalStatus — who gets the gate', () => {
     });
   });
 
-  // ── it. 25 — «no pude leer tu ficha» NO ES UNA CÁRCEL ─────────────────────
+  // ── «no pude leer tu ficha» NO ES UNA CÁRCEL ─────────────────────
   //
   // The takeover mark is read STRICTLY on purpose (a mark nobody can parse must
   // never let a previous holder's click-wrap pass as this person's signature).

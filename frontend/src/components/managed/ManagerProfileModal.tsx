@@ -3,30 +3,6 @@
 /**
  * ManagerProfileModal — el PERFIL de un gestor: sus bóvedas, cuánto capital
  * gobierna, el apoyo de la comunidad y su enlace de referidos.
- *
- * PARA QUÉ EXISTE (fundador 2026-08-29): el gestor que mejor lo haga y más se
- * lo curre debe poder ganar visibilidad y captar usuarios. Este perfil es su
- * escaparate y su herramienta de captación: el enlace copiable abre Earn
- * directamente sobre su perfil.
- *
- * ── LA LÍNEA QUE ESTE MODAL NO CRUZA (invariante #9) ────────────────────────
- * Todo lo que enseña son HECHOS de la chain (bóvedas, capital, credencial) o
- * gestos del usuario (tu apoyo). Nada de rentabilidades pasadas ni
- * proyectadas, nada de «top gestor», y la visibilidad extra que den los votos
- * será siempre un ORDEN QUE EL USUARIO ELIGE — nunca el orden por defecto,
- * nunca un aval de Astryum.
- *
- * ── APOYOS: LOCAL HASTA QUE EXISTA EL RAÍL ──────────────────────────────────
- * Hoy no hay backend de recuento. Tu apoyo se guarda por usuario en este
- * navegador (managerStore) y la UI lo dice tal cual; el recuento público de
- * la comunidad llegará con el raíl. JAMÁS se pinta un número global inventado
- * — un contador de comunidad fabricado localmente es la definición de fake.
- *
- * ── DEPOSITANTES: «—» ANTES QUE UNA CIFRA INVENTADA ─────────────────────────
- * La lectura pública del catálogo no expone cuántas cuentas hay dentro de
- * cada bóveda. El hueco se enseña con su verdad («aún no se lee de la
- * chain») en vez de esconderse: es el dato que el fundador quiere aquí, y
- * marcarlo es el contrato con el backend que lo traerá.
  */
 
 import { useMemo, useState } from 'react';
@@ -208,7 +184,7 @@ export function ManagerProfileModal({
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
-          {/* El perfil PÚBLICO (fundador 6-sep): lo auto-declarado por el dueño
+          {/* El perfil PÚBLICO: lo auto-declarado por el dueño
               probado de la cuenta + las credenciales vigentes con su prueba.
               El cliente lo revisa ANTES de poner capital. */}
           {manager.address ? (
@@ -282,7 +258,7 @@ export function ManagerProfileModal({
             )}
           </div>
 
-          {/* El apoyo de la comunidad — el voto del fundador (2026-08-29):
+          {/* El apoyo de la comunidad — el voto del fundador:
               quien mejor lo haga gana visibilidad. Visibilidad VOTADA POR
               USUARIOS y elegida como orden, nunca ranking por defecto (#9).
               Solo gestores REALES: apoyar a «Astryum made» no significa nada

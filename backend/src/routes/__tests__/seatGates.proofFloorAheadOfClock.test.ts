@@ -1,27 +1,6 @@
 /**
- * productizer it. 31 (agente D, 4.1) — LAS TRES PUERTAS DEL ASIENTO 0xFE
+ * LAS TRES PUERTAS DEL ASIENTO 0xFE
  * PROPAGAN EL REFUSAL REAL DE LA TIENDA DE PRUEBAS, HASTA LA RESPUESTA HTTP.
- *
- * LA REGLA DE ESTA ITERACIÓN: ningún arreglo se acepta sin un test que ejerza la
- * FASE o el CONSUMIDOR concreto que falló. La it. 29 probó `provenAddresses`
- * (la pieza: `PROOF_FLOOR_AHEAD_OF_CLOCK`, 503 reintentable, con `headline` y
- * `ways` que dicen «re-linking will not help» y «an administrator can check that
- * date») y NO la cadena hasta `seatClaimOf` (flareDemo, catorce composiciones),
- * `seatProofFieldsFor` (institutional, xrplDefi). Esas tres puertas hacían
- * `if (refusal.retryable) throw new SeatStateUnreadableError('PROOF_STORE_UNREADABLE:
- * … could not read … try again in a moment …')`, así que el refusal nuevo entraba
- * por ahí y salía como el viejo: se perdían el código, `headline`, `ways` y las
- * dos verdades; se afirmaba «could not read» sobre una fila que SE LEYÓ y «in a
- * moment» sobre un instante que puede ser 2099. El usuario de email (cuya única
- * prueba es un binding, todos anteriores a una marca futura) pedía `pa-unmint`
- * o `pote-exit` y recibía «try again in a moment» en bucle indefinido.
- *
- * POR ESO AQUÍ NADA DE LA CADENA DE PRUEBAS ESTÁ FINGIDO: `proveAddress`,
- * `provenAddressesDetailed`, `readTakeoverFloorStrict`, `sessionAuthorityOnXrplAccount`
- * y `seatProofFromVerdict` corren de verdad sobre un prisma fingido que devuelve
- * la fila de usuario con su marca. Lo único fingido es la CADENA (Flare/XRPL) —
- * los constructores del 0xFE — que es donde estas tres rutas ya se prueban en
- * sus suites propias.
  */
 import express from 'express';
 import request from 'supertest';
@@ -233,7 +212,7 @@ const GATES: Array<[string, () => request.Test]> = [
   ['xrplDefi  POST /vault-yield/claim/prepare (seatProofFieldsFor)', yieldClaim],
 ];
 
-describe('it. 31 (4.1) — una marca ADELANTADA a nuestro reloj llega a la respuesta como lo que es', () => {
+describe('Una marca ADELANTADA a nuestro reloj llega a la respuesta como lo que es', () => {
   it.each(GATES)('%s → 503 PROOF_FLOOR_AHEAD_OF_CLOCK con headline y ways, sin «in a moment», y nada compuesto', async (_name, call) => {
     const res = await call();
     expect(res.status).toBe(503);
@@ -245,7 +224,7 @@ describe('it. 31 (4.1) — una marca ADELANTADA a nuestro reloj llega a la respu
       ways: expected.ways,
       detail: expected.detail,
     });
-    // Las dos verdades de it. 29 sobreviven hasta la respuesta…
+    // Las dos verdades sobreviven hasta la respuesta…
     const said = [res.body.detail, ...res.body.ways].join(' ');
     expect(said).toMatch(/re-linking (one|the wallet) will not help/i);
     expect(said).toMatch(/administrator can check that date/i);
@@ -300,8 +279,7 @@ describe('it. 31 (4.1) — una marca ADELANTADA a nuestro reloj llega a la respu
    * administrador corrija la fecha o entre con la wallet. Lo que esta
    * iteración arregló es la FRASE de ese rechazo (código, headline, ways, sin
    * «in a moment»), no la asimetría; este test la fija para que nadie la lea
-   * como resuelta. (it. 34, agente D: la frase anterior afirmaba «no queda
-   * peor», y en dinero sí.)
+   * como resuelta.
    */
   it('la asimetría, fijada: la marca ILEGIBLE sigue componiendo la salida marcada preparedByProofUnreadable (flareDemo) mientras la adelantada la rechaza', async () => {
     mockUserFindUnique.mockResolvedValue({ preferences: { security: { takeoverAt: 'not a date' } }, email: null, emailVerified: false });

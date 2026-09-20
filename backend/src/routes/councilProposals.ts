@@ -10,16 +10,6 @@
  *     (identity + fidelity + signature — a wrong-signer or drifted blob never
  *     lands in the inbox),
  *   - the reported tx hash after the BROWSER broadcasts.
- *
- * Prepare-only invariant intact: the server never signs, never combines,
- * never broadcasts. Blobs are public transaction material destined for the
- * ledger — never keys.
- *
- * ONE live proposal per account: the pinned Sequence goes stale the moment any
- * other tx from the account validates, so parallel proposals would lie about
- * their viability. Proposals stop collecting after 7 days — but the word
- * "expired" is only ever written after the LEDGER confirms the pinned Sequence
- * was never consumed (see G1-guard below).
  */
 import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
@@ -55,7 +45,7 @@ import { jurisdictionService } from '../services/JurisdictionService';
 import { requireLegacyAccess } from '../middleware/requireLegacyAccess';
 
 const router = Router();
-// §1.3 (2026-08-02): the WHOLE proposal inbox is a council-only surface — the
+// §1.3: the WHOLE proposal inbox is a council-only surface — the
 // same fail-closed predicate the Legacy toggle uses, now enforced server-side.
 // (Mounted after requireSiweAuth; family members are on LEGACY_ACCESS_EMAILS.)
 router.use(requireLegacyAccess);
@@ -63,7 +53,7 @@ router.use(requireLegacyAccess);
 const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const xrplAddress = z.string().regex(XRPL_ADDRESS_RE, 'not an XRPL account (r…)');
 /**
- * arriendo-ceremonia (round 5) — THE SHAPE OF A LEDGER HASH, IN ONE PLACE.
+ * arriendo-ceremonia — THE SHAPE OF A LEDGER HASH, IN ONE PLACE.
  *
  * An XRPL transaction hash is 64 hex characters, always. This router already
  * knew that: `/submitted` tests exactly this before it dares launch the FDC
@@ -104,7 +94,7 @@ function signerListOf(p: { signerList: unknown }): SignerEntry[] {
 }
 
 /**
- * puertas-y-permiso (round 3) — DOES THIS SESSION BELONG TO *THIS* COUNCIL?
+ * puertas-y-permiso — DOES THIS SESSION BELONG TO *THIS* COUNCIL?
  *
  * The router's only doorman is `requireLegacyAccess`, and with LEGACY_ENABLED
  * that means "any authenticated session" — never "a member of this council".
@@ -115,19 +105,6 @@ function signerListOf(p: { signerList: unknown }): SignerEntry[] {
  * went with it, and `POST /:id/submitted` never had one at all — so a stranger
  * could file another family's acta as `withdrawn`, or stamp a tx hash on it
  * and launch the relay that spends the executor's FLR.
- *
- * The membership question the router already knows how to ask lives in
- * `POST /:id/positions`: is this address in THIS proposal's signer list
- * (`signerListOf`)? What was missing was the other half — which of those
- * addresses is the caller's. That is the wallet registry: the addresses this
- * user connected. Not a cryptographic proof of ownership (a watch-only row
- * imported by `xrplIdentityWalletImport` carries `ownershipProof: 'none'`), so
- * it never replaces a signed blob where one exists; it is the ownership floor
- * for the two doors that carry no signature.
- *
- * No `network` filter on purpose: an r-address cannot collide with an EVM one,
- * and a filter that misses a legitimately-stored row would lock a real member
- * out of the exit round 3 opened for them.
  */
 function memberAddressesOf(p: { signerList: unknown }): string[] {
   return signerListOf(p)
@@ -136,7 +113,7 @@ function memberAddressesOf(p: { signerList: unknown }): string[] {
 }
 
 /**
- * productizer it. 17 (finding 2.1) — MEMBERSHIP IS A PROOF, NOT A DECLARATION.
+ * MEMBERSHIP IS A PROOF, NOT A DECLARATION.
  *
  * WHAT FAILED IN SILENCE: this answered off `prisma.wallet`, and a row there is
  * written by `POST /api/wallets/connect` with no signature at all — "this user
@@ -145,26 +122,11 @@ function memberAddressesOf(p: { signerList: unknown }): string[] {
  * one in, become a "member" of that council everywhere this predicate is asked,
  * and publish a proposal on it. That proposal then held the account's only
  * Sequence and `LIVE_PROPOSAL_EXISTS` refused the real family — for SEVEN DAYS,
- * withdrawable only by the stranger who filed it. The round-3 note above called
- * membership-by-proof "a pending FOUNDER decision"; the it.16 review found the
+ * withdrawable only by the stranger who filed it. the review found the
  * seven-day exit it leaves open, so it is taken now.
- *
- * The proof is the one the rest of the repo already uses
- * (`services/identity/provenAddresses`): the session's own login address (SIWE /
- * Xaman SignIn IS a signature) plus every active `WalletBinding` with a
- * `signatureProof`. Comparison is `includesAddress` — EVM case-insensitive,
- * base58 exact.
- *
- * CONSEQUENCE, SAID OUT LOUD: a real councillor whose address is only a
- * `wallet` row now has to prove it once (connect that wallet, or confirm its
- * binding) before these doors open. That is stated in every refusal below. The
- * doors this narrows are governance doors — compose, read, file, register a
- * hash; no EXIT of capital passes through any of them, and the one place where
- * an exit met this predicate (the ceremony lease in `/multisign/prepare`) only
- * decides whether a lease is RECORDED, never whether the exit is composed.
  */
 /**
- * it. 21 (finding 2.1): asked through `proveMembership` instead of the deprecated,
+ * Asked through `proveMembership` instead of the deprecated,
  * ambiguous `provenAddressesOf`. For THIS function nothing changes — it is the WRITE
  * floor, `'entry'`, and an unreadable store stays fail-closed (refusing to compose,
  * file or anchor costs nobody a right). What changes is that the ambiguity now has a
@@ -182,10 +144,10 @@ async function ownedSignerAddresses(
 }
 
 /**
- * ⛔ SUPERSEDED as a WRITE floor by `ownedSignerAddresses` (it. 17, finding 2.1) —
+ * ⛔ SUPERSEDED as a WRITE floor by `ownedSignerAddresses` (finding 2.1) —
  * kept, never deleted: the self-asserted `wallet` table is what let a stranger
  * become a member, so no door that pins a Sequence, files an acta or stamps a hash
- * asks it. It is read again, and ONLY, by the READ floor below (it. 19, finding
+ * asks it. It is read again, and ONLY, by the READ floor below (finding
  * 2.3) — the difference between the two answers stays in one place.
  */
 async function ownedSignerAddressesFromWalletRegistry(userId: string, members: string[]): Promise<Set<string>> {
@@ -198,36 +160,17 @@ async function ownedSignerAddressesFromWalletRegistry(userId: string, members: s
 }
 
 /**
- * productizer it. 19 (finding 2.3) — THE FLOOR THAT CLOSED AN EXIT ALREADY PROPOSED.
+ * THE FLOOR THAT CLOSED AN EXIT ALREADY PROPOSED.
  *
- * WHAT FAILED IN SILENCE: it. 17 made membership a PROOF and applied it to all seven
+ * WHAT FAILED IN SILENCE: made membership a PROOF and applied it to all seven
  * doors of this router, READS included. But `GET /` and `GET /:id` are the ONLY place
  * the bytes a councillor signs ever come from — the pinned txjson and, for the
  * combining browser, the blobs. So a cosignatory who sits on the council's SignerList
  * on the validated ledger but never signed a binding could no longer READ the exit
  * proposal, could not sign it, and the quorum was never reached: the recall stayed in
  * the inbox. That is a registry narrowing an exit, which the doctrine forbids
- * outright — and it is worse than what it. 17 was protecting against, because the
+ * outright — and it is worse than what was protecting against, because the
  * stranger it kept out could never move anything either way.
- *
- * THE FLOOR, AND WHERE IT SITS. Reading a proposal is allowed to a session that holds
- * one of its signer addresses — PROVEN (a signed login, a signed binding) or merely
- * REGISTERED (a `wallet` row). Every WRITE keeps the proof: creating a proposal (it
- * pins the account's only Sequence for seven days), anchoring an acta, withdrawing,
- * registering the hash that launches the relay, and taking the ceremony lease. And a
- * signature is never taken on trust anyway — `POST /:id/signatures` verifies the blob
- * against the exact pinned bytes and the exact member key, so a registered address
- * that does not hold the key signs nothing.
- *
- * THE RESIDUAL, SAID OUT LOUD: a `wallet` row is self-asserted, and a council's signer
- * addresses are public, so anyone who types one can READ that council's acta — amounts,
- * destinations, positions and blobs. That is a real leak of an estate's business and it
- * is the price chosen here, deliberately: the alternative is a family that cannot get
- * its capital back out. Nothing about money moves with it (a blob is material destined
- * for the ledger, never a key). If the founder later wants the leak closed, the door is
- * this one function — not the write floor.
- *
- * A registry read that FAILS never removes the proven floor: the proven set survives.
  */
 async function ownedSignerAddressesForRead(
   userId: string,
@@ -244,7 +187,7 @@ async function ownedSignerAddressesForRead(
   return proven;
 }
 
-/** The READ half of `sessionIsCouncilMember` (it. 19, 2.3): proven OR registered. */
+/** The READ half of `sessionIsCouncilMember` (2.3): proven OR registered. */
 export async function sessionMayReadCouncil(
   userId: string,
   p: { signerList: unknown },
@@ -254,47 +197,10 @@ export async function sessionMayReadCouncil(
   return owned.size > 0;
 }
 
-// -- productizer it. 21 (findings 2.1 / 3.7) -- THE READ VERDICT ---------------
+// -- THE READ VERDICT ---------------
 //
-// TWO THINGS WERE WRONG WITH THE it. 19 READ FLOOR, AND THEY PULL IN OPPOSITE
+// TWO THINGS WERE WRONG WITH THE READ FLOOR, AND THEY PULL IN OPPOSITE
 // DIRECTIONS.
-//
-// 2.1 - <<NO PUDE LEER>> ANSWERED <<NO ERES>>. `ownedSignerAddresses` is built on
-// `provenAddressesOf`, which is ambiguous BY CONSTRUCTION (its own docstring says
-// so): an empty list is either "this session proved nothing" or "the store did not
-// answer". With the database blinking, `GET /:id` therefore answered 403 "none of
-// your addresses is on this list" - a false statement about the user - and those
-// bytes are THE ONLY ONES A COSIGNATORY CAN SIGN. A recall then never reaches its
-// quorum, and the reason it did not is a failure of ours dressed as a verdict about
-// them. The distinction `proveAddress(purpose)` draws for the 0xFE seat is drawn
-// here too: a store that could not be read answers 503 RETRYABLE, never 403.
-//
-// 3.7 - THE INBOX OPENED TO A SELF-DECLARED ADDRESS. `POST /api/wallets/connect`
-// writes `prisma.wallet` with NO signature, and a council's signer addresses are
-// public on the ledger - so any session that typed one read that family's whole
-// acta: title, amounts, destinations, every member's stance and comment, and the
-// signed blobs. it. 19 chose that leak deliberately, as the price of not narrowing
-// an exit, and wrote "if the founder later wants the leak closed, the door is this
-// one function".
-//
-// THIS IS THAT DOOR, AND IT CLOSES THE LEAK WITHOUT RE-CLOSING THE EXIT. The read
-// splits in two, because what a cosignatory NEEDS and what the acta CONTAINS are not
-// the same thing:
-//   - the SIGNING MATERIAL - the pinned txjson, the signer list, the quorum, the
-//     status, the deadline and the collected blobs - is what a member must have to
-//     sign and to combine. A registered-only address gets it, exactly as it. 19
-//     intended. (Amounts and destinations live in those bytes: they cannot be hidden
-//     from someone who is being asked to sign them, and hiding them would be asking
-//     for a blind signature.)
-//   - the ACTA - the family's own words: the row's TITLE and every member's
-//     POSITION (stance + comment) - is deliberation, not signing material. Nobody
-//     needs it to reach a quorum, and it is the part a stranger was reading. It
-//     needs PROOF.
-// The proposer always reads their own row in full.
-//
-// Net effect on the doctrine: an exit is never narrowed (the bytes still flow to a
-// registered cosignatory, and an unreadable store is retryable rather than a denial),
-// and a typed r-address stops buying somebody else's deliberation.
 
 export type CouncilReadLevel = 'proven' | 'registered' | 'none' | 'unreadable';
 
@@ -310,7 +216,7 @@ export interface CouncilReadAccess {
   /** Members of the asked rows this session merely REGISTERED (`wallet` rows). */
   registered: Set<string>;
   /**
-   * @deprecated it. 23 (2.4) — VEREDICTO DE UNIÓN: es true en cuanto CUALQUIER fila
+   * @deprecated — VEREDICTO DE UNIÓN: es true en cuanto CUALQUIER fila
    * del listado pudo decidirse. Se conserva (nunca se borra código construido) para
    * los lectores que solo quieren saber si la petición entera fue a ciegas, pero
    * NINGUNA decisión por fila puede tomarse con él: úsense `proofReadable` y
@@ -318,7 +224,7 @@ export interface CouncilReadAccess {
    */
   readable: boolean;
   /**
-   * it. 23 (2.4) — LAS DOS LECTURAS, POR SEPARADO Y SIN UNIÓN.
+   * LAS DOS LECTURAS, POR SEPARADO Y SIN UNIÓN.
    *
    * QUÉ FALLABA EN SILENCIO: `readable` era `proven.size > 0 || registered.size > 0 ||
    * (ambas lecturas fueron bien)`. En un listado MIXTO —una fila cuyo asiento está en
@@ -326,18 +232,13 @@ export interface CouncilReadAccess {
    * decida para que `readable` sea true; la segunda cae entonces en `'none'`, el
    * filtro `mine` la tira y el cliente recibe un 200 sin ella. Ni 503 ni 403: la fila
    * DESAPARECE. Y son los únicos bytes que un cosignatario puede firmar.
-   *
-   * Con las dos banderas, una fila que no aparece en ningún conjunto se decide por si
-   * ALGUNA de las lecturas falló: si falló, «no pude leer» (503/409 honesto); si las
-   * dos fueron bien, «no eres» (403). El nivel ya se decidía por fila; ahora la
-   * legibilidad también.
    */
   proofReadable: boolean;
   registryReadable: boolean;
   /** Set only when `readable` is false - for the log and the 503 body. */
   failure?: string;
   /**
-   * it. 21 (2.1): the answer the identity module itself says is owed when the proof
+   * The answer the identity module itself says is owed when the proof
    * store could not be read and nothing was found (`proveMembership().refusal`) —
    * 503 retryable for a transient read, 409 for a deterministic one, because waiting
    * does not cure those. Sent VERBATIM so the classification lives in one place. It
@@ -358,7 +259,7 @@ export async function councilReadAccess(
 ): Promise<CouncilReadAccess> {
   const empty = { proven: new Set<string>(), registered: new Set<string>() };
   if (members.length === 0) return { ...empty, readable: true, proofReadable: true, registryReadable: true };
-  // The PROVEN half, asked of the identity module's own verdict (it. 21, 2.1): it is
+  // The PROVEN half, asked of the identity module's own verdict (2.1): it is
   // the only thing that can tell «you hold none of these seats» from «I could not
   // ask», and the whole finding is that this route was answering the first sentence
   // for the second one - over the only bytes a cosignatory can sign. `'exit'`,
@@ -375,10 +276,10 @@ export async function councilReadAccess(
     console.warn('[council] wallet registry unreadable for the read floor:', (e as Error)?.message ?? e);
   }
   // A read that FAILED is only "I do not know" when it found nothing: a proven seat
-  // is a yes whatever the other read did (it. 19 - "a registry read that FAILS never
+  // is a yes whatever the other read did ("a registry read that FAILS never
   // removes the proven floor").
   const readable = proven.size > 0 || registered.size > 0 || (verdict.storeReadable && registryReadable);
-  // it. 23 (2.4): `failure` y `refusal` viajan siempre que ALGUNA lectura falló, no
+  // `failure` y `refusal` viajan siempre que ALGUNA lectura falló, no
   // solo cuando fallaron todas — son lo que una fila indecidible necesita para
   // contestar 503 (o el 409 determinista) aunque otra fila del mismo listado sí se
   // haya podido decidir.
@@ -408,7 +309,7 @@ export function councilReadLevelFor(
   const members = memberAddressesOf(row);
   if (members.some((m) => access.proven.has(m))) return 'proven';
   if (members.some((m) => access.registered.has(m))) return 'registered';
-  // it. 23 (2.4): ESTA FILA no aparece en ningún conjunto. Eso solo significa «no
+  // ESTA FILA no aparece en ningún conjunto. Eso solo significa «no
   // eres» si las DOS lecturas fueron bien. Si alguna falló, lo que hay es «no pude
   // leer» — y da igual que otra fila del mismo listado sí se haya podido decidir:
   // `readable` era una unión y por eso esta fila desaparecía en silencio.
@@ -434,7 +335,7 @@ export function councilReadUnreadableBody(failure?: string): {
 }
 
 /**
- * it. 21 (3.7): what a REGISTERED-only session is served. The signing material, in
+ * What a REGISTERED-only session is served. The signing material, in
  * full; the family's deliberation, not at all. `redacted` names what was withheld so
  * a screen can say why instead of showing an empty acta.
  */
@@ -460,7 +361,7 @@ export const PROVE_MEMBERSHIP_HINT =
   'that sits on the signer list opens the inbox — this floor is only for the doors that WRITE.)';
 
 /**
- * it. 19 (finding 2.3): the sentence a READ refusal ends with. It must not send a
+ * The sentence a READ refusal ends with. It must not send a
  * councillor off to prove anything — reading is already open to a registered address —
  * so it says what is actually wrong: none of the addresses you hold is on this list.
  */
@@ -470,7 +371,7 @@ export const READ_MEMBERSHIP_HINT =
   'opens — nothing has to be signed to READ a proposal or to sign one.';
 
 /**
- * arriendo-ceremonia (round 5): exported so the SYNCHRONOUS ceremony door
+ * arriendo-ceremonia: exported so the SYNCHRONOUS ceremony door
  * (`POST /api/xrpl-defi/multisign/prepare`) can ask the same question with the
  * signer list the coordinator just read off the ledger — see the floor on the
  * lease write there. One predicate, one proof, four doors.
@@ -489,30 +390,14 @@ export async function sessionIsCouncilMember(
 }
 
 /**
- * g1-ceremonia (round 4) — THE BIG PERMISSION HOLE OF THIS ROUTER, AND IT WAS
+ * g1-ceremonia — THE BIG PERMISSION HOLE OF THIS ROUTER, AND IT WAS
  * A READ.
- *
- * WHAT FAILED IN SILENCE: every write door grew an ownership floor over rounds
- * 3 and 4, and `GET /` + `GET /:id` were left with `requireLegacyAccess` alone
- * — which with LEGACY_ENABLED means "any authenticated session". They hand back
- * the whole acta of whatever account is asked for: the council's signer list
- * and weights, the pinned txjson (amounts, destinations, memos), every member's
- * formal position and comment, and on `GET /:id` the signed blobs themselves.
- * Nothing errored and nothing was written, which is why it survived four
- * rounds of a double-payment audit: reading another family's estate leaves no
- * trace at all.
- *
- * The floor is the one the write doors already use — the proposer, or a session
- * holding one of THIS proposal's signer addresses in the wallet registry. NOT
- * the governed-account pointer (`GovernedAccount`): that row is self-asserted
- * (`POST /governed-accounts` takes any r-address with no proof), so honouring
- * it would leave the door exactly as open as it is now, with a step in it.
  */
 /**
- * SUPERSEDED as the listing's filter by `councilReadLevelFor` (it. 21, 2.1 / 3.7) —
+ * SUPERSEDED as the listing's filter by `councilReadLevelFor` (2.1 / 3.7) —
  * kept, never deleted: it is the binary shape of the same question (may this session
  * read this row at all?) and the two read routes' comments still name it. The verdict
- * it could not give is the one it. 21 needed: «proven», «registered» and «I could not
+ * it could not give is the one needed: «proven», «registered» and «I could not
  * read» are three different answers, and collapsing them into a boolean is what made
  * an outage look like «you are not on this council».
  */
@@ -528,45 +413,6 @@ void mayReadProposal;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // G1-guard — never declare a proposal expired without looking at the ledger.
-//
-// (Auditoría Silenciosos 2026-08-17, finding G1 · CRITICAL — loses money.)
-//
-// WHAT FAILED IN SILENCE: `/submitted` is reported ONLY by the broadcasting
-// browser. When that report failed (network, tab closed while waiting for
-// validation, 403/5xx) the transaction was ALREADY validated on XRPL and the
-// row stayed `ready`. Seven days later the lazy-expiry below stamped `expired`
-// — BLIND, without a single read — the inbox archived it as "never happened",
-// and the family's natural reaction was to compose the payment AGAIN: a new
-// Sequence, perfectly valid. THE COUNCIL PAID TWICE.
-//
-// The ledger settles it for free. A proposal pins ONE Sequence before anybody
-// signs, and XRPL consumes a Sequence exactly once — any tx that reaches a
-// ledger (tesSUCCESS or tec*) burns it; that IS the ledger's replay
-// protection. So one cheap `account_info` read tells three honest apart:
-//
-//   accountSequence >  pinned  → CONSUMED. The seat was used. That signed tx
-//                                can never be re-broadcast (tefPAST_SEQ), so
-//                                the duplicate is impossible BY CONSTRUCTION —
-//                                but we may not call it expired either: we do
-//                                not know whether OUR tx was the one that
-//                                consumed it. Say exactly that.
-//   accountSequence <= pinned  → UNUSED. The pinned tx never entered a ledger.
-//                                Genuinely expired — and only now is the word
-//                                true, so only now is it written to the DB.
-//   read failed / no pinned    → UNVERIFIED. That is a failure of OURS, not a
-//                                state of the world (doctrine: a failed read
-//                                is never painted as data). Archive nothing.
-//
-// Only the middle case is persisted. The other two keep their stored status
-// and carry `ledgerCheck` so the surface can tell the truth instead of the
-// word "expired". Deliberately NOT a new `status` value: the inbox's status
-// union has five members and buckets by equality, so a sixth would make the
-// row invisible — trading a lie for a disappearance.
-//
-// Kept consequence: a past-deadline row that stays `ready` still accepts
-// `POST /:id/submitted`, which is the a-posteriori hash registration the inbox
-// gained in dbba320. Blind archiving used to slam that recovery door shut.
-// ─────────────────────────────────────────────────────────────────────────────
 
 export type LedgerCheck =
   | { state: 'consumed'; deadlinePassed: true; pinnedSequence: number; accountSequence: number; checkedAt: string; detail: string }
@@ -632,7 +478,7 @@ async function withTimeout<T>(work: Promise<T>, ms: number, label: string): Prom
 
 /**
  * The Sequence the council pinned before anyone signed (coordinator output).
- * it. 19 (2.2): exported — the ceremony door pins an exit to the seat a live row is
+ * exported — the ceremony door pins an exit to the seat a live row is
  * holding, on purpose, instead of taking whatever `account_info` answers.
  */
 export function pinnedSequenceOf(txjson: unknown): number | null {
@@ -751,20 +597,6 @@ function isUnresolvedSeat(c: LedgerCheck | undefined): c is LedgerCheck {
  * executed". Same seven-day-old payment, same fresh Sequence, same council
  * paying twice; the guard's verdict simply never reached the moment of
  * composing.
- *
- * So: before pinning a NEW Sequence, ask the ledger about the stale ones. Only
- * `unused` (= genuinely never executed, and by now archived as `expired` by the
- * guard itself) clears the way. `consumed` and `unverified` stop the compose
- * and hand back the verdict — the warning arrives BEFORE the money moves, not
- * after. The proposer resolves it in the inbox (register the real hash, or file
- * it acknowledging the check) and composes then.
- *
- * G1-cadena (round 3, finding 1) — EXPORTED because the HTTP door is not the
- * only door. `CouncilProposalService.createCouncilProposalFromRule` composes
- * from a fired MoneyFlow with NO human in front of the screen, and it had none
- * of this: a governed monthly rule would compose over an unresolved seat month
- * after month, unattended. One definition of the guard, used by both doors —
- * a second copy is how the halves drift apart.
  */
 export async function findUnresolvedSeat(
   account: string,
@@ -773,9 +605,9 @@ export async function findUnresolvedSeat(
   title: string | null;
   txType: string;
   ledgerCheck: LedgerCheck;
-  /** it. 19 (2.2): the Sequence this row pinned — the seat an exit may take on purpose. */
+  /** The Sequence this row pinned — the seat an exit may take on purpose. */
   pinnedSequence: number | null;
-  /** it. 19 (2.7): who may read the row's title and verdict — its own signer list. */
+  /** Who may read the row's title and verdict — its own signer list. */
   signerList: unknown;
 } | null> {
   const stale = await prisma.councilProposal.findMany({
@@ -816,31 +648,18 @@ export async function findUnresolvedSeat(
  * permisos-y-doble-pago — ONE definition of "this account already has a live
  * payload", for every door that pins a Sequence. The twin of
  * `findUnresolvedSeat`, which covers the PAST-DEADLINE half of the same seat.
- *
- * XRPL pins one Sequence at a time and `prepareCouncilMultisig` fixes whatever
- * `account_info` reports as the account's next unused one — so a second payload
- * composed while a proposal is still collecting takes THE SAME SEAT. Exactly
- * one of the two can ever reach a ledger; the loser becomes a corpse that still
- * LOOKS alive (inside its deadline `withEffectiveStatus` returns early and never
- * asks the ledger), and the family's natural repair for it — withdraw it, then
- * compose again over a fresh Sequence — IS the second payment.
- *
- * `POST /` has refused this from the beginning, and was the only door that did.
- * Exported so the synchronous ceremony (`POST /api/xrpl-defi/multisign/prepare`)
- * asks the SAME question instead of restating it: two copies of "does this
- * council already have a live payload?" is how the halves drift apart.
  */
 export async function findLiveProposal(account: string): Promise<{
   id: string;
   title: string | null;
   txType: string;
   /**
-   * it. 19 (finding 2.2): the Sequence this proposal is HOLDING. The ceremony door
+   * The Sequence this proposal is HOLDING. The ceremony door
    * pins an exit to it deliberately instead of taking whatever `account_info`
    * happens to answer — see `prepareCouncilMultisig`.
    */
   pinnedSequence?: number | null;
-  /** it. 19 (finding 2.7): this row's own signer list, so its title is served only to it. */
+  /** This row's own signer list, so its title is served only to it. */
   signerList?: unknown;
 } | null> {
   const row = await prisma.councilProposal.findFirst({
@@ -855,54 +674,6 @@ export async function findLiveProposal(account: string): Promise<{
 // ─────────────────────────────────────────────────────────────────────────────
 // g1-ceremonia — THE SEAT THE SYNCHRONOUS CEREMONY TAKES, AND THAT NOBODY
 // WROTE DOWN.
-//
-// WHAT FAILED IN SILENCE: `POST /api/xrpl-defi/multisign/prepare` pins a
-// Sequence for a council through `prepareCouncilMultisig`, and that function
-// touches no database at all — it reads the ledger and returns bytes. The
-// ceremony then lives entirely in ONE browser tab: a QR per member, combine
-// client-side, broadcast to a public node. Server-side there is nothing to
-// find. So both ASYNC compose doors — `POST /` here and
-// `CouncilProposalService.createCouncilProposalFromRule` — are blind to a
-// ceremony in flight, and the chain is one click long:
-//
-//   the ceremony pins Sequence N → the QRs stall (a phone is off, Xaman locked
-//   the payload) → the family presses the button next to it ("Propose to the
-//   council") → `POST /` finds nothing live → it pins Sequence N AGAIN.
-//
-// That is the SAME chain the live-proposal guard closes, with the tempos
-// inverted, and this is the natural order of the two: a family reaches for the
-// asynchronous inbox when the sitting fails, not the other way round. Two
-// payloads, one seat: the ledger burns N exactly once, so whichever broadcasts
-// first wins and the other keeps looking alive — and the family's repair for
-// the corpse (withdraw it, compose again over a fresh Sequence) IS the second
-// payment.
-//
-// THE TRACE, AND ABOVE ALL ITS LIFETIME. A trace that outlives what it
-// describes wedges the family shut, and this rail has done exactly that before
-// (the lazy expiry that archived a seat it had never read). So the lease is
-// deliberately short and it has three independent releases (a fourth, DIRECT
-// one was added in round 5 — `releaseCeremonySeatFor`, the button the family
-// presses; the three below are the ones that need nobody to press anything):
-//
-//   1. TIME — 30 minutes. The ceremony is one sitting ("if this screen closes,
-//      the signatures are lost", CouncilMultisigFlow). Xaman keeps a payload
-//      signable for 24 h, but a 24 h lease on a compose door is a wedge, and
-//      whatever reached a quorum in the inbox is covered by the proposal
-//      guards instead. The row carries `expiresAt`, so an unread lease dies on
-//      its own.
-//   2. THE LEDGER — a seat the account has already consumed cannot be taken
-//      twice: those exact bytes are tefPAST_SEQ for ever. The lease is released
-//      the moment `account_info` says so. That is also how the server learns
-//      the ceremony BROADCAST without the browser reporting anything.
-//   3. RE-PREPARE — a new ceremony on the same council replaces the lease
-//      (upsert). This is why the ceremony door never blocks on its OWN lease:
-//      the family retries "Sign now" after a stalled QR, and a door that
-//      refused that retry would be the dead end this guard exists to avoid.
-//
-// An UNREADABLE ledger keeps the lease (it does not extend it): the trace is
-// something WE wrote minutes ago, not an inference about the world, so holding
-// it is not painting an unread state — and it dies at its deadline regardless.
-// ─────────────────────────────────────────────────────────────────────────────
 
 /** Reuses the generic `CacheEntry` table (cacheKey/data/tags/expiresAt): a
  *  short-lived, self-expiring lease is exactly its shape, and the council
@@ -922,7 +693,7 @@ export interface CeremonySeat {
   preparedAt: string;
   preparedByUserId: string | null;
   /**
-   * it. 34 (E) — WHICH SITTING holds this lease. Generated by the server in the
+   * WHICH SITTING holds this lease. Generated by the server in the
    * prepare that pinned (`randomUUID`), returned to the browser, and required
    * back on `/multisign/release`: a release naming a sitting that is no longer
    * the lessee is a no-op (`stale-sitting`). Two sittings of the SAME session
@@ -948,7 +719,7 @@ export async function recordCeremonySeat(input: {
   pinnedSequence: number;
   txType: string;
   userId: string | null;
-  /** it. 34 (E): the id of the sitting taking the seat — see `CeremonySeat.sittingId`. */
+  /** The id of the sitting taking the seat — see `CeremonySeat.sittingId`. */
   sittingId: string | null;
 }): Promise<boolean> {
   // A lease with no readable Sequence describes no seat: it could never be
@@ -1004,7 +775,7 @@ async function releaseCeremonySeat(account: string): Promise<boolean> {
 }
 
 /**
- * arriendo-ceremonia (round 5) — THE DOOR THE LEASE NEVER HAD.
+ * arriendo-ceremonia — THE DOOR THE LEASE NEVER HAD.
  *
  * WHAT FAILED IN SILENCE: round 4 gave the synchronous ceremony a 30-minute
  * lease on the council's Sequence and gave the family a «Cancel this ceremony»
@@ -1016,19 +787,6 @@ async function releaseCeremonySeat(account: string): Promise<boolean> {
  * what they had just done, and there was NO WAY to obey it for up to half an
  * hour. The MoneyFlow rule of the same council burned its cooldown against the
  * same refusal.
- *
- * Three releases already existed (deadline, ledger, re-prepare) and all three
- * are indirect. This is the fourth and the only DIRECT one, so it is the only
- * one that can be wrong on purpose: it is held to the ONE person who took the
- * seat. `preparedByUserId` has been written on every lease since round 4 and
- * read by nobody — that is the owner, and it is what makes this door safe to
- * open at all. A stranger releasing another family's lease would hand the
- * async door a Sequence that a live ceremony is still collecting signatures
- * over: the double payment, with our own help.
- *
- * A lease we cannot READ or cannot DELETE is never reported as released
- * (doctrine: "could not read" is not "it is gone") — it dies at its deadline
- * regardless, and the caller says so instead of painting the door open.
  */
 export type SeatReleaseOutcome =
   | { released: true; reason: 'released' }
@@ -1037,7 +795,7 @@ export type SeatReleaseOutcome =
   /** Someone else's sitting is holding this council's Sequence right now. */
   | { released: false; reason: 'not-the-lessee' }
   /**
-   * it. 34 (E) — this session's OWN newer sitting is holding it (or another of
+   * This session's OWN newer sitting is holding it (or another of
    * its tabs). The release named a sitting that is no longer the lessee: nothing
    * is touched, and it is not a refusal — that sitting simply ended already.
    */
@@ -1046,7 +804,7 @@ export type SeatReleaseOutcome =
   | { released: false; reason: 'unreadable'; detail: string };
 
 /**
- * it. 34 (E) — THE BUS RACE: A LATE RELEASE UNDER A LIVE SITTING.
+ * THE BUS RACE: A LATE RELEASE UNDER A LIVE SITTING.
  *
  * WHAT FAILED IN SILENCE. Escape in `signing` fires the flow's unmount release
  * fire-and-forget (`keepalive`) and the caller reads ABANDONED as 'review'; the
@@ -1055,17 +813,7 @@ export type SeatReleaseOutcome =
  * that, the owner check passes (same user), the lease goes, the pin is read as
  * present, `holderEndedCeremony` replaces the clock, and the 0xFE nonce seat is
  * free under a ceremony the family is still signing. Same shape from «Back» in
- * `preparing` + «Sign now» before prepare #1 returns (it. 31 §2's late release).
- *
- * The lease now names its sitting and a release must name the same one.
- * `opts.sittingId`:
- *   · `undefined` — a client from before the id: the rule as it was (deliberate
- *     compatibility; a browser that has not reloaded must keep its door);
- *   · a string — must equal the lease's, else `stale-sitting` and nothing moves;
- *   · `null` — a sitting-aware client whose sitting never received an id (it
- *     closed in `idle` or in `preparing`): it never leased anything, so it can
- *     only reach a lease WITHOUT a sitting (one written before this field).
- * The ownership floor stays first: a stranger is still `not-the-lessee`.
+ * `preparing` + «Sign now» before prepare #1 returns ('s late release).
  */
 export async function releaseCeremonySeatFor(
   account: string,
@@ -1232,24 +980,14 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   }
   const { account, xrplTx, title } = parsed.data;
 
-  // productizer-it3 — WHO MAY PIN THIS COUNCIL'S SEQUENCE.
+  // WHO MAY PIN THIS COUNCIL'S SEQUENCE.
   //
   // WHAT FAILED IN SILENCE: this door asked nothing about the caller beyond
   // `requireLegacyAccess` (= any authenticated session). A stranger could POST
   // any r-address with a SignerList and persist a proposal on it; from that
   // moment `LIVE_PROPOSAL_EXISTS` refused the REAL council for PROPOSAL_TTL_MS
   // (7 days), renewable by withdraw + recompose — the ceremony-lease DoS
-  // (`xrplDefi.ts`, round 5) with a week-long lease instead of 30 minutes.
-  //
-  // The floor is the same predicate every other write door here asks
-  // (`sessionIsCouncilMember`), fed with the signer list read OFF THE LEDGER —
-  // never one the caller supplies. It runs BEFORE the seat guards on purpose:
-  // their refusals carry another council's proposal id, title and ledger
-  // verdict, and a stranger must not read those here any more than on `GET /`.
-  //
-  // it. 17 (finding 2.1): that residual is CLOSED — membership is now a PROVEN
-  // address (see `ownedSignerAddresses`), so a stranger who merely registered a
-  // council's public signer address can no longer hold its Sequence for a week.
+  // with a week-long lease instead of 30 minutes.
   let council: Awaited<ReturnType<typeof xrplProvider.getSignerCouncil>>;
   try {
     council = await withTimeout(
@@ -1282,7 +1020,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (live) {
     return void res.status(409).json({
       error: 'LIVE_PROPOSAL_EXISTS',
-      // g1-ceremonia (round 4): this sentence used to end in "emit, withdraw or
+      // g1-ceremonia: this sentence used to end in "emit, withdraw or
       // let it expire first", the same misdirection the ceremony door carried —
       // inside its deadline withdraw reads no ledger and issues no verdict, and
       // "let it expire" is the seven-day wait that then meets the seat guard.
@@ -1347,7 +1085,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
       },
       include: { signatures: signatureSummary },
     });
-    // ── it. 29 (§2) — THE SECOND COORDINATOR THAT PINS A SEQUENCE, AND NEVER SAID SO ──
+    // ── THE SECOND COORDINATOR THAT PINS A SEQUENCE, AND NEVER SAID SO ──
     //
     // WHAT FAILED IN SILENCE. `prepareCouncilMultisig` just fixed this council's
     // `Sequence` on these bytes — the exact fact `/multisign/prepare` records with
@@ -1356,16 +1094,10 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     // door pinned the same way and recorded nothing, so a proposal that is later
     // WITHDRAWN answered `not-pinned-by-us` at the seat: the async tempo had
     // neither pin nor door, and its exits stayed walled for the row's 24 hours.
-    //
-    // Same fact, same writer, same best-effort: a store that refuses the mark does
-    // not undo a proposal that already exists — it is said in the log, and the
-    // store keeps the unwritten pin in memory (it. 29 §3) so the release door can
-    // still act on it. Nothing here is read from the request body: the Sequence
-    // is the one the coordinator just pinned, the memo is read off those bytes.
     const pinnedSequence = Number((prepared.multisigTx as { Sequence?: unknown }).Sequence);
     const pinnedMemo = zeroFeMemoOfTx(prepared.multisigTx);
     if (pinnedMemo && Number.isInteger(pinnedSequence) && pinnedSequence > 0) {
-      // it. 34 (E): the proposal's own id IS its sitting id — the withdraw door
+      // The proposal's own id IS its sitting id — the withdraw door
       // hands it back (`withdrawnProposalSeat`), so a proposal withdrawn after a
       // NEWER sitting re-pinned these bytes cannot free that sitting's seat.
       await stampCeremonyPin(pinnedMemo, account, pinnedSequence, { sittingId: proposal.id }).catch((e) => {
@@ -1386,7 +1118,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 // (GET /:id carries them for the combining browser).
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-  // g1-ceremonia (round 4): see `mayReadProposal`. This listing used to hand
+  // g1-ceremonia: see `mayReadProposal`. This listing used to hand
   // the whole acta of any account to any authenticated session.
   const userId = req.siwe?.userId;
   if (!userId) return void res.status(401).json({ error: 'missing_siwe_session' });
@@ -1400,9 +1132,9 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   }
   const onlyLive = req.query.status === 'live';
   /**
-   * it. 25 (2) — LA LECTURA DEL LISTADO, DENTRO DE SU GUARDA.
+   * LA LECTURA DEL LISTADO, DENTRO DE SU GUARDA.
    *
-   * `GET /:id` ya envolvía la suya en it. 23; ESTA no. Con la base de datos
+   * `GET /:id` ya envolvía la suya; ESTA no. Con la base de datos
    * parpadeando, `asyncHandler` mandaba el rechazo al middleware global y la bandeja
    * entera del consejo contestaba un 500 crudo — sin `retryable`, sin frase, y del
    * mismo color que «no tienes nada». Un 503 reintentable es la verdad: no pudimos
@@ -1432,14 +1164,14 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         `a failure of ours. (${safeErrorDetail(e)})`,
     });
   }
-  // g1-ceremonia (round 4): filter BEFORE the ledger reads — a stranger's
+  // g1-ceremonia: filter BEFORE the ledger reads — a stranger's
   // query must not spend `account_info` calls on another family's rows either.
   // ONE registry read for the whole listing (`ownedSignerAddresses`), never one
   // per proposal.
-  // it. 19 (finding 2.3): the READ floor — proven OR registered. These bytes are the
+  // the READ floor — proven OR registered. These bytes are the
   // only ones a cosignatory can sign, so a registry must never be what keeps a
   // council from reaching its quorum on an exit.
-  // it. 21 (2.1 / 3.7): the same floor, asked for a VERDICT — proven, registered,
+  // the same floor, asked for a VERDICT — proven, registered,
   // neither, or «I could not read» — so an outage answers 503 retryable instead of
   // the false 403 «none of your addresses is on this list», and a registered-only
   // session gets the signing material without the family's deliberation.
@@ -1451,19 +1183,12 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     return level === 'proven' || level === 'registered';
   });
   /**
-   * it. 23 (2.4) — LA FILA QUE NO SE PUDO DECIDIR NO SE TIRA.
+   * LA FILA QUE NO SE PUDO DECIDIR NO SE TIRA.
    *
    * Antes: si TODAS eran indecidibles, 503; si alguna se decidía, el filtro `mine` se
    * quedaba con ella y las indecidibles desaparecían del 200 sin una palabra. En un
    * listado mixto eso es silencio donde debía haber error — sobre los únicos bytes que
    * un cosignatario puede firmar.
-   *
-   * Ahora: si NADA es mío y hay alguna indecidible, la respuesta entera es el 503 (o el
-   * 409 determinista que el módulo de identidad dice que se debe), nunca el 403 «no
-   * eres» — que sería una afirmación falsa sobre la persona. Y si hay filas mías, van
-   * en `proposals` y las indecidibles viajan nombradas en `unreadable`, con su código
-   * y su frase, para que la pantalla diga «estas N no las pude leer, vuelve a
-   * intentarlo» en vez de no enseñarlas.
    */
   const unreadableRows = rows.filter((row) => levelOf.get(row.id) === 'unreadable');
   const owedForUnreadable = (): { status: number; body: Record<string, unknown> } => {
@@ -1491,20 +1216,8 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   // share one in-flight read, and distinct accounts no longer queue behind
   // each other. Worst case is now one timeout, not one per row.
   /**
-   * it. 25 (2) — UNA FILA MALA NO TUMBA EL LISTADO ENTERO, Y LA ESCRITURA VIVE
+   * UNA FILA MALA NO TUMBA EL LISTADO ENTERO, Y LA ESCRITURA VIVE
    * DENTRO DE LA GUARDA.
-   *
-   * QUÉ FALLABA EN SILENCIO: `withEffectiveStatus` no es una lectura — archiva la
-   * fila (`prisma.councilProposal.update`) cuando el ledger confirma que su asiento
-   * nunca se gastó, y antes de eso PREGUNTA al ledger. Las dos cosas fallan solas: un
-   * nodo XRPL caído, un `txjson` corrupto de UNA fila, un timeout. Estaba dentro de
-   * un `Promise.all` sin guarda, así que ese único fallo salía por el middleware
-   * global como un 500 crudo y se llevaba por delante TODAS las demás propuestas del
-   * consejo — incluidas las de una salida que estaba recogiendo firmas.
-   *
-   * Ahora cada fila responde por sí misma: la que se pudo poner al día se sirve, y la
-   * que no viaja nombrada en `unreadable` con su código y su reintento. «No pude
-   * leer» sobre una fila no es un veredicto sobre las otras.
    */
   const settled = await Promise.all(
     mine.map(async (row) => {
@@ -1521,18 +1234,18 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   // unverified seat), so `status=live` filters on the DEADLINE too — same
   // outcome as before, without needing the DB to have been lied to.
   const open = onlyLive ? checked.filter((p) => isOpen(p)) : checked;
-  // it. 21 (3.7): a REGISTERED-only session reads the signing material of every row
+  // A REGISTERED-only session reads the signing material of every row
   // it can act on, and the deliberation of none it did not write itself.
   const proposals = open.map((row) =>
     levelOf.get(row.id) === 'registered' ? redactActaForRegistered(row as unknown as Record<string, unknown>) : row,
   );
-  // it. 23 (2.4): las indecidibles, nombradas. `error`/`retryable`/`detail` son el
+  // Las indecidibles, nombradas. `error`/`retryable`/`detail` son el
   // MISMO cuerpo que llevaría la respuesta entera si no hubiese nada legible, así que
   // la pantalla usa un solo lector para los dos sitios. Ni un título ni una posición:
   // de una fila que no pudimos decidir no se sirve deliberación ninguna.
   const unreadableEntries: Array<Record<string, unknown>> = [
     ...unreadableRows.map((row) => ({ id: row.id, account: row.account, ...owedForUnreadable().body })),
-    // it. 25 (2): la fila que SÍ es mía y cuyo estado no se pudo poner al día. Mismo
+    // La fila que SÍ es mía y cuyo estado no se pudo poner al día. Mismo
     // canal, mismo contrato — un solo lector en la pantalla para los dos motivos.
     ...statusUnreadable.map(({ row, failure }) => ({
       id: row.id,
@@ -1552,13 +1265,13 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
 // GET /:id — full detail, blobs included (the combining browser needs them).
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-  // g1-ceremonia (round 4): the widest read of the router — it carries the
+  // g1-ceremonia: the widest read of the router — it carries the
   // members' signed blobs, which is the material a browser combines and
   // broadcasts. Same floor as the write doors (see `mayReadProposal`).
   const userId = req.siwe?.userId;
   if (!userId) return void res.status(401).json({ error: 'missing_siwe_session' });
   /**
-   * it. 23 (2.5) — UNA LECTURA QUE FALLA NO ES UN 500, Y DESDE LUEGO NO ES UN 404.
+   * UNA LECTURA QUE FALLA NO ES UN 500, Y DESDE LUEGO NO ES UN 404.
    *
    * QUÉ FALLABA EN SILENCIO: esta ruta —la más ancha del router, la que lleva los
    * blobs que un navegador combina y difunde— leía la fila sin guarda. Con la base de
@@ -1585,27 +1298,17 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
   if (!row) return void res.status(404).json({ error: 'NOT_FOUND' });
-  // it. 19 (finding 2.3): the widest READ of the router is also the one a
+  // The widest READ of the router is also the one a
   // cosignatory needs before they can sign anything — the blobs to combine live
   // here. Proven OR registered; every WRITE keeps the proof, and the signature door
   // verifies the blob cryptographically anyway.
-  //
-  // it. 21 (2.1): a store we could not read answers 503 RETRYABLE. The old 403 said
-  // «none of your addresses is on this list» — a statement about the user that was
-  // false, over the only bytes a cosignatory can sign. A quorum on a recall was
-  // therefore unreachable because of an outage of ours, which is a registry closing
-  // an exit by another name.
-  //
-  // it. 21 (3.7): and a REGISTERED-only session reads the SIGNING MATERIAL, not the
-  // family's deliberation — see `councilReadAccess` above for why the line is drawn
-  // exactly there.
   const access =
     row.createdByUserId !== null && row.createdByUserId === userId
       ? ({
           proven: new Set<string>(),
           registered: new Set<string>(),
           readable: true,
-          // it. 23 (2.4): el proponente lee la suya entera sin consultar nada, así que
+          // El proponente lee la suya entera sin consultar nada, así que
           // las dos lecturas «fueron bien» por vacuidad — nunca 'unreadable'.
           proofReadable: true,
           registryReadable: true,
@@ -1627,13 +1330,13 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     });
   }
   /**
-   * it. 25 (2) — LA GUARDA ENVOLVÍA SOLO LA LECTURA, Y ESTO NO ES UNA LECTURA.
+   * LA GUARDA ENVOLVÍA SOLO LA LECTURA, Y ESTO NO ES UNA LECTURA.
    *
-   * it. 23 puso el `try` alrededor del `findUnique` y dejó FUERA la única llamada de
+   * Puso el `try` alrededor del `findUnique` y dejó FUERA la única llamada de
    * esta ruta que ESCRIBE: `withEffectiveStatus` archiva la fila cuando el ledger
    * confirma que su asiento nunca se gastó, y para saberlo interroga al ledger. Con
    * el nodo XRPL caído —o con un `txjson` que no parsea— el 503 honesto de arriba se
-   * saltaba y salía el 500 crudo que it. 23 dijo haber cerrado, sobre los bytes más
+   * saltaba y salía el 500 crudo que dijo haber cerrado, sobre los bytes más
    * anchos del router: los blobs que un navegador combina y difunde.
    */
   try {
@@ -1713,18 +1416,6 @@ router.post('/:id/signatures', asyncHandler(async (req: Request, res: Response) 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMAL POSITIONS — the deliberative record (the acta, NOT a chat).
-//
-// Each councillor may fix ONE position per proposal: stance + optional brief
-// comment, signed with their own wallet (an AccountSet proof, submit:false,
-// whose Memo commits to sha256(contentJson) — same pattern as wallet binding).
-// IMMUTABLE once set: who thought what, when. Deliberation itself is ephemeral
-// and never touches the ledger; positions are what IS eternal.
-//
-// Anchoring is BATCHED (founder decision 2026-07-18): each position's own
-// signature makes forgery impossible the moment it is filed; the SET is
-// anchored on-chain in one 1-drop Payment at emission (or on a terminal
-// state), so the public timestamp is deferred — never the integrity.
-// ─────────────────────────────────────────────────────────────────────────────
 const POSITION_KIND = 'astryum-council-position/v1';
 const POSITION_MEMO_PREFIX = 'astryum-council-position:';
 const ACTA_MEMO_PREFIX = 'astryum-council-acta/v1:';
@@ -1885,7 +1576,7 @@ const anchorPrepareSchema = z.object({ emitterAccount: xrplAddress, region: z.st
 router.post('/:id/positions/anchor/prepare', asyncHandler(async (req: Request, res: Response) => {
   const gate = gateCouncil(regionOf(req));
   if (gate) return void res.status(gate.status).json({ error: gate.error });
-  // g1-ceremonia (round 4) — THE ORDER MATTERS ON THIS DOOR. The flow is
+  // g1-ceremonia — THE ORDER MATTERS ON THIS DOOR. The flow is
   // prepare → the emitter signs and BROADCASTS it on XRPL → `/positions/
   // anchored`. Only that last call carried an ownership check, so the verdict
   // arrived AFTER a transaction had already been spent on the ledger: the
@@ -1962,7 +1653,7 @@ router.post('/:id/positions/anchored', asyncHandler(async (req: Request, res: Re
         'hash of its acta anchor. ' + PROVE_MEMBERSHIP_HINT,
     });
   }
-  // g1-ceremonia (round 4) — THE TWO HALVES DISAGREED. `prepare` refuses to
+  // g1-ceremonia — THE TWO HALVES DISAGREED. `prepare` refuses to
   // compose a second anchor for a proposal that has one (409 ALREADY_ANCHORED),
   // while this door OVERWROTE the stored hash without a word: the acta's
   // on-chain proof — the thing the whole batch anchor exists to produce — could
@@ -1986,20 +1677,13 @@ router.post('/:id/positions/anchored', asyncHandler(async (req: Request, res: Re
     // that is simply telling us again.
     return void res.json({ ok: true, proposal: row });
   }
-  // productizer-it3 — READ THE ANCHOR, NEVER TRUST IT.
+  // READ THE ANCHOR, NEVER TRUST IT.
   //
   // WHAT FAILED IN SILENCE: this door recorded ANY 64-hex string as the acta's
   // on-chain proof without asking the ledger, and round 4 made that record
   // IMMUTABLE (ALREADY_ANCHORED). A mistyped hash, a tec-failed anchor, or a
   // member's unrelated Payment froze itself as "anchored on-chain" for ever,
   // with an explorer link that proves nothing about this acta.
-  //
-  // So the hash has to prove what it claims, exactly as `/submitted` does: a
-  // VALIDATED tesSUCCESS Payment to THIS council account whose memo is exactly
-  // the fingerprint `prepare` composes for the positions on file now. The
-  // emitter `Account` is not checked: `prepare` takes it from the caller and
-  // persists nothing, so there is no pinned value to compare — the memo (the
-  // hash of signed contents that name this proposal) is what binds the anchor.
   const positions = row.positions ?? [];
   if (positions.length === 0) {
     return void res.status(409).json({ error: 'NO_POSITIONS_TO_ANCHOR' });
@@ -2039,7 +1723,7 @@ router.post('/:id/positions/anchored', asyncHandler(async (req: Request, res: Re
 }));
 
 // POST /:id/submitted — the broadcasting browser reports the ledger hash.
-// arriendo-ceremonia (round 5): the floor is the SHAPE of an XRPL hash, not a
+// arriendo-ceremonia: the floor is the SHAPE of an XRPL hash, not a
 // length range — see XRPL_TX_HASH_RE above for why the anchored door made that
 // difference permanent. The refusal says what a hash looks like, because this
 // is the a-posteriori recovery door: somebody is copying it from an explorer.
@@ -2053,8 +1737,7 @@ const submittedSchema = z.object({
 /**
  * What the ledger says about a reported council hash. The report becomes the
  * row's ledger truth and launches the executor-paid relay, and council
- * membership still rests on wallet rows (productizer cycle, iteration 2: a
- * watch-only row of a member's public address passes it). So the report itself
+ * membership still rests on wallet rows. So the report itself
  * has to prove what it claims: a VALIDATED transaction of this council account.
  */
 // One shape, not a discriminated union: this backend compiles without
@@ -2065,7 +1748,7 @@ interface ReportedCouncilTx {
   account: string;
   sequence: number | null;
   /**
-   * productizer-it3: `meta.TransactionResult`. A validated `tec*` is the trap —
+   * `meta.TransactionResult`. A validated `tec*` is the trap —
    * it reached a ledger, burnt its Sequence and its fee, and moved NOTHING.
    * `null` when the node answered without a result.
    */
@@ -2073,14 +1756,14 @@ interface ReportedCouncilTx {
   transactionType: string;
   destination: string;
   /**
-   * productizer-it6: the Payment amount — a drops string or an IOU/MPT object.
+   * The Payment amount — a drops string or an IOU/MPT object.
    * `null` when the tx carries none. api_version 2 renames a Payment's `Amount`
    * to `DeliverMax` in `tx_json`, so both spellings are read.
    */
   amount: unknown;
   /** Every MemoData decoded as UTF-8 (non-hex entries dropped). */
   memoTexts: string[];
-  /** productizer-it6: every MemoData as the raw hex, upper-cased, in ledger order. */
+  /** Every MemoData as the raw hex, upper-cased, in ledger order. */
   memoData: string[];
   detail: string;
 }
@@ -2140,7 +1823,7 @@ async function readReportedCouncilTx(hash: string): Promise<ReportedCouncilTx> {
 }
 
 /**
- * productizer-it6 — canonical form of a decimal amount string, so "10.50",
+ * Canonical form of a decimal amount string, so "10.50",
  * "10.5" and "1.05e1" (the codec may normalise an IOU value) compare equal.
  * `null` when unparseable.
  */
@@ -2208,7 +1891,7 @@ function hasIdentityBeyondType(stored: Record<string, unknown>): boolean {
 }
 
 /**
- * productizer-it6 — is the reported ledger tx THIS proposal's transaction?
+ * Is the reported ledger tx THIS proposal's transaction?
  * The members signed exact bytes, so the real emission carries exactly the
  * stored TransactionType, Destination, Amount and memos. Returns a readable
  * reason for the first difference, or null when it is the same transaction.
@@ -2246,7 +1929,7 @@ router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) =
   }
   const row = await prisma.councilProposal.findUnique({ where: { id: req.params.id } });
   if (!row) return void res.status(404).json({ error: 'NOT_FOUND' });
-  // puertas-y-permiso (round 3): this door was open to any authenticated
+  // puertas-y-permiso: this door was open to any authenticated
   // session BEFORE round 3 too, and it writes more than a word — the reported
   // hash becomes the row's ledger truth AND launches the FDC relay below,
   // which spends the executor's FLR. The doctrine is already written in the
@@ -2281,7 +1964,7 @@ router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) =
       detail: `That transaction was sent by ${onLedger.account || 'another account'}${onLedger.sequence !== null ? ` with Sequence ${onLedger.sequence}` : ''} — this proposal belongs to ${row.account}${typeof pinnedSequence === 'number' ? ` at Sequence ${pinnedSequence}` : ''}.`,
     });
   }
-  // productizer-it6 — THE SEAT IS NOT THE TRANSACTION.
+  // THE SEAT IS NOT THE TRANSACTION.
   //
   // WHAT FAILED IN SILENCE: account + pinned Sequence + tesSUCCESS proves that
   // SOMETHING of this council used the seat, not that it was THIS proposal. A
@@ -2311,7 +1994,7 @@ router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) =
         'transaction used this proposal\'s seat, these signatures can never be broadcast — withdraw it and compose it again.',
     });
   }
-  // productizer-it3 — VALIDATED IS NOT PAID.
+  // VALIDATED IS NOT PAID.
   //
   // WHAT FAILED IN SILENCE: the read above asked only `validated`. A validated
   // `tec*` (unfunded, no trust line, destination requires a tag…) matches the
@@ -2344,7 +2027,7 @@ router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) =
 
   // A council order emitted from the inbox must reach Flare WITHOUT depending
   // on the reporting browser: start the courtesy relay server-side, here. This
-  // closes the 2026-07-29 hole (order validated on XRPL, never executed on
+  // closes the hole (order validated on XRPL, never executed on
   // Flare) for the async path. Best-effort: the emit report never fails on it.
   let councilOrder:
     | { isOrder: true; relay: 'started' | 'already-relaying' | 'relayer-disabled' | 'not-launched' }
@@ -2360,7 +2043,7 @@ router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) =
         // Belt AND braces: `submittedSchema` now enforces the same shape, so a
         // body that reaches here already passed it. Kept — this branch is what
         // stops the executor's FLR being spent on a hash the ledger cannot have
-        // (2026-07-18 fee burn), and it must not depend on a schema staying put.
+        // (fee burn), and it must not depend on a schema staying put.
         councilOrder = { isOrder: true, relay: 'not-launched' };
       } else {
         const r = launchCouncilOrderRelay(parsed.data.txHash);
@@ -2375,21 +2058,6 @@ router.post('/:id/submitted', asyncHandler(async (req: Request, res: Response) =
 
 // POST /:id/withdraw — the proposer's app-account, only while live (with one
 // exception past the deadline, see finding 3 below).
-//
-// G1-cadena (round 2, finding 5) — WHAT FAILED IN SILENCE: this route read
-// `row.status` RAW. It never called `withEffectiveStatus`, never used `isOpen`,
-// never looked at the ledger. So the one archiving verb the family drives by
-// hand walked straight around the whole guard: a proposal whose pinned seat the
-// ledger says was ALREADY USED could be filed as `withdrawn` — a word that
-// means "this never happened" — with no reading, no verdict and no warning.
-// The row then stopped blocking `POST /`, and the next compose was the second
-// payment. Round 1 shut the front door and left this one open.
-//
-// Now: the guard runs. Inside the deadline nothing changes. Past it, an
-// unresolved seat (consumed / unreadable) refuses to be filed silently and
-// hands back the verdict; the proposer files it only by acknowledging the
-// check — after looking at the explorer. That acknowledgement is a HUMAN
-// statement, never an inference of ours.
 const withdrawSchema = z.object({ acknowledgeLedgerCheck: z.boolean().optional() });
 
 router.post('/:id/withdraw', asyncHandler(async (req: Request, res: Response) => {
@@ -2403,7 +2071,7 @@ router.post('/:id/withdraw', asyncHandler(async (req: Request, res: Response) =>
   }
   const row = await prisma.councilProposal.findUnique({ where: { id: req.params.id } });
   if (!row) return void res.status(404).json({ error: 'NOT_FOUND' });
-  // The guard runs BEFORE the proposer check now (G1-cadena round 3): whether
+  // The guard runs BEFORE the proposer check now: whether
   // somebody other than the proposer may file this row depends on the deadline
   // and on the ledger verdict, so the verdict has to exist first. Inside the
   // deadline this still costs no read at all — withEffectiveStatus returns
@@ -2422,17 +2090,6 @@ router.post('/:id/withdraw', asyncHandler(async (req: Request, res: Response) =>
   // were shut for anyone but one person: registering a hash needs `ready`, and
   // filing needed the proposer. A council whose proposer has moved on, or
   // simply is not around, could never compose anything again.
-  //
-  // The way out is information the server ALREADY holds: status flips to
-  // `ready` the instant the collected weight reaches the quorum, and signatures
-  // are only ever added — so a past-deadline row still reading `collecting` is
-  // a proposal whose quorum was never met. Nothing complete was ever assembled
-  // from it here, so filing it claims far less than it does on a `ready` row,
-  // and ANY member of this surface may do it. Note what does NOT change: the
-  // acknowledgement is still required (the seat was used by something, and a
-  // human says they looked), and a `ready` row — which may really have been
-  // broadcast — still belongs to its proposer, with the hash door open to
-  // everyone else.
   const neverAssembled = !isOpen(p) && p.status === 'collecting';
   const isProposer = row.createdByUserId === userId;
   if (!isProposer && !neverAssembled) {
@@ -2443,7 +2100,7 @@ router.post('/:id/withdraw', asyncHandler(async (req: Request, res: Response) =>
         : 'This proposal reached its quorum, so it may actually have been broadcast — only the member who composed it can file it as never-happened. If you found the transaction in the explorer, register its hash instead: any member can do that, and it unblocks the account just the same.',
     });
   }
-  // puertas-y-permiso (round 3) — OUR OWN REGRESSION. `neverAssembled` says
+  // puertas-y-permiso — OUR OWN REGRESSION. `neverAssembled` says
   // "ANY MEMBER may file this row", and the sentence above it says the same
   // ("any member can do that"). What the code checked was neither: dropping
   // the proposer check left `requireLegacyAccess` alone on the door, i.e. any
@@ -2473,30 +2130,27 @@ router.post('/:id/withdraw', asyncHandler(async (req: Request, res: Response) =>
     where: { id: row.id },
     data: { status: 'withdrawn' },
   });
-  // ── it. 29 (§2) — WITHDRAWING A PROPOSAL IS ENDING ITS CEREMONY ──────────────
+  // ── WITHDRAWING A PROPOSAL IS ENDING ITS CEREMONY ──────────────
   //
   // WHAT FAILED IN SILENCE. This wrote `status: 'withdrawn'` and stopped. The
   // proposal's txjson is a 0xFE whose nonce seat was measured with the ceremony's
-  // 24-hour window (it. 25 §2.1), and nothing here ever gave that seat back — so
+  // 24-hour window, and nothing here ever gave that seat back — so
   // the council that filed a proposal as never-happened still could not compose
-  // its next exit for a day. The sync tempo got its door in it. 25/27; this is
+  // its next exit for a day. The sync tempo got its door in /27; this is
   // the async one, with the SAME rule underneath (`releaseAbandonedCeremonySeat`:
   // a ceremony row, this account, a window read in full and empty, and the
   // coordinator's pin — stamped above, at creation) and the SAME words
   // (`seatReleaseAnswer`). Who may: exactly who may withdraw — the checks above
   // already ran, and they are stricter than the ceremony door's.
-  //
-  // Reported in its own field, never a verdict on the withdraw: the proposal IS
-  // withdrawn whatever the seat says, and «could not read» is said as such.
   return void res.json({ ok: true, proposal, ...(await withdrawnProposalSeat(row.account, row.txjson, row.id)) });
 }));
 
 /**
- * it. 29 (§2) — the seat half of a withdraw. Never throws, never changes the
+ * The seat half of a withdraw. Never throws, never changes the
  * withdraw's own answer: it reports what happened to the 0xFE nonce seat of the
  * proposal's bytes, in the field the sync door already uses (`seat`).
  *
- * it. 34 (E): `sittingId` is the proposal's id — the one its creation stamped on
+ * `sittingId` is the proposal's id — the one its creation stamped on
  * the pin. A proposal whose bytes were pinned again by a newer sitting (another
  * proposal, a live ceremony) is withdrawn all the same, but its seat answer is
  * `stale-sitting` and the row is not touched. Omitting it (an older caller)

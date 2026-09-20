@@ -1,6 +1,4 @@
 /**
- * productizer 13-sep, H2b — the payload route put a looked-up push token into
- * whatever txjson the browser sent, for whatever address the browser named.
  * Now: the lookup carries txjson.Account (and whether it is a multisign
  * request) so the backend can decide; a null answer injects nothing; a token
  * the browser slipped into the body never rides the push-for-someone path; and

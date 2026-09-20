@@ -1,7 +1,7 @@
 /**
  * Ecosystem derivation — single source of truth for "what VM does this chain run?"
  *
- * Block G (2026-06-02). Astryum stores `Wallet.ecosystem` as the canonical
+ * Block G. Astryum stores `Wallet.ecosystem` as the canonical
  * lowercase string. Pools carry `chainId` (numeric for EVM) and `chain` (CAIP-2
  * string like "eip155:1" or "solana:mainnet"). The router compares ecosystems
  * to decide between single-step and multi-step (bridge) flows.

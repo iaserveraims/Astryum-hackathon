@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * CapitalBridge — EL CAPITAL DE UN VISTAZO (fundador 11-sep: «el cuadro de
- * mando sigue un pelín complicado y caótico… algo con lo que flipar»).
+ * CapitalBridge — EL CAPITAL DE UN VISTAZO.
  *
  * Antes: cuatro cifras en una tarjeta y una lista de direcciones en otra.
  * Ahora: UNA barra que es la bóveda entera, de izquierda a derecha —

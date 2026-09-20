@@ -34,7 +34,7 @@ interface ExplorerResponse<T> {
  * results don't satisfy hard policy checks (P9..P14) but are good enough for
  * activity timeline and verification metadata.
  *
- * Two doors, not one (2026-08-03): the Blockscout API went 503 across every
+ * Two doors, not one: the Blockscout API went 503 across every
  * /api path and took the whole activity rail with it. Every read walks the
  * bases in `config/flareExplorer` in order and sticks to whichever one answered,
  * so a single indexer's outage degrades latency instead of blinding the rail.

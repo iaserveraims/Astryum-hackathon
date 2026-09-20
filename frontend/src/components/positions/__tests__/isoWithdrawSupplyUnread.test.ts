@@ -6,19 +6,10 @@ import { describeRetryableRefusal } from '../../../lib/xaman/seatRefusal';
 import { preflightSaysFail } from '../../../lib/preflight';
 
 /**
- * it. 31 (a), frontend half — «KINETIC REVIERTE» ERA FALSO, and the screen
+ * Frontend half — «KINETIC REVIERTE» ERA FALSO, and the screen
  * that composes the exact-amount exit had no eye for the admission the route
- * made in it. 29 (`supplyRead: 'unreadable'`), nor a «could not be read» in
+ * made in, nor a «could not be read» in
  * the withdraw form outside DERISK.
- *
- * Verified with a real eth_call on mainnet: kFXRP_ISO `redeemUnderlying(1e12)`
- * from an account with balanceOf = 0 RETURNS 0x…09 (MATH_ERROR). No revert:
- * estimateGas passes, the wallet does not warn, the tx mines, gas is paid,
- * nothing moves. The only place that verdict is visible BEFORE the signature
- * is the prepare's dry-run — which `/iso-withdraw` now attaches — and this
- * screen's job is to point at it and never print an unread balance as one.
- *
- * The two decisions are pulled out of the shipping PaActionsModal.tsx and RUN.
  */
 
 const MODAL = join(__dirname, '..', 'PaActionsModal.tsx');
@@ -40,9 +31,9 @@ const vaultFigureState = extract<(i: { legsLoading: boolean; legsReadFailed: boo
 
 const t = (s: string) => s;
 
-describe('it. 31 (a) · the review step consumes supplyRead', () => {
-  it('the it. 29 admission is recognised — only by its exact word', () => {
-    // What /iso-withdraw/prepare returns with the supply unread (it. 29 shape).
+describe('The review step consumes supplyRead', () => {
+  it('The admission is recognised — only by its exact word', () => {
+    // What /iso-withdraw/prepare returns with the supply unread (shape).
     expect(isoSupplyUnread({ action: 'iso-withdraw-fxrp', amount: 2, supplyRead: 'unreadable', availableBase: null })).toBe(true);
     // A LIVE read is not an admission.
     expect(isoSupplyUnread({ action: 'iso-withdraw-fxrp', amount: 2, supplyRead: 'live', availableBase: '3000000' })).toBe(false);
@@ -70,7 +61,7 @@ describe('it. 31 (a) · the review step consumes supplyRead', () => {
   });
 });
 
-describe('it. 31 (a) · the withdraw form prints «could not be read», not the stale snapshot — outside DERISK too', () => {
+describe('The withdraw form prints «could not be read», not the stale snapshot — outside DERISK too', () => {
   it('a failed live read is "unread": no figure, no MAX over it', () => {
     expect(vaultFigureState({ legsLoading: false, legsReadFailed: true })).toBe('unread');
   });
@@ -83,7 +74,7 @@ describe('it. 31 (a) · the withdraw form prints «could not be read», not the 
   });
 });
 
-describe('it. 31 (a) · the it. 29 refusal sentence no longer sells «it composes» as the whole story', () => {
+describe('The refusal sentence no longer sells «it composes» as the whole story', () => {
   it('ISO_SUPPLY_UNREADABLE says: a code, the tx mines, gas is paid, nothing moves — and points at the dry-run', () => {
     const v = describeRetryableRefusal({ status: 502, error: 'ISO_SUPPLY_UNREADABLE', retryable: true }, t);
     expect(v).not.toBeNull();

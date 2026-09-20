@@ -278,7 +278,7 @@ router.put('/settings', asyncHandler(async (req: Request, res: Response) => {
     // The key decides whose Anthropic account the copilot's prompts go to, and
     // `validateKey` above is a network round-trip — the widest window a takeover
     // has to slip a key onto the owner. Live-session check inside the write
-    // (it. 16, 4.1).
+    // (4.1).
     try {
       await agentKeyService.saveUserAPIKey(userId, apiKey, model, sessionRef(req));
     } catch (err) {
@@ -287,7 +287,7 @@ router.put('/settings', asyncHandler(async (req: Request, res: Response) => {
         return;
       }
       // Contention with the takeover's long transaction is a WAIT, not a fault:
-      // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+      // 503 «try again» (3.6), never a 500 that reads as «we broke».
       if (isTransactionBusy(err)) {
         respondBusyRetry(res);
         return;
@@ -344,7 +344,7 @@ router.post('/mcp/connect', asyncHandler(async (req: Request, res: Response) => 
 
   // A custom `serverUrl` + key decides where the owner's context is sent: a
   // connection attached by a previous holder after a takeover would forward it
-  // to their server. Live-session check inside the write (it. 14, 4.4).
+  // to their server. Live-session check inside the write (4.4).
   let conn;
   try {
     conn = await withLiveSession(sessionRef(req), (tx) =>
@@ -360,7 +360,7 @@ router.post('/mcp/connect', asyncHandler(async (req: Request, res: Response) => 
       return;
     }
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) {
       respondBusyRetry(res);
       return;
@@ -407,7 +407,7 @@ router.post('/documents/upload', asyncHandler(async (req: Request, res: Response
   // A document is authority: AgentContextBuilder pastes it into the copilot's
   // system prompt. One uploaded by a previous account holder whose request lands
   // after a takeover would speak to the owner in their own assistant, so the
-  // session is re-proved inside the write (it. 14, 4.4).
+  // session is re-proved inside the write (4.4).
   let doc;
   try {
     doc = await withLiveSession(sessionRef(req), (tx) =>
@@ -421,7 +421,7 @@ router.post('/documents/upload', asyncHandler(async (req: Request, res: Response
       return;
     }
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) {
       respondBusyRetry(res);
       return;
@@ -504,7 +504,7 @@ router.post('/rules', asyncHandler(async (req: Request, res: Response) => {
       return;
     }
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) {
       respondBusyRetry(res);
       return;

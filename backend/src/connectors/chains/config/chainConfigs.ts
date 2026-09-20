@@ -4,9 +4,9 @@
  * Centralized configuration for all supported blockchain networks.
  * Used by protocol connectors, wallet adapters, and bridge services.
  *
- * ARCHIVED 2026-02-02: Non-Flare chains have been archived during Flare-exclusive migration.
+ * ARCHIVED: Non-Flare chains have been archived during Flare-exclusive migration.
  * Previously supported: Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, XRPL, Aptos, Axelar, Avalanche
- * Full backup available in: _archived/2026-02-02-pre-flare-migration/config/chainConfigs.ts.full-backup
+ * Full backup available in: _archived/-pre-flare-migration/config/chainConfigs.ts.full-backup
  *
  * @module chainConfigs
  */
@@ -227,7 +227,7 @@ export function getNativeCurrency(chainId: string): string {
 /**
  * Export chain IDs as constants for easy import
  *
- * ARCHIVED 2026-02-02: Legacy chain IDs removed (XRPL, APTOS, ETHEREUM, BSC, POLYGON, ARBITRUM, OPTIMISM, BASE, AXELAR, AVALANCHE)
+ * ARCHIVED: Legacy chain IDs removed (XRPL, APTOS, ETHEREUM, BSC, POLYGON, ARBITRUM, OPTIMISM, BASE, AXELAR, AVALANCHE)
  */
 export const CHAIN_IDS = {
   FLARE: 'flare',

@@ -2,19 +2,13 @@
 
 /**
  * InlineNotice — the one shell for an inline status line (error, confirmation,
- * dry-run result…) across the Legacy surface. Extracted (de-AI pass
- * 2026-07-21) from dozens of hand-cloned rows spread across LegacyPanel,
+ * dry-run result…) across the Legacy surface. Extracted (de-AI pass)
+ * from dozens of hand-cloned rows spread across LegacyPanel,
  * ProposalInbox, CouncilMultisigFlow, CouncilOrderCard, CloseDoorSign,
  * ProposeToCouncil, FormalPositions, LegacyIntentCompiler, GovernedMoneyFlows,
  * GovernedMovements, ConstitutionBuilder and LegacyActivityFeed — every one of
  * them the same `<p className="flex items-center gap-2 text-sm text-tone-…">`
  * shell with a different tone and message.
- *
- * A11y (Fase 1, 2026-07-30): warning and danger used the SAME icon with only a
- * color change — indistinguishable for red-green color-blindness — and the
- * line was silent to screen readers. Now: distinct icons per tone, and errors
- * announce themselves (role="alert"); other tones announce politely.
- * Multi-line notices align the icon to the first line, not the middle.
  */
 
 import type { ReactNode } from 'react';

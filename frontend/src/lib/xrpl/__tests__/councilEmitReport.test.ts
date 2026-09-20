@@ -3,7 +3,7 @@ import { decideEmitReport, unreportedPanel } from '../councilEmitReport';
 
 const HASH = 'A'.repeat(64);
 
-describe('decideEmitReport — productizer-it6: only a validated tesSUCCESS is reported', () => {
+describe('DecideEmitReport: only a validated tesSUCCESS is reported', () => {
   it('validated tesSUCCESS → report', () => {
     expect(decideEmitReport({ engine: 'tesSUCCESS', hash: HASH, validated: true, finalResult: 'tesSUCCESS' })).toEqual({
       kind: 'report',

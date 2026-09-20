@@ -2,7 +2,6 @@
 
 > Locked architecture decisions, ADR-style. This file is **authoritative** where it conflicts
 > with older internal working notes (historical context, not published in this repo).
-> Source of the 2026-06-20 batch: [Astryum-Validated_Architecture.md](Astryum-Validated_Architecture.md).
 > The hard rules these decisions must respect live in [INVARIANTS.md](INVARIANTS.md); the system
 > shape they produce is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -193,8 +192,7 @@ positioning, not N products to build** — build one deeply, show the generality
   MoneyFlows / other encodings on top.
 - This supersedes the LegacyPanel's link-out-to-xApp hand-off for council accounts (kept only as a
   fallback), and the `Astryum_Legacy_Motor_Trazabilidad_Fiscal` §10 verdict that the tax engine
-  "cannot be a hackathon deliverable" (based on a misread 21-Jul deadline; the Final Assessment is
-  21-Sep — see project memory).
+  "cannot be a hackathon deliverable" (based on a misread deadline).
 
 ---
 
@@ -256,7 +254,7 @@ permissions, never capital (internal XLS-75 working note).**
 
 ## ADR-010 — Pure authority + PMW arms: the North Star · VISION WITH GATES (zero build) · 2026-07-17
 
-**Thesis (founder, 2026-07-17).** The XRPL multisig account stops owning capital and becomes **pure
+**Thesis.** The XRPL multisig account stops owning capital and becomes **pure
 authority** — the governor. All capital lives in PMW accounts, one per native chain (including one for
 XRPL itself). Flow: quorum signs on XRPL → FDC proves it on Flare → the Flare contract (the executable
 constitution) validates the order against its rules → PMW executes on the target chain. Capital never
@@ -292,7 +290,7 @@ listed «Crossmint / Persona»). Meanwhile the KYC router was pruned from the co
 (`e8f6f58`) — today nothing sets `kycVerified=true` and PolicyGuard P38 stays fail-closed —
 so the choice could still be made cleanly, on facts.
 
-**Decision (founder, 2026-08-15 — resolved de facto by the 14-15 ago research).** **Sumsub**
+**Decision.** **Sumsub**
 is the KYC provider. The deciding fact is reuse across the WHOLE fiat perimeter with ONE
 verification: **MoonPay (Shared KYC) and Transak (KYC Reliance) both read the same Sumsub
 share token**, and the candidate self-custody card partner (**Gnosis Pay**) also runs on
@@ -302,23 +300,20 @@ Sumsub. One user verification serves on-ramp, off-ramp and card — no partner r
 - Astryum never becomes the verifier of record: Sumsub verifies; partners rely; Astryum
   reads the outcome (prepare-only posture intact — same shape as «Sumsub emite, Xaman
   acepta, Astryum jamás» in the Credentials architecture, post-21-sep).
-- P38 remains fail-closed until the Sumsub integration lands (commercial account first —
-  founder gestures list, 15-ago); no code path may fake `kycVerified`.
+- P38 remains fail-closed until the Sumsub integration lands (commercial account first); no
+  code path may fake `kycVerified`.
 - RedotPay also runs Sumsub but is NOT a chosen partner (ADR-002 unchanged: MoonPay +
   Transak; card candidates = Gnosis Pay / Baanx, last-mile partners only).
 - ADR-007's KYC row is superseded by this ADR.
-
-Research trail: `Astryum_Arquitectura_Identidad_Credentials_UltimaMilla_2026-08-15.md` ·
-tarjeta self-custody memo 15-ago (Gnosis Pay/Sumsub) · plan del mes §11.3/§13.1 (§8.7).
 
 ---
 
 ## ADR-013 — Composition is a separate axis from autonomy: abstract the complexity, never the decision · LOCKED (build POST-21-sep) · 2026-09-13
 
-**Context.** A product thesis was put on the table (founder conversation, 13-sep): the user
+**Context.** A product thesis was put on the table: the user
 states a goal, an AI builds the strategy, and a constrained agent runs it across many venues —
-with today's vaults demoted from destination to execution venue. Three passes later the founder
-rejected it *as a build for now*, for four reasons: it is slow to build and prove; it replaces
+with today's vaults demoted from destination to execution venue. It was
+rejected *as a build for now*, for four reasons: it is slow to build and prove; it replaces
 the whole DeFi interaction model at once; it removes personalisation and control from the user;
 and with a handful of venues the "strategy engine" is artificial, while the AI would have to
 know how to act on every class of DeFi product through a canonical language that is not built.
@@ -332,15 +327,15 @@ path.
    whose authority* (the ROADMAP Phase 4 ladder, unchanged). **We climb composition without
    climbing autonomy.** Every rung of composition ends the same way: the user signs. This is
    what keeps a signed composition outside Art. 3(1)(25) portfolio management — a mandate with
-   no residual discretion (`Astryum_Estrategias_Prefirmadas_Roadmap_2026-07-25.md`).
+   no residual discretion.
 2. **The internal language becomes `Goal → Strategy → Policy → Container → Venues →
    Execution`.** Integrated vaults are **venues** — reusable infrastructure — not the product;
    the **pote** is the container; **policy** lives in the contract (per-venue cap, buffer floor,
    allowlist, ungateable exit) and in the credential (who may order); execution is always a
    user signature. We stop counting venues as product ("we have N vaults"); an integration earns
    its place by serving the composer and the future agent.
-3. **The Strategy Composer is the demand surface of the CMF facade** already decided on
-   15-ago. It is built as one package — schema, translators, UI, copilot cage — and it works
+3. **The Strategy Composer is the demand surface of the CMF facade** already decided.
+   It is built as one package — schema, translators, UI, copilot cage — and it works
    with two venues; it does not wait for breadth.
 4. **Astryum compiles and explains; it never proposes "for you".** A personalised proposal is
    advice under Art. 3(1)(16)(h) and belongs to a **licensed occupant on the same rail** (an
@@ -350,7 +345,7 @@ path.
 5. **Rejected, explicitly, so they are not reopened:** an ERC-4626 *wrapper* between the pote
    and non-4626 venues — the pote already is the ERC-4626 container and the written direction is
    a new audited `VenueKind` branch per activity, not a second custody surface; "autonomous AI
-   DeFi" as a build for now (RED under the 25-jul boundary until limits are enforced on-chain);
+   DeFi" as a build for now (until limits are enforced on-chain);
    and a general-purpose DeFi site (wallet + protocol list + swaps), already barred by ADR-006.
 
 **Consequences.**
@@ -370,12 +365,12 @@ path.
 Full reasoning, code recon with file:line, the ERC-4626 verdict, the CASP boundary and the
 ordered post-window queue: an internal working note (not published in this repo).
 
-**Amendment, 2026-09-15 — the queue order changes; the doctrine does not.** A 15-sep inventory
+**Amendment — the queue order changes; the doctrine does not.** An inventory
 against the contract, the deploy scripts and the live registry found that **no further venue can
 enter a pote today without new Solidity**: only two are wired and live (Kinetic kind 1, Firelight
 kind 2), and every other Flare protocol fails the shape, the chain or the asset gate. So the
 bottleneck on the rail that serves managers is the contract, not the cost of integrating. With
-the founder's 15-sep objective of attracting managers, **the Upshift branch moves from last in
+the objective of attracting managers, **the Upshift branch moves from last in
 the queue to the main block**, in parallel with the canonical layer — one audited branch reaches
 two venues (earnXRP and Monarq), both FXRP on Flare. Everything else in this ADR stands: no
 wrapper, one audited `VenueKind` branch per activity, the pote as container, and Astryum
@@ -388,8 +383,8 @@ an internal working note (not published in this repo).
 
 ## ADR-014 — Production carries only what was tested; the gate is code, never an env var · LOCKED · 2026-09-14
 
-**Context.** On 14-sep the founder found «Lend your RLUSD» live on astryum.xyz. Nobody had
-published it. The whole `build/ventana-21sep` branch had been merged into `main` on 13-sep with
+**Context.** «Lend your RLUSD» went live on astryum.xyz without anyone publishing it. The
+whole feature branch had been merged into `main` with
 the two Ethereum-rail cards (`em-carry`, `em-lend`) inside, hidden behind a backend switch
 (`ETH_RLUSD_FXRP_ENABLED`, fail-closed). The production backend had not built for days (its
 deployments were SKIPPED), so the switch answered 404 and the cards stayed hidden. Railway

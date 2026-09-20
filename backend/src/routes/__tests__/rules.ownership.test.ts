@@ -119,7 +119,7 @@ const createBody = {
   trigger: { type: 'HF_BELOW', threshold: 1.5 },
 };
 
-describe('the owner, with a session that died mid-request (it. 14, 4.4)', () => {
+describe('The owner, with a session that died mid-request (4.4)', () => {
   it('POST / → 401 session_revoked and NO rule is created', async () => {
     mockRuleCreate.mockResolvedValue({ id: 'rule-new' });
     mockLiveSession.active = false;

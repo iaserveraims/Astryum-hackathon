@@ -6,7 +6,7 @@
  *
  * Read-only: `eth_call` / receipts on Flare, `tx` / `account_objects` on XRPL.
  * Needs DATABASE_URL (the run lives in background_jobs) and FLARE_RPC_URL.
- * Writes `<outDir>/proof-run-<date>-<seq>.md` (default: docs/context).
+ * Writes `<outDir>/proof-run-<date>-<seq>.md`.
  */
 
 import * as fs from 'fs';
@@ -17,7 +17,7 @@ import { renderProofMarkdown } from '../services/demoExchange/proofMarkdown';
 
 async function main(): Promise<void> {
   const runId = process.argv[2];
-  const outDir = process.argv[3] ?? path.resolve(__dirname, '../../../docs/context');
+  const outDir = process.argv[3] ?? path.resolve(__dirname, '../../../docs');
   if (!runId) {
     console.error('usage: verify-demo-run <runId> [outDir]');
     process.exit(2);

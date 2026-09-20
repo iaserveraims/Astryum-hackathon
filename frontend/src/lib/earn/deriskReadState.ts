@@ -1,7 +1,7 @@
 /**
  * deriskReadState — when may the guided unwind call a step «empty»?
  *
- * Why this exists (reviewer, 14-sep): PaActionsModal reads the LIVE Kinetic ISO
+ * Why this exists (reviewer): PaActionsModal reads the LIVE Kinetic ISO
  * legs (`/flare-demo/iso-legs/:owner`). A failed read fell back to the props —
  * a portfolio snapshot that can be stale or empty — so step 3 could announce
  * «No FXRP collateral left — the unwind is complete» over 0 FXRP that was never
@@ -38,7 +38,7 @@ export function deriskMayAutoAdvance(input: { legsLoading: boolean; legsReadFail
   return !input.legsLoading && !input.legsReadFailed;
 }
 
-/* ── it. 29 · la segunda puerta: un 200 tampoco es una lectura ───────────── */
+/* ── · La segunda puerta: un 200 tampoco es una lectura ───────────── */
 
 /** The three live Kinetic ISO legs, exactly as the route serves them. */
 export type IsoLegsBody = {
@@ -53,17 +53,13 @@ export type IsoLegsRead = { ok: true; legs: IsoLegsBody } | { ok: false };
 /**
  * Read the body of GET /flare-demo/iso-legs/:owner, or refuse to call it a read.
  *
- * WHY (it. 29). The guard above only ever learned about a failure through HTTP
+ * WHY. The guard above only ever learned about a failure through HTTP
  * (`!r.ok` / a network throw), so a 200 carrying nothing — the shape the route
  * produced while `balanceOf` was swallowed as `0n`, and the shape any proxy or
  * error envelope produces — walked straight through: the three fields came back
  * `undefined`, became 0, `deriskStepIsEmpty` said `true`, and step 3 told the
  * person «No FXRP collateral left — the unwind is complete» over a carry with
  * live debt.
- *
- * So the keys must be PRESENT. A leg that is genuinely empty arrives as an
- * explicit `null` (the route has always sent all three keys), which is a fact;
- * an absent key is not a zero, it is the absence of an answer.
  */
 export function parseIsoLegs(body: unknown): IsoLegsRead {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false };

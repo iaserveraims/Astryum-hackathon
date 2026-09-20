@@ -122,8 +122,7 @@ contract PoteCode {
  * `_addVenue`. Aquí solo hay, OPCIONALMENTE, una auto-restricción del manager por
  * encima de ese suelo: una lista eterna de destinos, ⊆ registro, que ninguna
  * función amplía. Una jaula nacida SIN lista sigue al registro de Astryum tal y
- * como esté cada día (decisión del fundador, 27-ago: el gestor elige dentro de la
- * whitelist de Astryum desde el pote, y esa whitelist puede crecer).
+ * como esté cada día.
  *
  * ── LA BASE ES LA DEL LEGACY ───────────────────────────────────────────────
  *
@@ -795,7 +794,7 @@ contract AstryumCage {
 
     /// Reenvía la orden y BURBUJEA el revert del pote: la razón real, arriba. Un
     /// «OrderFailed» pelado obligaría a adivinar — lo que costó una tarde entera
-    /// con el direct a Kinetic (23-ago).
+    /// con el direct a Kinetic.
     function _order(address pote, bytes memory data, bytes32 ref) internal {
         (bool ok, bytes memory ret) = pote.call(data);
         if (!ok) {

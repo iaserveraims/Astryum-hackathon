@@ -133,7 +133,7 @@ describe('§2/§3 — pending persistence: per-ref + expiry', () => {
   });
 });
 
-// ── it. 34 — MINED WITHOUT EFFECT: the Compound `Failure` decoder ─────────────
+// ── MINED WITHOUT EFFECT: the Compound `Failure` decoder ─────────────
 import {
   COMPOUND_FAILURE_TOPIC,
   compoundFailureIn,
@@ -143,7 +143,7 @@ import {
   receiptHasEffect,
 } from '../settlement';
 
-/** What kFXRP_ISO emits on a refused redeem (mainnet probe, it. 31): Failure(9, 45, 0). */
+/** What kFXRP_ISO emits on a refused redeem (mainnet probe): Failure(9, 45, 0). */
 const FAILURE_9 = {
   address: '0xD1b7A5eFa9bd88F291F7A4563a8f6185c0249CB3',
   topics: [COMPOUND_FAILURE_TOPIC],
@@ -159,7 +159,7 @@ const TRANSFER = {
   data: '0x' + '0'.repeat(63) + '1',
 };
 
-describe('it. 34 — a status-1 receipt with a Compound Failure is not a success', () => {
+describe('A status-1 receipt with a Compound Failure is not a success', () => {
   it('decodes Failure(error, info, detail) from the log, by topic and 32-byte words', () => {
     expect(compoundFailureIn([TRANSFER, FAILURE_9])).toEqual({ error: 9, info: 45, detail: 0 });
     // Topic compared case-insensitively (wallets differ).

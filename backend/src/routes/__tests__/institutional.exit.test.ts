@@ -4,15 +4,6 @@
  * Quien entra con su cuenta XRPL tiene las participaciones en su Personal
  * Account, que no firma sola. Hasta esta ruta, las dos mitades del camino de
  * vuelta existían sueltas y nadie las encadenaba: se podía entrar y no salir.
- *
- * Lo que se prueba aquí no es «devuelve 200», es lo que hace al usuario:
- *  · el destino del XRP es SU r-address, la misma que firma — no un campo del body
- *  · el dueño de las participaciones se DERIVA on-chain, no se teclea
- *  · el unmint es OPT-IN (c42050c1): por defecto el FXRP se queda en la PA —
- *    una sola pierna; con `unmint: true` se encadena el desminteo a XRP
- *  · se pide desmintear menos de lo previsto (pedir de más revierte el batch)
- *  · lo que sale no se capa ni se geofencea; el carrier del 0xFE sí se capa
- *  · sin liquidez, el error dice qué hacer en vez de invitar a firmar algo condenado
  */
 import express from 'express';
 import request from 'supertest';
@@ -38,7 +29,7 @@ jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => ({
   readMinimumRedeemAmountUBA: jest.fn(),
   readRedemptionFeeBips: jest.fn(),
   mintFeeDisclosure: jest.fn(),
-  // it. 25 (§2.1): la ruta pregunta al ledger si esa cuenta firma por QUÓRUM antes
+  // La ruta pregunta al ledger si esa cuenta firma por QUÓRUM antes
   // de componer. Aquí se finge para que la suite siga siendo HERMÉTICA (sin RPC,
   // sin ledger): lo que decide esa ventana se prueba de punta a punta en
   // `institutional.ceremonySeat.test.ts`.
@@ -159,7 +150,7 @@ afterAll(() => {
 
 describe('el camino de vuelta', () => {
   /**
-   * it. 19 (hallazgo 3.4, encargo del agente D) — LA SALIDA DICE SI EL SERVIDOR
+   * LA SALIDA DICE SI EL SERVIDOR
    * ENTREGA. Sin `serverDelivery` la pantalla no puede distinguir «va en camino» de
    * «no llega nada salvo que lo relances tú», y se quedaba neutra justo en la salida.
    * El campo dice lo que el servidor SABE: si el vigía que entrega el 0xFE corre.
@@ -238,8 +229,8 @@ describe('el camino de vuelta', () => {
   });
 });
 
-describe('la comisión de redención de FAssets (productizer it. 13, hallazgo 4.2)', () => {
-  it('con unmint: cifra viva sobre lo que DE VERDAD se desmintea, BRUTO y NETO en campos distintos (it. 15, 3.2)', async () => {
+describe('La comisión de redención de FAssets (hallazgo 4.2)', () => {
+  it('Con unmint: cifra viva sobre lo que DE VERDAD se desmintea, BRUTO y NETO en campos distintos (3.2)', async () => {
     const res = await request(app).post('/api/institutional/pote-exit/prepare').send({ account: XRPL_ACCOUNT, pote: POTE, unmint: true });
     expect(res.status).toBe(200);
     const unmintUBA = BigInt(res.body.exit.unmintUBA);

@@ -5,17 +5,6 @@
  *
  * This is a NEW view (the original positions/page.tsx and the strategy/moneyflow
  * canvas components are left UNTOUCHED). Per the hand-drawn spec:
- *
- *   - Positions tab shows ONLY open DeFi positions, as cards.
- *   - Click a position → its Strategy opens INLINE (1 position = 1 strategy).
- *   - A Strategy here = the position + its MoneyFlows (no Goals, no node canvas).
- *   - A MoneyFlow is created from one of TWO pre-programmed templates:
- *       PROTECT  → defend a borrow: when HF < X, prepare repay   (automation A1)
- *       HARVEST  → compound rewards: when rewards ≥ X, prepare claim (automation A2)
- *
- * MoneyFlows are AutomationRules (POST /api/rules). The AutomationEngine evaluates
- * them every 60s, PREPARES the action and pushes the user to review + sign. Astryum
- * never signs, never executes (CLAUDE.md §0 / invariants #1, #7).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -110,7 +99,7 @@ import { useOperationStore } from '../../stores/operationStore';
 
 const API_BASE = getApiBase();
 
-/** Founder 2026-07-31 (interino, hasta el asistente único de salida): la card
+/** Founder (interino, hasta el asistente único de salida): la card
  *  enseña UNA sola puerta para deshacer — «Close the position, step by step».
  *  Los botones sueltos (Repay now / Withdraw / Convert to XRP) quedan
  *  construidos pero dormidos tras este flag: los deep-links y los kinds del
@@ -332,7 +321,7 @@ function flattenPositions(data: unknown, owner: string): DefiPosition[] {
 async function fetchEthMorphoRows(
   addrs: string[],
 ): Promise<{ rows: DefiPosition[]; unreadable: UnreadableAddr[]; vaultLegUnread: boolean }> {
-  // Revisión 14-sep: el lector compartido sólo devuelve QUÉ direcciones no se
+  // Revisión: el lector compartido sólo devuelve QUÉ direcciones no se
   // pudieron leer; el PORQUÉ (451 región ≠ 502 «un momento») se captura aquí,
   // envolviendo su fetch, sin tocar el lector.
   const failures = new Map<string, number | null>();
@@ -420,8 +409,7 @@ function kineticLegsFor(all: DefiPosition[], owner: string): PaLegs {
     if (raw?.iso !== true) continue;
     // El símbolo ERC-20 real de USDT0 lleva ₮ (U+20AE): "USD₮0" — sin la
     // Sin canonicalizar el ₮, el includes('USDT') jamás casaba, la pierna de
-    // deuda no entraba en legs y los botones Repay/Unwind desaparecían
-    // (incidente 2026-07-26; tercera víctima del mismo carácter).
+    // deuda no entraba en legs y los botones Repay/Unwind desaparecían.
     const sym = canonicalizeSymbol(String(raw?.symbol ?? p.asset));
     const isUsdt = sym.includes('USDT');
     if (['SUPPLY', 'COLLATERAL', 'LEND'].includes(p.kindUpper)) {
@@ -459,12 +447,12 @@ function describeRuleText(r: AutomationRule, t: (s: string) => string): string {
   return describeRule(r.trigger as Record<string, unknown>, r.action as Record<string, unknown>, t);
 }
 
-/* Template catalogue → ../moneyflows/templateCatalog.tsx (2026-07-25): the ONE
+/* Template catalogue → ../moneyflows/templateCatalog.tsx: the ONE
    source of the PROTECT/HARVEST payloads, shared with the embedded entry card
    (ProtectRuleCard) so no creation path drifts from another. */
 
 /* ------------------------------------------------------------------ */
-/* NET APY de la posición — la métrica que faltaba (founder 2026-07-25):
+/* NET APY de la posición — la métrica que faltaba:
    rendimiento del supply (base on-chain + recompensas WFLR) MENOS el coste
    del borrow, sobre el equity. Fuente ÚNICA y citada: el `economics` de
    /flare-demo/iso-legs (calculado server-side con las mismas fuentes que
@@ -606,8 +594,7 @@ function MoneyFlowTemplateModal({
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
-          {/* PROTECT = the ONE shared card (founder 2026-07-25: la tarjeta
-              manual en todos los modales) — simple + escalonado + chips viven
+          {/* PROTECT = the ONE shared card — simple + escalonado + chips viven
               allí; este modal solo pone el marco. HARVEST sigue genérico. */}
           {template === 'PROTECT' ? (
             <>
@@ -742,7 +729,7 @@ function MoneyFlowTemplateModal({
 /* ------------------------------------------------------------------ */
 
 /**
- * G4-residuos (auditoria 2026-08-17 §G4) — the «watching» that watches nothing.
+ * G4-residuos (auditoria §G4) — the «watching» that watches nothing.
  *
  * WHAT WAS FAILING IN SILENCE HERE: this board was the ONLY consumer of
  * GET /rules/:id/runs — and it threw away the two things that matter. It kept
@@ -752,27 +739,6 @@ function MoneyFlowTemplateModal({
  * a run whose `status` is `error` looked exactly like a healthy one: the pill
  * stayed green on `r.enabled` alone, and the status only appeared as a raw
  * machine word in parentheses at the end of a grey line.
- *
- * And the read itself failed SILENTLY: a non-2xx `continue`d and a throw hit
- * `/* history is best-effort *\/`, leaving NO entry — which the row printed as
- * «No triggers yet», a fact we had never established. «I could not read it» is
- * not «it never fired», and neither of them is «it is fine».
- *
- * Same reducer and same sentences as MoneyFlowsPanel and LegacyActivityFeed —
- * the surfaces must never disagree about the same rule. G4-strategies (round
- * 2): that reducer no longer lives here as a third literal copy — it is
- * lib/rules/runHealth.ts, imported above.
- *
- * REUSE (auditoría 2026-08-18): nor does the READ. This was the only one of the
- * six surfaces still calling GET /rules/:id/runs by hand, with its own headers
- * and its own wording for a failed read, on the excuse that it also needs
- * `count` / `lastAt` / `lastStatus` for the history line. The shared module
- * learned those three facts (`loadRunReadings`) and this surface now asks it,
- * through the same `rulesApi.runs` the other five use — which also means a 401
- * here finally behaves like a 401 everywhere else (v1Api handles it) instead of
- * being reported to the family as «could not read this rule's run history».
- *
- * Read on mount AND on refresh: see `runsRevision` below.
  */
 
 /**
@@ -780,7 +746,7 @@ function MoneyFlowTemplateModal({
  * different facts, where there used to be two: «N triggers · last …» (whatever
  * the status was) and «No triggers yet» (including when the read had failed).
  *
- * G4-pildoras (round 3) — `enabled` arrived because this line never looked at
+ * G4-pildoras — `enabled` arrived because this line never looked at
  * it: a PAUSED rule with an old failed run claimed «this rule is armed» next to
  * its Resume button. The failure still shows (it happened); the tense follows
  * the rule's actual state.
@@ -863,7 +829,7 @@ function StrategyPanel({
 }) {
   const { t } = useT();
   const [picking, setPicking] = useState<TemplateKind | null>(autoTemplate);
-  // In-place edit (founder 2026-07-25) — same modal as the MoneyFlows panel.
+  // In-place edit — same modal as the MoneyFlows panel.
   const [editRule, setEditRule] = useState<AutomationRule | null>(null);
   // Hub deep-link may arrive after mount (card already expanded) — follow the edge.
   useEffect(() => {
@@ -881,7 +847,7 @@ function StrategyPanel({
   useEffect(() => {
     let alive = true;
     (async () => {
-      // REUSE (auditoría 2026-08-18) — the shared loader, same as the other five
+      // REUSE (auditorí) — the shared loader, same as the other five
       // surfaces. It fans the reads out in parallel (this loop used to await
       // them one by one) and, crucially, gives EVERY id an entry including the
       // ones whose read failed: an absent entry is indistinguishable from
@@ -955,7 +921,7 @@ function StrategyPanel({
             // G4-residuos — an enabled automation whose LAST fire errored is not
             // «active»: it is armed and preparing nothing. The green pill on
             // `r.enabled` alone was the reassurance that hid it.
-            // G4-pildoras (round 3) — nor is one whose runs we have NOT READ:
+            // G4-pildoras — nor is one whose runs we have NOT READ:
             // `state === 'failed'` alone left `unread` and `unreadable` in the
             // green arm, so the first paint claimed «active» before a single
             // run was read and a broken /runs returned a FAILING rule to green.
@@ -1068,7 +1034,7 @@ function CompleteBorrowModal({
   onChanged: () => void;
 }) {
   const { t } = useT();
-  // Nombre canónico de la dueña para la cabecera (2026-08-22).
+  // Nombre canónico de la dueña para la cabecera.
   const { wallets: borrowWallets } = useMyWallets();
   const walletNameOf = useMemo(() => walletNameResolver(borrowWallets, t), [borrowWallets, t]);
   const evm = useWalletPartner();
@@ -1143,7 +1109,7 @@ function CompleteBorrowModal({
         <div className="shrink-0 flex items-start justify-between px-6 py-5 border-b border-ink/5">
           <div>
             <h2 className="text-base font-semibold text-ink">{t('Complete the borrow')}</h2>
-            {/* Nombre primero, dirección como dato (2026-08-22: el código
+            {/* Nombre primero, dirección como dato (el código
                 nunca es el nombre). */}
             <p className="text-xs text-ink/40 mt-0.5">
               {walletNameOf(owner)}{' '}
@@ -1325,7 +1291,7 @@ function firelightClaimFor(p: DefiPosition): FirelightClaimRef | null {
 }
 
 /**
- * The Claim of a queued Firelight exit — the founder's ask (2026-07-14): the
+ * The Claim of a queued Firelight exit — the ask: the
  * SAME position keeps showing the money in flight, and one click releases it
  * once the ~24h withdrawal period ends. Opens the dual-rail VaultClaimModal so
  * an exit queued from the Personal Account (0xFE, signed in Xaman) claims just
@@ -1396,8 +1362,7 @@ function PositionCard({
   onChanged,
 }: {
   position: DefiPosition;
-  /** La OTRA pata de la misma estrategia (fundador 2026-08-24: «lend y borrow
-   *  vienen de la misma estrategia, tienen que ser la misma card» — dos
+  /** La OTRA pata de la misma estrategia (dos
    *  tarjetas para un carry hacían elegir a ciegas cuál cerrar). Con ella, la
    *  tarjeta pinta las dos piernas y UNA sola puerta de cierre. */
   pair?: DefiPosition;
@@ -1420,7 +1385,7 @@ function PositionCard({
   /** Hub deep-link: open this action's modal as soon as the card mounts. */
   initialAction?: 'withdraw' | 'harvest' | 'repay' | null;
   /** When false, the embedded MoneyFlows panel is hidden — automations live in
-   *  the separate Strategy apartado (My strategies split, founder 2026-07-20). */
+   *  the separate Strategy apartado (My strategies split, founder). */
   showStrategyPanel?: boolean;
   /** G4-strategies — bumped on every completed rules read; see StrategyPanel. */
   runsRevision?: number;
@@ -1438,7 +1403,7 @@ function PositionCard({
   const claimRef = firelightClaimFor(position);
   const ftsoRef = ftsoRefFor(position);
   // Which PA action modal is open (re-supply / withdraw / repay / derisk).
-  // La operación vive en el HOST GLOBAL (operationStore, 2026-08-26):
+  // La operación vive en el HOST GLOBAL (operationStore):
   // navegar con ella anclada ya no la mata. `setPaAction` conserva su firma
   // — las diez puertas de la tarjeta no se tocan — pero ahora ESCRIBE la
   // intención al store en vez de montar un modal local. Sin piernas aún
@@ -1522,7 +1487,7 @@ function PositionCard({
               an FXRP position must LOOK like FXRP, not like a stack of layers.
               `assetDisplay` falls back to a shortened address when a receipt
               token has no symbol; there is nothing to badge in that case. */}
-          {/* LA FICHA LLEVA EL COLOR DE SU TIPO (2026-08-24). Antes todas las
+          {/* LA FICHA LLEVA EL COLOR DE SU TIPO. Antes todas las
               posiciones vestían el mismo cuadrado gris con el mismo icono, así
               que una lista de seis era una pared: había que LEER cada fila para
               saber cuál era colateral y cuál deuda. El color no va solo — la
@@ -1552,7 +1517,7 @@ function PositionCard({
             </div>
             {pair ? (
               // Las dos piernas, cada una con su palabra y su cantidad — una
-              // estrategia, una tarjeta, una puerta (fundador 2026-08-24).
+              // estrategia, una tarjeta, una puerta.
               <div className="text-xs text-ink/45 mt-0.5 flex items-center gap-x-2 flex-wrap">
                 <span>{position.protocolId}</span>
                 <span className="text-tone-success/80">
@@ -1595,13 +1560,12 @@ function PositionCard({
         </div>
       </button>
 
-      {/* Acciones rápidas SIEMPRE visibles en Kinetic (founder 2026-07-26):
-          la salida no puede vivir escondida tras el expand. Founder 2026-07-31:
-          UNA sola puerta — el cierre guiado. Ya no exige deuda: sin deuda los
+      {/* Acciones rápidas SIEMPRE visibles en Kinetic:
+          la salida no puede vivir escondida tras el expand. Ya no exige deuda: sin deuda los
           pasos 1-2 se saltan y el paso 3 es la retirada con su destino. */}
       {legs && !expanded && (
         <div className="mt-3 flex gap-1.5 flex-wrap">
-          {/* The color IS the arrow (founder 2026-07-30) — same scheme as the
+          {/* The color IS the arrow — same scheme as the
               expanded "Position actions" row: staying on Flare reads ROSE,
               going back to XRP reads BLUE, repay wears volt (urgency, not a
               direction). */}
@@ -1629,11 +1593,10 @@ function PositionCard({
               {t('Convert to XRP')}
             </button>
           )}
-          {/* Las dos puertas quirúrgicas del carry (fundador 2026-08-24,
-              segunda pasada): pagar SOLO el préstamo, o retirar colateral si
+          {/* Las dos puertas quirúrgicas del carry: pagar SOLO el préstamo, o retirar colateral si
               el precio sube — sin desmontar la estrategia entera. Solo en la
               tarjeta fusionada: en una pierna suelta la puerta única basta.
-              El color es la flecha (2026-07-30): repay viste volt (urgencia),
+              El color es la flecha: repay viste volt (urgencia),
               retirar viste rosa (se queda en Flare). */}
           {pair && hasDebt && (
             <button
@@ -1653,7 +1616,7 @@ function PositionCard({
               {t('Withdraw collateral')}
             </button>
           )}
-          {/* El interrogante del novato (fundador 2026-08-24): una frase que
+          {/* El interrogante del novato: una frase que
               quita el miedo a «¿cuál cierro primero?» — el paso a paso ya
               ordena las piernas solo. */}
           {pair && (
@@ -1780,12 +1743,9 @@ function PositionCard({
                         {t('Deposit the borrowed dollars again')}
                       </button>
                     )}
-                    {/* The color IS the arrow (founder 2026-07-30): staying on
+                    {/* The color IS the arrow: staying on
                         Flare reads ROSE, going back to XRP reads BLUE — the
-                        direction is understood before the label is read.
-                        Founder 2026-07-31: los botones sueltos de salida
-                        duermen tras SHOW_SPLIT_EXIT_ACTIONS — la única puerta
-                        visible es el cierre guiado. */}
+                        direction is understood before the label is read. */}
                     {SHOW_SPLIT_EXIT_ACTIONS && (
                       <button
                         onClick={() => setPaAction('withdraw')}
@@ -1893,8 +1853,7 @@ function PositionCard({
       )}
 
       {/* El modal de acciones PA vive a nivel de Card (no dentro de expanded):
-          la tira de acciones rápidas de la card COLAPSADA también lo abre
-          (founder 2026-07-26 — repagar/retirar sin expandir). */}
+          la tira de acciones rápidas de la card COLAPSADA también lo abre. */}
       {/* PaActionsModal vive en EarnOperationHost (AppShell) — montarlo aquí
           también sería una segunda copia que muere al navegar. */}
 
@@ -1937,7 +1896,7 @@ export default function DefiPositionsBoard({
   scopeAddresses,
 }: {
   autoAction?: BoardAutoAction | null;
-  /** ACOTAR el barrido a estas direcciones (Portfolio 2026-09-07: con un
+  /** ACOTAR el barrido a estas direcciones (Portfolio: con un
    *  filtro de wallet activo, el tablero seguía escaneando TODA la flota y el
    *  total quedaba mal etiquetado bajo «Wallet: X»). undefined = toda la
    *  flota, como siempre. Se acota el ESCANEO, no el render: un cero aquí es
@@ -1979,7 +1938,7 @@ export default function DefiPositionsBoard({
   /** Direcciones cuya lectura de posiciones de FLARE falló, con su código. */
   const [flareUnreadable, setFlareUnreadable] = useState<UnreadableAddr[]>([]);
   /**
-   * Ola 0 (15-sep) — protocolos que contestaron DENTRO de un HTTP 200 con un
+   * Protocolos que contestaron DENTRO de un HTTP 200 con un
    * `error` (adapter caído) o con `unreadable[]` (mercados/periodos sin leer).
    * Antes `flattenPositions` solo leía `positions` y esto no existía: un 429
    * en una sonda de Kinetic dejaba el carry —y su «Repay»— fuera del tablero
@@ -2133,10 +2092,10 @@ export default function DefiPositionsBoard({
         addrs.map((addr) => positionsApi.byWallet(addr)),
       ).then(async (results) => {
         // Una dirección que FALLA no es una dirección sin posiciones: se cuenta
-        // con su código y el tablero lo dice (revisión 14-sep). Antes se
+        // con su código y el tablero lo dice (revisión). Antes se
         // tragaba y un tablero vacío se leía como «no tengo nada».
         //
-        // Ola 0 (15-sep) — y un bloque que llega en un HTTP 200 con `error`
+        // Y un bloque que llega en un HTTP 200 con `error`
         // o `unreadable[]` tampoco es «sin posiciones»: `reduceFlareScan`
         // (lib/positionsReadState) reparte filas, fallos HTTP y bloques
         // ilegibles; los tres se pintan.
@@ -2231,7 +2190,7 @@ export default function DefiPositionsBoard({
         ) : (
           <PageHeader eyebrow="Positions" title={t('Open DeFi positions')} subtitle={subtitle} />
         )}
-        {/* Finished-page empty state (founder 2026-08-22): the beacon scene
+        {/* Finished-page empty state: the beacon scene
             and a real door, not a bare grey box. */}
         <SceneDoor
           scene={<SignalBeacon width={190} height={160} />}
@@ -2296,7 +2255,7 @@ export default function DefiPositionsBoard({
 
       {/* Una posición que no se pudo leer NO se calla: sin este aviso el
           tablero se pinta vacío y se lee como «no tengo nada» — y con la fila
-          desaparece también su puerta de repago. Revisión 14-sep: con su razón
+          desaparece también su puerta de repago. Revisión: con su razón
           REAL (un 451 de región no es «reintenta en un momento») y con las
           puertas de salida a mano, que no necesitan la fila. */}
       {!loading && emUnreadable.length > 0 && (
@@ -2368,7 +2327,7 @@ export default function DefiPositionsBoard({
         </Card>
       )}
 
-      {/* Ola 0 (15-sep) — un protocolo que el backend no pudo leer (entero,
+      {/* Un protocolo que el backend no pudo leer (entero,
           o un mercado/periodo suyo) dentro de un HTTP 200. Misma tarjeta
           ámbar: «no lo sé», nunca «no tienes nada». Las filas que SÍ se
           leyeron están abajo; las que faltan se nombran aquí. */}
@@ -2427,9 +2386,7 @@ export default function DefiPositionsBoard({
       {positions.length > 0 && (
         <div className="space-y-4">
           {(() => {
-            /** UNA estrategia = UNA tarjeta (fundador 2026-08-24: el lend y el
-             *  borrow del mismo carry en tarjetas separadas hacían elegir a
-             *  ciegas cuál cerrar). Se emparejan SOLO los pares que sabemos
+            /** UNA estrategia = UNA tarjeta. Se emparejan SOLO los pares que sabemos
              *  hermanos: las piernas ISO de Kinetic del mismo dueño, y el
              *  colateral+deuda de morpho-blue (Ethereum) del mismo dueño. La
              *  pierna lend-only de Ethereum es su propio producto y no se toca.
@@ -2480,7 +2437,7 @@ export default function DefiPositionsBoard({
             }
             return entries;
           })().map(({ primary: p, pairLeg }, cardIdx) => (
-            /* Las tarjetas LLEGAN escalonadas con el dato (Arrive, 2026-08-25)
+            /* Las tarjetas LLEGAN escalonadas con el dato (Arrive)
                — antes el tablero entero se enchufaba de golpe en una página ya
                visible, que era el pop que el fundador señaló. */
             <Arrive key={`${p.owner}:${p.positionId}`} index={cardIdx}>

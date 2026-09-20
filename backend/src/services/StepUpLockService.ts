@@ -76,11 +76,11 @@ export async function getConfig(userId: string): Promise<LockConfig> {
 }
 
 /**
- * `session` is MANDATORY (productizer it. 18, 3.2). The matrix decides which of
+ * `session` is MANDATORY (3.2). The matrix decides which of
  * the user's features demand a fresh wallet signature: a request already in
  * flight when the account is taken over would otherwise plant the PREVIOUS
  * holder's matrix on the owner — disarming the locks they had, or arming
- * `wallet_security:write` so they cannot put them back (it. 16, 4.1).
+ * `wallet_security:write` so they cannot put them back (4.1).
  *
  * It used to be optional with an unguarded `prisma.stepUpLockConfig.upsert`
  * fallback. Optional is not a guard — see AgentKeyService.saveUserAPIKey for the

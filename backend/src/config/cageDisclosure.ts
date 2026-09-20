@@ -1,34 +1,6 @@
 /**
  * cageDisclosure — the text a person must read and accept before any capital
  * enters a Legacy cage, and the hash that proves which text they saw.
- *
- * WHY THE SERVER OWNS THE TEXT (founder, 2026-08-06). The acknowledgement only
- * means something if we can say, later, exactly WHAT was on screen when the
- * quorum signed. If the frontend owned the wording and merely posted "accepted",
- * the record would prove nothing: the client could claim any version, and the
- * text could drift from the audit entry without anyone noticing. So the document
- * lives here, the server hashes its own copy, and the ack stores that hash. The
- * client renders it and translates it (the English strings are the i18n keys, as
- * everywhere else) but never authors it.
- *
- * VERSIONING. Change a single character below and the hash changes; bump
- * CAGE_DISCLOSURE_VERSION in the same edit and every user is asked to read and
- * accept again. An unbumped edit is a bug — `assertVersionBumped` is what the
- * test asserts against, so a silent reword cannot ship.
- *
- * WHAT THE TEXT MUST NOT DO. No numbers that live in env vars (the beta cap) and
- * no numbers that live on-chain (the fees of a specific mint): those go stale and
- * a disclosure contradicted by the screen next to it is worse than none. Only the
- * contract's IMMUTABLE facts are stated as facts here — the 10%/40% lineage
- * bounds, the 10% protocol-fee cap, the two 30-day delays — because `constant`
- * in LegacyVault.sol is the one thing that cannot drift. Everything variable is
- * rendered beside the document from live reads.
- *
- * Truthfulness is load-bearing (invariant #12, the repo is a due-diligence
- * document): every claim below is checkable in contracts/src/LegacyVault.sol.
- * "Principal never leaves" is deliberately NOT claimed — migrate() moves it to a
- * successor vessel after 30 days, and a disclosure a user can catch being wrong
- * protects nobody.
  */
 
 import { createHash } from 'crypto';

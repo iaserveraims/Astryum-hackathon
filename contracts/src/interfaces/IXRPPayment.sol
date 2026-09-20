@@ -3,7 +3,7 @@ pragma solidity >=0.7.6 <0.9;
 
 // VENDORED verbatim from the flare-periphery-contracts npm package (scope
 // "flarenetwork"), where the coston2/ and flare/ copies are byte-identical
-// (diffed 2026-07-16). Vendored so contracts/ builds self-contained, without a
+// (diffed). Vendored so contracts/ builds self-contained, without a
 // remapping into node_modules.
 
 /**

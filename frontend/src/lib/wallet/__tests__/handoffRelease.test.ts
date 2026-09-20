@@ -11,7 +11,7 @@ import {
 import { __resetLiveRequests, listLiveNotices } from '../../xaman/liveRequests';
 
 /**
- * productizer it.13 (R5 1.2) — `postHandoff` swallowed every answer. A session
+ * `postHandoff` swallowed every answer. A session
  * that prepared a 0xFE without a signed binding got 403 NOT_THE_HANDOFF_OWNER on
  * release, nothing said so, and the seat stayed taken for its TTL behind a
  * «released on cancel» sentence. Now the result is typed and a refusal reaches
@@ -49,12 +49,12 @@ describe('postHandoff — a typed answer, never swallowed', () => {
   it('403 NOT_THE_HANDOFF_OWNER is a refusal with the server words', async () => {
     const f = respond(403, { error: 'NOT_THE_HANDOFF_OWNER', detail: 'prove the account' });
     const r = await postHandoff('release', { memoHex: MEMO }, f as unknown as typeof fetch);
-    // it. 19: el rechazo lleva además el cuerpo crudo y el `code`, para que la
+    // El rechazo lleva además el cuerpo crudo y el `code`, para que la
     // espera (`WAIT_FOR_PAYLOAD_EXPIRY` + `secondsLeft`) llegue a la pantalla en
     // vez de degradarse a una constante del cliente. Lo de siempre sigue igual.
     expect(r).toMatchObject({ kind: 'refused', status: 403, error: 'NOT_THE_HANDOFF_OWNER', detail: 'prove the account' });
     expect(r.kind === 'refused' && r.secondsLeft).toBeUndefined();
-    // it. 23 (it. 22 §3.7): el CÓDIGO CRUDO ya no encabeza la frase. Lo que se
+    // El CÓDIGO CRUDO ya no encabeza la frase. Lo que se
     // pinta es la prosa del servidor; el código queda en el resultado.
     expect(releaseRefusalDetail(r)).toBe('prove the account');
   });
@@ -95,10 +95,10 @@ describe('releaseHandoffSeat — a refusal reaches the banner', () => {
   });
 
   /**
-   * it. 25 (it. 23 §3.1, LA MITAD QUE FALTÓ) — UNA PETICIÓN QUE NO LLEGÓ MIDIÓ
+   * UNA PETICIÓN QUE NO LLEGÓ MIDIÓ
    * AÚN MENOS QUE UN 503.
    *
-   * La it. 23 dejó sin ventana al 503 «no pude leer el asiento» y paró ahí: el
+   * La dejó sin ventana al 503 «no pude leer el asiento» y paró ahí: el
    * `unreachable` — offline, abortada, CORS, un proxy que la tiró — seguía
    * cayendo en la otra rama y empujaba la constante de cinco minutos del
    * cliente. Cinco minutos después el banner anunciaba «su ventana de firma ha
@@ -106,7 +106,7 @@ describe('releaseHandoffSeat — a refusal reaches the banner', () => {
    * para no inventar, inventado desde la prueba más fuerte de que no sabemos
    * nada — que la pregunta ni salió.
    */
-  it('it. 25 — un release que no llegó al servidor NO inventa la ventana de 5 minutos', async () => {
+  it('Un release que no llegó al servidor NO inventa la ventana de 5 minutos', async () => {
     await releaseHandoffSeatResult(MEMO, vi.fn(async () => { throw new TypeError('Failed to fetch'); }) as unknown as typeof fetch);
     const [notice] = listLiveNotices();
     // Lo que dice: no pude comprobar, nada cambió, vuelve a preguntar.
@@ -121,7 +121,7 @@ describe('releaseHandoffSeat — a refusal reaches the banner', () => {
     expect(notice?.memoHex).toBe(MEMO);
   });
 
-  it('it. 25 — la respuesta que SÍ mide una ventana sigue trayendo su cuenta atrás', async () => {
+  it('La respuesta que SÍ mide una ventana sigue trayendo su cuenta atrás', async () => {
     // El arreglo no puede llevarse por delante al 409 que de verdad mide: ahí
     // hay un número del servidor y esperar es un camino de verdad.
     const f = respond(409, { error: 'WAIT_FOR_PAYLOAD_EXPIRY', detail: 'still signable', secondsLeft: 92 });

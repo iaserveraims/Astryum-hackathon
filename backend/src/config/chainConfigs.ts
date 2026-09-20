@@ -29,7 +29,7 @@ export const FLARE_MAINNET: ChainConfig = {
   // ones every runbook tells you to change; FLARE_RPC_HTTP / FLARE_RPC_WS were
   // read here and set nowhere, so this provider silently ignored the configured
   // node and always hit the public gateway — the endpoint that rate-limited us
-  // (429) on 2026-08-17. Honour both, dedicated node first.
+  // (429). Honour both, dedicated node first.
   rpcHttp:
     process.env.FLARE_RPC_HTTP ||
     process.env.FLARE_RPC_URL ||

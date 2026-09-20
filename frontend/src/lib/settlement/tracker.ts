@@ -31,13 +31,13 @@ export interface TrackerDeps {
   /** wallet_getCallsStatus for a 5792 bundle id — throws when the wallet does not expose it (§1.2). */
   getCallsStatus(id: string): Promise<CallsStatusLike>;
   /** EVM receipt by tx hash — null while not yet mined / node unreachable.
-   *  it. 34: WITH its `logs` — a Compound `Failure` inside a status-1 receipt is
+   * WITH its `logs` — a Compound `Failure` inside a status-1 receipt is
    *  a transaction mined without effect (see `receiptVerdict`). */
   getTxReceipt(hash: string, chainId?: number): Promise<ReceiptLike | null>;
   /** GET /flare-demo/mint-status — executed flag, or null when the read failed (red caída ≠ pendiente). */
   getMintStatus(xrplHash: string): Promise<boolean | null>;
   /**
-   * Plain XRPL Payment. NOT a boolean any more (incidente 22-ago-2026): «está
+   * Plain XRPL Payment. NOT a boolean any more: «está
    * validada» y «ha funcionado» son cosas distintas —un `tec*` está validado,
    * cobró fee y NO hizo el pago— y «no la encuentro» y «no he podido leer» son
    * opuestas por dentro aunque se parezcan en pantalla.
@@ -63,7 +63,7 @@ export const POLL_MS: Record<SettlementRail, number> = {
 export const UNSUPPORTED_5792_PROBES = 3;
 
 /**
- * it. 34 — THE VERDICT OF ONE EVM RECEIPT. `status: 1` used to be the whole
+ * THE VERDICT OF ONE EVM RECEIPT. `status: 1` used to be the whole
  * test, and Kinetic (Compound v2) mines a refused redeem with status 1: it
  * returns a code, emits `Failure(error, info, detail)`, charges gas and moves
  * nothing. The receipt of «Convert to XRP» / «Withdraw» over an oversized
@@ -83,7 +83,7 @@ export function receiptVerdict(receipt: ReceiptLike): { settled: true } | { sett
  * synchronously, then every CHANGE (deduped). Returns a cancel function.
  * A handle that arrives already FAILED is emitted as-is and never polled.
  *
- * it. 34 — a handle that arrives already SETTLED on the `evm` rail is NOT
+ * A handle that arrives already SETTLED on the `evm` rail is NOT
  * emitted as-is any more. The single/sequential rails of sendIntentCalls settle
  * it on `receipt.status === 'success'` alone, and that is exactly the receipt a
  * Kinetic code produces (mined, no effect). So it re-enters as pending and the
@@ -164,7 +164,7 @@ export function trackSettlement(
       } else if (initial.rail === 'evm') {
         const receipt = await deps.getTxReceipt(initial.ref, initial.chainId).catch(() => null);
         if (receipt) {
-          // it. 34 — the receipt's verdict, logs included (receiptVerdict).
+          // The receipt's verdict, logs included (receiptVerdict).
           const v = receiptVerdict(receipt);
           if (v.settled) return finish(toSettled(current));
           return finish(toFailed(current, v.reason));

@@ -1,7 +1,5 @@
 /**
- * El autopilot ACEPTA el KYC que la raíz ya emitió (fundador 14-sep: «darle la
- * credencial KYC cuando se crea la cuenta el user… el exchange siempre en
- * autopilot»). La raíz firma UNA vez en Xaman; la caja acepta sola.
+ * El autopilot ACEPTA el KYC que la raíz ya emitió. La raíz firma UNA vez en Xaman; la caja acepta sola.
  *
  * Lo que se fija:
  *  - con `KYC-<tag>` EMITIDA por la raíz y sin aceptar: la llave del omnibus
@@ -59,7 +57,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   spentToday: (...a: unknown[]) => mockSpentToday(...(a as [])),
   sweepStaleReservations: async () => [],
   recordSpend: async () => undefined,
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -74,7 +72,7 @@ jest.mock('../../XrplCredentialVerifier', () => ({
 jest.mock('../DemoRunVerifier', () => ({ flareProvider: () => ({}) }));
 jest.mock('../../ops/agentHeartbeats', () => ({ markAgentTick: () => undefined }));
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
 
 import { DemoExchangeAutopilot } from '../DemoExchangeAutopilot';
@@ -182,10 +180,10 @@ describe('el autopilot acepta el KYC de la casilla que la raíz emitió', () => 
   });
 
   /**
-   * it. 25 (B.3) — EL RADIO DE LA OPERATIVA PROPIA CUANDO EL TOPE ES ILEGIBLE.
+   * EL RADIO DE LA OPERATIVA PROPIA CUANDO EL TOPE ES ILEGIBLE.
    * Aceptar cuesta reserva del ledger y es un acto de NUESTRA caja. Sin poder
    * leer el libro del día no hay ninguna cota sobre lo que esta llave gasta —ni
-   * de importe ni de número de firmas—, así que no gasta, y se avisa por el
+   * de importe ni de número de firmas, así que no gasta, y se avisa por el
    * canal de ops (el recibo viviría en la misma base que acaba de fallar).
    * Ninguna salida de cliente pasa por aquí ni se detiene por esto.
    */

@@ -82,8 +82,7 @@ export class NormalisationEngine {
           : null;
     if (metaSymbol) {
       // "USD₮0" (₮ U+20AE) — sin canonicalizar, el mapeo de abajo jamás casaba
-      // → precio 0 → la deuda valía $0 en todos los paneles (incidente
-      // 2026-07-25). La canonicalización vive en UN sitio: utils/canonicalizeSymbol.
+      // → precio 0 → la deuda valía $0 en todos los paneles. La canonicalización vive en UN sitio: utils/canonicalizeSymbol.
       const upper = canonicalizeSymbol(metaSymbol);
       if (upper === 'WFLR') return 'FLR';
       if (upper === 'STXRP') return 'XRP';

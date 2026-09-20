@@ -114,7 +114,7 @@ export class FlareProvider extends EventEmitter {
     // wallets del usuario compartiendo este proveedor, un lote de 100 contra el
     // RPC público volvía de golpe a los ~8 s y cada adaptador «tardaba» eso —
     // los registros los mostraban terminando al mismo milisegundo. 50 es el
-    // tamaño que OnChainBalanceProvider ya usa con ese mismo RPC (14-sep).
+    // tamaño que OnChainBalanceProvider ya usa con ese mismo RPC.
     this.httpProvider = new JsonRpcProvider(
       this.config.rpcHttp,
       network,
@@ -359,7 +359,7 @@ export class FlareProvider extends EventEmitter {
    * BROADCAST_FORBIDDEN — Astryum never broadcasts.
    *
    * The previous `sendTransaction(signedTx)` method was removed in the
-   * 2026-06-01 regulatory audit (Cat 1.1). The wallet partner (MetaMask /
+   * regulatory audit (Cat 1.1). The wallet partner (MetaMask /
    * WalletConnect / Bifrost / etc.) transmits the user-signed transaction;
    * Astryum only prepares unsigned calldata. See:
    *   - docs §"Principios de ejecución — líneas rojas" (Astryum_Context_v2.md)

@@ -1,6 +1,5 @@
 /**
- * Waitlist noise blocklist (founder 2026-07-23 — the panel was flooded with
- * bot signups against the public POST). Two things under test:
+ * Waitlist noise blocklist. Two things under test:
  *
  *   1. `isNoiseEmail` — the pure predicate, exercised directly against the
  *      RFC 2606/6761 reserved domains + the disposable-domain list.

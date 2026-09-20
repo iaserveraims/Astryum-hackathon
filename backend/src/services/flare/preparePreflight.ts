@@ -3,22 +3,6 @@
  * for the flare-demo /prepare endpoints. Every prepare that hands the user
  * something to sign attaches a `preflight` verdict so the UI can say, BEFORE
  * the wallet opens, whether the dry-run expects the operation to execute.
- *
- * Posture (same as the council preflight, XrplMultisigCoordinator):
- *   - the preflight NEVER blocks or fails a prepare — any simulator problem
- *     degrades to `available: false`, the response is otherwise identical;
- *   - `willSucceed: false` is only ever a PROVEN verdict (a revert / Compound
- *     error code / XRPL engine result observed in a dry-run), never a guess.
- *
- * EVM reality check: the public Flare RPC has no `eth_simulateV1` (verified
- * 2026-07-25), so calls of one batch CANNOT be simulated with chained state.
- * A step that needs state an EARLIER step of the same batch creates (approve →
- * mint, enterMarkets → borrow) would revert against today's state — a FALSE
- * negative. Those steps are marked `dependsOnPrior` by the route (which knows
- * the batch shape) and reported honestly as 'unverified', never as failures.
- *
- * Everything here is READ-ONLY (eth_call / XRPL `simulate`): Astryum keeps
- * signing nothing and broadcasting nothing.
  */
 
 import { ethers } from 'ethers';

@@ -1,19 +1,12 @@
 'use client';
 
 /**
- * StrategySection — the "Strategy · MoneyFlows" apartado (founder 2026-07-20).
+ * StrategySection — the "Strategy · MoneyFlows" apartado.
  *
  * Peer of the Positions apartado in My strategies: where MoneyFlows are
  * COMPOSED and managed as cards. A MoneyFlow is an AutomationRule — it watches
  * without discretion and, when it fires, PREPARES the exact on-chain action for
- * YOU to sign (Astryum never signs — CLAUDE.md §0 / invariants #1, #7).
- *
- * The artifact is a card grid, same language as the position tiles:
- *   - Online  → the ACTIVE MoneyFlows (enabled rules).
- *   - Offline → the SAVED ones (paused rules + agent/manual drafts).
- *   - A first "＋" card opens the builder modal (Manual or with the AI agent).
- *
- * Savings/escrow rules are excluded here — they live in the savings surface.
+ * YOU to sign (Astryum never signs — / invariants #1, #7).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -67,7 +60,7 @@ function summarize(r: AutomationRule, t: (s: string) => string): string {
 }
 
 /**
- * G4-strategies (auditoria 2026-08-17 [G4]) — la superficie que faltaba.
+ * G4-strategies (auditoria [G4]) — la superficie que faltaba.
  *
  * WHAT WAS FAILING IN SILENCE HERE: this apartado IS the automations surface of
  * /app/strategies. The position board is mounted on that page with
@@ -75,19 +68,6 @@ function summarize(r: AutomationRule, t: (s: string) => string): string {
  * made honest never renders there — these cards are what the user reads. And
  * they decided a rule's state from `r.enabled` alone:
  * `<Pill tone={r.enabled ? 'success' : 'neutral'}>`.
- *
- * A PROTECT / HARVEST / councilOrder rule that errors on EVERY fire keeps
- * `enabled: true`, sends no push and never increments `totalTimesTriggered`
- * (the «exito no ganado» guard in AutomationEngine stores the run with
- * `status: 'error'` and the reason in `notes`, and stops). So it rendered here
- * as a green «active» card, indistinguishable from one that works: the page
- * dedicated to automations was the one lying hardest.
- *
- * Fixed with the SAME reducer and the SAME sentences as MoneyFlowsPanel,
- * LegacyActivityFeed and DefiPositionsBoard — lib/rules/runHealth.ts. One read
- * per rule per mount/refresh, never a poll: run history only changes on an
- * engine tick and a broken rule stays broken until someone repairs it. If the
- * read itself fails we SAY so; «I could not read it» is never «it works».
  */
 
 /** The rules this section RENDERS, in one place: refresh reads the run history
@@ -101,7 +81,7 @@ function visibleFlows(all: AutomationRule[], mode: 'online' | 'offline'): Automa
  * `unreadable`, silent otherwise — a healthy rule already speaks through its
  * card. Same wording (and the same i18n keys) as every other surface.
  *
- * G4-pildoras (round 3) — `enabled` arrived because this note was rendered
+ * G4-pildoras — `enabled` arrived because this note was rendered
  * without ever looking at it, and the OFFLINE tab of this very section lists
  * paused rules ONLY: a paused rule with an old failed run claimed «this rule is
  * armed» right under a pill reading «paused». Two sentences from the same card
@@ -254,7 +234,7 @@ export default function StrategySection({
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
-  // In-place edit (founder 2026-07-25) — same modal as the MoneyFlows panel.
+  // In-place edit — same modal as the MoneyFlows panel.
   const [editRule, setEditRule] = useState<AutomationRule | null>(null);
   // G4-strategies — last run per rule id, READ from GET /rules/:id/runs. Every
   // rule rendered gets an entry, INCLUDING the ones whose read failed: an
@@ -368,7 +348,7 @@ export default function StrategySection({
           // "active": it is armed and preparing nothing. The green pill on
           // `r.enabled` alone was the reassurance that hid it, on the very page
           // dedicated to automations.
-          // G4-pildoras (round 3) — and neither is a rule we have not READ yet:
+          // G4-pildoras — and neither is a rule we have not READ yet:
           // `isFailing` is false for `unread`/`unreadable`, so both fell into
           // the green arm. A /runs timeout returned a FAILING rule to «active».
           // The verdict now picks its own tone (lib/rules/runHealth).

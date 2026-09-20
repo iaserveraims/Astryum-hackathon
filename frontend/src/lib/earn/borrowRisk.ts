@@ -5,28 +5,6 @@
  * debajo de 1). Es exacto y es inservible para decidir: nadie sabe si 2,41 está
  * cerca o lejos, y el número se mueve al revés que el riesgo (más alto = más
  * seguro). Quien pide prestado piensa en dos cosas:
- *
- *   1. «¿qué parte de mi colateral me estoy llevando?»  → LTV, en %
- *   2. «¿cuánto puede caer el XRP antes de que esto duela?» → caída, en %
- *
- * Las tres magnitudes son la MISMA, y la conversión es exacta (no es una
- * aproximación de UI). Con LLTV el techo de liquidación del mercado:
- *
- *     HF = LLTV / LTV          LTV = LLTV / HF
- *     caída soportada = 1 − LTV/LLTV = 1 − 1/HF
- *
- * Esa última identidad es la razón de este módulo: la distancia a la
- * liquidación NO depende del precio actual ni del tamaño de la posición, solo
- * del HF. Un HF de 2 aguanta una caída del 50 %, uno de 1,25 aguanta el 20 %.
- *
- * Todo aquí es lógica pura y determinista: se testea sin red y sin cadena, y
- * la misma función alimenta el gráfico, el texto y el umbral del stop-loss —
- * un gráfico que calcule su propia versión del riesgo es un gráfico que puede
- * contradecir a la letra pequeña.
- *
- * La verdad de la matemática vive en el mercado, no aquí: `lltv` SIEMPRE se
- * pasa desde la lectura on-chain (`disclosure.lltvPct` del prepare), nunca se
- * asume — el mercado insignia es 0,77 hoy y eso puede cambiar.
  */
 
 /** LTV y LLTV como fracción (0,30 = 30 %). HF como número (Infinity = sin deuda). */
@@ -81,20 +59,6 @@ export function priceDropFromHf(hf: number): Fraction {
  *
  * «Pedir un 30 %» significa dos cosas distintas, y confundirlas mueve el riesgo
  * real casi diez puntos:
- *
- *   · LTV 30 %          → 30 % del VALOR del colateral   → aguanta 61 % de caída
- *   · margen usado 30 % → 30 % de la CAPACIDAD del mercado → aguanta 70 %
- *
- * El segundo es `borrowRatio`, el campo que la entrada ya usa hoy (se teclea
- * «0.30» bajo una etiqueta que dice «%»). Tiene una propiedad que ningún otro
- * tiene, y que lo hace el mejor candidato para lo que se enseña en grande:
- *
- *     margen usado + caída que aguantas = 100 %
- *
- * Pides el 30 %, te queda el 70 %. Sin dividir, sin LLTV, sin health factor —
- * y es EXACTO, no una regla del pulgar: `borrowRatio = LTV/LLTV = 1/HF`, así
- * que `1 − borrowRatio` es la misma cifra que `1 − 1/HF`, que es lo que ya se
- * pinta hoy en /app/strategies («protegido si el precio cae un 41 %»).
  */
 
 /** Fracción de la capacidad del mercado que se está usando. Idéntico a 1/HF. */

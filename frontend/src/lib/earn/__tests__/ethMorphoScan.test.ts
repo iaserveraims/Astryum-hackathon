@@ -1,17 +1,8 @@
 /**
  * El lector del carril de Ethereum, y las dos reglas que decidían mal.
  *
- * Auditoría 2026-08-17, hallazgos B y D. Los dos son la misma familia («éxito
+ * Auditorí, hallazgos B y D. Los dos son la misma familia («éxito
  * no ganado») aplicada al riesgo, que es su versión peor:
- *
- *   D — si `/position` fallaba, la fila DESAPARECÍA del tablero. Sin fila no
- *       hay botón de repago: la puerta de salida se cerraba sola justo cuando
- *       podía hacer falta, y la pantalla decía «no tienes posiciones».
- *   B — la tira de salud declaraba «no liquidation risk» con deuda VIVA en
- *       Ethereum, porque el snapshot agregado no tiene adapter para
- *       morpho-blue y devolvía HF null.
- *
- * Lo que se fija aquí: no leer NUNCA se confunde con no tener.
  */
 import { describe, it, expect, vi } from 'vitest';
 import {
@@ -139,7 +130,7 @@ describe('toRows — los importes siguen viajando en base units, con SUS decimal
  * La pata LEND-ONLY. Sin esta fila, el RLUSD depositado en la bóveda no existía
  * en NINGUNA pantalla —ni tablero, ni portfolio, ni una salida con saldo—
  * mientras la pantalla de éxito prometía que aparecería en Positions. El
- * usuario que no ve su dinero vuelve a depositar (auditoría 2026-08-17).
+ * usuario que no ve su dinero vuelve a depositar (auditorí).
  */
 describe('toRows — la bóveda deja de ser dinero invisible', () => {
   const lent = (over: Partial<EthMorphoPositionRead> = {}) =>
@@ -189,8 +180,7 @@ describe('toRows — la bóveda deja de ser dinero invisible', () => {
 
 /**
  * Home pinta una fila POR WALLET. Decirle «sana» a la que sostiene el carry
- * porque OTRA está limpia es la misma mentira en versión granular — y hasta el
- * 18-ago eso es literalmente lo que pasaba: el snapshot agregado no tiene
+ * porque OTRA está limpia es la misma mentira en versión granular — y hasta eso es literalmente lo que pasaba: el snapshot agregado no tiene
  * adapter para morpho-blue, así que `debtUSD` era 0 y la fila decía «Sana —
  * sin deuda abierta — nada puede liquidarse».
  */

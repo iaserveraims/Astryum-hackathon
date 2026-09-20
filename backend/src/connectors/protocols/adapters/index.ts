@@ -33,8 +33,8 @@ export function registerFlareAdapters(registry: ProtocolRegistry): void {
   registry.registerAdapter(new FTSOAdapter());
   registry.registerAdapter(new SceptreAdapter());
   registry.registerAdapter(new UpshiftVaultAdapter());
-  // LP tracking across the whole Flare DEX ecosystem (DeFiLlama review
-  // 2026-07-11): one instance per venue — V3-style NFTs (SparkDEX V4,
+  // LP tracking across the whole Flare DEX ecosystem (DeFiLlama review):
+  // one instance per venue — V3-style NFTs (SparkDEX V4,
   // Enosys V3) + V2-style pair sweeps (BlazeSwap, SparkDEX V2, Enosys V2,
   // Pangolin). SparkDEX V3.1 stays on the existing SparkDEXAdapter.
   for (const venue of FLARE_LP_V3_VENUES) registry.registerAdapter(new FlareLpV3Adapter(venue));

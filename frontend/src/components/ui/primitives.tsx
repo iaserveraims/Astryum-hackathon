@@ -237,13 +237,13 @@ export function Card({
 }) {
   // TRES ARTEFACTOS por nivel (stores/motionStore.ts): en FULL el reflejo
   // sigue al cursor en tiempo real y la tarjeta se eleva al pasar; en CALM el
-  // reflejo lo sigue CON RETARDO (useCursorGlow, fundador 2026-09-12) y la
+  // reflejo lo sigue CON RETARDO (useCursorGlow, fundador) y la
   // tarjeta sube UN píxel y aclara el borde, despacio (300ms); en MINIMAL no
   // hay reflejo, pierde la sombra, redondea menos y su borde se ve — una
   // hoja, no un panel flotante.
   const level = useMotionLevel();
   const minimal = level === 'minimal';
-  // EL TEMA INSTITUCIONAL CONVIERTE LA TARJETA EN UNA LÁMINA (2026-09-13): la
+  // EL TEMA INSTITUCIONAL CONVIERTE LA TARJETA EN UNA LÁMINA: la
   // clase `plate` le pone el doble filete de un título valor (globals.css) y
   // le quita la sombra difusa, que ahí la apaga la regla del material. Y le
   // quita el REFLEJO que sigue al cursor: una luz especular viajando por el
@@ -349,8 +349,7 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   const tr = useTNode();
-  // LA CABECERA CAMBIA DE FORMA, no solo de color (fundador 2026-09-13:
-  // «que cambie los colores, dibujos y LAYOUTS»). En la lámina, el encabezado
+  // LA CABECERA CAMBIA DE FORMA, no solo de color. En la lámina, el encabezado
   // de página se convierte en el de un expediente: el epígrafe sube a
   // versalitas espaciadas, el título va en serif y todo el bloque se apoya en
   // una regla doble — gruesa y fina, como la cabecera de un impreso. Es el
@@ -493,9 +492,7 @@ export function EmptyState({
     error: 'text-tone-danger',
     loading: 'text-ink/55',
   };
-  // LA ESPERA DE UNA SECCIÓN LLEVA EL COMETA (fundador 2026-09-11: «si está
-  // algo cargando tiene que aparecer el logo… homogéneo en todas las
-  // páginas»). Una sección vacía que espera dato = AstryumLoader con su
+  // LA ESPERA DE UNA SECCIÓN LLEVA EL COMETA. Una sección vacía que espera dato = AstryumLoader con su
   // línea; el título llega ya traducido y hace de etiqueta. La regla entera
   // (cometa / esqueleto / spinner) está en la cabecera de AstryumLoader.
   const body =
@@ -531,9 +528,7 @@ export function PrimaryButton({
   onClick?: () => void;
   disabled?: boolean;
   /**
-   * POR QUÉ está gris (fundador 2026-08-27: «si tienes algún parámetro mal
-   * configurado… el botón se queda en gris y no se puede pulsar — que al pasar
-   * el ratón la página te diga qué está fallando»). Un botón apagado sin
+   * POR QUÉ está gris. Un botón apagado sin
    * motivo obliga a repasar el formulario a ciegas; con el motivo encima, el
    * paso se explica solo. Llega YA TRADUCIDO desde el que llama (este
    * primitivo no tiene t()). Solo se enseña mientras `disabled` es true —

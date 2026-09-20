@@ -2,31 +2,7 @@
 
 /**
  * /demo-terms — the demo risk notice + how every transaction is built,
- * as PUBLIC reviewable documentation (founder 2026-07-26).
- *
- * The decision: no interruptive modal at sign-up. Instead, the full honest
- * picture lives here — reviewable by anyone, BEFORE creating an account,
- * without one, or never — and the create button carries a one-line notice
- * linking this page. Same doctrine as /about and the live feed: we don't
- * ask for trust, we document and let people verify.
- *
- * Copy rules (extra force — this page IS the risk disclosure): no yields,
- * no promises, no softening. Every claim here must stay true against the
- * code; the tx-builder section describes the prepare→sign→verify pipeline
- * exactly as built (unsigned payloads, simulation, caps, executor role).
- *
- * ── UN SOLO TEXTO, DOS SITIOS (2026-09-13) ──────────────────────────────────
- * El fundador pidió que el alta OBLIGUE a leer y firmar estos documentos, con
- * el texto delante. Ese texto NO se copia: el cuerpo de esta página se exporta
- * (`DemoTermsBody`) y la ceremonia de firma (components/legal) monta el mismo
- * componente en `plain`. Dos copias de un texto legal acabarían diciendo cosas
- * distintas, y la aceptación quedaría registrada contra una versión que el
- * usuario no leyó.
- *
- * `plain` hace dos cosas y solo dos: quita los márgenes de página y apaga los
- * revelados por scroll (el observador de Reveal mira el VIEWPORT — dentro de
- * una caja con scroll propio las secciones se quedarían invisibles, que es la
- * peor forma posible de enseñar un documento legal).
+ * as PUBLIC reviewable documentation.
  */
 
 import { createContext, useContext, type ReactNode } from 'react';
@@ -127,7 +103,7 @@ const RISKS = (lang: Lang) => [
 ];
 
 /**
- * Rules of use — added 2026-08-01. The audit (legal/16) found the published
+ * Rules of use. The audit (legal/16) found the published
  * page was a risk notice without the protective clauses every benchmarked
  * product carries: minimum age, excluded territories, suspension right and
  * tax responsibility. Applicable law and forum stay DELIBERATELY absent —
@@ -172,7 +148,7 @@ const PIPELINE = (lang: Lang) => [
   {
     step: '01',
     title: T('Se prepara — sin firmar', 'It is prepared — unsigned', lang),
-    // GLOSSARY reconciliation 2026-07-29: "prepara" / "transacción", never
+    // GLOSSARY reconciliation: "prepara" / "transacción", never
     // "compila" / "payload".
     body: T(
       'Astryum prepara tu acción en una transacción SIN firmar: qué contrato toca, qué función llama, con qué parámetros. La transacción completa es tuya antes de que exista firma alguna.',

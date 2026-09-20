@@ -12,7 +12,7 @@ import { ceremonyPayloadExpiryMin } from '../wallet/handoffRelease';
 
 export const XRPSCAN_TX = 'https://xrpscan.com/tx/';
 /** The explorer's ACCOUNT view — where a person checks whether a submission they
- *  could not confirm ever landed (it. 33, B2). Same host as `XRPSCAN_TX`. */
+ *  could not confirm ever landed (B2). Same host as `XRPSCAN_TX`. */
 export const XRPSCAN_ACCOUNT = 'https://xrpscan.com/account/';
 // Public nodes tried in order (the balancer occasionally serves a sick node).
 // Browser-reachable nodes need CORS: xrplcluster.com and xrpl.link send
@@ -34,7 +34,7 @@ export async function sha256Hex(s: string): Promise<string> {
 /** The memo prefix a signed position proof commits to (backend twin). */
 export const POSITION_MEMO_PREFIX = 'astryum-council-position:';
 
-/* ── it. 23 (it. 22 §2.3) — THE REDACTION, READ ───────────────────────────── */
+/* ── THE REDACTION, READ ───────────────────────────── */
 
 /**
  * WHAT WAS WITHHELD FROM THIS READER, AND WHY.
@@ -93,7 +93,7 @@ export function councilRedactionSentence(
 }
 
 /**
- * it. 27 (§4) — EL MEMO DEL 0xFE QUE LLEVA ESTE Payment, LEÍDO TAL CUAL.
+ * EL MEMO DEL 0xFE QUE LLEVA ESTE Payment, LEÍDO TAL CUAL.
  *
  * `councilOrderMemoOf` (lib/xrpl/singleSignVerdict) exige EXACTAMENTE 64 hex
  * porque una ORDEN de consejo es un keccak de 32 bytes. El memo de un 0xFE no
@@ -130,7 +130,7 @@ export async function createMemberPayload(
   signer: string,
 ): Promise<{ uuid: string; qrPng?: string; deeplink?: string; pushed?: boolean }> {
   /**
-   * it. 27 (§4) — UNA SOLA LECTURA DECIDE LA VENTANA, Y VIAJA HASTA AQUÍ.
+   * UNA SOLA LECTURA DECIDE LA VENTANA, Y VIAJA HASTA AQUÍ.
    *
    * Esto era `expire: 1440` escrito a mano, y era el SEGUNDO número para un
    * mismo hecho. El servidor ya decide cuánto vive este payload (lee el
@@ -140,10 +140,6 @@ export async function createMemberPayload(
    * tiene que ser el del servidor: es el único que la `LastLedgerSequence` ya
    * respeta, y un `expire` más largo que esa ventana produce justo el fallo que
    * este ciclo persigue — un quórum firmando bytes que el ledger ya no admite.
-   *
-   * Sin memo (una constitución, un SignerSet: bytes que el servidor no compuso)
-   * queda el defecto de una ceremonia, que es lo que había: un quórum firma a
-   * velocidad humana.
    */
   const expire = ceremonyPayloadExpiryMin(paymentMemoHex(txjson));
   const body = (withSigners: boolean) => ({
@@ -249,7 +245,7 @@ export async function awaitValidation(
 }
 
 /**
- * it. 31 (§1) — WHAT A SITTING REPORTS ABOUT THE BYTES, AS IT HAPPENS.
+ * WHAT A SITTING REPORTS ABOUT THE BYTES, AS IT HAPPENS.
  *
  * `CouncilMultisigFlow` emits these through its `onDispatch` prop; the quorum
  * ceremony bus (the one host whose caller waits on a promise) turns them into
@@ -267,7 +263,7 @@ export type CeremonyDispatchEvent =
   /** The node answered the submit — a PRELIMINARY engine result, and the hash when it gave one. */
   | { stage: 'broadcast'; hash?: string; engine: string; message?: string }
   /**
-   * it. 33 (B2) — NO node confirmed taking the bytes (`broadcast()` threw). Not a
+   * NO node confirmed taking the bytes (`broadcast()` threw). Not a
    * refusal: the first node may have applied them and lost its answer, so the
    * sitting stays COMMITTED and a close from here on is a close over a Payment
    * that may be on the ledger — never «nothing left».
@@ -277,12 +273,12 @@ export type CeremonyDispatchEvent =
   | { stage: 'validation'; hash: string; validated: boolean; finalResult?: string; timedOut?: boolean };
 
 /**
- * it. 31 (§1) — CAN A SUBMIT WITH THIS PRELIMINARY RESULT STILL REACH A LEDGER?
+ * CAN A SUBMIT WITH THIS PRELIMINARY RESULT STILL REACH A LEDGER?
  * `tes` was accepted, `tec` is applied with the fee claimed, `ter` is retried by
  * the node; `tef` and `tem` were refused locally and never enter. Pure: decides
  * whether the hash is worth telling the seat's register about.
  *
- * it. 33 (B1): moved here from `CouncilMultisigFlow` (re-exported there) because
+ * Moved here from `CouncilMultisigFlow` (re-exported there) because
  * the async coordinator (`ProposalInbox`) now asks the same question — one rule
  * for the two surfaces that broadcast a council's bytes.
  */
@@ -306,7 +302,7 @@ export interface ConfirmedSubmit {
 /**
  * Submit and only report success the way the ledger does: validated.
  *
- * it. 33 (B1): NO production caller any more — kept inert, not deleted. Both
+ * NO production caller any more — kept inert, not deleted. Both
  * surfaces that broadcast a council's bytes (`CouncilMultisigFlow.submit`,
  * `ProposalInbox.emit`) now call `broadcast()` and `awaitValidation()` apart,
  * because the hash has to reach the seat's register (`/handoff/signed`) IN
@@ -322,7 +318,7 @@ export async function submitAndConfirm(txBlob: string): Promise<ConfirmedSubmit>
 }
 
 /**
- * it. 33 (B2) — what `broadcast()` throws when NO node confirmed the bytes.
+ * What `broadcast()` throws when NO node confirmed the bytes.
  *
  * Every node's failure travels, in the order they were tried, and the message
  * names them all. It used to keep only the LAST one — and the last node in the

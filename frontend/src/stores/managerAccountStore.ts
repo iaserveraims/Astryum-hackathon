@@ -6,27 +6,7 @@ import { MANAGER_VOLATILE_KEY, managerUserKey } from './managerStore';
 
 /**
  * managerAccountStore — the XRPL account the manager desk and its setup
- * ceremony follow, chosen BY HAND (founder 2026-09-13: «debe haber un botón
- * para hacer el switch»).
- *
- * Shared, not local: the desk (/app/manager) and the ceremony window
- * (ManagerSetupOperation, hosted globally) are different trees, and both must
- * agree on the account or the ceremony would open on a different one than the
- * desk shows.
- *
- * REMEMBERED PER USER (founder 2026-09-15: «no me reconoce la cuenta»): the
- * choice used to live for one tab only, so every reload fell back to whatever
- * Xaman session happened to be live — a client account, an exchange root —
- * and the manager had to pick their governing account again each visit. Now
- * the pick is kept under the signed-in user's key (email / address, the same
- * key managerStore uses), never under the browser: the second email to sign in
- * on this machine does not inherit the first one's desk. The value is only a
- * POINTER into the wallets of that account — `useManagerAccount` ignores it
- * the moment it stops being a candidate (the wallet was removed, another
- * account signed in), so a stale pick can never point the desk anywhere the
- * account cannot go. A session with no stable anchor (XRP Identity brings
- * neither email nor address) lands in the volatile bucket, which is never
- * written to disk.
+ * ceremony follow, chosen BY HAND.
  */
 interface ManagerAccountState {
   /** userKey → the address picked by hand (absent = no pick, follow the rule). */

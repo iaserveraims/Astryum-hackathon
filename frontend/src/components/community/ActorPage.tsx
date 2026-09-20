@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * ActorPage — la PÁGINA de un actor de la comunidad (fundador 8-sep: «una
- * página de usuario para poder ver el usuario en cuestión… tiene que
- * respetar al 100% la imagen de perfil»). Su cara, si es persona o agente, su
+ * ActorPage — la PÁGINA de un actor de la comunidad. Su cara, si es persona o agente, su
  * perfil público con los hechos del ledger, las bóvedas que lleva y el apoyo
  * de la comunidad. La foto es LA del perfil público — la misma en todas partes.
  */

@@ -269,7 +269,7 @@ export function mergeSnaps(snaps: PortfolioSnapshot[]): PortfolioSnapshot | null
     breakdown: { byProtocol: {}, byAsset: {}, byKind: {} },
     takenAt: new Date(0).toISOString(),
   };
-  // Ola 0 (15-sep) — what a wallet's sweep could NOT read travels with the
+  // What a wallet's sweep could NOT read travels with the
   // merge, tagged with its wallet. It used to be dropped here, so a fleet
   // view built from three wallets, one of them unread, looked complete.
   const unreadable: NonNullable<PortfolioSnapshot['unreadable']> = [];
@@ -300,16 +300,6 @@ export function mergeSnaps(snaps: PortfolioSnapshot[]): PortfolioSnapshot | null
  * the last point per bucket (calendar day normally, hour when the whole span
  * is under 48h so a young account still draws a curve), then summed across
  * wallets per bucket.
- *
- * Two rules keep the merged curve honest AND always drawable:
- *  1. Before a wallet's first snapshot it counts at its FIRST OBSERVED value
- *     (backfill). Counting it at 0 charted a fake hockey-stick "gain" the day
- *     it was added; the previous fix (cutting the window to the youngest
- *     wallet's start) made the whole chart VANISH every time a wallet joined.
- *     Backfilling assumes the capital already existed before we tracked it —
- *     no fake gain, no vanishing window.
- *  2. A wallet without a snapshot in a bucket carries its LAST KNOWN value
- *     forward, so different snapshot cadences don't sawtooth the total.
  */
 export function mergeHistories(
   series: { takenAt: string; totalUSD: number }[][],
@@ -393,7 +383,7 @@ export interface AggregatedPortfolio {
     risk: RiskSnapshot | null;
     history: { takenAt: string; totalUSD: number }[];
     /** Set when this row ABSORBED its Flare Smart Account (paFold, visual
-     *  fold 2026-08-17): the PA's positions/value ride inside this snap and
+     *  fold): the PA's positions/value ride inside this snap and
      *  the PA row is gone from perWallet. Value = the PA's address, so the
      *  surfaces can badge the owner and keep the unmint door reachable. */
     absorbedSmartAccount?: string;
@@ -526,7 +516,7 @@ async function fetchAggregatedPortfolio(
     const perWalletRaw = enriched.filter(
       (w): w is AggregatedPortfolio['perWallet'][number] => w?.snap != null,
     );
-    // FOLD (2026-08-17): a Smart Account whose owner is in the same set is
+    // FOLD: a Smart Account whose owner is in the same set is
     // absorbed — its positions/value merge into the owner's row and its own
     // row disappears. Totals are unchanged (the global snap merges the RAW
     // list); only the per-wallet shape folds. An orphan PA (owner missing or
@@ -562,8 +552,7 @@ async function fetchAggregatedPortfolio(
   await Promise.all([
     foldReady,
     ...addresses.map(async (a, i) => {
-      // EL SNAPSHOT PINTA EN CUANTO LLEGA (fundador 2026-09-11: «el home
-      // sigue tardando demasiado en leer las posiciones»). Antes cada
+      // EL SNAPSHOT PINTA EN CUANTO LLEGA. Antes cada
       // wallet esperaba a que contestaran las TRES lecturas —snapshot,
       // histórico y riesgo— antes de pintar nada: el riesgo recalcula sobre
       // el mismo snapshot y el histórico es solo la curva; ninguno debería

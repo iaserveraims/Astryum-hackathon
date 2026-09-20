@@ -5,19 +5,6 @@
  * propia nota lo dice: «Governance must size COOLDOWN ≥ the slowest venue
  * queue». Pero SOLO fuerza dos cosas: `cooldown ≤ MAX_COOLDOWN` y, para un venue
  * encolado, `cooldown > 0` (QueuedVenueNeedsCooldown). No fuerza el ≥ la cola.
- *
- * Ese hueco es un footgun con dientes: si el COOLDOWN es más corto que el tiempo
- * que tarda el venue encolado (Firelight) en drenar su cola, `requestRedeem`
- * acuña un ticket que MADURA antes de que lleguen los activos desretirados, y
- * `claimRedeem` revierte con `UnwindShortfall` — el capital del depositante
- * queda varado hasta que alguien haga el recall y espere la cola. Es la familia
- * de bugs del claim que sufrimos en vivo (11-13 sep).
- *
- * El COOLDOWN es inmutable (se fija en el constructor), así que la única defensa
- * sin redeploy es NO dejar nacer —ni crecer con un venue encolado— un pote cuyo
- * cooldown no cubra la cola. Se comprueba ANTES de firmar, en los dos caminos de
- * creación (directo y orden XRPL) y al proponer un venue encolado. Puro y
- * testeable; el piso entra como argumento (el lector de entorno va aparte).
  */
 
 /** AstryumVault.VenueKind.ERC4626Queued — el venue con cola de salida. */

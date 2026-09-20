@@ -71,7 +71,7 @@ interface PreparedExit {
   };
 }
 
-// familia-no-pude-leer (2026-08-20): 'unconfirmed' is the honest ending this
+// familia-no-pude-leer: 'unconfirmed' is the honest ending this
 // modal was missing — the signature may already be on Flare and we could not
 // read it. Without it every failure returned to 'review', i.e. to the sign
 // button, and a second unwrap is a second gas bill over a position that may

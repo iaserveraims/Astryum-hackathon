@@ -1,5 +1,5 @@
 /**
- * productizer it. 15 (4.4) — a write that CREATES AUTHORITY re-checks the
+ * A write that CREATES AUTHORITY re-checks the
  * session inside its own transaction, so a request that passed `requireSiweAuth`
  * before an account takeover cannot land after it.
  *
@@ -132,7 +132,7 @@ describe('withLiveSession — the write happens only while the session is alive'
 });
 
 /**
- * productizer it. 18 (3.6) — the guard contends with the takeover's ~25-statement
+ * The guard contends with the takeover's ~25-statement
  * transaction. It must contend CHEAPLY, and losing that race must read as «busy,
  * try again», never as «we broke» (500) and never as «your session is gone».
  */
@@ -186,7 +186,7 @@ describe('the lock is cheap, and losing the race is a 503, never a 500', () => {
   });
 
   /**
-   * productizer it. 20, 3.8 — A DEADLOCK IS CONTENTION, NOT A BREAKAGE.
+   * 3.8 — A DEADLOCK IS CONTENTION, NOT A BREAKAGE.
    * `takeUserRowLock` takes its lock with raw SQL, so Postgres reports the
    * deadlock it resolved as native 40P01 and Prisma never maps it to P2034. It
    * fell through every branch and came out as a 500 «something broke» on a
@@ -296,7 +296,7 @@ describe('splitTakeoverPreferences — consent travels, everything else stays', 
 
 
 /**
- * it. 23, 2.5 — `provenAddresses` keeps its own copy of this predicate (it must
+ * 2.5 — `provenAddresses` keeps its own copy of this predicate (it must
  * stay importable without a database). The two must agree, or `dev-user` gets a
  * non-retryable 409 on one path and not the other.
  */

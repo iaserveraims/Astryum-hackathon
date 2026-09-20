@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * ExchangeAccountGate — LA PUERTA DE ENTRADA (fundador 2026-09-11: «para los
- * usuarios que vengan nuevos se tienen que crear o vincular su cuenta antes
- * de empezar a usar el exchange»).
+ * ExchangeAccountGate — LA PUERTA DE ENTRADA.
  *
  * Nadie entra en la mesa sin una cuenta XRPL elegida como SU cuenta. Tres
  * puertas, una por situación:
@@ -33,7 +31,7 @@ export function ExchangeAccountGate({ onChosen }: { onChosen: () => void }) {
   const allWallets = useWalletStore((s) => s.wallets);
   const setActiveWallet = useWalletStore((s) => s.setActiveWallet);
   const xrplWallets = useMemo(() => allWallets.filter((w) => w.isConnected && w.walletType === 'xaman'), [allWallets]);
-  // El apodo del DUEÑO, no la etiqueta de sesión «Xaman 1 (…)» (2026-09-13).
+  // El apodo del DUEÑO, no la etiqueta de sesión «Xaman 1 (…)».
   const linkedOf = useLinkedRecordOf();
   const [door, setDoor] = useState<Door | null>(xrplWallets.length > 0 ? 'link' : null);
   const [picked, setPicked] = useState<string>(xrplWallets[0]?.id ?? '');

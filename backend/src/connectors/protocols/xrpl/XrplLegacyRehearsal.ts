@@ -8,10 +8,6 @@
  * proves the quorum — XRPL accepts more signatures than the quorum, and the
  * verdict is cumulative across transactions, so families can also pass with
  * several rehearsal rounds.
- *
- * This is the gate that unlocks the master-key door (candado §1): honest,
- * on-chain, per member. What it can NOT know: whether each member signed
- * PERSONALLY (that discipline stays human — the copy says so).
  */
 
 export interface RehearsalCouncilInput {

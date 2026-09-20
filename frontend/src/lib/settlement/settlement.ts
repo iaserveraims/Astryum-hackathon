@@ -4,23 +4,6 @@
  * The three sites that used to paint a premature green (FlareDemoEarn.sign(), the EVM /
  * 5792 rail, CompleteBorrowModal) are the SAME bug in three places. They now consume this
  * machine; none of them can paint success on its own.
- *
- * §2 — success is machine-only, enforced by TYPES: a `SettlementState` carries a private
- * brand symbol, so a component CANNOT construct a settled state literal. The only way to
- * obtain one is from this module's producers below.
- *
- * Per-rail "settled" (source of truth):
- *   - xrpl-mint : GET /flare-demo/mint-status/:hash → executed (MasterAccountController).
- *   - evm       : the real receipt — status 1 AND no Compound `Failure` in its logs
- *                 (it. 34: Kinetic mines a refused redeem with status 1). useWalletPartner
- *                 awaits the receipt for single & sequential rails, but on status alone, so
- *                 the tracker re-reads a settled evm handle once, logs included.
- *   - evm-5792  : wallet_getCallsStatus → CONFIRMED **and every receipt a success**
- *                 (§1.1 — a bundle can be CONFIRMED with an individual call reverted).
- *
- * §1.2 unsupported getCallsStatus and §1.3 the wait ceiling end in HONEST states
- * ('stalled'), never a fake green and never an infinite spinner: the ref (tx hash / bundle
- * id) is always carried and shown, copyable.
  */
 
 /** The valid rails, as data — the single source for the type AND for pruning
@@ -136,12 +119,12 @@ export function isReceiptSuccess(status: unknown): boolean {
   );
 }
 
-// ── it. 34 — MINED WITHOUT EFFECT: a Compound-v2 code is not a success ───────
+// ── MINED WITHOUT EFFECT: a Compound-v2 code is not a success ───────
 // Kinetic (Compound v2) does not revert a refused redeem/borrow/repay: it
 // RETURNS an error code and emits `Failure(uint256 error, uint256 info,
 // uint256 detail)`. The transaction mines with status 1, gas is paid, nothing
 // moves — and `isReceiptSuccess` alone read that receipt as settled (mainnet
-// probe, it. 31: `redeemUnderlying(1e12)` from an empty account → 0x…09,
+// probe: `redeemUnderlying(1e12)` from an empty account → 0x…09,
 // MATH_ERROR, status 1). A receipt is a success only when its status is 1 AND
 // its logs carry no Compound `Failure`.
 
@@ -246,7 +229,7 @@ export function evaluate5792(result: CallsStatusLike): { done: boolean; failed: 
     // Code, not prose — the UI translates (settlementReasonText).
     return { done: true, failed: true, reason: `BATCH_CALL_REVERTED:${revertedIdx + 1}` };
   }
-  // it. 34 — every receipt is status 1; a Compound `Failure` inside one of them
+  // Every receipt is status 1; a Compound `Failure` inside one of them
   // is a call that mined WITHOUT effect (EIP-5792 receipts carry `logs`).
   for (let i = 0; i < receipts.length; i++) {
     const f = compoundFailureIn(receipts[i]?.logs);
@@ -256,7 +239,7 @@ export function evaluate5792(result: CallsStatusLike): { done: boolean; failed: 
 }
 
 /**
- * batch-evm (2026-08-20) — the step named by `BATCH_CALL_REVERTED:N`, or null.
+ * batch-evm — the step named by `BATCH_CALL_REVERTED:N`, or null.
  * The code is EMITTED here, so it is parsed here too: one regex, no second
  * grammar for the same string living in the UI layer.
  */
@@ -268,19 +251,12 @@ export function batchRevertedStep(reason: string | undefined): number | null {
 }
 
 /**
- * batch-evm (2026-08-20) — «the batch failed» is NOT «nothing was applied».
+ * batch-evm — «the batch failed» is NOT «nothing was applied».
  *
  * §1.1 above states it plainly: a bundle can be CONFIRMED with an individual
  * call reverted. So when call N>1 is the one that reverted, calls 1..N-1 ALREADY
  * RAN — the approve went through, the supply went through, and only the last
  * leg died. Re-signing the array repeats every one of them with real money.
- *
- * `settlementReasonText` uses this to stop printing «nothing was applied» over
- * a half-executed bundle. The surfaces that re-enable a sign button from
- * `onFailed` must gate on it as well — reported, not owned by this frente:
- * `components/intents/useIntentSigning.ts` (`onFailed`) →
- * `components/intents/SidebarIntents.tsx` → `components/intents/
- * intentPresentation.tsx` («Sign in wallet»).
  */
 export function isPartialBatchFailure(reason: string | undefined): boolean {
   const n = batchRevertedStep(reason) ?? parseNoEffect(reason)?.step ?? null;
@@ -298,7 +274,7 @@ export const EVM_SETTLE_CEILING_MS = 90_000; // 5792 / EVM confirm in seconds �
 // path. 180s before the honest slow state (the hook keeps polling past it).
 export const ETHEREUM_SETTLE_CEILING_MS = 180_000;
 // XRPL mint passes through an FDC attestation round + executor. CALIBRATED with our own
-// on-chain measurement (2026-07-25): n=166 mainnet direct-mint executions on
+// on-chain measurement: n=166 mainnet direct-mint executions on
 // AssetManagerFXRP (22–25 jul), t_executed − t_xrpl taken from each FDC proof's XRPL
 // timestamp vs the Flare execution block — p50 129s · p90 166s · max 239s. 360s = 1.5× the
 // observed max: zero false "taking longer" states in the whole sample, with guardband for a
@@ -343,7 +319,7 @@ export interface PendingRef {
   startedAt: number;
   /** La ventana de operación que firmó esto (operationStore id, p.ej.
    *  'vault:v-earnxrp'): al recargar, esa ventana rehidratada adopta el
-   *  asiento y reabre en su fase «en proceso» (fundador 2026-09-09). */
+   *  asiento y reabre en su fase «en proceso». */
   opKey?: string;
 }
 

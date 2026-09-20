@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { settlementAuthHeader, fetchMintExecuted, fetchCouncilOrderExecuted } from '../statusReads';
 
 /**
- * Regresión del bug 2026-07-29: `mint-status` vive tras requireSiweAuth; sin la
+ * Regresión del bug: `mint-status` vive tras requireSiweAuth; sin la
  * cabecera Bearer devuelve 401, el tracker lee null para siempre y el toast se
  * queda colgado en "Still settling on Flare…" aunque la orden SÍ se ejecutó
  * (isTransactionIdUsed=true). Estas lecturas DEBEN mandar el token.

@@ -6,13 +6,6 @@
  * ANY account can release it (EscrowFinish is permissionless for time-based
  * escrows) — a keeper needs no key over user funds, which is exactly the
  * trustless shape invariant #8 requires.
- *
- * ⚠ XRP ONLY. RLUSD (or any IOU) escrow needs the issuer's
- * `lsfAllowTrustLineLocking` flag (XLS-85), which the RLUSD issuer has OFF
- * (verified 2026-07-11 — the ecosystem watch re-checks it). The builder
- * rejects anything that is not XRP drops by construction.
- *
- * Unsigned txjson → Xaman. Astryum signs nothing. SourceTag always.
  */
 
 import { isValidClassicAddress, isoTimeToRippleTime, validate, dropsToXrp } from 'xrpl';

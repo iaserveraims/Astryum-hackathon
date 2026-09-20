@@ -1,27 +1,11 @@
 /**
- * El cuestionario de alta, EN LA CUENTA (fundador 2026-09-14: «inicio sesión
- * desde navegadores distintos y me vuelve a pedir una y otra vez lo mismo»).
+ * El cuestionario de alta, EN LA CUENTA.
  *
  * Hasta hoy lo que el popup recogía —idioma, objetivo, y el hecho de haberlo
  * rellenado— vivía SOLO en el localStorage del navegador (zustand persist
  * `astryum:onboarding`). Con lo cual no es que se olvidara: es que nunca lo
  * supo nadie más que ese navegador. Abrir la misma cuenta en otro sitio era,
  * para el producto, una cuenta que no había contestado nunca.
- *
- * Ahora cabalga `User.preferences.onboarding`, preservando las claves
- * hermanas — el raíl de `legal`, `managerMode` y `appearance`. El navegador
- * conserva su copia: sigue siendo quien contesta antes de que llegue /me, y
- * quien sostiene la sesión sin red. Cuando /me habla, MANDA LA CUENTA.
- *
- * EL IDIOMA VIAJA AQUÍ y no en `appearance`, que sería su sitio natural: la
- * apariencia (piel + luz) es de otra sesión que la está construyendo ahora
- * mismo, y meter un campo en un registro que otro está tocando —y que además
- * lee un script pre-pintado— se arregla en un merge y se rompe en producción.
- * Cuando aquello asiente, `lang` debería mudarse allí; este comentario es el
- * recordatorio.
- *
- * Nada de esto decide permisos ni toca dinero: lo peor que consigue un valor
- * forjado es que a alguien le salga el panel en inglés.
  */
 
 export type OnboardingLang = 'es' | 'en';

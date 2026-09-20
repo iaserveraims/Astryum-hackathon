@@ -2,35 +2,6 @@
 /**
  * legacy-multisign — collect a council's quorum signatures for ANY XRPL txjson
  * and combine them, without depending on the Xaman Multisign xApp.
- *
- * Why this exists: the Multisign xApp only builds transactions from its own
- * forms (AccountSet, Payment, SetRegularKey, SignerList, Ticket*, TrustSet). It
- * cannot sign an EscrowCreate — the Legacy rehearsal tx — and a form-built tx
- * would drop our SourceTag anyway. It also needs Tickets (0.2 XRP of reserve
- * each) purely to coordinate its own flow. None of that is required by XRPL:
- * multisig is just N independent signatures over the SAME bytes, combined.
- *
- * What it does:
- *   1. READS  — the account's Sequence, the network base fee, and the SignerList
- *               (members + quorum) from the validated ledger.
- *   2. FIXES  — Sequence + Fee (base x (1 + signers)) + SigningPubKey:'' onto the
- *               txjson. Every signer must sign IDENTICAL bytes, so this happens
- *               ONCE, here, before any signature is requested.
- *   3. ASKS   — one Xaman payload per council member (options.multisign) → one QR
- *               each. Each member signs on THEIR OWN device (that is the point of
- *               the rehearsal: the ledger records who really signed).
- *   4. COMBINES — xrpl.multisign() over the collected blobs → the final signed tx.
- *
- * What it NEVER does: hold a key, sign, or broadcast. It prints the signed blob
- * and the exact command for YOU to submit (prepare-only frontier — the product
- * stops at hand-off; see MICA_BOUNDARIES.md).
- *
- * Usage:
- *   # 1. Paste the "Copy unsigned transaction" JSON from the Legacy panel into a file
- *   npx ts-node src/scripts/legacy-multisign.ts --file ./rehearsal.json
- *
- *   # or inline
- *   npx ts-node src/scripts/legacy-multisign.ts --tx '{"TransactionType":"EscrowCreate",...}'
  */
 import dotenv from 'dotenv';
 import path from 'path';
@@ -164,7 +135,7 @@ async function main(): Promise<void> {
   // txjson for others — accept either shape rather than making the user dig.
   // The council's quorum signs it — people, not an Astryum key — so it carries
   // the project SourceTag. Stamped here, BEFORE the bytes are fixed: a txjson
-  // pasted from a flow that forgot the tag used to leave untagged (23-ago,
+  // pasted from a flow that forgot the tag used to leave untagged (
   // SignerListSet of the council) with only a warning printed below.
   const tx = withSourceTag((input.xrplTx ?? input.txjson ?? input) as Record<string, unknown>);
   const account = tx.Account as string;

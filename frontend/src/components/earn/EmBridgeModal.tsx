@@ -3,7 +3,7 @@
 /**
  * EmBridgeModal — the bridge DOOR of the em flow (B6-UI): FXRP from the user's
  * Flare wallet to THEIR OWN address on Ethereum, as direct LayerZero OFT
- * calldata (founder 15-ago: never a handoff to an external site). Signs ON
+ * calldata. Signs ON
  * FLARE; the legs carry chainId 14 and the wallet switches itself.
  *
  * The LayerZero delivery fee is REAL money (~98 FLR at verification time) —
@@ -100,7 +100,7 @@ export function EmBridgeModal({
   onChanged?: () => void;
 }) {
   const { t } = useT();
-  // Nombre canónico de la wallet en las filas de revisión (2026-08-22:
+  // Nombre canónico de la wallet en las filas de revisión (
   // «0x62d7…» a secas no identifica; el nombre primero, la dirección al lado).
   const { wallets: myWallets } = useMyWallets();
   const walletNameOf = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);

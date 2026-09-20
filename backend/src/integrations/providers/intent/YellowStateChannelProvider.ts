@@ -3,44 +3,6 @@
  *
  * Wraps Yellow Network's Perun state channel protocol for high-frequency
  * broker-to-broker settlement and streaming micropayments.
- *
- * ─── ARCHITECTURE WARNING — Read before using ───────────────────────────────
- * This provider is architecturally DIFFERENT from all other Astryum providers.
- *
- *   Standard Astryum flow:  eth_sendTransaction (one tx per action)
- *   Yellow state channels:  personal_sign (off-chain state updates, batched)
- *
- * State channels (Perun / ERC-7824):
- *   1. Channel open  → on-chain tx (one-time setup)
- *   2. N payments    → off-chain personal_sign (no gas, near-instant)
- *   3. Channel close → on-chain tx (cooperative or dispute)
- *
- * This means a Yellow "payment" is NOT an eth_sendTransaction. The IntentPayload
- * returned by preparePayment() has tx.data = '0x' (no calldata) and uses the
- * `metadata.yellowStateUpdate` field to carry the off-chain state for signing.
- * The frontend must call personal_sign on the Yellow state struct, then send
- * the signature to Yellow's broker network — NOT broadcast to a node.
- *
- * ─── Valid use cases in Astryum ─────────────────────────────────────────────
- *   - High-frequency settlement between Astryum and a Yellow broker counterpart
- *   - Streaming yield micropayments (e.g. per-block FTSO reward distribution)
- *   - Cases where the Astryum user operates AS a broker in the Yellow network
- *
- * ─── NOT for ─────────────────────────────────────────────────────────────────
- *   - General DeFi swaps → use Li.Fi, Squid, UniswapX, CoW
- *   - Cross-chain bridges → use Li.Fi, Across, Squid
- *   - Single-chain swaps → use 1inch, CoW, UniswapX
- *
- * ─── Requirements ────────────────────────────────────────────────────────────
- *   YELLOW_PERUN_KEY=...        Perun node key (broker registration)
- *   YELLOW_BROKER_MODE=true     Explicit broker mode gate
- *   Both must be set — otherwise every call returns a clear error.
- *   V2+ only — not available in V1.x deployments.
- *
- * ─── Regulatory invariants (never remove) ────────────────────────────────────
- *   authorization.astryumRelays: false  (Astryum never relays channel states)
- *   referralAttribution.disclosedToUser: true
- *   Astryum never custodies channel funds — user's key controls the channel.
  */
 
 import { randomUUID } from 'crypto';

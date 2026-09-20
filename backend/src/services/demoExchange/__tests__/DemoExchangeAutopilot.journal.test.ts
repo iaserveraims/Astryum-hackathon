@@ -1,7 +1,7 @@
 /**
  * The omnibus key never signs the same request twice — even when a concurrent
  * save of the run (public /verify, /omnibus) puts a signed request back to
- * 'pending' (productizer cycle, iteration 3). The durable submission journal
+ * 'pending'. The durable submission journal
  * holds what was signed; the ledger decides what happened to it; and only a
  * payment the ledger proves dead is signed again.
  */
@@ -54,7 +54,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   spentToday: async () => BigInt(0),
   sweepStaleReservations: async () => [],
   recordSpend: (...a: unknown[]) => mockRecordSpend(...(a as [])),
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -72,7 +72,7 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => ({
   },
 }));
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
 
 import { DemoExchangeAutopilot } from '../DemoExchangeAutopilot';

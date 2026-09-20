@@ -1,6 +1,5 @@
 /**
- * sendIntent SIN sesión de Xaman en este navegador (fundador 2026-09-17: «me
- * dice que conecte mi XRPL wallet cuando ya está conectada»): un pago que PINNA
+ * sendIntent SIN sesión de Xaman en este navegador: un pago que PINNA
  * su Account firma por el QR del servidor; solo un pago sin Account exige la
  * sesión. Misma armadura que quorumRouting, con el store VACÍO.
  */

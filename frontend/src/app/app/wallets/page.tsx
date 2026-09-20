@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * /app/wallets — la pantalla de las cuentas (quinta pasada del fundador
- * 2026-08-22 + rediseño «identidad delante, gestión detrás» del mismo día).
+ * /app/wallets — la pantalla de las cuentas.
  *
  * Aquí viven TODAS las cuentas, en dos estantes: Personal (tus llaves, tus
  * colores) y Legacy (gobernadas por consejo, siempre índigo). La gobernanza

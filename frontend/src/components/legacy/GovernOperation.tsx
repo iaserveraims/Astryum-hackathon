@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * GovernOperation — gobernar una cuenta gobernada como UNA OPERACIÓN MÁS
- * (fundador 2026-08-30: «cuando le das a gobernar, no quiero que te lance el
- * menú ese tan complejo — que se abra también en formato burbuja anclable»).
+ * GovernOperation — gobernar una cuenta gobernada como UNA OPERACIÓN MÁS.
  *
  * El gemelo de ConstituteOperation: misma OperationSurface (ventana corta,
  * pin a la derecha, píldora minimizada del host multi-op), mismo sello índigo

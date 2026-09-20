@@ -3,34 +3,6 @@
 /**
  * LA LÁMINA — el material compartido de las viñetas de producto.
  *
- * Fundador, 2026-09-18: «no me gusta el nivel de calidad del artefacto
- * principal que muestra las distintas cosas, quiero algo con muchísimo nivel».
- *
- * ── QUÉ SEPARA UNA CAPTURA DE UN PRODUCTO REAL DE UN DIV CON BORDE ───────
- * Medido en las tres familias de viñetas antes de esto: no había NI UNA
- * `box-shadow`, ni un filete interior, ni un degradado de fondo. Cada tarjeta
- * era un relleno plano y un borde blanco al 8 %. Eso es exactamente lo que se
- * ve, y no hay tipografía que lo salve.
- *
- * Aquí está el material, y son cuatro capas, todas de PINTURA sobre un elemento
- * estático — ni un filtro, nada que Safari tenga que recomponer:
- *
- *   1. Un fondo con DEGRADADO, no un color. Una superficie plana no existe.
- *   2. Un filete claro de un píxel en el canto de ARRIBA: el especular del
- *      borde superior, que es lo que dice «esto tiene grosor».
- *   3. Una regla interior de un píxel al 4 %: el segundo filete de la plancha.
- *   4. DOS sombras, no una: una ambiental amplia y difusa y una de CONTACTO
- *      corta y cerrada. Con una sola, la lámina flota; con las dos, se apoya.
- *
- * Y encima, una luz que cae desde arriba —la de la escena que hay justo encima
- * en la página— como un radial muy corto. Esa es la capa que hace que la lámina
- * pertenezca a la escena en vez de estar pegada sobre ella.
- *
- * ── LOS TRES MATERIALES SE MANTIENEN DISTINTOS A PROPÓSITO ───────────────
- * Personal redondea a 14 px y flota; Legacy va a 8 y vive entre los dos mundos;
- * Institucional va a 3 y se IMPRIME. Aquí se añade profundidad DENTRO de cada
- * material, no se convergen: el presupuesto de sombra del institucional es el
- * más corto de los tres porque una plancha impresa no levita.
  */
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -295,12 +267,6 @@ export function useSelfActive(external?: boolean) {
  * instante en que la escena hace lo que esa fila dice, y que al subir con la
  * rueda se deshaga igual de bien. Eso exige que el estado salga del progreso,
  * no de un `setTimeout` disfrazado de `delay`.
- *
- * En la versión apilada no hay recorrido, así que el mismo valor lo mueve un
- * temporizador y las láminas se ven igual de bien sin depender de nada.
- *
- * `progress` es fijo por montaje —o lo hay o no lo hay—, así que la fuente del
- * `useTransform` no cambia de identidad en vida del componente.
  */
 export function useCue(progress: MotionValue<number> | undefined, a: number, b: number, on: boolean, i: number): MotionValue<number> {
   const local = useMotionValue(0);

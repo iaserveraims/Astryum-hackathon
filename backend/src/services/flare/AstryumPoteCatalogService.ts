@@ -5,24 +5,6 @@
  * (`NEXT_PUBLIC_POTE_A_ADDRESS` / `_B_`): añadir un pote exigía desplegar el
  * frontend, y un pote creado por un gestor sencillamente no existía para nadie.
  * Con potes que nacen bajo demanda eso deja de servir.
- *
- * La factory ya lo publica todo: `vaultCount()` + `allVaults(i)`. No hace falta
- * indexar eventos para SABER QUÉ POTES HAY — solo para saber de quién es cada
- * uno, porque la r-address del consejo viaja en el evento `StackCreated` y
- * on-chain solo queda su hash (irreversible por diseño).
- *
- * ── DOS REGLAS QUE ESTE MÓDULO NO NEGOCIA ──────────────────────────────────
- *
- * 1. ORDEN NEUTRO. Se devuelven en orden de creación, el que da el array. Sin
- *    ranking, sin destacados, sin ordenar por rendimiento. Ordenar es elegir, y
- *    elegir por el usuario es la diferencia entre publicar un catálogo y
- *    recomendar un producto (dictamen 3, Z12). Quien quiera otro orden lo aplica
- *    en su pantalla y se ve que lo aplicó.
- *
- * 2. «NO PUDE LEER» NUNCA ES «NO EXISTE». Un pote cuyo estado no se deja leer
- *    aparece igual, marcado como ilegible. Esconderlo lo haría desaparecer del
- *    catálogo de su propio dueño sin decir por qué — que es exactamente lo que
- *    pasó con la jaula sin registrar (22-ago) y le borró el principal del Home.
  */
 
 import { ethers } from 'ethers';
@@ -35,7 +17,7 @@ const FACTORY_CATALOG_ABI = [
 ];
 
 /**
- * La SEGUNDA generación (27-ago): potes que nacen de una JAULA. La factory de
+ * La SEGUNDA generación: potes que nacen de una JAULA. La factory de
  * jaulas enumera las jaulas; cada jaula enumera sus potes; la r-address del
  * consejo viaja en `CageCreated` igual que en `StackCreated`. Mismo catálogo,
  * mismas dos reglas: orden de creación, y «no pude leer» ≠ «no existe».
@@ -121,11 +103,11 @@ export interface PoteSummary {
  * Llamar sin que un throw SÍNCRONO se lleve por delante lo ya lanzado.
  *
  * `contract.foo()` no siempre devuelve una promesa: si el ABI declara `foo` y el
- * contrato desplegado no la tiene —un pote nacido de una factory anterior—, la
+ * contrato desplegado no la tiene —un pote nacido de una factory anterior, la
  * llamada revienta en el sitio. Dentro de un array de promesas eso es peor de lo
  * que parece: las que YA se crearon se quedan sin nadie que las espere, y un
  * rechazo huérfano tumba el proceso entero en Node moderno. Es la misma familia
- * del crash por `emit('error')` sin oyente durante los 429 de Flare (17-ago).
+ * del crash por `emit('error')` sin oyente durante los 429 de Flare.
  *
  * Esto convierte cualquier fallo, síncrono o no, en un rechazo normal que
  * `allSettled` sabe recoger.
@@ -176,7 +158,7 @@ export async function listPoteAddresses(
  * queryFilter TROCEADO en ventanas de ≤30 bloques. El RPC público de Flare
  * rechaza rangos mayores («maximum is set to 30»), así que un `fromBlock →
  * latest` de cientos de bloques falla entero y deja el mapa de consejos vacío
- * (bug 6-sep: el pote recién creado no aparecía porque su consejo salía null).
+ * (bug: el pote recién creado no aparecía porque su consejo salía null).
  * Trocear lo hace robusto; un chunk que falle no tumba los demás.
  */
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -212,7 +194,7 @@ const GETLOGS_SPAN = (() => {
 })();
 // Ventanas simultáneas por lote. El RPC PÚBLICO limita por IP (429 desde el
 // egress de Railway): a concurrencia 8 los 429 tumbaban el catálogo Y las
-// lecturas de pote-state que corren a la vez (regresión 8-sep). Por defecto se
+// lecturas de pote-state que corren a la vez (regresión). Por defecto se
 // mantiene BAJA — gentil con el público, absorbible por el retry. Subirla solo
 // tiene sentido con un RPC propio que acepte la IP de Railway.
 const GETLOGS_CONCURRENCY = (() => {
@@ -231,7 +213,7 @@ interface ChunkedScan {
   complete: boolean;
 }
 
-// EL RATE-LIMIT DEL RPC (12-sep, medido contra Ankr público: 45 de 48
+// EL RATE-LIMIT DEL RPC (medido contra Ankr público: 45 de 48
 // ventanas a 429 «call rate limit exhausted, retry in 10s» con 4 en paralelo).
 // Antes un 429 persistente acababa en `return []` silencioso — el consejo se
 // perdía, el mapa no se llenaba nunca, el barrido seguía hasta latest a base
@@ -318,7 +300,7 @@ async function queryFilterChunked(
 }
 
 /**
- * CACHE INCREMENTAL de resolución de consejos (6-sep, arregla la lentitud).
+ * CACHE INCREMENTAL de resolución de consejos (arregla la lentitud).
  *
  * Los eventos `CageCreated`/`StackCreated` son INMUTABLES: una jaula creada en
  * el bloque X gobierna al consejo Y para siempre. Así que en vez de re-escanear
@@ -335,7 +317,7 @@ interface CouncilCache {
 const councilCaches = new Map<string, CouncilCache>();
 
 /**
- * LA CACHÉ DE CONSEJOS PERSISTE (2026-09-12): vivía solo en memoria y cada
+ * LA CACHÉ DE CONSEJOS PERSISTE: vivía solo en memoria y cada
  * deploy de Railway (= cada push a la rama) la vaciaba, así que el primer
  * catálogo tras cada deploy volvía a escanear eventos desde el bloque de
  * origen — minutos contra el RPC público, y el cliente agotaba su tope
@@ -384,7 +366,7 @@ async function resolveCouncilsCached(
    *  fromBlock, no hasta latest. Sin él se escanea hasta latest (comportamiento
    *  viejo). Es lo que mata el arranque en frío de ~130k bloques. */
   expectedCount?: number,
-  /** DIFERIDO (12-sep): devuelve lo que la caché ya sabe y, si falta algo,
+  /** DIFERIDO: devuelve lo que la caché ya sabe y, si falta algo,
    *  escanea POR DETRÁS (un solo escaneo por clave, con reintentos espaciados)
    *  guardando el progreso. El catálogo sale en segundos con los consejos que
    *  ya se conocen; los demás aparecen en la siguiente lectura. */
@@ -493,7 +475,7 @@ async function resolveCouncilsCached(
 }
 
 /**
- * SEMBRAR consejos conocidos (12-sep): la app YA sabe r-addresses de raíces
+ * SEMBRAR consejos conocidos: la app YA sabe r-addresses de raíces
  * (perfiles de gestor, runs del exchange) y la factory contesta `cageOf(hash)`
  * con una llamada barata. Lo que se resuelve así entra en la caché — y si con
  * ello el mapa cubre `cageCount`, el escaneo de eventos ni arranca. Es lo que
@@ -511,7 +493,7 @@ export function seedCageCouncils(cageFactoryAddress: string, entries: Array<[cag
 }
 
 /**
- * EL ESCANEO POR DETRÁS (12-sep): uno por clave a la vez; si no llegó al
+ * EL ESCANEO POR DETRÁS: uno por clave a la vez; si no llegó al
  * final (el nodo limitó), vuelve a intentarlo a los 30 s; si falló, al minuto.
  * Cada pasada guarda su progreso, así que nunca se repite lo ya leído. Es lo
  * que permite servir el catálogo en segundos aunque el RPC público del
@@ -584,7 +566,7 @@ export async function readPoteSummary(
     // allSettled y no all, y no es estilo: con `Promise.all`, si una lectura
     // rechaza, las OTRAS siguen vivas y sus rechazos se quedan sin dueño. Un
     // unhandled rejection tumba el proceso en Node moderno — que es justo cómo
-    // murió el backend con los 429 de Flare (17-ago). Cuando el RPC se cae, se
+    // murió el backend con los 429 de Flare. Cuando el RPC se cae, se
     // caen las nueve a la vez: exactamente el caso que no puede matar a nadie.
     const settled = await Promise.allSettled([
       callSafe<string>(() => c.name()),
@@ -689,7 +671,7 @@ export async function listPotes(
 
   // En serie a propósito: son pocos y cada uno hace varias lecturas. Un
   // Promise.all sobre N potes × ~10 llamadas es la forma de comerse el rate
-  // limit del RPC compartido (incidente 429 de Flare en Railway, 17-ago).
+  // limit del RPC compartido.
   const out: PoteSummary[] = [];
   for (const a of addresses) {
     out.push(await readPoteSummary(provider, a, councils.get(a.toLowerCase()) ?? null));

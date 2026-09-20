@@ -2,16 +2,12 @@
  * resolveRunPote — the run's pote, resolved GENERATION-first.
  *
  * A council belongs to exactly ONE registry (lesson of the multi-registry
- * resolver hazard, 28-ago: a council with both a v1 pote and a v2 cage silently
+ * resolver hazard: a council with both a v1 pote and a v2 cage silently
  * resolved to the v1 stack). Here the order is explicit and v2-first: if the
  * cage factory knows the council, that IS its generation — its bridge is the
  * cage's bridge (same verification ABI: `consumedTxId`/`nextNonce` are
  * inherited), and its pote is the cage's most recent pote. Only when no cage
  * exists do we consult the v1 pote factory.
- *
- * Never throws: an unreadable factory means "cannot prove a pote right now",
- * and the caller keeps whatever it had — "could not read" is never "you have
- * nothing".
  */
 
 import { ethers } from 'ethers';

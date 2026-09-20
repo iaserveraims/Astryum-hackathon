@@ -12,23 +12,10 @@ import {
 } from '../seatRefusal';
 
 /**
- * productizer it. 21 (it. 20 §3.5, §2.7, §3.9, §1.2, §3.3).
+ * .
  *
  * Cuatro agujeros de una misma familia, y todos con la misma forma: EL SERVIDOR
  * DIJO ALGO ACCIONABLE Y LA PANTALLA NO LO LEÍA.
- *
- *   · §3.5 `ACCOUNT_BUSY` (503 + `Retry-After`) y `PROOF_STORE_UNREADABLE` (503)
- *     viajaban con `retryable: true` y su frase, y llegaban a la pantalla como un
- *     `detail` bajo un titular genérico, sin botón. Un reintento que nadie puede
- *     pulsar no es un reintento.
- *   · §2.7 `DUPLICATE_CHECK_UNREADABLE` (409) trae `retryable` Y
- *     `confirmAnotherOrder`, y no tenía lector en ninguna pantalla: el gestor se
- *     quedaba bloqueado ~60 s sin salida.
- *   · §1.2 el release se tragaba el fallo de BD en un 200 `{released:false}` que
- *     esta capa leía como «no había nada que liberar». El 503 del agente A tiene
- *     su propio veredicto: ni libre ni ocupado — vuelve a preguntar.
- *   · §3.9 «you can prepare this one now» prometía ganar una carrera que el
- *     servidor jamás prometió.
  */
 
 const t = (s: string) => s;
@@ -96,7 +83,7 @@ describe('describeRetryableRefusal — «una lectura nuestra falló» tiene fras
   });
 });
 
-describe('readSeatRelease — «no pude leer» no es «no había nada» (it. 20 §1.2)', () => {
+describe('ReadSeatRelease — «no pude leer» no es «no había nada»', () => {
   it('503 del release: ni libre ni ocupado, y con reintento', () => {
     const o = readSeatRelease({ kind: 'refused', status: 503, error: 'SEAT_STATE_UNREADABLE', body: { retryAfterSeconds: 3 } });
     expect(o.kind).toBe('unreadable');
@@ -113,7 +100,7 @@ describe('readSeatRelease — «no pude leer» no es «no había nada» (it. 20 
   });
 });
 
-describe('la frase del asiento liberado no promete la carrera (it. 20 §3.9)', () => {
+describe('La frase del asiento liberado no promete la carrera', () => {
   it('«freed» dice que está libre, y que no está reservado', () => {
     const said = seatReleaseSentence({ kind: 'freed' }, t)!;
     expect(said).toContain('was freed');
@@ -123,7 +110,7 @@ describe('la frase del asiento liberado no promete la carrera (it. 20 §3.9)', (
   });
 });
 
-describe('seatFreesItselfSentence — qué se dice cuando nadie firmó (it. 20 §3.3)', () => {
+describe('SeatFreesItselfSentence — qué se dice cuando nadie firmó', () => {
   it('sin respuesta del release, la verdad genérica: el asiento sigue tomado', () => {
     const said = seatFreesItselfSentence(null, t)!;
     expect(said).toContain('Nothing was signed');

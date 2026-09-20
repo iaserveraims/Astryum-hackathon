@@ -1,6 +1,5 @@
 /**
- * classifyBridgeRevert — el veredicto del puente (fundador 2026-09-16: «el
- * backend se quedó esperando el dinero»): NonceMismatch con el nonce por detrás
+ * classifyBridgeRevert — el veredicto del puente: NonceMismatch con el nonce por detrás
  * es caducada para siempre; por delante, esperar; cualquier otra cosa, otro error.
  */
 import { classifyBridgeRevert, NONCE_MISMATCH_SELECTOR, RelayStale, RelayAbort } from '../LegacyOrderRelayService';
@@ -8,7 +7,7 @@ import { classifyBridgeRevert, NONCE_MISMATCH_SELECTOR, RelayStale, RelayAbort }
 const word = (n: number) => n.toString(16).padStart(64, '0');
 
 describe('classifyBridgeRevert', () => {
-  it('reads NonceMismatch(expected, actual) — the two orders stuck on 2026-09-16', () => {
+  it('Reads NonceMismatch(expected, actual) — the two orders stuck', () => {
     expect(classifyBridgeRevert(NONCE_MISMATCH_SELECTOR + word(3) + word(0))).toEqual({ kind: 'nonce-behind', expected: 3, actual: 0 });
     expect(classifyBridgeRevert(NONCE_MISMATCH_SELECTOR + word(1) + word(0))).toEqual({ kind: 'nonce-behind', expected: 1, actual: 0 });
   });

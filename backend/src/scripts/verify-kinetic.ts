@@ -4,23 +4,6 @@
  *
  * Usage:
  *   KINETIC_COMPTROLLER=0x... npm run verify:kinetic
- *
- * What it does:
- *   1. Reads Comptroller via FlareProvider HTTP RPC.
- *   2. Calls getAllMarkets() → enumerates cTokens.
- *   3. For each cToken: symbol, underlying, exchangeRate, totalSupply, totalBorrows, getCash.
- *   4. Reads collateralFactorMantissa per market.
- *   5. Reads liquidationIncentiveMantissa.
- *   6. Prints a human-readable table.
- *   7. Generates `kinetic.runtime.json` consumed by allowlist at boot.
- *   8. Prints suggested ENV vars + seed updates.
- *
- * Exit codes:
- *   0 = success, ≥1 cToken found
- *   1 = KINETIC_COMPTROLLER not set
- *   2 = address has no contract (not a Comptroller)
- *   3 = ABI mismatch (Comptroller call failed)
- *   4 = no markets enumerated (empty Comptroller)
  */
 
 import { writeFileSync } from 'fs';

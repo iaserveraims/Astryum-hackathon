@@ -1,36 +1,9 @@
 'use client';
 
 /**
- * MyLegaciesList — the "Mis Legacies" home (redesigned 2026-07-16, founder ask;
- * data layer unified 2026-07-18 with the authority switcher; resurrected as
- * the Legacy's HOME 2026-09-12 with the hackathon hub).
- *
- * 2026-09-13 (founder): «quiero que cada wallet se vea como tal en esta
- * pantalla — como las cards de la pantalla Wallets». Each Legacy is now the
- * SAME credit-card (CompactWalletCard, council dress: indigo, crown, seal,
- * flip to the back for the addresses) the Wallets screen paints on its Legacy
- * shelf — one card, not two that look alike. What this page adds under each
- * card is what a Legacy home needs and a wallet shelf does not: where the
- * council stands (health, signers rehearsed) and the Constitute door.
- *
- * REMOVING IS NEVER ONE CLICK (founder 2026-09-13, twice: «cuando le doy a la
- * X de cada wallet se elimina sin más»). The bare X is gone. Removal lives
- * behind «Manage» → «Remove…», which ARMS and explains, and then asks for an
- * acknowledgement that the account and its council stay on XRPL — the same
- * two-step grammar as ManageWalletModal on the Wallets screen.
- *
- * THE HONEST MEMBERSHIP LIMIT (§1): XRPL has no reverse lookup; this list is
- * composed from the connected wallet + the user's pointers. THE SOURCE is the
- * governed-account REGISTRY (/api/governed-accounts) via useAuthorities — the
- * SAME source the authority switcher reads, so the two can never disagree, and
- * pointers follow the user across devices. legacyLocal remains the wizard's
- * local write-buffer; useAuthorities drains it into the registry. State is
- * always read fresh from the ledger (L1).
- *
- * It renders `legacies`, NOT every governed candidate (founder 2026-07-28):
- * being connected while you are a MEMBER of someone else's council does not
- * make your own account a Legacy. Only a confirmed council, or an account you
- * deliberately pointed at, belongs on this page.
+ * MyLegaciesList — the "Mis Legacies" home (redesigned, ask;
+ * data layer unified with the authority switcher; resurrected as
+ * the Legacy's HOME with the hackathon hub).
  */
 import { useCallback, useMemo, useState } from 'react';
 import { Check, ExternalLink, Loader2, Plus, RefreshCw, ScrollText, Trash2, Users, X } from 'lucide-react';
@@ -157,7 +130,7 @@ function LegacyManageDialog({
             <ExternalLink size={13} /> {t('View on XRPScan')}
           </a>
 
-          {/* Danger — last and quiet, and IN TWO STEPS (founder 2026-09-13):
+          {/* Danger — last and quiet, and IN TWO STEPS:
               arm and explain, then acknowledge, then remove. Only pointers
               (registry rows) can be removed: a Legacy that is here because
               the connected wallet IS the council has nothing to forget. */}

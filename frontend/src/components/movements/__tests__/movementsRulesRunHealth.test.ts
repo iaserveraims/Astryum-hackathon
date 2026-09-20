@@ -5,20 +5,8 @@ import { join } from 'node:path';
 import { RULE_PILL_TONE, rulePillState } from '@/lib/rules/runHealth';
 
 /**
- * G4-strategies (auditoría 2026-08-17 §G4) — el rayo verde de una regla que no
+ * G4-strategies (auditorí §G4) — el rayo verde de una regla que no
  * avisaba a nadie.
- *
- * La lista de reglas de ahorro de MovementsPanel coloreaba su rayo desde
- * `rule.enabled` a secas (`text-volt` vs `text-white/30`) y solo imprimía
- * `totalTimesTriggered`. Una regla IDLE_BALANCE / TIME_TRIGGER cuyo disparo
- * REVIENTA se guarda como `status: 'error'` con el motivo en `notes` y —por la
- * guarda del «éxito no ganado»— NO incrementa ese contador ni manda push. Así
- * que la superficie enseñaba un rayo encendido, sin avisos y sin explicación:
- * exactamente la lectura de una regla que no ha funcionado nunca, disfrazada de
- * una que simplemente aún no ha disparado.
- *
- * Fuente-nivel: vitest corre en `environment: 'node'` y tsconfig deja
- * `jsx: "preserve"`, así que importar el .tsx revienta en el transform.
  */
 
 const PANEL = join(__dirname, '..', 'MovementsPanel.tsx');

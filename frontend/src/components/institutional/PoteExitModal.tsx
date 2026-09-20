@@ -6,21 +6,6 @@
  * synchronous redeem (pote A) or requestRedeem with the cooldown the client
  * accepted at entry (pote B). The MAX is the holder's REAL share balance read
  * on-chain, never a guess.
- *
- * productizer it. 25 (§1) — EL CÓDIGO CRUDO Y EL CASTELLANO, EN LA PANTALLA DE
- * SALIDA. La it. 23 dijo haber cerrado esto «en las diez superficies» y esta no
- * estaba en la lista: el rechazo se pintaba como `{refusal.error}` (el slug del
- * servidor: `NOT_REDEEMABLE_NOW`, `ABOVE_MAX_REDEEM`…) sobre `{refusal.detail}`,
- * que en este router se compone en castellano (`badRequest(res, 'sharesBase debe
- * ser…')`). Una persona que sale de un pote leía un identificador y un párrafo
- * en un idioma que la pantalla no habla, y no aprendía ni qué pasó ni qué hacer.
- *
- * Ahora: UNA frase — la del lector compartido, que conoce las familias de
- * códigos (asiento, «no pude leer» reintentable, los dos 409 deterministas) y
- * cae en la genérica honesta cuando lo único que llegó es un slug — y, debajo,
- * el `detail` del servidor SOLO si viene en inglés; si no, nuestra propia frase,
- * que nombra el paso siguiente. Y cuando el rechazo es uno de los que tienen
- * camino, el aviso compartido lo ofrece (reintento / entrar con la wallet).
  */
 
 import { useEffect, useState } from 'react';

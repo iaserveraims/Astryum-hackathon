@@ -1,17 +1,6 @@
 /**
  * Sceptre's unlock queue — the 14.5 days when `balanceOf` says zero and the
  * money is still yours.
- *
- * `requestUnlock(shares)` moves the shares into the contract's custody, so the
- * balance read that used to BE the whole adapter reported nothing: a wallet
- * that unstaked simply lost its position from every Astryum surface until it
- * redeemed, two weeks later. These tests pin the queue read, the claim window
- * (cooldownPeriod → +redeemPeriod → overdue) and the `stillEarning` answer.
- *
- * Semantics verified against the verified implementation source (proxy
- * 0x12e605bc… → impl 0xca0fEE77…) on 2026-08-01: `_redeem` prices the request
- * with the exchange rate at `startedAt + cooldownPeriod`, so the stake keeps
- * compounding through the cooldown and stops once it is claimable.
  */
 jest.mock('../../../../services/FlareProvider', () => ({
   FlareProvider: {

@@ -3,8 +3,7 @@
  * Auditoría AST de i18n: toda clave t('literal') debe tener entrada ES.
  * El dict son DOS objetos (ES exportado + PAGES const interna) — se transpila
  * el módulo y se exporta PAGES a mano. Uso: node frontend/scripts/i18n-audit.js
- * (desde cualquier cwd). Vivía en el scratchpad de sesión y se recreaba una y
- * otra vez — versionado el 2026-08-17 para que sobreviva.
+ * (desde cualquier cwd).
  */
 const path = require('path');
 const fs = require('fs');

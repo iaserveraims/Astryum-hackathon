@@ -3,18 +3,6 @@
  * clase, sin RPC ni DB (sin DATABASE_URL los helpers del store son no-ops y
  * findHandoffByUserOpHash devuelve null: exactamente el fallback que el modal
  * tiene que sobrevivir).
- *
- * Qué se prueba y por qué:
- *  1. directionForAction: el mapa acción→dirección que etiqueta el modal
- *     (entrante = deposita, saliente = retira, otra = interna). Si una acción
- *     nueva cae en 'desconocida' el modal no miente — solo deja de etiquetar.
- *  2. park → listStuck: aparcar a mano deja el dispatch visible con su motivo
- *     y SIN reintentos (la ausencia de coste es la promesa del botón).
- *  3. retry: des-aparca y limpia contadores; con el watcher APAGADO no lanza
- *     barrido (kicked=false) — jamás un tick sin clave.
- *  4. skip-list del env: retry avisa (envSkipListed) y NO lanza barrido — el
- *     próximo tick lo re-aparcaría; mentir con un "reintentando" sería el
- *     patrón 'éxito no ganado'.
  */
 import {
   DirectMintExecutorWatcher,

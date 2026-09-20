@@ -20,7 +20,7 @@ interface VenueMeta {
   asset: string;
 }
 
-/** Direcciones verificadas on-chain (6-sep). Claves en minúsculas. */
+/** Direcciones verificadas on-chain. Claves en minúsculas. */
 const VENUES: Record<string, VenueMeta> = {
   '0xd1b7a5efa9bd88f291f7a4563a8f6185c0249cb3': { protocol: 'kinetic', product: 'isoFXRP', asset: 'FXRP' },
   '0x4c18ff3c89632c3dd62e796c0afa5c07c4c1b2b3': { protocol: 'firelight', product: 'stXRP', asset: 'FXRP' },

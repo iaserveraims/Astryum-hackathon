@@ -60,12 +60,12 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
   const [pendingOrder, setPendingOrder] = useState<CouncilOrderPrepared | null>(null);
   // 409 SAME_ORDER_RECENTLY_LAUNCHED / COUNCIL_ORDER_IN_FLIGHT: composing the
   // same order again is an explicit confirm, never a silent retry.
-  // it. 21 (§2.7): the same panel also carries DUPLICATE_CHECK_UNREADABLE — «we
+  // the same panel also carries DUPLICATE_CHECK_UNREADABLE — «we
   // could not check», which is our read failing, so it gets a retry as well as
   // the server's own «compose another order anyway».
   const [inFlight, setInFlight] = useState<{ action: 'direct' | 'recall'; detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
   /**
-   * it.14 (R2 2.3): an order of this console reached 'stale' and its fate says a
+   * An order of this console reached 'stale' and its fate says a
    * sibling already went out (or could not be checked). Composing stays paused —
    * here, not only inside the signing card — until the person says they checked.
    */
@@ -94,8 +94,8 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
 
   async function run(action: 'direct' | 'recall', opts?: { confirmAnotherOrder?: boolean }) {
     // A stale order whose sibling already went out: composing again here is the
-    // second movement of the same capital (it.14, R2 2.3) — BUT a recall takes
-    // capital OUT, and an exit is warned, never stopped (it.16, R3 3.1). The
+    // second movement of the same capital (R2 2.3) — BUT a recall takes
+    // capital OUT, and an exit is warned, never stopped (R3 3.1). The
     // note stays on screen; the door does not close. And «Compose it again
     // anyway» composes: the confirmation IS the person's check.
     if (signLocked) return;
@@ -176,7 +176,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
   // Sacar el capital génesis del creador: solo el consejo (XRPL) puede — su PA
   // redime sus propias shares vía 0xFE. Firma el quórum del consejo en Xaman.
   async function pullGenesis(opts?: { supersede?: boolean }) {
-    // it.16 (R3 3.1) — NO GUARD HERE. This is an EXIT (the council's PA redeems
+    // NO GUARD HERE. This is an EXIT (the council's PA redeems
     // its own shares), and an exit is never closed by a screen of ours: not by a
     // record, not by the database, not by a region and not by our own lock. The
     // stale note is rendered right above this block instead, as a warning.
@@ -210,7 +210,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
 
   const dec = state.asset.decimals;
   // La firma EVM es DEL DIRECTOR: sin cesión vigente revierte con
-  // NotDirectorOrCouncil (incidente 23-ago — gas quemado y horas de diagnóstico).
+  // NotDirectorOrCouncil.
   // El backend ya se niega (409 NO_DIRECTOR_CEDED); aquí ni se ofrece el botón:
   // sin director, el único camino es la orden de consejo (el campo r-address).
   const directorSeated =
@@ -218,7 +218,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
     state.governance.directorUntil > Math.floor(Date.now() / 1000);
   const evmPathDead = !council.trim() && !directorSeated;
   /**
-   * it.14 (R5 1.6) — WHAT A TAKEN SEAT MEANS, CASE BY CASE.
+   * WHAT A TAKEN SEAT MEANS, CASE BY CASE.
    *
    * «Retry, freeing the seat» asks the server to DISPLACE the draft on the seat.
    * It was offered for every `NONCE_SEAT_TAKEN`, including the seats held by a
@@ -305,7 +305,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
             account={pendingOrder.account}
             // The recall's exit pass: without it this console's exits took the
             // general door and answered 451 whenever the server could not
-            // classify the order (it.14, R3 3.1) — an exit closed by a record.
+            // classify the order (R3 3.1) — an exit closed by a record.
             exitToken={pendingOrder.exitToken}
             onStaleFate={staleLock.report}
             onSettled={(hash: string) => {
@@ -374,7 +374,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
         >
           {busy && lastAction === 'direct' ? <Loader2 className="w-3 h-3 animate-spin" /> : t('Direct to venue')}
         </button>
-        {/* it.16 (R3 3.1): a recall takes capital OUT — the stale lock warns
+        {/* A recall takes capital OUT — the stale lock warns
             below this row, it does not close this door. */}
         <button
           onClick={() => run('recall')}
@@ -390,7 +390,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
         </p>
       ) : null}
 
-      {/* it. 21 (§3.5): ACCOUNT_BUSY / PROOF_STORE_UNREADABLE are a wait with a
+      {/* ACCOUNT_BUSY / PROOF_STORE_UNREADABLE are a wait with a
           button, not a verdict — and `run` re-runs exactly what failed. */}
       <ReadFailureNotice
         refusal={denied}
@@ -413,13 +413,13 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
 
       <StaleOrderLockNote lock={staleLock.lock} onRelease={staleLock.release} pausing={staleLock.pausing} />
 
-      {/* A seat refusal is NOT the cage saying no (it.14, R5 1.6): it is an
+      {/* A seat refusal is NOT the cage saying no (R5 1.6): it is an
           earlier 0xFE of this account holding the nonce. It says which of the
           four cases it is, and only the displaceable one offers the retry. */}
       {seat ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-3" role="alert">
           <p className="text-[12px] font-medium text-tone-warning">{seat.text}</p>
-          {/* it.16 (R5 5.4): the server writes some of these `detail`s in
+          {/* The server writes some of these `detail`s in
               Spanish, and this app is in English — a paragraph the reader cannot
               read is the same failure as a raw code. Only a plainly English
               detail is quoted. */}
@@ -434,7 +434,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
               type="button"
               onClick={() => {
                 setError('');
-                // it. 19 (R5 R4): the answer is READ, not reduced to a boolean.
+                // The answer is READ, not reduced to a boolean.
                 // A 200 `{released:false}` used to count as «freed» — so a
                 // payment already signed was announced as released — and a 409
                 // («it can still be signed») as a failure. Four answers, four
@@ -467,7 +467,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
         </div>
       ) : null}
 
-      {/* it. 21 (§3.5): a 503 of OURS is not «the cage refused this order». The
+      {/* A 503 of OURS is not «the cage refused this order». The
           block above says what happened and offers the retry; this verdict must
           not also fire, or the person reads an accusation of the contract for a
           database blip. */}
@@ -475,7 +475,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
         <div className="rounded-xl border-2 border-danger bg-danger/10 p-4" role="alert">
           <div className="flex items-center gap-2 text-danger font-bold text-sm">
             <ShieldX className="w-5 h-5" />
-            {/* it. 19: the bare slug used to be the headline (`DENIED — CAP_EXCEEDED`),
+            {/* The bare slug used to be the headline (`DENIED — CAP_EXCEEDED`),
                 and the Spanish `detail` sat under it on an English screen. A code
                 is not a sentence: the cage's own refusal follows below, and only
                 a detail written in this screen's language is quoted. */}
@@ -560,7 +560,7 @@ export function OperatorConsole({ policy, showCreatorExit = false }: { policy: P
             >
               {exitBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : t('Withdraw genesis to the creator')}
             </button>
-            {/* ONLY the displaceable case (it.14, R5 1.6). A signed or reported
+            {/* ONLY the displaceable case (R5 1.6). A signed or reported
                 seat must be waited out, and an unreadable ledger is not a «no». */}
             {seat?.mayRetryFreeingSeat ? (
               <button

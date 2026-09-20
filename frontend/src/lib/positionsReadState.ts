@@ -1,23 +1,6 @@
 /**
  * positionsReadState — what the positions board does with a `/positions/:wallet`
  * answer that could not be read in full.
- *
- * Doctrine: «could not read» is not permission, not punishment, not a fact,
- * not a zero — and not an empty list. A position that could not be read is
- * painted as «could not be read», never as absent.
- *
- * THE FAILURE (ola 0, 15-sep, two reviewers). `/api/positions/:wallet` answers
- * HTTP 200 with one block per adapter, and a fallen adapter ships as
- * `{ protocolId, error, positions: [] }`. The board's `flattenPositions` read
- * `positions` only; its «could not read» card counted HTTP failures only. So
- * ONE 429 among Kinetic's ~20 reads took the adapter down, the block came
- * back empty with an `error` nobody painted, and the carry holder's FXRP
- * supply, USDT0 debt and «Repay» door were simply not there. With the
- * backend degrading per market now, a block can also carry `unreadable[]` —
- * the reads (markets, queue periods) that did not answer beside the rows
- * that did.
- *
- * Pure: importable by vitest without the component (which drags AppKit in).
  */
 
 /** An address whose read failed, with WHY: the HTTP status, or null for no answer (network/timeout). */
@@ -52,9 +35,9 @@ export interface BlockPosition {
 export interface PositionsBlock {
   protocolId: string;
   positions: BlockPosition[];
-  /** The adapter fell entirely (it. 29 shape). */
+  /** The adapter fell entirely (shape). */
   error?: string;
-  /** Reads the adapter could not make (ola 0 shape); `positions` is a lower bound. */
+  /** Reads the adapter could not make; `positions` is a lower bound. */
   unreadable?: UnreadRead[];
 }
 

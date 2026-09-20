@@ -1,42 +1,6 @@
 /**
  * signOutcome — what happened to a signature we could not follow, and what a
- * screen is allowed to do about it. Frente `familia-no-pude-leer` (2026-08-20).
- *
- * «No pude leer» NO es «falló». A read failure AFTER a payload reached the
- * wallet invites a second signature, and on the 0xFE rail a second signature is
- * a second dispatch: a second carrier fee in XRP, a second nonce seat, a second
- * movement of real money. So the classification is fail-safe — only an error
- * that PROVES nothing left is retryable; anything unknown after the hand-off is
- * 'unconfirmed', and an unconfirmed operation is never offered a second
- * signature.
- *
- * WHY IT LIVES HERE. This was born in `components/positions/vaultModalTruth.ts`
- * serving two twin vault modals (frentes `settling-residuos` 2026-08-18 and
- * `settling-final` 2026-08-19, whose reasoning is preserved below). It now
- * serves five surfaces across two component folders — the two vault modals,
- * `positions/PaActionsModal`, `positions/FtsoExitModal` and
- * `earn/FlareDemoEarn` — so it belongs beside the wallet layer whose vocabulary
- * it speaks: `inFlightError` (RECEIPT_UNREAD = sent, unread, do NOT sign again)
- * is the same doctrine one level down, and this module already imported it.
- * `vaultModalTruth` keeps its vault-only decisions (dispatch fees, release
- * dates) and re-exports this one, so its existing importers are untouched.
- *
- * The residues round 4 closed, both inside this file:
- *
- *  A. ORDER. `NEVER_REACHED_WALLET` was tested before `READ_AS_FAILED`, and two
- *     of its patterns ("insufficient funds", "exceeds the balance of the
- *     account") are ALSO ordinary revert reasons. A revert we actually read was
- *     therefore answered "nothing left — sign it again", offering calldata the
- *     chain had already refused. A verdict we READ now beats every inference
- *     about how far the payload got.
- *
- *  B. THE TRACE'S OWN WORDS. `unconfirmedTrace` refused sentences that invite a
- *     retry, but not sentences that pronounce a VERDICT — and the dominant
- *     error of this whole state is Xaman's "Transaction submission failed:
- *     Failed to retrieve transaction hash from payload", a sentence about a
- *     failed READ that opens with the word "failed". Printed under "the
- *     transaction may already be out there, do NOT sign it again", it told the
- *     reader the opposite of the headline. Same family, one line lower.
+ * screen is allowed to do about it. Frente `familia-no-pude-leer`.
  */
 
 import { isUserRejection } from './flareChain';
@@ -53,7 +17,7 @@ export type SignOutcome =
    *  so going back is safe, but it is not "you cancelled" either. */
   | { kind: 'reverted' }
   /**
-   * productizer it.16 (R5 5.2) — THE PREPARED TRANSACTION IS DEAD.
+   * THE PREPARED TRANSACTION IS DEAD.
    *
    * The XRPL node answered `tefMAX_LEDGER` (its LastLedgerSequence passed) or
    * `tefPAST_SEQ` (its Sequence was already consumed). Nothing moved and nothing
@@ -95,7 +59,7 @@ const NEVER_LEFT: RegExp[] = [
   /no account connected/i,
   /failed to create transaction submission payload/i,
   /**
-   * it. 31 (§4) — THE QUORUM CEREMONY'S OWN «NOTHING LEFT».
+   * THE QUORUM CEREMONY'S OWN «NOTHING LEFT».
    *
    * `sendIntent` routes a quorum account to the ceremony bus, and the bus
    * rejects with its own codes: ABANDONED (the dialog was closed while the
@@ -121,23 +85,6 @@ const NEVER_LEFT: RegExp[] = [
  * `sendTransactionAsync`, which itself estimates gas before a wallet window
  * exists. Everything the partner can refuse before that window is enumerated
  * here (the first two guards already live in NEVER_LEFT):
- *
- *   - the chain switch: wagmi's SwitchChainError / SwitchChainNotSupportedError
- *     / ChainNotConfiguredError, MetaMask's -32002 "already pending" (its text
- *     names `wallet_switchEthereumChain`) and the unrecognised-chain path;
- *   - the estimation: "insufficient funds for gas * price + value", which the
- *     node/wallet answers INSTEAD of accepting the transaction — no hash is
- *     ever produced.
- *
- * A -32002 whose text names `eth_sendTransaction` is deliberately NOT here:
- * that popup is already holding OUR payload, and unknown stays 'unconfirmed'.
- *
- * familia-no-pude-leer · residue A: these are INFERENCES about how far the
- * payload got, and the last two are wording a revert reason can borrow word for
- * word. They are therefore tested AFTER the verdict we can actually read.
- *
- * The structural fix — a "the wallet has it now" signal from `sendIntentCalls`
- * itself — belongs to `lib/wallet/useWalletPartner.ts`, outside this frente.
  */
 const NEVER_REACHED_WALLET: RegExp[] = [
   /SwitchChain(NotSupported)?Error/i,
@@ -162,22 +109,10 @@ const NEVER_REACHED_WALLET: RegExp[] = [
 const READ_AS_FAILED = /\breverted\b/i;
 
 /**
- * productizer it.16 (R5 5.2) — THE ENGINE RESULTS THAT KILL A PREPARED PAYLOAD.
+ * THE ENGINE RESULTS THAT KILL A PREPARED PAYLOAD.
  *
  * The two codes travel three ways and all three are read here, because the one
  * that actually reaches the 0xFE surfaces is the THIRD:
- *
- *   1. `e.xrplResult` — what `XamanWalletService` attaches to its own throw;
- *   2. a bare code, when a rail rethrows it verbatim;
- *   3. the WRAPPED sentence, which is what the person's screen really gets:
- *      `Transaction submission failed: The network refused this transaction
- *      (tefMAX_LEDGER). It never entered the ledger and it cost nothing.`
- *      — the outer catch of `submitTransaction` builds a NEW Error from the
- *      message, so `xrplResult` is gone by the time a caller classifies it.
- *
- * Matching the code anywhere in the text is safe: `tefMAX_LEDGER` and
- * `tefPAST_SEQ` are not words, and a sentence that carries one IS about a
- * transaction the network answered with it.
  */
 const STALE_ENGINE_RESULT = /\b(tefMAX_LEDGER|tefPAST_SEQ)\b/;
 
@@ -242,7 +177,7 @@ function errText(e: unknown): string {
  * — the caller cannot see that boundary from outside the call.
  */
 export function signOutcome(e: unknown, handedToPartner: boolean): SignOutcome {
-  // it.16 (R5 5.2): a verdict the NETWORK pronounced outranks everything else,
+  // A verdict the NETWORK pronounced outranks everything else,
   // including whether we think the payload reached the wallet — a tef* answer
   // only exists because it did. Checked first so no inference can bury it.
   const stale = staleEngineResult(e);
@@ -290,19 +225,6 @@ const RETRY_INVITATION: RegExp[] = [
 /**
  * familia-no-pude-leer · residue B — words that pronounce the verdict the
  * headline just refused to pronounce.
- *
- * The trace is a diagnostic, and a diagnostic that opens with "failed" is read
- * as a result. The two commonest arrivals at this panel are Xaman's
- * "Transaction submission failed: Failed to retrieve transaction hash from
- * payload" and a plain "Failed to fetch": both describe a READ that failed
- * while the payload may well be on a ledger. Quoted under "do NOT sign it
- * again", they are an invitation to sign again in different clothes — the
- * retry sentence was removed from the panel in round 3 and walked back in
- * through the wallet's own words.
- *
- * When the wallet claims an outcome we did not read, the panel says nothing.
- * A missing diagnostic costs a support message; a false verdict costs a second
- * dispatch.
  */
 const READS_AS_A_VERDICT: RegExp[] = [
   /\bfail(ed|ure|s|ing)?\b/i,
@@ -342,7 +264,7 @@ function traceText(e: unknown): string {
  * be signed again, those sentences do not inform — they contradict, and the
  * user believes the last thing they read. So the panel gets the wallet's own
  * words, clipped, and nothing at all when there are none, when they would read
- * as an invitation to retry, or (round 4) when they read as a verdict.
+ * as an invitation to retry, or when they read as a verdict.
  */
 export function unconfirmedTrace(e: unknown): string | null {
   const raw = traceText(e).replace(/\s+/g, ' ').trim();
@@ -380,7 +302,7 @@ export function signFailureAction(
   if (outcome.kind === 'unconfirmed') {
     return { view: 'unconfirmed', txHash: outcome.txHash, trace: unconfirmedTrace(e) };
   }
-  // it.16 (R5 5.2): the prepared payload is dead, so the honest offer is the
+  // The prepared payload is dead, so the honest offer is the
   // same one 'reverted' gets — back to the form, prepared payload dropped — with
   // the sentence that says the seat is not lost either.
   if (outcome.kind === 'stale') {
@@ -426,9 +348,6 @@ export interface SignFailureHandlers {
  * new signing surface cannot get the ordering wrong: no error text under the
  * amber ending, no stale amber panel under a plain error, and the prepared
  * payload dropped only where it is genuinely spent.
- *
- * Returns the action it applied, so a caller can add its own rail-specific
- * bookkeeping (never to re-decide the phase).
  */
 export function applySignFailure(
   e: unknown,

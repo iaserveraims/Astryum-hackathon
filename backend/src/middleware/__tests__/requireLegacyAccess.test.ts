@@ -70,7 +70,7 @@ describe('requireLegacyAccess', () => {
     expect((await run('u2')).statusCode).toBe(403);
   });
 
-  it('a listed email that was never verified (password sign-up) ⇒ 403 — productizer it. 8', async () => {
+  it('A listed email that was never verified (password sign-up) ⇒ 403', async () => {
     process.env.LEGACY_ACCESS_EMAILS = 'familia@example.com';
     findUnique.mockResolvedValueOnce({ email: 'familia@example.com', emailVerified: false });
     const r = await run('u-squatter');

@@ -7,16 +7,6 @@
  * esos bytes contra lo que tiene atado. Lo único que cambia es el destinatario:
  * los bytes van a la JAULA (`AstryumCage`), no a un vault, y cada orden lleva el
  * pote al que se refiere como primer parámetro.
- *
- * La jaula es la que acota: `proposeVenue` solo dentro de su lista eterna (y el
- * pote, además, solo dentro del registro); `directTo` solo a venues listos; el
- * catálogo y el cobro solo desde aquí (la autoridad), nunca desde el director.
- *
- * Todo lo que aquí se comprueba ANTES de componer es para no hacer firmar una
- * orden condenada (lección del direct a Kinetic, 23-ago): un pote que no es de
- * la jaula, un bridge que no está atado a ella, una jaula que ya pasó el
- * testigo. Cada uno de esos reventaría en `bridge.execute` DESPUÉS de firmar y
- * de pagar la ronda FDC (~20 FLR).
  */
 
 import { ethers } from 'ethers';
@@ -48,12 +38,6 @@ const MAX_PAYMENT_CREDENTIALS = 8;
  * admite las primeras — exige que el firmante sea el sujeto de cada una — y una
  * sola ajena tumba el pago ENTERO con `tecBAD_CREDENTIALS`, cobrando su fee de
  * red y sin ejecutar nada.
- *
- * Es exactamente lo que le pasó al fundador (15-sep-2026): la raíz de su
- * exchange empezó a emitir KYC a su omnibus y desde entonces no podía abrir un
- * pote, porque el pago de la orden se llevaba también esos KYC ajenos.
- *
- * Pura a propósito (sin red): la regla se fija en un test, no en un ensayo.
  */
 export function ownCredentialIdsFor(
   account: string,
@@ -469,20 +453,12 @@ export async function buildCageOrderHandoff(input: {
   const encoded = encodeCageOrder(input.action, input.params, constitutionRef, Number(nonceBig), input.summaryCtx);
   const fee = resolveOrderFee();
 
-  // El título del gestor viaja con la orden (27-ago): si su cuenta sostiene
+  // El título del gestor viaja con la orden: si su cuenta sostiene
   // credenciales XLS-70 VÁLIDAS (aceptadas, no caducadas), sus IDs van en
   // `CredentialIDs`. Con el ancla convertida en puerta (DepositAuth +
   // AuthorizeCredentials) es lo único que hace que el pago entre; sin puerta, el
   // ledger los ignora. Solo las válidas: una caducada haría tecBAD_CREDENTIALS y
   // el gestor pagaría una firma por nada. «No pude leer» = sin campo, no error.
-  //
-  // Con la puerta ENCENDIDA la regla del ledger es de conjunto EXACTO: los
-  // `CredentialIDs` tienen que ser, como pares {emisor, tipo}, uno de los
-  // `AuthorizeCredentials` del ancla — ni uno más (rNyre… con su AIFM+KYC
-  // autoemitido moría con tecNO_PERMISSION llevándose «todas»). Por eso se lee
-  // el ancla y se ELIGE el conjunto que admite (`decideOrderCredentialIds`,
-  // pura). Sin puerta publicada, como antes: todas las propias válidas. Sin
-  // conjunto que cubra y puerta encendida: negativa tipada ANTES de firmar.
   let credentialIds: string[] = [];
   try {
     const held = await readAccountCredentials(input.council);

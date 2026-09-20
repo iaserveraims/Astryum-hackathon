@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { seatContestNotices } from '../CouncilMultisigFlow';
 
 /**
- * productizer it. 21 (it. 20 §2.5) — LA PANTALLA INVENTABA UN RIVAL.
+ * LA PANTALLA INVENTABA UN RIVAL.
  *
  * El servidor mete TRES avisos distintos en el mismo canal del asiento:
  *   · un payload rival que de verdad tiene el Sequence de esta cuenta;
@@ -51,7 +51,7 @@ describe('seatContestNotices — un aviso, una frase suya', () => {
   });
 
   /**
-   * it. 23 (it. 22 §2.1) — LA FRASE VERDADERA VIVE EN `detail`.
+   * LA FRASE VERDADERA VIVE EN `detail`.
    *
    * El cliente no puede saber cuál de las dos físicas se aplicó: «se fijó a ese
    * asiento» o «NO se fijó, lleva la siguiente Sequence libre». Eso solo lo dice
@@ -95,7 +95,7 @@ describe('seatContestNotices — un aviso, una frase suya', () => {
   });
 
   /**
-   * it. 23 (it. 22 §2.2) — DOS AVISOS QUE SE CONTRADICEN, A LA VEZ.
+   * DOS AVISOS QUE SE CONTRADICEN, A LA VEZ.
    *
    * «Otro payload tiene esta Sequence» y «nadie dijo que otro payload la tenga»
    * no pueden estar los dos en pantalla, sin orden, junto a un QR. La evidencia

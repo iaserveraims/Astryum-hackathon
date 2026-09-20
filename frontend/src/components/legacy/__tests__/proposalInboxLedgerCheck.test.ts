@@ -17,29 +17,6 @@ import {
  * `ledgerCheck`. Nobody told the browser: `grep ledgerCheck frontend/src`
  * returned ZERO. So the inbox, which buckets on `status` alone, kept filing
  * those rows as live work:
- *
- *   · a `ready` zombie sat in "Ready to emit" with a GREEN pill, "0 days left"
- *     and a «Combine & broadcast» button whose only possible answer is
- *     tefPAST_SEQ (the seat is spent);
- *   · a `collecting` zombie asked for a signature forever.
- *
- * Same incentive as the lie it replaced: recompose, and the council pays twice.
- *
- * ROUND 3 — WHY THIS FILE GREW TEETH: its second half used to be `src.toContain`
- * / `indexOf` over the shipping source, and that is exactly how "the only two
- * moves offered are the ones that can succeed" passed GREEN while a third one,
- * «Fix my position», was rendered on the same row (outside every tray
- * condition) and answered the bare code PROPOSAL_NOT_LIVE. A substring cannot
- * see an action that lives in another file. So the decisions now live in pure
- * functions and the tests EXECUTE them.
- *
- * Why extraction and not an import: the frontend vitest bootstrap is
- * `environment: 'node'`, and importing either .tsx drags the wallet stack in
- * (`Cannot find package 'got'` from @aptos-labs/aptos-client, through
- * useXrplWalletPartner). The functions are therefore pulled OUT of the shipping
- * source and evaluated — the assertions run on the code that ships, not on a
- * copy that can drift. (Same technique as councilVaultEntry.feeState and
- * councilOrderCard.venueDoors.)
  */
 
 const INBOX = join(__dirname, '..', 'ProposalInbox.tsx');
@@ -75,7 +52,7 @@ const canFixPosition = extract<(status: string, seatUnresolved: boolean) => bool
 );
 
 /**
- * productizer it. 27 (4) — ESTA ERA LA ÚLTIMA GEMELA SIN DELEGAR.
+ * ESTA ERA LA ÚLTIMA GEMELA SIN DELEGAR.
  *
  * La firma cambió a propósito y este extractor lo grita, que es para lo que está:
  * `detail || message` no tenía `detailIsProse` (imprimía la r-address que
@@ -214,14 +191,14 @@ describe('positionErrorText — el código crudo no es una frase', () => {
 
   it('a plain error keeps its message, and nothing ever renders as undefined', () => {
     expect(positionErrorText(new Error('network down'))).toBe('network down');
-    // it. 27 (4): la frase de reserva la pone ahora el lector compartido.
+    // La frase de reserva la pone ahora el lector compartido.
     expect(positionErrorText(undefined)).toBe('Something went wrong.');
     expect(positionErrorText({})).toBe('Something went wrong.');
   });
 
   /**
-   * productizer it. 27 (4) — LAS DOS QUE `detail || message` NO SABÍA DECIR, Y QUE
-   * CAEN LAS DOS SOBRE EL COSIGNATARIO REGISTRADO QUE LA it. 25 REHABILITÓ.
+   * LAS DOS QUE `detail || message` NO SABÍA DECIR, Y QUE
+   * CAEN LAS DOS SOBRE EL COSIGNATARIO REGISTRADO QUE LA REHABILITÓ.
    */
   it('un 403 con la r-address en `detail` deja de ser la explicación entera', () => {
     const seat = 'rNaFfKeGDXFFEUqcCJdcgRfDjXfnq5Aoh6';
@@ -287,9 +264,9 @@ describe('la bandeja pasa su veredicto al acta', () => {
 });
 
 /**
- * productizer it. 25 (4) — LA PANTALLA TAPIABA UNA PUERTA QUE EL SERVIDOR ABRE.
+ * LA PANTALLA TAPIABA UNA PUERTA QUE EL SERVIDOR ABRE.
  *
- * it. 23 apagó «Fix my position» para el cosignatario REGISTRADO (`&& !hidden` en el
+ * Apagó «Fix my position» para el cosignatario REGISTRADO (`&& !hidden` en el
  * sitio de llamada), creyendo que «el mismo piso cierra esa puerta». No es verdad:
  * `POST /:id/positions` no tiene piso de lectura — comprueba la SignerList de ESTA
  * propuesta, que el JSON firmado diga lo mismo que los campos, y VERIFICA el blob
@@ -308,9 +285,9 @@ const mayFixPosition = extract<(status: string, seatUnresolved: boolean, positio
   { canFixPosition },
 );
 
-describe('it. 25 (4) — el cosignatario REGISTRADO puede fijar su posición', () => {
+describe('El cosignatario REGISTRADO puede fijar su posición', () => {
   it('la redacción del acta NO cierra la puerta: el servidor la acepta y la verifica', () => {
-    // Éste es el caso que it. 23 apagaba: acta oculta, asiento sano, propuesta viva.
+    // Éste es el caso que apagaba: acta oculta, asiento sano, propuesta viva.
     expect(mayFixPosition('collecting', false, true)).toBe(true);
     expect(mayFixPosition('ready', false, true)).toBe(true);
   });

@@ -11,12 +11,6 @@
  *     tesorería), elige sus venues iniciales DENTRO de la whitelist y fija el
  *     tope por cuenta.
  *  3. Por pote → dirige y recupera capital (órdenes de consejo).
- *
- * Toda orden sigue el raíl del 23-ago: firmar en Xaman NO ejecuta — tras la
- * firma se dispara el relay con `order.orderData`, que paga la prueba FDC y
- * llama a `bridge.execute` contra la jaula. La tarjeta lo hace sola.
- *
- * Prepare-only: el backend compone, la wallet firma, la jaula acota.
  */
 'use client';
 
@@ -106,11 +100,11 @@ export function CageConsole({ account }: { account: string }) {
   // The order's signature already reached Xaman and is not confirmed as done:
   // dropping it here and preparing it again would sign the same order twice.
   const [orderBlocked, setOrderBlocked] = useState(false);
-  // 409 COUNCIL_ORDER_IN_FLIGHT (it.13): the refused prepare, kept so an explicit
+  // 409 COUNCIL_ORDER_IN_FLIGHT: the refused prepare, kept so an explicit
   // «compose another order anyway» re-sends exactly it — never a silent retry.
   const [inFlight, setInFlight] = useState<{ input: Parameters<typeof prepareCageOrder>[0]; detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
   /**
-   * it.14 (R2 2.3): the order this console composed reached 'stale' and a
+   * The order this console composed reached 'stale' and a
    * sibling of it may already be on its way to Flare. Every door that composes
    * an order here stays shut until the person says they checked — the sentence
    * inside the signing card never stopped this console from composing another.
@@ -188,7 +182,7 @@ export function CageConsole({ account }: { account: string }) {
 
   function onBirthSettled(hash: string) {
     if (!birth) return;
-    // El asiento de nonce queda intocable hasta ejecutar (incidente del gemelo, 21-ago).
+    // El asiento de nonce queda intocable hasta ejecutar.
     notifyHandoffSigned(birth.memoHex, hash);
     settlement.track(startPending('xrpl-mint', hash));
     setBirth(null);
@@ -200,11 +194,11 @@ export function CageConsole({ account }: { account: string }) {
 
   /** Every council order of this console is composed here (in-flight 409 included). */
   async function composeOrder(input: Parameters<typeof prepareCageOrder>[0]) {
-    // Paused after a stale order that may already have gone out (it.14) — EXCEPT
+    // Paused after a stale order that may already have gone out — EXCEPT
     // an exit: a recall and an evacuate take capital OUT, and an exit is warned,
-    // never stopped (it.16, R3 3.1). And `confirmAnotherOrder` is the person's
+    // never stopped (R3 3.1). And `confirmAnotherOrder` is the person's
     // own «compose it again anyway», which used to hit this return and do
-    // nothing at all (it.16, R5 5.5 / R2 2.3).
+    // nothing at all (R5 5.5 / R2 2.3).
     if (staleLock.blocks(composeKindOf(input.action), { confirmed: input.confirmAnotherOrder === true })) return;
     setBusy(true);
     setRefusal(null);
@@ -212,7 +206,7 @@ export function CageConsole({ account }: { account: string }) {
     const res = await prepareCageOrder(input);
     setBusy(false);
     if (!res.ok) {
-      // it. 21 (§2.7): «the same order went out» and «we could not check whether
+      // «the same order went out» and «we could not check whether
       // it did» both land here — with opposite sentences and, for the second, a
       // retry as well as the confirm (CouncilOrderInFlightConfirm tells them apart).
       if (mayConfirmAnotherOrder(res.refusal) && !input.confirmAnotherOrder) {
@@ -359,14 +353,14 @@ export function CageConsole({ account }: { account: string }) {
 
       {notice ? <p className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-[11px] leading-relaxed text-ink/60">{notice}</p> : null}
       {refusal ? (
-        // it. 21 (§3.5): «a read of ours failed» (ACCOUNT_BUSY,
+        // «a read of ours failed» (ACCOUNT_BUSY,
         // PROOF_STORE_UNREADABLE, an unreadable seat or inbox) is a WAIT, not a
         // verdict — its own block, with the retry the server promised and that
         // nobody could press.
         isRetryableReadFailure(refusal) ? (
           <ReadFailureNotice refusal={refusal} busy={busy} onRetry={() => void load()} />
         ) : (
-        // it. 19: `refusal.error` is sometimes a sentence this screen wrote and
+        // `refusal.error` is sometimes a sentence this screen wrote and
         // sometimes the server's raw slug — it printed whichever arrived. A slug
         // becomes the one honest generic sentence, and the Spanish `detail` of a
         // server refusal is dropped instead of set under an English headline.
@@ -471,7 +465,7 @@ export function CageConsole({ account }: { account: string }) {
           </ul>
           {/* No parent Cancel here; cancelled in Xaman → the birth is dropped
               and «Prepare the birth» comes back (nothing was signed). */}
-          {/* onSigned (it.13): the hash reaches /handoff/signed the moment Xaman signs,
+          {/* onSigned: the hash reaches /handoff/signed the moment Xaman signs,
               not only after validation — the backend remembers it (202 PENDING_LEDGER). */}
           <XamanSingleSign
             txjson={birth.xrplPayment}
@@ -585,7 +579,7 @@ export function CageConsole({ account }: { account: string }) {
           ) : null}
 
           {/* 3. POR POTE: dirigir y recuperar.
-              it.16 (R3 3.1): este bloque tiene SALIDAS (Recall, Evacuate) y
+              este bloque tiene SALIDAS (Recall, Evacuate) y
               no-salidas, así que ya no puede deshabilitarse entero — un
               `fieldset disabled` apaga todo lo de dentro, salidas incluidas, que
               es justo la regresión. Cada puerta NO-salida dice ahora que está en
@@ -612,7 +606,7 @@ export function CageConsole({ account }: { account: string }) {
                     <button type="button" onClick={() => void prepareMove('recall')} disabled={busy} className="rounded-lg bg-white/10 px-3 py-1.5 text-[12px] font-medium disabled:opacity-40">{t('Recall')}</button>
                   </div>
 
-                  {/* El gobierno del catálogo, del contrato a un clic (6-sep —
+                  {/* El gobierno del catálogo, del contrato a un clic (
                       lo que faltaba para «hacer todo lo del smart contract»):
                       retirar (mecha de 30 días, solo bloquea capital NUEVO),
                       evacuar (TODO el capital del venue vuelve al colchón, en
@@ -726,12 +720,12 @@ export function CageConsole({ account }: { account: string }) {
                 onSettled={onOrderSettled}
                 onBlockedChange={setOrderBlocked}
                 onCancelled={() => setOrder(null)}
-                // it.14: if this order goes stale and a sibling already went out,
+                // If this order goes stale and a sibling already went out,
                 // this console stops composing until the person confirms.
                 onStaleFate={staleLock.report}
               />
               {/* Cancel drops the order, and a dropped order is prepared and
-                  signed again. From the moment the QR is live (13-sep: not only
+                  signed again. From the moment the QR is live (not only
                   once signed) that is a second council order, so Cancel goes
                   away and the way out is «Cancel this request» in Xaman's block. */}
               {orderBlocked ? (

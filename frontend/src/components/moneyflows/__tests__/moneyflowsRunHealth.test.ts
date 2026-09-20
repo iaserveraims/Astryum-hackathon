@@ -7,7 +7,7 @@ import { RULE_PILL_TONE, rulePillState, worstPillState } from '@/lib/rules/runHe
 import { summarizeRuns as reduceRuns, type RuleRun } from '@/lib/rules/runHealth';
 
 /**
- * G4 (auditoría 2026-08-17) — «watching» que no vigila.
+ * G4 (auditorí) — «watching» que no vigila.
  *
  * A `councilOrder` rule on a Legacy with no cage throws `NoCageForLegacy`, the
  * engine stores the run as `status:'error'` with the reason in `notes`, and —
@@ -15,26 +15,13 @@ import { summarizeRuns as reduceRuns, type RuleRun } from '@/lib/rules/runHealth
  * Consequence on this surface: a rule that failed EVERY fire rendered exactly
  * like a healthy one (green "active", "expires in 87d"). Same for
  * `NOT_A_COUNCIL`, `council_compose_failed` and `scheduled_payment_invalid`.
- *
- * These tests pin the two halves of the fix:
- *  1. the reducer that turns GET /rules/:id/runs into a verdict, run against
- *     the shared module the panel imports; and
- *  2. the cable itself — the panel must actually call the endpoint, print the
- *     note, say when the read failed, and never paint green over a failed run.
- *
- * Why source-level and not a render test: the frontend vitest bootstrap is
- * `environment: 'node'` and tsconfig sets `jsx: "preserve"`, so importing a
- * .tsx here fails at transform time. The panel is exclusive-owned in this
- * session, so the logic could not be moved to a plain .ts module either.
- * Extracting the pure function from the source keeps the assertions on the
- * code that actually ships instead of on a copy that can drift.
  */
 
 const PANEL = join(__dirname, '..', 'MoneyFlowsPanel.tsx');
 const src = readFileSync(PANEL, 'utf8');
 
 /**
- * G4-strategies (round 2) — the reducer this suite exercises now lives in ONE
+ * G4-strategies — the reducer this suite exercises now lives in ONE
  * place, `src/lib/rules/runHealth.ts`, and is IMPORTED here instead of being
  * scraped out of the component source with `new Function`. The behavioural
  * cases below are unchanged on purpose: they are the red net proving the

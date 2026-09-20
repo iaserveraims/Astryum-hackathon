@@ -1,5 +1,5 @@
 /**
- * G8 (auditoría 17-ago) — IDLE_BALANCE deja de desarmarse en SILENCIO.
+ * G8 (auditorí) — IDLE_BALANCE deja de desarmarse en SILENCIO.
  *
  * XrplBalanceProvider precia el XRP con UNA llamada a DeFiLlama cuyo camino de
  * fallo devuelve 0, y solo empuja la posición si `xrpUSD >= 1`: una lectura

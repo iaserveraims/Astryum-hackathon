@@ -4,32 +4,6 @@
  * Xaman signature, (a) direct-mints FXRP from XRP and (b) deposits that FXRP into a
  * SELECTED Flare-EVM vault — in one shot. Astryum signs nothing; this only prints
  * the unsigned hand-off (calldata + memo + XRPL Payment) for a manual mainnet test.
- *
- * This is the pure "mint + enter vault" case (NO borrow). It reuses the SAME proven
- * `0xFE` direct-minting machinery as e1-prepare.ts (`buildDirectMintHandoff`); the
- * ONLY difference is the inner batch — here it is just `[approve, deposit]`.
- *
- * Atomicity: the user signs ONE XRPL Payment. On Flare, the executor calls
- * AssetManager.executeDirectMinting → FXRP is minted into the user's Personal
- * Account → MasterAccountController dispatches the committed userOp →
- * PersonalAccount.executeUserOp([approve(vault), deposit]) runs in the SAME tx.
- * Mint and vault-deposit are atomic; if the deposit reverts the FXRP stays safe in
- * the PA. The executor/operator pays Flare gas (the XRPL user needs no FLR).
- *
- * Deposit method (per vault type):
- *   --method ktoken   → Compound-style kToken: `mint(assets)` (shares to msg.sender=PA).
- *                       This is the DEFAULT and targets the live kFXRP ISO market.
- *   --method erc4626  → ERC-4626 vault (Firelight/Upshift): `deposit(assets, PA)`.
- *
- * Usage:
- *   npx ts-node src/scripts/e1-vault-prepare.ts \
- *     --xrpl rYourXrplAddr --amount 5 [--vault 0x... --method ktoken|erc4626]
- *
- * Default vault = KINETIC_KFXRP_ISO (a real, configured mainnet FXRP vault), so this
- * runs end-to-end against mainnet TODAY. Pass --vault for any other ERC-4626 vault.
- *
- * ⚠️ Use a MINIMAL amount on the first live run. Review the disclosure here AND in
- *    Xaman before signing. If the numbers surprise you, STOP.
  */
 import dotenv from 'dotenv';
 import path from 'path';

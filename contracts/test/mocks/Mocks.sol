@@ -112,8 +112,8 @@ contract MockCompoundVenue {
     }
 }
 
-/// Firelight-shaped QUEUED venue (verified mechanics, verify-firelight
-/// 2026-08-21): redeem burns shares NOW, fixes assets at request price and
+/// Firelight-shaped QUEUED venue (verified mechanics, verify-firelight):
+/// redeem burns shares NOW, fixes assets at request price and
 /// queues them into currentPeriod+1 — NO assets move in the redeem tx.
 /// claimWithdraw(period) pays once the period has ENDED (period < current).
 /// withdrawalsOf returns ASSETS. `advancePeriod()` is the test's clock.
@@ -209,7 +209,7 @@ contract MockUpshiftLp is ERC20 {
 
 /// Upshift-shaped venue, modeled on the VERIFIED source of both mainnet
 /// implementations (TokenizedVault: earnXRP 0xc689…59b2, Monarq 0x8aa8…bd48,
-/// read 2026-09-18). What it reproduces, because the pote's accounting depends
+/// read). What it reproduces, because the pote's accounting depends
 /// on each one:
 ///  - shares live in a SEPARATE LP token; `requestRedeem` pulls them (allowance)
 ///    and books them on the calendar day of now + 5 min + lagDuration;

@@ -66,9 +66,7 @@ async function syncLocalPointers(known: Set<string>): Promise<boolean> {
       (a) =>
         XRPL_ADDRESS_RE.test(a) &&
         !known.has(a) &&
-        // LO QUE EL USUARIO QUITÓ NO SE VUELVE A DAR DE ALTA (fundador
-        // 2026-09-13: «la firma y demás funciona, pero no se borra la wallet,
-        // no desaparece de la account»). Este volcado era el camino que lo
+        // LO QUE EL USUARIO QUITÓ NO SE VUELVE A DAR DE ALTA. Este volcado era el camino que lo
         // resucitaba: se borraba la fila Y la entrada del registro, y la
         // siguiente carga del registro volvía a crearla desde el puntero
         // local. El comentario de arriba lo decía sin darse cuenta —
@@ -132,7 +130,7 @@ export function invalidateAuthorityCache(): void {
 function loadRegistry(force: boolean): Promise<GovernedAccountRecord[]> {
   if (!force && registryInflight) return registryInflight;
   const run = (async () => {
-    // Ownership gate (2026-08-11): the local write-buffer belongs to ONE
+    // Ownership gate: the local write-buffer belongs to ONE
     // signed-in user. Claim it BEFORE reading pointers — a user switch wipes
     // the previous user's pointers here, before the drain below could write
     // them into this user's registry. No resolved user ⇒ no drain at all.
@@ -153,8 +151,7 @@ function loadRegistry(force: boolean): Promise<GovernedAccountRecord[]> {
   return run;
 }
 
-// LO BARATO DECIDE, LO CARO SOLO PARA CONSEJOS (fundador 2026-09-12: «va muy
-// lento con lo de cargar la info de las wallets en home»). `council` es UN
+// LO BARATO DECIDE, LO CARO SOLO PARA CONSEJOS. `council` es UN
 // account_objects; `rehearsal-status` arrastra ADEMÁS un account_tx con el
 // historial ENTERO (actividad de firmantes). Con N wallets enlazadas
 // leyéndose a la vez, pagar N escaneos de historial para contestar «no tiene
@@ -162,9 +159,7 @@ function loadRegistry(force: boolean): Promise<GovernedAccountRecord[]> {
 // clasificaba mal en silencio. Sin SignerList no hay rehearsal que evaluar.
 // FASE 1 — la que CLASIFICA: un solo account_objects. hasCouncil, quórum y
 // firmantes salen de aquí; nadie espera al historial para saber en qué
-// estante vive una cuenta (fundador 2026-09-13: con 4 consejos, los
-// escaneos en serie dejaban la pantalla «leyendo 8/17» y media flota sin
-// clasificar durante minutos).
+// estante vive una cuenta.
 async function readCouncilFast(address: string): Promise<GovernedLedgerRead> {
   try {
     const cou = await xrplLegacy.council(address);
@@ -202,7 +197,7 @@ async function readRehearsalDetail(address: string, base: GovernedLedgerRead): P
   }
 }
 
-// El grifo de lecturas (2026-09-12): como mucho CUATRO lecturas de ledger en
+// El grifo de lecturas: como mucho CUATRO lecturas de ledger en
 // vuelo. La ráfaga de N a la vez peleaba consigo misma y con el portfolio por
 // el mismo lector XRPL del backend; goteando, cada una llega antes y ninguna
 // se cae por saturación propia.
@@ -398,9 +393,8 @@ export function useAuthorities(): {
         out.push({ address: r.address, source: 'registered', registryId: r.id, label: r.label ?? undefined });
       }
     }
-    // LA WALLET ENLAZADA TAMBIÉN ES CANDIDATA (fundador 2026-09-12: «he
-    // conectado 12 wallets y todas me las detecta como personales» — 3 eran
-    // consejos con SignerList en el ledger). El default del 2026-07-18 dice
+    // LA WALLET ENLAZADA TAMBIÉN ES CANDIDATA (3 eran
+    // consejos con SignerList en el ledger). El default dice
     // que una cuenta que el ledger confirma como consejo opera como Legacy
     // salvo marca personal — pero los candidatos eran solo la CONECTADA y los
     // punteros del registro, así que un consejo ENLAZADO en Wallets (nunca
@@ -417,34 +411,19 @@ export function useAuthorities(): {
         out.push({ address: a, source: 'connected' });
       }
     }
-    // LA MARCA LOCAL NO CONTRADICE AL SERVIDOR (fundador 2026-09-14: el mismo
-    // Legacy, activo en el registro, se veía en el preview y no en producción
-    // — su navegador de producción lo tenía marcado como «quitado»). La marca
+    // LA MARCA LOCAL NO CONTRADICE AL SERVIDOR. La marca
     // del sábado frena los caminos AUTOMÁTICOS que resucitan una dirección
     // (el volcado de punteros, la sesión conectada, la wallet enlazada); no
     // esconde lo que el registro tiene activo. Una cuenta del registro se
     // quita quitándola —el servidor la marca retirada y desaparece en todos
-    // los navegadores—, no escondiéndola en uno. Regla en
+    // los navegadores, no escondiéndola en uno. Regla en
     // lib/authority/candidateVisibility.
     return out.filter((c) => keepCandidate(c, isAddressRemoved));
   }, [xrplConnected, registry, wallets]);
 
   // Ledger enrichment per candidate — fresh reads, minute-cached in memory.
   //
-  // TODA wallet XRPL de la lista se lee, no sólo las MARCADAS (fundador,
-  // 22-ago-2026: «me pide sólo un puto QR»).
-  //
-  // EL FALLO QUE CIERRA. Los candidatos son la cuenta CONECTADA y los punteros
-  // del registro. Una cuenta personal reforzada no es ninguna de las dos: está
-  // en las wallets del usuario, y —esto es lo importante— NO PUEDE conectarse,
-  // porque la ceremonia le deshabilita la llave maestra. Así que su SignerList
-  // no se leía jamás, `hardenedQuorum` quedaba vacío, y el envío caía al camino
-  // de firma única: un QR sobre una cuenta que sólo puede multifirmar.
-  //
-  // Antes esto dependía de una marca en `localStorage`. Una marca no es una
-  // fuente de verdad: no viaja entre navegadores ni dispositivos, y aquí la
-  // pregunta —«¿esta cuenta tiene quórum?»— la contesta la CADENA. La marca se
-  // queda para lo único que la cadena no puede decir: de qué lado vive.
+  // TODA wallet XRPL de la lista se lee, no sólo las MARCADAS.
   const walletLedgerReads = useMemo<GovernedCandidate[]>(
     () =>
       wallets
@@ -456,7 +435,7 @@ export function useAuthorities(): {
   );
   const enriched = useMemo(() => [...candidates, ...walletLedgerReads], [candidates, walletLedgerReads]);
   const candidatesKey = enriched.map((c) => c.address).join(',');
-  // REINTENTO ACOTADO (2026-09-12): una lectura fallida solo se relanzaba al
+  // REINTENTO ACOTADO: una lectura fallida solo se relanzaba al
   // navegar (el efecto no re-corre cuando caduca el TTL del error), así que un
   // fallo puntual dejaba un consejo clavado en Personal toda la visita. Si
   // alguna lectura acaba en error, se agenda UNA pasada más cuando el error
@@ -479,8 +458,7 @@ export function useAuthorities(): {
       let read = ledgerInflight.get(c.address);
       if (!read) {
         const started = withLedgerSlot(() => readCouncilFast(c.address)).then((r) => {
-          // CLASIFICACIÓN PEGAJOSA (fundador 2026-09-13: «se me acaba de
-          // bugear y han desaparecido los legacy»): un consejo confirmado no
+          // CLASIFICACIÓN PEGAJOSA: un consejo confirmado no
           // deja de serlo porque UNA lectura falle. Un error jamás PISA una
           // lectura buena — se conservan los datos buenos y se anota el error
           // encima: el TTL corto y el reintento salen solos de ese campo, y
@@ -532,29 +510,9 @@ export function useAuthorities(): {
   // is due" (pendingForMe) and "decisions in flight" (live). undefined until a
   // real read exists (never fabricated). Same per-address cache + in-flight
   // pattern as the ledger reads above.
-  //
-  // prosa-y-lectores — WHY THIS IS NO LONGER ONE BULK CALL. It used to ask
-  // `list(candidates, true)` for every candidate at once, and the candidates
-  // are the connected wallet PLUS the self-asserted `GovernedAccount` pointers
-  // (`POST /governed-accounts` takes any r-address with no proof). The round-4
-  // permission floor refuses that whole listing with 403 NOT_A_COUNCIL_MEMBER
-  // when NONE of the returned rows is this session's — so one pointer at an
-  // account the server does not tie to this user took down the read for every
-  // authority in the list, and the `.catch` below said nothing: every "your
-  // signature is due" badge silently vanished while the proposals it was
-  // counting kept running toward their seven-day deadline. The 403 is the
-  // easiest thing in the world to earn — an XRP-Identity session whose Xaman
-  // was never registered earns it on its own Legacy.
-  //
-  // It also removed a smaller lie of the same family: on a MIXED listing the
-  // server returns only the readable rows and never says which accounts it
-  // withheld, while `countProposals` seeds every account it is handed with 0 —
-  // so a withheld account was counted as "nothing in flight". Handing it one
-  // account at a time means an account we could not read is simply ABSENT from
-  // the record (undefined = unknown), never a fabricated zero.
   const [proposalCounts, setProposalCounts] = useState<ProposalCounts | null>(null);
   /**
-   * it. 27 (6): QUÉ CUENTAS SE INTENTARON LEER Y NO SE PUDIERON. `proposalCounts`
+   * QUÉ CUENTAS SE INTENTARON LEER Y NO SE PUDIERON. `proposalCounts`
    * distingue «leído» de «ausente», pero no distingue las DOS ausencias: todavía
    * no leída, y leída y fallada. Sin esa diferencia la insignia no puede pintar
    * «desconocido» y acaba pareciendo un cero. No sustituye a ningún recuento: solo
@@ -570,7 +528,7 @@ export function useAuthorities(): {
         .join(','),
     [wallets, xrplConnected],
   );
-  // Con las wallets ENLAZADAS ahora en `candidates` (2026-09-12), la lectura
+  // Con las wallets ENLAZADAS ahora en `candidates`, la lectura
   // de propuestas se acota a lo que puede tenerlas: un puntero del registro
   // (intención deliberada, se lee desde el primer render, como siempre) o una
   // cuenta que el ledger YA confirmó como consejo. Sin el corte, cada wallet
@@ -606,10 +564,10 @@ export function useAuthorities(): {
           .list([address], true)
           .then(({ proposals, unreadable }) => {
             /**
-             * productizer it. 25 (1) — UN RECUENTO SOBRE UNA LECTURA A MEDIAS ES UN
+             * UN RECUENTO SOBRE UNA LECTURA A MEDIAS ES UN
              * NÚMERO FALSO.
              *
-             * it. 23 hizo que las filas que el servidor no pudo decidir viajasen en
+             * Hizo que las filas que el servidor no pudo decidir viajasen en
              * `unreadable[]` dentro del 200. Este contador las ignoraba y publicaba
              * «2 pendientes» sobre una bandeja de la que faltaba una fila — una
              * afirmación que nadie leyó, exactamente igual que el 0 que el `catch` de
@@ -649,7 +607,7 @@ export function useAuthorities(): {
           // badges stay UNKNOWN (undefined) rather than being answered with a
           // zero we never read. Its siblings are untouched.
           //
-          // it. 27 (6): y ahora se MARCA, porque un `undefined` silencioso se
+          // Y ahora se MARCA, porque un `undefined` silencioso se
           // pintaba igual que un cero leído. La marca no afirma cuántas hay — dice
           // que lo intentamos y no pudimos, que es lo único que sabemos.
           if (alive) setProposalsUnread((prev) => (prev[address] ? prev : { ...prev, [address]: true }));
@@ -675,7 +633,7 @@ export function useAuthorities(): {
           source: c.source,
           pendingSignatures: proposalCounts?.pendingForMe[c.address],
           liveProposals: proposalCounts?.live[c.address],
-          // it. 27 (6): solo cuando de verdad se intentó y falló — jamás mientras
+          // Solo cuando de verdad se intentó y falló — jamás mientras
           // la primera lectura sigue en vuelo.
           proposalsUnread: proposalsUnread[c.address] === true,
           ...read,
@@ -685,7 +643,7 @@ export function useAuthorities(): {
   );
 
   // "My Legacies" is a list of LEGACIES, not of accounts that happen to be in
-  // scope (founder 2026-07-28). A connected wallet shows there only once the
+  // scope. A connected wallet shows there only once the
   // ledger CONFIRMS it is a council, or when the user deliberately pointed at
   // it (a registry entry). Without this, every signer sees their own member
   // account listed as if it were a Legacy it merely helps govern.
@@ -700,14 +658,12 @@ export function useAuthorities(): {
   );
 
   const authorities = useMemo<Authority[]>(() => {
-    // A wallet the ledger confirms as a COUNCIL is not a personal wallet
-    // (founder 2026-07-18): it leaves the simples entirely and lives only
+    // A wallet the ledger confirms as a COUNCIL is not a personal wallet:
+    // it leaves the simples entirely and lives only
     // inside its Legacy on the governed side. E2 third state: unless its
     // owner marked it as a PERSONAL quorum — then it stays a simple wallet
     // and carries its ledger-read quorum (kind single, authority quorum).
-    // EL REGISTRO GANA A LA MARCA (fundador 2026-09-13: cuatro consejos
-    // clavados en Personal con corona y el estante Legacy VACÍO en su
-    // entorno). La regla escrita de staysPersonal siempre lo dijo —
+    // EL REGISTRO GANA A LA MARCA. La regla escrita de staysPersonal siempre lo dijo —
     // «archivarlo en el registro es la intención más fuerte» — pero esta
     // clasificación llamaba a la regla SIN el registryId, así que una cuenta
     // marcada Y archivada como Legacy (lo normal tras semanas de gobernarla)
@@ -725,8 +681,8 @@ export function useAuthorities(): {
     const singles: Authority[] = wallets
       .filter((w) => !councilKeys.has(addressKey(w.address)))
       .map((w) => {
-        // La lectura del LEDGER, sin pedirle permiso a la marca (22-ago-2026).
-        // Antes esto era `pqKeys.has(...) ? ledger[...] : undefined`, así que
+        // La lectura del LEDGER, sin pedirle permiso a la marca.
+        // Antes esto era `pqKeys.has(...) ? ledger[...]: undefined`, así que
         // una cuenta reforzada sin marca en ESTE navegador se pintaba como si
         // firmara sola — y su envío pedía una firma que la red rechaza. Si una
         // wallet que sigue en el lado personal tiene SignerList, tiene quórum:
@@ -757,7 +713,7 @@ export function useAuthorities(): {
   // overview — never operate a ghost account. The stored id is left alone so a
   // slow load doesn't wipe a valid selection.
   let active: Authority = authorities.find((a) => a.id === activeAuthorityId) ?? OVERVIEW;
-  // Transient-gap guard (bug 2026-07-21: "el fondo se queda en blur"): reload()
+  // Transient-gap guard (bug: "el fondo se queda en blur"): reload()
   // clears the ledger cache, so a CONNECTED council loses its hasCouncil
   // confirmation for a beat and gets filtered out of `authorities` — the
   // active authority fell to OVERVIEW for one render and AppShell fired a

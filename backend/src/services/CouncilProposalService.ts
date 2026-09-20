@@ -1,20 +1,10 @@
 /**
  * CouncilProposalService — the engine-side path into the council inbox.
  *
- * Governed MoneyFlows are sign-at-trigger with N signers (decisión fundador
- * 2026-07-18): when a council rule fires, the trigger COMPOSES a proposal into
+ * Governed MoneyFlows are sign-at-trigger with N signers: when a council rule fires, the trigger COMPOSES a proposal into
  * the existing inbox (councilProposals) and the QUORUM signs it there. The rule
  * itself holds ZERO authority — nothing moves without the quorum's signatures,
  * so pausing/creating rules never bypasses governance.
- *
- * The HTTP route (routes/councilProposals.ts) requires a SIWE browser session;
- * the AutomationEngine tick is a server process, so proposal creation from a
- * trigger goes through THIS service instead — same pinning (coordinator), same
- * persistence shape, same one-live-proposal-per-account constraint (XRPL pins
- * one Sequence at a time; two triggers firing serialize via cooldown+retry).
- *
- * Prepare-only intact (invariants #1/#8): this composes UNSIGNED txjson and
- * rows. It never signs, combines or broadcasts — members do, in their wallets.
  */
 
 import { isValidClassicAddress, validate } from 'xrpl';
@@ -31,7 +21,7 @@ import type { OrderSummaryContext } from '../connectors/protocols/xrpl/XrplCounc
 import type { DirectToVerdict, LegacyVaultState } from './flare/LegacyVaultStateService';
 
 const PROPOSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // mirror of routes/councilProposals.ts
-// g1-ceremonia (round 4): INERT since the live-proposal predicate here became
+// g1-ceremonia: INERT since the live-proposal predicate here became
 // the imported `findLiveProposal`. Kept, not deleted — it is the mirror of the
 // route's own constant and documents what this service considers alive.
 const LIVE_STATUSES = ['collecting', 'ready'] as const;
@@ -43,41 +33,8 @@ export interface ComposedCouncilTx {
 }
 
 /**
- * G9 (auditoría 17-ago) — the RULE path had none of the honesty the HTTP path
+ * G9 (auditorí) — the RULE path had none of the honesty the HTTP path
  * has, and it failed SILENTLY in two directions at once.
- *
- * `POST /council-order/prepare` (routes/xrplDefi.ts) reads the cage before
- * composing and uses that ONE read twice: for the courtesy pre-flight (#11 —
- * refuse an order the vault already tells us would revert) and for the UNITS the
- * summary speaks in. `composeCouncilRuleTx` called `buildCouncilOrderHandoff`
- * with neither. Nothing errored, which is exactly why it survived:
- *
- *  1. The summary fell back to `humanAmount(raw, undefined)` → "Put 100000 base
- *     units of principal to work in venue #0". That string becomes the proposal
- *     TITLE in the council inbox and the body of the push. The quorum was being
- *     asked to sign a sentence written in the contract's integers.
- *  2. An order the cage would refuse (unknown/retired/not-yet-open venue, more
- *     than the idle principal, over the D2 entry cap, a recall bigger than the
- *     venue's basis, payees that do not add to 100.00% or that would strand the
- *     yield in the bridge) went into the inbox anyway. It then occupies the ONE
- *     live proposal slot the account has, the quorum gathers and signs, the FDC
- *     round is paid for (~20 FLR) — and the vault reverts on the far side. The
- *     unearned-success shape: everything looks right until the last inch.
- *
- * This helper is the route's block, lifted verbatim in behaviour so BOTH doors
- * share one definition of "would this land?". It is exported so the route can
- * adopt it and delete its copy (that edit belongs to routes/xrplDefi.ts, not to
- * this file). It returns a verdict instead of throwing, because the route
- * answers 400 + code while the rule path throws into the run log.
- *
- * Best-effort BY DESIGN, exactly like the route: an unreadable vault composes
- * anyway with the base-units summary and lets the contract decide. This guard
- * saves a wasted ceremony; it never becomes a second authority over the cage.
- *
- * G12-move (round 2) closed the gap this comment used to describe as "parity,
- * not oversight": `move`, `evacuate`, `retire-venue`, `propose-venue` and the
- * two bps setters ALL have a projectable revert, and none of them was judged.
- * See the checks below.
  */
 
 // ── G12-move — the orders the pre-flight refused to judge ───────────────────
@@ -92,10 +49,6 @@ export interface ComposedCouncilTx {
 // id, a duplicate or zero-address `propose-venue`, and a bps setter outside the
 // vault's own bounds. The unearned-success family the founder closed in
 // August, alive again on the venue doors.
-//
-// Every check below is a MIRROR of a line in LegacyVault.sol, cited by name.
-// They are pure (no RPC) and they refuse only what the contract itself refuses:
-// a pass is "nothing known blocks it", never a guarantee — the contract decides.
 
 /** Extra revert names these checks mirror, on top of {@link DirectToVerdict}'s
  *  (whose home, with checkDirectTo/checkRecall/checkMoveDestination, is
@@ -153,7 +106,7 @@ export function checkVenueExists(state: LegacyVaultState, venueId: number): Coun
  * `checkMoveDestination` — the DESTINATION half of `moveToVenue` — used to live
  * HERE, carrying its own literal copy of checkDirectTo's VENUE_RETIRED and
  * VENUE_NOT_READY branches, under a comment admitting it only sat here because
- * that round did not own LegacyVaultStateService. REUSE (auditoría 2026-08-18):
+ * that round did not own LegacyVaultStateService. REUSE (auditorí):
  * it now lives beside checkDirectTo/checkRecall in
  * services/flare/LegacyVaultStateService.ts and shares their condition through
  * `checkVenueAcceptsEntry`, keeping its own rescue prose. This file reaches it
@@ -382,7 +335,7 @@ export async function composeCouncilRuleTx(
   // councilOrder — the FDC-enforced vault rail (throws a readable error when
   // this Legacy has no cage; the tick surfaces it honestly). The cage is
   // resolved from the COUNCIL the rule belongs to, never from env — a rule of
-  // a second Legacy must order against its own vault (2026-08-05).
+  // a second Legacy must order against its own vault.
   const orderAction = String(params.orderAction ?? '');
   const orderParams = (params.orderParams ?? {}) as Record<string, unknown>;
   const { buildCouncilOrderHandoff } = await import('../connectors/protocols/xrpl/XrplCouncilOrderService');
@@ -473,7 +426,7 @@ export async function createCouncilProposalFromRule(input: {
   title: string;
   createdByUserId: string;
 }): Promise<CouncilProposalOutcome> {
-  // g1-ceremonia (round 4): the HTTP door and the ceremony both ask
+  // g1-ceremonia: the HTTP door and the ceremony both ask
   // `findLiveProposal`; this was a THIRD, literal copy of the same predicate,
   // in the file that already imports from that module a dozen lines below. Two
   // definitions of "live" are exactly the drift the guard's own docblock says
@@ -481,28 +434,13 @@ export async function createCouncilProposalFromRule(input: {
   // it runs on a tick with no human in front of the screen.
   const { findLiveProposal, findCeremonySeat, ceremonySeatDetail, findUnresolvedSeat, sessionIsCouncilMember, PROVE_MEMBERSHIP_HINT } =
     await import('../routes/councilProposals');
-  // ── productizer-it6 — THE RULE PROPOSES ONLY WHILE ITS OWNER SITS ON THE COUNCIL
+  // ── THE RULE PROPOSES ONLY WHILE ITS OWNER SITS ON THE COUNCIL
   //
   // `POST /api/rules` now refuses a council rule whose owner holds no seat; this
   // is the defence in depth for the rules that already exist, for a member
   // removed from the SignerList after creating one, and for any other writer of
   // rule rows. Same predicate as every proposal door (`sessionIsCouncilMember`),
   // fed with the signer list read OFF THE LEDGER at trigger time.
-  //
-  // it. 17 (finding 2.1b): that predicate now reads PROVEN addresses only — a
-  // signature-backed `WalletBinding`, or the address of the session asking.
-  // There is no session here (a rule fires on a tick, with nobody in front of
-  // the screen), so the floor is the binding alone. An owner whose seat was
-  // only ever a self-declared `wallet` row stops proposing through a rule until
-  // they bind that address with a signature: the rule speaks for a council, and
-  // an unproven claim is not a seat.
-  //
-  // It runs FIRST on purpose: the seat guards below answer with another
-  // council's proposal id, title and ledger verdict, and those land in the run
-  // notes and the Alert the rule's owner reads — a non-member must not read
-  // them here any more than on `GET /api/council/proposals`. A refusal is an
-  // ordinary failure outcome: the engine records it on the rule's run and Alert
-  // and composes nothing.
   let signerCouncil: Awaited<ReturnType<typeof xrplProvider.getSignerCouncil>>;
   try {
     signerCouncil = await readSignerCouncilWithTimeout(input.account);
@@ -526,7 +464,7 @@ export async function createCouncilProposalFromRule(input: {
         `this rule's owner does not hold a PROVEN seat on council ${input.account} (none of its signer addresses is ` +
         "among the owner's proven addresses), so nothing was composed. A rule proposes on a council's behalf only " +
         'while its owner sits on it. ' +
-        // it. 19 (2.3b): the remedy has to travel with the refusal. This lands in the
+        // The remedy has to travel with the refusal. This lands in the
         // rule's run notes and in the Alert its owner reads — and a rule that fires on
         // a tick has NO session, so the only proof it can ever see is a signed
         // binding. Without this sentence the owner reads «you are not on this council»
@@ -554,24 +492,6 @@ export async function createCouncilProposalFromRule(input: {
   // stay `ready`/`collecting` for ever, so the stale seat never goes away by
   // itself. Month after month, a fresh valid Sequence over a payment that may
   // already have gone out.
-  //
-  // Same guard as the HTTP door, imported rather than restated — two copies of
-  // "is the previous seat settled?" is how the halves drift apart. Dynamic so
-  // this service still loads (and its unit tests still run) without pulling the
-  // express router in, exactly like the Flare imports above. (Destructured
-  // from the SAME dynamic import as the live-proposal guard at the top of this
-  // function — one module, one import.)
-  // ── g1-ceremonia (round 4) — THE THIRD WAY THE SEAT IS HELD ───────────────
-  //
-  // A synchronous ceremony pins the council's Sequence and, until this round,
-  // left no server-side trace of it; the rule path was as blind to it as the
-  // HTTP one. It reports as LIVE_PROPOSAL_EXISTS on purpose, and the reason is
-  // the CONSUMER: AutomationEngine treats that reason as "council busy — retry
-  // after cooldown, and do not count this tick as fired", and treats every
-  // other reason as an error with an Alert. A ceremony in flight is precisely
-  // a busy council: transient, nobody's fault, gone within 30 minutes. A new
-  // reason code would have landed in the error branch and told the family that
-  // their monthly rule had broken. The `detail` says what it really is.
   const ceremony = await findCeremonySeat(input.account);
   if (ceremony) {
     return {

@@ -2,8 +2,7 @@
  * LST dedup — it must only ever remove an INDEXER's duplicate, never a balance
  * one of our own adapters read from the chain.
  *
- * Regression (founder, 2026-08-01, "revisa si puede suceder con otros
- * activos"): staking FLR does not consume the FLR left in the wallet. The rule
+ * Regression: staking FLR does not consume the FLR left in the wallet. The rule
  * was applied to every FREE row regardless of source, so a wallet holding both
  * sFLR and loose FLR had the loose FLR silently erased from the dashboard —
  * NativeBalanceAdapter's eth_getBalance read mistaken for a double count.

@@ -1,7 +1,7 @@
 /**
  * PartnerRegistry — three-tier resolver tests.
  *
- * Locks in the behavior promised by the 2026-06-01 audit §1.3:
+ * Locks in the behavior promised by the audit §1.3:
  *   - Self-custody DeFi NEVER fails for lack of an aggregator API key.
  *   - The user's own wallet (wallet-evm-defi etc.) is a valid WALLET_PARTNER.
  *   - Aggregators (Enso/CoW/1inch) only win when enabled AND value-add.

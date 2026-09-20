@@ -1,9 +1,9 @@
 /**
- * Tripwire (2026-08-06) — the twin of flareDemo.capRoutes.test.ts for the
+ * Tripwire — the twin of flareDemo.capRoutes.test.ts for the
  * council router: every POST route on /api/xrpl-defi is CLASSIFIED. A council
  * route must carry requireLegacyAccess; a personal composition route must be
  * on the explicit OPEN list. A new unclassified POST turns this test red
- * instead of becoming a production discovery — the 2026-07-29 audit found
+ * instead of becoming a production discovery — the audit found
  * UI-only gating by accident, and this makes that class of drift impossible
  * to miss again.
  */

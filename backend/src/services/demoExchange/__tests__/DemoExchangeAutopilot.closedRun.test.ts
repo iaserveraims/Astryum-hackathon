@@ -1,5 +1,5 @@
 /**
- * it. 31 (1) — LA CUARTA MUDANZA DE LA CÁRCEL ERA UN INTERRUPTOR DE ADMINISTRADOR.
+ * LA CUARTA MUDANZA DE LA CÁRCEL ERA UN INTERRUPTOR DE ADMINISTRADOR.
  *
  * `tick()` saltaba toda toma `closed` ANTES de servir y antes de mirar su cola:
  * `PATCH /runs/:id {status:'closed'}` dejaba una retirada aceptada con 201
@@ -142,7 +142,7 @@ beforeEach(() => {
   mockSubmit.mockResolvedValue({ txHash: HASH, result: 'tesSUCCESS', validated: true });
 });
 
-describe('it. 31 (1): una toma cerrada sigue sirviendo SALIDAS', () => {
+describe('Una toma cerrada sigue sirviendo SALIDAS', () => {
   it('una retirada pendiente en una toma `closed` se firma, se envía y queda `done` con su E8', async () => {
     const run = closedRun({ requests: [{ id: 'rqExit', kind: 'withdraw', clientId: 'c1', drops: '10000000', status: 'pending', createdAt: T0, updatedAt: T0 }] });
     runsToServe = [run];
@@ -174,7 +174,7 @@ describe('it. 31 (1): una toma cerrada sigue sirviendo SALIDAS', () => {
     expect(run.clients[0].xrpOnExchangeDrops).toBe('50000000');
   });
 
-  it('una entrada `pending` cuyo JOURNAL dice firmada no se cierra con RUN_CLOSED: el ledger manda (it. 29 sigue valiendo cerrada)', async () => {
+  it('Una entrada `pending` cuyo JOURNAL dice firmada no se cierra con RUN_CLOSED: el ledger manda (sigue valiendo cerrada)', async () => {
     const journal = jest.requireMock('../submissionJournal') as { readSubmission: jest.Mock };
     journal.readSubmission.mockResolvedValueOnce({ requestId: 'rqEntry', runId: 'run1', kind: 'put-to-work', clientId: 'c1', drops: '10000000', txHash: HASH, lastLedgerSequence: 1000, submittedAtLedger: 980, status: 'submitting', updatedAt: T0 });
     mockLookup.mockResolvedValue({ lookup: { kind: 'in-flight' }, validatedLedgerIndex: 990 });

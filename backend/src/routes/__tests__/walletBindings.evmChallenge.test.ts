@@ -1,5 +1,5 @@
 /**
- * productizer-it6 — AN EVM BINDING MUST BE SIGNED OVER *ITS* CHALLENGE.
+ * AN EVM BINDING MUST BE SIGNED OVER *ITS* CHALLENGE.
  *
  * `/confirm` recovered the signer of a body-supplied `message` and never looked
  * inside it: any public personal_sign of the victim (a forum proof, another

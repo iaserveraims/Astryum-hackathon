@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ['400', '500', '600'],
   variable: '--font-jetbrains-mono',
 });
-// LA VOZ DEL TEMA INSTITUCIONAL (fundador 2026-09-13). Una serif de texto, no
+// LA VOZ DEL TEMA INSTITUCIONAL. Una serif de texto, no
 // una display: los titulares del panel institucional se leen como un
 // documento registrado, no como una portada. Solo la usa
 // [data-skin='institutional'] (globals.css) — en el tema Astryum la variable
@@ -81,22 +81,9 @@ export const viewport = {
 /**
  * Vercel telemetry — two SEPARATE switches, each honest with /privacy.
  *
- * 2026-08-01 (audit): both were mounted unconditionally while the notice
+ * (audit): both were mounted unconditionally while the notice
  * promised "sin telemetría externa" — a false statement on a legal surface.
  * Gated off behind one flag; visits data stopped that day.
- *
- * 2026-08-11 (founder: "necesitamos saber si el trabajo en X funciona"):
- * Web Analytics is DECLARED and may be switched on — notice v2026-08-11
- * rewrote §2 (visit metrics), §3 (basis 6.1.f), §4 (Vercel Inc. recipient),
- * §5 (US transfer, DPF + SCC) and §10 (the "cero analítica" claim), and
- * PRIVACY_NOTICE_VERSION was bumped so the gate re-presents the notice (the
- * §11 "announced in the app" promise). Cookieless, aggregated, daily-rotating
- * hash — no consent banner needed, but honesty in the notice is mandatory.
- *
- * SpeedInsights stays UNDECLARED: its flag exists but the notice does not
- * cover it. Setting NEXT_PUBLIC_ENABLE_SPEED_INSIGHTS without amending
- * /privacy (§4, §5, §10) in the same commit makes the notice lie again — the
- * exact 2026-08-01 failure. Do not.
  */
 const ANALYTICS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true';
 const SPEED_INSIGHTS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SPEED_INSIGHTS === 'true';

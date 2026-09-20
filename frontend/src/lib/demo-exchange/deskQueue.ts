@@ -1,17 +1,6 @@
 /**
- * La cola de la mesa sin autopilot (18-sep): lo que los clientes PIDIERON y el
+ * La cola de la mesa sin autopilot: lo que los clientes PIDIERON y el
  * omnibus firma con un QR. Pura — las reglas se prueban sin montar la consola.
- *
- * Por qué hay reglas de «se puede servir ya»: servir una petición la TOMA primero
- * (el backend no deja que la mesa pague mientras la petición reserva el saldo:
- * PAYMENT_IN_FLIGHT) y después compone el pago. Si el pago no se pudiera
- * componer, la petición ya no estaría en la cola. Así que solo se ofrece servir
- * lo que el servidor va a aceptar componer:
- *   · sin un pago de la mesa abierto para ese cliente (se paga una vez);
- *   · meter en el vault, no con una RETIRADA suya pendiente delante — la salida
- *     pesa sobre la entrada esté donde esté (availableBalance, it. 27);
- *   · con lo que el pago necesita: la wallet de retirada del cliente, o su cuenta
- *     de passkey y el pote.
  */
 import type { ClientRequest, DemoRun } from './api';
 

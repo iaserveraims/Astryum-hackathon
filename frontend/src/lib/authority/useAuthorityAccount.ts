@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * useAuthorityAccount — ADAPTER over useAuthorities (union 2026-07-18).
+ * useAuthorityAccount — ADAPTER over useAuthorities (union).
  *
  * This hook was the product-toggle line's state model (walletStore +
  * legacyLocal). After the merge with the switcher line (ADR-011) there is ONE
@@ -9,19 +9,6 @@
  * from /api/governed-accounts, ledger reads cached in memory) — and this hook
  * keeps its ORIGINAL public API as an adapter so its consumers
  * (ProductModeCard, LegacySummaryPanel, AuthorityContextBar) work unchanged:
- *
- *   productMode  — ⚠️ ya NO es una elección (2026-08-22): lo pone la pantalla
- *                  abierta (AppShell). Este adaptador sigue leyéndolo para sus
- *                  consumidores preservados, pero llamar a setProductMode ya
- *                  no viste la aplicación: el sincronizador de ruta manda.
- *   setProductMode('legacy') — re-enter the last governed account operated
- *                  (else the first of Mis Legacies); 'astryum' — the overview.
- *   accounts     — every authority mapped to the AuthorityAccount shape.
- *   active       — the active authority (the overview maps to the first
- *                  simple wallet: the toggle line had no aggregate concept).
- *
- * The toggle and the sidebar switcher write the SAME store — they can never
- * disagree.
  */
 
 import { useCallback, useMemo } from 'react';
@@ -53,14 +40,14 @@ export interface UseAuthorityAccountResult {
   refreshGoverned: () => Promise<void>;
 }
 
-// The mapping moved to lib/authority/toAuthorityAccount.ts (E2, 2026-08-16):
+// The mapping moved to lib/authority/toAuthorityAccount.ts (E2):
 // pure and testable, and the single place the third state (simple+quorum)
 // is spoken. This module stays the ADAPTER (product mode + active account).
 
 export function useAuthorityAccount(): UseAuthorityAccountResult {
   const { authorities, active: myActive, activeGoverned, setActive: setActiveId, reload, loading } = useAuthorities();
   const lastGovernedId = useAuthorityStore((s) => s.lastGovernedId);
-  // First-class product (founder 2026-08-04): the store value, NOT derived
+  // First-class product: the store value, NOT derived
   // from activeGoverned — 'legacy' with nothing constituted is the lobby.
   const productMode = useAuthorityStore((s) => s.productMode);
 
@@ -93,7 +80,7 @@ export function useAuthorityAccount(): UseAuthorityAccountResult {
         openLegacyComingSoon();
         return;
       }
-      // Beta gate (founder 2026-07-26, revised: visible but gated): without
+      // Beta gate: without
       // Legacy access the flip never switches — it opens the in-development
       // popup, beta copy. getState(): read at click time, not subscribed —
       // /auth/me has long answered by the time a human flips the toggle.
@@ -109,8 +96,7 @@ export function useAuthorityAccount(): UseAuthorityAccountResult {
         setActiveId(target.id);
         return;
       }
-      // Nothing governed yet → the LOBBY (founder 2026-08-04, "vía libre a
-      // todos"): the product still flips — indigo shell, crossing, Legacy nav
+      // Nothing governed yet → the LOBBY: the product still flips — indigo shell, crossing, Legacy nav
       // — and the panel invites to constitute. The old branch just died here,
       // which read as a broken toggle to anyone whose registry was empty.
       // Data: the shared pages do NOT fall back to personal capital — the

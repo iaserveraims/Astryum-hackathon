@@ -8,34 +8,6 @@
  * var stays unset and payments go out untagged (valid either way: SourceTag is
  * an optional common field of every XRPL transaction; Xaman passes txjson
  * through unchanged).
- *
- * ⚠ SourceTag ≠ DestinationTag. A DestinationTag on the FAssets direct-mint
- * Payment would MISROUTE the mint and stays forbidden (see
- * FlareDirectMintService). SourceTag does not affect routing — it only labels
- * the sender's side.
- *
- * Every future XRPL builder (EscrowCreate, OfferCreate, AMMDeposit…) must
- * import {@link getXrplSourceTag} and stamp its txjson — that is the rule that
- * keeps "no Astryum-composed tx leaves without the tag" true.
- *
- * ── The one carve-out: transactions Astryum itself signs ────────────────────
- * The tag attributes activity to the project, and the Challenge rules define
- * the unit of that activity as the SIGNER: *"An Active User means an XRPL
- * address that has signed at least 1 transaction carrying your Source Tag"*
- * (Make Waves T&C v1.0 §6). The same rules prohibit *"self-dealing, scripted
- * transactions or other forms of metric manipulation"* (§7) on pain of
- * disqualification and forfeiture of any prize.
- *
- * An operational Astryum account (the escrow keeper's `XRPL_KEEPER_SEED`) is
- * OURS and its ticks are scripted. Stamping the project tag on those would
- * enrol our own address as an "active account" of the project — literally the
- * §7 pattern, for a gain of +1 address against a 300-address bar. So:
- *
- *   attribution 'user'        → the USER signs it   → stamp the tag (default)
- *   attribution 'operational' → ASTRYUM signs it    → NEVER stamp the tag
- *
- * The default is 'user' because that is the overwhelming case and an omitted
- * tag is silently lost attribution; the operational path has to say so.
  */
 
 const UINT32_MAX = 0xffffffff;

@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * PerformanceCard — UNMOUNTED from the Summary (founder 2026-07-25: "me gusta,
- * pero no le veo mucho el sentido" — and the page must fit one viewport with
+ * PerformanceCard — UNMOUNTED from the Summary (and the page must fit one viewport with
  * no scroll). Preserved here whole, same convention as ProductModeCard /
  * LegacySummaryPanel: the per-wallet gain bars over a selectable horizon plus
  * the Expand modal with the real P&L curve. To re-mount, render
@@ -99,7 +98,7 @@ export default function PerformanceCard({
   t: (s: string) => string;
 }) {
   const [open, setOpen] = useState(false);
-  // Per-wallet lens (founder 2026-07-18): the card compares WALLETS over one
+  // Per-wallet lens: the card compares WALLETS over one
   // horizon, not the aggregate over four. The time curves live in Expand.
   const [days, setDays] = useState(7);
   const rows = perWallet

@@ -3,42 +3,9 @@
 /**
  * LOS ARTEFACTOS DEL MUNDO INSTITUCIONAL: la lámina, el tamiz y el registro.
  *
- * ── LO QUE CAMBIA EN ESTA PASADA (fundador, 2026-09-19) ──────────────────
+ * ── LO QUE CAMBIA EN ESTA PASADA ──────────────────
  * «Quiero que hagas otra pasada para dejar el comportamiento de los artefactos
  * flawless, no quiero que el tour siga pareciendo trabajo hecho con una tarde.»
- *
- * El diagnóstico: eran CAPTURAS CON CORTINILLA. Se montaban con una animación
- * de entrada de una sola pasada, se quedaban quietas, y sus bucles no se
- * apagaban nunca —el `enter` y el `live` eran el mismo valor enclavado—. Un
- * panel así no forma parte del recorrido: está pegado encima de él.
- *
- * Ahora las tres láminas SE LEEN CON EL SCROLL, y las tres cuentan su parte de
- * la escena en el MISMO instante en que la escena la hace:
- *
- *   · LA LÁMINA: tres cuentas separadas —cada una a su altura, con su hueco—
- *     que CONVERGEN hasta tocarse. Cuando las juntas se cierran, destellan una
- *     vez y un filete especular recorre la barra entera de lado a lado. Eso es
- *     «varias cuentas, una sola superficie» demostrado, no rotulado. Y no crece
- *     nada: el ancho total es el mismo antes y después, solo cambia el reparto.
- *   · EL TAMIZ: cada fila resuelve en el fotograma EXACTO en que su gota toca
- *     el agua, porque las dos leen `clauseTiming(i)` de la escena. El tic o el
- *     aspa se DIBUJAN, la fila destella al resolverse y las dos denegadas
- *     pintan su filete y sacan su motivo. En la cabecera hay seis puntos que se
- *     van marcando: el recuento sin una sola cifra.
- *   · EL REGISTRO: la línea de barrido deja de ser un brillo decorativo en
- *     bucle y pasa a ser el CABEZAL DE ESCRITURA: baja una vez, y cada asiento
- *     se escribe —con su sello abriéndose— justo cuando el cabezal lo cruza.
- *
- * Y al subir con la rueda todo se deshace igual de bien, porque el estado sale
- * del progreso y no de un temporizador disfrazado de `delay`.
- *
- * ── LO QUE NO CAMBIA ─────────────────────────────────────────────────────
- * Se redibujan a mano (importar los widgets de verdad arrastraría recharts al
- * bundle de una página pública), son decorativas (`aria-hidden`: el significado
- * lo lleva el texto de la parada), y ni una cifra de rendimiento, ni un
- * porcentaje inventado, ni una promesa. Ninguna cifra CRECE: un número subiendo
- * al lado de «capital de la entidad» es una animación de crecimiento sobre un
- * saldo, que es la lectura de rendimiento más clara que existe.
  */
 
 import { motion, useTransform, type MotionValue } from 'framer-motion';

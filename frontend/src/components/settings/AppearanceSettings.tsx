@@ -12,15 +12,6 @@
  *   · CLARO U OSCURO — la luz. Es un eje APARTE: elegir «institucional» no te
  *     quita el modo claro, y elegir «claro» no te devuelve al oro. Por eso son
  *     dos filas y no una lista revuelta de cuatro combinaciones.
- *
- * La fila «Tema» que había antes decía Dark/Light/System: eso era la LUZ
- * llamándose tema. Desde el 13-sep el tema es el material y la luz se llama
- * por su nombre.
- *
- * El ajuste viaja a la CUENTA (stores/themeStore.ts, POST /auth/appearance).
- * Si el servidor no lo acepta, esta fila lo DICE: un ajuste que parece
- * guardado pero solo vive en este navegador es el mismo bug que motivó el
- * write-through del modo gestor (fundador 2026-08-30).
  */
 
 import { useState } from 'react';

@@ -6,8 +6,7 @@
  * is wrong after an explicit logout, and impossible to escape on a shared
  * machine. These tests pin the three states of that decision.
  *
- * `prompt=select_account` is NOT an option: probed against account.xrpl.in on
- * 2026-08-17 it answers `unsupported prompt value requested` (node-oidc-provider
+ * `prompt=select_account` is NOT an option: probed against account.xrpl.in it answers `unsupported prompt value requested` (node-oidc-provider
  * ships only the default prompt set). `login` is the strongest re-ask available.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -240,7 +239,7 @@ describe('isXrplIdentityPopupCallback', () => {
   });
 
   /**
-   * REGRESSION (broke production 2026-08-18). The marker used to live in
+   * REGRESSION (broke production). The marker used to live in
    * sessionStorage, written after `window.open`. A popup's storage is a COPY
    * taken AT open, so the popup came home to a snapshot that never contained
    * it: it decided it was not a popup, tried to redeem the code with PKCE

@@ -6,7 +6,7 @@
  * the same SnapshotBuilder pipeline as EVM/Solana balances. APT priced via
  * DeFiLlama (coingecko:aptos).
  *
- * Read-only. Astryum never signs or broadcasts (CLAUDE.md §0).
+ * Read-only. Astryum never signs or broadcasts.
  */
 
 import type {

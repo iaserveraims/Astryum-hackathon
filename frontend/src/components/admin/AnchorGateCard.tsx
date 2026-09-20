@@ -3,18 +3,6 @@
 /**
  * AnchorGateCard — la puerta del ancla v2 (DepositAuth + preauth por
  * credencial) en /app/admin → Sistema.
- *
- * Lo que enseña es lo que un juez puede refutar con `account_info` y
- * `account_objects`: el flag `lsfDepositAuth` del ancla y sus objetos
- * DepositPreauth{AuthorizeCredentials}, frente a los conjuntos que la config de
- * la puerta del gestor exige (`AIFM|CASP,KYC|KYB` × emisores → un objeto por
- * combinación: regla de conjunto EXACTO del ledger).
- *
- * Armar es SECO por defecto (el plan, sin firmar); armar de verdad es un
- * segundo clic con confirmación. Firma la clave OPERATIVA del ancla en el
- * servidor — infra propia de Astryum, jamás fondos ni claves de usuario. El
- * orden lo pone el backend: primero los objetos, luego el flag, y un `tec`
- * corta. Desarmar = apagar el flag (los objetos se quedan).
  */
 
 import { useCallback, useEffect, useState } from 'react';

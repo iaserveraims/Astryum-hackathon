@@ -1,44 +1,13 @@
 'use client';
 
 /**
- * LegalSignCeremony — LEER Y FIRMAR, de verdad (fundador 2026-09-13: «un
- * formulario de firma en la creación de la cuenta que te obligue a leer y
- * firmar los documentos de privacidad y terms of use; que aparezca el texto y
- * te obligue a bajar hasta abajo para firmar; que la firma sea como en Xaman,
- * deslizar una flecha hacia la derecha»).
+ * LegalSignCeremony — LEER Y FIRMAR, de verdad.
  *
  * Antes había dos casillas y dos enlaces que casi nadie abría. Ahora el
  * documento ESTÁ aquí: se lee en su caja, hay que llegar al final de cada
  * uno de los que toca firmar —el carril lo dice mientras no lo estén— y la
  * firma es el gesto de Xaman, el mismo que el usuario hará después en cada
  * transacción.
- *
- * ── EL TEXTO NO SE COPIA ────────────────────────────────────────────────────
- * Monta `DemoTermsBody` y `PrivacyNoticeBody`, los MISMOS componentes que
- * pintan /demo-terms y /privacy, en modo `plain`. Un segundo juego de textos
- * legales divergiría del publicado, y la aceptación quedaría registrada contra
- * una versión que el usuario no leyó. Una sola fuente, dos presentaciones.
- *
- * ── SOLO LO QUE TOCA (segunda pasada, mismo día: «que esté mejor hecho todo
- * el proceso») ──────────────────────────────────────────────────────────────
- * La puerta del panel sabe POR QUÉ aparece (`reason`, de /auth/me): primera
- * vez, o un texto que cambió desde la firma anterior. Solo se exige leer los
- * documentos que toca firmar (`require`); el otro sigue aquí, legible, con su
- * marca de «ya firmado» y su versión. Releer entero un texto que ya firmaste
- * a su versión vigente es fricción sin valor legal. Y el documento se lee en
- * el idioma que el usuario elija: hay conmutador ES/EN en la propia
- * ceremonia — un texto legal se lee en tu lengua o no se lee.
- *
- * ── QUÉ CUENTA COMO LEÍDO ───────────────────────────────────────────────────
- * Haber llegado al final de la caja. No es una medida de comprensión y no
- * pretende serlo: es el gesto que la ley espera de nosotros —poner el texto
- * delante antes de pedir la firma— y que el producto puede comprobar de
- * verdad. Si el documento cabe entero sin scroll, cuenta como leído: exigir
- * un scroll imposible dejaría la firma inalcanzable.
- *
- * Este componente NO registra nada. Quien lo monta decide qué se hace con la
- * firma: el alta la lleva a la creación de la cuenta, la puerta del panel a
- * POST /auth/legal-accept. Astryum jamás firma por el usuario — tampoco aquí.
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';

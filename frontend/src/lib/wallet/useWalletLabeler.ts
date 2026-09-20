@@ -3,23 +3,9 @@
 /**
  * useWalletLabeler — EL nombre de cualquier cuenta, con su dueña incluida.
  *
- * Fundador 2026-08-22 («necesito que todas las cuentas en todos los sitios
- * digan de quién son»): tres «Flare Smart Account» seguidas en un selector de
- * destino son tres desconocidas — y elegir a ciegas dónde va el capital es
- * exactamente lo que la abstracción debe impedir. Una Smart Account no tiene
+ * Una Smart Account no tiene
  * identidad propia: es el lado Flare de una Xaman, así que su nombre es el de
  * su dueña («Smart Account · <apodo>»).
- *
- * Este hook empaqueta la ÚNICA manera correcta de lograrlo: la regla de
- * nombres de walletIdentity + el fold determinista PA→dueña (resuelto del
- * MasterAccountController, jamás adivinado). Cada superficie que lista cuentas
- * lo consume en una línea — una copia por superficie es como los nombres
- * empezaron a discrepar en agosto.
- *
- * `nameOf(address)` resuelve también PAs que NO están en la lista de wallets
- * (aparecen en selectores de destino sintetizados): si el fold conoce a su
- * dueña, se nombra igual; si no, dirección corta — decir menos es mejor que
- * señalar a la dueña equivocada.
  */
 import { useCallback, useMemo } from 'react';
 import { usePaFold, foldKey, isSmartAccountType } from './paFold';
@@ -59,8 +45,8 @@ export function useWalletLabeler(
     [fold.ownerByPa, wallets],
   );
 
-  // Numbered names for the WHOLE list («MetaMask», «MetaMask 2» — founder
-  // 2026-08-22): computed once per list so every consumer of this hook agrees
+  // Numbered names for the WHOLE list («MetaMask», «MetaMask 2» — founder):
+  // computed once per list so every consumer of this hook agrees
   // on which one is the 2.
   const nameMap = useMemo(() => walletDisplayNameMap(wallets, t), [wallets, t]);
 

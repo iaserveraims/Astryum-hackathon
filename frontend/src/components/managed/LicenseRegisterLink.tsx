@@ -1,10 +1,9 @@
 'use client';
 
 /**
- * ⚠ DESMONTADO desde el 2026-09-20 — se queda en el repo, inerte.
+ * ⚠ DESMONTADO — se queda en el repo, inerte.
  *
- * Fundador: «quitemos los botones de issue credential demo para que la gente
- * no pueda probarlo así como así». Este componente PARECE el camino de verdad
+ * Este componente PARECE el camino de verdad
  * («pega tu enlace del registro») pero llama al notario de RODAJE
  * (`issue-aifm-demo`), que no comprueba ni dominio ni registro. Estaba montado
  * en la mesa del exchange (CASP, KYB) y en la del gestor (AIFM), a la vista de
@@ -20,7 +19,7 @@
  * emite la licencia DEMO con ESE link como `URI` de la XLS-70. El LINK ES la
  * credencial: Astryum lo trae on-chain como evidencia, **no lo verifica ni lo
  * certifica** — cualquiera lo abre y comprueba el registro. La responsabilidad
- * de verificar es del que va a operar/depositar (fundador 13-sep).
+ * de verificar es del que va a operar/depositar.
  *
  * Mismo textbox e interacción en los dos circuitos: la única diferencia es el
  * `type` (AIFM|CASP) y el nombre del registro. La aceptación de la credencial
@@ -41,7 +40,7 @@ export function LicenseRegisterLink({
 }: {
   /** La r-address de la raíz (gestor/exchange) a la que se emite la licencia. */
   subject: string;
-  /** KYB (13-sep): la identidad del VEHÍCULO — el asiento de la sociedad en el
+  /** KYB: la identidad del VEHÍCULO — el asiento de la sociedad en el
    *  registro mercantil, mismo modelo paste-link→URI que las licencias. */
   type: 'AIFM' | 'CASP' | 'KYB';
   /** Se llama tras emitir OK (para refrescar el estado de la credencial). */

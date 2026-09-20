@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * productizer it.14 (R3 3.1 y R2 2.3) — EL CABLE, NO LA PIEZA.
+ * EL CABLE, NO LA PIEZA.
  *
  * Las dos regresiones de esta ronda son de CABLEADO, no de lógica:
  *   · `exitToken` existía, `/multisign/prepare` lo aceptaba y CouncilSigningDoors
@@ -12,13 +12,6 @@ import { join } from 'node:path';
  *     base de datos (R3 3.1). Probar la pieza no probaba que la cadena existiera.
  *   · `staleOffersPrepareAgain` existía y nadie la llamaba en producción: la
  *     tarjeta decía «no la prepares otra vez» y el padre componía otra (R2 2.3).
- *
- * Este fichero es un cable-trampa: mira el código que se despliega y exige que
- * cada consola que compone órdenes de consejo tenga el candado, y que cada
- * puerta que firma una SALIDA reenvíe su pase. Las decisiones se prueban
- * ejecutándolas en sus propias suites (singleSignVerdict.staleFate, seatRefusal,
- * councilOrderFate, councilOrderCard.venueDoors); esto solo impide que una de
- * ellas se quede desconectada otra vez.
  */
 
 const FRONTEND_SRC = join(__dirname, '..', '..', '..');
@@ -51,15 +44,15 @@ describe('cada consola que compone órdenes de consejo tiene el candado del stal
     expect(shared).toContain('export function StaleOrderLockNote');
     // La decisión es pura y vive en la capa sin React.
     expect(shared).toContain('nextStaleOrderLock');
-    // it.16 (R3 3.1): y la decisión de si PARA algo también es pura.
+    // Y la decisión de si PARA algo también es pura.
     expect(shared).toContain('staleLockBlocks');
   });
 });
 
 /**
- * productizer it.16 (R3 3.1) — EL CANDADO NO GATEA UNA SALIDA. NUNCA.
+ * EL CANDADO NO GATEA UNA SALIDA. NUNCA.
  *
- * La regresión de la it.15 fue nuestra: el candado paraba TODO lo que componía
+ * La regresión de la fue nuestra: el candado paraba TODO lo que componía
  * una consola, incluidos `recall`, `evacuate`, «Pull out» y la salida del
  * creador. Eso contradice lo que el mismo commit escribía en el backend — una
  * salida se avisa, jamás se para — y deja a un consejo sin poder sacar su
@@ -97,7 +90,7 @@ const EXIT_DOORS: Array<[string, string, RegExp[]]> = [
   ],
 ];
 
-describe('ninguna consola gatea una SALIDA con el candado (it.16 R3 3.1)', () => {
+describe('Ninguna consola gatea una SALIDA con el candado', () => {
   it.each(EXIT_DOORS)('%s: sus puertas de salida no miran el candado', (_name, rel, patterns) => {
     const src = read(rel);
     for (const re of patterns) expect(src).toMatch(re);
@@ -136,14 +129,14 @@ describe('ninguna consola gatea una SALIDA con el candado (it.16 R3 3.1)', () =>
 });
 
 /**
- * productizer it.16 (R5 5.5) — EL CANDADO SE ARMABA DONDE SU BOTÓN NO SE PINTA.
+ * EL CANDADO SE ARMABA DONDE SU BOTÓN NO SE PINTA.
  *
  * En CouncilVaultEntry y CouncilOrderCard la nota vivía DESPUÉS de un `return`
  * temprano: el stale llega firmando (la ceremonia), y esa pantalla es
  * exactamente la que no renderizaba la nota. La consola quedaba en pausa sin
  * titular y sin manera de decir «lo comprobé».
  */
-describe('la nota del candado se pinta donde el candado se arma (it.16 R5 5.5)', () => {
+describe('La nota del candado se pinta donde el candado se arma', () => {
   it('CouncilVaultEntry: también en la rama del pedido pendiente (antes del return)', () => {
     const src = read('components/legacy/CouncilVaultEntry.tsx');
     const firstNote = src.indexOf('<StaleOrderLockNote');

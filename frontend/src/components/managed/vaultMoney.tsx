@@ -3,9 +3,8 @@
 /**
  * vaultMoney — EL DINERO de una bóveda con gestor, como pieza compartida.
  *
- * Nació dentro del mosaico (13-sep, fundador: «el dinero que tiene cada
- * usuario, delante») y vive aparte desde la segunda pasada del mismo día
- * (fundador: «deberían verse como todas las estrategias del Earn»): el
+ * Nació dentro del mosaico y vive aparte desde la segunda pasada del mismo día:
+ * el
  * catálogo vuelve a la mano de StrategyFan y estas cifras van en la propia
  * carta. Lo que se conserva del mosaico es justo esto — qué hay en la bóveda
  * y cuánto es TUYO — porque era la petición de fondo; lo que se retira es la

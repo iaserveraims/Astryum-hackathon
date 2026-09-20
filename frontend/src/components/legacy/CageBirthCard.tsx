@@ -4,21 +4,9 @@
  * CageBirthCard — this Legacy's cage, born from one quorum signature.
  *
  * Shown where the Legacy's cage would be, when it does not exist yet. Until
- * 2026-08-05 that state was invisible: every Legacy was shown THE configured
+ * that state was invisible: every Legacy was shown THE configured
  * cage (the first one deployed), and funding it would have deposited a second
  * council's capital into the first council's vault — with no way back out.
- *
- * The birth is the same 0xFE ceremony as the governed funding, with the
- * creation prepended: the quorum signs ONE XRPL Payment whose memo commits
- * [factory.create → approve → deposit]. The factory refuses any caller that is
- * not this council's own Personal Account, so the eternal params are chosen by
- * the same quorum that will live under them. The vault's address is known
- * before it exists (CREATE2) — the disclosure names it, and the same signature
- * puts the first principal inside.
- *
- * What this deliberately does NOT do: direct that capital into a venue. That
- * is a second, separate quorum order (same rule as funding — one signature
- * must not both lock family capital away and decide where it works).
  */
 
 import { useCallback, useState } from 'react';
@@ -76,8 +64,8 @@ export default function CageBirthCard({
       // disclosure (a modal the client could skip would be a UI gate). Its
       // refusal IS the trigger: open the text, and retry once they confirm.
       //
-      // it. 31 (4.3) — …ONLY when confirming can clear it. The server says WHY
-      // the ack is missing (`cause`, it. 27) and this screen never read it: a
+      // …ONLY when confirming can clear it. The server says WHY
+      // the ack is missing (`cause`) and this screen never read it: a
       // security record that does not parse, or is dated ahead of the server's
       // clock, or a database that did not answer, all reopened the modal, and
       // confirming brought the same 409 back — a loop with the honest sentence
@@ -152,7 +140,7 @@ export default function CageBirthCard({
 
       {settledNote && <InlineNotice tone="success">{settledNote}</InlineNotice>}
 
-      {/* El aviso del tope, ANTES de la caja de importe (fundador 2026-08-06):
+      {/* El aviso del tope, ANTES de la caja de importe:
           el principal enjaulado no vuelve a una dirección, y en beta nadie
           debe encerrar más de lo que puede permitirse dejar encerrado. */}
       <p className="rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-2.5 text-[12px] text-tone-warning">

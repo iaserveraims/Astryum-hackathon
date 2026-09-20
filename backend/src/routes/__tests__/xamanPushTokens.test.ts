@@ -1,5 +1,4 @@
 /**
- * productizer 13-sep, H2b — Xaman push tokens had no owner.
  *
  * POST stored whatever {xrplAddress, userToken} a session claimed, so anyone
  * could file THEIR token under a council member's address and receive that

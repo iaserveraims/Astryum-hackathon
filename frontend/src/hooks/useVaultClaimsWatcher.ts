@@ -4,31 +4,11 @@
  * useVaultClaimsWatcher — the "money in flight" poller behind the Intents card.
  *
  * Some vaults do NOT pay on redeem: Firelight stXRP burns the shares now and
- * queues the FXRP into a ~24h withdrawal period (verified on-chain 2026-07-14).
+ * queues the FXRP into a ~24h withdrawal period (verified on-chain).
  * Between the redeem and the claim the money is invisible unless something
  * watches the queue — this hook is that watcher, feeding the sidebar Intents
  * card so the user sees the FXRP in flight, WHEN it unlocks, and gets the
  * one-tap Claim the moment the period ends.
- *
- * Authority-scoped on purpose (useAuthorityWallets): under Astryum Personal it
- * watches the personal wallets and their Smart Accounts; under a Legacy it
- * watches the governed account's Smart Account — the card tells each product
- * its own truth. Owners scanned = every 0x wallet directly + the resolved PA
- * of every XRPL wallet (lib/wallet/paOwnership, shared session cache).
- *
- * Read + alert only: nothing here signs, custodies or broadcasts (invariants
- * #1/#8). The Claim itself goes through VaultClaimModal → prepare → the USER
- * signs. Fires a browser Notification once per claim when it turns claimable
- * (same dedupe-ledger pattern as useIntentWatcher).
- *
- * it. 31 — A FAILED READ KEEPS THE LAST GOOD LIST. it. 29 made `/vault-claims`
- * answer 502 instead of an empty 200; this hook turned every `!res.ok` into
- * `null`, that owner contributed no rows, and `setEntries(next)` REPLACED the
- * list — the queued exit disappeared from the tray one floor up, and the tray,
- * with no rows and no notice, went quiet («nothing waiting»). The tick now
- * lives in lib/earn/vaultClaimsTick (runnable without React): an unread owner
- * keeps its rows (marked stale) and is named in `unreadable`, which the tray
- * reads before it may say «nothing».
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -89,7 +69,7 @@ export interface VaultClaimsState {
   claimableCount: number;
   /** Force an immediate re-poll (after a claim signature). */
   refresh: () => void;
-  /** it. 31 — owners whose queue the last tick could not (fully) read. Empty
+  /** Owners whose queue the last tick could not (fully) read. Empty
    *  when every owner answered. The tray must not say «nothing waiting» while
    *  this is non-empty: the rows above may be the last good read. */
   unreadable: VaultClaimsUnreadable[];
@@ -147,7 +127,7 @@ export function useVaultClaimsWatcher(): VaultClaimsState {
         return;
       }
 
-      // it. 31 — one read per owner, each an ANSWER or an admission; then the
+      // One read per owner, each an ANSWER or an admission; then the
       // fold over the LAST list (a refused owner keeps its rows, marked stale).
       const headers = authHeaders();
       const reads = await Promise.all(

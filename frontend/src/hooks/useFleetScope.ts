@@ -1,28 +1,12 @@
 'use client';
 
 /**
- * useFleetScope — the Summary's capital lens (founder 2026-08-22: the Summary
- * absorbs the Home and shows "el capital completo de todas las flotas").
+ * useFleetScope — the Summary's capital lens.
  *
  * A fleet SCOPE is a data lens, NOT the product switch: toggling it never
  * navigates, never flips the global productMode/theme, never touches the
  * active authority — the Summary stays put and only the numbers re-scope
  * ("no quiero que togglear las cuentas te saquen del summary").
- *
- *   'personal' → every simple wallet, with councils and their Smart Accounts
- *                out — NO porque no cuenten (desde 2026-08-22 un Legacy es una
- *                wallet más y el scope `overview` de useAuthorityWallets los
- *                incluye), sino porque aquí salen por su propia puerta,
- *                `legacy`, con su metadato de consejo. La unión, `all`, es la
- *                que consume el Summary.
- *   'legacy'   → every structure the user governs: each council account PLUS
- *                its Flare Smart Account (the Legacy's two legs)
- *   'all'      → the union — "across all fleets", the whole picture
- *
- * The aggregate for the scoped set is read through useAggregatedFor (the
- * per-set store entries), NEVER through useAggregatedPortfolio — that slot
- * belongs to the active authority and the shell's 90s poller would clobber
- * any other set loaded into it.
  */
 
 import { useEffect, useMemo } from 'react';
@@ -58,7 +42,7 @@ export function useScopedFleet(scope: FleetScope): ScopedFleet {
   const councilAddrs = useMemo(() => legacies.map((g) => g.address), [legacies]);
   const { byXrpl, paKeys } = useSmartAccountsOf(councilAddrs);
   // A personal XRPL wallet's Smart Account is ITS money too (teammate fix
-  // a29f35b, 2026-08-22, mirrored here the same day): the XRPL→PA mapping is
+  // a29f35b, mirrored here the same day): the XRPL→PA mapping is
   // deterministic, so the PA counts WITHOUT needing to be registered. The
   // aggregate's paFold then absorbs it into its owner's row — the band shows
   // one wallet, whole.
@@ -74,7 +58,7 @@ export function useScopedFleet(scope: FleetScope): ScopedFleet {
   return useMemo(() => {
     const councilKeys = new Set(councilAddrs.map((a) => addressKey(a)));
     // Personal = simple wallets only: a council is not a personal wallet, and
-    // neither is the Smart Account it operates (2026-07-18 rule, unchanged).
+    // neither is the Smart Account it operates (rule, unchanged).
     const personal = allWallets.filter(
       (w) => !councilKeys.has(addressKey(w.address)) && !paKeys.has(addressKey(w.address)),
     );
@@ -122,7 +106,7 @@ export function useAggregatedFor(addresses: string[]): {
   // Re-fires when the entry is EMPTIED too (not only on key change): the
   // invalidate handler drops every per-set entry after a position-changing
   // action, and without this dependency a mounted reader kept serving its
-  // retained pre-action data until remount (verificador 2026-08-22).
+  // retained pre-action data until remount (verificador).
   const needsLoad = entry.data == null && !entry.loading && !entry.error;
   useEffect(() => {
     if (addresses.length > 0 && (needsLoad || entry.data == null)) void loadFor(addresses);

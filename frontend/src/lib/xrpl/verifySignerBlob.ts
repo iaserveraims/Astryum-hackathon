@@ -5,14 +5,6 @@
  * forbids the server from ever touching a signed transaction: the blobs are
  * verified, combined, and broadcast entirely in the user's browser. So the guard
  * runs here, over the same three checks.
- *
- * Why it matters (the IDENTITY hole): each council QR is bound to one member with
- * Xaman's `signers` option, but some deployments reject it and we retry without —
- * on that path any member can answer any member's QR. One member could sign all N
- * QRs with their own key; the blobs would be byte-identical and xrpl.multisign()
- * would combine them happily, and the rehearsal verdict ("the ledger records WHO
- * signed") would LIE. This rejects a blob signed by the wrong member before it is
- * ever combined.
  */
 import { decode, encode, encodeForMultisigning } from 'ripple-binary-codec';
 import { verify } from 'ripple-keypairs';

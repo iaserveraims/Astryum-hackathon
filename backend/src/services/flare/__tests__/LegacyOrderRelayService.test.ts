@@ -28,7 +28,7 @@ describe('fetchXrplMemo — solo relaya lo que el ledger validó', () => {
   const validated = {
     validated: true,
     // El REMITENTE viaja con el memo: el relé decide con él si merece la pena
-    // pagar una attestation (guard anti-griefing, 2026-08-03).
+    // pagar una attestation (guard anti-griefing).
     Account: SENDER,
     meta: { TransactionResult: 'tesSUCCESS' },
     Memos: [{ Memo: { MemoData: MEMO_LOWER } }],
@@ -94,7 +94,7 @@ describe('fetchXrplMemo — solo relaya lo que el ledger validó', () => {
     await expect(fetchXrplMemo('AB'.repeat(32), 'testXRP', noop)).rejects.toThrow(/no XRPL node answered/);
   });
 
-  it('txnNotFound de un nodo NO es veredicto — rota al siguiente (incidente 2026-07-31: s1 congelado)', async () => {
+  it('TxnNotFound de un nodo NO es veredicto — rota al siguiente', async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce(xrplResp({ status: 'error', error: 'txnNotFound' }))
       .mockResolvedValueOnce(xrplResp(validated));

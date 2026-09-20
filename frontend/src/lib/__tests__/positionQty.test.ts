@@ -1,17 +1,12 @@
 /**
  * qtyDisplay — la cantidad que se enseña junto al botón de firmar.
  *
- * Hallazgo C de la auditoría del 17-ago: el subtítulo de la tarjeta escupía
+ * Hallazgo C de la auditoría: el subtítulo de la tarjeta escupía
  * `amount` crudo, y `amount` viaja en UNIDADES BASE por todo el tablero (de ahí
  * `sharesBase`, `supplyFxrpBase`, `debtUsdt0Base`: alimentan calldata). Con la
  * asimetría 6/18 de este carril eso significaba enseñar «10000000» por 10 FXRP
  * y «1000000000000000000000» por 1000 RLUSD — un número equivocado por un
  * factor de 10⁶/10¹⁸ delante de alguien a punto de firmar.
- *
- * La otra mitad de la regla importa tanto como el formateo: sin decimales NO se
- * inventa un 18 por defecto. Un 18 asumido sobre un token de 6 convierte 10
- * FXRP en 0,00000000001 — una mentira más creíble que el número crudo, y por
- * eso peor.
  */
 import { describe, it, expect } from 'vitest';
 import { qtyDisplay, snapshotQty } from '../positionQty';
@@ -63,12 +58,8 @@ describe('qtyDisplay — lo que NO hace, que es la mitad de la regla', () => {
 });
 
 /**
- * snapshotQty — la misma familia de bug, en el Token Inventory (14-sep-2026).
+ * snapshotQty — la misma familia de bug, en el Token Inventory.
  *
- * Las cifras de aquí son las de la captura del fundador: la tabla enseñaba
- * «400.548.823.209.107.060.000» por 400,55 FLR y «10.453.867» por 10,45 FXRP
- * (unidades base de las lecturas on-chain), y un «0» en cada fila de XRP y de
- * pote — que llegan de proveedores externos, sin unidades base que poner.
  */
 describe('snapshotQty — la cantidad de una fila del portfolio', () => {
   it('usa la cantidad exacta del backend (FLR, 18 decimales)', () => {

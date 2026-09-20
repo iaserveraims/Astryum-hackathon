@@ -2,35 +2,7 @@
 
 /**
  * ManagerCertificationCard — la certificación del gestor es un REFERRAL, no un
- * formulario (fundador 2026-08-30: «no podemos tener la creación ni custodia
- * de estos documentos... poner un botón que dirija a dicha empresa»).
- *
- * LA REGLA REGULATORIA QUE ESTA TARJETA ENCARNA: Astryum ni crea ni custodia
- * documentos de certificación. El gestor trata DIRECTAMENTE con la empresa
- * certificadora — sus datos y su documento identificativo viajan a ella, por
- * sus canales, sin tocar jamás un servidor ni un navegador de Astryum. Aquí
- * solo hay la explicación del circuito y la puerta de salida.
- *
- * Esto reemplaza al formulario ManagerKycCard (borrador local + PreviewOnly):
- * murió entero, incluida su rebanada del managerStore — guardar un borrador
- * de PII en localStorage ya era custodiar lo que no podemos custodiar (el
- * store purga los borradores viejos en su migración v1).
- *
- * LA EMPRESA AÚN NO EXISTE: el botón se declara por env
- * (NEXT_PUBLIC_CERT_PARTNER_URL + NEXT_PUBLIC_CERT_PARTNER_NAME). Sin URL, el
- * botón está deshabilitado y dice la verdad — elegida la certificadora, darle
- * vida es poner dos variables en Vercel, sin tocar código.
- *
- * Lo que SÍ seguirá siendo nuestro: LEER el veredicto. Certificado el gestor,
- * la credencial se emite a SU cuenta XRPL (XLS-70), él la acepta en su bandeja
- * y el propio ledger la exige en sus bóvedas; el catálogo enseña «Verified by
- * X» leyéndola del ledger — mostrar un hecho público, no custodiar un
- * documento. (Corrección 3-sep: la versión anterior decía que «el FDC lo lleva
- * a XRPL» — imposible por construcción: el FDC es unidireccional hacia Flare y
- * XRPL no puede leerlo. El raíl real es la credencial XLS-70, decidido 29-ago.)
- *
- * Una pieza, dos montajes (Settings → Perfil profesional y la mesa del
- * gestor), como su antecesora.
+ * formulario.
  */
 
 import { useEffect, useState } from 'react';

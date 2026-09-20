@@ -5,13 +5,6 @@
  * un error, nosotros no veíamos nada. Un 500 suelto es ruido (un timeout de un
  * RPC, un bot mandando basura); una RÁFAGA de 500 en la misma ruta es un
  * despliegue roto o una dependencia caída — y eso sí hay que saberlo ya.
- *
- * Por eso no se alerta por error: se cuenta en una ventana y el probe
- * `errores-http` del Sentinel mira la forma del conjunto. En memoria, anillo
- * acotado: esto no puede crecer ni con la API entera fallando.
- *
- * Solo se guardan método, ruta NORMALIZADA y código. Jamás cuerpos, cabeceras,
- * cookies ni querystrings — ahí viven tokens y datos de usuario (#2).
  */
 
 export interface HttpErrorEvent {

@@ -1,28 +1,6 @@
 /**
  * miniReact — a hooks runtime small enough to read, for tests that must run a
  * component's EFFECTS and their CLEANUPS without a DOM.
- *
- * WHY IT EXISTS (productizer it. 31). The rule of this iteration is «test the
- * PHASE or the CONSUMER that failed, or the fix is not accepted». The failures
- * of it. 29 §1 live in what happens when `CouncilMultisigFlow` is UNMOUNTED in
- * a given phase — and this runner is `environment: 'node'` with no jsdom, no
- * react-dom/client and no test renderer. The it. 29 test mocked `useEffect`
- * to a no-op, so the very code under test (an unmount cleanup) could never
- * run: the test passed, and the seat of a broadcast Payment was released.
- *
- * WHAT IT IS. A dispatcher for the hooks these components use — `useState`,
- * `useRef`, `useMemo`, `useCallback`, `useEffect`, `useLayoutEffect` — plus a
- * tiny tree walker that mounts ONE level of chosen child components (`expand`)
- * so a host's re-render that drops a child really unmounts it, cleanups and
- * all. Everything else in the returned tree stays an element: buttons are
- * pressed by calling the `onClick` React would have attached.
- *
- * WHAT IT IS NOT. Not React: no batching semantics beyond «a state write
- * schedules a render on the microtask queue», no context, no suspense, no
- * portals. Tests `await settle()` between steps.
- *
- * Wire it through a `vi.mock('react', …)` factory that spreads `miniHooks` over
- * the real module (the JSX runtime and `createElement` stay real).
  */
 import type { ReactElement } from 'react';
 

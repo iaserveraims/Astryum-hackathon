@@ -2,12 +2,12 @@
 
 /**
  * HowTheDemoWorks — la explicación del trato entero, en un solo sitio y
- * DETRÁS DE UN BOTÓN (fundador 2026-09-11): sale sola la primera vez que
+ * DETRÁS DE UN BOTÓN: sale sola la primera vez que
  * alguien entra en la mesa del exchange, y después solo cuando se pide.
  *
  * Gemelo de HowManagedVaultsWork: hechos con icono, afirmación y mecanismo.
- * Lo que dice sale del flujo canónico (Astryum_Flow_Exchange_Tenant_EndToEnd
- * 2026-09-11): qué es simulado y qué real, quién firma qué, lo que el
+ * Lo que dice sale del flujo canónico (Astryum_Flow_Exchange_Tenant_EndToEnd):
+ * qué es simulado y qué real, quién firma qué, lo que el
  * exchange NO puede hacer (y es el producto), y lo que Astryum JAMÁS hace.
  */
 
@@ -48,7 +48,7 @@ export function HowTheDemoWorksBody() {
           <Fact icon={Building2} title={t('The root (council) — in Xaman')} body={t('The exchange authority: anchors the constitution, births the cage, opens the pote, points the gate, directs and recalls capital. One root governs one cage, for ever.')} />
           <Fact icon={Wallet} title={t('The omnibus — in Xaman, or its hot key')} body={t('The deposit account the exchange already runs. It signs the put-to-work (a 0xFE payment) and every payout. With autopilot, its key on the exchange\'s own server does it — never on Astryum.')} />
           <Fact icon={ScanFace} title={t('The client — with Face ID')} body={t('A passkey account on Flare, theirs alone, where the shares live from the first block. One signature takes everything out. They never see a wallet, gas or FLR.')} />
-          {/* XRPL-only (12-sep): la identidad vive en XRPL; no hay registro Flare ni K4. */}
+          {/* XRPL-only: la identidad vive en XRPL; no hay registro Flare ni K4. */}
           <Fact icon={KeyRound} title={t('The credentials — on XRPL')} body={t('Identity lives on the ledger that governs: XLS-70 credentials on the root (its licence to operate) and on the client (their KYC, portable). The issuer signs, the subject accepts — the ledger carries the YES, never the NO.')} />
         </ul>
       </section>

@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * SetupDoorCard — LA PUERTA a una ceremonia de configuración (fundador
- * 2026-09-12: «que los menús de configuración no tengan varias páginas
- * iguales, sino que se accedan desde un mismo sitio»).
+ * SetupDoorCard — LA PUERTA a una ceremonia de configuración.
  *
  * Cada alta vive UNA vez, en su ventana (SetupOperationShell). Donde antes
  * se incrustaba el wizard entero (la sala «Configurar» de la mesa del gestor,

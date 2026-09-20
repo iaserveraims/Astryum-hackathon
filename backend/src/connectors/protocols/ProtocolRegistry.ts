@@ -2,9 +2,9 @@
  * Protocol Registry
  * Central registry for all protocol connectors with dynamic discovery
  *
- * ARCHIVED 2026-02-02: Non-Flare protocol imports removed during Flare-exclusive migration
+ * ARCHIVED: Non-Flare protocol imports removed during Flare-exclusive migration
  * Removed: StrobeFinanceConnector, TappExchangeConnector (and related bridge/multi-chain connectors)
- * Archived protocols can be found in: _archived/2026-02-02-pre-flare-migration/connectors/protocols/
+ * Archived protocols can be found in: _archived/-pre-flare-migration/connectors/protocols/
  */
 
 import { BaseProtocolConnector } from '../base/BaseProtocolConnector';
@@ -58,9 +58,7 @@ export class ProtocolRegistry {
    * FLARE-EXCLUSIVE: Only Flare Network protocols are registered
    */
   private registerAllProtocols(): void {
-    // Flare Finance (Flare Lending) — RELIC RETIRADO 2026-07-23 (R6): el conector se
-    // archivó en docs/archive/FlareFinanceConnector.ts (getSigner custodial, muerto,
-    // ya neutralizado por bootGuards). No se registra: no hay conector vivo para este id.
+    // No se registra: no hay conector vivo para este id.
 
     // TODO: SparkDex and SquidRouter connectors disabled temporarily
     // Need to fix BaseProtocolConnector compatibility issues
@@ -93,7 +91,7 @@ export class ProtocolRegistry {
     //   documentationUrl: 'https://docs.squidrouter.com'
     // });
 
-    // Archived 2026-02-02: The following protocols were removed:
+    // Archived: The following protocols were removed:
     // - strobe-finance (XRPL direct, not via Flare)
     // - tapp-exchange (Aptos DEX)
     // - enosys (TBD protocol)

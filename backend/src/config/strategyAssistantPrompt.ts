@@ -9,10 +9,7 @@
  */
 
 /**
- * Idioma y formato — compartido por las jaulas (fundador 2026-08-29: hablaba
- * en inglés y el agente seguía en castellano — las jaulas están escritas en
- * castellano y, sin una regla DURA, el modelo arrastra ese idioma a la
- * respuesta; y el texto llegaba como muralla de símbolos). El emoji jamás
+ * Idioma y formato — compartido por las jaulas. El emoji jamás
  * puede inclinar la decisión: decorar ≠ señalar (regla de neutralidad #1).
  */
 const LANGUAGE_RULE = `
@@ -74,7 +71,7 @@ export function buildStrategyAssistantSystemPrompt(
 ): string {
   const cage = opts?.governed ? CAGE + '\n' + GOVERNED_CAGE : CAGE;
   if (!metricsTable) {
-    // TAMBIÉN aquí las reglas de idioma y formato (revisión 2026-08-29: toda
+    // TAMBIÉN aquí las reglas de idioma y formato (revisión: toda
     // conversación ABRE por esta rama — la cantidad aún no se conoce — y la
     // primera respuesta salía en castellano aunque escribieras en inglés).
     return (

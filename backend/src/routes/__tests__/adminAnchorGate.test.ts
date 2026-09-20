@@ -12,9 +12,6 @@
  *  3. Las negativas tipadas del armador salen legibles: sin ancla/seed → 503,
  *     ancla compartida con el Legacy → 409 (armarla dejaría fuera a consejos
  *     sin título).
- *
- * El armador real se stubbea: su plan (qué conjuntos, qué reserva) tiene su
- * propia suite pura en services/__tests__/XrplAnchorGateService.exactSet.test.ts.
  */
 
 jest.mock('../../database/prismaClient', () => ({ prisma: {} }));

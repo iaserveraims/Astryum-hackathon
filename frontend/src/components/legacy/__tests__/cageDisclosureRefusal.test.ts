@@ -5,7 +5,7 @@ import { extract } from './extractFromSource';
 import { isSurfacedUnauthorized } from '@/services/v1Api';
 
 /**
- * productizer it. 17 (R5 5.6) — UN ARREGLO DE SEGURIDAD QUE EXPULSABA AL USUARIO.
+ * UN ARREGLO DE SEGURIDAD QUE EXPULSABA AL USUARIO.
  *
  * `withLiveSession` rechaza una escritura de autoridad cuya sesión es anterior a
  * una toma de posesión: 401 `session_revoked`. Eso es un veredicto sobre ESA

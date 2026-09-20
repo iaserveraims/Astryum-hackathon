@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * SubpageShell — the frame every standalone marketing page shares (founder
- * 2026-07-25: real /about and /what-we-offer pages linked from the landing
- * header). Same sky as the landing: deep space, the starfield canvas with its
+ * SubpageShell — the frame every standalone marketing page shares. Same sky as the landing: deep space, the starfield canvas with its
  * falling stars, a slim floating header (logo home, the two page links, the
  * language toggle and the gold door) and the compact footer. Pages drop their
  * content in as children and stay coherent by construction.
@@ -24,7 +22,7 @@ const PAGES: Array<{ href: string; es: string; en: string }> = [
   { href: '/what-we-offer', es: 'Qué ofrecemos', en: 'What we offer' },
   { href: '/proof', es: 'La prueba', en: 'Proof' },
   { href: '/about', es: 'Quiénes somos', en: 'About us' },
-  // /docs entra en la misma carcasa (19-sep) y por tanto en la misma fila: una
+  // /docs entra en la misma carcasa y por tanto en la misma fila: una
   // página que lleva la cabecera de sus hermanas pero no aparece entre ellas
   // se lee como si no perteneciera.
   { href: '/docs', es: 'Documentación', en: 'Docs' },
@@ -41,8 +39,7 @@ export default function SubpageShell({
 
   return (
     <div
-      /* overflow-x-CLIP, not -hidden — same reason as AppShell (founder
-         2026-08-04): `hidden` on one axis makes the other compute to `auto`,
+      /* overflow-x-CLIP, not -hidden — same reason as AppShell: `hidden` on one axis makes the other compute to `auto`,
          turning this into a scroll container that paints its own inner bar. */
       className="relative min-h-screen bg-[#070605] text-white overflow-x-clip"
     >

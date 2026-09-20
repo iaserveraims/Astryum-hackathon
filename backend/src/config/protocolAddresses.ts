@@ -55,7 +55,7 @@ export interface FxrpAddresses {
 
 /** Upshift (August Digital) multiAssetVault v2 vaults on Flare. The vault
  *  contract is NOT the ERC-20 — each vault has a separate receipt (LP) token
- *  read via `lpTokenAddress()`. Both resolved+verified on-chain 2026-07-10:
+ *  read via `lpTokenAddress()`. Both resolved+verified on-chain:
  *  asset() == FXRP, sendersWhitelistAddress() == 0x0 (permissionless). */
 export interface UpshiftAddresses {
   /** "Flare XRP Yield Vault" — receipt token earnXRP. Curated by Clearstar. */

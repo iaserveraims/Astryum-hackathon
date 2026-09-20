@@ -188,8 +188,7 @@ function locationInfo(p: { protocolId?: string; kind?: string; metadata?: Record
   const pretty = prettyProtocol(proto);
   if (['debt', 'borrow'].includes(kind)) return { label: 'Working', tone: 'danger', sub: `${kindLabel(kind)} · ${pretty}` };
   // Money on its way OUT of a venue reads as neither "Working" nor "Earning" —
-  // the exit is signed, the venue releases it on its own date (founder
-  // 2026-08-01). "Ready to claim" once that date passed.
+  // the exit is signed, the venue releases it on its own date. "Ready to claim" once that date passed.
   if (kind === 'claim') {
     const claimable = (p as { metadata?: Record<string, unknown> }).metadata?.claimable === true;
     return {
@@ -219,8 +218,7 @@ const TIME_RANGES: TimeRange[] = ['24h', '7d', '30d', '90d', '1y'];
 const RANGE_DAYS: Record<TimeRange, number> = { '24h': 1, '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
 
 /**
- * La etiqueta del eje del tiempo SIGUE AL FILTRO (fundador 2026-08-25: «no
- * interactúa bien con el filtro de fechas»). Con un formato de fecha fijo,
+ * La etiqueta del eje del tiempo SIGUE AL FILTRO. Con un formato de fecha fijo,
  * las 24h pintaban la MISMA etiqueta repetida —todos los puntos son del mismo
  * día— así que el eje dejaba de informar justo en el rango donde más detalle
  * hace falta. Cada ventana pide su unidad: horas en un día, día de la semana
@@ -305,7 +303,7 @@ function kindTone(kind: string): 'success' | 'warning' | 'danger' | 'info' | 'ne
   return 'neutral';
 }
 
-// The ONE canonical HF scale (lib/healthScore hfTone, Fase 1 2026-07-30) —
+// The ONE canonical HF scale (lib/healthScore hfTone, Fase 1) —
 // this file's local 3-tone split was one of four competing scales; HF 1.3 was
 // green on one screen and amber on the next.
 function hfColor(hf?: number | null): string {
@@ -349,7 +347,7 @@ function filterChip(on: boolean): string {
 }
 
 /**
- * ScopeRow — WHOSE capital and WHERE it lives (face wash 2026-08-19: the old
+ * ScopeRow — WHOSE capital and WHERE it lives (face wash: the old
  * FilterBar stacked every control of every lens into one boxed toolbar —
  * "está como mal organizado"). Scope is not a filter: wallets and networks
  * apply to EVERY lens, so they get their own quiet unboxed row under the
@@ -358,8 +356,7 @@ function filterChip(on: boolean): string {
  * global too.
  */
 /**
- * ScopeRow — el alcance en DOS SELECTORES, no en una fila de chips (fundador
- * 2026-09-07). La fila abierta crecía con cada wallet enlazada y se comía un
+ * ScopeRow — el alcance en DOS SELECTORES, no en una fila de chips. La fila abierta crecía con cada wallet enlazada y se comía un
  * renglón en TODAS las lentes; ahora son dos botones etiquetados —«Wallet: …»
  * y «Network: …»— que se abren al pasar el ratón y al pulsar, y viven ARRIBA,
  * al lado de las pestañas, porque el alcance manda sobre la pestaña elegida,
@@ -455,8 +452,7 @@ function ScopeRow({
 }
 
 // PortfolioRail (v1 of the left command rail) was BUILT AND RETIRED the
-// same day (founder 2026-08-22: "roba mucho espacio, se ve menos contenido
-// que antes") — the horizontal spine below is the layout that works. Do not
+// same day — the horizontal spine below is the layout that works. Do not
 // re-introduce a persistent side rail on this page.
 
 /** TokenFilterRow — the controls that only act on the token/DeFi listings
@@ -610,7 +606,7 @@ function HFCard({ riskSnap, emHealth }: { riskSnap: RiskSnapshot | null; emHealt
 
 function PositionsHealthPanel({ snap, wallets }: { snap: PortfolioSnapshot; wallets: WalletRecord[] }) {
   const { t } = useT();
-  // Owner-aware (2026-08-22): una posición sostenida por una Smart Account se
+  // Owner-aware: una posición sostenida por una Smart Account se
   // atribuye a «Smart Account · <apodo de su Xaman>», no a una 0x anónima.
   const { nameOf } = useWalletLabeler(wallets, t);
   const groups = useMemo(() => groupPositionHealth(snap.positions), [snap.positions]);
@@ -756,7 +752,7 @@ function OverviewSection({
   refreshing: boolean;
   wallets: WalletRecord[];
   /** The chart's window — the control lives HERE, next to what it controls
-   *  (face wash 2026-08-19; it used to sit in the global filter bar). */
+   *  (face wash; it used to sit in the global filter bar). */
   timeRange: TimeRange;
   onTimeRangeChange: (r: TimeRange) => void;
   /** La ventana elegida no contiene ni una lectura: lo dice un aviso, no un
@@ -773,9 +769,9 @@ function OverviewSection({
   );
   const emHealth = useEthMorphoHealth(emAddrs);
   const emHasDebt = emHealth.healthFactor != null;
-  // (assetDetail/deployedUSD se fueron con la tabla de posiciones, 2026-08-24.)
+  // (assetDetail/deployedUSD se fueron con la tabla de posiciones.)
 
-  // SCRUB (fundador 2026-09-07, el gráfico «se ve un poco cutre»): al
+  // SCRUB: al
   // recorrer la curva, la cifra grande y su diferencia siguen al cursor —
   // fecha, valor de ese día y cuánto más o menos que al ARRANQUE de la
   // ventana. Al salir, vuelve el total vivo y su 24h. Es el gesto de las
@@ -788,7 +784,7 @@ function OverviewSection({
   return (
     <motion.div
       key="overview"
-      // SIN OPACIDAD, y sin `exit` (2026-08-25). Estas lentes nunca estuvieron
+      // SIN OPACIDAD, y sin `exit`. Estas lentes nunca estuvieron
       // dentro de un <AnimatePresence> —está importado pero no se usa— así que
       // el `exit` no llegaba a ejecutarse nunca, y el fundido de entrada se
       // sumaba al de la página al cargar: shell + lente + tarjetas, tres
@@ -800,14 +796,11 @@ function OverviewSection({
       className="py-2"
     >
       <RevealGroup className="space-y-6">
-      {/* ── Balance + chart — FULL operative width (founder 2026-08-24:
-          «el gráfico que aparece primero ocupe todo el ancho operativo»).
+      {/* ── Balance + chart — FULL operative width.
           The My Assets donut moved down to the ring strip below. ── */}
       <RevealItem>
         <Card spotlight padded={false} className="p-5">
-          {/* LA CABECERA NO CAMBIA DE ALTURA AL RECORRER LA CURVA (fundador
-              2026-09-10: «se mueve toda la UI un pelín para abajo cuando
-              pasas»). Al entrar el scrub desaparecía la insignia de sincro
+          {/* LA CABECERA NO CAMBIA DE ALTURA AL RECORRER LA CURVA. Al entrar el scrub desaparecía la insignia de sincro
               (más alta que la etiqueta) y aparecía la línea «vs start» donde
               antes no había nada si no hay 24h — dos saltos de layout que
               empujaban el gráfico. Cada fila reserva su alto: la etiqueta el
@@ -817,7 +810,7 @@ function OverviewSection({
             <div>
               <div className="mb-2.5 flex min-h-[21px] flex-wrap items-center gap-2">
                 <MicroLabel>{scrub ? scrub.t : t('Total balance')}</MicroLabel>
-                {/* La cifra parcial se declara parcial (2026-09-07). */}
+                {/* La cifra parcial se declara parcial. */}
                 {!scrub && <PortfolioSyncBadge />}
               </div>
               <div className="flex min-h-9 items-center gap-2.5 flex-wrap">
@@ -914,8 +907,7 @@ function OverviewSection({
 
       </RevealItem>
 
-      {/* ── The ring strip (founder 2026-08-24: «en la franja de abajo los
-          quesitos, añade varios») — FOUR lenses of the same capital, one
+      {/* ── The ring strip — FOUR lenses of the same capital, one
           row: what you hold, what earns, where it works, how it sits. The
           old MiniBreakdown bar row died here — same data, better face. ── */}
       <RevealItem className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -997,13 +989,12 @@ function OverviewSection({
         <PositionsHealthPanel snap={snap} wallets={wallets} />
       </RevealItem>
 
-      {/* La tabla de posiciones DEJÓ el Overview (fundador 2026-08-24: «las
-          positions sobran, hay una tab específica») — vive entera en su tab.
+      {/* La tabla de posiciones DEJÓ el Overview — vive entera en su tab.
           Con ella se fue su puerta al AssetDetailModal, que queda preservado
           sin montar más abajo. */}
       </RevealGroup>
 
-      {/* AssetDetailModal queda PRESERVADO SIN MONTAR (2026-08-24): su única
+      {/* AssetDetailModal queda PRESERVADO SIN MONTAR: su única
           puerta era el clic de activo de la tabla de posiciones que dejó esta
           pantalla. El drill de los quesitos navega a las tabs; si algún día
           vuelve el detalle in situ, el modal está entero más abajo. */}
@@ -1028,13 +1019,13 @@ function AssetDetailModal({
   onClose: () => void;
 }) {
   const { t } = useT();
-  // Owner-aware (2026-08-22): las Smart Accounts se nombran por su dueña.
+  // Owner-aware: las Smart Accounts se nombran por su dueña.
   const { nameOf } = useWalletLabeler(wallets, t);
   const positions = snap.positions.filter((p) => String(p.asset ?? '') === symbol);
   const displaySymbol = symbol && !symbol.startsWith('0x') ? symbol : symbol.slice(0, 6);
   const totalUSD = positions.reduce((s, p) => s + (p.amountUSD ?? 0), 0);
   const price = positions.map((p) => (typeof p.priceUSD === 'number' ? p.priceUSD : 0)).find((v) => v > 0) ?? null;
-  // Suma de las cantidades REALES fila a fila (14-sep): dividir el total en
+  // Suma de las cantidades REALES fila a fila: dividir el total en
   // USD por el precio de una fila daba de menos en cuanto una de ellas no
   // tenía precio — su valor era 0 y su cantidad desaparecía del total.
   const qtys = positions.map(snapshotQty).filter((q): q is number => q != null);
@@ -1131,7 +1122,7 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
   return (
     <motion.div
       key="tokens"
-      // SIN OPACIDAD, y sin `exit` (2026-08-25). Estas lentes nunca estuvieron
+      // SIN OPACIDAD, y sin `exit`. Estas lentes nunca estuvieron
       // dentro de un <AnimatePresence> —está importado pero no se usa— así que
       // el `exit` no llegaba a ejecutarse nunca, y el fundido de entrada se
       // sumaba al de la página al cargar: shell + lente + tarjetas, tres
@@ -1150,9 +1141,7 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
           </span>
         )}
       </div>
-      {/* TODOS los detalles otra vez (fundador 2026-08-30: «tiene que
-          mostrar más información, como el recuadro que había antes en
-          overview — la chain y demás»): chain, wallet, cantidad y precio
+      {/* TODOS los detalles otra vez: chain, wallet, cantidad y precio
           vuelven a la fila. La tabla ancha scrollea en su propio carril
           (overflow-x-auto), nunca el body — regla de la casa. El precio no
           se enmascara: es dato público del protocolo; lo privado son la
@@ -1184,7 +1173,7 @@ function TokensSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bo
                 const qty = snapshotQty(p);
                 return (
                 /* Las filas LLEGAN escalonadas cuando el dato contesta
-                   (arriveMotion, 2026-08-25) — antes la tabla entera se
+                   (arriveMotion) — antes la tabla entera se
                    enchufaba de golpe en una página ya visible. */
                 <motion.tr key={i} className="hover:bg-ink/[0.04] transition-colors" {...arriveMotion(i, reduced)}>
                   <td className="py-3.5 px-5">
@@ -1249,7 +1238,7 @@ function DeFiSection({ snap, visible }: { snap: PortfolioSnapshot; visible: bool
   return (
     <motion.div
       key="defi"
-      // SIN OPACIDAD, y sin `exit` (2026-08-25). Estas lentes nunca estuvieron
+      // SIN OPACIDAD, y sin `exit`. Estas lentes nunca estuvieron
       // dentro de un <AnimatePresence> —está importado pero no se usa— así que
       // el `exit` no llegaba a ejecutarse nunca, y el fundido de entrada se
       // sumaba al de la página al cargar: shell + lente + tarjetas, tres
@@ -1440,8 +1429,7 @@ export default function PortfolioPage() {
   const [section, setSection]               = useState<Section>(() => {
     // 'map' and 'defi' are hidden from the tab row (reachable only via
     // ?tab=…) — never restore into them or the user lands on a lens with no
-    // active tab. 'defi' was pulled from the row 2026-07-25 (founder: "hace
-    // lo mismo que positions, es redundante"); DeFiSection stays mounted
+    // active tab. 'defi' was pulled from the row; DeFiSection stays mounted
     // behind ?tab=defi so nothing breaks and restoring is one row below.
     const s = savedFilters().section;
     return s && SECTIONS.includes(s) && s !== 'map' && s !== 'defi' ? s : 'overview';
@@ -1477,7 +1465,7 @@ export default function PortfolioPage() {
   // respects the includeInPortfolio toggle, which the old direct fetch here
   // did not).
   const { wallets: loadableWallets, loading: loadingWallets } = useAuthorityWallets();
-  // The visual fold (paFold, 2026-08-17): absorbed Smart Accounts leave the
+  // The visual fold (paFold): absorbed Smart Accounts leave the
   // wallet FILTER BAR (their owner represents them), and picking the owner
   // loads BOTH addresses so the folded positions never vanish from the view.
   // The positions tables keep the PA's honest attribution — detail level.
@@ -1496,7 +1484,7 @@ export default function PortfolioPage() {
     if (activeWallet === 'all') return loadableWallets.map((w) => w.address);
     if (!loadableWallets.some((w) => w.address === activeWallet)) {
       // LA DIRECCIÓN ELEGIDA MANDA, aunque la lista aún no la tenga
-      // (revisión 2026-09-07). Antes esto caía a «cárgalo TODO» mientras el
+      // (revisión). Antes esto caía a «cárgalo TODO» mientras el
       // botón seguía diciendo el nombre de UNA cuenta: la suma de toda la
       // flota bajo la etiqueta de una sola — el peor error posible en una
       // pantalla de dinero. Pasa de verdad: la lectura del ledger que
@@ -1554,8 +1542,7 @@ export default function PortfolioPage() {
   // El selector de rango manda sobre el gráfico: solo se pintan las lecturas
   // dentro de la ventana… MÁS UN ANCLA.
   //
-  // El ancla es el arreglo de fondo (fundador 2026-08-25: «no interactúa bien
-  // con el filtro de fechas»). Sin ella, elegir 24h en una cuenta cuya última
+  // El ancla es el arreglo de fondo. Sin ella, elegir 24h en una cuenta cuya última
   // lectura es de anteayer dejaba la ventana con 0 o 1 puntos, el gráfico
   // DESAPARECÍA entero y en su lugar salía «el histórico se acumula según
   // corren las instantáneas» — que además es mentira: histórico hay, solo que
@@ -1626,7 +1613,7 @@ export default function PortfolioPage() {
   if (loadingWallets && loadableWallets.length === 0)
     return <EmptyState variant="loading" title="Loading wallets…" />;
   // The connect rail accepts MetaMask on Flare and Xaman on XRPL; this door used
-  // to promise "any wallet, any chain" (founder 2026-08-04).
+  // to promise "any wallet, any chain".
   if (loadableWallets.length === 0)
     return (
       <SceneDoor
@@ -1674,17 +1661,14 @@ export default function PortfolioPage() {
         }
       />
 
-      {/* LegacyVaultCard is UNMOUNTED here (founder 2026-08-01: "Legacy igual
-          que Personal"). The cage now enters the pipeline SERVER-SIDE
+      {/* LegacyVaultCard is UNMOUNTED here. The cage now enters the pipeline SERVER-SIDE
           (LegacyCagePositionsService attributes the vault's capital to the
           council account), so it shows below as normal positions and counts in
           every total. The card stays mounted inside /app/legacy. */}
 
       {/* ── Section tabs — the page's spine, out in the open, one focused
           view at a time. The active pill glides between destinations. ── */}
-      {/* ── La espina de la página Y su alcance, EN LA MISMA LÍNEA (fundador
-          2026-09-07: «casi que al lado del menú de arriba... ya que en cada
-          pantalla hay wallets y se interactúa con ellas»). El alcance manda
+      {/* ── La espina de la página Y su alcance, EN LA MISMA LÍNEA. El alcance manda
           sobre la pestaña elegida, no al revés: verlo al lado lo dice sin
           explicarlo, y devuelve al contenido el renglón que se comía la fila
           de chips. En pantalla estrecha bajan a su propia línea. ── */}
@@ -1698,7 +1682,7 @@ export default function PortfolioPage() {
             options={[
               { key: 'overview', label: t('Overview') },
               { key: 'tokens', label: t('Tokens') },
-              // 'defi' hidden (founder 2026-07-25): redundant with Positions.
+              // 'defi' hidden: redundant with Positions.
               // Still reachable via ?tab=defi — restore by re-adding the row.
               { key: 'positions', label: t('Positions') },
               { key: 'activity', label: t('Activity') },
@@ -1734,7 +1718,7 @@ export default function PortfolioPage() {
             />
           ) : (
             <div className="pb-6">
-              {/* Ola 0 (15-sep) — el lector de `snapshot.unreadable` en el
+              {/* El lector de `snapshot.unreadable` en el
                   Portfolio: lo que el barrido no pudo leer se dice arriba de
                   cualquier lente, con el refresco de la página como reintento. */}
               <PortfolioUnreadableNotice snap={fSnap} onRetry={handleRefresh} className="mb-4" />
@@ -1786,7 +1770,7 @@ export default function PortfolioPage() {
 
               {section === 'positions' && (
                 <div className="pt-2">
-                  {/* La lente honra el alcance (2026-09-07): sin esto,
+                  {/* La lente honra el alcance: sin esto,
                       «Wallet: X» presidía un total de TODA la flota. */}
                   <DefiPositionsBoard
                     embedded
@@ -1814,9 +1798,7 @@ export default function PortfolioPage() {
           )}
       </div>
 
-      {/* StructuresBand YA NO SE MONTA AQUÍ (fundador 2026-09-07: «se pueden
-          seleccionar ya en el selector de wallets, creo que no aportan
-          mucho»). Desde que una estructura es un alcance más del selector
+      {/* StructuresBand YA NO SE MONTA AQUÍ. Desde que una estructura es un alcance más del selector
           «Wallet», la banda repetía la lista un renglón más abajo. El
           componente sigue en el árbol, inerte (norma de la casa). */}
     </div>

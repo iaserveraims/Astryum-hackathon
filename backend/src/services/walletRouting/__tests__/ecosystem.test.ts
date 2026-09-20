@@ -1,6 +1,6 @@
 /**
  * ecosystem.ts tests — locks in the CAIP-2 prefix → ecosystem mapping.
- * Block G (2026-06-02).
+ * Block G.
  */
 
 import {

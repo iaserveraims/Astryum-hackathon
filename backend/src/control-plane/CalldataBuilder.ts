@@ -56,7 +56,7 @@ function loadAbi(abiName: string): ethers.InterfaceAbi {
 /**
  * Build the referral attribution block.
  *
- * 2026-06-01 regulatory audit (Cat 5.1): the referral fee is now conditional on
+ * Regulatory audit (Cat 5.1): the referral fee is now conditional on
  * the resolved partner. When the partner does not permit referral fees (e.g.
  * CoW Protocol uses surplus sharing, UniswapX is gasless), or when no partner
  * has been resolved (which the route layer should never permit), Astryum does
@@ -133,7 +133,7 @@ export interface PrepareParams {
   /**
    * REQUIRED — id of the regulated partner this intent routes through.
    * Resolved upstream by PartnerRegistry.resolveForOperation(). The route
-   * layer refuses to call CalldataBuilder without one (2026-06-01 audit Cat 2.1).
+   * layer refuses to call CalldataBuilder without one (audit Cat 2.1).
    */
   partnerId: string;
   /**
@@ -182,7 +182,7 @@ export class CalldataBuilder {
       }
     }
 
-    // Block F (2026-06-01) — ContractRegistry is the primary source of truth.
+    // Block F — ContractRegistry is the primary source of truth.
     // A pool is executable when it's active, has a resolved interaction
     // contract + ABI, AND supports the requested action.
     try {
@@ -239,7 +239,7 @@ export class CalldataBuilder {
       return await this._prepareFromConnector(params);
     }
 
-    // ── PRIMARY: ContractRegistry (Block F, 2026-06-01) ─────────────────────
+    // ── PRIMARY: ContractRegistry (Block F) ─────────────────────
     // The registry holds DefiLlama-sourced pools with resolved interaction
     // contract + ABI + capability flags. CalldataBuilder reads the address
     // and ABI from here — no hardcoded protocol-specific contract.
@@ -567,19 +567,6 @@ export class CalldataBuilder {
    * Reached only when ContractRegistry resolved a pool but its contractKind has
    * no native ACTION_SHAPE encoding. Enso abstracts hundreds of EVM protocols
    * and returns unsigned calldata; the user's wallet signs (astryumRelays:false).
-   *
-   * Returns null (caller re-throws the original error) when Enso can't serve the
-   * case: no input asset, unsupported action in this first cut (deposit/withdraw),
-   * no position token resolvable, or Enso doesn't list the protocol on this chain.
-   *
-   * Regulatory: same `_evaluatePolicy` gate (P38 KYC only for CASP) and the same
-   * buildAuthorization/buildReferralAttribution/buildExpiry helpers as every
-   * other path. Enso (chains 1/137/42161/10/8453/56/43114/250 — NOT Flare) is a
-   * fee-permitting partner; the embedded integrator fee is disclosed via
-   * referralAttribution and gated by partnerAllowsReferralFee.
-   *
-   * First cut: supply/deposit + withdraw. borrow/repay/stake/unstake need
-   * per-action Enso mapping (follow-up) — they return null here.
    */
   private async _prepareFromEnso(
     params: PrepareParams,
@@ -725,7 +712,7 @@ export class CalldataBuilder {
     const intentId = randomUUID();
     const traceId = params.traceId ?? randomUUID();
 
-    // 2026-06-01 audit Cat 3.1/3.2: REAL PolicyGuard evaluation, no hardcoded
+    // Audit Cat 3.1/3.2: REAL PolicyGuard evaluation, no hardcoded
     // passed:true. KYC tier passes through `userKycTier` if the caller
     // resolves it from the authenticated user (handled in the route layer).
     const policyResult = this._evaluatePolicy({
@@ -798,7 +785,7 @@ export class CalldataBuilder {
     const traceId = params.traceId ?? randomUUID();
     const cooldownDays = record.cooldownDays ?? undefined;
 
-    // 2026-06-01 audit Cat 3.1: real PolicyGuard, not hardcoded passed:true.
+    // Audit Cat 3.1: real PolicyGuard, not hardcoded passed:true.
     const policyResult = this._evaluatePolicy({
       userKycVerified: params.userKycVerified,
       partnerRequiresKyc: params.partnerRequiresKyc ?? false,
@@ -854,19 +841,6 @@ export class CalldataBuilder {
    * allowlist + selector registry). It is structurally incompatible with the
    * V2 "universal DefiLlama connector" goal of all actions on all chains, so
    * the V2 path evaluates only the invariants that actually apply here:
-   *
-   *   - Non-custodial / non-broadcast: holds by construction. CalldataBuilder
-   *     only ever produces UNSIGNED calldata; the user's wallet signs and
-   *     broadcasts. Astryum never relays (see buildAuthorization()).
-   *   - P38 KYC: enforced ONLY for REGULATED_CASP partners (fiat on/off-ramp).
-   *     Tier-1 WALLET_PARTNER self-custody DeFi requires no KYC.
-   *   - Anomaly block: handled earlier in prepare() via
-   *     CanonicalBridgeService.isPoolBlocked(poolId) — the only hard-stop.
-   *
-   * The route layer additionally enforces the dynamic P35 contract allowlist
-   * (isContractAllowed, fed by ContractRegistry) and the partner gate. Pool
-   * risk is surfaced to the user (Risk Engine) and accepted under T&C — not
-   * gated here. This is the "all pools accessible, user decides" model.
    */
   private _evaluatePolicy(opts: {
     userKycVerified: boolean;
@@ -981,7 +955,7 @@ export class CalldataBuilder {
 
 // ─── ACTION SHAPE MAP (per ContractKind) ─────────────────────────────────────
 //
-// Block F (2026-06-01) — Replaces per-slug chainConfig.actions from the legacy
+// Block F — Replaces per-slug chainConfig.actions from the legacy
 // path. Each contract kind has a small map of action → { fn, args, isPayable }.
 // Adding a new pool from DefiLlama no longer requires touching this file: as
 // long as the kind exists here, all pools of that kind are executable.

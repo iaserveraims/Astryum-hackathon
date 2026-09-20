@@ -6,8 +6,7 @@
  * before submitting it. Iteration 2 persisted it inside the run — but the run is
  * saved WHOLE by public routes (`/verify`, `/omnibus`) that load, work for
  * seconds and save, so a concurrent save could put a signed request back to
- * 'pending' and the next tick would sign a second payment (productizer cycle,
- * iteration 3). This journal is keyed by request id and written only by the
+ * 'pending' and the next tick would sign a second payment. This journal is keyed by request id and written only by the
  * autopilot, so no run save can erase what was signed.
  */
 
@@ -83,24 +82,13 @@ export function _resetSubmissionJournal(): void {
 }
 
 /**
- * it. 29 — LA ASIMETRÍA DE LA RESERVA, APOYADA EN EL JOURNAL.
+ * LA ASIMETRÍA DE LA RESERVA, APOYADA EN EL JOURNAL.
  *
  * `availableBalance` es pura (ni RPC ni base de datos), así que la prueba de que
  * una entrada pendiente no lleva firma tiene que entrar por la puerta. Esto la
  * construye: para cada `put-to-work` que el run dice 'pending' y sin hash, se
  * mira el journal durable; solo las que él declara nunca firmadas
  * (`journalPlan === 'fulfil'`) quedan eximidas de retener la SALIDA de su dueño.
- *
- * LANZA si el journal no se puede leer (`readSubmission` es estricto con base de
- * datos). El llamador falla CERRADO: sin la prueba, la entrada retiene como
- * antes de la it. 27. Eso es lo correcto aquí y solo aquí — lo único que la
- * reserva compra es no pagar dos veces con el mismo saldo, y afirmar «nada está
- * firmado» sin poder leer el registro de firmas es exactamente el error que hizo
- * falta este journal. Una SALIDA que entra sin ninguna entrada pendiente por
- * delante —el caso normal— no lee el journal en absoluto y no puede fallar.
- *
- * Con `kind === 'put-to-work'` no hay exención posible (dos entradas sí se pisan
- * el saldo), así que no se lee nada.
  */
 export async function againstFor(run: DemoRun, clientId: string, kind: AgainstKind): Promise<Against> {
   if (kind !== 'withdraw') return { kind };
@@ -109,7 +97,7 @@ export async function againstFor(run: DemoRun, clientId: string, kind: AgainstKi
   const provenSigned = new Set<string>();
   for (const r of candidates) {
     const plan = journalPlan(await readSubmission(r.id));
-    // it. 31 — un entry `failed` es un resultado VALIDADO distinto de tes
+    // Un entry `failed` es un resultado VALIDADO distinto de tes
     // (`submitAndWait`): los drops nunca salieron y ese blob consumió su
     // Sequence, así que no puede pagar nada después. Se agrupaba con «lo
     // firmado» y retenía la salida de su dueño hasta que un tick lo

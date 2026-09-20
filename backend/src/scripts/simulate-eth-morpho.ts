@@ -5,25 +5,6 @@
  * que el venue es el que creemos. `dryrun:eth-morpho` dice QUÉ vas a firmar y
  * simula la PRIMERA pata de cada acción — la única que se puede simular
  * aislada, porque las siguientes dependen del estado que crea la anterior.
- *
- * Queda un hueco entre «compone bien» y «funciona», y ahí es donde vive el
- * dinero. Este script lo cierra con `eth_simulateV1`, que encadena llamadas
- * conservando el estado entre ellas: recorre el viaje REDONDO completo
- *
- *     approve → supplyCollateral → borrow → approve → repay → withdrawCollateral
- *
- * sobre el estado REAL de mainnet, y con NUESTRAS patas — las que construyen
- * los adapters de producción, no calldata escrita a mano para la ocasión. Eso
- * es lo que hace la prueba valer: si esto pasa, lo que pasa es el carril.
- *
- * Lo único fabricado es el saldo de FXRP y RLUSD de la wallet de prueba, con un
- * override de estado. Todo lo demás es real: el singleton de Morpho, el
- * oráculo, la curva de interés, la liquidez viva del mercado y el LLTV.
- *
- * Astryum no firma ni emite nada aquí: `eth_simulateV1` es de solo lectura.
- *
- * Uso:  npm run simulate:eth-morpho [-- --fxrp 100 --rlusd 20]
- * Sale con 0 si el viaje redondo entero pasa; con 7 si alguna pata revierte.
  */
 import { ethers } from 'ethers';
 import {
@@ -140,16 +121,6 @@ async function main(): Promise<void> {
    * bloque, así que entre el borrow y el repay ya se ha devengado algo. Queda
    * un polvo de deuda — y con deuda viva, sacar el 100% del colateral revierte
    * con `insufficient collateral`, porque dejaría esa deuda sin respaldo.
-   *
-   * No es un fallo del carril: es el carril diciendo la verdad, y lo confirmó
-   * esta misma simulación la primera vez que se corrió. Para eso existe el modo
-   * `repay full`, que repaga contra las SHARES vivas y sí deja el cero exacto;
-   * aquí no se puede usar porque necesita leer las borrowShares a mitad de la
-   * secuencia, y `eth_simulateV1` no realimenta lecturas entre llamadas.
-   *
-   * Así que se saca el 99%, que es lo que hace cualquiera en la vida real, y la
-   * lección queda escrita: **si vas a vaciar la posición, repaga con «cerrar
-   * toda la deuda», no con el importe que pediste.**
    */
   const withdrawAmt = (fxrpAmt * 99n) / 100n;
 

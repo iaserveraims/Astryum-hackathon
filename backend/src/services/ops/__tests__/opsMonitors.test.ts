@@ -1,5 +1,5 @@
 /**
- * Las dos piezas que cierran los silencios de 3-ago: el latido de los agentes
+ * Las dos piezas que cierran los silencios: el latido de los agentes
  * que no publican salud y la ventana de 5xx de la API.
  *
  * Lo que se fija:

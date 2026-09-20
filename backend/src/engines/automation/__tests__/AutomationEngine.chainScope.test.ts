@@ -1,5 +1,5 @@
 /**
- * Chain-scope regression (bug 2026-07-25, destapado por el primer test en vivo
+ * Chain-scope regression (bug, destapado por el primer test en vivo
  * del moneyflow HF): la regla NO guarda chainId propio, y la fila Wallet
  * conserva el chain de CONEXIÓN (los connects EVM guardan 1 o null) — el tick
  * agrupaba por wallet.chainId y escaneaba la CHAIN EQUIVOCADA para una regla

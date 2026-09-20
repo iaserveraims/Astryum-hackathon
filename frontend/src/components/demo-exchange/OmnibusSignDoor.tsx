@@ -3,29 +3,6 @@
 /**
  * OmnibusSignDoor — the manual signature of the EXCHANGE's own account (the
  * omnibus), single-signature, in Xaman.
- *
- * Why it exists: the council doors (`CouncilSigningDoors`) prepare a MULTISIGN
- * and answer 409 NOT_A_COUNCIL for any account without a SignerList. That is
- * right for the council — a quorum is the point — and wrong for the omnibus,
- * which is an exchange's operational hot account and is single-signature
- * everywhere in the world. Using the council doors for E5/E8 silently demanded
- * a SignerList on the omnibus (found in review, 2026-08-26).
- *
- * The signer is pinned: the transaction carries the omnibus as its `Account`,
- * so the Xaman payload is created for the omnibus and Xaman asks for exactly
- * that account when scanned — whatever account is connected here (18-sep; a
- * transaction WITHOUT a pinned Account still needs the omnibus connected). The
- * door says which wallet is connected and which one signs.
- *
- * «Signed» is not «done» (13-sep): Xaman's hash is checked on the ledger before
- * `onSettled`, and a signature we could not follow never gets its button back.
- *
- * The way BACK is part of the same rule (productizer it. 4): the parent's
- * «Back» → compose again → a fresh door with empty state was a second omnibus
- * payment / 0xFE. `onBlockedChange(true)` from the hand-off until the ledger
- * settles or refuses it (in flight, unconfirmed, or spent without a settle), so
- * the parent hides its Back; `alreadyHandedOff` lets a door that REMOUNTS (the
- * stage hides stations) start in the spent state instead of offering the button.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -45,32 +22,14 @@ import { seatSecondsLeft, seatWaitFrom, seatWaitText, type SeatWait } from '../.
 type SpentReason = 'settled' | 'failed' | 'unconfirmed';
 
 /**
- * it. 21 (1.3) — THE SEAT'S CLOCK STARTS WHEN THE PAYLOAD EXISTS, ALSO AT THE DESK.
+ * THE SEAT'S CLOCK STARTS WHEN THE PAYLOAD EXISTS, ALSO AT THE DESK.
  *
- * `XamanSingleSign` has told the server this since it. 19; this door never did,
+ * `XamanSingleSign` has told the server this; this door never did,
  * so the server kept measuring the 0xFE's life from the instant the desk
  * COMPOSED it — minutes before Xaman was even asked for a payload. A signature
  * still perfectly valid at 4:30 was read as expired, its seat handed to the next
  * instruction, and the twin landed on the omnibus nonce with the client's XRP
  * already in the Core Vault.
- *
- * This door does not create the payload itself (`useXrplWalletPartner.sendIntent`
- * → `XamanWalletService.submitTransaction` does), so the instant arrives on the
- * payload bus: the prompt carries the uuid and the `expiresAt` of the payload.
- * We take the first transaction prompt of our own hand-off and report it.
- * Anything without a window, or with a window longer than the one the SERVER
- * asked for, is ignored — stamping THAT would tie up the seat past the life of
- * the signature it is meant to protect.
- *
- * it. 23 (1.2) — THE WINDOW IS THE SERVER'S NUMBER, AND THE INSTANT IS XAMAN'S.
- * The ceiling used to be a hand-written 15 minutes next to a hand-written
- * `expire: 5`, while the backend measures the seat with
- * `HANDOFF_PAYLOAD_EXPIRY_MIN` and answers it as `payloadExpiryMin` on every
- * prepare. Lower the server's number and the seat was freed with the payload
- * still signable — the twin this rail exists to prevent. `payloadExpiryMin()`
- * (lib/wallet/handoffRelease) is the reader: the server's value when anything
- * has carried one, the shared constant otherwise, and a `preferred` that this
- * door's own prepare response wins with, without any plumbing.
  */
 function maxPayloadWindowMs(expireMin: number): number {
   // The server's window plus a minute of clock slack, and never more than what
@@ -92,7 +51,7 @@ export function OmnibusSignDoor({
   account: string;
   title?: string;
   /**
-   * it. 23 (1.2): the `expire` (MINUTES) the SERVER measures this 0xFE's seat
+   * The `expire` (MINUTES) the SERVER measures this 0xFE's seat
    * with, as its prepare answered it. Absent → what the shared reader learned
    * from any other prepare, else the constant. Never a number invented here.
    */
@@ -115,7 +74,7 @@ export function OmnibusSignDoor({
   const [spentKey, setSpentKey] = useState<string | null>(() => (alreadyHandedOff ? txKey : null));
   const [spentReason, setSpentReason] = useState<SpentReason | null>(() => (alreadyHandedOff ? 'unconfirmed' : null));
   const [settledHash, setSettledHash] = useState<string | null>(null);
-  // it. 21 (3.3): what the server said about the omnibus queue place of a 0xFE
+  // What the server said about the omnibus queue place of a 0xFE
   // that was cancelled / expired in Xaman. `null` = nothing to say.
   const [seatWait, setSeatWait] = useState<SeatWait | null>(null);
   const [seatFreed, setSeatFreed] = useState<string | null>(null);
@@ -124,8 +83,7 @@ export function OmnibusSignDoor({
 
   const connected = xrpl.address ?? null;
   const matches = Boolean(connected && connected === account);
-  // 18-sep (fundador, con el QR del omnibus delante y otra cuenta conectada:
-  // «crea el payload… QR»). El pago ya lleva el omnibus fijado en `Account`, y
+  // . El pago ya lleva el omnibus fijado en `Account`, y
   // un Account fijado no necesita sesión: el payload se crea para ESA cuenta y
   // Xaman la pide al escanear (98900df6, `pinnedXrplSigner`; el servicio
   // resuelve el user_token por la dirección firmante, no por la conectada).
@@ -148,7 +106,7 @@ export function OmnibusSignDoor({
     onBlockedRef.current?.(blocked);
   }, [blocked]);
 
-  // it. 20 (3.4): A COUNTDOWN THAT DOES NOT COUNT IS A FROZEN NUMBER. The line
+  // A COUNTDOWN THAT DOES NOT COUNT IS A FROZEN NUMBER. The line
   // below prints the seconds the SERVER measured, so the clock has to move while
   // it is on screen — and stop the moment it reaches zero.
   useEffect(() => {
@@ -167,7 +125,7 @@ export function OmnibusSignDoor({
   const seatSecs = seatWait ? seatSecondsLeft(seatWait, nowMs) : 0;
 
   /**
-   * it. 21 (3.3) — CANCELLING IS A CHOICE; BEING LEFT WITHOUT A SENTENCE IS NOT.
+   * CANCELLING IS A CHOICE; BEING LEFT WITHOUT A SENTENCE IS NOT.
    *
    * Rejecting in Xaman (or closing the tab) does NOT free the omnibus nonce seat,
    * and that is right: while the payload can still be signed, freeing it would
@@ -215,11 +173,11 @@ export function OmnibusSignDoor({
     // A plain payout (the other user of this door) has none, and reports nothing.
     const memoHex = flareInstructionMemoOf(xrplTx);
     // The window this payload is being minted with: the server's, never a 5
-    // written here (it. 23, 1.2). The same number caps what we are willing to
+    // written here (1.2). The same number caps what we are willing to
     // stamp back, so the seat and the payload can never disagree.
     const expireMin = payloadExpiryMin(serverExpiryMin);
     const maxWindowMs = maxPayloadWindowMs(expireMin);
-    // it. 23 (1.2) — Y EL INSTANTE ES EL QUE DEVOLVIÓ XAMAN, NO NUESTRA
+    // Y EL INSTANTE ES EL QUE DEVOLVIÓ XAMAN, NO NUESTRA
     // CONJETURA. `XamanWalletService` pone el QR en pantalla con la ventana que
     // PIDIÓ y, un viaje de ida y vuelta después, la reemplaza por el
     // `expires_at` que Xaman está contando de verdad (`correctPayloadExpiry`).

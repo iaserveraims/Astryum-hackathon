@@ -2,7 +2,7 @@
 
 /**
  * DonutCard — the allocation donuts (My Assets / Assets Earning), EXTRACTED
- * from the Summary (fusión 2026-08-22): the Summary gave this row up so the
+ * from the Summary (fusión): the Summary gave this row up so the
  * fleet band could grow, and the detail charts now live in the Portfolio's
  * Overview — the page whose job is detail. Lifted verbatim (component,
  * DonutFrame, assetQuantities and the earning-ring computation) so the
@@ -47,10 +47,7 @@ export interface EarningRing {
 }
 
 /**
- * The "Assets Earning" ring computation (founder 2026-08-04: the ring charts
- * ONLY capital placed in a venue, broken down BY ASSET; idle reads in the
- * split line, never as a grey circle). In-flight stays in the ring (founder
- * 2026-08-01): money leaving a venue is still AT the venue, with an exit
+ * The "Assets Earning" ring computation. In-flight stays in the ring: money leaving a venue is still AT the venue, with an exit
  * date — its own slice, never mistaken for idle coins. Debt never enters.
  */
 export function earningRing(snap: PortfolioSnapshot | null, inflightLabel: string): EarningRing {
@@ -97,7 +94,7 @@ export function earningRing(snap: PortfolioSnapshot | null, inflightLabel: strin
 // and the at-rest ring so both land in exactly the same place on the card: when
 // the first position starts working, the ring fills without the card reflowing.
 function DonutFrame({ children }: { children: React.ReactNode }) {
-  // LA ORLA GRABADA (tema Institucional, 2026-09-14): la órbita punteada con
+  // LA ORLA GRABADA (tema Institucional): la órbita punteada con
   // su lunita brillante es un artefacto de ESPACIO — la miniatura del sistema
   // solar de la landing. En la lámina el anillo lleva la orla de un
   // instrumento grabado: dos filetes y una corona de graduación que da la
@@ -107,7 +104,7 @@ function DonutFrame({ children }: { children: React.ReactNode }) {
   return (
     // El tamaño lo decide el CONTENEDOR (donut-scale, globals.css): las
     // clases de viewport de antes agrandaban la dona a 200px+ dentro de una
-    // tarjeta de 320px y la leyenda moría fuera del recuadro (2026-08-25).
+    // tarjeta de 320px y la leyenda moría fuera del recuadro.
     <div className="donut-scale relative shrink-0 m-3">
       {engraved ? (
         <EngravedOrla />
@@ -196,12 +193,11 @@ export function DonutCard({
           <h3 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h3>
           <ArrowRight className="w-4 h-4 shrink-0 text-ink/30 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
         </div>
-        {/* The split line survives an empty ring (2026-08-04): with every coin
+        {/* The split line survives an empty ring: with every coin
             parked the ring has nothing to draw, and this line IS the reading —
             hiding it would leave the card mute about capital it can see.
-
-            ALTO RESERVADO SIEMPRE (fundador 2026-08-27: «aparece uno de los
-            gráficos descuadrado, tienen que estar todos a la misma altura»).
+        { *
+            ALTO RESERVADO SIEMPRE.
             Solo Assets Earning lleva esta línea, y en la tira de cuatro anillos
             del Portfolio empujaba SU anillo dos líneas más abajo que los de las
             tarjetas vecinas. La franja existe en TODAS las tarjetas — vacía
@@ -272,7 +268,7 @@ export function DonutCard({
         ) : (
           /* Donut big on the left, legend breathing on the right — one organic
              read: shape first, detail beside it. Stacks on small screens.
-             ARRIVE (2026-08-25): esta rama sustituye al esqueleto cuando el
+             ARRIVE: esta rama sustituye al esqueleto cuando el
              dato contesta, y lo hacía de golpe — el anillo y la leyenda
              enchufándose en una página ya visible. Ahora llega. */
           <Arrive className="donut-row flex-1 min-h-0">

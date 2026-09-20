@@ -3,7 +3,7 @@
  *
  * The address arrives on the operator's word: they store what their wallet
  * connector returned and do not verify or persist proof of ownership (Thomas
- * Hussenet, 2026-08-19). So the interesting tests here are not "does it write a
+ * Hussenet). So the interesting tests here are not "does it write a
  * row" but the three refusals — never overwrite, never resurrect, never become
  * primary — because each of them is a way a weak claim could quietly displace a
  * strong one the user made by signing.

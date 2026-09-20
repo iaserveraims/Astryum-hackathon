@@ -3,9 +3,9 @@ import { describeDeterministicProofRefusal, isDeterministicProofRefusal, refusal
 import { serverRefusalText } from '../../errors/serverRefusal';
 
 /**
- * productizer it. 23 (it. 22 §2.5) — LOS DOS 409 SIN LECTOR.
+ * LOS DOS 409 SIN LECTOR.
  *
- * `ACCOUNT_RECORD_MISSING` y `PROOF_FLOOR_UNREADABLE` (agente E, it. 21 §2.4)
+ * `ACCOUNT_RECORD_MISSING` y `PROOF_FLOOR_UNREADABLE`
  * son lo CONTRARIO de la familia «no pude leer, vuelve a intentarlo»: la fila
  * del usuario no está, o su bloque `security` no se parsea, y esperar no cambia
  * nada. Por eso son 409 con `retryable:false` y no el 503 que eran.

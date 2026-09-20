@@ -3,17 +3,10 @@
 /**
  * LegacyVaultCard — la jaula, contada como lo que es: patrimonio del consejo.
  *
- * El agujero que cierra (fundador, 2026-07-29): el capital del consejo vive en
+ * El agujero que cierra: el capital del consejo vive en
  * un CONTRATO, no en una wallet, así que no aparecía en ningún inventario. La
  * familia había fondeado 4,69 FXRP y la app no los enseñaba en ninguna parte —
  * existían solo en la cadena. Dinero real, invisible.
- *
- * Así que el vault se lista junto a las wallets del Legacy, con el mismo
- * lenguaje visual, pero SIN fingir que es una wallet: una wallet es algo de
- * donde puedes sacar. De aquí no. La tarjeta enseña el saldo desglosado
- * (ocioso / trabajando / yield debido) y dice en su cara que el principal no
- * sale — porque un inventario que sugiere liquidez que no existe es peor que
- * no tener inventario.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -32,7 +25,7 @@ const FLARE_EXPLORER = 'https://flare-explorer.flare.network/address/';
 /**
  * `account` is THIS Legacy. The card used to read "the" vault from the backend
  * env, so every Legacy in the install was shown the same cage — the first one
- * deployed — as if it were its own patrimony (founder, 2026-08-05). A cage
+ * deployed — as if it were its own patrimony. A cage
  * belongs to exactly one council: the bridge writes its address in at birth and
  * it can never change. So a Legacy either has one, or is told plainly that it
  * does not.
@@ -92,15 +85,14 @@ export default function LegacyVaultCard({ account }: { account: string }) {
   // (factory vía 0xFE; nadie más puede crearla). El consejo ya gobierna sin
   // ella; lo que no puede es heredar la de otro.
   //
-  // Salvo en una cuenta PERSONAL reforzada (21-ago-2026): ahí la jaula no es
+  // Salvo en una cuenta PERSONAL reforzada: ahí la jaula no es
   // «lo siguiente», es lo contrario de lo que el titular pidió. Reforzar es
   // ponerle quórum a tu propia wallet sin encerrar nada, y el principal que
   // entra en una jaula NO vuelve a salir a una dirección. Ofrecerla aquí sería
   // empujar a una puerta de un solo sentido a quien vino a no tener ninguna.
   if (noCage) {
     // La cuenta personal reforzada no lleva jaula Y ESO ES LO PEDIDO — pero
-    // callarlo dejaba la sala Capital EN BLANCO (fundador 13-sep: «¿por qué me
-    // aparece vacío entonces?»). Se dice, sin ofrecer la puerta de un solo
+    // callarlo dejaba la sala Capital EN BLANCO. Se dice, sin ofrecer la puerta de un solo
     // sentido.
     if (isPersonalQuorum(account)) {
       return (
@@ -121,7 +113,7 @@ export default function LegacyVaultCard({ account }: { account: string }) {
       </Card>
     );
   }
-  // NUNCA MUDO (fundador 13-sep). Llegar aquí es no tener ni datos ni un error
+  // NUNCA MUDO. Llegar aquí es no tener ni datos ni un error
   // que lo explique: el estado honesto es «no lo sé», jamás un hueco que se lea
   // como «no hay nada» — la regla de la casa sobre lecturas fallidas.
   if (!state) {

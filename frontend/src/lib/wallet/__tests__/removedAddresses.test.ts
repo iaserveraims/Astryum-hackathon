@@ -1,8 +1,7 @@
 /**
  * Lo que el usuario quita NO vuelve por ningún camino automático.
  *
- * Esta es la regla que faltaba (fundador 2026-09-13, segunda vuelta: «la firma
- * y demás funciona, pero no se borra la wallet, no desaparece de la account»).
+ * Esta es la regla que faltaba.
  * Se borraba la fila Y la entrada del registro, y la cuenta reaparecía igual,
  * porque cada carga del registro vuelca los punteros locales del navegador y
  * volvía a darla de alta. Con la marca puesta, ese volcado la salta — y la

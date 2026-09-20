@@ -3,7 +3,7 @@
  * pública). Framework-free a propósito, como tracker.ts / settlement.ts: la
  * mitad testeable en node, sin React ni wagmi.
  *
- * CRÍTICO (bug 2026-07-29): `mint-status` y `council-order/status` viven tras
+ * CRÍTICO (bug): `mint-status` y `council-order/status` viven tras
  * `requireSiweAuth`. Sin la cabecera Bearer devuelven 401, el tracker lee
  * `null` para siempre y el toast NUNCA marca "settled" aunque la orden SÍ se
  * ejecutó on-chain (observado: dispatches con isTransactionIdUsed=true y el

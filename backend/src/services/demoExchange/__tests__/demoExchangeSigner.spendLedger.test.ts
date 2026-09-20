@@ -1,5 +1,5 @@
 /**
- * it. 23 (1.4) — EL LIBRO DE GASTO DEL DÍA SE ESCRIBE ESTRICTO, O NO SE ESCRIBE.
+ * EL LIBRO DE GASTO DEL DÍA SE ESCRIBE ESTRICTO, O NO SE ESCRIBE.
  *
  * `kvUpsert` se traga su propio fallo (es best-effort por diseño), así que una
  * escritura perdida devolvía el tope entero a una llave que firma: 150 de 200
@@ -93,7 +93,7 @@ describe('el libro de gasto del día', () => {
     expect(await spentToday(NOW)).toBe(BigInt(20_000_000));
   });
 
-  it('una fila ANTERIOR a la it. 23 (sin `phase`) se lee como gasto asentado', async () => {
+  it('Una fila ANTERIOR a la se lee como gasto asentado', async () => {
     kv.set(KEY, { day: todayKey(NOW), spentDrops: '10000000', entries: [{ at: NOW.toISOString(), drops: '10000000', txHash: HASH_A, purpose: 'put-to-work' }] });
     await releaseSpend(HASH_A, NOW);
     expect(await spentToday(NOW)).toBe(BigInt(10_000_000));
@@ -121,7 +121,7 @@ describe('el libro de gasto del día', () => {
 });
 
 /**
- * it. 25 (B.4) — LA MEDIANOCHE UTC NO PUEDE DESCUADRAR LA CONTABILIDAD.
+ * LA MEDIANOCHE UTC NO PUEDE DESCUADRAR LA CONTABILIDAD.
  *
  * `reserveSpend` escribía en el día de la reserva y `recordSpend`/`releaseSpend`
  * volvían a evaluar `todayKey(now)`: una reserva de las 23:59:59 se liquidaba
@@ -156,7 +156,7 @@ describe('la medianoche UTC', () => {
 });
 
 /**
- * it. 25 (B.4) — EL BARRIDO DE RESERVAS HUÉRFANAS. Una reserva que nadie
+ * EL BARRIDO DE RESERVAS HUÉRFANAS. Una reserva que nadie
  * liquidó ni devolvió (el proceso murió entre la firma y el veredicto del
  * ledger) se come el tope para siempre. Solo puede ABRIR tope: jamás niega nada,
  * y menos una salida.
@@ -203,9 +203,9 @@ describe('el barrido de reservas huérfanas', () => {
 });
 
 /**
- * it. 27 — EL PAYOUT DE UN CLIENTE NO GASTA EL TOPE QUE ESTRANGULA LAS ENTRADAS.
+ * EL PAYOUT DE UN CLIENTE NO GASTA EL TOPE QUE ESTRANGULA LAS ENTRADAS.
  *
- * La it. 25 quitó el tope de la POLÍTICA del payout (`capApplies`), pero el pago
+ * La quitó el tope de la POLÍTICA del payout (`capApplies`), pero el pago
  * seguía sumando a `spentDrops`, que es el número exacto que `spentToday()`
  * devuelve y con el que la política mide las ENTRADAS. Con el tope por defecto de
  * 200 XRP, una retirada de 120 dejaba a TODOS los clientes de TODAS las tomas sin
@@ -251,7 +251,7 @@ describe('el payout no consume el tope, pero deja su rastro', () => {
 });
 
 /**
- * it. 27, LA CADENA ENTERA: el XRP de un cliente sale por el libro de gasto y
+ * LA CADENA ENTERA: el XRP de un cliente sale por el libro de gasto y
  * llega a la puerta que acota las ENTRADAS. No se comprueba una función suelta:
  * se reserva un payout de verdad, se lee el total con `spentToday()` —el mismo
  * número que el autopiloto pasa a la política— y se le pregunta a `assessPayment`

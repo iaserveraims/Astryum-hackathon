@@ -2,54 +2,7 @@
 
 /**
  * LegalAcceptGate — the blocking acceptance modal for the published legal
- * pages (founder 2026-07-30: "los dos docs deben aceptarlos los users cuando
- * inician sesión por primera vez y se debe guardar que han aceptado").
- *
- * Shows once per account whenever the recorded versions are stale: first
- * dashboard entry of wallet-first (SIWE / XRP Identity) accounts that never
- * passed the register ceremony, and every account after a material version
- * bump (e.g. the €50 liability cap added 2026-07-30). Deliberately NOT
- * dismissable — no X, no backdrop click, no Escape: the dashboard stays
- * blurred behind it until the user signs. The server records both with
- * version + timestamp (POST /auth/legal-accept → User.preferences.legal).
- *
- * ── DESDE EL 13-SEP LA ACEPTACIÓN ES UNA FIRMA ──────────────────────────────
- * Fundador: «que te obligue a leer y firmar los documentos, que aparezca el
- * texto, que te obligue a bajar hasta abajo, y que la firma sea como en Xaman
- * — deslizar una flecha». Las dos casillas y sus dos enlaces (que casi nadie
- * abría) dan paso a LegalSignCeremony: el texto publicado delante, el final
- * de los documentos como condición, y el gesto de firma de Xaman. La MISMA
- * ceremonia que el alta — una sola pieza, para que la puerta del panel y la
- * de la cuenta no acaben pidiendo cosas distintas. Lo que se registra no
- * cambia.
- *
- * Segunda pasada del mismo día («que esté mejor hecho todo el proceso»): la
- * puerta DICE por qué aparece (/auth/me trae `reason` y lo firmado), pide
- * releer SOLO el documento que cambió, y al firmar enseña el recibo un
- * instante antes de retirarse — nada de desaparecer a mitad de gesto. Una
- * cuenta de email que firmó los dos textos en el alta ya no la ve: el alta
- * escribe el mismo registro.
- *
- * Wording is legally precise: the terms are ACCEPTED (contract); the privacy
- * notice is READ (GDPR informs, it does not ask consent to a notice) — the
- * ceremony's signing sentence says exactly that, and carries the 18+
- * declaration that used to ride the terms checkbox.
- *
- * Mounted once in the /app layout. Renders nothing until GET /auth/me answers
- * with `legal.required: true` — no flash, and the public demo (which never
- * reaches /auth/me) never sees it.
- *
- * ── TRES ESTADOS, Y SOLO UNO ES UNA PUERTA (it. 25) ─────────────────────────
- * Una lectura ilegible JAMÁS puede encerrar a una persona fuera de su
- * aplicación. Cuando el servidor no pudo leer la ficha de la cuenta manda
- * `legal.unreadable: true` con `required: false`, y esta pieza pinta una NOTA
- * —descartable, en una esquina, sin bloquear nada— en lugar de la ceremonia.
- * Jamás dice «no has firmado»: no lo sabemos. Qué estado toca lo decide
- * `legalGateMode` (lib/legal), que es donde está escrito el porqué; aquí solo
- * se dibuja. El bucle que esto rompe: ficha ilegible ⇒ `required: true` ⇒
- * modal sin salida ⇒ su único botón llama a /auth/legal-accept ⇒ 409
- * `PREFERENCES_UNREADABLE` no reintentable ⇒ nadie entra, y las salidas de esa
- * persona viven detrás de esta misma puerta.
+ * pages.
  */
 
 import { useEffect, useState } from 'react';
@@ -88,7 +41,7 @@ export default function LegalAcceptGate() {
   const open = required || holdOpen;
 
   // A modal that paints over the app is not the same as a modal that BLOCKS it.
-  // Audit 2026-08-01: the gate shipped at z-[97] while four app layers sit
+  // Audit: the gate shipped at z-[97] while four app layers sit
   // above it — the command palette and the step-up modal (z-100), the intents
   // drawer (z-110) and the product tour (z-120, which auto-starts for exactly
   // the first-time user this gate exists for). The overlay now sits above all
@@ -113,7 +66,7 @@ export default function LegalAcceptGate() {
     setError(false);
     const ok = await acceptLegal();
     setBusy(false);
-    // it. 17 — «check your connection» WAS THE WRONG SENTENCE FOR A REVOKED
+    // «check your connection» WAS THE WRONG SENTENCE FOR A REVOKED
     // SESSION. Since the live-session check, /legal-accept refuses a request
     // whose session died (an account takeover, a sign-out elsewhere): telling
     // that person to check their network leaves them clicking a gate that can
@@ -128,7 +81,7 @@ export default function LegalAcceptGate() {
     } else {
       setError(true);
       // SI EL SERVIDOR ACABA DE DECIR «no pude leer tu ficha», ESTA PUERTA SE
-      // RETIRA SOLA (it. 25). El 409 `PREFERENCES_UNREADABLE` no es
+      // RETIRA SOLA. El 409 `PREFERENCES_UNREADABLE` no es
       // reintentable: la firma no puede aterrizar nunca sobre esa fila, así que
       // seguir pidiéndola es exigir lo imposible. /auth/me ya contesta
       // `unreadable: true, required: false` para la misma fila, de modo que
@@ -147,8 +100,7 @@ export default function LegalAcceptGate() {
 
   return (
     <>
-      {/* SIN <AnimatePresence> (fundador 2026-09-14: «cuando desaparece el
-          popup se queda la página sin poder usarse hasta que recargas»).
+      {/* SIN <AnimatePresence>.
           Reproducido en navegador: con la ceremonia como hijo DIRECTO de un
           AnimatePresence, la animación de salida corre —el overlay llega a
           opacity 0— pero el nodo NO se desmonta nunca, y ese `fixed inset-0`
@@ -190,7 +142,7 @@ export default function LegalAcceptGate() {
                       lang,
                     )
                   : refusal === 'not_recorded'
-                    ? // it. 27 — EL SERVIDOR ACEPTÓ LA PETICIÓN Y SIGUE DICIENDO
+                    ? // EL SERVIDOR ACEPTÓ LA PETICIÓN Y SIGUE DICIENDO
                       // QUE FALTA LA FIRMA. Antes esto no se veía: el store
                       // forzaba `required: false` y la pantalla enseñaba el
                       // recibo, así que el fallo volvía en el siguiente
@@ -203,7 +155,7 @@ export default function LegalAcceptGate() {
                         lang,
                       )
                     : refusal === 'record_unreadable'
-                      ? // it. 34 (agente D) — EL 409 NO REINTENTABLE YA NO DICE «EN
+                      ? // EL 409 NO REINTENTABLE YA NO DICE «EN
                         // UN MOMENTO». El store adopta el veredicto del propio 409
                         // (`legal.unreadable`), así que esta puerta se retira en el
                         // mismo render y la nota del tercer estado habla; esta

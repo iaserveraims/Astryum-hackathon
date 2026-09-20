@@ -1,7 +1,7 @@
 /**
  * Contract Kinds — protocol family taxonomy for the ContractRegistry.
  *
- * Block F (2026-06-01) — Every DefiLlama pool we ingest gets classified into
+ * Block F — Every DefiLlama pool we ingest gets classified into
  * exactly one ContractKind. The kind drives:
  *   1. Which per-kind resolver runs (services/contractResolvers/*)
  *   2. Which ABI source is preferred (SDK vs Etherscan vs DefiLlama decoder)

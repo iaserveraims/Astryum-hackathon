@@ -1,27 +1,12 @@
 /**
  * Los guardarraíles de público del pote (doc Producto A §7.1, §14.8, §15.1).
  *
- * Hasta el 24-ago-2026 `institutional.ts` era el ÚNICO carril DeFi del backend
+ * Hasta `institutional.ts` era el ÚNICO carril DeFi del backend
  * sin geofence y sin cap: sus cinco hermanos (xrplDefi, ethMorpho, flareDemo,
  * walletTransfer, councilProposals) ya llamaban a `isDefiExecutionAllowed`, y
  * el cap de `config/demoCap` lo aplicaban tres de ellos. El pote, ninguno de los
  * dos. Un usuario no necesita nuestra UI para llamar a un endpoint: le basta
  * curl — así que un envoltorio de frontend no era protección.
- *
- * Este test existe para que no se vuelva a caer, y cubre lo que la allowlist de
- * venues NO puede cubrir (§15.5): la allowlist protege del venue; esto protege
- * de que la RUTA deje de hacer lo que dice que hace.
- *
- * Tres invariantes:
- *  1) GEOFENCE (#5) — toda ruta que mueve capital responde 451 fuera de región.
- *  2) CAP — las dos rutas que abren posición cuentan contra `config/demoCap`.
- *     Las SALIDAS 0xFE solo capan el TAMAÑO de su carrier, por transacción: el
- *     cupo diario por dirección jamás rechaza una salida (la salida nunca se gatea).
- *  3) FEE = 0 (§15.1) — ningún redeem compone una fee de Astryum al cliente.
- *
- * El geofence se comprueba por FUENTE además de por runtime: una ruta nueva que
- * copie `poteGate()` en vez de `capitalGate(req)` nace sin geofence y en runtime
- * solo la cazaríamos si alguien se acordara de añadirle un caso aquí.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -98,7 +83,7 @@ function fixtureState(): AstryumPoteState {
 const ENV = { ...process.env };
 
 beforeEach(() => {
-  // El estado del pote se sirve de caché (swrCache, 2026-09-11): cada caso
+  // El estado del pote se sirve de caché (swrCache): cada caso
   // fija SU fixture, así que la caché se vacía entre casos.
   _resetSwrForTests();
   jest.resetAllMocks();
@@ -396,7 +381,7 @@ describe('barrido de fuente — ninguna ruta de capital se queda sin geofence', 
   });
 });
 
-// ── 4. EL ASIENTO DEL DIRECTOR (incidente 23-ago-2026) ───────────────────────
+// ── 4. EL ASIENTO DEL DIRECTOR ───────────────────────
 //
 // `/pote-direct` y `/pote-recall` componen una firma EVM DEL DIRECTOR. Sin
 // cesión vigente esa firma revierte con `NotDirectorOrCouncil` (0x16baed6b) y el

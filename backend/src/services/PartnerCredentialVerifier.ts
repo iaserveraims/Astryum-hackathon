@@ -1,26 +1,11 @@
 /**
  * PartnerCredentialVerifier — la credencial de gestor en su forma OFF-LEDGER.
  *
- * El modelo de dos capas (recon 29-ago, Parte H; decisión del fundador): un
+ * El modelo de dos capas: un
  * partner regulado (p. ej. Dock/Truvera + cheqd, o Sumsub) verifica el título
  * OFF-chain y emite una **Verifiable Credential** firmada — la PII nunca toca
  * ninguna cadena. Aquí se comprueba la FIRMA del partner y las claims. Es la
  * capa que funciona HOY sin un emisor XRPL-nativo:
- *
- *   · OFF-LEDGER (esto): el gestor PRESENTA su VC (JWT) con la petición; el
- *     backend la verifica contra la clave del partner. Privado por defecto, pero
- *     la hace cumplir NUESTRO servidor, no el consenso.
- *   · ON-LEDGER (XLS-70, `ManagerCredentialGate`): el mismo partner (o un puente)
- *     la refleja como credencial XRPL; entonces la hace cumplir el CONSENSO
- *     (`tecNO_PERMISSION`). Es el «premium».
- *
- * El gate acepta CUALQUIERA de las dos, así que la caza de partner no bloquea:
- * se arranca con la VC off-ledger y se sube a on-ledger cuando el emisor exista.
- *
- * ── GUARDARRAÍL: Astryum NO emite ni verifica el título ─────────────────────
- * Astryum solo comprueba que la VC la firmó un EMISOR de su allowlist (clave
- * pública en config) y que las claims casan. El juicio del título es del partner.
- * Astryum jamás ve el documento — solo una firma sobre unas claims mínimas.
  */
 
 export interface PartnerKey {
@@ -88,7 +73,7 @@ export function validatePartnerClaims(
 ): PartnerVerdict {
   const now = opts.nowSec ?? Math.floor(Date.now() / 1000);
   const exp = typeof payload.exp === 'number' ? payload.exp : NaN;
-  // `Expiration` SIEMPRE (regla del 15-ago): sin `exp` futuro, no vale.
+  // `Expiration` SIEMPRE (regla): sin `exp` futuro, no vale.
   if (!Number.isFinite(exp) || exp <= now) return { ok: false, code: 'EXPIRED' };
 
   // La VC presentada tiene que cubrir TODOS los tipos exigidos (en `vc.type` o en

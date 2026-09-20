@@ -4,7 +4,7 @@
  * (a new route → red test, not a production discovery), and proves every enumerated mint
  * route is actually capped by the middleware.
  *
- * EXIT class (2026-09-13 — the exit is never gated): exit routes are classified in their
+ * EXIT class (the exit is never gated): exit routes are classified in their
  * own list; their 0xFE carrier keeps the per-TRANSACTION cap, and the refusal says the
  * exit itself is not limited. Their geofence / daily-budget immunity is proven in
  * flareDemo.exitNotGated.test.ts.

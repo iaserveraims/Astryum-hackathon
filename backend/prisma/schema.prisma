@@ -27,7 +27,7 @@ model User {
   id                   String    @id @default(cuid())
   xrplAddress          String?   @unique
   email                String?   @unique
-  // Demo-signup profile (founder 2026-07-18): light on purpose — phone/2FA
+  // Demo-signup profile: light on purpose — phone/2FA
   // arrive with the full product, not the demo.
   username             String?
   firstName            String?
@@ -38,7 +38,7 @@ model User {
   passwordHash         String?   // scrypt hash — null for SIWE-only users
   resetToken           String?   @unique // SHA-256 hash of password reset token
   resetTokenExpiresAt  DateTime?
-  // Auth provenance (2026-07-23): how the account was created — 'email'
+  // Auth provenance: how the account was created — 'email'
   // (password), 'google' / 'apple' (OAuth), 'wallet' (SIWE/Xaman). The admin
   // panel separates OAuth users from plain-email users on this.
   authProvider         String    @default("email")
@@ -153,7 +153,7 @@ model Wallet {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // ─── Block G (2026-06-02) — unified Wallet model ─────────────────────────
+  // ─── Block G — unified Wallet model ─────────────────────────
   /// Ecosystem the wallet belongs to, derived from caip2 prefix at write time:
   ///   eip155:* → 'evm' | solana:* → 'solana' | xrpl:* → 'xrpl' |
   ///   aptos:*  → 'aptos' | cosmos:* → 'cosmos'
@@ -194,7 +194,7 @@ model Wallet {
   @@map("wallets")
 }
 
-// ─── Block G (2026-06-02) — Cross-ecosystem bundles ──────────────────────────
+// ─── Block G — Cross-ecosystem bundles ──────────────────────────
 //
 // An IntentBundle sequences multiple signatures across ecosystems when the
 // user's source ecosystem differs from the destination protocol's. Bundle
@@ -1452,7 +1452,7 @@ model AutomationRule {
   /// `cooldownMinutes` guard — it is what stops a failing rule from re-firing
   /// every 60s. It is NOT the "this occurrence is done" marker (G3, below).
   lastTriggeredAt     DateTime?
-  /// G3 (auditoría 2026-08-17) — "consumed occurrence", split OUT of the
+  /// G3 (auditorí) — "consumed occurrence", split OUT of the
   /// cooldown stamp. Written only when the fire actually produced its ARTEFACT
   /// (council proposal, prepared intent, actionable nudge). TIME_TRIGGER
   /// measures its cron occurrence against THIS field: before the split, a fire
@@ -2238,7 +2238,7 @@ model ProtocolPool {
   debtCeilingUsd   Float?
   borrowable       Boolean  @default(false)
 
-  // ─── Block F (2026-06-01) — ContractRegistry fields ─────────────────────
+  // ─── Block F — ContractRegistry fields ─────────────────────
   // Distinguishes receipt token (what DefiLlama returns) from interaction
   // contract (what CalldataBuilder uses). Resolved by ABIResolver via the
   // contractResolvers per-kind pipeline.
@@ -2757,7 +2757,7 @@ model WaitlistSignup {
   lang      String?
   createdAt DateTime @default(now())
 
-  // Beta gate (founder 2026-08-01, opening 08-06): with BETA_REGISTRATION_OPEN
+  // Beta gate: with BETA_REGISTRATION_OPEN
   // unset, an account can ONLY be created by an email a founder approved.
   // approvedAt = the approval instant (null = still waiting). invitedAt = when
   // the boarding-pass email last went out (null = never sent). Existing
@@ -2769,7 +2769,7 @@ model WaitlistSignup {
   @@map("waitlist_signups")
 }
 
-// El perfil PÚBLICO del gestor (fundador 6-sep): campos auto-declarados que el
+// El perfil PÚBLICO del gestor: campos auto-declarados que el
 // cliente revisa antes de poner capital. Solo lo escribe el dueño PROBADO de la
 // r-address (wallet vinculada por firma al usuario); los hechos verificados
 // (credenciales, caducidad, prueba en Base) NO viven aquí — se leen del ledger.

@@ -1,18 +1,6 @@
 /**
- * it. 23 (1.7 y 1.4) — EL TOPE DIARIO ACOTA NUESTRA LLAVE, NUNCA LA SALIDA DE UN
+ * EL TOPE DIARIO ACOTA NUESTRA LLAVE, NUNCA LA SALIDA DE UN
  * CLIENTE; Y EL GASTO SE ESCRIBE ANTES DE ENVIAR.
- *
- * 1.7 (regresión de la it. 21): `spentToday()` pasó a leerse ESTRICTO y se leía
- * ANTES de bifurcar, así que un parpadeo de BD lanzaba también en el camino del
- * PAGO al cliente: la excepción moría en el `errors.push` del tick y la retirada
- * se quedaba pendiente sin negativa y sin frase, arrastrando a los demás
- * clientes de la toma. La entrada sigue fallando cerrada; la salida sale y el
- * hecho se escribe en el libro de recibos.
- *
- * 1.4: `kvUpsert` se tragaba la ESCRITURA del gasto y `recordSpend` corría
- * DESPUÉS de enviar, así que una escritura perdida devolvía el tope entero. La
- * reserva se escribe antes de `submitSignedBlob`; si no se puede escribir, una
- * ENTRADA no se envía (y una SALIDA sí, dicho en voz alta).
  */
 import type { DemoRun } from '../DemoExchangeStore';
 
@@ -49,7 +37,7 @@ jest.mock('../DemoExchangeSync', () => ({
 jest.mock('../submissionJournal', () => ({
   readSubmission: jest.fn(async () => null),
   writeSubmission: jest.fn(async () => undefined),
-  // it. 29: el journal vacío no exime ni acusa a nadie (`againstFor`).
+  // El journal vacío no exime ni acusa a nadie (`againstFor`).
   againstFor: jest.fn(async (_run: unknown, _cid: string, kind: string) => ({ kind, provenUnsigned: new Set<string>(), provenSigned: new Set<string>() })),
   _resetSubmissionJournal: jest.fn(),
 }));
@@ -94,7 +82,7 @@ jest.mock('../clientCredentialGate', () => ({
 }));
 
 jest.mock('../DemoRunVerifier', () => ({ flareProvider: () => ({}) }));
-/** El latido de cada tick, para poder mirarlo (it. 27). */
+/** El latido de cada tick, para poder mirarlo. */
 const ticks: Array<{ ok?: boolean; detail?: string }> = [];
 jest.mock('../../ops/agentHeartbeats', () => ({
   markAgentTick: (_id: string, opts: { ok?: boolean; detail?: string }) => {
@@ -110,8 +98,8 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => ({
   NonceSeatTakenError: class extends Error {},
 }));
 
-// El canal de ops es un efecto lateral de casi todas estas pruebas (it. 25) -
-// salvo en el bloque de la it. 27, donde es justamente lo que se prueba.
+// El canal de ops es un efecto lateral de casi todas estas pruebas -
+// salvo en el bloque de la, donde es justamente lo que se prueba.
 const mockOpsAlert = jest.fn(async () => undefined);
 jest.mock('../../OpsAlertService', () => ({ opsAlert: (...a: unknown[]) => mockOpsAlert(...(a as [])) }));
 
@@ -213,8 +201,8 @@ describe('1.4 — el gasto se reserva ANTES de enviar', () => {
     await new DemoExchangeAutopilot().tick();
 
     expect(mockSubmit).toHaveBeenCalledTimes(1);
-    // it. 29: el recibo dice lo que pasó — faltó el APUNTE de auditoría; un
-    // payout no engorda el tope desde la it. 27, así que ningún total está corto.
+    // El recibo dice lo que pasó — faltó el APUNTE de auditoría; un
+    // payout no engorda el tope desde la, así que ningún total está corto.
     const note = run.receipts.find((r) => r.step === 'NOTE' && /left no audit entry in today's spend ledger/.test(r.note ?? ''));
     expect(note).toBeDefined();
     expect(note!.note).toMatch(/a payout never counts against the cap, so no total is short/);
@@ -240,7 +228,7 @@ describe('1.4 — el gasto se reserva ANTES de enviar', () => {
 });
 
 /**
- * it. 27 — EL RECIBO SE ESCRIBE CUANDO EL PAGO SALE, NO ANTES.
+ * EL RECIBO SE ESCRIBE CUANDO EL PAGO SALE, NO ANTES.
  *
  * `noteCapUnread(..., 'the payout went out anyway')` se escribía ENCIMA de la
  * firma. Si `signForSubmission` o `persistSubmission` fallaban un renglón más
@@ -249,7 +237,7 @@ describe('1.4 — el gasto se reserva ANTES de enviar', () => {
  * NUNCA salió. Y como el recibo se deduplica por texto exacto, ningún tick
  * posterior corrigía la mentira.
  */
-describe('it. 27 — el recibo de un payout no se adelanta al pago', () => {
+describe('El recibo de un payout no se adelanta al pago', () => {
   const noteAbout = (run: DemoRun, re: RegExp) => run.receipts.find((r) => r.step === 'NOTE' && re.test(r.note ?? ''));
 
   it('la firma falla con el tope ilegible → NINGÚN recibo afirma que el pago salió', async () => {
@@ -313,14 +301,14 @@ describe('it. 27 — el recibo de un payout no se adelanta al pago', () => {
 });
 
 /**
- * it. 27 — UNA PETICIÓN PUEDE ENVEJECER PARA SIEMPRE Y EL AGENTE SEGUÍA VERDE.
+ * UNA PETICIÓN PUEDE ENVEJECER PARA SIEMPRE Y EL AGENTE SEGUÍA VERDE.
  *
  * `refuse(final=false)` deja la petición `pending` con su motivo y no toca nada
  * más: ni el canal de ops, ni el latido —que se declaraba `ok` mientras el tick
  * no lanzara—, ni ningún reloj. Nadie medía la antigüedad de la cola, así que un
  * cliente podía quedarse esperando días mientras el panel decía que todo iba bien.
  */
-describe('it. 27 — lo que envejece en la cola suena en ops y apaga el verde', () => {
+describe('Lo que envejece en la cola suena en ops y apaga el verde', () => {
   const HOUR_AGO = new Date(Date.now() - 3 * 3_600_000).toISOString();
   const alertsAbout = (re: RegExp) => mockOpsAlert.mock.calls.filter((c) => re.test(String(c[2])));
 

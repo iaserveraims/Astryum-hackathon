@@ -80,7 +80,7 @@ describe('tracker — handles that arrive already final', () => {
     expect(h.timers.length).toBe(0);
   });
 
-  // it. 34 — the single/sequential rails of sendIntentCalls settle the handle on
+  // The single/sequential rails of sendIntentCalls settle the handle on
   // `receipt.status === 'success'` alone, and a Kinetic code produces exactly
   // that receipt (mined, no effect). A settled evm handle is therefore
   // re-verified: it re-enters as pending and the receipt poll, logs included,
@@ -128,7 +128,7 @@ describe('tracker — evm rail (receipt is the truth)', () => {
     expect(last(h).reason).toBeTruthy();
   });
 
-  // it. 34 — status 1 is not the whole test. Mainnet probe (it. 31): kFXRP_ISO
+  // Status 1 is not the whole test. Mainnet probe: kFXRP_ISO
   // `redeemUnderlying(1e12)` from an empty account mines with status 1 and a
   // `Failure(9 MATH_ERROR, 45, 0)` log; gas paid, nothing moved.
   it('a status-1 receipt WITH a Compound Failure log is FAILED with the code — mined without effect', async () => {
@@ -170,7 +170,7 @@ describe('tracker — evm-5792 rail (§1.1/§1.2)', () => {
     expect(last(h).explorerUrl).toContain('0xdeadbeef');
   });
 
-  // it. 34 — the 5792 receipts carry `logs`: a call mined without effect
+  // The 5792 receipts carry `logs`: a call mined without effect
   // inside a CONFIRMED bundle is a failure that names its step, so the
   // «earlier steps already went through» sentence applies (the approve did).
   it('CONFIRMED with every receipt status 1 but a Compound Failure in call 2 is FAILED, step named', async () => {
@@ -274,8 +274,7 @@ describe('tracker — xrpl-tx rail (ledger validation is the truth)', () => {
     expect(h.timers.length).toBe(0);
   });
 
-  // El incidente del 22-ago: un recibo colgado en «In progress» sobre una tx
-  // que el ledger ya había rechazado. Un fallo TERMINAL tiene que parar el
+  // Un fallo TERMINAL tiene que parar el
   // reloj, no seguir vigilando un hash que nunca va a aparecer.
   it('un fallo terminal asienta como failed y DETIENE el poll', async () => {
     const h = makeHarness({
@@ -301,7 +300,7 @@ describe('tracker — xrpl-tx rail (ledger validation is the truth)', () => {
   });
 
   // El contrapeso, que también es un bug cerrado: «no he podido leer» no puede
-  // convertirse en fallo — ese error empujaba al DOBLE depósito el 17-ago.
+  // convertirse en fallo — ese error empujaba al DOBLE depósito.
   it('«ilegible» nunca se convierte en fallo, por mucho que se repita', async () => {
     const h = makeHarness({ getXrplTxVerdict: async () => ({ kind: 'unreadable' }) });
     h.track(startPending('xrpl-tx', 'B'.repeat(64)));

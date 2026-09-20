@@ -3,21 +3,6 @@
 /**
  * useWalletPartner — Single-purpose hook to send an unsigned intent to the
  * connected wallet partner for the user to authorize.
- *
- * REGULATORY BOUNDARY (CLAUDE.md §0):
- *   - Astryum builds the unsigned tx (CalldataBuilder, backend)
- *   - Astryum sends it to the connected wallet partner via wagmi
- *   - The wallet partner shows it to the user and transmits if authorized
- *   - Astryum never broadcasts, never custodies keys, never relays
- *
- * This hook returns:
- *   - address:      connected wallet partner account (or null)
- *   - chainId:      current chain on the wallet partner
- *   - isConnected:  true if a wallet partner is connected
- *   - openConnect:  open AppKit modal so user can pick a wallet partner
- *   - openAccount:  open AppKit account view
- *   - switchChain:  request wallet partner to switch chain
- *   - sendIntent:   forward unsigned calldata to wallet partner for signing
  */
 
 import { useCallback } from 'react';
@@ -58,7 +43,7 @@ export interface SendIntentResult {
 }
 
 /**
- * batch-evm (2026-08-20) — does this wallet genuinely NOT speak EIP-5792?
+ * batch-evm — does this wallet genuinely NOT speak EIP-5792?
  *
  * The sequential fallback below re-sends EVERY call. That is the right answer
  * to exactly ONE fact — the wallet does not implement `wallet_sendCalls` — and
@@ -69,17 +54,6 @@ export interface SendIntentResult {
  * inside the same function that fixed it for the sequential rail. A plain user
  * rejection of the batch was just as bad in a different way: it silently became
  * N popups nobody asked for.
- *
- * So the fallback is opt-IN and narrow: EIP-1193 4200 (Unsupported Method),
- * JSON-RPC -32601 (Method not found) and the prose providers wrap them in —
- * MetaMask's «does not exist / is not available», WalletConnect's «Unsupported
- * methods requested», viem/wagmi's named errors. Everything else is re-thrown
- * and classified by `signOutcome`: a rejection stays a rejection (retry is the
- * correct offer there, nothing left), and an unknown after the hand-off ends in
- * the amber "do NOT sign again" state.
- *
- * Being too NARROW costs a wallet one honest error it can retry from a clean
- * slate; being too broad costs a double execution. Narrow is the safe side.
  */
 const BATCH_UNSUPPORTED_CODES = new Set<number>([4200, -32601]);
 const BATCH_UNSUPPORTED_TEXT: RegExp[] = [
@@ -272,7 +246,7 @@ export function useWalletPartner() {
         // settlement machine (wallet_getCallsStatus, every receipt a success).
         return { txHash: id as `0x${string}`, handle: startPending('evm-5792', id, undefined, chainId) };
       } catch (batchErr) {
-        // batch-evm (2026-08-20). THE FALLBACK IS NOT A CATCH-ALL. Until this
+        // batch-evm. THE FALLBACK IS NOT A CATCH-ALL. Until this
         // line the `catch` did not even bind the error: ANY death of
         // `sendCallsAsync` was read as «this wallet does not speak EIP-5792»
         // and fell through to the sequential rail, which re-sends EVERY call.
@@ -288,10 +262,10 @@ export function useWalletPartner() {
         // depend on earlier state (mint needs the approve mined; borrow needs
         // the supply + enterMarkets mined) — without waiting, the wallet
         // estimates gas against the pre-tx state and the dependent call fails,
-        // leaving a HALF-OPEN position (the 2026-07-14 kinetic lend-without-
+        // leaving a HALF-OPEN position (the kinetic lend-without-
         // borrow bug). When a step dies with earlier steps already out, the
         // whole array stops being retryable — see the catch below.
-        // batch-evm (2026-08-20): `last` is the hash of the last step we know
+        // batch-evm: `last` is the hash of the last step we know
         // COMPLETED — never the hash of the step that is dying. It used to be
         // one variable for both, and `sequentialStepError` handed that hash to
         // the amber panel: the user read «1 earlier step is already on the
@@ -362,7 +336,7 @@ export function useWalletPartner() {
             // failure may honestly point the user at.
             last = sent;
           } catch (e) {
-            // metamask-parcial (2026-08-20). LEER Y QUE SALGA A MEDIAS TAMPOCO
+            // metamask-parcial. LEER Y QUE SALGA A MEDIAS TAMPOCO
             // ES QUE HAYA FALLADO. Aquí se envolvía cualquier muerte de un paso
             // en un `Error` corriente que llevaba DENTRO las palabras de la
             // wallet, y esas palabras son las que clasifican el resultado aguas
@@ -372,14 +346,6 @@ export function useWalletPartner() {
             // ENTERO — se paga otra vez el paso que ya entró. El sufijo «the
             // first N steps are already on-chain» decía la verdad en una frase
             // que nadie leía y que el clasificador ignoraba.
-            //
-            // La decisión completa (en vuelo / parcial / murió el primer paso)
-            // vive ahora en `lib/wallet/inFlightError.sequentialStepError`, que
-            // es pura y se ejecuta en un test. Este bucle sólo aporta lo que
-            // sabe: en qué paso está, cuál fue el último hash y si esta cadena
-            // tenía lector de recibos (sin él, los pasos anteriores están
-            // MANDADOS, no confirmados, y nadie va a decir «en cadena» de algo
-            // que no ha leído).
             throw sequentialStepError(e, {
               index: i,
               total: calls.length,

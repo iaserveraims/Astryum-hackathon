@@ -1,33 +1,7 @@
 /**
  * Flare LP venue registry — every DEX on Flare with LP positions worth
- * tracking, sourced from the DeFiLlama Flare ecosystem review (2026-07-11)
+ * tracking, sourced from the DeFiLlama Flare ecosystem review
  * and verified on-chain the same day (Flare RPC + Routescan + official docs):
- *
- *   V3-style (NFT positions via a NonfungiblePositionManager):
- *   - SparkDEX V4  $15.3M — Algebra Integral fork. NPM name() =
- *     "Algebra Positions NFT-V2"; factory() == docs.sparkdex.ai V4 page
- *     (AlgebraFactory 0x805488Da…). Tuple carries `deployer` (address) where
- *     UniV3 has `fee` (uint24) → tupleStyle 'algebra'.
- *   - Enosys DEX V3 $6.6M — UniV3 fork. NPM name() =
- *     "EnosysDEX V3 Positions NFT-V1"; positions(1821) decodes with the
- *     UniV3 tuple (fee=500) → tupleStyle 'univ3'.
- *   - SparkDEX V3.1 $8.7M is NOT here: the existing SparkDEXAdapter already
- *     tracks it via SPARKDEX_NFPM (protocolId 'sparkdex').
- *
- *   V2-style (UniV2 pair ERC-20 LP tokens, enumerable via factory.allPairs):
- *   - BlazeSwap    $0.86M — factory read from BlazeSwapPair(0x3ad13e1b…).factory(),
- *     1,910 pairs (permissionless creation — mostly dust; the balance sweep
- *     covers ALL of them via Multicall3, no silent cap).
- *   - SparkDEX V2  — factory from docs.sparkdex.ai (96 pairs).
- *   - Enosys DEX V2 — factory from DeFiLlama flarex adapter (20 pairs).
- *   - Pangolin     — factory from DeFiLlama pangolin adapter (119 pairs).
- *
- * Steer Protocol ($4.6M) and ICHI ($0.29M) are ALM vaults (ERC-20 shares over
- * these same DEXs), not raw LPs — they need their vault-list APIs and are a
- * follow-up, logged in docs/V1_1_INTEGRATION_LOG.md.
- *
- * All addresses are PUBLIC mainnet contracts (safe to commit — same precedent
- * as SPARKDEX_V3_NPM in PositionScanService).
  */
 
 export interface FlareLpV3Venue {
@@ -86,6 +60,6 @@ export const FLARE_LP_V2_VENUES: FlareLpV2Venue[] = [
 ];
 
 /** Canonical Multicall3 (same address on ~all EVM chains; code verified on
- *  Flare 2026-07-11). Lets the V2 sweep read thousands of pairs in a handful
+ *  Flare). Lets the V2 sweep read thousands of pairs in a handful
  *  of RPC round-trips instead of one call per pair. READ-ONLY. */
 export const FLARE_MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11';

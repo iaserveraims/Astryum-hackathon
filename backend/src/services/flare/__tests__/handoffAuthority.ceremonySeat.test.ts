@@ -1,19 +1,11 @@
 /**
- * productizer-it25 §4 — LA PUERTA DE UNA CEREMONIA ABANDONADA, Y LO QUE NO ABRE.
+ * LA PUERTA DE UNA CEREMONIA ABANDONADA, Y LO QUE NO ABRE.
  *
  * Desde la §2.1 el 0xFE de una cuenta que firma por quórum se compone con la vida
  * REAL de sus payloads (24 h). El precio honesto: su asiento de nonce queda
  * ocupado mientras esos bytes puedan entrar — y sin una puerta, la SEGUNDA salida
  * de ese mismo consejo chocaría con un 409 durante un día entero. Eso es tapiar
  * una salida con código nuestro.
- *
- * La puerta es una acción EXPLÍCITA del titular (terminar la ceremonia), nunca un
- * barrido: nadie puede adivinar si un consejo sigue juntando firmas, y una
- * ceremonia de tres días es normal.
- *
- * Y lo que se prueba aquí, sobre todo, es lo que la puerta NO hace: el predicado
- * del asiento sigue entero. Sustituye SOLO la mitad del reloj; la mitad física
- * —¿entró aquel Payment?— se sigue leyendo y sigue mandando.
  */
 import {
   classifySeatSignability,

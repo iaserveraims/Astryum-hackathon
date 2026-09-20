@@ -1,5 +1,5 @@
 /**
- * Productizer it. 12 — the desk says the refusals of an omnibus payment in flight
+ * The desk says the refusals of an omnibus payment in flight
  * with their numbers:
  *  - WAIT_FOR_LAST_LEDGER (2.3): a put-to-work release before its LastLedgerSequence
  *    names the ledger and the seconds left, never «could not be released» alone;

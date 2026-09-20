@@ -1,26 +1,12 @@
 'use client';
 
 /**
- * ExchangeConsole — la consola de gestión del exchange, PRODUCTIZADA (fundador
- * 14-sep: «el exchange debe tener todas sus herramientas en un dashboard y
- * poder hacer todas sus cosas desde ese dashboard… abrir un pote, controlar un
- * pote (de la UI de managed vaults), darle la credencial KYC al user, una feed
- * del omnibus en un panel, siempre en autopilot, perfil del exchange sacado de
- * managed vaults con sus credenciales»).
+ * ExchangeConsole — la consola de gestión del exchange, PRODUCTIZADA.
  *
  * Seis pestañas: Resumen · Clientes · Omnibus · Potes · Perfil · Auditoría.
- * Y arriba, la SECCIÓN DE EXCHANGES (fundador, mismo día): elegir con qué
+ * Y arriba, la SECCIÓN DE EXCHANGES: elegir con qué
  * exchange se trabaja y crear otro con el alta completa (la misma ventana de
  * siempre, ExchangeSetupOperation).
- *
- * LO QUE REUTILIZA, SIN REESCRIBIR: los potes se abren con VaultCreator y se
- * dirigen con ManagerConsole/ManagerGovernance (managed vaults); el KYC se
- * emite con CredentialCeremonyModal; el perfil es ManagerPublicProfile; la
- * auditoría, EvidencePanel. La mesa por estaciones (ExchangeStage) sigue
- * entera detrás de su botón.
- *
- * FIRMAS EN VUELO: mientras una orden de pote o la apertura de un pote esperan
- * en Xaman, ni la pestaña ni el exchange cambian — desmontarlas perdería la firma.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -59,14 +45,14 @@ import { ManagerGovernance } from '../../managed/ManagerGovernance';
 import { VaultCreator } from '../../managed/VaultCreator';
 import { EvidencePanel } from '../EvidencePanel';
 import { StructuresPanel } from './StructuresPanel';
-// La mesa del operador está PUBLICADA (13-sep): una pestaña nueva aquí la ve
+// La mesa del operador está PUBLICADA: una pestaña nueva aquí la ve
 // cualquiera. Exchange 2.0 va tapada — envoltorio dentro Y la pestaña fuera del
 // raíl para quien no sea fundador (el veredicto es del servidor, fail-closed).
 import { PreviewOnly } from '../../ui/PreviewOnly';
 import { useAuthStore } from '../../../stores/authStore';
 import { DeskDepositQr } from '../DepositXamanQr';
 import { ExchangeStaleLockScope } from '../ExchangeStaleLockScope';
-// 18-sep: el autopilot fuera de la vista; cada movimiento lo firma el omnibus con un QR.
+// El autopilot fuera de la vista; cada movimiento lo firma el omnibus con un QR.
 import { AUTOPILOT_UI } from '../../../lib/demo-exchange/autopilotVisibility';
 import { DeskRequestQueue, pendingDeskWork } from './DeskRequestQueue';
 
@@ -138,7 +124,7 @@ export function ExchangeConsole() {
     const mine = connectedRoot ? demo.runs.find((r) => r.councilAddress === connectedRoot) : undefined;
     // Sin la raíz conectada en Xaman y sin ningún exchange abierto todavía, la consola
     // pintaba «Set up your exchange» con el exchange existente olvidado en la lista
-    // de arriba (fundador 14-sep: «no puedo acceder al exchange creado»). Si hay UNO
+    // de arriba. Si hay UNO
     // solo abierto, es ese; con varios, se elige arriba. Leer no exige ser la raíz:
     // firmar sí, y la consola ya lo dice.
     const open = demo.runs.filter((r) => r.status === 'open');
@@ -320,9 +306,9 @@ function OverviewPanel({ demo, run, kyc, autopilot, onApprove, go, onBlockedChan
           <Kpi label={t('XRP of your clients')} value={dropsToXrp(clientsXrp.toString(), 2)} unit="XRP" hint={t('credited to their tags at the exchange')} />
           <Kpi label={t('Clients')} value={String(run.clients.length)} hint={pending.length ? t('{n} waiting for your KYC').replace('{n}', String(pending.length)) : t('all with KYC in force')} tone={pending.length ? 'warning' : undefined} />
           <Kpi label={t('In the pote')} value={pote ? fmtBase(pote.totalAssets, dec) : '—'} unit={pote?.asset?.symbol ?? 'FXRP'} hint={pote ? t('{n} venues allowed').replace('{n}', String(pote.venues.filter((v) => !v.retired).length)) : run.poteAddress ? t('reading…') : t('no pote yet')} />
-          {/* it. 25 (§5) — EL TEXTO DECÍA LO CONTRARIO DE LO QUE HACE EL CÓDIGO.
+          {/* EL TEXTO DECÍA LO CONTRARIO DE LO QUE HACE EL CÓDIGO.
               Este hint sale cuando el gasto de hoy NO se pudo leer, y decía que
-              «el tope de N XRP/día sigue negando antes de firmar». Desde la it. 23
+              «el tope de N XRP/día sigue negando antes de firmar». Desde la
               eso es falso para la mitad que importa: el tope acota NUESTRA llave
               operativa, así que una entrada (`put-to-work`) falla cerrada y
               visible — `SPEND_LEDGER_UNREADABLE`, DemoExchangeAutopilot — pero el
@@ -634,7 +620,7 @@ function IssueKycDoor({ run, credentialType, clientLabel, pending, onIssued, onA
   /** El ledger ya la tiene emitida y sin aceptar: no se ofrece emitir otra. */
   pending: boolean;
   onIssued: (hash: string) => void;
-  /** 18-sep: el omnibus la aceptó con su QR (sin autopilot, este es el paso 2). */
+  /** El omnibus la aceptó con su QR (sin autopilot, este es el paso 2). */
   onAccepted?: (hash: string) => void;
   onBlockedChange: (blocked: boolean) => void;
 }) {
@@ -643,7 +629,7 @@ function IssueKycDoor({ run, credentialType, clientLabel, pending, onIssued, onA
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [issued, setIssued] = useState(false);
-  // Paso 2 (18-sep): la aceptación del OMNIBUS, con su propio QR — la hacía el autopilot.
+  // Paso 2: la aceptación del OMNIBUS, con su propio QR — la hacía el autopilot.
   const [acceptTx, setAcceptTx] = useState<Record<string, unknown> | null>(null);
   const [accepted, setAccepted] = useState(false);
   useEffect(() => () => onBlockedChange(false), [onBlockedChange]);
@@ -938,7 +924,7 @@ function PotesPanel({ demo, run, connectedRoot, onBlockedChange }: { demo: DemoR
 
   const lock = consoleBlocked || creatorBlocked;
   const isClientsPote = (p: string) => run.poteAddress?.toLowerCase() === p.toLowerCase();
-  // LA MISMA REGLA QUE LA MESA (ManagerDesk, 14-sep): la sesión viva de Xaman
+  // LA MISMA REGLA QUE LA MESA (ManagerDesk): la sesión viva de Xaman
   // es de ESTE navegador y se pierde; la cuenta ENLAZADA a la cuenta de usuario
   // no. Leer no exige sesión, y firmar tampoco la exige: la orden lleva su
   // `Account`, así que Xaman pide ESA cuenta al firmar. Exigir que además fuera

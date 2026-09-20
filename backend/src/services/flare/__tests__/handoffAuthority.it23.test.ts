@@ -1,5 +1,5 @@
 /**
- * productizer-it23 §Q1 1.1 / 1.3 / 1.6 — LAS TRES REGLAS DE ESTA COSTURA.
+ * §Q1 1.1 / 1.3 / 1.6 — LAS TRES REGLAS DE ESTA COSTURA.
  *
  *  · 1.1 Las dos marcas del asiento se llenan en un solo sitio, y lo que no
  *        consta NO se escribe como «pregunté y no la tiene»: esa frase es la que

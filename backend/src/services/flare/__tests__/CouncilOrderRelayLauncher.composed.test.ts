@@ -1,12 +1,12 @@
 /**
  * sweepComposedCouncilOrders — a signed order reaches Flare even when the screen
- * that signed it is gone (2026-09-14; productizer it. 13).
+ * that signed it is gone.
  *
  * Mocked ledger (account_tx) + mocked relay + an in-memory `background_jobs`
  * table: the sweep finds the validated tesSUCCESS Payment carrying the composed
  * memo, launches the SAME idempotent relay POST relay uses (with the recorded
  * bytes), forgets orders that can never validate, and concludes nothing from a
- * ledger it could not read. it. 13 pins: every record is watched (not the newest
+ * ledger it could not read. Pins: every record is watched (not the newest
  * 200), partial progress survives a page cap, an unreadable entry is never a tec,
  * update/forget are CAS, and the fate of an order stays readable.
  */
@@ -27,7 +27,7 @@ jest.mock('../DirectMintExecutorService', () => ({
 const pending = new Map<string, Record<string, unknown>>();
 jest.mock('../../persistence/backgroundJobKv', () => ({
   kvList: async () => [...pending.values()],
-  // `rememberPending` lee ESTRICTO desde el it. 27: un fallo de lectura no puede
+  // `rememberPending` lee ESTRICTO desde el: un fallo de lectura no puede
   // reescribir `firstSeenAt` (el reloj de 14 días del FDC). Aquí la base responde.
   kvListStrict: async () => [...pending.values()],
   kvUpsert: async (_j: string, _f: string, key: string, payload: Record<string, unknown>) => {
@@ -322,7 +322,7 @@ describe('sweepComposedCouncilOrders', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('with the relayer OFF nothing is delivered, but the expired IS pruned and the validated is marked (it. 15)', async () => {
+  it('With the relayer OFF nothing is delivered, but the expired IS pruned and the validated is marked', async () => {
     process.env.FLARE_EXECUTOR_ENABLED = 'false';
     const expired = order({ composedAt: new Date(NOW - 15 * 86_400_000).toISOString() });
     const closed = order({ lastLedgerSequence: 1_050 });
@@ -407,7 +407,7 @@ describe('retryPendingCouncilOrders runs the composed sweep on its interval', ()
   });
 });
 
-describe('readCouncilOrderFate — what became of this order (it. 13, finding 3.1)', () => {
+describe('ReadCouncilOrderFate — what became of this order (finding 3.1)', () => {
   const infoAndTx = (info: Record<string, unknown>, tx: Record<string, unknown>) =>
     jest.fn().mockImplementation(async (method: string) => (method === 'account_info' ? info : tx));
 
@@ -460,7 +460,7 @@ describe('readCouncilOrderFate — what became of this order (it. 13, finding 3.
   });
 });
 
-describe('the duplicate guard, by CONTENT (it. 15, finding 2.2)', () => {
+describe('The duplicate guard, by CONTENT (finding 2.2)', () => {
   const KEY = 'content-key-direct-to-venue-0';
   const OTHER_KEY = 'content-key-direct-to-venue-1';
 
@@ -518,7 +518,7 @@ describe('the duplicate guard, by CONTENT (it. 15, finding 2.2)', () => {
 });
 
 /**
- * productizer it. 17 (finding 2.3) — THE COMPOSE DOOR WAS BLIND FOR FIVE MINUTES.
+ * THE COMPOSE DOOR WAS BLIND FOR FIVE MINUTES.
  *
  * `launchedXrplTxHash` is stamped by the background sweep, which runs every five
  * minutes; inside that window the store half of the guard says «nothing like this
@@ -527,7 +527,7 @@ describe('the duplicate guard, by CONTENT (it. 15, finding 2.2)', () => {
  * the records the sweep has not marked, through the fate read's own cache and
  * budget.
  */
-describe('the duplicate guard also asks the LEDGER (it. 17, finding 2.3)', () => {
+describe('The duplicate guard also asks the LEDGER (finding 2.3)', () => {
   const KEY = 'content-key-direct-to-venue-0';
   const infoAndTx = (info: Record<string, unknown>, tx: Record<string, unknown>) =>
     jest.fn().mockImplementation(async (method: string) => (method === 'account_info' ? info : tx));
@@ -563,7 +563,7 @@ describe('the duplicate guard also asks the LEDGER (it. 17, finding 2.3)', () =>
   });
 
   /**
-   * it. 19 (finding 2.5) — «NO PUDE COMPROBARLO» NO ES «COMPROBADO». it. 17 let a
+   * «NO PUDE COMPROBARLO» NO ES «COMPROBADO». Let a
    * non-exit through on a check that never ran, with a sentence nobody had to
    * acknowledge — on the exact scenario the guard exists for (a re-composition
    * minutes after a stalled QR, with the fate budget already spent by the screen's
@@ -602,15 +602,15 @@ describe('the duplicate guard also asks the LEDGER (it. 17, finding 2.3)', () =>
   });
 
   /**
-   * it. 19 (finding 2.5, second half) — THE COMPOSE READS HAVE THEIR OWN ALLOWANCE.
+   * THE COMPOSE READS HAVE THEIR OWN ALLOWANCE.
    * The routes hand this check the key the screen's `GET /council-order/fate` polling
    * spends; the check prefixes it, so a page that exhausted the fate budget cannot
    * blind the duplicate guard of a compose.
    */
   /**
-   * productizer it. 21 (finding 2.7) — THE REFUSAL HAD NO READER AND NO CLOCK.
+   * THE REFUSAL HAD NO READER AND NO CLOCK.
    *
-   * `DUPLICATE_CHECK_UNREADABLE` was invented by it. 19 and no screen ever read it,
+   * `DUPLICATE_CHECK_UNREADABLE` was invented by and no screen ever read it,
    * so «the manager auto-blocks for about a minute with no button» was the whole
    * user experience. The commonest cause is OUR OWN read allowance, which knows
    * exactly how many seconds are left — and that number was being thrown away inside
@@ -671,7 +671,7 @@ describe('the duplicate guard also asks the LEDGER (it. 17, finding 2.3)', () =>
     expect(read).toHaveBeenCalledWith(o.memoHex, 'compose:session-9');
   });
 
-  /** it. 17 (copy): the sentence has to describe what a SECOND order would do. */
+  /** The sentence has to describe what a SECOND order would do. */
   it('the warning does not promise a double movement for an order that moves no capital, nor over a failed delivery', async () => {
     const H = hashOf(0x2b2);
     order({ contentKey: KEY, action: 'set-user-gate', launchedXrplTxHash: H, launchedAt: new Date(NOW - 60_000).toISOString() });
@@ -705,7 +705,7 @@ describe('the duplicate guard also asks the LEDGER (it. 17, finding 2.3)', () =>
   });
 });
 
-describe('the fate read is bounded (it. 15, finding 2.5)', () => {
+describe('The fate read is bounded (finding 2.5)', () => {
   beforeEach(() => _resetCouncilOrderFateLimiter());
 
   it('one chain read per memo per 15s: the second asker gets the cached answer', async () => {

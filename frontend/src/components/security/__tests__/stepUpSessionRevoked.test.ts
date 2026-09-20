@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { extract } from '../../legacy/__tests__/extractFromSource';
 
 /**
- * productizer it. 19 (R5 R6) — UN ARREGLO DE SEGURIDAD QUE EXPULSABA AL USUARIO.
+ * UN ARREGLO DE SEGURIDAD QUE EXPULSABA AL USUARIO.
  *
  * `withLiveSession` refusa una escritura de AUTORIDAD cuya sesión es anterior a
  * una toma de posesión de la cuenta: 401 `session_revoked`. Eso es un veredicto
@@ -13,12 +13,6 @@ import { extract } from '../../legacy/__tests__/extractFromSource';
  * token y navegaba a /login. Resultado: guardar la matriz step-up —— la pantalla
  * donde alguien decide qué proteger —— echaba a esa persona de la aplicación, y
  * la matriz a medio editar se perdía.
- *
- * Aquí se ejecutan las dos piezas que envía el cliente, sin montar React:
- *   · `handleUnauthorized`, que ya no borra nada ante `session_revoked`;
- *   · `stepUpSaveRefusal`, la frase que la tarjeta pinta en su sitio — que dice
- *     qué pasó, que NADA se guardó y qué hacer, y jamás el código crudo ni el
- *     `detail` en castellano del servidor.
  */
 
 const API = readFileSync(join(__dirname, '..', '..', '..', 'services', 'api.ts'), 'utf8');

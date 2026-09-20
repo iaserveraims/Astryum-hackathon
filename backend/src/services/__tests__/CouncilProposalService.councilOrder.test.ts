@@ -1,18 +1,6 @@
 /**
- * G9 (auditoría 17-ago) — the council order composed BY RULE must be as honest
+ * G9 (auditorí) — the council order composed BY RULE must be as honest
  * as the one composed through `POST /council-order/prepare`.
- *
- * Two silent failures are pinned here, and both of them PASS on the old code:
- *  - the proposal title (what the quorum reads before signing) was written in
- *    the contract's integers: "Put 100000 base units … into venue #0";
- *  - an order the cage already refuses reached the inbox, took the account's one
- *    live proposal slot, and only reverted after the signatures and the ~20 FLR
- *    FDC round had been spent.
- *
- * `readVaultState` is the only thing stubbed (it is the RPC): `checkDirectTo`,
- * `checkRecall`, `checkSetPayees`, `venueProtocolName` and the real
- * `encodeCouncilOrder` all run for real, so the assertions are about the
- * sentence a person actually sees.
  */
 
 const mockReadVaultState = jest.fn();
@@ -474,7 +462,7 @@ describe('councilOrderPreflight — the shared verdict (so the HTTP door can ado
 /**
  * The checks this file OWNS, as PURE functions — no RPC, no cage, no mocks.
  *
- * REUSE (auditoría 2026-08-18): `checkMoveDestination` is no longer among them.
+ * REUSE (auditorí): `checkMoveDestination` is no longer among them.
  * It duplicated checkDirectTo's retired / not-ready branches and moved to its
  * real home beside checkDirectTo/checkRecall
  * (flare/__tests__/LegacyVaultStateService.test.ts pins it there now). What is

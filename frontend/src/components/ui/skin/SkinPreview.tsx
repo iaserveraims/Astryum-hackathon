@@ -8,16 +8,6 @@
  * la regla que ya siguen las probetas de Movimiento: «no imitan nada, usan
  * las MISMAS piezas», porque una maqueta que se parece es una maqueta que
  * miente en cuanto alguien toca el tema y se olvida de la maqueta.
- *
- * EL TRUCO QUE LA HACE HONESTA está en el `data-skin`/`data-theme` de la
- * caja: globals.css define los tokens por selector de atributo, así que
- * declararlos aquí hace que toda la miniatura —fondo, filetes, tipografía,
- * acento, geometría— se pinte con el material de ESE tema aunque la página
- * lleve puesto el otro. No hay colores escritos a mano en este fichero: todo
- * sale de los mismos tokens que visten la aplicación.
- *
- * `data-authority='single'` la fija en la cara Personal para que la
- * comparación no dependa de si el usuario estaba dentro de un Legacy.
  */
 
 import type { Skin } from '../../../lib/theme/appearance';
@@ -109,7 +99,7 @@ export function SkinPreview({
           >
             {t('Open')}
           </span>
-          {/* Aquí había una balanza a 26px. Se retiró (2026-09-13) porque a ese
+          {/* Aquí había una balanza a 26px. Se retiró porque a ese
               tamaño no se leía: el dibujo tiene fuste, brazo, tirantes, dos
               platillos y una base, y ningún grosor de trazo salva esa densidad
               en 26 píxeles — engordarlo solo lo convierte en una mancha. La

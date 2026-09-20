@@ -2,33 +2,7 @@
 
 /**
  * StationProgress — el progreso de una ceremonia como BARRA, no como fila de
- * círculos numerados (fundador 2026-09-08: «no puede ser que una serie de
- * números sean el progreso… quiero una progress bar que se mantenga en
- * pantalla y que se pueda anclar para volver al punto en el que se estaba»).
- *
- * v3 — EL RAÍL LATERAL (fundador 2026-09-12: «no me gusta abajo… abajo tienes
- * que forzar la vista hacia abajo… cambia la ubicación y también la forma y
- * la interacción»). La barra vive AL LADO del contenido, pegada arriba
- * mientras se hace scroll, y cambia de forma: los segmentos van en vertical
- * y cada uno lleva SU NOMBRE al lado — se ve dónde estás y qué queda sin
- * pasar el ratón, y se salta a cualquier estación con un clic. Atrás y
- * Siguiente viven en el propio raíl (dicen a dónde van), y cuando la
- * estación actual ya está hecha, el «¿Por qué hecha?» está justo debajo.
- *
- * DOS FORMAS, una pieza:
- *   · layout='side'  — el raíl lateral en pantallas anchas; en estrechas, la
- *     tira horizontal (no hay lado). Para las ceremonias con página propia
- *     (el alta del gestor, nace tu exchange). Se monta con StationRailLayout.
- *   · layout='strip' — la tira horizontal pegada arriba, con Atrás/Siguiente
- *     a la derecha: para los sitios sin lado libre (el Legacy, el creador de
- *     bóvedas en su modal, el raíl de Operar del exchange junto al tour).
- *
- *   - Hecha (verde), actual (dorado, late), pendiente (tenue). «Hecha» la
- *     trae el anfitrión, que lo DETECTA del ledger — la barra jamás inventa.
- *   - Cada segmento es un botón: clic = ir a esa estación (adelante o atrás).
- *
- * Accesible: role=group con nombre, cada segmento con aria-label completo y
- * aria-current="step" en la actual; foco visible en teclado.
+ * círculos numerados.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -69,8 +43,7 @@ export interface StationProgressProps {
 /** El marco del raíl lateral: el raíl a la izquierda (pegado arriba), el
  *  contenido a la derecha — SOLO si la CAJA es ancha. Lo decide el propio
  *  contenedor (container query en globals.css, `.station-rail`), no la
- *  pantalla (fundador 2026-09-12: en la ventana anclable «queda pequeño el
- *  campo usable de la derecha»): en una ventana flotante o un anclaje
+ *  pantalla: en una ventana flotante o un anclaje
  *  estrecho la tira va ENCIMA del contenido; ensancha el anclaje y el raíl
  *  vuelve al lado. Umbral: 52rem de caja. */
 export function StationRailLayout({ rail, children, className = '', railWidth }: { rail: ReactNode; children: ReactNode; className?: string; /** Ancho de la columna del raíl (13.5rem por defecto; más si lleva compañía, p. ej. el tour). */ railWidth?: string }) {
@@ -81,8 +54,7 @@ export function StationRailLayout({ rail, children, className = '', railWidth }:
     // DOS CAPAS a propósito: la de fuera es el CONTENEDOR que se mide y la de
     // dentro la rejilla que cambia. Una @container solo ve ancestros — un
     // elemento no puede consultarse a sí mismo — y con una sola capa la
-    // rejilla nunca llegaba en la página entera (fundador 12-sep, captura:
-    // el raíl vertical a todo lo ancho, encima del contenido).
+    // rejilla nunca llegaba en la página entera.
     <div className={`station-rail ${className}`} style={railWidth ? ({ ['--srl-w' as never]: railWidth } as React.CSSProperties) : undefined}>
       <div className="station-rail-grid">
         <div className="srl-aside">{rail}</div>

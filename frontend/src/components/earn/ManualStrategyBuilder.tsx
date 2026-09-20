@@ -9,13 +9,6 @@
  * (lib/strategyDrafts — device-local, per identity) and surfaces in
  * Estrategias · Guardadas Offline, the registry of every manual and
  * agent-created strategy.
- *
- * Honesty (invariant #9): parameters that map to a live rail (E1 FXRP→Kinetic,
- * E2 FLR→FTSO) can Run through the same prepare→review→sign modal as the
- * ready-made packs; anything else is saved as Custom and says plainly that the
- * beta can't execute it yet. MoneyFlows (Protect · Harvest) attach to a LIVE
- * position, so the tool card points at Estrategias · Funcionando. Astryum
- * never signs, never executes.
  */
 
 import { useState } from 'react';

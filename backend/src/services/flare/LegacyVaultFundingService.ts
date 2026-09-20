@@ -5,21 +5,6 @@
  * only directs what is already inside, and the one deposit path composed bare
  * EOA calls (`LegacyVaultStateService.buildVaultDepositCalls`) that a multisig
  * XRPL account can never sign — a council has no EVM key.
- *
- * This closes it with the SAME machinery as the mint and as B3's feeding hop:
- * one XRPL Payment carries a memo committing a userOp; the executor mints the
- * FXRP into the council's Personal Account and then runs the committed batch.
- * The batch here is `approve(vault, amount)` + `LegacyVault.deposit(amount)` —
- * the `deposit(uint256)` shape that NO existing batch builds (the CLI emits
- * FAssets/ERC-4626's `deposit(uint256,address)`, a different function).
- *
- * The result: XRP leaves the council on ONE quorum signature, and lands as
- * `totalPrincipal` inside the cage. From there `directTo` finally has something
- * to direct — which is a SECOND quorum order, deliberately (see the UI copy).
- *
- * Custody line unchanged: Astryum composes, the quorum signs, the executor
- * relays bytes it cannot alter (invariant #1/#8). The executor never holds the
- * council's capital — the mint delivers straight to the council's own PA.
  */
 
 import { ethers } from 'ethers';

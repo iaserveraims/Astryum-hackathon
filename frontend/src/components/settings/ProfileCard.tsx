@@ -154,7 +154,7 @@ export default function ProfileCard() {
         </div>
       </div>
 
-      {/* La comunidad de gestores (8-sep): desde el perfil se llega a la
+      {/* La comunidad de gestores: desde el perfil se llega a la
           comunidad, y desde ella a cualquier otro perfil. No vive en el sidebar. */}
       <div className="mt-4 border-t border-ink/5 pt-3">
         <Link href="/app/community" className="inline-flex items-center gap-1.5 text-xs font-medium text-volt hover:underline">

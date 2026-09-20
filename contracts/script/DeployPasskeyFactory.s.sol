@@ -14,7 +14,7 @@ import {PasskeyAccountFactory} from "../src/PasskeyAccount.sol";
  * Coston2:  forge script script/DeployPasskeyFactory.s.sol --rpc-url coston2 \
  *             --broadcast --private-key $DEPLOYER_KEY
  * Mainnet:  same with --rpc-url flare (needs RIP-7212 live — verified on Flare
- *           mainnet 2026-08-20/21).
+ *           mainnet).
  *
  * After deploy: set ASTRYUM_PASSKEY_FACTORY in the backend env and verify the
  * source on the explorer. The relayer (PASSKEY_RELAYER_PK) uses it to lazy-

@@ -4,29 +4,10 @@
  * FlareDemoEarn — the Strategy surface (Earn tab), structured as a hub of four
  * doors: PICK a working strategy pack · CREATE one with text (NLP → intent) ·
  * MOVEMENTS (send/receive between wallets + the XRPL savings-escrow surface,
- * absorbed from /app/savings and renamed 2026-07-12) ·
+ * absorbed from /app/savings and renamed) ·
  * CREATE MANUALLY (compose by hand — MoneyFlows and tools). Earn is where
  * capital gets programmed; the strategies themselves (running + saved) live
- * in Estrategias since the 2026-07-12 UI reorg.
- *
- * Per docs/context/Astryum_Demos_Mainnet_Flare_Plan_2026-06-22.md, the packs on
- * offer are ONLY the two live "entradas" we run on mainnet (NOT the DefiLlama
- * catalogue, which is preserved untouched at /safe-markets and only hidden here):
- *
- *   E1 — FXRP → Kinetic ISO: supply FXRP collateral + borrow USDT0.
- *        Sign rail: Xaman → Flare Smart Account (XRPL Payment).
- *   E2 — FLR  → wrap + delegate WFLR vote power to an FTSO data provider.
- *        Sign rail: EVM direct (MetaMask et al.).
- *
- * Each pack card discloses its REAL composition (the ordered on-chain legs) and
- * opens a modal where the user picks WHICH linked Astryum wallet signs
- * (2026-07-12): an XRPL wallet pays XRP that is minted into FXRP via the
- * Smart Account rail, while a Flare EVM wallet that already holds FXRP enters
- * DIRECTLY — same inner batch, no XRPL mint, no minting fee. The modal asks
- * for the amount, prepares the UNSIGNED payload via /api/flare-demo, and hands
- * it to that exact wallet. If it is not connected in Astryum, the modal blocks
- * and offers to connect it on the spot. Astryum never signs (CLAUDE.md §0 /
- * invariant #1).
+ * in Estrategias since the UI reorg.
  */
 
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -59,8 +40,8 @@ import {
   HandCoins,
   type LucideIcon,
 } from 'lucide-react';
-// StrategyFinder (the two-question modal behind «Guide me») is UNMOUNTED
-// 2026-08-22: the path is on the screen from the first second now
+// StrategyFinder (the two-question modal behind «Guide me») is UNMOUNTED:
+// the path is on the screen from the first second now
 // (StrategyPath). Component preserved at components/earn/StrategyFinder.tsx.
 import { StrategyPath } from './StrategyPath';
 import {
@@ -79,14 +60,13 @@ import { StrategyFan } from './StrategyFan';
 // El selector de activos + las dos tipologías. Sustituye al camino interactivo
 // y a su menú de orden: lo que se ahorra arriba se lo quedan las cards.
 import { EarnCatalog } from './EarnCatalog';
-// StrategyColumns (las columnas verticales del 24-ago) queda INERTE desde el
-// 25-ago: el fundador pidió la mano de siempre de vuelta. El componente NO se
+// El componente NO se
 // borra —código construido se deja inerte, no se elimina— y montarlo otra vez
 // es cambiar un elemento por otro: tiene la misma firma de props que
 // StrategyFan. Su vocabulario vive en strategyTaxonomy.CATALOGUE_COLUMNS,
 // igualmente sin usar.
 // El catálogo v2 (tres niveles: con qué → qué quieres que pase → con quién).
-// Se monta DONDE VA A VIVIR y tapado (norma 20-ago): publicar es borrar el
+// Se monta DONDE VA A VIVIR y tapado (norma): publicar es borrar el
 // envoltorio y retirar el camino + la mano de abajo.
 import { assetNoticeOf, type AssetNotice } from './assetDisclosure';
 // De dónde sale un número, dicho para cualquiera — con la cadena técnica
@@ -98,18 +78,17 @@ import { TokenLogo } from '../ui/TokenLogo';
 import { DUR, EASE_OUT, PulseDot, RevealGroup, RevealItem } from '../ui/motion';
 // FlowForgeScene and MoonScene are imported but not mounted: they are the
 // scenes of the doors that are currently off the hub — Create Manually and
-// Movements (hidden 2026-07-18), and the registry door that left on
-// 2026-08-24. Kept so restoring a door is one <EarnDoor>, not a hunt.
+// Movements (hidden), and the registry door that left. Kept so restoring a door is one <EarnDoor>, not a hunt.
 import { ArmillaryScene, CollateralScene, ConstellationScene, FlowForgeScene, HarvestSunScene, HelmEmblem, MoonScene, OrbitScene, SunSealEmblem, TetherEmblem } from './icons';
 import { useMotionLevel } from '../../stores/motionStore';
 import { useEngraved } from '../../stores/themeStore';
 import { BalanceMark, ColonnadeMark, GuillocheRosette } from '../ui/skin/marks';
-// La barra de mando del agente (fundador 2026-08-29): una línea en el hub y
+// La barra de mando del agente: una línea en el hub y
 // en cada menú; la conversación solo se despliega al usarla.
 import { AgentBar } from './AgentBar';
 import { HelpDot } from '../ui/HelpDot';
 import { AgentHistoryButton } from './AgentHistory';
-// La tipología de cada ruta (fundador 2026-08-28: dos menús — earn y cash):
+// La tipología de cada ruta:
 // la MISMA fuente que ya usa EarnCatalog para partir el catálogo en secciones.
 import { actionOfKind, TYPOLOGIES, type TypologyId } from '../../lib/earn/protocols';
 import ManagedVaultsSurface from '../managed/ManagedVaultsSurface';
@@ -227,7 +206,7 @@ export interface DemoVault {
 }
 
 /**
- * §3 (2026-07-24; PA-unmint built 2026-07-26): the road BACK to native XRP,
+ * §3 (PA-unmint built): the road BACK to native XRP,
  * said at ENTRY time. Every XRPL-rail pack leaves FXRP on the Smart Account —
  * and the Smart Account CAN now redeem it back to native XRP (Unmint on your
  * position), with the protocol's on-chain minimum per redemption
@@ -237,7 +216,7 @@ export interface DemoVault {
 const FXRP_EXIT_LEG =
   'Exit: Unmint back to native XRP from this account (5 XRP protocol minimum per redemption; the FAssets agent pays the XRP after the burn)';
 
-// Exportado (2026-08-29): el AgentOperation del host global lanza estrategias
+// Exportado: el AgentOperation del host global lanza estrategias
 // desde el chat anclado — mismo catálogo, mismo camino prepare→review→sign.
 export const DEMO_VAULTS: DemoVault[] = [
   {
@@ -270,7 +249,7 @@ export const DEMO_VAULTS: DemoVault[] = [
       FXRP_EXIT_LEG,
     ],
     icon: <Droplets className="w-5 h-5" />,
-    // One identity voice across the catalogue (de-AI pass 2026-07-21): the
+    // One identity voice across the catalogue (de-AI pass): the
     // scene/icon/title differentiate the card, not a hand-picked accent hue.
     accent: 'text-volt border-volt/30 bg-volt/10',
   },
@@ -435,7 +414,7 @@ export const DEMO_VAULTS: DemoVault[] = [
   {
     kind: 'em-carry',
     asset: 'FXRP',
-    // NO es un carry, y llamarlo así era el error de fondo (fundador, 19-ago).
+    // NO es un carry, y llamarlo así era el error de fondo.
     // Un carry gana un diferencial; aquí el colateral en Morpho Blue **no cobra
     // supply rate**, así que no hay diferencial que ganar y el préstamo sólo
     // tiene coste. Lo que este producto da es otra cosa, y es legítima:
@@ -456,7 +435,7 @@ export const DEMO_VAULTS: DemoVault[] = [
     // tiene stop-loss, el FXRP cae de noche y no hay tick que mire esa posición.
     // Es la familia «éxito no ganado» aplicada al riesgo, que es su peor
     // versión: un error se reintenta, pero un «estás protegido» hace que dejes
-    // de mirar. (Auditoría 2026-08-17.)
+    // de mirar. (Auditorí.)
     plain:
       'Keep your FXRP and still get liquidity from it. Your FXRP stays yours as collateral in the Morpho FXRP/RLUSD market on Ethereum, and you borrow RLUSD — a regulated e-money token — straight to your own wallet. This is not a yield strategy: collateral earns nothing here and the borrow costs interest, shown live with its source before you sign. What you get is spendable liquidity without selling your exposure. Repay protection is a separate rule you arm afterwards; entering does not arm it.',
     flow: [
@@ -524,7 +503,7 @@ export const DEMO_VAULTS: DemoVault[] = [
  * so a pack whose composition borrows cannot be composed as a council order at
  * all: not from the card, not from a deep link, not from the agent. Saying so
  * on the card is the honest version; the alternative is a Start button that
- * walks a family into a dead end (founder 2026-08-04).
+ * walks a family into a dead end.
  *
  * ONLY the borrowing entry is out of reach. The lend-only route (e3) is a plain
  * supply — exactly what `directTo` does — and stays fully available.
@@ -657,7 +636,7 @@ type YieldEntry =
       source: null;
       label: string;
       /**
-       * El coste TAMBIÉN cuando no hay rendimiento (fundador 2026-08-22): la
+       * El coste TAMBIÉN cuando no hay rendimiento: la
        * card de carry no gana nada por el colateral — en Morpho Blue el
        * colateral jamás se presta — pero la deuda SÍ tiene precio, y ese
        * «pagas X%» tiene que estar en la card, no solo en la revisión.
@@ -840,8 +819,7 @@ function Row({
   label: string;
   value: React.ReactNode;
   mono?: boolean;
-  /** Tap-to-open ⓘ explaining WHERE this line comes from (founder 2026-08-17:
-   *  every fee on the sign screen carries its own why — informed, quieter).
+  /** Tap-to-open ⓘ explaining WHERE this line comes from.
    *  Mobile-first like FieldLabelInfo: a tooltip does not exist on touch. */
   info?: string;
 }) {
@@ -886,7 +864,7 @@ function fmt(n: number | undefined, digits = 4): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * it. 19 (R5 R7) — LA PALABRA DE LA ENTREGA, REGISTRADA EN CADA 0xFE.
+ * LA PALABRA DE LA ENTREGA, REGISTRADA EN CADA 0xFE.
  *
  * Every prepare here uses raw `fetch`, so nothing fed the live banner the
  * server's word about the executor that carries this 0xFE to Flare, and the
@@ -932,7 +910,7 @@ interface E1Prepared {
   } & PaEntryDisclosure;
 }
 
-/** Smart-Account entry fields (fromSmartAccount, 2026-08-12): the strategy
+/** Smart-Account entry fields (fromSmartAccount): the strategy
  *  spends FXRP the PA already holds; the Payment is only the 0xFE carrier,
  *  whose own net mint JOINS the deposit. grossXrp is absent by design. */
 interface PaEntryDisclosure {
@@ -1003,7 +981,7 @@ interface VaultPrepared {
   } & PaEntryDisclosure;
 }
 
-/* EVM-direct variants (2026-07-12): the signing wallet is a linked Flare EVM
+/* EVM-direct variants: the signing wallet is a linked Flare EVM
  * wallet that ALREADY holds FXRP — the backend returns the same inner batch as
  * plain unsigned EVM calls (the E2 rail). No XRPL mint, no minting fee. */
 
@@ -1097,7 +1075,7 @@ type Prepared =
   | VaultPreparedEvm
   | EmPrepared;
 
-// familia-no-pude-leer (2026-08-20): 'unconfirmed' is the ending an ENTRY was
+// familia-no-pude-leer: 'unconfirmed' is the ending an ENTRY was
 // missing. Its catch returned every failure to 'review' — the sign button —
 // including a 0xFE dispatch whose hash Xaman could not hand back, so the way to
 // react to "I could not read it" was the same tap that pays a second carrier
@@ -1115,8 +1093,7 @@ export function DemoVaultModal({
   initial?: { amount?: string; ratio?: string; targetHF?: string };
 }) {
   const { t } = useT();
-  // ANCLAJE (fundador 2026-08-25: «estoy haciendo la estrategia... no me
-  // permite anclar el cuadro») — misma receta que el piloto de posiciones.
+  // ANCLAJE — misma receta que el piloto de posiciones.
   const docked = useDockStore((st) => st.docked);
   const setDocked = useDockStore((st) => st.setDocked);
   // Multi-op: minimizar = ceder el sitio de activa; el dock lo suelta la
@@ -1132,7 +1109,7 @@ export function DemoVaultModal({
   // by a personal signature while the bar says "Governing…").
   const { active: activeAuthority, activeGoverned } = useAuthorities();
 
-  // ── QUIEN FIRMA: extraido a components/earn/SigningWalletPicker (27-ago) ──
+  // ── QUIEN FIRMA: extraido a components/earn/SigningWalletPicker ──
   //
   // Estas ~80 lineas vivian aqui, y por eso las Bovedas con gestor se habian
   // inventado su propio selector de carril. Ahora hay UNA fuente: este modal y
@@ -1159,7 +1136,7 @@ export function DemoVaultModal({
   // The wallet partner that will SIGN must hold this exact address.
   const signerAddress = activeRail === 'xrpl' ? xrpl.address : evm.address;
   // XRPL: the payload PINS the selected account, so no session in this browser
-  // is fine (Xaman asks for that account on scan, 2026-09-17); a DIFFERENT live
+  // is fine (Xaman asks for that account on scan); a DIFFERENT live
   // session is still a mismatch worth saying. EVM keeps needing the exact wallet.
   const signerMatches =
     !!selected &&
@@ -1181,13 +1158,12 @@ export function DemoVaultModal({
   // H2 — la salida de la bóveda Sentora, ofrecida desde la card que la promete.
   const [emVaultExit, setEmVaultExit] = useState(false);
 
-  // What the XRPL rail SPENDS (founder 2026-08-12: "si ya tengo FXRP, la
-  // plataforma me obliga a tener primero XRP"): fresh XRP (mint) or FXRP the
+  // What the XRPL rail SPENDS: fresh XRP (mint) or FXRP the
   // Smart Account ALREADY holds (fromSmartAccount — no new mint beyond the
   // mandatory 0xFE carrier). The toggle only appears when the account has
   // free FXRP; the signature is the same Xaman Payment either way.
   const [paySource, setPaySource] = useState<'xrp' | 'pa-fxrp'>('xrp');
-  // Carrier auto (founder 2026-08-17): live fees + margin from the backend
+  // Carrier auto: live fees + margin from the backend
   // — no user knob; can never block the operation (lib/flare/carrier).
   const xrpForMint = useCarrierXrp();
   const [paFxrpFree, setPaFxrpFree] = useState<number | null>(null);
@@ -1257,7 +1233,7 @@ export function DemoVaultModal({
   /**
    * El memo del último 0xFE preparado aquí. Sobrevive al payload: cuando el
    * siguiente intento choca contra el asiento suele ser ESTE borrador, y con el
-   * memo se puede ofrecer liberarlo (it. 17, R5 5.4 · R1 1.5).
+   * memo se puede ofrecer liberarlo (R5 5.4 · R1 1.5).
    */
   const abandonedMemo = useRef<string | null>(null);
   if (seatRef.current.memoHex) abandonedMemo.current = seatRef.current.memoHex;
@@ -1272,10 +1248,10 @@ export function DemoVaultModal({
   const [connecting, setConnecting] = useState(false);
   // Settlement is the PRIMARY state after signing — 'done' means "signed", the
   // machine (lib/settlement) says settled/failed/stalled. The XRPL rail polls
-  // mint-status (0xFE really executed — stuck-mint lesson, 2026-07-12), the
+  // mint-status (0xFE really executed — stuck-mint lesson), the
   // EVM rails the receipt / 5792 bundle status. No local poll, no local green.
   const settlement = useSettlement();
-  // LA VENTANA SOBREVIVE A LA RECARGA (fundador 2026-09-09): si esta ventana
+  // LA VENTANA SOBREVIVE A LA RECARGA: si esta ventana
   // rehidratada firmó algo que sigue liquidándose, readopta ese asiento y
   // reabre directamente en «en proceso» — no en el formulario en blanco.
   const win = useContext(OpWindowContext);
@@ -1342,7 +1318,7 @@ export function DemoVaultModal({
   /** Map prepare/sign HTTP failures to sentences a person can act on —
    *  session expiry, geofence and the feature flag arrive as raw codes. */
   function friendlyHttpError(status: number, body: { error?: string; detail?: string }): string {
-    // EL ASIENTO DE NONCE, PRIMERO Y EN INGLÉS (it. 17, R5 5.4). El servidor
+    // EL ASIENTO DE NONCE, PRIMERO Y EN INGLÉS (R5 5.4). El servidor
     // contesta `NONCE_SEAT_TAKEN` y un párrafo en castellano con hashes: el
     // único lector de ese veredicto es `lib/xaman/seatRefusal`, y el cuerpo se
     // guarda para poder ofrecer «Free the seat» sobre el borrador que esta
@@ -1400,7 +1376,7 @@ export function DemoVaultModal({
     if (code === 'PREPARE_FAILED') {
       return t('We could not prepare the operation right now. Nothing moved — try again in a minute.');
     }
-    // it. 22 (Q3 3.7) — EL ÚLTIMO RECURSO TAMPOCO PINTA EL SERVIDOR EN CRUDO.
+    // EL ÚLTIMO RECURSO TAMPOCO PINTA EL SERVIDOR EN CRUDO.
     // Aquí acababa `body.detail || body.error`: el párrafo en castellano del
     // backend, o su slug. `refusalHeadline` convierte el código en una frase
     // (y conoce los «no pude leer»), y el `detail` solo acompaña si está en el
@@ -1648,7 +1624,7 @@ export function DemoVaultModal({
           // XamanWalletService injects Account; we hand it the unsigned Payment.
           tx: prepared.xrplPayment as never,
         });
-        // El backend aprende «firmado» (incidente 2026-08-21): el asiento de
+        // El backend aprende «firmado»: el asiento de
         // nonce queda intocable — ni TTL, ni release, ni supersede — hasta
         // ejecutar o aparcar. Sin esto, un executor lento + un reintento
         // firman un gemelo condenado que pierde su carrier.
@@ -1707,7 +1683,7 @@ export function DemoVaultModal({
       // second deposit. One decision for every signing surface, and the words
       // it prints come from it too (lib/wallet/signOutcome).
       //
-      // Incluido el veredicto que SÍ leímos (it. 17, R5 5.2): un tefMAX_LEDGER /
+      // Incluido el veredicto que SÍ leímos (R5 5.2): un tefMAX_LEDGER /
       // tefPAST_SEQ sale como vista 'form' con la frase «prepáralo otra vez»
       // (aquí, fase 'error', que es la que pinta el formulario) en vez del
       // ámbar «no pude confirmarlo», que cerraba la única puerta correcta.
@@ -1772,7 +1748,7 @@ export function DemoVaultModal({
   // MAX: the full spendable balance — except FLR (wrap+delegate still needs
   // gas: keep 1 FLR) and the XRPL rail, where the wallet is the STEERING
   // WHEEL of the Smart Account: minting ALL the XRP strands the account with
-  // no carrier payment for any future order (founder hit it live, 2026-07-30)
+  // no carrier payment for any future order
   // — MAX keeps ~2 XRP back.
   const XRPL_STEERING_RESERVE = 2;
   const maxSpendable =
@@ -1964,8 +1940,7 @@ export function DemoVaultModal({
   const [emProtectHf, setEmProtectHf] = useState('1.10');
   const [emProtectCreated, setEmProtectCreated] = useState<boolean | null>(null);
   /**
-   * El destino del RLUSD prestado, decidido AQUÍ (fundador, 25-ago: «el RLUSD
-   * borrowed ponerlo a trabajar en el vault de Sentora»). Marcado, la MISMA
+   * El destino del RLUSD prestado, decidido AQUÍ. Marcado, la MISMA
    * firma de la entrada añade approve+deposit en la bóveda — misma cadena y
    * ninguna espera entre patas, así que la física no obliga a otra firma. No
    * viene marcado de serie: meter el dinero en la bóveda de un curador es una
@@ -2093,7 +2068,7 @@ export function DemoVaultModal({
             ? t('Xaman · Smart Account')
             : t('Flare direct · no mint');
 
-  // ── A COUNCIL account (founder refactor 2026-07-28). Its capital moves by
+  // ── A COUNCIL account. Its capital moves by
   //    council ORDER through the cage on Flare — the quorum signs, the FDC
   //    proves, the vault executes — not by one wallet's signature. That is a
   //    different rail end to end, so it returns here rather than threading
@@ -2107,8 +2082,7 @@ export function DemoVaultModal({
     // composer that can only fail.
     const governedBlock = governedBlockOf(vault.kind, true);
     return (
-      // La orden de consejo TAMBIÉN es una operación de primera (fundador
-      // 2026-08-26: «el form del legacy no se mantiene anclado») — misma
+      // La orden de consejo TAMBIÉN es una operación de primera — misma
       // superficie dual que el resto: ancla, minimiza, sobrevive a la
       // navegación desde el host global.
       <OperationSurface docked={docked} title={`${t(vault.action)} · ${t('Council order')}`} onClose={onClose}>
@@ -2211,8 +2185,8 @@ export function DemoVaultModal({
               entry. On FXRP packs an XRPL pick mints from XRP (Xaman), while a
               Flare pick spends its own FXRP directly — no XRPL mint. */}
           {/* The governed branch that used to live here — "Earn entries are
-              signed by simple wallets… open the Legacy panel" — is gone
-              (founder 2026-07-28). It was a dead end: a council was told to
+              signed by simple wallets… open the Legacy panel" — is gone.
+              It was a dead end: a council was told to
               leave the page. A council now composes its cage order in this
               same modal; see the early return above. */}
           {candidates.length > 0 ? (
@@ -2325,7 +2299,7 @@ export function DemoVaultModal({
           {/* Step: form */}
           {(phase === 'form' || phase === 'error') && (
             <>
-              {/* What the entry SPENDS (founder 2026-08-12): fresh XRP (mint)
+              {/* What the entry SPENDS: fresh XRP (mint)
                   or the FXRP the Smart Account already holds — no new mint.
                   Only offered when that account actually has free FXRP. On the
                   Ethereum entries this choice decides the FIRST STEP of the
@@ -2463,8 +2437,7 @@ export function DemoVaultModal({
                     className="w-full pl-4 pr-16 py-3 bg-ink/5 border border-ink/10 rounded-xl text-ink text-sm placeholder-ink/30 focus:outline-none focus:border-volt/50"
                   />
                 </div>
-                {/* Deslizar en vez de teclear (fundador 2026-08-25: «en todos
-                    los selectores... aparece un slider») — mismo componente
+                {/* Deslizar en vez de teclear — mismo componente
                     que el cierre de posición; el tope es el MISMO máximo que
                     el botón MAX, con sus reservas de gas/carrier ya dentro. */}
                 <AmountSliderUsd
@@ -2830,7 +2803,7 @@ export function DemoVaultModal({
                     // servidor, que es quien de verdad lee la cadena.
                     emCrossChain?.kind === 'insufficient'
                   }
-                  // EL PORQUÉ del gris, al pasar el ratón (fundador 2026-08-27).
+                  // EL PORQUÉ del gris, al pasar el ratón.
                   // Mismas condiciones que `disabled`, EN SU ORDEN — si dos
                   // fallan a la vez se cuenta la primera, que es la primera que
                   // hay que arreglar. Cada motivo reutiliza la copy que esa
@@ -3014,7 +2987,7 @@ export function DemoVaultModal({
                                 : t('see the live figure on the protocol')
                           }
                         />
-                        {/* it. 29 — the cap row used to VANISH when the read failed,
+                        {/* The cap row used to VANISH when the read failed,
                             and a vanished row reads as «no cap». The prepare now
                             refuses to compose an entry whose cap it could not read,
                             so an unread cap should never reach this payload — and
@@ -3031,7 +3004,7 @@ export function DemoVaultModal({
                           label={t('Withdrawal terms')}
                           value={
                             wd.kind === 'instant-or-epoch'
-                              ? // it. 27: this vault DOES charge an instant fee, so a
+                              ? // This vault DOES charge an instant fee, so a
                                 // missing figure is «we could not read it», not «there
                                 // is none» — and an empty fee row reads as free (#6).
                                 // The prepare now refuses rather than send it blank;
@@ -3219,7 +3192,7 @@ export function DemoVaultModal({
                 <PrimaryButton
                   onClick={sign}
                   disabled={!signerMatches || (isEmKind && preflightSaysFail(preflight))}
-                  // El porqué del gris (2026-08-27), con la copy que cada caso
+                  // El porqué del gris, con la copy que cada caso
                   // ya usa en su aviso del formulario — una sola voz.
                   disabledReason={
                     !signerMatches
@@ -3315,8 +3288,7 @@ export function DemoVaultModal({
                 </p>
               )}
               {/* E1 promised a stop-loss in the review — this is where it gets
-                  ARMED: the SAME manual Protect card, embedded (founder
-                  2026-07-25: every creation path shows the card directly),
+                  ARMED: the SAME manual Protect card, embedded,
                   pre-filled with the thresholds the user just chose and bound
                   to the wallet that HOLDS the position (PA on the XRPL rail,
                   the signing EVM wallet on the direct rail). */}
@@ -3413,28 +3385,13 @@ export function DemoVaultModal({
 /* PAGE — four doors that organise the surface: ready-made · create    */
 /* with the agent · movements · create manually. The saved drafts and  */
 /* the live on-chain footprint moved to Estrategias (UI reorg          */
-/* 2026-07-12): this is where capital gets programmed, Estrategias is  */
+/* ): this is where capital gets programmed, Estrategias is */
 /* where its strategies live.                                          */
 /* ------------------------------------------------------------------ */
 
 /** One door of the hub — not an icon in a box: a living scene occupies the
  *  panel's right side (the solar system turns, the constellation draws itself
- *  on hover) while the words breathe on the left.
- *
- *  TRES ARTEFACTOS, UNO POR NIVEL DE MOVIMIENTO (stores/motionStore.ts,
- *  fundador 2026-09-10: «quiero estilos nuevos y distintos», no la misma
- *  escena parada):
- *    · full    — la tarjeta con la escena viva y el reflejo que sigue al ratón.
- *    · calm    — la PLACA GRABADA: misma tarjeta, sin reflejo, y en el lado
- *                derecho un emblema monolínea (icons.tsx *Emblem) en vez de la
- *                escena — con PULSO lento (gira cada dos minutos, respira en
- *                seis segundos), nunca al ritmo del cursor. Al pasar el ratón
- *                la tarjeta sube un píxel, se enciende un filete lateral y el
- *                emblema gana luz en medio segundo. Lento, pequeño, suyo.
- *    · minimal — la FILA: icono pequeño, eyebrow, título, una línea y «Open»
- *                a la derecha. Sin tarjeta, sin dibujo: el hub es una lista.
- *  Las tres reciben las mismas palabras y el mismo onClick: cambia la cara,
- *  no la puerta. */
+ *  on hover) while the words breathe on the left. */
 function EarnDoor({
   scene,
   emblem,
@@ -3460,8 +3417,8 @@ function EarnDoor({
   icon: LucideIcon;
   eyebrow: string;
   title: string;
-  /** UNA línea corta (fundador 2026-09-07: «los botones se ven
-   *  sobrecargados… reduce el texto de manera importante»). */
+  /** UNA línea corta.
+   */
   desc: string;
   /** La explicación entera — vive en el interrogante, sale al pasar el
    *  ratón. Sin ella, la puerta no monta el punto. */
@@ -3474,9 +3431,9 @@ function EarnDoor({
   const level = useMotionLevel();
   // EL MOVIMIENTO MANDA SOBRE EL TEMA. Quien pidió Mínimo pidió listas, y un
   // tema no puede devolverle las tarjetas: el ajuste de movimiento existe
-  // por un problema de concentración (fundador 2026-09-10), no por gusto.
+  // por un problema de concentración, no por gusto.
   // Por encima de ese suelo, el tema Institucional lleva SIEMPRE la placa
-  // grabada —da igual que el movimiento sea completo o sereno—, porque lo que
+  // grabada —da igual que el movimiento sea completo o sereno, porque lo que
   // define a este tema es que aquí no hay escenas vivas. Y reutiliza la placa
   // que ya existe: misma caja, otro dibujo.
   const engraved = useEngraved();
@@ -3537,9 +3494,7 @@ function EarnDoor({
         <MicroLabel>{eyebrow}</MicroLabel>
         <h3 className="text-lg font-semibold tracking-tight text-ink mt-2.5">{title}</h3>
         <p className="text-sm text-ink/50 leading-relaxed mt-2 mb-5 max-w-[36ch]">{desc}</p>
-        {/* El interrogante vive EN el botón, junto al Open (fundador
-            2026-09-07, segunda pasada: «se tienen que mostrar en el botón» —
-            en la esquina, sobre la escena, no se veía). El globo abre hacia
+        {/* El interrogante vive EN el botón, junto al Open. El globo abre hacia
             ARRIBA: el punto está al pie de la tarjeta. */}
         <span className="mt-auto flex w-full items-center">
           <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${ctaTone}`}>
@@ -3617,8 +3572,7 @@ function LiveYieldChip({
       </span>
     );
   }
-  // Sin rendimiento que enseñar, el COSTE sigue siendo obligatorio (fundador
-  // 2026-08-22): la card de carry paga un borrow APR vivo aunque su colateral
+  // Sin rendimiento que enseñar, el COSTE sigue siendo obligatorio: la card de carry paga un borrow APR vivo aunque su colateral
   // gane 0. Pill ámbar «pagas», junto a la etiqueta honesta del 0.
   const borrowCost = y && 'borrow' in y ? y.borrow : undefined;
   return (
@@ -3891,9 +3845,7 @@ function StrategyInfoModal({
    *  panel lateral la usa. */
   onFullSheet?: () => void;
   /**
-   * true = esto NO flota: es el panel de la derecha del catálogo (fundador,
-   * 25-ago: «allí debe estar la información desplegada toda junta de More
-   * info»). Mismo contenido exacto, sin overlay ni caja centrada — así la
+   * true = esto NO flota: es el panel de la derecha del catálogo. Mismo contenido exacto, sin overlay ni caja centrada — así la
    * ficha técnica, sus datos de mercado y su calculadora dejan de estar a un
    * clic y pasan a estar a la vista mientras se comparan las cards.
    */
@@ -3968,7 +3920,7 @@ function StrategyInfoModal({
           </div>
 
           {/* Market data — DeFiLlama / Upshift, each figure with its source.
-              FUERA del panel lateral (25-ago): TVL, medias a 30 días y derivas
+              FUERA del panel lateral: TVL, medias a 30 días y derivas
               son datos para AUDITAR una ruta, no para elegir entre varias, y en
               un tercio de ancho eran justo lo que obligaba a hacer scroll para
               enterarse de lo básico. Siguen enteros en la hoja flotante. */}
@@ -4089,11 +4041,11 @@ function StrategyInfoModal({
   );
 }
 
-// 'strategies' is INERT since 2026-08-24: the registry got its own nav row, so
+// 'strategies' is INERT: the registry got its own nav row, so
 // no door reaches this view any more and ?view=strategies redirects out. The
 // branch and its embed are PRESERVED, not deleted — restoring the door is
 // re-adding one <EarnDoor>, and nothing built gets removed on a layout change.
-// 'managers' is the third door's surface (founder-only while Product A builds).
+// 'managers' is the third door's surface.
 type StrategyView = 'hub' | 'pick' | 'create' | 'movements' | 'manual' | 'strategies' | 'managers';
 
 export default function FlareDemoEarn() {
@@ -4102,17 +4054,17 @@ export default function FlareDemoEarn() {
   const motionLevel = useMotionLevel();
   const router = useRouter();
   // Who is operating. A council reaches the same Earn surfaces as a personal
-  // wallet (founder 2026-07-28) — only the signature differs — so this page
+  // wallet — only the signature differs — so this page
   // branches in exactly two places: the entry modal (a cage order) and My
   // strategies (the council's own MoneyFlows).
   const { activeGoverned } = useAuthorities();
   const [view, setView] = useState<StrategyView>('hub');
-  // DOS MENÚS (fundador 2026-08-28): la vista pick puede venir acotada a una
+  // DOS MENÚS: la vista pick puede venir acotada a una
   // tipología — earn (poner a trabajar, sin deuda) o cash (borrow). null = el
   // catálogo entero (retro-compatible con el deep-link ?view=pick de siempre).
   const [pickTy, setPickTy] = useState<TypologyId | null>(null);
   // La operación vive en el operationStore y la monta el HOST GLOBAL del
-  // shell (EarnOperationHost, 2026-08-25): navegar con ella abierta —anclada
+  // shell (EarnOperationHost): navegar con ella abierta —anclada
   // o no— ya no la desmonta. Estos dos setters conservan la firma que toda
   // la página ya hablaba (setActive/setInitialInputs) para no tocar cada
   // puerta: el par se junta en el store al abrir.
@@ -4126,18 +4078,17 @@ export default function FlareDemoEarn() {
   };
   // Which pack has its "More info" (technical + calculator) modal open.
   const [infoVault, setInfoVault] = useState<DemoVault | null>(null);
-  // The guided finder (founder 2026-08-08: six full cards at once confuse a
-  // first-timer). `matchedKinds` narrows the pick grid to the routes whose
+  // The guided finder. `matchedKinds` narrows the pick grid to the routes whose
   // FACTS fit the user's two answers — a filter, never a recommendation
   // (invariant #9); null = no filter, the full catalogue.
-  // The interactive path (founder 2026-08-22) replaced the «Guide me» modal:
+  // The interactive path replaced the «Guide me» modal:
   // outcome → asset, filtering the catalogue LIVE instead of ending in a
   // separate result list. `matchedKinds` is DERIVED from it below, so every
   // consumer keeps reading exactly one thing.
   const [pathOutcome, setPathOutcome] = useState<OutcomeId | null>(null);
   const [pathAsset, setPathAsset] = useState<AssetGroupId | null>(null);
   const [sortBy, setSortBy] = useState<SortId>('catalogue');
-  // Accordion (founder 2026-08-17): entering the catalogue must not dump
+  // Accordion: entering the catalogue must not dump
   // every full card — compact rows, one unfolds at a time.
   const [expandedKind, setExpandedKind] = useState<VaultKind | null>(null);
   // The hand's anchor — where the viewport glides back to when a route closes.
@@ -4148,11 +4099,10 @@ export default function FlareDemoEarn() {
   // Ethereum cards exist only while the backend says active (a hot kill-switch
   // in Railway hides them without a redeploy).
   const ethMorpho = useEthMorphoLive();
-  // PRODUCCIÓN SOLO LLEVA LO PROBADO (fundador 2026-09-14, tras ver «Lend your
-  // RLUSD» en astryum.xyz): la lista blanca de lib/earn/productionVaults se
+  // PRODUCCIÓN SOLO LLEVA LO PROBADO: la lista blanca de lib/earn/productionVaults se
   // aplica ANTES que cualquier interruptor de entorno. Una variable se clona
   // entre entornos y se activa sola en el siguiente deploy — así se hizo
-  // efectiva ETH_RLUSD_FXRP_ENABLED=true en Railway producción —; un kind en
+  // efectiva ETH_RLUSD_FXRP_ENABLED=true en Railway producción; un kind en
   // esa lista solo entra con un commit a main. El kill-switch del carril sigue
   // mandando después, para el preview.
   // Memoizado: la lista blanca y el entorno son constantes del build, y la
@@ -4172,7 +4122,7 @@ export default function FlareDemoEarn() {
         kind: 'none',
         pct: null,
         source: null,
-        // Verificado en vivo contra Morpho (2026-08-22): el colateral FXRP no
+        // Verificado en vivo contra Morpho: el colateral FXRP no
         // genera NADA — diseño de Morpho Blue, el colateral nunca se presta.
         label: 'Your XRP earns nothing here: it is only the guarantee',
         ...(cost ? { borrow: { asset: cost.asset, aprPct: cost.aprPct } } : {}),
@@ -4182,8 +4132,7 @@ export default function FlareDemoEarn() {
   };
 
   // What the path leaves standing. DERIVED, never a second state: the path
-  // writes outcome/asset and everything downstream reads this (founder
-  // 2026-08-22 — "que filtre en vivo", one list, no duplicated result block).
+  // writes outcome/asset and everything downstream reads this.
   const matchedKinds = useMemo<VaultKind[] | null>(() => {
     if (!pathOutcome && !pathAsset) return null;
     return catalogue
@@ -4220,7 +4169,7 @@ export default function FlareDemoEarn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogue, matchedKinds, sortBy, yields, ethMorpho]);
 
-  // El MENÚ abierto acota las rutas (fundador 2026-08-28: dos menús): la mano
+  // El MENÚ abierto acota las rutas: la mano
   // del catálogo Y el acordeón móvil beben de esta misma lista — si solo
   // filtrara EarnCatalog, el móvil enseñaría las rutas del otro menú.
   const routesForMenu = useMemo(
@@ -4231,8 +4180,7 @@ export default function FlareDemoEarn() {
   // ONE launch path for everything (agent prompts, saved drafts, pack cards):
   // open the real prepare→review→sign modal, optionally pre-filled.
   //
-  // SOLO LO QUE ESTE DESPLIEGUE PUEDE ENSEÑAR (fundador 2026-09-19: «en
-  // producción no se pueden ver las dos cards de earn de RLUSD»). La lista
+  // SOLO LO QUE ESTE DESPLIEGUE PUEDE ENSEÑAR. La lista
   // blanca filtraba el catálogo, pero esta puerta —el agente, los borradores
   // de Estrategias y cualquier `?launch=`— abría el modal desde DEMO_VAULTS
   // entero: en producción `?launch=em-lend` enseñaba el vault que la portada
@@ -4259,7 +4207,7 @@ export default function FlareDemoEarn() {
     const views: StrategyView[] = ['pick', 'create', 'movements', 'manual', 'strategies', 'managers'];
     const rawView = qs.get('view') === 'savings' ? 'movements' : qs.get('view');
 
-    // The registry left Earn (2026-08-24) and has its own nav row again. Every
+    // The registry left Earn and has its own nav row again. Every
     // ?view=strategies link ever emitted — the Summary shortcut, the Portfolio
     // shortcut, anything a user bookmarked — is forwarded instead of broken.
     // Whatever else the URL carried travels with it: a link is allowed to say
@@ -4294,8 +4242,7 @@ export default function FlareDemoEarn() {
   }, [launch, router, deployable]);
 
   // The route detail — ONE body shared by the mobile accordion and the
-  // desktop deck panel (founder 2026-08-18: the detail must arrive and leave
-  // with a real transition, and the markup must stay single-source).
+  // desktop deck panel.
   const renderVaultDetail = (v: DemoVault) => {
     const blocked = governedBlockOf(v.kind, !!activeGoverned);
     const notice = assetNoticeOf(v.kind);
@@ -4325,8 +4272,7 @@ export default function FlareDemoEarn() {
                       {/* What it does, in one sentence a non-DeFi person can follow. */}
                       <p className="text-sm text-ink/70 leading-relaxed mb-4">{t(v.plain)}</p>
 
-                      {/* SISTERS (founder 2026-08-22: "es la misma estrategia
-                          pero con otro ending"). Two pairs of this catalogue
+                      {/* SISTERS. Two pairs of this catalogue
                           run on the SAME market, and the relationship is not
                           the same in both: Kinetic is one route PLUS a step;
                           Morpho is the two SIDES of one market — the RLUSD one
@@ -4360,7 +4306,7 @@ export default function FlareDemoEarn() {
                                     setPathAsset(null);
                                   }
                                   // Las hermanas viven en tipologías opuestas:
-                                  // con los menús partidos (2026-08-28), saltar
+                                  // con los menús partidos, saltar
                                   // implica CAMBIAR de menú o la card no está.
                                   const sibTy = actionOfKind(kin.sibling)?.typology;
                                   if (pickTy && sibTy && sibTy !== pickTy) setPickTy(sibTy as TypologyId);
@@ -4400,7 +4346,7 @@ export default function FlareDemoEarn() {
 
                       {/* What this entry borrows and where it stands under
                           MiCA — read before the Start button, not after
-                          (INVARIANTS.md #9; founder 2026-08-18). */}
+                          (INVARIANTS.md #9; founder). */}
                       {notice && <AssetNoticeBox notice={notice} className="mb-3" />}
 
                       {/* Why it cannot be started — said before the click. */}
@@ -4436,9 +4382,7 @@ export default function FlareDemoEarn() {
 
   return (
     <div>
-      {/* El hub se presenta; una pantalla de trabajo NO (fundador, 24-ago:
-          «que el texto desaparezca… lo más compacto posible para que la vista
-          de las cards sea más espaciosa»). Dentro de una vista, el cabecero es
+      {/* El hub se presenta; una pantalla de trabajo NO. Dentro de una vista, el cabecero es
           una sola línea: la puerta de vuelta —con contorno, para que se lea
           como botón— y el título al lado. */}
       {view === 'hub' ? (
@@ -4464,21 +4408,7 @@ export default function FlareDemoEarn() {
       )}
 
       {/* ── Hub: two doors up top, one full-width underneath — the shape this
-          hub has always had. Scenes, not icons.
-
-          The three doors still read as a LADDER of who decides, and the order
-          draws it: you from a closed catalogue → you with the agent compiling
-          → a third party, inside limits you signed once. That is what lets the
-          manager door sit here without lying, and it is why the copy never has
-          to say "delegate" — the verb MiCA reads as discretionary portfolio
-          management. The manager's scene carries the rest: a solid ring, and
-          no line leaves it.
-
-          The registry left this hub on 2026-08-24 and has its own nav row
-          again (lib/nav/capitalSection.ts): a door for the thing you open
-          every week, buried behind the thing you open once, was two clicks in
-          the wrong order. The slot it freed is where the manager door now
-          sits. ── */}
+          hub has always had. Scenes, not icons. */}
       {view === 'hub' && (
         <RevealGroup className="space-y-5">
           {/* First-visit coachmarks. TWO steps, not three: the manager door is
@@ -4494,11 +4424,8 @@ export default function FlareDemoEarn() {
               { target: 'door-cash', title: t('Get cash without selling'), body: t('Your tokens stay as collateral and you borrow against them — this one can be liquidated.') },
             ]}
           />
-          {/* ── EL COPILOTO, PRIMERO (fundador 2026-08-29, quinta pasada:
-              «vamos a hacer más presente el copiloto en la página de earn
-              directamente y no vamos a poner el agente en las pantallas de
-              las estrategias»). Tras tres colocaciones dentro de los menús
-              que siempre estorbaban —esa pantalla es para COMPARAR cartas—,
+          {/* ── EL COPILOTO, PRIMERO. Tras tres colocaciones dentro de los menús
+              que siempre estorbaban —esa pantalla es para COMPARAR cartas,
               el agente concentra su presencia aquí: un héroe a lo ancho, con
               sus ideas de prompt a la vista y la constelación velando. Las
               claves de copy son las que ya existían: cero estreno en dict. */}
@@ -4531,8 +4458,7 @@ export default function FlareDemoEarn() {
                     ]}
                     chipsAlways
                     // El relojito del historial vive EN la barra, junto a la
-                    // flecha (fundador 2026-08-30: arriba flotaba sobre el
-                    // dibujo, lejos de todo): tocar una conversación abre el
+                    // flecha: tocar una conversación abre el
                     // agente anclado, ya restaurado a ella.
                     trailing={<AgentHistoryButton />}
                   />
@@ -4541,12 +4467,12 @@ export default function FlareDemoEarn() {
             </div>
           </RevealItem>
 
-          {/* Back to the shape this hub always had (founder 2026-08-25): two
+          {/* Back to the shape this hub always had: two
               doors side by side up top, one FULL-WIDTH door underneath. The
               three-in-a-row I tried on the 24th is out — at a third of the
               width the scene ate the sentence, and the row read as a menu of
               three equal things when it is not. */}
-          {/* DOS MENÚS por tipología (fundador 2026-08-28): la puerta del
+          {/* DOS MENÚS por tipología: la puerta del
               catálogo se parte en dos — trabajar sin deuda / pedir prestado —
               y la puerta del agente DESAPARECE del hub: el agente vive ahora
               dentro de cada menú, afinado a su tipología (misma función).
@@ -4555,14 +4481,13 @@ export default function FlareDemoEarn() {
               junta materia (sin deuda, nada tira de ella); el activo retenido
               en su anillo suelta un chorro de luz que sigue ATADO (borrow →
               liquidable). */}
-          {/* EN EL NIVEL MÍNIMO el hub es UNA LISTA (fundador 2026-09-10): las
+          {/* EN EL NIVEL MÍNIMO el hub es UNA LISTA: las
               tres puertas, una fila cada una, en el orden de siempre. Las
               mismas palabras y los mismos onClick que las tarjetas de abajo
               — solo cambia la cara. Los data-tour se conservan para el tour. */}
           {motionLevel === 'minimal' && (
             <RevealItem>
-              {/* SIN overflow-hidden (fundador, tercera pasada: «en el modo
-                  minimal los interrogantes no funcionan»): el globo del HelpDot
+              {/* SIN overflow-hidden: el globo del HelpDot
                   abre hacia arriba y el recorte de la caja lo guillotinaba. Las
                   esquinas redondeadas del hover las llevan las propias filas. */}
               <div className="divide-y divide-ink/[0.07] rounded-lg border border-ink/10 bg-surface-1">
@@ -4653,51 +4578,18 @@ export default function FlareDemoEarn() {
           )}
 
           {/* THE VACANT SLOT. «My strategies» sat here as a full-width door
-              until it left for its own nav row (2026-08-24); the manager door
+              until it left for its own nav row; the manager door
               takes the space, same size and same disposition. Movements +
-              Create Manually stay HIDDEN (founder 2026-07-18), reachable by
-              ?view=movements / ?view=manual.
-
-              Covered while Product A builds. The border and the CTA tone match
-              the two doors above ON PURPOSE: the hue lives in the scene, never
-              in the frame — a differently-coloured card would read as a
-              promotion.
-
-              The copy carries the two things that make this offerable at all,
-              and both are MECHANISMS, not reassurances: the manager is a third
-              party (Astryum is never the director), and what it may do is
-              enforced by the contract. No rate, no track record — a performance
-              figure on this card would be a recommendation with extra steps.
-
-              EL NOMBRE, cerrado 2026-08-25. «Invest with a manager» se cayó
-              por lo que INCITABA: «invest» hacía sonar la puerta a producto de
-              inversión que Astryum ofrece, y «with a manager» se callaba lo
-              único que hay que decir — DE QUIÉN es el gestor, porque el usuario
-              podía leer que era nuestro.
-
-              «Managed vaults» nombra la COSA en vez de empujar a la acción: no
-              urge, no promete, y es imposible leerlo como que gestionamos
-              nosotros. El eyebrow carga el hecho que al título le falta —«run
-              by a third party»—, que es exactamente el dato que se echaba en
-              falta. */}
+              Create Manually stay HIDDEN, reachable by
+              ?view=movements / ?view=manual. */}
           {motionLevel !== 'minimal' && MANAGED_VAULTS_DOOR_OPEN && (
           <RevealItem className="grid grid-cols-1 gap-5">
-            {/* PUBLICADA 2026-08-25 (fundador: «va a estar disponible para su
-                uso cuando despleguemos la web»). Publicar es borrar el
+            {/* PUBLICADA. Publicar es borrar el
                 envoltorio y dejar el hijo — el <PreviewOnly> se fue de aquí y
                 de la vista que abre, porque una puerta pública que da a una
                 sección tapada es una puerta muerta. No había rutas de backend
                 con requireAdmin que retirar: esta superficie todavía no llama a
-                ninguna. El día que las tenga, nacen sin guard.
-
-                FUERA DE PRODUCCIÓN 2026-09-13 (fundador: «ni los managed
-                vaults… todo esto que no está probado no quiero que lo tenga la
-                gente que está en producción»). No es un envoltorio nuevo: es el
-                mismo interruptor que cierra la mesa del gestor
-                (MANAGED_VAULTS_DOOR_OPEN, lib/nav/managerDesk.ts), abierto en
-                preview y en local. Cerrar sólo la fila del sidebar habría sido
-                cosmético: esta puerta lleva al mismo sitio, y en producción el
-                backend de esa pantalla contesta 404. */}
+                ninguna. El día que las tenga, nacen sin guard. */}
             <EarnDoor
               scene={<ArmillaryScene />}
               emblem={<HelmEmblem size={128} />}
@@ -4717,68 +4609,61 @@ export default function FlareDemoEarn() {
         </RevealGroup>
       )}
 
-      {/* El botón de volver se mudó al cabecero (24-ago). */}
+      {/* El botón de volver se mudó al cabecero. */}
 
       {/* ── Pick: the two live packs, with their real composition ── */}
       {view === 'pick' && (
         <RevealGroup className="space-y-5">
-          {/* THE PATH, on screen from the first second (founder 2026-08-22:
-              "no que tenga que darle el usuario a Guide me"). It is a filter
+          {/* THE PATH, on screen from the first second. It is a filter
               wearing the face of a path: each card narrows the list below
               live. The «Guide me» modal it replaces is preserved at
               components/earn/StrategyFinder.tsx. */}
-          {/* El catálogo v2 (asset → tipo → producto) está DESMONTADO aquí
-              (fundador, 23-ago: «déjalo como al principio, antes de que tocaras
-              nada»). Salían los dos catálogos uno encima de otro y el de arriba
+          {/* El catálogo v2 (asset → tipo → producto) está DESMONTADO aquí.
+              Salían los dos catálogos uno encima de otro y el de arriba
               no tenía la forma pedida: las cards de siempre apiladas en vertical
               dentro de DOS columnas — «make it earn» a la izquierda y «get cash
               without selling» a la derecha.
               Nada se ha borrado: `EarnCatalog`, `ProductPanel`, `lib/earn/
               protocols` y `lib/earn/catalogView` siguen en el repo con sus
               tests. Volver a enseñarlo es montar aquí <EarnCatalog … />. */}
-          {/* StrategyPath queda INERTE desde el 25-ago (fundador: «vamos a
-              sacar el modal para encontrar cards y lo sustituiremos por un
-              seleccionador más pequeño»). Hacía de filtro ocupando un tercio de
+          {/* StrategyPath queda INERTE. Hacía de filtro ocupando un tercio de
               la pantalla, y las cards —lo único que se ha venido a mirar—
               empezaban por debajo del pliegue. Ese trabajo lo hace ahora la
               línea de activos de EarnCatalog. El componente NO se borra: sigue
               en el árbol con su filtro por outcome, y volver a montarlo es una
               línea. */}
           <RevealItem>
-            {/* El menú de orden se mudó DENTRO del selector (botón «Filtros»,
-                25-ago): tres botones no merecen una fila entera cuando lo que
+            {/* El menú de orden se mudó DENTRO del selector (botón «Filtros»,):
+                tres botones no merecen una fila entera cuando lo que
                 falta es sitio para las cards. Sigue siendo un gesto, nunca un
                 ranking — el orden por defecto es el del catálogo (#9). */}
-            {/* Accordion (founder 2026-08-17): the catalogue scans in one
+            {/* Accordion: the catalogue scans in one
                 glance — a compact row per route (identity + live rate) and
                 the full card unfolds on tap. Nothing was removed: the body
                 is the exact card that used to render open. */}
-            {/* Desktop: the hand of cards (founder 2026-08-17). Clicking
+            {/* Desktop: the hand of cards. Clicking
                 draws a card — its full detail is the SAME accordion card
                 below (non-selected cards hide on md+, so there is exactly
                 one source of the detail markup). Phones keep the accordion:
                 a fan needs horizontal room.
-
-                Se probaron columnas verticales el 24-ago y se retiraron el
+            { *
+                Se probaron columnas verticales y se retiraron el
                 25: la mano se queda. StrategyColumns sigue en el árbol, sin
                 montar. */}
-            {/* El catálogo y la ficha, lado a lado (fundador, 24-ago): la
+            {/* El catálogo y la ficha, lado a lado: la
                 información completa aparece POR LA DERECHA y las cards de la
                 izquierda se siguen viendo — ni blur ni bloqueo, porque abrir
                 una ficha es justo el momento en que se está comparando. El
                 panel tiene su propio scroll, así que la ficha entera cabe sin
                 empujar la página: muere el scrollIntoView correctivo. */}
-            {/* DOS COLUMNAS cuando hay una ficha abierta (fundador, 26-ago:
-                «que se acomode a la derecha SIN anclarse, y las demás se
-                estrechen a la izquierda para seguir viéndose todas»). La ficha
+            {/* DOS COLUMNAS cuando hay una ficha abierta. La ficha
                 deja de ser un panel fixed centrado —tapaba justo las cards con
                 las que se está comparando— y pasa a vivir EN EL FLUJO, como una
                 columna más: sin position fixed ni sticky, se desplaza con la
                 página. El catálogo recibe `compressed` y la mano aprieta su
                 solapamiento para caber a la izquierda entera. */}
             <div className="hidden md:flex md:items-start md:gap-5" ref={fanRef}>
-              {/* LOS PAPELES SE INVIERTEN al abrir (fundador 2026-08-26: «mira
-                  todo el espacio que sobra cuando se abre la opción»). Antes la
+              {/* LOS PAPELES SE INVIERTEN al abrir. Antes la
                   columna de las cards seguía siendo flex-1 —acaparando el ancho
                   aunque la mano estaba comprimida— y la ficha quedaba clavada
                   en 430px: todo lo sobrante moría en medio, vacío. Ahora la
@@ -4802,7 +4687,7 @@ export default function FlareDemoEarn() {
                     accent: v.accent,
                     blocked: !!governedBlockOf(v.kind, !!activeGoverned),
                     market: KINSHIP[v.kind]?.market,
-                    // El aviso regulatorio EN LA CARA (fundador 17-sep): el
+                    // El aviso regulatorio EN LA CARA: el
                     // carry de Kinetic es real y no cumple MiCA por el USDT0.
                     notice: assetNoticeOf(v.kind)?.face,
                   }))}
@@ -4824,9 +4709,9 @@ export default function FlareDemoEarn() {
                   if (!sel) return null;
                   return (
                     /* La ficha ocupa su columna DE ARRIBA A ABAJO y hasta un
-                       tercio de la pantalla (fundador, 25-ago). Dentro va la
+                       tercio de la pantalla. Dentro va la
                        hoja de «More info» ENTERA —lo técnico, los datos de
-                       mercado con su fuente y la calculadora—, desplegada en
+                       mercado con su fuente y la calculadora, desplegada en
                        vez de escondida tras un clic, con su propio scroll y su
                        botón de empezar al final. */
                     /* En flujo, no anclada: entra por la derecha y ocupa su
@@ -4880,14 +4765,14 @@ export default function FlareDemoEarn() {
                       <h3 className="text-sm font-semibold text-ink truncate">{v.title}</h3>
                       <p className="text-[11px] text-ink/45 truncate">{t(v.action)}</p>
                       {/* Shared-market chip — the sisters explain themselves
-                          before being opened (founder 2026-08-22). */}
+                          before being opened. */}
                       {KINSHIP[v.kind] && (
                         <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-1.5 py-0.5 font-mono text-[9px] text-ink/40">
                           {KINSHIP[v.kind]!.market} · {t('shared')}
                         </span>
                       )}
-                      {/* The regulatory line ON the row, closed or open (founder
-                          2026-09-17): the same face the desktop card wears. */}
+                      {/* The regulatory line ON the row, closed or open: the same face the desktop card wears.
+                      { */}
                       {notice && (
                         <span role="note" className="mt-1 flex items-start gap-1 text-[10px] leading-snug text-tone-warning">
                           <AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden />
@@ -4934,13 +4819,12 @@ export default function FlareDemoEarn() {
       )}
 
       {/* ── Crear con el agente: una conversación, y NADA MÁS en la pantalla.
-             El catálogo estuvo en un raíl de 330px al lado (20-ago) y luego
-             como tira dentro del propio chat (22-ago); ninguna de las dos
+             El catálogo estuvo en un raíl de 330px al lado y luego
+             como tira dentro del propio chat; ninguna de las dos
              gustó, y la razón es la misma en los dos casos: son las rutas de
              OTRA pantalla —la de Pick, a un clic— peleando por el alto que
              necesita la conversación. Fuera las dos veces, queda la puerta.
-             (Fundador 2026-08-23: «tal vez lo mejor sea quitarlas ya que ya
-             aparecen en el otro menú».) ── */}
+             ── */}
       {view === 'create' && (
         <div className="mx-auto max-w-5xl">
           {/* El agente compila para quien opera: bajo un consejo nunca ofrece
@@ -4962,30 +4846,28 @@ export default function FlareDemoEarn() {
              MoneyFlows and tools. Drafts land in Estrategias · Saved. ── */}
       {view === 'manual' && <ManualStrategyBuilder onLaunch={launch} />}
 
-      {/* INERT since 2026-08-24 — preserved, not deleted (repo rule: built code
+      {/* INERT — preserved, not deleted (repo rule: built code
           is left inert and reported, never removed). The registry took back its
           own nav row, so nothing sets view='strategies' any more and the
           ?view=strategies deep-link redirects to /app/strategies before this
           can render. Restoring the embed is re-adding one <EarnDoor>; the
           `embedded` prop on StrategiesPage stays wired for exactly that.
-
-          Kept from the original note (founder 2026-08-01, "debe ser igual que
-          Personal"): the page is authority-aware — for a council it swaps
+      { *
+          Kept from the original note: the page is authority-aware — for a council it swaps
           MoneyFlows for the governed surface and the cage's cards open the
           council-order composer, so the smart contract stays plumbing the
           person never sees. */}
       {view === 'strategies' && <StrategiesPage embedded onLaunch={launch} />}
 
       {/* La superficie de Managed vaults: cómo funciona el trato, y quién
-          acepta clientes. PÚBLICA desde el 25-ago, igual que la puerta que la
+          acepta clientes. PÚBLICA, igual que la puerta que la
           abre. La LISTA sigue vacía y tiene que seguirlo hasta que haya una
           lectura real: un directorio de gestores es una lista de gente pidiendo
           el dinero de otros, y una fila de ejemplo aquí sería inventarse una
           firma. */}
       {view === 'managers' && <ManagedVaultsSurface />}
 
-      {/* El pie «Astryum is non-custodial…» sale de esta pantalla (fundador
-          2026-08-25). No deja al producto callado sobre ello: se sigue diciendo
+      {/* El pie «Astryum is non-custodial…» sale de esta pantalla. No deja al producto callado sobre ello: se sigue diciendo
           en la landing, en About, en Lo que ofrecemos, en Ajustes, en el alta de
           wallet y —lo que de verdad cuenta— EN EL MOMENTO DE FIRMAR
           (WalletTransferModals). Ahí es donde la frontera prepare-only tiene

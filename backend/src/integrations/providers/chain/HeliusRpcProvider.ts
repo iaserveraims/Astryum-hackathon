@@ -76,7 +76,7 @@ export class HeliusRpcProvider implements IProvider {
       capability === 'chain.sendRawTransaction'
     ) {
       throw new Error(
-        'BROADCAST_FORBIDDEN: HeliusRpcProvider is read-only. Astryum never broadcasts. See CLAUDE.md §0.',
+        'BROADCAST_FORBIDDEN: HeliusRpcProvider is read-only. Astryum never broadcasts.',
       );
     }
 

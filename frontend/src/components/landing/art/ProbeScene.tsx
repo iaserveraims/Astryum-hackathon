@@ -8,12 +8,6 @@
  * La sonda avanza y deja sus acciones dentro; cuando una intenta salirse, la
  * pared la rechaza. Plata apagada, trazo discontinuo, casi sin nada más: la
  * sobriedad mínima de algo que todavía está en diseño y no promete nada.
- *
- * El dibujo dice lo que INVARIANTS #8 exige del copy: la IA prepara, el dueño
- * firma los límites, el contrato los impone. La sonda NUNCA se sale del
- * corredor; el intento existe para enseñar que el corredor es real.
- *
- * Decorativa (`aria-hidden`). Sin cifras.
  */
 
 import { memo } from 'react';
@@ -64,8 +58,7 @@ function ProbeSceneImpl({ progress, lang, level, still = false }: ProbeSceneProp
   const log = useBeat(src, PROBE_BEATS.log);
   const close = useBeat(src, PROBE_BEATS.close);
 
-  // EN REPOSO SE VE EL POTE, EL CORREDOR Y LA SONDA EN SU BOCA (fundador
-  // 2026-09-20); el scroll la hace volar y añade lo demás.
+  // EN REPOSO SE VE EL POTE, EL CORREDOR Y LA SONDA EN SU BOCA; el scroll la hace volar y añade lo demás.
   const potO = useTransform(pot, [0.1, 0.9], [0.6, 1], { clamp: true });
   const wireO = useTransform(pot, [0.5, 1], [0.15, 0.3], { clamp: true });
   const potLbl = useTransform(pot, [0.7, 1], [0.6, 1], { clamp: true });

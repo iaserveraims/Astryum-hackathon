@@ -3,23 +3,6 @@
 /**
  * useFleet — TODA la flota del usuario, leída una vez: las cifras del Home y
  * la lista de sus cuentas, del mismo array.
- *
- * Fundador 2026-08-22 (quinta pasada): «el summary siempre muestra el whole
- * fleet, no pongas botón, hay que simplificar más las cosas… mostramos solo
- * las wallets (la legacy también) y no son seleccionables, pero sí clicables
- * para ir a wallets». Así que aquí ya no hay lente ni selección: hay UNA
- * lectura, la de todo, y UNA lista de filas para enseñarla desglosada. La
- * cuarta pasada dejó una lente con «toda la flota» + selección por fila; duró
- * un día — un botón de más en la pantalla que debe leerse de un vistazo.
- *
- * Las cuentas personales y las gobernadas por un consejo van en la misma
- * lista, ordenadas por valor. Una fila de Legacy se reconoce por lo que ES —su
- * glifo y su quórum— no por vivir en otra caja.
- *
- * Una propiedad que conviene no perder: el total sale de MERGEAR las mismas
- * filas que se pintan (mergeSnaps/mergeRisks, las funciones con las que
- * portfolioMerge construye el total global), así que la cifra de arriba es por
- * construcción la suma de las de abajo. No pueden discrepar.
  */
 
 import { useMemo } from 'react';
@@ -76,7 +59,7 @@ export function useFleet(): FleetView {
   const fleet = useScopedFleet('all');
   const { data: aggregated } = useAggregatedFor(fleet.addresses);
   // El pliegue visual: un Smart Account cuya dueña está en la lista no es una
-  // fila, es capital de su dueña (paFold, 2026-08-17).
+  // fila, es capital de su dueña (paFold).
   const fold = usePaFold(fleet.personal.map((w) => w.address));
 
   // La cartera agregada NO tiene adapter para morpho-blue: la deuda de
@@ -108,11 +91,10 @@ export function useFleet(): FleetView {
         // Absorbida por su dueña: su valor ya viaja en la fila de arriba.
         const owner = fold.ownerByPa.get(foldKey(w.address));
         if (owner && listed.has(foldKey(owner))) return false;
-        // Fundador 2026-09-11: una Smart Account NUNCA es fila propia en el
-        // Home («debe quedarse escondida la FSA»). Su valor no se pierde: el
+        // Su valor no se pierde: el
         // patrimonio de arriba lo suma desde el snapshot agregado, y con su
         // dueña en la lista viaja plegado en la fila de esa dueña. Sustituye
-        // a la regla del 19-ago (huérfana con valor visible) SOLO en esta
+        // a la regla (huérfana con valor visible) SOLO en esta
         // banda — en Wallets la cuenta sigue apareciendo y gestionándose.
         if ((w.walletType ?? '').toLowerCase() === 'smart-account') return false;
         return !isHiddenEmptyOrphanPa(w.walletType, sliceByKey.get(addressKey(w.address))?.snap.netWorthUSD);

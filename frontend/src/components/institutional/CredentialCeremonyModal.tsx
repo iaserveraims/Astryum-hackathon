@@ -44,7 +44,7 @@ const DEMO_LICENSE_TYPES = ['AIFM', 'CASP', 'KYB'];
 type Step = 'form' | 'issuing' | 'accepting' | 'done';
 type SignPhase = 'idle' | 'creating' | 'waiting' | 'confirming' | 'signed' | 'unconfirmed' | 'error';
 /**
- * How one signature of the ceremony ended («firmado» NO es «hecho», 13-sep):
+ * How one signature of the ceremony ended («firmado» NO es «hecho»):
  *  · settled → the ledger validated it with tesSUCCESS: the chain continues;
  *  · retry   → provably nothing entered a ledger (cancelled, expired, tem/tef/tel,
  *              payload never created): back to the form is safe;
@@ -85,7 +85,7 @@ export function CredentialCeremonyModal({
   adminSession = null,
 }: {
   /**
-   * EL MODO DEMO SOLO EXISTE EN LA CONSOLA ADMIN (fundador 2026-09-20). Con
+   * EL MODO DEMO SOLO EXISTE EN LA CONSOLA ADMIN. Con
    * `false` —el valor por defecto, el de todas las mesas del producto— la
    * casilla «el servidor firma» no se pinta y la ceremonia solo puede tomar el
    * camino del emisor de verdad. El backend lo hace cumplir igualmente
@@ -124,7 +124,7 @@ export function CredentialCeremonyModal({
   // El TIPO de credencial: 'KYC' para el depositante, 'AIFM' para el título de
   // gestor. Un emisor (de demo o regulado) emite las dos con el mismo raíl.
   const [credType, setCredType] = useState(initial?.credentialType ?? 'KYC');
-  // El ENLACE de la licencia (V1 del link, fundador 13-sep): viaja como URI de
+  // El ENLACE de la licencia (V1 del link, fundador): viaja como URI de
   // la XLS-70 — el link ES la credencial. Astryum NO lo verifica: por eso se
   // enseña siempre y quien deposita lo comprueba («tu responsabilidad»).
   const [uri, setUri] = useState('');
@@ -277,7 +277,7 @@ export function CredentialCeremonyModal({
     if (demoServerIssue) {
       // Paso 1 EN EL SERVIDOR: el robot firma el create con su seed (sin Xaman
       // del emisor), saltándose los checks de Domain. Solo rodaje, solo licencias.
-      // El link del user viaja como URI: el link ES la credencial (V1, 13-sep).
+      // El link del user viaja como URI: el link ES la credencial (V1).
       const created = await requestNotaryAifmDemo({ subject: subject.trim(), type: credType.trim().toUpperCase() as 'AIFM' | 'CASP' | 'KYB', uri: uri.trim() || undefined }, { adminSession });
       if (!created.ok) {
         setRefusal(created.refusal);
@@ -340,8 +340,7 @@ export function CredentialCeremonyModal({
       lockScroll
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
     >
-      {/* El traje de la casa (fundador 13-sep: «el aspecto del modal del manager
-          desk y Legacy»): cabecera con borde y subtítulo, cuerpo scrollable,
+      {/* El traje de la casa: cabecera con borde y subtítulo, cuerpo scrollable,
           primitivas para los botones. La mecánica no cambia ni una línea. */}
       <div className="my-auto flex max-h-[min(90dvh,44rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-ink/5 px-6 py-5">
@@ -417,11 +416,11 @@ export function CredentialCeremonyModal({
                 <option value="KYC">KYC ({t('depositant')})</option>
                 <option value="AIFM">AIFM ({t('manager title')})</option>
                 <option value="CASP">CASP ({t('exchange licence')})</option>
-                {/* KYB (13-sep): la raíz de un exchange es una SOCIEDAD — su
+                {/* KYB: la raíz de un exchange es una SOCIEDAD — su
                     identidad es el asiento del registro mercantil, paste-link
                     como AIFM/CASP. El KYC personal sigue siendo del robot. */}
                 <option value="KYB">KYB ({t('company registration')})</option>
-                {/* Designación raíz→subordinada (12-sep): el consejo nombra a SU
+                {/* Designación raíz→subordinada: el consejo nombra a SU
                     omnibus en el ledger. Emisor = la raíz, jamás el robot demo. */}
                 <option value="OMNIBUS">OMNIBUS ({t('treasury appointment')})</option>
               </select>
@@ -538,7 +537,7 @@ export function CredentialCeremonyModal({
               {t('The credential is on the ledger and accepted by the client. The gated pote now admits their deposit.')}
             </p>
             {doneUri ? (
-              // El link ES la credencial (V1, 13-sep): se enseña SIEMPRE, con su
+              // El link ES la credencial (V1): se enseña SIEMPRE, con su
               // disclaimer — si no se viera, Astryum parecería que certifica.
               <div className="rounded-xl border border-ink/10 bg-surface-2/60 p-3 text-left">
                 <div className="text-[10px] uppercase tracking-wider text-ink/50">{t('The credential points at')}</div>

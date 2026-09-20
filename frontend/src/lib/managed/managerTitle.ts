@@ -1,25 +1,6 @@
 /**
  * managerTitle — WHICH credentials the manager desk reads, and nothing else
  * (pure; ManagerTitleStation / ManagerTitleLine / the Manager shelf use it).
- *
- * Founder 2026-09-15: «no me reconoce … las credenciales de la cuenta que las
- * tiene, y además está leyendo credenciales que no debería leer en este
- * apartado (solo KYC y AIFM)».
- *
- * The backend gate speaks in OR-groups since the exchange rail (13-sep):
- * `MANAGER_CREDENTIAL_TYPE=AIFM|CASP,KYC|KYB` reads as «(the licence of YOUR
- * sector) AND (your identity)». The desk used to take each group as a literal
- * credential type — it looked for a credential called "AIFM|CASP", found none,
- * told a manager holding AIFM + KYC that they held nothing, and titled the rows
- * with the exchange's types. Here each group is resolved to the MANAGER's leg:
- * AIFM for the licence, KYC for the identity. The exchange desk resolves the
- * same groups to CASP / KYB on its own side.
- *
- * And the ledger's credential directory of an account lists what it HOLDS and
- * what it ISSUED, of every type. The title is the SUBJECT's (13-sep rule), and
- * this desk is about the manager's title only — so the tray it shows keeps
- * exactly the credentials whose subject is the account and whose type is one
- * of the manager's legs.
  */
 
 import type { CredentialRead, CredentialsTray } from '../xrpl/credentialsApi';

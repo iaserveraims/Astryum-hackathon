@@ -169,20 +169,11 @@ describe('checkDirectTo mirrors every revert in _allocate', () => {
 });
 
 /**
- * REUSE (auditoría 2026-08-18) — `checkMoveDestination` lived in
+ * REUSE (auditorí) — `checkMoveDestination` lived in
  * CouncilProposalService.ts with its OWN literal copy of the VENUE_RETIRED and
  * VENUE_NOT_READY branches of `checkDirectTo`: same codes, same conditions,
  * only the prose differed, and its own comment admitted it only sat there
  * because that round did not own this file.
- *
- * These tests pin BOTH halves of the deduplication, and each of them would have
- * to be written twice against the old code:
- *  - the CONDITION now has one source (`checkVenueAcceptsEntry`), so a fourth
- *    entry guard cannot be learned by one door and missed by the other;
- *  - the rescue PROSE survived the merge. That sentence is the reason a council
- *    does not compose the order anyway: «closed to new entries» invites
- *    «but this is a rescue, not a new entry», and the FDC round is already paid
- *    for by the time the vault says otherwise.
  */
 describe('checkVenueAcceptsEntry — una condición, dos voces (directTo vs move)', () => {
   const RETIRED = () => {
@@ -315,7 +306,7 @@ describe('funding the cage (approve + deposit)', () => {
   });
 
   it('respects the asset decimals it was handed, not a hardcoded 18', () => {
-    // FXRP on Flare mainnet has SIX decimals (read on-chain 2026-07-28). A
+    // FXRP on Flare mainnet has SIX decimals (read on-chain). A
     // hardcoded 18 here would over-approve by a factor of a trillion.
     const six = vaultState({ asset: { address: '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE', symbol: 'FXRP', decimals: 6 } });
     const plan = buildVaultDepositCalls(six, parseBaseUnits('25', 6));

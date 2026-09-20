@@ -6,28 +6,6 @@
  * Las reglas del modelo, los tipos y los nombres de los dos ejes viven en
  * lib/theme/appearance.ts (parte pura, importable desde el servidor); aquí
  * está solo el store y su persistencia. Lee esa cabecera primero.
- *
- * ── POR CUENTA, NO POR NAVEGADOR ─────────────────────────────────────────
- * La lección del 26-ago y del 13-sep, aplicada antes de que muerda: un ajuste
- * suelto en localStorage sigue al NAVEGADOR, así que el segundo correo que
- * entrase en el mismo Chrome heredaría el tema del primero — y una cuenta
- * institucional abierta en un portátil nuevo aparecería en oro. Cada cuenta
- * tiene su registro (`byAccount`) y los campos de arriba son la VISTA de la
- * cuenta activa, así ningún consumidor cambia. authStore llama a
- * `activateAccount` al entrar, al crear cuenta y al restaurar la sesión.
- *
- * ── EL SERVIDOR MANDA ────────────────────────────────────────────────────
- * La verdad vive en User.preferences.appearance (el raíl de `legal` y de
- * `managerMode`): `setSkin`/`setTheme` escriben local al instante Y hacen
- * POST /auth/appearance; `refreshMe` adopta en cada arranque lo que diga
- * GET /auth/me vía `adoptServerAppearance`. El servidor gana siempre que
- * responde, porque es lo único que todos los navegadores comparten. Lo local
- * queda como caché de arranque (lo lee el script pre-pintado) y como red sin
- * sesión.
- *
- * El registro SIN cuenta (el que existe antes de que haya clave) migra al
- * primer usuario que activa: quien ya tenía elegida la luz clara no la
- * pierde el día que esto se publica.
  */
 
 import { useEffect, useState } from 'react';

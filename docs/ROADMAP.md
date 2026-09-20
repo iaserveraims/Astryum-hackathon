@@ -340,7 +340,7 @@ the composer produces closed, reviewable actions rather than a policy someone el
 costs and where it can be recovered from, and sign it — without naming a chain, a contract or a
 receipt token. The reasoning and the ordered build queue are in
 [ADR-013](../DECISIONS.md) and
-[Astryum_Estrategia_Composicion_Goal_Strategy_Policy_2026-09-13.md](./context/Astryum_Estrategia_Composicion_Goal_Strategy_Policy_2026-09-13.md).
+an internal working note (not published in this repo).
 
 ---
 
@@ -469,7 +469,7 @@ proof travels with the account to every partner that accepts it.
   third parties on the rail, and the EU's eIDAS 2.0 attestation framework is the natural anchor
   for the human side. Direction, not commitment: the thesis and its open legal questions are
   documented in
-  [Astryum_Agentic_Credentials_Rail_Tesis_2026-09-08.md](./context/Astryum_Agentic_Credentials_Rail_Tesis_2026-09-08.md),
+  an internal working note (not published in this repo),
   and nothing here ships before the questions it lists are answered.
 - **The North Star: the account as pure authority.** The governing account stops holding capital
   and becomes authority alone; capital lives in protocol-managed arms, each on its native chain —

@@ -1,5 +1,5 @@
 /**
- * Regression suite for the vault-receipt tracking bug (2026-07-12): the first
+ * Regression suite for the vault-receipt tracking bug: the first
  * live Firelight position rendered as "0x4C18…" with qty 0.0000 / $0.00
  * because (a) the adapter's stXRP address fell through canonicaliseAsset
  * unresolved and (b) the engine assumed 18 decimals over a 6-decimal share
@@ -35,7 +35,7 @@ function rawPosition(overrides: Partial<RawPosition>): RawPosition {
 }
 
 describe('NormalisationEngine — receipt-token valuation', () => {
-  test('Firelight stXRP: 6-dec shares + ERC-4626 underlying → real USD, share qty, readable symbol', async () => {
+  test('Firelight stXRP: shares + ERC-4626 underlying → real USD, share qty, readable symbol', async () => {
     // 4.694962 stXRP whose convertToAssets() says 4.750000 FXRP.
     const [n] = await NormalisationEngine.unify(
       [
@@ -57,7 +57,7 @@ describe('NormalisationEngine — receipt-token valuation', () => {
     expect(n.amountUSD / n.priceUSD).toBeCloseTo(4.694962, 6);
   });
 
-  test('without decimals in raw the 18-dec default collapses a 6-dec balance — the adapter MUST send them', async () => {
+  test('Without decimals in raw the default collapses balance — the adapter MUST send them', async () => {
     const [n] = await NormalisationEngine.unify(
       [rawPosition({ amount: 4_694_962n, raw: { token: 'stXRP' } })],
       { priceProvider },
@@ -152,7 +152,7 @@ describe('NormalisationEngine — receipt-token valuation', () => {
 });
 
 /**
- * La cantidad legible (14-sep-2026). El Token Inventory enseñaba el entero del
+ * La cantidad legible. El Token Inventory enseñaba el entero del
  * ledger: «400548823209107060000» por 400,55 FLR y «10453867» por 10,45 FXRP.
  * La cantidad se resuelve AQUÍ, que es el único punto del barrido donde se sabe
  * qué decimales declara el activo, y viaja ya resuelta en `qty`.

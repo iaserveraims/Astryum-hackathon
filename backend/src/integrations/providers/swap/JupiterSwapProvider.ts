@@ -3,20 +3,6 @@
  *
  * Wraps the Jupiter Aggregation API v6 to get Solana swap quotes and
  * build unsigned serialized transactions.
- *
- * Revenue model:
- *   - JUPITER_FEE_BPS (default 20 = 0.20%) passed as platformFeeBps in every quote.
- *   - Jupiter embeds the fee; at swap time it goes to JUPITER_FEE_ACCOUNT
- *     (Solana token account — set JUPITER_FEE_ACCOUNT env var, e.g. a Astryum-owned ATA).
- *   - disclosedToUser: true — always disclosed before user signs.
- *
- * Regulatory invariants (never remove):
- *   authorization.astryumRelays: false
- *   referralAttribution.disclosedToUser: true
- *   Astryum never calls sendTransaction / signTransaction
- *
- * Chain: Solana mainnet only. NOT EVM. Use internal adapters for Flare (chainId 14),
- * 1inch/Enso for EVM swaps, Li.Fi for cross-chain bridges.
  */
 
 import { randomUUID } from 'crypto';

@@ -1,20 +1,9 @@
 /**
- * productizer-it15 §K1 — las lecturas de ledger con las que se decide un asiento
+ * §K1 — las lecturas de ledger con las que se decide un asiento
  * de nonce, y la lápida de un Payment que entró y falló.
- *
- * `readHandoffMemoWindow` es la ÚNICA lectura con la que se puede concluir que un
- * 0xFE firmado no existe — y por tanto reutilizar su asiento. Por eso exige las
- * tres cosas que separan «no está» de «no lo vi»: nodo fresco, el rango que el
- * nodo dice haber buscado cubre el pedido, y el marcador agotado. Cualquier duda
- * es 'unreadable', jamás 'absent'.
- *
- * `markHandoffLedgerFailedByMemo` libera el asiento de un `tec`: la tx consumió
- * el Sequence XRPL pero no entregó XRP al Core Vault, y FAssets exige
- * `status == PAYMENT_SUCCESS` (DirectMintingFacet → verifyXRPPaymentSuccess), así
- * que ese dispatch no puede ejecutar jamás.
  */
 const mockRows: Array<{ id: number; jobType: string; status: string; payload: Record<string, unknown>; createdAt: Date }> = [];
-/** productizer-it21 §P1 1.2/1.4 — la BD caída, que es el mundo que estos arreglos describen. */
+/** §P1 1.2/1.4 — la BD caída, que es el mundo que estos arreglos describen. */
 const mockDb = { down: false };
 jest.mock('../../../database/prismaClient', () => ({
   prisma: {
@@ -201,7 +190,7 @@ describe('readHandoffMemoWindow — «no está» solo tras leerla entera', () =>
 });
 
 /**
- * productizer-it17 §L1 (it16 R1 1.3) — la lectura de la ventana ROTA DE NODO.
+ * §L1 — la lectura de la ventana ROTA DE NODO.
  * `xrplJsonRpc` solo rota ante error de transporte o `status:'error'`; un nodo que
  * responde BIEN con historia corta daba 'unreadable', y 'unreadable' no libera
  * jamás un asiento: la salida del usuario quedaba tapiada por UN servidor.
@@ -252,9 +241,9 @@ describe('classifyHandoffRelease — soltar antes de tiempo ES el gemelo (§L1)'
     expect(v.detail).toMatch(/still signable in Xaman/);
   });
 
-  // productizer-it19 §M1 1.3 — EL RELOJ NO BASTA. Un Payment firmado al minuto 4
+  // EL RELOJ NO BASTA. Un Payment firmado al minuto 4
   // y validado al 5:02 existe aunque el payload haya caducado: soltar su asiento
-  // por reloj es el gemelo (it18 R1 1.3). Hace falta además que la ventana del
+  // por reloj es el gemelo. Hace falta además que la ventana del
   // memo se haya leído ENTERA sin él.
   it('the clock alone never frees it: the memo window must have been read absent (a)', () => {
     const expired = { ...base, payloadExpiresAt: new Date(now - 1000).toISOString() };
@@ -288,7 +277,7 @@ describe('classifyHandoffRelease — soltar antes de tiempo ES el gemelo (§L1)'
     expect(v.code).toBe('NONCE_SEAT_TAKEN_SIGNED');
   });
 
-  // it17 §1.3, ahora también al liberar: un nodo caído no puede tapiar un asiento
+  // Ahora también al liberar: un nodo caído no puede tapiar un asiento
   // para siempre. Pasada su ventana + el margen, se suelta.
   it('an unreadable window long past its ledger frees itself all the same', () => {
     const v = classifyHandoffRelease(
@@ -341,7 +330,7 @@ describe('releaseQueuedHandoffByMemo — la fila solo sale de «queued» cuando 
     expect(row.status).toBe('queued');
   });
 
-  // productizer-it19 §M1 1.3 — caducado NO basta: antes de soltar, se lee la
+  // Caducado NO basta: antes de soltar, se lee la
   // ventana del memo. Si vuelve vacía, se suelta; si no se pudo leer, se espera.
   it('frees it after the payload expired unsigned AND its window came back empty', async () => {
     const row = queuedRow({
@@ -411,7 +400,7 @@ describe('releaseQueuedHandoffByMemo — la fila solo sale de «queued» cuando 
 });
 
 /**
- * productizer-it19 (contrato C2) — el reloj del asiento lo pone quien CREA el
+ * El reloj del asiento lo pone quien CREA el
  * payload, y el servidor lo acota. Nadie puede alargar un asiento diciendo que su
  * payload vive 24 horas (la ceremonia multifirma pide `expire: 1440`): pasada la
  * LastLedgerSequence ese Payment no entra ni firmado.
@@ -493,7 +482,7 @@ describe('markHandoffLedgerFailedByMemo — el tec libera el asiento', () => {
     expect(row.status).toBe('queued');
   });
 
-  it('a row already marked tec IS freed (it13 rows that took the seat for good)', async () => {
+  it('A row already marked tec IS freed (rows that took the seat for good)', async () => {
     const row = queuedRow({ signedAt: '2026-09-14T10:00:00.000Z', signedLedgerResult: 'tecUNFUNDED_PAYMENT' });
     expect(await markHandoffLedgerFailedByMemo(MEMO, HASH, 'tecUNFUNDED_PAYMENT')).toBe(true);
     expect(row.status).toBe('superseded');
@@ -523,7 +512,7 @@ describe('markHandoffSignedByMemo — un tec JAMÁS es «firmada»', () => {
 });
 
 /**
- * productizer-it21 §P1 1.2 (contrato C1) — «NO PUDE LEER» NO ES «NO HABÍA NADA».
+ * §P1 1.2 (contrato C1) — «NO PUDE LEER» NO ES «NO HABÍA NADA».
  *
  * El `catch` del release devolvía `{ released: false }` PELADO. La ruta lo
  * contestaba 200, la pantalla lo leía «no había asiento que liberar» y ofrecía
@@ -552,7 +541,7 @@ describe('releaseQueuedHandoffDetailed — la BD caída sale TIPADA, no como «n
 });
 
 /**
- * productizer-it21 §P1 1.2 — el mismo `null` que mentía en la otra lectura: las
+ * El mismo `null` que mentía en la otra lectura: las
  * tres rutas del handoff preguntan por aquí antes de decidir.
  */
 describe('findQueuedHandoffByMemo — estricta cuando la respuesta decide un asiento', () => {
@@ -577,12 +566,12 @@ describe('findQueuedHandoffByMemo — estricta cuando la respuesta decide un asi
 });
 
 /**
- * productizer-it21 §P1 1.4 — LOS APARCADOS NO RESUCITAN POR UN PARPADEO.
+ * LOS APARCADOS NO RESUCITAN POR UN PARPADEO.
  *
  * `kvList` convierte cualquier fallo en `[]`, y el guard de asiento usa esta
  * lista para EXCLUIR filas aparcadas: vacía por un parpadeo, un dispatch muerto
  * volvía a ocupar el asiento y una SALIDA moría en `NONCE_SEAT_TAKEN_SIGNED`, no
- * reintentable (el incidente del 12-sep).
+ * reintentable.
  */
 describe('listParked0xFe — estricta para quien decide un asiento', () => {
   const parkedRow = () => {

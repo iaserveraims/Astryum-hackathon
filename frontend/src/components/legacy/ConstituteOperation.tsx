@@ -1,11 +1,9 @@
 'use client';
 
 /**
- * ConstituteOperation — la constitución de un Legacy como UNA OPERACIÓN MÁS
- * (fundador 2026-08-26: «que cuente como otra operación normal... formato
- * popup... y que se pueda anclar a la derecha como los popups de estrategia»).
+ * ConstituteOperation — la constitución de un Legacy como UNA OPERACIÓN MÁS.
  *
- * Desde el 2026-09-12 monta la PLANTILLA común de toda ceremonia de
+ * Monta la PLANTILLA común de toda ceremonia de
  * configuración (SetupOperationShell): la misma cabecera, los mismos mandos
  * y el mismo cuerpo que el alta del gestor y la del exchange. Dentro va el
  * LegacyPanel real en variant='operation': la MISMA ceremonia que

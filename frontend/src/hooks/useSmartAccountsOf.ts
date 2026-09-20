@@ -5,15 +5,6 @@
  * of each given XRPL address. The mapping is deterministic
  * (MasterAccountController.getPersonalAccount, read via
  * /flare-demo/personal-account) and session-cached in paOwnership.
- *
- * This is the single source of truth behind one rule (founder 2026-07-21): the
- * wallets a Legacy controls — its council account AND the Smart Account that
- * council operates on Flare — are NOT personal wallets. So:
- *   - Astryum Personal EXCLUDES them (via `paKeys`), same way it already drops
- *     the council multisig itself.
- *   - the governance "Wallets" category LISTS them under their Legacy (via
- *     `byXrpl`, resolving each council → its PA).
- * Read-only throughout: Astryum never signs for either leg (#1).
  */
 
 import { useEffect, useMemo, useState } from 'react';

@@ -10,7 +10,7 @@ import {
 } from '@/components/wallet/SeatRefusalNotice';
 
 /**
- * productizer it. 14, R5 1.7 — EL ASIENTO QUE SE QUEDABA TOMADO POR DECIR QUE SÍ
+ * R5 1.7 — EL ASIENTO QUE SE QUEDABA TOMADO POR DECIR QUE SÍ
  * DEMASIADO PRONTO.
  *
  * LegacyYieldPanel marked the claim as «handed to Xaman» BEFORE calling the
@@ -94,7 +94,7 @@ describe('claimSeatAfterSignFailure', () => {
   });
 
   /**
-   * productizer it. 17 (R5 5.2) — FIRMADA TARDE NO ES «NO PUDE LEER».
+   * FIRMADA TARDE NO ES «NO PUDE LEER».
    *
    * Xaman submits the payload itself and re-wraps the node's answer into a plain
    * Error whose text carries the code. tefMAX_LEDGER / tefPAST_SEQ are verdicts
@@ -194,7 +194,7 @@ describe('runClaimSignature — el asiento lo decide la respuesta de la wallet',
   });
 
   /**
-   * it. 17 (R5 5.2): a stale signature leaves NOTHING on the ledger, so the
+   * A stale signature leaves NOTHING on the ledger, so the
    * draft is releasable — «handed» stays false and an unmount frees the seat,
    * exactly as for a rejection.
    */
@@ -260,7 +260,7 @@ describe('seatRefusalText — NONCE_SEAT_* dicho por el lector compartido', () =
     expect(seatRefusalText({ error: 'NONCE_SEAT_UNREADABLE' }, t)).toMatch(/could not be read/);
   });
 
-  it('reads the code the Legacy route still wraps in its own error — and DROPS the Spanish detail (it. 17, R5 5.4)', () => {
+  it('Reads the code the Legacy route still wraps in its own error — and DROPS the Spanish detail (R5 5.4)', () => {
     const text = seatRefusalText(
       {
         error: 'VAULT_YIELD_CLAIM_PREPARE_FAILED',

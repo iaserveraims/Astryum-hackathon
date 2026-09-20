@@ -1,20 +1,15 @@
 /**
- * productizer it. 29 (§2) — EL TEMPO ASÍNCRONO PINA Y SUELTA IGUAL QUE EL SÍNCRONO.
+ * EL TEMPO ASÍNCRONO PINA Y SUELTA IGUAL QUE EL SÍNCRONO.
  *
  * Dos coordinadores fijan una `Sequence` sobre una cuenta de consejo y componen el
  * mismo 0xFE: `/xrpl-defi/multisign/prepare` (la ceremonia en vivo) y
- * `POST /council-proposals` (la bandeja asíncrona). Desde it. 27 la puerta que
+ * `POST /council-proposals` (la bandeja asíncrona). La puerta que
  * suelta el asiento de nonce antes de tiempo exige la MARCA del coordinador
  * (`stampCeremonyPin`) — y solo el primero la escribía. El segundo pinaba igual,
  * no marcaba nada, y retirar la propuesta (`POST /:id/withdraw`) escribía
  * `status: 'withdrawn'` sin tocar el asiento: aunque alguien cableara la llamada,
  * la puerta contestaba `not-pinned-by-us`. Un consejo que retiraba una propuesta
  * seguía sin poder componer su siguiente salida durante 24 h.
- *
- * Aquí se ejecuta la CADENA con el store REAL (`DirectMintHandoffStore`) sobre una
- * base fingida: se crea la propuesta y se mira la fila del 0xFE; se retira la
- * propuesta y se mira que la fila quede superseded y que la respuesta lo diga en el
- * mismo campo y con la misma gramática que la puerta de la ceremonia.
  */
 import express from 'express';
 import request from 'supertest';
@@ -258,7 +253,7 @@ describe('POST /council-proposals — el segundo coordinador que pina, ahora MAR
   /**
    * Best-effort, como en la ceremonia: la BD que rechaza la marca no deshace una
    * propuesta que ya existe. Y el hecho no se pierde: queda en la memoria del
-   * proceso (it. 29 §3) para que la retirada pueda actuar sobre él.
+   * proceso para que la retirada pueda actuar sobre él.
    */
   it('una BD caída al marcar no tira la propuesta', async () => {
     mockDb.down = true;
@@ -291,7 +286,7 @@ describe('POST /:id/withdraw — retirar la propuesta devuelve el asiento de non
   });
 
   it('sin marca y con el payload vivo: la propuesta se retira igual, y `seat` dice la cuenta atrás — no una pared', async () => {
-    // Fila anterior a it. 27 (o marcada desde otra réplica): sin pin.
+    // Fila anterior a: sin pin.
     mockProposalFindUnique.mockResolvedValue(liveProposal());
     mockProposalUpdate.mockResolvedValue(liveProposal({ status: 'withdrawn' }));
 
@@ -322,7 +317,7 @@ describe('POST /:id/withdraw — retirar la propuesta devuelve el asiento de non
   });
 
   /**
-   * productizer it. 33 (B1 del cuadro de la it. 32) — EL GEMELO DEL COORDINADOR ASÍNCRONO.
+   * EL GEMELO DEL COORDINADOR ASÍNCRONO.
    *
    * El miembro B pulsa «Combine & broadcast» en la bandeja; el nodo devuelve el hash
    * y el navegador lo reporta a `/handoff/signed` (202 PENDING_LEDGER: la fila
@@ -331,11 +326,6 @@ describe('POST /:id/withdraw — retirar la propuesta devuelve el asiento de non
    * `holderEndedCeremony` sustituye el reloj y la ventana se lee `absent` porque el
    * Payment aún no validó: sin el informe, el asiento se soltaba con el Payment en
    * vuelo y el siguiente prepare componía otro 0xFE sobre el mismo nonce.
-   *
-   * La FASE: la fila lleva el informe que escribe la ruta real
-   * (`recordHandoffSignatureReport`), la ventana se lee entera y vacía, y la
-   * retirada — que sigue siendo válida — NO suelta el asiento. Mutación: quitar el
-   * informe (la línea que lo escribe) → `released: true` → rojo.
    */
   it('con un informe de firma en la fila (el emisor reportó el hash), retirar la propuesta NO suelta el asiento', async () => {
     await request(buildApp()).post('/api/council/proposals').send({ account: COUNCIL, xrplTx: zeroFeTx() });
@@ -365,7 +355,7 @@ describe('POST /:id/withdraw — retirar la propuesta devuelve el asiento de non
   });
 
   /**
-   * productizer it. 34 (E) — EL TEMPO ASÍNCRONO USA EL MISMO NOMBRE: EL ID DE LA PROPUESTA.
+   * EL TEMPO ASÍNCRONO USA EL MISMO NOMBRE: EL ID DE LA PROPUESTA.
    *
    * Crear la propuesta estampa el pin con `proposal.id`; retirarla lo devuelve por
    * ese nombre. Si OTRO sitting (una ceremonia en vivo, otra propuesta) volvió a

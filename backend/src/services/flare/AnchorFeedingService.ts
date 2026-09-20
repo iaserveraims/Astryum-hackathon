@@ -4,22 +4,6 @@
  * La fee de la orden del consejo (0,2 XRP) se acumula en el ANCHOR (rK4t…, infra
  * PROPIA de Astryum). Con la MISMA estructura que el refuel del executor, este
  * servicio dispara cuando el anchor junta ≥ X XRP libre:
- *
- *   anchor (XRP acumulado)
- *     → Payment de direct-mint DEL ANCHOR al core vault de FAssets  (su XRP → FXRP)
- *     → batch: transfer del FXRP acuñado → el EXECUTOR
- *     → el executor recoge el Payment por su memo (como cualquier mint 0xFE),
- *       acuña, corre el batch, y su REFUEL vuelve el FXRP a FLR.
- *
- * Así el ingreso de la orden (XRP en el anchor) acaba siendo FLR en el executor —
- * cerrando el bucle que el mint ya cierra directo. Reutiliza TODA la tubería:
- * `buildDirectMintHandoff` (el mint) + el executor (recogida + refuel).
- *
- * Frontera regulatoria (idéntica al executor): el anchor es infra propia de
- * Astryum, JAMÁS fondos del usuario. La clave del anchor (`LEGACY_ANCHOR_SEED`)
- * vive en env como `FLARE_EXECUTOR_PK`; sin ella → no-op (nunca revienta el tick).
- * El backend firma+manda el Payment del anchor con el patrón ya probado de
- * `XrplEscrowKeeper` (xrplWalletFromSecret → autofill → sign → submitAndWait).
  */
 import { ethers } from 'ethers';
 import { xrplProvider } from '../../integrations/providers/chain/XRPLProvider';
@@ -57,7 +41,7 @@ const RESERVE_FEE_MARGIN_XRP = 0.01;
  * La reserva que de verdad hay que dejar: la del env NUNCA puede quedar por
  * debajo de la del ledger más la fee de la tx.
  *
- * El fallo que esto cierra (visto en mainnet 8-ago-2026, `LEGACY_ANCHOR_RESERVE_XRP=1`
+ * El fallo que esto cierra (visto en mainnet, `LEGACY_ANCHOR_RESERVE_XRP=1`
  * con la base reserve en 1 XRP exacto): el hop manda `saldo − reserva`, así que
  * al descontar además la fee el anchor queda POR DEBAJO de su reserva y XRPL
  * rechaza el Payment con `tecUNFUNDED_PAYMENT` — cada tick, para siempre, y el

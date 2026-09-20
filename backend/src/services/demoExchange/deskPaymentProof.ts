@@ -1,47 +1,6 @@
 /**
  * deskPaymentProof — a desk reservation (DeskPayment) is closed by CHAIN FACTS,
- * never by a guess (productizer cycle, it. 8 and it. 10).
- *
- * The holes it closes:
- *  1. A put-to-work reservation whose 0xFE was signed and VALIDATED but never
- *     reported stayed 'prepared'. «Release» freed its drops and a later withdraw
- *     paid the same XRP again (2X from the omnibus).
- *  2. A prepared payout past its LastLedgerSequence was released after a
- *     page-capped scan. With >400 omnibus txs since its ledger the validated
- *     payout was never debited → paid again.
- *  3. (it. 10) The reservation matched hand-offs HEURISTICALLY (same omnibus,
- *     same drops, the passkey inside the userOp): anyone with a session could
- *     build such a hand-off through the generic institutional prepare and report
- *     it signed → the reservation was stuck forever. The proof read unbounded
- *     history (>10,000 rows → 503 forever) and a capped hand-off list (false
- *     «unaccounted»); one 0xFE signed outside Astryum blocked every release.
- *
- * DESIGN of the put-to-work proof:
- *  · The desk reserves (POST desk-payments), then asks the SERVER to compose the
- *    0xFE for that reservation (prepare-put-to-work): the memo and userOpHash are
- *    stored on the reservation inside the run lock, and the Payment carries a
- *    LastLedgerSequence (PUT_TO_WORK_LEDGER_WINDOW) — so its window is bounded by
- *    construction, like a payout's.
- *  · A reservation WITH memo matches ONLY that memo (or its own reported hash).
- *    Window: [createdAtLedger, min(validated, LLS)] — or, for a legacy memo with no
- *    LLS, [createdAtLedger, createdAtLedger + PUT_TO_WORK_SEARCH_WINDOW]. Read
- *    forward, stopping at the first match. Found → the XRP LEFT: settle + debit
- *    (409 DESK_PAYMENT_EXECUTED). Before the LLS, a hand-off of that memo reported
- *    SIGNED (or the reservation's own hash) not on the ledger → 409, it may land.
- *    Past the LLS and absent → it can never land.
- *  · A reservation WITHOUT memo (legacy, or its prepare failed) is released only
- *    if no validated omnibus 0xFE in [createdAtLedger, createdAtLedger +
- *    PUT_TO_WORK_SEARCH_WINDOW] (capped at validated) carries a memo/hash the run
- *    cannot explain (requests, other reservations, marked-external payments).
- *  · (it. 12, 2.3) A reservation WITH memo and LastLedgerSequence is NEVER released
- *    while its window is open: `signedAt` only exists after validation, so «not
- *    reported signed» was the operator's word while a Xaman already on a phone
- *    could still land it. Verdict 'wait' → 409 WAIT_FOR_LAST_LEDGER, with the
- *    ledgers (≈ seconds) left. Past the LLS the ledger alone decides.
- *  · Any read that fails (ledger, window, hand-off store) → 503.
- *  · Residual (documented): a memo-less reservation whose 0xFE lands after its
- *    bounded window; a legacy memo with no LastLedgerSequence released before its
- *    search window closes (it has no LLS to wait for).
+ * never by a guess.
  */
 
 import { handoffPayloadExpiryMin } from '../flare/handoffAuthority';
@@ -57,7 +16,7 @@ import { findHandoffByMemo, mintExecutedOnFlare, type OmnibusHandoff, type Repor
 export const DESK_PAYOUT_LEDGER_WINDOW = 100;
 
 /**
- * Ledgers a server-composed desk 0xFE stayed signable UNTIL the it. 19 (100).
+ * Ledgers a server-composed desk 0xFE stayed signable UNTIL the.
  * Kept — and still read — because every reservation composed before that change
  * carries a LastLedgerSequence built with it; the live window is
  * `putToWorkLedgerWindow()` below.
@@ -73,7 +32,7 @@ const MIN_LEDGER_WINDOW = 10;
 const MAX_LEDGER_WINDOW = 1000;
 
 /**
- * productizer it. 19 (R1 1.6) — LA VENTANA DE LA MESA, MEDIDA CONTRA EL PAYLOAD.
+ * LA VENTANA DE LA MESA, MEDIDA CONTRA EL PAYLOAD.
  *
  * La mesa clavaba 100 ledgers (~6,7 min) mientras el payload de Xaman caduca a
  * los 5: el asiento de nonce del omnibus —que comparten TODOS los clientes de la
@@ -81,16 +40,6 @@ const MAX_LEDGER_WINDOW = 1000;
  * firmar nada, en CADA composición abandonada. La ventana más pequeña que aún
  * deja firmar es «lo que vive el payload + un minuto de margen»: con la
  * caducidad por defecto (5 min) son **90 ledgers ≈ 6 min**.
- *
- * Es la misma fórmula, y por tanto el mismo número, que
- * `defaultLastLedgerWindow()` del constructor del 0xFE; ambas salen de
- * `handoffPayloadExpiryMin()`, así que mover `HANDOFF_PAYLOAD_EXPIRY_MIN` las
- * mueve a la vez. Un test (deskLedgerWindow.test) compara las dos cada vez que
- * corre la suite: si alguien cambia una sola, se cae.
- *
- * No se acorta más: por debajo del payload, un fundador que firma en el minuto 5
- * firmaría un Payment que ya no puede entrar — y eso se paga en una firma
- * perdida y un re-prepare, no en un segundo de asiento.
  */
 export function putToWorkLedgerWindow(): number {
   const ledgers = Math.ceil(handoffPayloadExpiryMin() * LEDGERS_PER_MINUTE + LLS_MARGIN_LEDGERS);
@@ -181,7 +130,7 @@ export interface PayoutProofs {
 
 /**
  * Pure (mutates `fresh`): apply payout proofs read OUTSIDE the run lock on a
- * snapshot to a FRESH copy loaded inside it (productizer it. 12, 2.6b). A chain
+ * snapshot to a FRESH copy loaded inside it (2.6b). A chain
  * fact is applied only to the reservation it was read for, and only while that
  * reservation is still the prepared payout the proof describes (same id, same
  * LastLedgerSequence, no hash reported since): anything that changed meanwhile
@@ -282,9 +231,7 @@ export function knownOmnibusFe(run: DemoRun, exceptId?: string): { hashes: Set<s
   for (const d of run.deskPayments ?? []) {
     if (d.id === exceptId) continue;
     if (d.txHash) hashes.add(upper(d.txHash));
-    // 18-sep (fundador: «The 0xFE is validated (CA8C7BF8…) but the exchange
-    // ledger could not record it: … its memo FE0000000000… already belongs to
-    // another record of this run»). A RELEASED reservation does not own its
+    // . A RELEASED reservation does not own its
     // memo: a put-to-work is released ONLY with the ledger's proof that its
     // 0xFE did not land and can never land (provePutToWorkRelease — its
     // LastLedgerSequence is past and its window was read in full). And the memo
@@ -452,14 +399,14 @@ export function settlePutToWorkByProof(run: DemoRun, p: DeskPayment, verdict: Ex
 /* ── put-to-work/record: the reported hash must BE this movement ─────────── */
 
 /**
- * `retryable` (it. 12, 1.4): the backend's node does not show the hash validated
+ * `retryable` (1.4): the backend's node does not show the hash validated
  * YET — a node a few ledgers behind says exactly that about a 0xFE Xaman just saw
  * validate. That is «not yet visible» (503, try again), never «not this client's».
  */
 export type RecordVerdict = { ok: true; memoHex: string } | { ok: false; reason: string; retryable?: boolean };
 
 /**
- * Pure (productizer it. 10): the hash an operator records as a client's
+ * Pure: the hash an operator records as a client's
  * put-to-work must be a validated tesSUCCESS Payment from the omnibus to the
  * FAssets Core Vault, for exactly these drops, whose 0xFE memo is the
  * reservation's — or, without a reservation memo, the memo of a hand-off built

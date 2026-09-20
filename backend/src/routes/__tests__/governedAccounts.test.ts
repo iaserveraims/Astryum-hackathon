@@ -3,8 +3,7 @@ const mockUpsert = jest.fn();
 const mockUpdateMany = jest.fn();
 
 /**
- * The live session the POST now proves inside its own transaction (productizer
- * it. 16, 4.1). `live` is what the row lock + session read see; flip it to
+ * The live session the POST now proves inside its own transaction. `live` is what the row lock + session read see; flip it to
  * simulate a takeover that committed while the request was in flight.
  */
 const live = { userRows: 1, user: null as unknown, session: null as unknown };
@@ -116,7 +115,7 @@ describe('POST /api/governed-accounts', () => {
   });
 
   /**
-   * productizer it. 16 (4.1) — a pointer says which councils the authority
+   * A pointer says which councils the authority
    * switcher shows. A request that passed requireSiweAuth before a takeover
    * would otherwise land AFTER it and plant the intruder's council on the owner.
    */

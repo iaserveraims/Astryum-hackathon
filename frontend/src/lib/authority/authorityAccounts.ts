@@ -1,17 +1,6 @@
 /**
  * AuthorityAccount — the unifying primitive of the authority switcher
- * (review 2026-07-17, §1 of the improved prompt).
- *
- * One app, N authority accounts, two ways to operate. An authority account is
- * NOT a WalletAccount: a governed Legacy is not "connected" — it is an
- * observed r-address whose state (council, health) is read fresh from the
- * ledger. This layer is the union of:
- *   - walletStore wallets  → kind 'simple'   (you sign directly)
- *   - legacyLocal pointers → kind 'governed' (the council signs; you propose)
- *
- * `executors` is deliberately empty today: it is the open door to PMW and
- * XLS-75 permission delegations without a redesign. DO NOT build on it until
- * their gates open (see §4 of the review — "ni una línea hasta el gate").
+ * (review, §1 of the improved prompt).
  */
 
 import type { WalletAccount } from '../types/wallet';

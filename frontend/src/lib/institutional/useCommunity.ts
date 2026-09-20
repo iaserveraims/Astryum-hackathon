@@ -8,19 +8,6 @@
  * de apoyos y la imagen elegida de cada pote. Pedirlo por componente sería una
  * petición por carta. Aquí se pide una vez, se comparte en memoria y se
  * refresca cuando alguien escribe.
- *
- * ROBUSTEZ (revisión 10-sep):
- *  · Cada lectura lleva un número de secuencia: una respuesta LENTA de una
- *    lectura vieja jamás pisa una más nueva (antes, votar y que llegara tarde
- *    la lectura inicial deshacía el voto en pantalla).
- *  · Un fallo NO es pegajoso: el siguiente montaje vuelve a intentarlo.
- *  · Las escrituras que ya devuelven el dato (apoyos, imagen) PARCHEAN el
- *    snapshot en sitio en vez de re-descargar la comunidad entera (con fotos
- *    en data URL eran megabytes por clic).
- *
- * «No pude leer» deja los mapas vacíos y `failed` a true: las cartas caen a la
- * identidad determinista (dirección + dos letras), que es lo que había antes —
- * nunca se inventa un nombre ni una foto.
  */
 
 import { useEffect, useState } from 'react';

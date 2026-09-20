@@ -61,7 +61,7 @@ export function healthTone(score: number | null): 'success' | 'warning' | 'dange
 }
 
 /* ------------------------------------------------------------------ */
-/* Canonical HF word + tone (Fase 1, 2026-07-30)                       */
+/* Canonical HF word + tone (Fase 1) */
 /* ------------------------------------------------------------------ */
 
 /**

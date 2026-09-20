@@ -1,21 +1,6 @@
 /**
  * PROTECT_EM — el contrato entre la plantilla y el motor, sin red que lo fije
  * hasta hoy.
- *
- * Esta plantilla es LA pieza que crea la regla de protección de la posición
- * FXRP/RLUSD. Si construye una forma que el tick no entiende, no hay error en
- * ninguna parte: la regla se crea, se ve verde en el panel, y **no protege
- * nada**. Eso es exactamente lo que pasaba con la chain (H5) y con el HF (H6),
- * y por eso el vocabulario que emite aquí tiene que estar clavado:
- *
- *   trigger.type === 'HF_BELOW'      → lo que TriggerEvaluator sabe evaluar
- *   action.kind  === 'emRepay'       → la rama del tick que fija chain 1 y
- *                                      lee el HF del MERCADO
- *   params.mode  ∈ {partial, full}   → lo que la puerta de repago espera
- *
- * Y `templatesFor` tiene que ofrecerla SOLO en chain 1: las filas de Base
- * comparten el slug 'morpho-blue' y son watch-only — ofrecerles una protección
- * que jamás podrá firmar nada sería prometer una red inexistente.
  */
 import { describe, expect, it } from 'vitest';
 import { TEMPLATES } from '@/components/moneyflows/templateCatalog';

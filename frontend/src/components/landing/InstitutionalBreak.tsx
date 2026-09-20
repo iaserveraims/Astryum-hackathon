@@ -9,72 +9,6 @@
  * la página de luz crema, y sobre el crema hay una firma cursiva que se escribe
  * sola y una TARJETA DE EMBARQUE con su glifo de asteroide y su órbita de
  * transferencia.
- *
- * Fundador, 2026-09-19: «definitivamente el destello de estrella final no cuadra
- * con la explicación ni el tour del institucional, o lo quitas y ya o añades
- * algún artefacto curioso así bien trabajado también que lo sustituya».
- *
- * Tiene razón, y no es cuestión de gusto: la propia página ya había escrito la
- * regla y la incumplía en su clímax. `LandingPage.tsx` suprime el campo de
- * estrellas SOLO en este mundo —`{!institutional && <StarfieldCanvas/>}`— con
- * el comentario «CERO estrellas, no por ahorro, sino porque un campo de
- * estrellas es la firma del mundo del que este producto sale a propósito». Y
- * después de seis paradas de bronce, tinta y topografía, la página terminaba
- * con un astro, un asteroide y un billete de avión.
- *
- * ── LA IDEA, Y POR QUÉ ES ESTA ───────────────────────────────────────────
- * No llega nada. No estalla nada. Lo que se mueve es la SOMBRA, al irse.
- *
- * La página se ilumina porque la sombra del macizo que acabas de recorrer
- * termina de cruzar la mesa del taller donde se grabaron las seis láminas del
- * recorrido. Sobre la madera quedan la plancha de cobre y su prueba de estado,
- * con el margen todavía sin firmar.
- *
- * Tres razones para ESTA y no otra:
- *
- *   1. EXPLICA EL MATERIAL EN VEZ DE AÑADIR UN TEMA. Llevas seis paradas
- *      mirando algo IMPRESO: guilloché de seguridad, marcas de registro, escala
- *      de tintas, filetes de plancha. El cierre natural de un recorrido hecho
- *      de estampas no es un séptimo concepto: es ver la plancha de la que
- *      salieron. Es la única resolución que hace que lo anterior se entienda
- *      mejor HACIA ATRÁS.
- *
- *   2. LA LUZ YA ESTABA DECLARADA; esto es enseñar de dónde venía. `LIGHT`
- *      (art/craft.ts) es una sola dirección obedecida por el bisel del nombre,
- *      la cara iluminada del macizo, la cresta de nieve y la banda del agua.
- *      Durante todo el tour el dibujo lo ilumina una fuente que nunca se ve.
- *      Aquí la fuente resulta ser la mañana entrando de canto en un valle —el
- *      mismo del que habla la quinta parada— por fin con sitio.
- *
- *   3. NO HAY NINGÚN ASTRO DIBUJADO. Ni disco, ni corona, ni núcleo, ni cruz de
- *      difracción. Lo único que se pinta es una habitación: una sombra que se
- *      retira sobre madera y las sombras proyectadas de cuatro objetos, todas
- *      de acuerdo. La prueba de que hay una fuente es la MISMA que usa un
- *      dibujo técnico —que todas las sombras apuntan igual—, no un cuerpo en
- *      pantalla.
- *
- * ── Y POR QUÉ NO HAY FIRMA ───────────────────────────────────────────────
- * La firma cursiva de `SignatureBreak` es el objeto mejor ejecutado del sitio y
- * aquí NO está. La ausencia es el argumento: el margen de la prueba tiene su
- * línea de firma vacía y el lápiz al lado, sin tocar. En Personal la mano
- * firma; aquí no se escribe nada solo, porque esa línea no le toca a Astryum.
- * Un recorrido que acaba de decir «Astryum no firma» y dos pantallas después
- * enseña una firma de Astryum escribiéndose sola es, además, confuso.
- *
- * ── LO QUE NO SE TOCA ────────────────────────────────────────────────────
- * `SignatureBreak` queda INTACTO y la bifurcación va en el montaje. Personal y
- * Legacy no pueden cambiar porque no se les cambia una línea: es la misma
- * doctrina de journeyShell —carcasa compartida donde comparten, ficheros
- * propios donde no— y aquí protege dos mundos que el fundador ya dio por
- * buenos.
- *
- * Se conservan, verbatim y a propósito, las tres lecciones que esa sección pagó
- * caras: el muelle amortiguado (un golpe de rueda no puede producir un
- * flashbang), la rampa crema exacta (los tres mundos comparten UN día), y la
- * salida por simetría sobre el mismo dial. Y la frontera del campo iluminado
- * sigue sin ser un rectángulo: antes era la caída de un punto de luz, ahora es
- * la silueta de una cresta, que es el único borde que un ojo lee como sombra y
- * nunca como corte.
  */
 
 import { useRef, type ReactNode } from 'react';
@@ -128,27 +62,12 @@ const GRAIN: string[] = Array.from({ length: 9 }, (_, i) => {
  * bisel sea un bisel, el surco sea un surco y la verjura se vea — y es
  * literalmente lo que el fundador lleva pidiendo toda la semana: «las cosas no
  * me gusta que se vean pequeñas».
- *
- * La plancha va a la DERECHA y el pliego a la IZQUIERDA, y no al revés: con la
- * luz arriba-derecha la sombra cae abajo-izquierda, y la sombra de la plancha
- * tiene que caer SOBRE el pliego. Dos objetos que se tocan por su sombra son
- * una escena; dos objetos sueltos son dos dibujos.
  */
 /*
  * UN SOLO OBJETO. La primera versión ponía la plancha de cobre Y el pliego,
- * los dos sangrando por los cantos y solapados: el fundador, 2026-09-19, «no me
+ * los dos sangrando por los cantos y solapados: el fundador, «no me
  * queda muy claro lo que es el artefacto del final con lo que parece ser una
  * mesa, tiene que ser algo más sencillo y bien ejecutado».
- *
- * Tiene razón: dos rectángulos cortados por los cuatro lados, uno naranja y uno
- * crema, no dicen «una plancha y su estampa» — dicen «dos formas». La idea del
- * espejo (el cobre al revés, el papel del derecho) era buena sobre el papel y
- * cara de leer en pantalla, así que se cae.
- *
- * Queda EL PLIEGO: una estampa entera, centrada, con su huella de plancha, su
- * grabado y su margen sin firmar. Un objeto que se reconoce en medio segundo y
- * cuyo argumento —la línea vacía— está donde se mira. La plancha sigue
- * existiendo en la frase («Astryum graba»), que es donde no estorba.
  */
 const SHEET = { x: 250, y: 40, w: 940, h: 600 } as const;
 /** El hueco grabado, por dentro del bisel. */
@@ -299,29 +218,11 @@ export default function InstitutionalBreak({ lang, cta }: { lang: Lang; cta: Rea
   // LA MESA SE ENCIENDE DEPRISA Y SIN CEREMONIA.
   //
   // Antes esto era una sombra de terreno —la ladera del valle— cruzando la mesa
-  // durante media sección. Fundador, 2026-09-19: «la animación de ir iluminando
-  // la mesa no se entiende qué pinta allí y no me gusta». Tenía razón por una
+  // durante media sección. Tenía razón por una
   // razón que solo se ve a su resolución: en 2560×1080 la silueta ocupa media
   // pantalla y, sin habitación ni horizonte alrededor, no se lee como una
   // sombra — se lee como una mancha marrón diagonal sobre un fondo beige. Una
   // sombra necesita un sitio que la explique, y aquí no lo hay.
-  //
-  // La luz ahora solo hace su trabajo: pasar de noche a papel, deprisa y al
-  // principio, para que lo que se mire sea el objeto y no la transición.
-  // Y SE APAGA AL SALIR, que es la otra mitad y faltaba.
-  //
-  // Fundador, 2026-09-19, comparando con el Legacy: «no se cierran igual ambas
-  // pantallas, quiero que la del institucional cierre igual, que el marco de
-  // color se difumine abajo del todo». Cierto: el campo iba `absolute inset-0`
-  // dentro de la ventana pegada, así que al terminar la sección el crema
-  // terminaba en un CORTE horizontal duro contra el pie. El Legacy entrega su
-  // banda al pie con un degradado y esta la entregaba con un canto.
-  //
-  // La cura es temporal y no espacial: un degradado en el borde de abajo se
-  // vería SIEMPRE —la ventana pegada tiene ese borde en todos los fotogramas—
-  // y oscurecería el cierre de continuo. Lo que tiene que apagarse es el tramo
-  // entero, y justo al final. Es además la simetría que el beat solar ya tenía
-  // y que yo había perdido al reescribir esto.
   const lit = useTransform(eased, [0.06, 0.2, 0.86, 0.99], [0, 1, 1, 0], { clamp: true });
 
   // EL GESTO ES LA ESTAMPA IMPRIMIÉNDOSE, que es exactamente lo que dice el
@@ -345,12 +246,6 @@ export default function InstitutionalBreak({ lang, cta }: { lang: Lang; cta: Rea
    * y pasa a cero DE GOLPE en el borde. Un nueve por ciento de crema sobre
    * negro es una banda oliva, y una banda oliva que termina en canto es
    * exactamente el corte que el fundador ve.
-   *
-   * Esto es la mitad espacial: un degradado anclado al fondo de la ventana
-   * pegada que solo aparece al final del tramo. Mientras se lee vale cero y no
-   * oscurece nada; cuando el tramo se va, el borde inferior —que es justo el
-   * que cruza hacia el pie— ya llega negro. El Legacy entrega su banda al pie
-   * con un degradado; esta ahora también.
    */
   const dusk = useTransform(eased, [0.76, 0.93], [0, 1], { clamp: true });
 
@@ -370,9 +265,7 @@ export default function InstitutionalBreak({ lang, cta }: { lang: Lang; cta: Rea
     /*
      * LA SECCIÓN ES PEGAJOSA, y ese es el arreglo de fondo de este cierre.
      *
-     * Fundador, 2026-09-19: «el mensaje que dice Astryum engraves, the entity
-     * signs, no se ve, según bajas desaparece y aparece cuando ya estás muy
-     * abajo». Exacto, y era estructural: el titular y la mesa iban en el flujo
+     * Exacto, y era estructural: el titular y la mesa iban en el flujo
      * uno detrás del otro, así que sumaban más de mil quinientos píxeles y en
      * un visor de 1080 no cabían juntos NUNCA. Cuando la mesa se veía, la frase
      * ya había salido por arriba.

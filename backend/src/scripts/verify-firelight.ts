@@ -3,30 +3,6 @@
  * Verify-Firelight — on-chain verification of the stXRP withdrawal-queue
  * mechanics on Flare mainnet. B0-bis of the Institutional build: the pote B
  * cooldown is DERIVED from what this script reads, never assumed.
- *
- * Usage:
- *   FIRELIGHT_STXRP=0x... npm run verify:firelight
- *
- * What it does:
- *   1. Confirms a contract lives at FIRELIGHT_STXRP.
- *   2. Reads symbol/decimals/asset() and checks the asset is FXRP (6 dec);
- *      cross-checks FXRP_TOKEN env when present.
- *   3. Reads the queue: currentPeriod / currentPeriodEnd / nextPeriodEnd and
- *      derives the REAL period duration (measured 2026-08-20: 86400 s).
- *   4. Probes withdrawalsOf / isWithdrawClaimed so the ERC4626Queued venue
- *      kind is built against a verified ABI, not a believed one.
- *   5. Derives the exit window (a redeem queues into currentPeriod+1 and is
- *      claimable once that period ends ⇒ worst case 2 periods) and the
- *      recommended pote B cooldown (3 periods — one full period of slack).
- *   6. Writes `firelight.runtime.json` + prints suggested .env entries.
- *
- * Exit codes:
- *   0 = success, mechanics verified
- *   1 = FIRELIGHT_STXRP not set / not an address
- *   2 = address has no contract
- *   3 = ABI mismatch (a read failed)
- *   4 = mechanics inconsistent (period ≤ 0, asset not FXRP-shaped)
- *   99 = unexpected failure
  */
 
 import { writeFileSync } from 'fs';
@@ -34,8 +10,8 @@ import { join } from 'path';
 import { ethers } from 'ethers';
 
 // The withdrawal-period queue of FirelightVault. Same ABI the adapter carries
-// (`FirelightAdapter.ts` STXRP_CLAIM_ABI, verified against the impl source
-// 2026-08-01): withdrawalsOf returns ASSETS, not shares.
+// (`FirelightAdapter.ts` STXRP_CLAIM_ABI, verified against the impl source):
+// withdrawalsOf returns ASSETS, not shares.
 const STXRP_ABI = [
   'function symbol() view returns (string)',
   'function decimals() view returns (uint8)',

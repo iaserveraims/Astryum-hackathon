@@ -5,23 +5,6 @@
  * e1-prepare.ts covers step 1 (open E1: mint FXRP → supply → borrow USDT0,
  * unsigned). This script rehearses the rest of the lifecycle against LIVE
  * mainnet market data, without a live position and without signing anything:
- *
- *   STEP 2 — supply the borrowed USDT0 into the Kinetic ISO (approve + mint):
- *            unsigned calldata, printed.
- *   STEP 3 — price-drop protection: KineticIsoMath (the SAME module E1/A1 use)
- *            computes the A1 trigger price, shows HF falling through it under a
- *            simulated FXRP/USD drop, encodes the protective repayBorrow, and
- *            proves HF rises after the repay.
- *   STEP 4 — DERISK: withdraw USDT0 → repay debt → withdraw FXRP collateral,
- *            unsigned calldata, printed. Debt after = 0 → no liquidation risk.
- *
- * Everything on-chain is eth_call (FTSO price, CF, borrow liquidity, guardian
- * pauses). No signer exists in this process; nothing can be broadcast.
- * Invariant #1: Astryum prepares — only the user's wallet ever signs.
- *
- * Usage:
- *   FLARE_DEFI_ENABLED=true npx ts-node src/scripts/carry-dryrun.ts \
- *     --amount 5 --ratio 0.3 --target-hf 1.1 --drop 0.25
  */
 import dotenv from 'dotenv';
 import path from 'path';

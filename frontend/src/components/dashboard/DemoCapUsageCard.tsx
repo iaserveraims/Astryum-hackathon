@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * DemoCapUsageCard — the daily XRP allowance bar (founder 2026-07-25), sitting
+ * DemoCapUsageCard — the daily XRP allowance bar, sitting
  * NEXT TO OrbitStatusCard in the Summary header and matching its size/shape.
  *
  * Shows what the user's XRPL wallet has spent today against the open demo's

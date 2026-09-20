@@ -1,5 +1,5 @@
 /**
- * it. 31 (2) — «AND WAS SUBMITTED ANYWAY» SE ESCRIBÍA ANTES DEL SUBMIT.
+ * «AND WAS SUBMITTED ANYWAY» SE ESCRIBÍA ANTES DEL SUBMIT.
  *
  * `DemoExchangeAutopilot.fulfil` (rama payout) emitía el recibo NOTE y la alerta
  * crítica del `reserveSpend` fallido —«… and was submitted anyway»— ANTES de
@@ -7,11 +7,7 @@
  * tick lo declara `expired` y firma otro hash; y el libro de recibos (`/proof`,
  * documento de due diligence) queda afirmando un envío que no existió, fijo,
  * porque `noteCapUnread` deduplica por texto exacto. El párrafo que lo prohíbe
- * (it. 27) estaba cuarenta líneas más arriba.
- *
- * Esto ejerce la FASE que falló: `submitSignedBlob` lanza, con el libro de
- * gasto caído en la lectura Y en la escritura. Ningún recibo ni alerta puede
- * decir «submitted».
+ * estaba cuarenta líneas más arriba.
  */
 import type { DemoRun } from '../DemoExchangeStore';
 
@@ -118,7 +114,7 @@ beforeEach(() => {
   mockReserve.mockRejectedValue(new Error('P1001 database unreachable'));
 });
 
-describe('it. 31 (2): el recibo se escribe cuando el pago sale, no antes', () => {
+describe('El recibo se escribe cuando el pago sale, no antes', () => {
   it('submitSignedBlob LANZA → ningún recibo ni alerta dice «submitted»; la petición queda submitting con su hash y una frase honesta', async () => {
     mockSubmit.mockRejectedValue(new Error('connect ECONNREFUSED xrpl node'));
     const run = withdrawRun();
@@ -136,7 +132,7 @@ describe('it. 31 (2): el recibo se escribe cuando el pago sale, no antes', () =>
     for (const n of notes) expect(n).not.toMatch(/submitted anyway/);
     expect(notes.some((n) => /outcome is not read yet/.test(n))).toBe(true);
     for (const a of alerts) expect(a.message).not.toMatch(/submitted anyway/);
-    // …y la petición sigue el camino de la it. 27: firmada, persistida, el ledger decide.
+    // …y la petición sigue el camino de la: firmada, persistida, el ledger decide.
     const req = run.requests![0];
     expect(req.status).toBe('submitting');
     expect(req.txHash).toBe(HASH);

@@ -4,8 +4,8 @@
  * Centralized repository of all smart contract addresses for DeFi protocols
  * across different blockchain networks.
  *
- * ARCHIVED 2026-02-02: Non-Flare contract addresses archived during Flare-exclusive migration.
- * Full backup available in: _archived/2026-02-02-pre-flare-migration/config/contractAddresses.ts.full-backup
+ * ARCHIVED: Non-Flare contract addresses archived during Flare-exclusive migration.
+ * Full backup available in: _archived/-pre-flare-migration/config/contractAddresses.ts.full-backup
  *
  * IMPORTANT: These addresses MUST be verified before use in production!
  * All addresses marked with [USER_TO_PROVIDE] need to be filled in by the user.
@@ -17,7 +17,7 @@ import { CHAIN_IDS } from './chainConfigs';
 
 /**
  * Protocol identifier type
- * ARCHIVED 2026-02-02: Legacy protocols removed (strobe-finance, tapp-exchange, axelar, layerzero, etc.)
+ * ARCHIVED: Legacy protocols removed (strobe-finance, tapp-exchange, axelar, layerzero, etc.)
  */
 export type ProtocolId =
   | 'flare-finance'

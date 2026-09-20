@@ -1,5 +1,5 @@
 /**
- * productizer-it9 — a 0xFE handoff is marked SIGNED by the ledger, never by the
+ * A 0xFE handoff is marked SIGNED by the ledger, never by the
  * client's word, and only its owner (or a verified founder) may release it.
  *
  * What failed: `POST /handoff/signed` marked `signedAt` for whatever memo any
@@ -29,7 +29,7 @@ jest.mock('../../services/flare/DirectMintHandoffStore', () => ({
   findQueuedHandoffByMemo: (...a: unknown[]) => mockFind(...a),
   markHandoffSignedByMemo: (...a: unknown[]) => mockMark(...a),
   releaseQueuedHandoffByMemo: (...a: unknown[]) => mockRelease(...a),
-  // it19 §M1 1.3 — el veredicto del release lo da el store (y lee la ventana del
+  // El veredicto del release lo da el store (y lee la ventana del
   // memo si hace falta). Se finge con la regla real sobre la fila de `mockFind`,
   // con la ventana leída y vacía: en estas pruebas nada aterrizó en el ledger.
   releaseQueuedHandoffDetailed: async (memo: string, opts?: { reportBlocks?: boolean }) => {
@@ -174,7 +174,7 @@ describe('POST /handoff/signed — the ledger says it, not the client', () => {
     expect(mockMark).toHaveBeenCalledWith(MEMO, HASH.toUpperCase(), 'tesSUCCESS');
   });
 
-  // productizer-it15 §K1 (it14 §1.4) — un tec* entró en el ledger pero NO entregó
+  // §K1 — un tec* entró en el ledger pero NO entregó
   // XRP al Core Vault: FAssets exige `status == PAYMENT_SUCCESS` para el direct
   // minting, así que ese dispatch no puede ejecutar jamás. Marcarlo «firmado»
   // tapiaba el asiento para siempre; ahora lo LIBERA (api v2 shape).
@@ -273,7 +273,7 @@ describe('POST /handoff/release — only the owner (or a verified founder) frees
     expect(mockRelease).not.toHaveBeenCalled();
   });
 
-  // productizer-it23 §Q1 1.6 — …Y TAMPOCO ES CASTIGO. Hasta aquí, un fallo del
+  // …Y TAMPOCO ES CASTIGO. Hasta aquí, un fallo del
   // propio módulo de pruebas (no pudo ni cargarse, no pudo ni preguntar) salía
   // como 403 NO reintentable: a quien intentaba SOLTAR su asiento se le contaba
   // una avería nuestra como «no has probado esa cuenta», y liberar el asiento es
@@ -289,7 +289,7 @@ describe('POST /handoff/release — only the owner (or a verified founder) frees
     expect(mockRelease).not.toHaveBeenCalled();
   });
 
-  // productizer-it15 §K1 (contrato C3) — las dos razones por las que liberar
+  // §K1 (contrato C3) — las dos razones por las que liberar
   // sería el bug del gemelo salen con su código, no como un «false» mudo que
   // dejaba a la consola ofreciendo «Retry, freeing the seat» en bucle.
   it('an already SIGNED order is not released, and says why', async () => {
@@ -309,7 +309,7 @@ describe('POST /handoff/release — only the owner (or a verified founder) frees
     expect(mockRelease).not.toHaveBeenCalled();
   });
 
-  // it14 §1.3: un informe de un extraño no puede gatear al dueño.
+  // Un informe de un extraño no puede gatear al dueño.
   it('a stranger’s report does NOT stop the proven owner from releasing', async () => {
     mockProven.mockResolvedValue([OWNER]);
     mockFind.mockResolvedValue(row({ preparedByUserId: 'stranger', reportedTxHash: HASH.toUpperCase(), reportedByProven: false }));

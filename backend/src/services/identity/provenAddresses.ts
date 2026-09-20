@@ -6,24 +6,6 @@
  *      (SIWE / Xaman SignIn), so `req.siwe.walletAddress` is proof;
  *   2. active `WalletBinding` rows with a non-empty `signatureProof` — the user
  *      signed a binding challenge for that address.
- *
- * What is deliberately NOT here: the plain `wallet` table. `POST
- * /api/wallets/connect` writes any address without a signature, so a row there
- * says "this user typed this address", never "this user controls it". A
- * permission that only a key-holder should get must not be granted off it.
- *
- * Comparison: EVM addresses are case-insensitive (checksum casing is cosmetic);
- * XRPL classic addresses (and every other base58 form) are compared exactly —
- * their case IS the address.
- *
- * «NO PUDE LEER» IS NEITHER PERMISSION NOR PUNISHMENT (productizer it. 18, 3.1).
- * A transient read failure used to come out of here as a plain empty list, which
- * downstream reads as «this session proved nothing» — and that closed EXITS: the
- * user could not free or displace THEIR OWN 0xFE seat, nor sign `pote-exit` /
- * `pa-unmint`. The list now travels with a verdict about the store itself
- * (`provenAddressesDetailed`), and `proveAddress` turns that verdict into the
- * answer each kind of route must give: an ENTRY stays fail-closed, an EXIT is
- * answered 503 «try again» — never a silent no.
  */
 
 import { readTakeoverFloorStrict } from './credentialsEpoch';
@@ -56,7 +38,7 @@ export function isEvmAddress(a: string): boolean {
  * the rest of the schema stores them). EVERY OTHER FORM IS LEFT ALONE: an XRPL
  * classic address is base58 and its case IS the address, so lowercasing it does
  * not normalise it — it destroys it, and the destroyed string can never match a
- * real r-address again (productizer it. 18, 3.1: `issueSessionForUser` did this,
+ * real r-address again (3.1: `issueSessionForUser` did this,
  * which is why «the wallet you signed in with always survives» was false for
  * every session it minted).
  */
@@ -83,51 +65,24 @@ export function includesAddress(list: readonly string[], address: string | null 
  * Without a database only the session address is known. A failed read is NOT
  * widened into anything: it degrades to the session address alone.
  *
- * @deprecated ⚠ AMBIGUOUS BY CONSTRUCTION, AND DEPRECATED (productizer it. 20,
+ * @deprecated ⚠ AMBIGUOUS BY CONSTRUCTION, AND DEPRECATED (
  * 2.1/2.2). An empty (or short) list here cannot be told apart from «I could not
  * read the store», and a caller that treats the two the same closes an exit on a
- * transient failure (it. 18, 3.1). Ask the VERDICT instead:
+ * transient failure (3.1). Ask the VERDICT instead:
  *   · one address  → `proveAddress(userId, sessionAddr, address, purpose)`
  *   · a membership → `proveMembership(userId, sessionAddr, members, purpose)`
  * Kept EXPORTED AND INERT (invariant: nothing built is deleted) for the callers
  * that still read it, all of which only ever WIDEN on proof and fail closed:
  *   · `routes/councilProposals.ts` → `ownedSignerAddresses` — THE ONE THAT MUST
- *     MIGRATE (it. 20, 2.1: with the database down it answers 403 «none of your
+ *     MIGRATE (2.1: with the database down it answers 403 «none of your
  *     addresses is in this list», which is a lie, over the only bytes a
- *     cosignatory can sign). Agent C's contract is `proveMembership` below;
+ *     cosignatory can sign).
  *   · `routes/xamanPushTokens.ts` → `mayPushTo` (deciding whether to PUSH a
  *     payload: refusing costs nobody a right, so fail-closed is the whole answer);
  *   · `services/flare/ComposedCouncilOrderStore.ts` → the SignerList fallback,
  *     which already throws its own read failure out to a `fallback(...)` verdict.
  * No new caller. A route that takes a right away must ask something that can say
  * «I could not read» out loud.
- *
- * THE TAKEOVER FLOOR IS READ STRICTLY (productizer it. 16, 4.3). This list
- * decides who displaces a 0xFE seat and who controls a council, so a `security`
- * block we cannot parse must never come out as «there was no takeover» — that is
- * «could not read» granting permission, exactly what the cage acknowledgement
- * and the legal click-wrap already refuse (readTakeoverAtStrict).
- *
- * What we do when the mark is unreadable (or the user row is missing): drop
- * EVERY binding and return the session address alone. Two reasons for not
- * refusing the caller outright:
- *   · the session address is not dated by the takeover — it is the signature of
- *     THIS login, and a takeover kills every earlier session, so whoever holds a
- *     live session signed for that address after the handover;
- *   · an exit is never gated (invariant: «la salida jamás se gatea»). A corrupt
- *     preferences blob must cost the user their extra bindings, never their own
- *     way out with the wallet they are signed in with.
- *
- * THAT SECOND REASON IS ONLY TRUE IF THE CLAIM SURVIVED THE MINTING (it. 18).
- * A Xaman login writes `addr: xrplAddress` untouched (SiweAuth `signInWithXaman`)
- * and does survive; `issueSessionForUser` used to lowercase every address, so an
- * r-address minted through it could never match one again. That is fixed at the
- * source (`sessionAddressClaim`) — the mitigation above only holds because of it,
- * and it must not be un-fixed.
- *
- * A caller that needs more than "could not read = no bindings" must use
- * `provenAddressesDetailed` (which says whether the store was readable, and why
- * not) or `proveAddress` (which turns that into the answer a route owes).
  */
 export async function provenAddressesOf(
   userId: string | null | undefined,
@@ -143,20 +98,11 @@ export type ProofStoreFailure =
   /** `preferences.security` did not parse: the takeover floor is unknown. */
   | 'unreadable-floor'
   /**
-   * The mark PARSED and sits ahead of this server's clock (productizer it. 29,
+   * The mark PARSED and sits ahead of this server's clock (
    * 1.1). Named apart from `unreadable-floor` because it is not the same fact
    * and does not get the same answer: the row is legible, and the wall clock
    * passing the mark makes it usable again with nothing written — so this one
    * is the only unusable floor that a retry can honestly clear.
-   *
-   * WHY IT IS NOT JUST `unreadable-floor`. Before it. 29 a future mark was not
-   * a failure at all: `readTakeoverAtStrict` said «readable», `floorReadable`
-   * was set to true — a FALSE statement, the floor was read and is unusable —
-   * and the `linked < takeoverAt` filter below then dropped every binding,
-   * always. The exit of an email/Google user (whose only proof IS a binding)
-   * came out as 403 `ADDRESS_NOT_PROVEN` with two remedies that cannot work:
-   * signing in with a wallet they do not have, and re-linking, which stamps
-   * `linkedAt = now` — still below the mark. A closed exit and an infinite loop.
    */
   | 'floor-ahead-of-clock'
   /** The query itself threw (database down, pool exhausted, timeout). */
@@ -193,7 +139,7 @@ export async function provenAddressesDetailed(
   // No user / no database is not a failed read: there is nothing to read. The
   // session address is all there ever was, and saying so is the truth.
   //
-  // THE DEV BYPASS BELONGS IN THAT SAME SENTENCE (productizer it. 23, 2.5).
+  // THE DEV BYPASS BELONGS IN THAT SAME SENTENCE (2.5).
   // `requireSiweAuth` under ALLOW_NO_AUTH=1 invents the user `dev-user`, for
   // which no `User` row exists or ever will. Read literally that is «no user
   // row» → the NON-RETRYABLE 409 `ACCOUNT_RECORD_MISSING`, sitting on top of
@@ -216,21 +162,8 @@ export async function provenAddressesDetailed(
     ]);
     // Account taken over from an unverified password holder: what was bound
     // before the handover was signed by THEM. A fresh re-bind re-dates linkedAt.
-    // STRICT (it. 16, 4.3): no user row, or a `security` block that does not
+    // STRICT (4.3): no user row, or a `security` block that does not
     // parse, is «I could not read the floor» — never «there is no floor».
-    //
-    // AND «ABSENT» IS CONFIRMED BEFORE IT IS BELIEVED (it. 23, 2.5). Since it. 21
-    // this answer is a 409 with `retryable: false`, so a FALSE absence is worse
-    // than the 503 it replaced: it tells a person with a live session that their
-    // account is gone and that waiting will not help. A single `findUnique` can
-    // come back empty for reasons that are not «deleted» — a lagging read
-    // replica, a row created inside a transaction that has not committed yet.
-    // So we ask a SECOND time, in its own statement (READ COMMITTED takes a fresh
-    // snapshot per statement, and a replica gets another chance to catch up). If
-    // the row is there the second time, we use it and nothing is refused; if that
-    // second read THROWS, it falls into the catch below and comes out as
-    // 'read-failed' — the retryable 503 — because an absence we could not confirm
-    // is weather, not a fact.
     let user = firstRead;
     if (!user) {
       user = await prisma.user.findUnique({ where: { id: userId }, select: { preferences: true } });
@@ -248,7 +181,7 @@ export async function provenAddressesDetailed(
       );
       return { addresses: out, floorReadable: false, failure: 'no-user-row' };
     }
-    // STRICT ON BOTH HALVES OF THE QUESTION (it. 29, 1.1). Legibility was never
+    // STRICT ON BOTH HALVES OF THE QUESTION (1.1). Legibility was never
     // the whole of it: what happens below is `linkedAt >= takeoverAt`, and a
     // mark in the FUTURE loses that comparison for every binding that can ever
     // be written. `readTakeoverFloorStrict` asks both questions at once and is
@@ -283,29 +216,15 @@ export async function provenAddressesDetailed(
 
 // ── proveAddress — the verdict a ROUTE owes, not just the list ───────────────
 //
-// productizer it. 18, 3.1. Two kinds of route ask «did this session prove this
+// 3.1. Two kinds of route ask «did this session prove this
 // address?», and they must answer an unreadable store differently:
-//
-//   ENTRY / authority — composing a new 0xFE, taking a seat, writing a binding,
-//     acting on a council. Refusing costs the user nothing they already had, so
-//     «I could not read» stays FAIL-CLOSED: no, and it stays no.
-//
-//   EXIT — freeing or displacing THEIR OWN seat, `pote-exit`, `pa-unmint`, any
-//     path whose whole purpose is getting capital back out. Refusing here TAKES
-//     A RIGHT AWAY, and a transient database failure must never be the thing
-//     that takes it. So the answer is never a silent no: either the session's
-//     own login address already proves it (that claim needs no store at all),
-//     or the route answers 503 «try again» and the user keeps the right.
-//
-// The invariant in one line: «no pude leer» jamás es permiso NI castigo sobre
-// una salida.
 
 export type ProofPurpose = 'entry' | 'exit';
 
 /**
  * The refusal envelope a route sends verbatim. `status` is already chosen.
  *
- * WHICH ANSWER GOES WITH WHICH CAUSE (productizer it. 20, 2.4). «No pude leer»
+ * WHICH ANSWER GOES WITH WHICH CAUSE (2.4). «No pude leer»
  * is not ONE thing, and only one of its causes heals by waiting:
  *   · 403 `ADDRESS_NOT_PROVEN` — the store was read and does not hold that
  *     address (or an ENTRY asked while the query was failing: fail-closed).
@@ -313,7 +232,7 @@ export type ProofPurpose = 'entry' | 'exit';
  *     pool exhausted, timeout). Transient: `retryable` is true and the sentence
  *     may honestly say «try again in a moment».
  *   · 503 `PROOF_FLOOR_AHEAD_OF_CLOCK` — the takeover mark PARSED and is dated
- *     ahead of this server's clock, so it cannot be used as a floor (it. 29).
+ *     ahead of this server's clock, so it cannot be used as a floor.
  *     Retryable, because the clock moves and nothing has to be written for it to
  *     become usable — but it never offers re-linking, which for this row is the
  *     one remedy that provably cannot work.
@@ -326,9 +245,6 @@ export type ProofPurpose = 'entry' | 'exit';
  *     wallet — a signed-in wallet proves itself and needs no stored record) or by
  *     an admin (restore the user row / repair `preferences.security`). 409, not
  *     403: the request is fine, the stored account record conflicts with it.
- *
- * `retryable` is the field a caller should branch on, NOT `status`: it is true
- * for exactly one code and it is what tells a screen whether to offer a retry.
  */
 export interface ProofRefusal {
   status: 403 | 409 | 503;
@@ -347,7 +263,7 @@ export interface ProofRefusal {
   retryable: boolean;
   /**
    * A SHORT line a card or banner can use as its heading — never the code
-   * (productizer it. 22, 2.5 / 3.7: a screen that has no reader for a code falls
+   * (2.5 / 3.7: a screen that has no reader for a code falls
    * back to «The server refused this operation», and one that improvises prints
    * the raw code at the user).
    *
@@ -377,7 +293,7 @@ export function isDeterministicProofFailure(failure: ProofStoreFailure | null): 
 }
 
 /**
- * `'floor-ahead-of-clock'` is deliberately NOT in the list above (it. 29). It is
+ * `'floor-ahead-of-clock'` is deliberately NOT in the list above. It is
  * a property of the stored row, like the other two — but unlike them it stops
  * being true on its own, at a known instant: when the wall clock passes the
  * mark. Saying «try again» about it is therefore not a promise we cannot keep,
@@ -424,7 +340,7 @@ const PROOF_FLOOR_UNREADABLE_DETAIL =
   'repair the security record.';
 
 /**
- * THE MARK IS LEGIBLE, DATED IN THE FUTURE, AND THEREFORE NOT A FLOOR (it. 29).
+ * THE MARK IS LEGIBLE, DATED IN THE FUTURE, AND THEREFORE NOT A FLOOR.
  *
  * Every true thing this person can act on, and nothing else. It does NOT say
  * «this cannot be read» (it was read), it does NOT say «waiting will not help»
@@ -441,7 +357,7 @@ const FLOOR_AHEAD_OF_CLOCK_DETAIL =
   'record; or write to us, and an administrator can check that date.';
 
 /**
- * THE FIVE REFUSALS, BUILT IN ONE PLACE (productizer it. 22, 2.5; it. 29).
+ * THE FIVE REFUSALS, BUILT IN ONE PLACE (2.5).
  *
  * The 409s reached screens that had no reader for them and degraded to «The
  * server refused this operation», throwing away the only prose that named a way
@@ -529,28 +445,11 @@ export function proofRefusal(error: ProofRefusal['error']): ProofRefusal {
 /**
  * The answer a route owes when the proof store could not be read, by CAUSE and
  * by purpose. Total and pure, so a caller cannot forget a case.
- *
- * WHY THE DETERMINISTIC CAUSES ANSWER THE SAME ON BOTH PATHS: 409 with
- * `retryable: false` grants nothing (an ENTRY stays exactly as fail-closed as it
- * was) and takes nothing away that the truthful 403 would not have taken — it
- * only stops the sentence from promising a retry that can never work, and names
- * the one door still open to the person (sign in with that wallet) and the one an
- * admin can open (restore the row / repair the block).
- *
- * WHAT WE DELIBERATELY DO NOT DO: repair, or ignore, an unparseable `security`
- * block. Both would RESURRECT A PRE-TAKEOVER BINDING — «ignore it» reads the
- * floor as «there was no takeover» and lets every binding through, and «repair
- * it» has to invent a `takeoverAt`, which in practice means writing none at all:
- * the same resurrection with a commit behind it. So the bindings are dropped and
- * NOTHING IS WRITTEN (`provenAddressesDetailed` only reads). The session's own
- * login address still survives, because a takeover kills every earlier session:
- * whoever holds a live session signed for that address after the handover. The
- * corrupt row stays corrupt, and loudly logged, until an admin repairs it.
  */
 export function refusalForUnreadableStore(failure: ProofStoreFailure | null, purpose: ProofPurpose): ProofRefusal {
   if (failure === 'no-user-row') return proofRefusal('ACCOUNT_RECORD_MISSING');
   if (failure === 'unreadable-floor') return proofRefusal('PROOF_FLOOR_UNREADABLE');
-  // A MARK DATED AHEAD OF OUR CLOCK ANSWERS THE SAME ON BOTH PATHS (it. 29), and
+  // A MARK DATED AHEAD OF OUR CLOCK ANSWERS THE SAME ON BOTH PATHS, and
   // for the same reason the deterministic causes do: it is a refusal either way,
   // so an ENTRY stays exactly as fail-closed as it was, and the only thing that
   // changes is that the sentence stops being false. What it must never be is the
@@ -616,7 +515,7 @@ export async function proveAddress(
     };
   }
 
-  // The store could not be read. WHICH failure decides the sentence (it. 20, 2.4):
+  // The store could not be read. WHICH failure decides the sentence (2.4):
   // weather on an exit is a real 503 «try again»; a user row that is gone, or a
   // `security` block that does not parse, is a deterministic 409 that says so
   // instead of promising a retry that will never work.
@@ -643,7 +542,7 @@ export async function proveAddress(
 
 // ── The two shapes the other modules of this iteration ask for ───────────────
 //
-// productizer it. 20, 2.2 — MAKE THE AMBIGUOUS QUESTION UNASKABLE BY ACCIDENT.
+// 2.2 — MAKE THE AMBIGUOUS QUESTION UNASKABLE BY ACCIDENT.
 // Both of these are built on `proveAddress`/`provenAddressesDetailed`, so the
 // takeover floor, the «only signatures count» rule and the 403/409/503
 // classification are read in ONE place and cannot drift per caller.
@@ -682,25 +581,8 @@ export interface MembershipProofVerdict {
 }
 
 /**
- * CONTRACT FOR THE COUNCIL READ (agent C, finding 2.1) — which of `members` does
+ * CONTRACT FOR THE COUNCIL READ — which of `members` does
  * this session hold, and what is owed if we could not find out?
- *
- * `ownedSignerAddresses(userId, members, sessionWalletAddress)` becomes:
- *
- *     const v = await proveMembership(userId, sessionWalletAddress, members, 'exit');
- *     if (v.refusal) return res.status(v.refusal.status).json(v.refusal);
- *     const owned = new Set(v.owned);
- *
- * `purpose` decides only what an unreadable store means, exactly as in
- * `proveAddress`: `'exit'` for anything that serves the bytes a cosignatory signs
- * or that lets capital out (a failed read there must never read as «you are not a
- * member»); `'entry'` for composing, filing, anchoring — refusing those costs
- * nobody a right. A deterministic failure answers 409 on both, because retrying
- * it is not a plan. Never throws.
- *
- * Note the ONE asymmetry, and it is deliberate: the session's own login address
- * proves itself without reading anything, so a cosignatory signed in WITH a
- * council key still gets their bytes while the database is down.
  */
 export async function proveMembership(
   userId: string | null | undefined,
@@ -734,7 +616,7 @@ export interface SeatProofClaim {
    * TRUE WHEN WE NEVER GOT AN ANSWER. A row carrying this was NOT judged «not
    * proven» — we failed to ask. Nothing may be displaced, superseded or freed on
    * the strength of `preparedByProven === false` while this is true: that is
-   * exactly how a database blink turned into somebody else's seat (it. 20, 1.4).
+   * exactly how a database blink turned into somebody else's seat (1.4).
    */
   preparedByProofUnreadable: boolean;
   /** A supersede is authority over someone else's live draft: proof or nothing. */
@@ -744,23 +626,8 @@ export interface SeatProofClaim {
 }
 
 /**
- * CONTRACT FOR THE SEAT PATHS (agent A, findings 1.1 / 2.2) — pure, so it can be
+ * CONTRACT FOR THE SEAT PATHS — pure, so it can be
  * unit-tested without a request.
- *
- *     const verdict = await proveAddress(userId, sessionAddr, xrplAddress, purpose);
- *     const claim = seatProofFromVerdict(verdict, { supersede: wantsSupersede(req) });
- *     if (claim.refusal && claim.refusal.retryable) return res.status(503).json(claim.refusal);
- *
- * THE POINT: `preparedByProven: false` used to carry two different states — «this
- * session does not hold that account» and «we could not read whether it does» —
- * and the second one marks the row as displaceable by any request wearing an exit
- * label. They are two fields here, and the seat rules must read
- * `preparedByProofUnreadable` before they touch anyone's live draft.
- *
- * `supersede` is never granted on an unread store: displacing a stranger's
- * signable payload is authority, and «no pude leer» is not authority (it is not
- * punishment either — which is why the refusal still carries a real 503 on an
- * exit rather than a silent no).
  */
 export function seatProofFromVerdict(
   verdict: { proven: boolean; storeReadable: boolean; refusal: ProofRefusal | null },

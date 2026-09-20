@@ -1,7 +1,7 @@
 /**
  * seatRefusal — WHAT THE SERVER MEANT WHEN IT SAID «THE SEAT IS TAKEN».
  *
- * productizer it.14 (R5 1.6). A 0xFE instruction takes the nonce seat of its
+ * . A 0xFE instruction takes the nonce seat of its
  * Personal Account, and a prepare that finds the seat occupied is refused. Until
  * now every one of those refusals arrived as the same code (`NONCE_SEAT_TAKEN`)
  * and OperatorConsole answered all of them with ONE button: «Retry, freeing the
@@ -10,33 +10,6 @@
  * `InvalidNonce` with its carrier — and over a draft of another member (or one
  * older than the deploy) it simply loops, because the server will refuse the
  * displacement every time.
- *
- * The seat now answers with WHY, and this module is the one reader of it:
- *
- *   NONCE_SEAT_TAKEN           → a draft nobody signed. `retryable: true` means
- *                                THIS session may displace it (it prepared it,
- *                                or it proved the account). Without that, its
- *                                signing window is still open and the only
- *                                honest thing is to wait it out (`secondsLeft`).
- *   NONCE_SEAT_TAKEN_SIGNED    → already signed: wait for it to execute.
- *   NONCE_SEAT_TAKEN_REPORTED  → a signature for it was reported and the ledger
- *                                has not validated it yet: wait, or check it.
- *   NONCE_SEAT_UNREADABLE      → the ledger could not be read. «I could not
- *                                read» is not «it is free»: try again shortly.
- *   OPERATIONAL_ACCOUNT_HANDOFF_REFUSED → not a seat verdict at all: this
- *                                account is an Astryum operational account.
- *
- * OLDER BACKEND. Before the split, the route always answered `NONCE_SEAT_TAKEN`
- * and the reason travelled at the head of `detail` (`NONCE_SEAT_TAKEN_SIGNED:
- * el PA …`). That prefix is read too, so a deploy where the routes have not
- * caught up still says the right thing instead of offering the retry.
- *
- * Prepare-only: nothing here signs or cancels anything — it says what the
- * server's refusal means and, when the server named the 0xFE that holds the seat
- * (`memoHex`, sent only to the preparer or to a session that proves the
- * account), it offers the person their own release through
- * `lib/wallet/handoffRelease`. Releasing an UNSIGNED draft of your own is not a
- * signature and moves nothing.
  */
 import { releaseHandoffSeatResult, type HandoffPostResult } from '../wallet/handoffRelease';
 import { namesWalletSignIn, reserveRefusalWays } from '../errors/serverRefusal';
@@ -47,11 +20,11 @@ export type SeatRefusalKind =
   /** An unsigned draft this session may NOT displace: its window is still open. */
   | 'taken-window-open'
   /**
-   * it. 19 (R5 R4) — THE 409 THE SCREEN USED TO PRINT AS A CODE.
+   * THE 409 THE SCREEN USED TO PRINT AS A CODE.
    *
    * `/handoff/release` answers `WAIT_FOR_PAYLOAD_EXPIRY` when the payload holding
    * the seat CAN STILL BE SIGNED: displacing it now is precisely what creates the
-   * twin (it. 17, R1 1.1), so the honest answer is a wait with its seconds. It
+   * twin (R1 1.1), so the honest answer is a wait with its seconds. It
    * was not in `SEAT_CODES`, so `describeSeatRefusal` returned null over it and
    * the surfaces fell through to printing the slug.
    *
@@ -71,7 +44,7 @@ export type SeatRefusalKind =
 export interface SeatRefusalLike {
   error?: string | null;
   /**
-   * it.16 (R5 5.4): some routes name the code `code` instead of `error`. Read
+   * Some routes name the code `code` instead of `error`. Read
    * both, or the same refusal is prose on one screen and a raw token on another.
    */
   code?: string | null;
@@ -81,7 +54,7 @@ export interface SeatRefusalLike {
   /** How long the draft's signing window still has, when the server said so. */
   secondsLeft?: number | null;
   /**
-   * it.16 (R5 5.4): the memo of the 0xFE that HOLDS the seat — sent ONLY to the
+   * The memo of the 0xFE that HOLDS the seat — sent ONLY to the
    * session that prepared it or that proves the account, because it names a
    * payment. With it the person can free their own seat instead of waiting out
    * a window they own.
@@ -123,7 +96,7 @@ const SEAT_CODES: Record<string, SeatRefusalKind | 'taken'> = {
   NONCE_SEAT_TAKEN_REPORTED: 'reported',
   NONCE_SEAT_UNREADABLE: 'unreadable',
   OPERATIONAL_ACCOUNT_HANDOFF_REFUSED: 'operational-account',
-  // it. 19 (R5 R4): the release's own 409. Same vocabulary as the prepare's
+  // The release's own 409. Same vocabulary as the prepare's
   // refusals, so a surface that shows one shows the other.
   WAIT_FOR_PAYLOAD_EXPIRY: 'wait-payload-expiry',
 };
@@ -241,7 +214,7 @@ export function describeSeatRefusal(
 }
 
 /**
- * it.16 (R5 5.4) — «FREE THE SEAT», WIRED.
+ * «FREE THE SEAT», WIRED.
  *
  * The seat of a 0xFE is released by its MEMO, and until now the memo never
  * reached the screen, so five surfaces could only print the refusal and tell the
@@ -257,7 +230,7 @@ export async function freeSeatOfRefusal(r: SeatRefusalLike | null | undefined): 
 }
 
 /**
- * it. 19 (R5 R4 / R3 N2) — WHAT THE RELEASE ACTUALLY ANSWERED.
+ * WHAT THE RELEASE ACTUALLY ANSWERED.
  *
  * `freeSeatOfRefusal` returned `res.kind === 'ok'`, and the route answers **200
  * `{released:false}`** in three cases where nothing was freed: no queued row
@@ -268,10 +241,6 @@ export async function freeSeatOfRefusal(r: SeatRefusalLike | null | undefined): 
  * `{released:false}` read as «it can still be signed», which is the 409's
  * sentence, not this one. A payment that is already signed is not waiting for
  * anybody.
- *
- * So the four answers are separated, each with the only sentence that is true of
- * it. The server's `detail` is Spanish and is never rendered (`serverDetailIfEnglish`
- * guards the exceptions); the caller translates these keys.
  */
 export type SeatReleaseOutcome =
   /** The draft was superseded: the seat is free right now. */
@@ -285,21 +254,19 @@ export type SeatReleaseOutcome =
   /** 409 `WAIT_FOR_PAYLOAD_EXPIRY`: it can still be signed. The seconds, when sent. */
   | { kind: 'wait'; secondsLeft?: number }
   /**
-   * it. 21 (it. 20 §1.2, contract with agent A) — «I COULD NOT READ» IS NOT
+   * «I COULD NOT READ» IS NOT
    * «NOTHING WAS FREED».
    *
    * The route used to swallow a database failure into 200 `{released:false}`,
    * which this module read as `nothing-to-free` — «no unsigned order of yours is
    * holding that seat any more» — and the screen then offered to prepare
-   * another one, blind, over a seat that may still be held. Agent A answers
-   * **503** for that case, and it lands here as its own outcome: a wait with a
-   * retry, never a verdict about the seat.
+   * another one, blind, over a seat that may still be held.
    */
   | {
       kind: 'unreadable';
       retryAfterSeconds?: number;
       /**
-       * it. 34 (agent D) — WHICH read failed. `/handoff/release` forwards the
+       * WHICH read failed. `/handoff/release` forwards the
        * proof store's 503s with their code and nothing else (`handoffOwnerRefusal`
        * drops `headline`/`ways`), and this outcome flattened every one of them
        * into «we could not read the state of that seat … try again in a
@@ -338,7 +305,7 @@ export function readSeatRelease(res: HandoffPostResult): SeatReleaseOutcome {
   if (res.status === 409 || res.code === 'WAIT_FOR_PAYLOAD_EXPIRY' || res.error === 'WAIT_FOR_PAYLOAD_EXPIRY') {
     return { kind: 'wait', ...(res.secondsLeft !== undefined ? { secondsLeft: res.secondsLeft } : {}) };
   }
-  // it. 21 (contract with agent A): 503 = the seat state could not be read. It
+  // 503 = the seat state could not be read. It
   // is neither «freed» nor «there was nothing there»: it is «ask me again».
   if (res.status === 503 || isUnreadableCode(res.code) || isUnreadableCode(res.error)) {
     const after = retryAfterSecondsOf(res.body);
@@ -358,7 +325,7 @@ export function readSeatRelease(res: HandoffPostResult): SeatReleaseOutcome {
 export function seatReleaseSentence(o: SeatReleaseOutcome, t: (s: string) => string): string | null {
   switch (o.kind) {
     case 'freed':
-      // it. 21 (it. 20 §3.9) — «you can prepare this one now» PROMISED A RACE.
+      // «you can prepare this one now» PROMISED A RACE.
       // Freeing a seat does not reserve it: the very next prepare of this
       // account — another tab, another member, our own autopilot — may take it
       // first, and the person read a promise the server never made. The seat is
@@ -373,7 +340,7 @@ export function seatReleaseSentence(o: SeatReleaseOutcome, t: (s: string) => str
         ? `${t('Not yet: the payment holding the seat can still be signed. The seat frees itself when that signing window passes')} (≈${o.secondsLeft} s).`
         : t('Not yet: the payment holding the seat can still be signed. The seat frees itself when that signing window passes.');
     case 'unreadable':
-      // it. 34 (agent D): the proof store's «dated in the future» refusal is
+      // The proof store's «dated in the future» refusal is
       // NOT «we could not read the seat». Its own sentence, its own three ways,
       // and never «in a moment» over a date that may be 2099.
       if (o.code === 'PROOF_FLOOR_AHEAD_OF_CLOCK') {
@@ -394,10 +361,10 @@ export function seatReleaseRetryable(o: SeatReleaseOutcome): boolean {
   return o.kind === 'unreadable';
 }
 
-/* ── it. 34 (agent D) — THE `seat` FIELD OF A WITHDRAWN PROPOSAL ──────────── */
+/* ── THE `seat` FIELD OF A WITHDRAWN PROPOSAL ──────────── */
 
 /**
- * `POST /council/proposals/:id/withdraw` answers, since it. 29 (§2), with a
+ * `POST /council/proposals/:id/withdraw` answers, with a
  * `seat` field in the SAME grammar as the ceremony's release
  * (`seatReleaseAnswer`, backend/src/services/flare/DirectMintHandoffStore.ts):
  * whether the 0xFE nonce seat of the proposal's bytes was handed back and, when
@@ -406,11 +373,6 @@ export function seatReleaseRetryable(o: SeatReleaseOutcome): boolean {
  * `ProposalInbox.withdraw` ignored the whole field: the proposer filed the
  * proposal, saw the list reload, and met `NONCE_SEAT_TAKEN` on the next exit
  * with no idea the withdraw had told them so.
- *
- * Pure, and it decides nothing about the withdraw itself — the proposal IS
- * withdrawn whatever the seat says; this only reads what happened to the seat.
- * `null` ⇒ nothing to say: not a 0xFE (no field), or a row this door does not
- * judge and that carries nothing the person can act on.
  */
 export interface WithdrawnSeatView {
   kind: 'freed' | 'held' | 'unreadable';
@@ -427,7 +389,7 @@ export function describeWithdrawnSeat(
   if (!seat || typeof seat !== 'object') return null;
   const s = seat as Record<string, unknown>;
   if (s.released === true) {
-    // Freed, and NOT reserved (it. 21 §3.9): the next prepare of this account
+    // Freed, and NOT reserved: the next prepare of this account
     // decides who gets it.
     return {
       kind: 'freed',
@@ -463,12 +425,12 @@ export function describeWithdrawnSeat(
   };
 }
 
-/* ── it. 21 (it. 20 §3.3) — WHEN A CANCELLED PAYLOAD LETS GO OF ITS SEAT ──── */
+/* ── WHEN A CANCELLED PAYLOAD LETS GO OF ITS SEAT ──── */
 
 /**
  * Rejecting in Xaman, or letting the request expire, leaves the 0xFE's nonce
  * seat held until its signing window passes — and NOTHING said so, so the next
- * prepare walked into a bare `NONCE_SEAT_TAKEN` (it. 20 §3.3). This is the
+ * prepare walked into a bare `NONCE_SEAT_TAKEN`. This is the
  * sentence for that moment, built from whatever the release actually answered:
  *   · freed     → the seat is free (and not reserved: see above);
  *   · wait      → the server's own `secondsLeft` — never a client-side guess;
@@ -491,33 +453,33 @@ export function seatFreesItselfSentence(
   return seatReleaseSentence(o, t);
 }
 
-/* ── it. 21 (it. 20 §3.5, §2.7) — THE 503s AND THE 409 NOBODY WAS READING ─── */
+/* ── THE 503s AND THE 409 NOBODY WAS READING ─── */
 
 /** The refusal codes that mean «a read of OURS failed» — a wait, never a verdict. */
 const UNREADABLE_CODES: ReadonlySet<string> = new Set([
   'ACCOUNT_BUSY',
   'PROOF_STORE_UNREADABLE',
-  // it. 29: the takeover mark parsed but is dated ahead of the server's clock —
+  // The takeover mark parsed but is dated ahead of the server's clock —
   // not a verdict, a wait (the clock moves and nothing has to be written).
   'PROOF_FLOOR_AHEAD_OF_CLOCK',
   'SEAT_STATE_UNREADABLE',
   'SEAT_GUARD_UNREADABLE',
   'DUPLICATE_CHECK_UNREADABLE',
   'HANDOFF_SEAT_UNREADABLE',
-  // it. 23 (it. 22 §3.5): the step-up's own 503. It is the SAME family — a
+  // The step-up's own 503. It is the SAME family — a
   // failure of ours with a `Retry-After` — and `translateError` used to flatten
   // it into «we couldn't reach the server», which blames the network for our
   // database and drops the retry the route promised.
   'STEP_UP_UNAVAILABLE',
   'COUNCIL_READ_UNREADABLE',
-  // it. 27: the two vault reads that used to answer with a GUESS instead of a
+  // The two vault reads that used to answer with a GUESS instead of a
   // refusal — an unreadable `instantRedemptionFee()` became a fee of zero, and
   // an unreadable `paused()` became «this vault takes deposits». Both are now
   // 502s of this family, and both have to reach the person as «a read of ours
   // failed», never as the generic «the server refused this operation».
   'VAULT_FEE_UNREADABLE',
   'VAULT_STATE_UNREADABLE',
-  // it. 29 — the reads that used to be swallowed into a ZERO and reached the
+  // The reads that used to be swallowed into a ZERO and reached the
   // screen as «you hold nothing» / «your queue is empty». Same family: a
   // read of OURS failed, nothing was composed, nothing moved, ask again.
   'ISO_LEGS_UNREADABLE',
@@ -526,7 +488,7 @@ const UNREADABLE_CODES: ReadonlySet<string> = new Set([
   'PA_BALANCE_UNREADABLE',
   'DEMO_CAP_UNREADABLE',
   'BORROW_STATE_UNREADABLE',
-  // it. 31 — the exchange's submission journal (which payments the omnibus key
+  // The exchange's submission journal (which payments the omnibus key
   // already signed) could not be read. Same family: nothing was composed and
   // nothing moved; and it is NEVER a statement that the client's money is held —
   // a withdrawal does not depend on it unless an entry of theirs is pending.
@@ -561,7 +523,7 @@ export interface RetryableRefusalLike {
   /** 409 DUPLICATE_CHECK_UNREADABLE: the escape the server itself names. */
   confirmAnotherOrder?: boolean | null;
   /**
-   * it. 34 (agent D): the proof store's refusals travel with a short `headline`
+   * The proof store's refusals travel with a short `headline`
    * and the REAL `ways[]` forward (`provenAddresses.ts`); the routes send them
    * verbatim and this reader threw both away.
    */
@@ -587,7 +549,7 @@ export interface RetryableRefusalView {
    */
   mayConfirmAnotherOrder: boolean;
   /**
-   * it. 34 (agent D) — THE THREE FIELDS THIS VIEW DROPPED, OVER THE ONE REFUSAL
+   * THE THREE FIELDS THIS VIEW DROPPED, OVER THE ONE REFUSAL
    * THAT NEEDED THEM.
    *
    * `PROOF_FLOOR_AHEAD_OF_CLOCK` (503, `retryable: true`, NO `retryAfterSeconds`)
@@ -631,20 +593,12 @@ function waysOf(...candidates: unknown[]): string[] {
 }
 
 /**
- * it. 21 — A READER FOR THE THREE REFUSALS THAT HAD NONE.
+ * A READER FOR THE THREE REFUSALS THAT HAD NONE.
  *
  * `ACCOUNT_BUSY` (503 + `Retry-After`), `PROOF_STORE_UNREADABLE` (503) and
  * `DUPLICATE_CHECK_UNREADABLE` (409) all reached the screens as nothing but the
  * server's Spanish-or-English `detail`, with no button: the retry the server had
- * gone to the trouble of promising was invisible (it. 20 §3.5, §2.7).
- *
- * All three say the same true thing — A READ OF OURS FAILED, nothing was
- * composed, nothing moved, ask again — and each says it in the words of its own
- * failure. None of them is a verdict about the person, and none of them may be
- * rendered as a code.
- *
- * Returns null when the refusal is not one of these, so a caller keeps its own
- * rendering. Exported for every surface, the exit screens included.
+ * gone to the trouble of promising was invisible (§2.7).
  */
 export function describeRetryableRefusal(
   r: RetryableRefusalLike | null | undefined,
@@ -681,7 +635,7 @@ export function describeRetryableRefusal(
       text = t('We could not read which addresses you hold, so we will not answer for them either way — and we will not tell you that you are not on this council when the truth is that we could not look. Nothing was written and nothing moved.');
       break;
     case 'VAULT_FEE_UNREADABLE':
-      // it. 27 — the sentence invariant #6 is owed: we could not read what
+      // The sentence invariant #6 is owed: we could not read what
       // leaving costs, so we did not put a number in front of a signature.
       text = t('We could not read this vault’s exit fee just now, and a fee we could not look at is an unknown fee — never a zero. So we did not work out what you would receive and we composed nothing. Nothing was prepared and nothing was signed.');
       break;
@@ -692,7 +646,7 @@ export function describeRetryableRefusal(
       text = t('We could not read your Kinetic position just now — what you supplied and what you owe — and «we could not read it» is never «you hold nothing». Nothing was composed and nothing moved.');
       break;
     case 'ISO_SUPPLY_UNREADABLE':
-      // it. 31 — the it. 29 sentence promised «enter the exact amount and it
+      // The sentence promised «enter the exact amount and it
       // composes» as if composing were the whole story. It is not: Kinetic
       // does not revert an oversized redeem, it RETURNS a code — the
       // transaction mines, gas is paid, nothing moves, and the wallet does not
@@ -713,12 +667,12 @@ export function describeRetryableRefusal(
       text = t('We could not read today’s daily quota just now, so we did not reserve anything against a number we do not have. Nothing was composed and nothing moved.');
       break;
     case 'STEP_UP_UNAVAILABLE':
-      // it. 23 (it. 22 §3.5): the one sentence this refusal exists to say —
+      // The one sentence this refusal exists to say —
       // it is OURS, not the person's signature, and nothing was granted.
       text = t('We could not complete the security check just now — that is us, not your signature, and nothing was changed or granted.');
       break;
     case 'SUBMISSION_JOURNAL_UNREADABLE':
-      // it. 31: «could not read which of your payments is already signed» is not
+      // «could not read which of your payments is already signed» is not
       // «one is signed», and not «your money is held». Nothing was composed
       // because composing on top of a signed payment pays the same XRP twice.
       text = t('We could not read the exchange’s record of which of your payments were already signed, so we did not compose a new one on top of them — that could pay the same XRP twice. Nothing was changed and nothing moved; this is not a statement that your money is held.');
@@ -726,7 +680,7 @@ export function describeRetryableRefusal(
     default:
       text = t('A read of ours failed, so nothing was composed and nothing moved.');
   }
-  // it. 34 (agent D): «in a moment» is a promise, and over a mark dated ahead of
+  // «in a moment» is a promise, and over a mark dated ahead of
   // our clock nobody can keep it — the server withholds `retryAfterSeconds` for
   // exactly that reason (it may be three seconds of skew or a corrupt 2099). So
   // that code says «later», and only a number the server sent becomes a number.
@@ -762,22 +716,13 @@ export function isRetryableReadFailure(r: RetryableRefusalLike | null | undefine
   return isUnreadableCode((r?.error ?? r?.code) ?? null);
 }
 
-/* ── it. 23 (it. 22 §2.5) — THE TWO 409s THAT HAD NO READER ───────────────── */
+/* ── THE TWO 409s THAT HAD NO READER ───────────────── */
 
 /**
- * `ACCOUNT_RECORD_MISSING` and `PROOF_FLOOR_UNREADABLE` (agent E, it. 21 §2.4)
+ * `ACCOUNT_RECORD_MISSING` and `PROOF_FLOOR_UNREADABLE`
  * are the OPPOSITE of the family above: the stored account record is gone, or
  * its security block does not parse, and **waiting changes nothing**. That is
  * why they are 409 with `retryable:false` instead of the 503 they used to be.
- *
- * No surface had a reader for them, so both degraded to «The server refused this
- * operation. Nothing was prepared and nothing was signed.» — which throws away
- * the only two doors that are actually open: SIGN IN WITH THAT WALLET (a
- * signed-in wallet proves itself and needs no stored record), or ask an admin to
- * restore the row / repair the security block. A person reading the generic is
- * told to give up; a person reading this knows what to press.
- *
- * Never a retry: offering one here is the promise the 503 could not keep.
  */
 const DETERMINISTIC_PROOF_CODES: ReadonlySet<string> = new Set([
   'ACCOUNT_RECORD_MISSING',
@@ -820,7 +765,7 @@ export function isDeterministicProofRefusal(r: RetryableRefusalLike | null | und
 }
 
 /**
- * it.16 (R5 5.4) — THE SERVER SOMETIMES WRITES ITS `detail` IN SPANISH.
+ * THE SERVER SOMETIMES WRITES ITS `detail` IN SPANISH.
  *
  * The app is in English and several 0xFE refusals carry a Spanish paragraph with
  * hashes in it («el PA rXXX ya tiene un 0xFE firmado…»). Printing it under an
@@ -839,7 +784,7 @@ export function serverDetailIfEnglish(detail: string | null | undefined): string
 }
 
 /**
- * it. 19 — A SLUG IS NOT A SENTENCE.
+ * A SLUG IS NOT A SENTENCE.
  *
  * Several consoles keep a `{ error, detail }` whose `error` is sometimes a
  * translated sentence they wrote themselves and sometimes the server's raw code
@@ -857,7 +802,7 @@ export function looksLikeRawCode(s: string | null | undefined): boolean {
 }
 
 export function refusalHeadline(
-  // it. 21: it also reads the «a read of ours failed» family, whose refusals
+  // It also reads the «a read of ours failed» family, whose refusals
   // carry a `status` (503 / 409) the seat shapes never had.
   r: (SeatRefusalLike & RetryableRefusalLike) | null | undefined,
   t: (s: string) => string,
@@ -865,12 +810,12 @@ export function refusalHeadline(
   if (!r) return null;
   const seat = describeSeatRefusal(r, t);
   if (seat) return seat.text;
-  // it. 21 (§3.5): the three «a read of ours failed» refusals used to fall
+  // The three «a read of ours failed» refusals used to fall
   // straight through to the generic «the server refused this operation», which
   // is both wrong (nobody refused anything) and a dead end (no retry).
   const readFailure = describeRetryableRefusal(r, t);
   if (readFailure) return readFailure.text;
-  // it. 23 (§2.5): and the two that do NOT heal by waiting, which had no reader
+  // And the two that do NOT heal by waiting, which had no reader
   // at all and were read as «the server refused this operation» — over the only
   // bytes a cosignatory can sign, with both real ways forward thrown away.
   const deterministic = describeDeterministicProofRefusal(r, t);

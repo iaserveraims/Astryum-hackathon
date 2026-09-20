@@ -1,5 +1,5 @@
 /**
- * XrplOrderSequencePin — UNA orden firmable por asiento de Sequence (2026-09-14).
+ * XrplOrderSequencePin — UNA orden firmable por asiento de Sequence.
  *
  * EL FALLO. Las órdenes de consejo que componen `/pote-council-order/prepare`,
  * `/cage-order/prepare` y el nacimiento `/cage-create/prepare` salían SIN Sequence
@@ -9,28 +9,6 @@
  * primera sigue firmable en su móvil (un payload ALREADY_OPENED no se puede
  * cancelar). Sin Sequence fijada, las dos validan: dos `directTo`, dos recalls, dos
  * potes, dos nacimientos — y dos rondas FDC pagadas.
- *
- * LO QUE FIJA. La Sequence ACTUAL de la cuenta, leída del ledger VALIDADO en un nodo
- * FRESCO (`xrplJsonRpc(..., { requireFresh: true })`: el transporte que descarta un
- * rippled congelado, incidente 2026-07-31). Dos composiciones seguidas llevan la
- * MISMA Sequence, así que solo una puede entrar en el ledger: la otra muere
- * `tefPAST_SEQ`. Es el mismo patrón que ya usa el coordinador multisig
- * (`XrplMultisigCoordinator.prepareCouncilMultisig`).
- *
- * LastLedgerSequence — SOLO en la firma simple. La ventana es
- * `ORDER_LEDGER_WINDOW` ledgers sobre el validado. Una cuenta CON SignerList va por
- * las puertas del consejo (`CouncilSigningDoors` → `/multisign/prepare`), cuyo
- * coordinador re-lee y fija su propia Sequence y cuyos payloads por miembro viven
- * `expire: 1440` (y el buzón asíncrono, días): estampar ahí un LastLedgerSequence de
- * minutos mataría la ceremonia a mitad de firmas. En esa cuenta se fija la Sequence
- * (el coordinador la sobrescribe con la suya; el asiento lo guarda su arriendo) y
- * NO se estampa LastLedgerSequence.
- *
- * SIN LECTURA NO HAY ORDEN. Si `account_info` no se puede leer, se lanza
- * `OrderSequenceUnreadableError` y la ruta responde 503 ORDER_SEQUENCE_UNREADABLE:
- * jamás se compone una orden sin fijar. «No pude leer» no es «no hay asiento».
- *
- * Prepare-only: lee el ledger y fija bytes. No firma, no envía, no guarda clave.
  */
 
 /**

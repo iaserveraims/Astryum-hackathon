@@ -23,7 +23,7 @@ export interface IntentPayload {
     cooldownDays?: number;
     /**
      * Id of the regulated partner this intent routes through.
-     * MANDATORY for all V2 intents (2026-06-01 audit Cat 2.1):
+     * MANDATORY for all V2 intents (audit Cat 2.1):
      *   "If there is no registered partner for an operation, that
      *    operation does not exist in Astryum."
      */

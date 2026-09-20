@@ -12,7 +12,7 @@ const ISSUER = 'rSumsubIssuer1111111111111111111';
 const SUBJECT = 'rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh';
 const LSF_ACCEPTED = 0x00010000;
 const RIPPLE_EPOCH_OFFSET = 946_684_800;
-const NOW_MS = Date.UTC(2026, 7, 16, 12, 0, 0); // 2026-08-16
+const NOW_MS = Date.UTC(2026, 7, 16, 12, 0, 0); 
 
 /** Un instante en ISO → el entero Expiration de XRPL (Ripple epoch). */
 const rippleTime = (ms: number) => Math.floor(ms / 1000) - RIPPLE_EPOCH_OFFSET;

@@ -42,7 +42,7 @@ describe('xrplTxToCanonical', () => {
 
   test('converts the Ripple-epoch date to a real ISO timestamp', () => {
     const ev = xrplTxToCanonical(WALLET, item({ TransactionType: 'Payment', date: 806_000_000 }));
-    // 946684800 (Ripple epoch) + 806000000 = 1752684800 → 2025-07-16T…Z
+    // 946684800 (Ripple epoch) + 806000000 = 1752684800 → T…Z
     expect(ev!.timestamp).toBe(new Date(1_752_684_800 * 1000).toISOString());
   });
 

@@ -4,7 +4,7 @@
  * La regla vieja era `!== 'false'`: cualquier despliegue que no definiera la
  * variable encendía el hub del hackathon y la mesa del gestor — y un
  * despliegue de producción normalmente no define nada. Así llegaron a
- * astryum.xyz el 2026-09-13, sin que nadie lo pidiera.
+ * astryum.xyz, sin que nadie lo pidiera.
  *
  * Esto fija la regla nueva: se exige una prueba POSITIVA de no estar en
  * producción. El override manual sigue mandando en los dos sentidos, porque el

@@ -8,8 +8,7 @@ import {ExchangeKycRegistry} from "../src/ExchangeKycRegistry.sol";
 
 /// Unit suite of the institutional pote. Two potes, one per exit shape:
 /// pote A (COOLDOWN = 0, sync venues) and pote B (COOLDOWN = 72h, Firelight-
-/// shaped queued venue). The named tests map to the five invariants of the
-/// canonical doc and to the Firelight accounting case (audit §5).
+/// shaped queued venue).
 contract AstryumVaultTest is Test {
     MockFXRP fxrp;
 
@@ -227,7 +226,7 @@ contract AstryumVaultTest is Test {
         assertEq(poteB.venueQueuedTotal(1), 0);
     }
 
-    /// The fuzzer's lesson made a rule (invariant P2, 2026-08-22): harvesting a
+    /// The fuzzer's lesson made a rule (invariant P2): harvesting a
     /// QUEUED venue is a no-op — its yield realizes only when the capital is
     /// liquid again. Paying the cut from the buffer would charge the common
     /// principal AND let the next harvest re-charge the rebated basis as
@@ -354,7 +353,7 @@ contract AstryumVaultTest is Test {
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       La puerta de usuarios on-chain (Z-decision 22-ago): solo los clientes
+       La puerta de usuarios on-chain (Z-decision): solo los clientes
        KYC de ESE exchange pueden entrar; la salida jamás se gatea.
        ═══════════════════════════════════════════════════════════════════════ */
 

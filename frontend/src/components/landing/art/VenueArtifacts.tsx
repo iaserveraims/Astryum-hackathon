@@ -6,15 +6,6 @@
  * La ficha del protocolo, las tres pruebas, la escalera de niveles y el
  * capital dirigido. Material impreso (Plate tone="print"): un venue es una
  * entidad. Atadas a los tiempos de la ficha (VENUE_BEATS).
- *
- * Lo que dicen sale de la arquitectura del perfil del protocolo (15-sep): lo
- * que el protocolo sube es una PROPUESTA y nunca toca un campo medido; tres
- * pruebas ortogonales (control del contrato por firma del desplegador,
- * control del proyecto por fichero en su dominio, identidad legal por KYB);
- * dos atestaciones que no puede fabricar (auditoría ERC-7512 firmada por el
- * auditor, certificación fechada); cuatro niveles acumulativos y mecánicos;
- * subir lleva verificación, bajar es inmediato, y la salida de quien ya tiene
- * capital dentro no se cierra nunca. Cifras de MAQUETA, rotuladas.
  */
 
 import { motion, useTransform, type MotionValue } from 'framer-motion';

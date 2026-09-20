@@ -4,18 +4,6 @@
  * PasskeyGate — el alta de la passkey del cliente (una vez). Face ID crea la
  * llave en el dispositivo (soberana, Z17); a partir de aquí el cliente firma
  * cualquier acción con la cara y nunca ve una wallet ni FLR.
- *
- * Envuelve al lado usuario: si no hay passkey, pide darla de alta; si la hay,
- * muestra los hijos con la dirección de la cuenta del cliente resuelta.
- *
- * Si la llave YA existe pero su cuenta no se pudo leer (sesión caducada,
- * servidor sin la ruta), no se vuelve a ofrecer «crear llave» — en Windows eso
- * apila otra passkey en el dispositivo —: se reintenta la lectura (2026-09-14).
- *
- * Un PC sin Bluetooth no llega al móvil, y Windows Hello no se ofrece si solo
- * sabe hacer RSA: la ventana de Windows se queda sin sitio para la llave. Por
- * eso el alta ofrece también abrir ESTA página en el móvil (QR), que no exige
- * nada (fundador 2026-09-14).
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';

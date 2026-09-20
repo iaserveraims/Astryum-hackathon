@@ -1,37 +1,6 @@
 /**
- * it. 34 — «CONVERT TO XRP» FROM AN EVM WALLET, AND THE RECEIPT OF A CODE THAT
+ * «CONVERT TO XRP» FROM AN EVM WALLET, AND THE RECEIPT OF A CODE THAT
  * MINED — THE CONSUMER, NOT THE PIECES.
- *
- * What it. 31 proved and what it left: Kinetic (Compound v2) does not revert an
- * oversized redeem — `redeemUnderlying(1e12)` from an empty account RETURNS
- * 0x…09 (MATH_ERROR): the tx mines with status 1, gas is paid, nothing moves.
- * it. 31 attached the dry-run to `/iso-withdraw/prepare` and pulled two pure
- * functions out of this file to test them. Nobody ran the SCREEN:
- *
- *   (a) the `unmint` EVM branch called `/iso-withdraw/prepare` and the bridge,
- *       joined the calls and `setPrepared` WITHOUT `preflight` and WITHOUT
- *       `disclosure.supplyRead` — the review had no verdict to show and the
- *       button stayed green; `withdrawHuman = Math.min(want, supplyFxrpHuman)`
- *       sized the Kinetic leg over the props' snapshot when the live read had
- *       failed; the form still printed «FXRP in this position: 10» and offered
- *       «Position (10)» as MAX over that stale figure.
- *   (b) a receipt with status 1 and a Compound `Failure` log reached
- *       `SettlementIndicator` as SETTLED: «Done. The funds are back in your
- *       account.» over gas paid for nothing.
- *   (c) with `available: false` the amber said «the dry-run verdict below is the
- *       check» while PreflightNotice said there was none — and the button was
- *       the usual green.
- *
- * Here the REAL PaActionsModal is mounted on the hooks runtime that executes
- * effects (`miniReact`, it. 31): the live-legs fetch fails or answers, the
- * amount is typed through the input's onChange, «Review before signing» is
- * PRESSED, the two prepares are served by a fake network, and what is asserted
- * is the element tree the person would see: the amber, the absent MAX, the
- * PreflightNotice's prop and words, the button's posture. For (b) the wallet
- * partner is faked to return EXACTLY the handle useWalletPartner's single-call
- * rail returns on `receipt.status === 'success'` — a settled handle — and the
- * REAL tracker re-reads the receipt, logs included, before the real
- * SettlementIndicator prints anything.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactElement } from 'react';
@@ -111,7 +80,7 @@ vi.mock('@/components/positions/DestinationField', () => ({ DestinationField: ()
 vi.mock('@/components/positions/DispatchXrpField', () => ({ DispatchXrpField: () => null }));
 vi.mock('@/components/wallet/WalletSelect', () => ({ WalletSelect: () => null }));
 
-/** The receipt the chain answers when the tracker asks (the ONE read of it. 34). */
+/** The receipt the chain answers when the tracker asks (the ONE read). */
 let receiptOnChain: { status: unknown; logs?: Array<{ topics: string[]; data: string; address?: string }> } | null = null;
 // useSettlement's React shell needs wagmi; here it is the same contract over the
 // REAL tracker (trackSettlement) with the chain read faked at the edge.
@@ -204,7 +173,7 @@ const KINETIC_FAILURE_LOG = {
   data: '0x' + '9'.padStart(64, '0') + '2d'.padStart(64, '0') + '0'.repeat(64),
 };
 
-/** What /iso-withdraw/prepare answers when its own supply read failed (it. 29/31 shape). */
+/** What /iso-withdraw/prepare answers when its own supply read failed (/31 shape). */
 const ISO_WITHDRAW_UNREAD = (preflight: unknown) => ({
   status: 200,
   body: {
@@ -223,7 +192,7 @@ const PREFLIGHT_FAIL_9 = {
   steps: [{ label: 'withdraw FXRP from ISO', verdict: 'fail', reason: 'Kinetic would refuse: MATH_ERROR' }],
 };
 const PREFLIGHT_UNAVAILABLE = { available: false, willSucceed: false, reason: 'dry-run unavailable: eth_call timed out after 8000ms', steps: [] };
-/** What the bridge answers when told `dependsOnPrior` (it. 34): blind by design. */
+/** What the bridge answers when told `dependsOnPrior`: blind by design. */
 const BRIDGE_BLIND = {
   status: 200,
   body: {
@@ -327,7 +296,7 @@ describe('(a) Convert to XRP from an EVM wallet with the live legs UNREAD', () =
     expect(pf.steps).toHaveLength(2); // the Kinetic verdict + the blind redeem leg
     // …and the words the person reads.
     expect(preflightNoticeText()).toMatch(/it would FAIL/);
-    // The it. 29 admission travelled too: the amber points at the verdict that exists.
+    // The admission travelled too: the amber points at the verdict that exists.
     expect(text()).toContain('Your live supply could not be read');
     expect(text()).toContain('The dry-run verdict below is the check');
     // And the button is the red «sign anyway», not the green.

@@ -1,7 +1,7 @@
 /**
  * contractKinds.ts tests — the kind dispatch table and capability detection.
  *
- * Block F (2026-06-01) — These tests lock in:
+ * Block F — These tests lock in:
  *   1. Every protocol slug in PROTOCOL_KIND_MAP maps to a valid kind.
  *   2. kindForSlug('unknown-slug') → 'unknown' (no accidental defaults).
  *   3. detectCapabilities correctly reflects ABI shape per kind.

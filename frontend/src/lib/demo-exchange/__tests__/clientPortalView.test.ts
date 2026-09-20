@@ -1,9 +1,7 @@
 /**
- * 18-sep — CLIENTE POR EXCHANGE.
+ * CLIENTE POR EXCHANGE.
  *
- * Captura del fundador: con una passkey que ya era cliente de «Exchange Test V2»,
- * «Crear una cuenta de cliente» lo metía en ESA cuenta y el alta de «EXCHANGE
- * TEST» no aparecía nunca. Su regla: «cuando crea una cuenta a un exchange es al
+ * Su regla: «cuando crea una cuenta a un exchange es al
  * que ha pedido acceso y le han dado la verificación, sino no está dentro de ese
  * exchange». Ser cliente es por exchange; la llave pide acceso a cada uno.
  */
@@ -44,7 +42,7 @@ describe('CREAR con una llave que ya es cliente de otro exchange', () => {
     expect(portalView({ mode: 'create', data: { memberships: [], joinable: [] }, chosen: null })).toEqual({ kind: 'none-open' });
   });
 
-  it('14-sep sigue: la llave con ficha de OTRA sesión y nada más que unir → se dice, sin alta', () => {
+  it('Sigue: la llave con ficha de OTRA sesión y nada más que unir → se dice, sin alta', () => {
     const data: PortalData = { memberships: [], joinable: [], heldElsewhere: { exchange: V2, reclaimRequired: false } };
     expect(portalView({ mode: 'create', data, chosen: null })).toEqual({ kind: 'held-elsewhere' });
   });

@@ -7,29 +7,6 @@ import type { AutomationRule, CouncilProposalRecord, XrplEscrowRow } from '@/ser
 /**
  * G4-residuos / G4-pildoras — el «watching» que no vigila y el «active» que ya
  * no puede firmarse, en la superficie donde viven.
- *
- * `LegacyActivityFeed` decidía el estado de una regla gobernada mirando SOLO su
- * fila (`enabled` + `expiresAt`) y el de una propuesta mirando SOLO su status.
- * Ronda 1 le enseñó a leer GET /rules/:id/runs; ronda 3 cierra los dos huecos
- * que quedaron:
- *
- *  1. `unread` y `unreadable` caían en el brazo VERDE de la píldora, así que el
- *     primer pintado —y cualquier timeout de /runs— decía «active» sobre una
- *     salud que nadie había leído.
- *  2. una propuesta cuyo asiento fijado el ledger da por GASTADO (o que no
- *     pudimos leer) seguía pintándose verde, con «0 days left», el subtítulo
- *     «ready to emit» y un botón «Go to the inbox to sign» que lleva a una
- *     bandeja donde esa fila ya no ofrece firma. Y su «Withdraw» llamaba al
- *     endpoint sin el acuse que el servidor exige, así que el consejo recibía el
- *     código crudo `LEDGER_CHECK_UNACKNOWLEDGED` de un botón que funcionaba.
- *
- * POR QUÉ ESTOS TESTS SON DISTINTOS A LOS DE LA RONDA 2: aquellos eran
- * `readFileSync` + regex sobre este mismo fichero. Muerden contra el texto, no
- * contra el comportamiento — y de hecho una de sus aserciones («la píldora ya
- * no es incondicional») estaba VERDE mientras la píldora pintaba en verde un
- * veredicto sin leer. La decisión vive ahora en dos funciones puras exportadas
- * (`buildFeedEntries`, `seatUnresolvedOf`) y en el lector de errores del
- * servidor (`errText`), y se ejecutan de verdad.
  */
 
 const t = (s: string) => s;

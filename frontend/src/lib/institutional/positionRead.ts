@@ -1,7 +1,7 @@
 /**
  * positionRead — «could not read» is never «you are not in this vault».
  *
- * Why this exists (productizer, 13-sep): VaultDetailPanel turned every failed
+ * Why this exists: VaultDetailPanel turned every failed
  * `getPoteState` into `null`, and `null` rendered «You are not in this vault.»
  * while hiding «Leave this vault». A Personal Account that failed to resolve was
  * swallowed too, so shares held there simply vanished. A holder told they are

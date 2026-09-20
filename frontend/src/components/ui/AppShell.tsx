@@ -41,10 +41,10 @@ import BackgroundFx from './BackgroundFx';
 // opened from the sidebar's guide button below (no floating trigger).
 import { openProductAssistant } from '../assistant/ProductAssistant';
 import OnboardingModal from '../onboarding/OnboardingModal';
-// AuthoritySwitcher (the "Overview / per-account" selector) is UNMOUNTED
-// (founder 2026-07-18): the sidebar slot now holds only the product toggle.
+// AuthoritySwitcher (the "Overview / per-account" selector) is UNMOUNTED:
+// the sidebar slot now holds only the product toggle.
 // Component preserved at components/authority/AuthoritySwitcher.tsx.
-// ProductToggle UNMOUNTED 2026-08-16 (theme follows the Home hub selection);
+// ProductToggle UNMOUNTED (theme follows the Home hub selection);
 // component preserved at components/authority/ProductToggle.tsx. Its
 // access walk-back effect survives as LegacyAccessGuard below.
 import LegacyAccessGuard from '../authority/LegacyAccessGuard';
@@ -52,7 +52,7 @@ import EarnOperationHost from '../earn/EarnOperationHost';
 // THE name of the capital-at-work destination lives in ONE file so the
 // rename is one edit (it is still provisional — see lib/nav/capitalSection.ts).
 import { CAPITAL_SECTION_HREF, CAPITAL_SECTION_LABEL } from '../../lib/nav/capitalSection';
-// GoverningBar is UNMOUNTED (founder 2026-07-18): the data-authority palette
+// GoverningBar is UNMOUNTED: the data-authority palette
 // already tells governed mode apart; the strip duplicated it. Component
 // preserved at components/authority/GoverningBar.tsx.
 import AuthorityCrossing, { type AuthorityCrossingDirection } from '../authority/AuthorityCrossing';
@@ -74,17 +74,17 @@ import type { VaultClaimEntry, VaultClaimsUnreadable } from '../../hooks/useVaul
 import type { PreparedIntent } from '../../services/v1Api';
 // AuthorityContextBar stays UNMOUNTED: per-account switching returned to the
 // shell as AuthoritySwitcher + GoverningBar (ADR-011) — exactly the re-mount
-// case its 2026-07-17 note anticipated. The component is preserved at
+// case its note anticipated. The component is preserved at
 // components/authority/AuthorityContextBar.tsx (now an adapter consumer).
 
 const BRAND_LOGO = '/astryum-asteroid.png'; // asteroid + wordmark — same lockup as the landing
-// The blue twin (founder 2026-08-08): identical lockup with the asteroid in
+// The blue twin: identical lockup with the asteroid in
 // the Legacy indigo — the brand dresses for the product it is naming.
 const BRAND_LOGO_LEGACY = '/astryum-logo-azul-transparente.png';
 
 // Our community server: where users report bugs and send feedback, and where we
 // tell them what changed. Pinned next to Settings so it is reachable from every
-// screen (founder 2026-08-01).
+// screen.
 const DISCORD_INVITE = 'https://discord.gg/veXZr7a3hJ';
 
 // lucide dropped brand marks, so the Discord logo travels inline (simple-icons path).
@@ -96,7 +96,7 @@ function DiscordIcon({ className = '' }: { className?: string }) {
   );
 }
 
-// (LangToggle left the sidebar on 2026-08-08 — the language switch now lives
+// (LangToggle left the sidebar — the language switch now lives
 // in Settings › Preferences, next to the theme.)
 
 // ─── Navigation model ───────────────────────────────────────────────────────
@@ -138,63 +138,51 @@ function leafLabel(item: NavLeaf, lang: string, t: (s: string) => string): strin
 // bottom of the sidebar (SidebarIntentsCard) so anything waiting for the user's
 // signature is in view from every page. The /app/intents page is kept and still
 // reachable by URL (e.g. from a browser notification).
-// The Legacy and Wallets rows swap with the PRODUCT mode (founder 2026-07-17):
+// The Legacy and Wallets rows swap with the PRODUCT mode:
 // Astryum mode shows Wallets and hides Legacy; Legacy mode shows Legacy and
 // hides Wallets. Same dashboard, two products — the nav declares which one.
-// Earn stays in BOTH modes (founder 2026-07-18: never strip it from the
-// Legacy menu). Estrategias also serves both modes — it lived INSIDE Earn
-// (?view=strategies) from 2026-07-18 until 2026-08-24, when it got its row
+// Earn stays in BOTH modes. Estrategias also serves both modes — it lived INSIDE Earn
+// (?view=strategies) from until, when it got its row
 // back as the capital-at-work section (see PRIMARY_NAV below). The old
 // ?view=strategies deep-link now redirects to /app/strategies.
-// Order (founder 2026-08-03/04, after a first-user test): the reading order —
+// Order: the reading order —
 // how much (Summary), where (Portfolio) — then Earn: it is THE function of
 // the product ("lo que nos da de comer a nosotros y a nuestros usuarios"),
 // so it sits above Wallets/Legacy. A separate /app/home landing page was
-// tried and REMOVED (founder 2026-08-04): the Summary already welcomes a
+// tried and REMOVED: the Summary already welcomes a
 // wallet-less account with its own connect panel — two front doors confused
 // more than they calmed.
-// Earn's highlight is POSITION ONLY (founder 2026-08-04): two colored
+// Earn's highlight is POSITION ONLY: two colored
 // treatments were tried and retired the same day — a soft volt tint (read as
 // "selected") and a solid volt button (too loud). Do not re-introduce color
 // on a nav row to mark importance; the selected state owns the gold here.
-// Portfolio still sits ABOVE Legacy (founder 2026-07-19). Estrategias lived
-// INSIDE Earn (?view=strategies, founder 2026-07-18) and came back OUT as its
-// own row on 2026-08-24 — /app/strategies was never retired, which is why the
+// Portfolio still sits ABOVE Legacy. Estrategias lived
+// INSIDE Earn (?view=strategies, founder) and came back OUT as its
+// own row — /app/strategies was never retired, which is why the
 // return cost almost nothing.
-// Naming (founder 2026-08-15, "Home absorbe W1" — reverses 2026-08-04
-// consciously): HOME is the new hub at /app/home (the fleet: personal
+// Naming: HOME is the new hub at /app/home (the fleet: personal
 // wallets + Legacies + the add door), and the overview at /app goes back to
 // being SUMMARY. The Wallets row is GONE from the nav (W1): its full surface
 // lives embedded in Home behind ?panel=wallets, and /app/wallets redirects
 // there — every old deep-link keeps working. "Summary" internal ids
 // (data-tour nav-summary, TourId, stop-summary anchors) were never renamed.
-// The Home hub row LEFT the nav (fusión 2026-08-22): the Summary absorbed
+// The Home hub row LEFT the nav (fusión): the Summary absorbed
 // the Home — greeting, fleet scope, the hidden Wallets surface
 // (?panel=wallets) and the first-run tour all live at /app now. /app/home
 // redirects there; HomeHub stays preserved at components/home/HomeHub.tsx.
-// Founder 2026-08-22 (quinta pasada): el vestíbulo vuelve a llamarse Home, y
+// Founder (quinta pasada): el vestíbulo vuelve a llamarse Home, y
 // el destino Legacy deja su sitio a WALLETS. Legacy no desaparece: vive DENTRO
 // de Wallets, porque una cuenta gobernada por un consejo es una wallet más y
 // su gobernanza es algo que se le hace a ELLA, no un apartado paralelo.
 // Portfolio suelta el icono de cartera —que es de Wallets— y se queda con el
 // del reparto, que es lo que esa pantalla enseña.
-// Fundador 2026-08-24 — se DESHACE el colapso del 18-jul: el registro vuelve a
+// Fundador — se DESHACE el colapso: el registro vuelve a
 // tener fila propia. La razón no es de gusto, es de frecuencia. Earn es un
 // gesto que haces una vez (decidir); mirar lo que ya corre es un gesto
 // semanal. Tenerlo como cuarta puerta DENTRO de Earn ponía a dos clics lo que
 // más se repite, detrás de lo que menos. Y una card que solo contiene otras
 // cards es un marco sin navegación: cuando una agrupación necesita un
 // contenedor visible, la agrupación pertenece al MENÚ, no a una caja.
-//
-// El par queda partido por verbo: Earn = poner capital a trabajar (elegir /
-// componer con el agente / entrar con un gestor); la fila de abajo = lo que ya
-// está trabajando y lo que dejaste guardado. Va justo DESPUÉS de Earn a
-// propósito: es donde aterriza lo que acabas de crear, y así Earn no pierde su
-// posición (la regla de 2026-08-03/04: Earn es LA función del producto).
-//
-// El nombre todavía no es firme (lib/nav/capitalSection.ts). El icono sí puede
-// serlo: `Orbit` es neutral respecto al nombre que gane y habla el idioma
-// visual de la casa — las escenas de Earn son órbitas.
 const PRIMARY_NAV: NavLeaf[] = [
   { href: '/app', label: 'Home', icon: Gauge },
   { href: '/app/portfolio', label: 'Portfolio', icon: PieChart },
@@ -208,13 +196,13 @@ const PRIMARY_NAV: NavLeaf[] = [
   { href: '/app/wallets', label: 'Wallets', icon: Wallet },
 ];
 
-// Legacy es un SITIO, no un producto (fundador 2026-08-22): está siempre en el
+// Legacy es un SITIO, no un producto: está siempre en el
 // menú. Antes sólo aparecía dentro del modo índigo, así que para llegar a la
 // gobernanza había que descubrir primero un interruptor — y ese interruptor
 // además te escondía media flota. La puerta de acceso la sigue guardando
 // LegacyAccessGuard dentro de la propia pantalla.
 function primaryNav(): NavLeaf[] {
-  // Con el hub cerrado (producción, 2026-09-13) Legacy recupera su fila de
+  // Con el hub cerrado (producción) Legacy recupera su fila de
   // siempre, detrás de Wallets. Con el hub abierto vive arriba, en el grupo.
   return HACKATHON_HUB_OPEN ? PRIMARY_NAV : [...PRIMARY_NAV, LEGACY_NAV];
 }
@@ -222,33 +210,30 @@ function primaryNav(): NavLeaf[] {
 const SETTINGS_NAV: NavLeaf = { href: '/app/settings', label: 'Settings', icon: SettingsIcon };
 // Spatial OS (/os) toggle disabled for now — route/components left intact, just no UI entry point.
 
-// Founders-only row (2026-07-25): shown ONLY when /auth/me says isAdmin
+// Founders-only row: shown ONLY when /auth/me says isAdmin
 // (ADMIN_EMAILS allowlist) — everyone else keeps the panel invisible, same as
 // before. Present in BOTH product modes: the founders are admins whichever
 // hat they wear. Server-side gates stay untouched; this is pure discovery.
 const ADMIN_NAV: NavLeaf = { href: '/app/admin', label: 'Admin', icon: ShieldCheck };
 
-// La mesa del EXCHANGE (fundador 2026-09-11: «un slot en el menú que ponga
-// exchange»): la interfaz entera del exchange custodial en un sitio propio.
-// PUBLICADA (fundador 13-sep: «todo visible sin flags para la ventana») — la
+// La mesa del EXCHANGE: la interfaz entera del exchange custodial en un sitio propio.
+// PUBLICADA — la
 // fila la ve todo el mundo; la página perdió su PreviewOnly y las lecturas
 // del backend son públicas (anillo VER). Las mutaciones siguen tras admin
 // hasta la CredentialAccessGate.
 const EXCHANGE_NAV: NavLeaf = { href: '/app/exchange', label: 'Exchange', icon: Building2 };
 
-// La mesa del gestor de bóvedas dejó de ser fila del menú el 2026-09-10
-// (fundador: «no debería estar en la barra lateral… esconderlo dentro de
-// managed vaults»): se abre desde Earn → Managed vaults en ventana anclable
+// La mesa del gestor de bóvedas dejó de ser fila del menú:
+// se abre desde Earn → Managed vaults en ventana anclable
 // (ManagerOperation). /app/partner (la auditora) sigue solo por URL.
 //
-// …Y VUELVE, POR AHORA, ese mismo día (fundador: «es una herramienta que actúa
-// en el XRPL hackathon y se tiene que poder acceder fácilmente»): mientras
+// …Y VUELVE, POR AHORA, ese mismo día: mientras
 // MANAGER_DESK_OPEN esté en marcha (lib/nav/managerDesk.ts) la fila se enseña
 // a todos y entra en ⌘K. Apagada la variable, se vuelve al párrafo de arriba
 // sin tocar código.
 const MANAGER_NAV: NavLeaf = { href: '/app/manager', label: 'Manager desk', icon: Briefcase };
 
-// EL HUB DEL HACKATHON (fundador 2026-09-12, lib/nav/hackathonHub.ts): las
+// EL HUB DEL HACKATHON: las
 // tres puertas de la entrega de XRPL Commons, agrupadas y separadas del resto
 // al final del menú, para que un juez las encuentre sin pelearse con la
 // página. Descubrimiento, no permiso — cada página conserva su puerta.
@@ -258,8 +243,7 @@ const MANAGER_NAV: NavLeaf = { href: '/app/manager', label: 'Manager desk', icon
 const HACKATHON_HUB_LABEL = 'Hackathon exclusives';
 type HubLeaf = NavLeaf & { adminOnly?: boolean };
 // Legacy NO es una función del hackathon: es un sitio del producto, con su
-// propia puerta (LegacyAccessGuard), y vivía en el menú de siempre desde el
-// 2026-08-22. Vive en el grupo sólo mientras el grupo existe; cerrado el hub
+// propia puerta (LegacyAccessGuard), y vivía en el menú de siempre. Vive en el grupo sólo mientras el grupo existe; cerrado el hub
 // vuelve a su fila — sin esta constante compartida, cerrar el grupo se llevaba
 // Legacy por delante y dejaba la gobernanza sin puerta en producción.
 const LEGACY_NAV: NavLeaf = { href: '/app/legacy', label: 'Legacy', icon: Landmark };
@@ -270,7 +254,7 @@ function hackathonNav(isAdmin: boolean): NavLeaf[] {
 }
 
 // Positions and Activity are Portfolio TABS (nav collapse + source
-// unification) and stay OUT of ⌘K too (founder 2026-07-19): hidden screens
+// unification) and stay OUT of ⌘K too: hidden screens
 // must not resurface through search suggestions. They remain reachable inside
 // Portfolio itself; Capital Map likewise only via ?tab=map.
 
@@ -312,9 +296,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // su sitio (sin margen derecho, sidebar completo) — el anclaje solo empuja
   // mientras el panel está de verdad desplegado.
   const docked = dockedFlag && anyOpActive;
-  // EL SIDEBAR SE PLIEGA POR DEFECTO CON ALGO ANCLADO, PERO EL USUARIO MANDA
-  // (fundador 2026-09-10: «en una pantalla con más resolución da chance a
-  // abrir la barra lateral con algo anclado»). El raíl sigue siendo el
+  // EL SIDEBAR SE PLIEGA POR DEFECTO CON ALGO ANCLADO, PERO EL USUARIO MANDA.
+  // El raíl sigue siendo el
   // defecto; abrirlo es una preferencia recordada (dockStore.sidebarOpen).
   const sidebarOpen = useDockStore((st) => st.sidebarOpen);
   const setSidebarOpen = useDockStore((st) => st.setSidebarOpen);
@@ -327,7 +310,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // `waiting` list + `refresh` feed the always-on sidebar Intents card.
   const { waitingCount: intentsWaiting, waiting: waitingIntents, refresh: refreshIntents } = useIntentWatcher();
 
-  // Money in flight (F-entrega 2026-07-19): vault exits queued in a withdrawal
+  // Money in flight (F-entrega): vault exits queued in a withdrawal
   // period (Firelight ~24h) that the redeem left in transit. Authority-scoped,
   // so the Intents card tells Personal and Legacy each its own truth. Feeds
   // the same card — one surface for "what needs me + what's on its way".
@@ -347,21 +330,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   // ONE source of truth: the authority switcher (useAuthorities). The active
   // authority drives the shell's atmosphere (data-authority swaps the CSS
-  // palette — --volt flips in globals.css) AND the product-mode nav swap
-  // (founder 2026-07-17): governed mode shows Legacy and hides Wallets.
+  // palette — --volt flips in globals.css) AND the product-mode nav swap:
+  // governed mode shows Legacy and hides Wallets.
   // The Summary toggle (ProductModeCard) and the sidebar switcher both write
   // this same state — they can never disagree.
   const { activeGoverned, loading: authoritiesLoading } = useAuthorities();
-  // The product is a first-class, persisted choice (founder 2026-08-04: the
-  // LOBBY — legacy mode with nothing constituted yet must exist, or a fresh
-  // account's toggle is a dead switch). Activating/leaving a governed account
+  // The product is a first-class, persisted choice. Activating/leaving a governed account
   // keeps this in sync via setActiveAuthority; data scope still keys off
   // activeGoverned — the lobby wears the product without claiming an account.
   const productMode = useAuthorityStore((s) => s.productMode);
   const { t } = useT();
   const router = useRouter();
-  // EL PRODUCTO SIGUE A LA PANTALLA (fundador 2026-08-22: «no que sea
-  // seleccionable como producto distinto, porque no lo es»). Esta es la ÚNICA
+  // EL PRODUCTO SIGUE A LA PANTALLA. Esta es la ÚNICA
   // línea que mueve el modo: dentro de /app/legacy — gobernar, constituir,
   // reforzar, la bandeja del consejo — el shell se viste de índigo y la
   // travesía de abajo se dispara sola; al salir, vuelve. Nadie más lo escribe,
@@ -391,8 +371,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // Founder flag from /auth/me (refreshMe hydrates it on every mount) — adds
   // the Admin row at the end of the menu, in both product modes.
   const isAdmin = useAuthStore((s) => s.isAdmin);
-  // La mesa del gestor no tiene fila propia en reposo (fundador 2026-09-10:
-  // vive dentro de Earn → Managed vaults, en ventana anclable) — salvo con
+  // La mesa del gestor no tiene fila propia en reposo — salvo con
   // MANAGER_DESK_OPEN, el interruptor del hackathon (ver MANAGER_NAV).
   // Con el hub del hackathon abierto (HACKATHON_NAV), Manager desk y Exchange
   // viven en su grupo y no se repiten aquí; cerrado, vuelven a sus filas.
@@ -422,7 +401,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   // Authority crossing: a ~1.5s transition (AuthorityCrossing) every time the
   // active authority moves into, out of, or between governed accounts — in
-  // BOTH directions (founder ask, superseding the old one-way half-second
+  // BOTH directions (ask, superseding the old one-way half-second
   // crossingSeal stamp). Skipped on the initial render (reloading while
   // already governed/personal is not a crossing) — same prevGovernedId
   // sentinel as before.
@@ -436,14 +415,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
   } | null>(null);
   const prevCross = useRef<{ mode: 'astryum' | 'legacy'; id: string | null } | undefined>(undefined);
   useEffect(() => {
-    // The crossing tracks the PRODUCT, not just the account (founder
-    // 2026-08-04): entering the lobby (legacy with nothing constituted) is a
+    // The crossing tracks the PRODUCT, not just the account: entering the lobby (legacy with nothing constituted) is a
     // crossing too — indigo, no council caption. Entering/changing a governed
     // account keeps its constellation with the real quorum.
     const cur = { mode: productMode, id: activeGoverned?.id ?? null };
     // Data refreshes are not crossings: while authorities are (re)loading, a
     // transition is plumbing, not a user stepping between products — track
-    // it silently so no spurious crossing fires (bug 2026-07-21). This also
+    // it silently so no spurious crossing fires (bug). This also
     // collapses click-while-loading into ONE crossing: the lobby flip is
     // tracked silently and only the resolved activation plays.
     if (authoritiesLoading) {
@@ -456,7 +434,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         // astryum→legacy (lobby or account), or hopping between chambers.
         setCrossing({
           direction: 'to-legacy',
-          // Jamás la dirección como nombre (2026-08-22): un Legacy sin
+          // Jamás la dirección como nombre: un Legacy sin
           // bautizar cruza como 'Legacy' a secas.
           label: activeGoverned ? activeGoverned.label || t('Legacy') : undefined,
           quorum:
@@ -488,8 +466,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       /* data-authority moved UP to <html> (ThemeApplier): stamped here, the
          copilot and every body portal sat outside it and stayed gold in
          Legacy. One stamp, one source — the whole document flips. */
-      /* overflow-x-CLIP, never -hidden (founder 2026-08-04, "scrollbar que
-         aparece y desaparece en Home"): per the Overflow spec, when one axis
+      /* overflow-x-CLIP, never -hidden: per the Overflow spec, when one axis
          is `hidden` the other computes to `auto` — so `overflow-x-hidden`
          turned this wrapper into a silent Y-axis SCROLL CONTAINER. The window
          bar is hidden on html/body (globals.css), but this one is neither, so
@@ -542,7 +519,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               : 'transition-[margin] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] [html[data-motion=minimal]_&]:transition-none'
           } ${docked ? `${collapsed ? 'lg:ml-[72px]' : 'lg:ml-64'} lg:mr-[var(--dock-w)]` : 'lg:ml-64'}`}
         >
-          {/* GoverningBar UNMOUNTED (founder 2026-07-18): the dashboard color
+          {/* GoverningBar UNMOUNTED: the dashboard color
               (data-authority palette) already declares governed mode — the
               strip was redundant. Preserved at components/authority/GoverningBar.tsx. */}
           {/* Route-keyed crossfade — the per-page RevealGroups carry the rise,
@@ -554,7 +531,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="px-4 md:px-8 py-8 max-w-7xl mx-auto"
           >
-            {/* El LOBBY murió con la selección de producto (2026-08-22): no
+            {/* El LOBBY murió con la selección de producto: no
                 existe ya un estado «legacy sin cuenta» fuera de la propia
                 pantalla de Legacy, así que ninguna página compartida tiene que
                 esconder los datos de nadie. La invitación a constituir vive
@@ -567,11 +544,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} destinations={destinations} />
       <OnboardingModal />
       <LegacyAccessGuard />
-      {/* La operación de estrategia, montada POR ENCIMA de las rutas (2026-08-25):
+      {/* La operación de estrategia, montada POR ENCIMA de las rutas:
           navegar con ella abierta no la mata — es el punto del anclaje. */}
       <EarnOperationHost />
-      {/* The signature ceremony is INLINE now (founder 2026-08-08: the
-          full-screen blur takeover felt bolted-on) — SignedMark plays inside
+      {/* The signature ceremony is INLINE now — SignedMark plays inside
           each operation's own progress view: SettlementIndicator (EVM/Flare)
           and XamanQRModal's signed cover (XRPL). Nothing shell-level left. */}
 
@@ -604,7 +580,7 @@ function MobileBar({
   /** Intents waiting for the user's signature — the sidebar badge is hidden behind this button on mobile, so the burger carries the red dot. */
   intentsWaiting: number;
 }) {
-  // The brand dresses for the product (founder 2026-08-08): blue lockup in Legacy.
+  // The brand dresses for the product: blue lockup in Legacy.
   const brandLogo = useAuthorityStore((s) => s.productMode) === 'legacy' ? BRAND_LOGO_LEGACY : BRAND_LOGO;
   const { t } = useT();
   return (
@@ -622,8 +598,8 @@ function MobileBar({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={brandLogo} alt="Astryum" className="h-7 w-auto object-contain" />
       </Link>
-      {/* Same-width spacer where the search button lived (founder 2026-08-08:
-          search is the Co-pilot's job) — keeps the logo optically centred. */}
+      {/* Same-width spacer where the search button lived — keeps the logo optically centred.
+      { */}
       <span className="w-5" aria-hidden />
     </header>
   );
@@ -683,7 +659,7 @@ function Sidebar({
   pathname: string;
   /** Anclaje (dockStore): el raíl se encoge a solo-iconos con transición. */
   collapsed?: boolean;
-  /** Hay algo anclado: se ofrece el botón de plegar/desplegar (2026-09-10). */
+  /** Hay algo anclado: se ofrece el botón de plegar/desplegar. */
   collapsible?: boolean;
   onToggleCollapsed?: () => void;
   /** Primary rows for the CURRENT product mode (Wallets↔Legacy swap). */
@@ -699,14 +675,14 @@ function Sidebar({
   /** Money in flight — queued vault exits of the active authority. */
   vaultClaims: VaultClaimEntry[];
   refreshClaims: () => void;
-  /** it. 31 — owners whose queue the watcher could not read on its last tick (the tray says so, never «nothing»). */
+  /** Owners whose queue the watcher could not read on its last tick (the tray says so, never «nothing»). */
   vaultClaimsUnreadable?: VaultClaimsUnreadable[];
   /** Tickets de salida pendientes de managed vaults — «pending to withdraw». */
   managedTickets: ManagedTicket[];
   refreshManagedTickets: () => void;
 }) {
   const { t } = useT();
-  // The brand dresses for the product (founder 2026-08-08): blue lockup in Legacy.
+  // The brand dresses for the product: blue lockup in Legacy.
   const brandLogo = useAuthorityStore((s) => s.productMode) === 'legacy' ? BRAND_LOGO_LEGACY : BRAND_LOGO;
 
   return (
@@ -730,14 +706,13 @@ function Sidebar({
         />
 
         {collapsed ? (
-          /* ── EL RAÍL COMPACTO (anclaje 2026-08-25): solo los iconos — la
+          /* ── EL RAÍL COMPACTO (anclaje): solo los iconos — la
              operación anclada manda y el menú se aparta sin desaparecer.
              Deliberadamente NO intenta encoger las tarjetas (To sign,
              settlements, cuenta): a 72px serían ruido; vuelven al soltar. ── */
           <div className="shell-reveal flex h-full flex-col items-center gap-1 py-4">
             <span className="mb-2 grid h-9 w-9 place-items-center" aria-hidden>
-              {/* El asteroide REAL de la marca (fundador 2026-08-25: «no te
-                  inventes el logo — pon el asteroide que lo tienes en png»);
+              {/* El asteroide REAL de la marca;
                   el mismo juego oro/índigo que el lockup del sidebar. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -747,7 +722,7 @@ function Sidebar({
               />
             </span>
             {/* Desplegar el menú completo al lado de la operación anclada —
-                la preferencia se recuerda (fundador 2026-09-10). */}
+                la preferencia se recuerda. */}
             {collapsible && onToggleCollapsed && (
               <button
                 onClick={onToggleCollapsed}
@@ -798,9 +773,7 @@ function Sidebar({
                 </>
               )}
             </nav>
-            {/* Lo importante NO se calla al colapsar (fundador 2026-08-26:
-                «si hay una operación en marcha quiero que se vea, o una firma
-                pendiente») — las tarjetas grandes no caben a 72px, pero sus
+            {/* Lo importante NO se calla al colapsar — las tarjetas grandes no caben a 72px, pero sus
                 HECHOS sí: el contador de firmas (va a /app/intents, la página
                 completa de siempre) y el pulso de operaciones en vuelo. */}
             <RailLiveIndicators waiting={waitingIntents.length} t={t} />
@@ -824,10 +797,7 @@ function Sidebar({
         ) : (
           <div className="shell-reveal flex h-full flex-col">
 
-        {/* The brand mark, unboxed (founder 2026-08-16: with the ProductToggle
-            gone the bordered card read as an empty frame — and the global
-            gold :focus-visible outline drew a second rectangle inside it
-            after a click). The lockup now breathes on the panel itself; the
+        {/* The brand mark, unboxed. The lockup now breathes on the panel itself; the
             link is rounded so the rare keyboard-focus ring follows its shape
             instead of boxing the logo. It links to /app/home — the switcher
             surface (a personal wallet turns the shell gold, a Legacy card
@@ -853,7 +823,7 @@ function Sidebar({
           >
             <X className="w-5 h-5" />
           </button>
-          {/* Volver al raíl con la operación anclada (fundador 2026-09-10). */}
+          {/* Volver al raíl con la operación anclada. */}
           {collapsible && onToggleCollapsed && (
             <button
               onClick={onToggleCollapsed}
@@ -866,13 +836,12 @@ function Sidebar({
           )}
         </div>
 
-        {/* No search row (founder 2026-08-08: "quita el boton de buscar, que no
-            se va a usar para nada — que le pregunten al copiloto"): questions
+        {/* No search row: questions
             go to the Co-pilot below. The ⌘K command palette stays wired as a
             keyboard-only power shortcut. */}
 
         {/* primary nav — flat, everything visible. The Intents card lives at
-            the END of the menu (founder 2026-07-19): below the last nav row,
+            the END of the menu: below the last nav row,
             integrated inside the scrolling menu, the big card that shows what
             needs a signature AND the money in flight (queued vault exits)
             directly — no navigation to find it. */}
@@ -883,7 +852,7 @@ function Sidebar({
             ))}
           </ul>
 
-          {/* EL HUB DEL HACKATHON (fundador 2026-09-12): las puertas de la
+          {/* EL HUB DEL HACKATHON: las puertas de la
               entrega de XRPL Commons, separadas del menú de siempre por un
               filete y una cabecera propia, para que un juez las vea al
               entrar. Temporal: lib/nav/hackathonHub.ts. */}
@@ -906,7 +875,7 @@ function Sidebar({
             </div>
           )}
 
-          {/* LA ZONA DE NOTIFICACIONES (fundador 2026-09-11): en reposo, un
+          {/* LA ZONA DE NOTIFICACIONES: en reposo, un
               marcador mudo («Notifications»); con algo que firmar, la tarjeta
               con su punto que respira; con una operación liquidándose, la de
               SidebarSettlements. Un solo sitio, una sola cosa a la vez. */}
@@ -921,8 +890,7 @@ function Sidebar({
               refreshManagedTickets={refreshManagedTickets}
               onBeforeOpen={onClose}
             />
-            {/* In-flight operations live right under "To sign" (founder
-                2026-08-08): the floating bottom-right cards moved here so ONE
+            {/* In-flight operations live right under "To sign": the floating bottom-right cards moved here so ONE
                 sidebar spot holds signatures-waiting AND ops-in-progress.
                 Minimised by default; renders nothing when nothing is live. */}
             <SidebarSettlements />
@@ -930,8 +898,7 @@ function Sidebar({
         </nav>
 
         {/* pinned footer: co-pilot · discord · settings · account. The
-            language toggle moved to Settings › Preferences (founder
-            2026-08-08: "escondido en settings") — the sidebar stays about
+            language toggle moved to Settings › Preferences — the sidebar stays about
             destinations, not preferences. */}
         <div className="px-3 pt-3 pb-3 space-y-2 border-t border-ink/[0.06]">
           {/* The Co-pilot — the crew member who explains the ship. Gold-filled

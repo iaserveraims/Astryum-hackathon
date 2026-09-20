@@ -1,23 +1,7 @@
 /**
  * rateSource — de dónde sale un número, dicho para cualquiera.
  *
- * EL PROBLEMA (fundador, 25-ago). Debajo de cada tasa se leía esto:
- *
- *   «source: kFXRP_ISO.supplyRatePerTimestamp (base, on-chain) + DeFiLlama
- *    apyReward (WFLR incentives, same pool) · Base 0.05% + rewards 0.80%»
- *
- * Es el nombre de un contrato, el de una función y el de un campo de API. Para
- * quien no viene de DeFi eso no es una fuente: es ruido que ocupa el sitio de la
- * frase que sí importa.
- *
- * PERO LA FUENTE NO SE PUEDE QUITAR. El invariante #9 dice que un APY es dato
- * del protocolo CON su procedencia — es lo que separa «Kinetic paga esto» de
- * «Astryum te ofrece esto». Así que no se borra: se TRADUCE. La línea visible
- * dice de dónde sale en castellano llano, y el detalle técnico exacto viaja en
- * el `title`, a un hover de distancia, para quien quiera comprobarlo.
- *
- * Vive en `lib/` y no en el componente por la regla de la casa: esto es lógica
- * pura, y enterrada en un `.tsx` sería lógica sin red.
+ * EL PROBLEMA. Debajo de cada tasa se leía esto:
  */
 
 /** Lo que ve una persona, y lo que puede comprobar quien quiera hacerlo. */

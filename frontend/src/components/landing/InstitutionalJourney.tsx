@@ -7,33 +7,6 @@
  * estrellas, ni órbitas, ni planetas, ni asteroide. La escena entera es el
  * nombre de la casa abriéndose por su Y (art/ValleyScene.tsx) hasta ser un
  * valle con su lago, y después un par de cumbres.
- *
- * ── POR QUÉ ES UN FICHERO NUEVO Y NO UNA RAMA DE SolarJourney ────────────
- * SolarJourney calcula TODAS sus tablas de tiempo a nivel de módulo desde el
- * array de paradas de Personal (`const TIMELINE = STOPS_PERSONAL`, :349): el
- * velo, la atenuación por anillo, el brillo y los fotogramas de cámara. La
- * narrativa Legacy solo funcionaba ahí porque copiaba sus tiempos verbatim.
- * Una tercera narrativa con otro número de escenas parecería funcionar y se
- * rompería en silencio — el velo abriéndose donde no toca. Sacar esa carcasa
- * son dos mil líneas del fichero más delicado del repo, sin cobertura de
- * pruebas: los mundos nuevos nacen al lado, con la carcasa compartida de
- * ./journeyShell.tsx, y Personal se queda intacto pixel a pixel.
- *
- * ── LO QUE FALTABA, Y POR QUÉ SE AÑADIÓ ──────────────────────────────────
- * Fundador, 2026-09-18, viendo la primera versión: «está todo como muy
- * minimalista, quiero algo realmente interactivo como el nivel que tiene ahora
- * mismo el flow del personal». El diagnóstico era concreto: el viaje solar
- * lleva cuatro paradas con panel de texto, viñeta de producto y barra de
- * navegación; este tenía seis tiempos de escena y dos frases. De ahí las
- * viñetas (art/InstitutionalArtifacts.tsx), la barra de paradas y los apuntes.
- *
- * ── EL TEXTO ES SUYO ─────────────────────────────────────────────────────
- * La página pasaba el MISMO héroe a los dos productos, así que Legacy abría
- * con las palabras de Personal. Este viaje escribe las suyas, en voz
- * impersonal —«la entidad», nunca mezclando tú y usted— y sin tocar la línea
- * de Andorra más que como cuño de procedencia: dónde se opera. Nada de
- * «licenciado», «regulado» ni «MiCA»; eso no es un adorno de copy, es una
- * afirmación regulatoria.
  */
 
 import { useRef } from 'react';
@@ -133,13 +106,11 @@ export default function InstitutionalJourney({
             className="absolute inset-x-0 top-[20svh] px-6 md:px-10 lg:px-16 z-20 pointer-events-none"
           >
             {/* LA ENTRADA ANIMA EL BLOQUE ENTERO, no solo el nombre.
-                Fundador, 2026-09-19: «aparece el texto de Astryum pero no el
-                texto normal, tiene que ser igual que en el personal que todo
-                esté animado». La primera versión puso el gesto únicamente en
+                La primera versión puso el gesto únicamente en
                 las letras del logotipo y el cuño, el titular y el pie salían ya
                 puestos — que es peor que no animar nada, porque delata que lo
                 animado es un adorno y no una entrada.
-
+            { *
                 Tres retardos escalonados, en el mismo orden en que se lee. Van
                 antes que las letras del nombre (que arrancan a 0,1 s) porque
                 así el nombre REMATA la entrada en vez de abrirla. */}

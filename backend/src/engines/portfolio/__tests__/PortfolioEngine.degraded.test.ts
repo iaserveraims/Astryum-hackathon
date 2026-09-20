@@ -1,20 +1,6 @@
 /**
- * Ola 0 (15-sep) — A DEGRADED SNAPSHOT IS NOT A FACT: it does not replace the
+ * A DEGRADED SNAPSHOT IS NOT A FACT: it does not replace the
  * last complete copy, it is not persisted, and it says what it could not read.
- *
- * THE FAILURE (two reviewers). `cacheSet` → `staleSet` ran on EVERY write, and
- * `persistSnapshot` never looked at `unreadable`. After a signed withdrawal,
- * `afterSettled` forces `POST /portfolio/snapshot` for every wallet at once —
- * the burst most likely to 429 — so the forced sweep came back without
- * Kinetic, that copy REPLACED the last known version for half an hour, the
- * history persisted a false drop, and the Home told the person «nothing is
- * working yet». And a partially-read adapter (one market down) was, until
- * now, a whole adapter down.
- *
- * THE CONSUMER UNDER TEST: `PortfolioEngine.getPortfolio` over a real
- * registry with fakes that can be told to fall (whole or per market),
- * asserting on the snapshot it returns, on what the stale copy serves, and
- * on what reaches Prisma. No RPC, no Redis, no FTSO.
  */
 
 // Degraded fresh cache dies at once, so the next read falls to the STALE copy.

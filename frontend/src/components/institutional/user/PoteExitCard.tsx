@@ -5,24 +5,6 @@
  * sus participaciones en su Personal Account, que no firma sola. Esta tarjeta
  * prepara UNA firma y el XRP aterriza en su misma r-address — no hay campo de
  * destino, a propósito: se vuelve por donde se vino.
- *
- * La tarjeta PIDE `unmint: true` (13-sep): antes prometía XRP y componía
- * `sync-fxrp` — el FXRP se quedaba en la PA y la divulgación del backend decía
- * lo contrario que la tarjeta, justo antes de firmar. Ahora la unidad y la frase
- * de llegada salen del `mode` que devuelve el backend (`lib/institutional/exitCopy`),
- * nunca de lo que la tarjeta esperaba pedir. Si el importe no llega al mínimo de
- * redención de FAssets, se dice así y se ofrece la alternativa EXPLÍCITA:
- * quedárselo como FXRP en su cuenta Flare (un segundo botón que dice FXRP).
- *
- * Lo que esta tarjeta NO hace, y es deliberado:
- *  · no pregunta a dónde mandar el dinero (el destino es quien firma)
- *  · no promete un importe exacto: enseña el previsto y explica el margen
- *  · no dice «error» cuando no puede leer — un fallo de lectura no es un fallo
- *    de la operación, y confundirlos fue lo que empujó al doble depósito
- *    (incidente del recibo, 17-ago)
- *
- * Prepare-only: el backend devuelve el pago XRPL sin firmar, la wallet firma,
- * y el 0xFE ejecuta. Astryum no firma en ningún punto.
  */
 'use client';
 
@@ -75,7 +57,7 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
   const [signError, setSignError] = useState('');
   const [unconfirmed, setUnconfirmed] = useState<UnconfirmedSignature | null>(null);
   /**
-   * A signature that arrived too late (it. 17, R5 5.2). `tefMAX_LEDGER` /
+   * A signature that arrived too late (R5 5.2). `tefMAX_LEDGER` /
    * `tefPAST_SEQ` mean this exact payload can never validate — nothing moved and
    * nothing will — so the card says «prepare it again» instead of the amber
    * «we could not confirm it, reload», which sends people hunting for money that
@@ -85,12 +67,12 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
   /**
    * The memo of the LAST exit this card prepared. Kept after the card drops the
    * payload so that a seat refusal on the next attempt can offer to free the
-   * very draft this person just walked away from (it. 17, R1 1.5).
+   * very draft this person just walked away from (R1 1.5).
    */
   const abandonedMemo = useRef<string | null>(null);
 
   /**
-   * it. 21 (it. 20 §3.3) — LEAVING THIS CARD WITH AN UNSIGNED EXIT ON THE TABLE.
+   * LEAVING THIS CARD WITH AN UNSIGNED EXIT ON THE TABLE.
    *
    * The prepared 0xFE holds the nonce seat of the Personal Account until its
    * signing window passes, and this card was the only 0xFE surface that never
@@ -162,14 +144,14 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
       handedToPartner = true;
       const { txHash } = await xrpl.sendIntent({ tx: prepared.xrplTx as never });
 
-      // El backend aprende «firmado» (incidente 2026-08-21): el asiento de nonce
+      // El backend aprende «firmado»: el asiento de nonce
       // queda intocable — ni TTL, ni release, ni supersede — hasta ejecutar. Sin
       // esto, un executor lento más un reintento firman un gemelo condenado.
       notifyHandoffSigned(prepared.memoHex, txHash);
       settlement.track(startPending('xrpl-mint', txHash));
       setPhase('sent');
     } catch (e) {
-      // TOO LATE IS NOT «I COULD NOT READ» (it. 17, R5 5.2). A tefMAX_LEDGER /
+      // TOO LATE IS NOT «I COULD NOT READ» (R5 5.2). A tefMAX_LEDGER /
       // tefPAST_SEQ is a verdict we DID read: this payload can never validate,
       // nothing moved, and the way forward is a fresh prepare — never the amber
       // panel, which forbids exactly the retry that is correct here.
@@ -205,12 +187,12 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
   const offersFxrp = refusal ? exitOffersFxrpAlternative(refusal.error) : false;
   const seatRefusal = normalizeSeatRefusal(refusal);
 
-  // Invariant #6 (productizer it. 12, 4.2): an unmint pays the FAssets
+  // Invariant #6 (4.2): an unmint pays the FAssets
   // redemption fee out of the XRP the agent sends, so the amount row shows the
   // net when the fee was read and the gross with its caveat when it was not —
   // never the gross as a promise.
   //
-  // ONE READER (it. 14, R3 3.2). The card used to parse `exit.xrpOutHuman` as
+  // ONE READER (R3 3.2). The card used to parse `exit.xrpOutHuman` as
   // the gross and subtract the fee again over a figure the backend had already
   // netted: two different nets on the same screen. `exitRedemption` knows which
   // shape the response has and hands back the gross and the rows together.
@@ -255,7 +237,7 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
         </button>
       ) : null}
 
-      {/* A TAKEN SEAT IS NOT A REFUSAL OF THE EXIT (it. 17, R5 5.4). It is an
+      {/* A TAKEN SEAT IS NOT A REFUSAL OF THE EXIT (R5 5.4). It is an
           earlier 0xFE of this same account holding the nonce, it is said in
           English by the one reader of that verdict, and — when the draft is the
           one this person just abandoned — it comes with the way out instead of
@@ -273,7 +255,7 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
         <StaleSignatureNotice error={staleSign} t={t} onPrepareAgain={() => void prepare(true)} />
       ) : null}
 
-      {/* it. 21 (it. 20 §3.3) — CANCELAR EN XAMAN NO LIBERA EL ASIENTO, Y NADIE
+      {/* CANCELAR EN XAMAN NO LIBERA EL ASIENTO, Y NADIE
           LO DECÍA. Tras un rechazo (o un payload caducado) el 0xFE preparado
           sigue sentado en el nonce: la tarjeta lo dice, dice CUÁNDO se suelta, y
           ofrece soltarlo en cuanto el payload deja de estar en pantalla —
@@ -291,7 +273,7 @@ export function PoteExitCard({ pote, account }: { pote: string; account: string 
       {refusal && !seatRefusal ? (
         <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-2.5">
           <p className="text-[12px] font-medium text-tone-warning">{refusalHeadline(refusal.error, t)}</p>
-          {/* it. 22 (Q3 3.7) — EL `detail` DEL SERVIDOR NO SE PINTA A CIEGAS.
+          {/* EL `detail` DEL SERVIDOR NO SE PINTA A CIEGAS.
               Varias de estas negativas se componen en castellano (y alguna con
               hashes dentro), y esta tarjeta las imprimía tal cual bajo un
               titular en inglés: la persona lee un idioma que la pantalla no

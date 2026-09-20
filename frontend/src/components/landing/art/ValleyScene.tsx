@@ -3,61 +3,13 @@
 /**
  * EL VALLE — la escena del producto Institucional.
  *
- * Encargo del fundador (2026-09-18), literal: «que se vea el nombre de Astryum
- * haciendo zoom sobre la Y y que se quiten luego todas las letras; al inicio y
+ * Al inicio y
  * al fin se ve el nombre construido al completo pero no en el proceso. Primero
  * se ve el nombre, luego se hace zoom sobre la Y, luego se separan las letras,
  * se percibe la Y como un lago donde el líquido es una LP, se van mostrando los
  * principios en gotitas de agua que filtran, luego la Y se transforma en la
  * silueta de un par de montañas simulando que estamos en Andorra y luego
  * aparece el nombre de Astryum como lo conocemos abajo del todo.»
- *
- * Tercera pasada, el mismo día: «quiero un nivel de profesionalidad muy top…
- * se siguen viendo las animaciones toscas y están hechas con palitos simples».
- *
- * ── LA DIRECCIÓN: DEJAR DE DIBUJAR Y EMPEZAR A IMPRIMIR ──────────────────
- * Tres decisiones gobiernan todo lo demás:
- *
- * 1. UNA SOLA LUZ (`craft.ts` → `LIGHT`, 35° desde la derecha). La obedecen el
- *    bisel del nombre, la cara iluminada del macizo, la cresta de la nieve, la
- *    banda especular del agua y el brillo interior de cada gota. Que una escena
- *    tenga una dirección de luz declarada es, con diferencia, lo que más separa
- *    un dibujo profesional de un montón de formas correctas.
- *
- * 2. LA GEOMETRÍA SE GENERA, NO SE TECLEA. La versión anterior reutilizaba UNA
- *    uve de tres puntos como cuenca, como roca, como cumbre cercana y como
- *    segunda cumbre, más dos cordilleras de doce puntos escritos a mano. Ahora
- *    hay un desplazamiento del punto medio con semilla (`craft.ts` → `ridge`)
- *    evaluado UNA vez a nivel de módulo: coste de ejecución cero, determinista,
- *    seguro en el servidor, y con variación a todas las escalas — que es lo que
- *    distingue una silueta de roca de una línea quebrada.
- *
- * 3. UNA ESCALA DE TINTAS EN UNIDADES DEL MUNDO. Había trece grosores entre 0,6
- *    y 1,6 y CATORCE elementos con `non-scaling-stroke`, así que acercarse a
- *    ×4,6 dejaba el dibujo igual de fino y por tanto más VACÍO. Ahora los
- *    trazos del mundo engordan con la cámara y solo los del instrumento
- *    (limnímetro, sondas, marcas de registro) se quedan finos: ese contraste es
- *    en sí mismo la señal de que hay un dibujo y una anotación sobre él.
- *
- * ── DOS REGLAS QUE VIENEN DE LOS INVARIANTES, NO DEL GUSTO ───────────────
- * 1. EL AGUA NO SUBE. Ni con los principios ni con las olas. Lo que se acumula
- *    es el REGISTRO — las cláusulas escritas en la pared —, jamás el fondo. Por
- *    eso la perturbación de cada gota es una ondícula de Ricker y no una
- *    campana: su integral vale exactamente cero, así que el nivel medio no
- *    puede derivar. Un nivel que sube lo lee un lector financiero como
- *    rendimiento insinuado, y eso es lo que prohíbe el invariante #9.
- * 2. DOS GOTAS NO PASAN. Si todas filtran, «filtrar» es decoración.
- *
- * ── GEOMETRÍA ────────────────────────────────────────────────────────────
- * Todo vive en el MISMO lienzo que el wordmark (`0 0 1000 150`), así que el
- * valle cae exactamente donde está la Y sin alinear nada a mano.
- *
- * ── RENDIMIENTO ──────────────────────────────────────────────────────────
- * CERO elementos `<filter>` dentro de este SVG. Ni uno, animado o no: el
- * `viewBox` se reescribe cada fotograma y eso vuelve a rasterizar la región del
- * filtro entera, con la región creciendo con el acercamiento. Todo el material
- * es degradado, patrón y máscara — y las dos máscaras caras están apagadas
- * mientras la cámara viaja.
  */
 
 import { memo, useEffect, useId, useMemo, useRef } from 'react';
@@ -106,14 +58,13 @@ const WATER_HALF = halfAt(WATER_Y); // 27.4
 
 /* ── EL TAMIZ ───────────────────────────────────────────────────────────
    La cuarta parada se llama «El tamiz» y hasta hoy NO había tamiz: se veían
-   gotas cayendo y dos que se apartaban solas. Un fundido no es un mecanismo, y
-   por eso el fundador dijo que las gotas no le acababan.
-
+   gotas cayendo y dos que se apartaban solas.
+ *
    Aquí hay una malla de verdad, y separa por TAMAÑO, que es como separa un
    tamiz. La luz de la malla ES la política: lo que cumple pasa, y lo que no
    cumple es más grande que la luz y se queda encima. No hay que explicarlo —
    se ve que no cabe.
-
+ *
    Va once unidades por encima de la lámina para que el paso y la caída al agua
    sean dos sucesos distintos y no uno solo. */
 export const SIEVE_Y = WATER_Y - 11;
@@ -150,28 +101,10 @@ const BASIN_FILL_D = `${toPath(BASIN_PTS)}Z`;
 /**
  * LAS DOS CUMBRES — y por qué NO hay ningún volteo.
  *
- * Fundador, 2026-09-18, sobre la versión anterior: «el final cuando se
+ * Fundador, sobre la versión anterior: «el final cuando se
  * transforma en una montaña no me gusta nada, porque lo pones en medio de la Y
  * se ve todo el rato, simplemente se gira para dejar de ser una V para ser una
  * A, no queda nada bien».
- *
- * Tenía razón, y el fallo era de raíz: espejar la uve sobre la lámina es un
- * truco de transformada, no una idea. A mitad del giro la escala vertical pasa
- * por cero y el dibujo se aplasta en una raya, que es exactamente el aspecto de
- * «esto ha dado la vuelta». Y como el macizo cabía dentro de la horquilla, se
- * quedaba metido en la letra a cualquier escala.
- *
- * La horquilla de la Y YA ES un valle, y sus dos brazos YA SON las dos laderas:
- * suben y se separan, que es justo lo que hacen las paredes de un valle. No hay
- * nada que girar. Lo único que faltaba era MIRAR HACIA ARRIBA y ver dónde
- * acaban esas dos laderas. Así que las paredes siguen subiendo por encima de la
- * caja alta hasta dos cumbres, la cámara trepa por ellas, y el «par de montañas
- * simulando Andorra» del encargo resulta ser lo que la letra dibujaba desde el
- * principio. Es la misma silueta continua de un borde al otro — un corte
- * transversal de valle de verdad, con su lago en el fondo.
- *
- * Y en reposo no queda NADA dentro de la Y: el perfil entero vive detrás de una
- * sola puerta que se abre al llegar al valle y se cierra al retirarse la cámara.
  */
 const SUM_L: Pt = [448, -96];
 const SUM_R: Pt = [762, -74];
@@ -188,17 +121,6 @@ const PROFILE_D = toPath(PROFILE);
 /**
  * LA SILUETA DEL MACIZO, EXPORTADA — porque algo más tiene que proyectar su
  * sombra.
- *
- * El cierre del mundo institucional (../InstitutionalBreak.tsx) no dibuja una
- * montaña nueva: oscurece la mesa del grabador con la sombra de ESTA, la misma
- * ladera que la cámara acaba de trepar en la quinta parada. Por eso se exporta
- * la lista de puntos y no una cadena ya resuelta: quien la use la mapea a su
- * propio lienzo.
- *
- * Y se exporta en vez de volver a sembrar `ridge(0x1f93, …)` allí por la razón
- * de siempre: dos llamadas con la misma semilla parecen la misma cresta hasta
- * el día que alguien toca una de las dos, y entonces la sombra deja de ser la
- * de esa ladera y nadie se entera.
  */
 // Es UNA ladera y no el perfil entero, y es la IZQUIERDA. Dos intentos medidos
 // en captura antes de acertar: el perfil completo lleva dos cumbres con el valle
@@ -416,9 +338,7 @@ function ValleySceneImpl({ progress, lang, letters, measured, settled = true, le
   const vSpan = vEnd - vStart;
 
   /* ── LA REGLA DE FASE ──────────────────────────────────────────────
-     Fundador, 2026-09-19: «hay objetos que no se ven bien, se ven justo cuando
-     desaparece el artefacto en cuestión, pues aparece justo el texto».
-
+   *
      Tenía razón y era aritmética, no gusto. Cada tiempo de la escena terminaba
      su trabajo EXACTAMENTE en el borde de su parada, y el `Dock` del texto se
      va en `b − 0,16·span`. Medido: la lámina se llenaba en 0,400 y el texto se
@@ -426,11 +346,7 @@ function ValleySceneImpl({ progress, lang, letters, measured, settled = true, le
      filo iluminado del valle llegaba en 0,820 y el texto se iba en 0,816. Es
      decir: la escena se completaba siempre en el fotograma en que el lector ya
      estaba leyendo otra cosa, y nunca llegaba a ver la escena TERMINADA con su
-     propia frase delante.
-
-     A partir de aquí, cada parada resuelve en el 72 % de su tramo y el 28 %
-     restante es HOLD: la escena quieta y acabada, con el texto todavía a plena
-     opacidad. Ese hueco es el sitio donde se lee. */
+     propia frase delante. */
   const RESOLVE = 0.72;
   /** Un punto dentro de la parada, ya comprimido por la regla de fase: `at(a,b,1)`
    *  no cae en `b`, cae en el 72 % — que es donde tiene que acabar el trabajo. */
@@ -478,25 +394,7 @@ function ValleySceneImpl({ progress, lang, letters, measured, settled = true, le
   /* ── LA RETIRADA ──────────────────────────────────────────────────────
      Todo el macizo —perfil, caras, tramado, estratos, nieve, cordilleras,
      amanecer y niebla— se CIERRA cuando la cámara se retira, así que en reposo
-     la Y queda limpia. Era la mitad de la queja del fundador: «lo pones en
-     medio de la Y y se ve todo el rato».
-
-     Pero hasta ahora las NUEVE puertas compartían la misma ventana de salida,
-     `[vEnd, backHome]`, y por tanto el paisaje se apagaba en bloque: medido en
-     captura a 0,855, el fotograma era una mancha pálida de media pantalla —dos
-     cumbres al doce por ciento, sin una sola arista— justo en el tiempo en que
-     el nombre empieza a recomponerse. Dos cosas débiles compitiendo por el
-     mismo sitio en vez de una fuerte.
-
-     Aquí se van POR CAPAS y en orden inverso al de llegada: primero el filo y
-     la nieve, que es detalle de cerca; al final las cordilleras del fondo y el
-     amanecer, que son silueta. Un paisaje que se aleja pierde la textura antes
-     que el perfil, nunca al revés. Y la última capa termina en `lettersBack`,
-     así que entre el valle y el nombre hay un fotograma limpio.
-
-     El desplazamiento de dos milésimas sobre `vEnd` no es un gusto: `gate(0.6,
-     1.0)` termina EXACTAMENTE en `vEnd`, y dos paradas iguales seguidas en una
-     tabla de interpolación no son una tabla creciente. */
+     la Y queda limpia. Era la mitad de la queja del */
   const OUT_0 = vEnd + 0.002;
   const OUT_STEP = (lettersBack - OUT_0) / 6;
   const out = (k: number) => [OUT_0 + k * OUT_STEP, OUT_0 + (k + 1.7) * OUT_STEP] as [number, number];

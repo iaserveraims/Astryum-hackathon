@@ -1,22 +1,7 @@
 /**
- * G3-final (3ª ronda, 18-ago) — the closing notice, and what round 2 broke on
+ * G3-final (3ª ronda) — the closing notice, and what round 2 broke on
  * its way to fixing the storm. Every test here walks REAL ticks with a fake
  * clock; none of them reads the source.
- *
- *  blocker 3 — `announceExpiredOccurrence` created the `AutomationRun` FIRST
- *      and then returned unstamped whenever it could confirm neither the Alert
- *      row nor a DELIVERED push. `sendToUser` answers `{sent:0, skipped:1}` for
- *      any user with no registered device (the normal case on a web product),
- *      so one failing `alert.create` inserted one `expired` run every 60s tick:
- *      1.440/day on a monthly rule, burying the `take: 50` history in 50
- *      minutes. The closing notice had become the storm it came to kill.
- *  blocker 4 — the tormenta commit turned fire-and-forget pushes into awaited
- *      ones, and Expo is fetched with no AbortSignal: an unanswered push held
- *      the whole 60s tick.
- *  blocker 5 — the abandonment notice was FABRICATED. `owedAttempt` is just
- *      `lastTriggeredAt`; nothing checked that the barren attempt belonged to
- *      the cron in force now.
- *  blocker 2 — the boundary of the retry floor, walked instead of claimed.
  */
 jest.mock('../../../database/prismaClient', () => {
   let rules: any[] = [];
@@ -319,8 +304,8 @@ describe('G3-final blocker 5 — an abandonment nobody can attribute is never an
   });
 
   it('a stamp left over from a month ago, after later occurrences have passed, says nothing', async () => {
-    // Disabled after a barren attempt on 1-ago, re-enabled on 3-sep: the
-    // schedule has moved on (1-sep came and went). Shouting now is a wolf.
+    // Disabled after a barren attempt, re-enabled: the
+    // schedule has moved on (came and went). Shouting now is a wolf.
     prismaModule.__setRules([
       monthlyRule({
         id: 'rule-final-stale',

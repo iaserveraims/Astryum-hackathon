@@ -81,7 +81,7 @@ describe('planFxrpSweep', () => {
   });
 });
 
-describe('presupuesto diario de fees FDC — el freno de mano global (incidente 2026-07-18)', () => {
+describe('Presupuesto diario de fees FDC — el freno de mano global', () => {
   const { assertDailyFeeBudget, recordFeeSpend, feeBudgetStatus, legacyFeeReserveWei, _resetFeeLedgerForTests, FeeBudgetExceeded } =
     require('../ExecutorFuelService');
   const DAY = 24 * 60 * 60 * 1000;
@@ -158,7 +158,7 @@ describe('presupuesto diario de fees FDC — el freno de mano global (incidente 
 describe('computeFeeMarginPct — el guardián FTSO del margen (Tramo 1)', () => {
   const { computeFeeMarginPct } = require('../ExecutorFuelService');
 
-  it('con las medidas del 2026-07-25 el margen sobre coste ronda el 66%', () => {
+  it('Con las medidas el margen sobre coste ronda el 66%', () => {
     // fee 0,2 XRP a $1,0903 = $0,218 · coste 20,4 FLR a $0,00641 = $0,1308
     const pct = computeFeeMarginPct({ execFeeXrp: 0.2, xrpUsd: 1.0903, flrUsd: 0.00641177, costFlr: 20.4 });
     expect(pct).toBeGreaterThan(60);

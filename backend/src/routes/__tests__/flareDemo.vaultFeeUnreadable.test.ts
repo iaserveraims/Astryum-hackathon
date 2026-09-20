@@ -1,5 +1,5 @@
 /**
- * it. 27 — «NO PUDE LEER LA COMISIÓN» NO ES «NO HAY COMISIÓN».
+ * «NO PUDE LEER LA COMISIÓN» NO ES «NO HAY COMISIÓN».
  *
  * THE FAILURE THIS SUITE PINS. `instantRedemptionFee()` was read with
  * `.catch(() => null)` and every consumer downstream turned that null into a
@@ -10,21 +10,11 @@
  * `redeemDepositUBA` — the amount the SECOND leg of the batch deposits — from
  * that zero, with only 10 bips of buffer. earnXRP charges 10 bps and Monarq
  * 30 bps on mainnet, so leg 2 would revert AFTER the person had signed.
- *
- * The same read shape covered `paused()` / `depositsPaused()` with
- * `.catch(() => false)`: a node that did not answer became «this vault takes
- * deposits», and the composition walked past the pause check.
- *
- * Hermetic, like its siblings: vault reads go through a fake ethers.Contract
- * keyed by address, and here some of those reads REJECT — the whole point.
- * Every assertion is over refusals and UNSIGNED payloads; Astryum signs
- * nothing. The EVM-direct rail is used throughout so no 0xFE machinery is
- * involved in the chain under test.
  */
 import express from 'express';
 import request from 'supertest';
 
-// Verified mainnet constants (see .env.example, on-chain 2026-07-10).
+// Verified mainnet constants (see .env.example, on-chain).
 const FXRP = '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE';
 const STXRP = '0x4C18Ff3C89632c3Dd62E796c0aFA5c07c4c1B2b3';
 const EARNXRP_VAULT = '0x373D7d201C8134D4a2f7b5c63560da217e3dEA28';
@@ -152,13 +142,13 @@ function assertHonestRefusal(body: Record<string, unknown>, code: string) {
   expect(body.xrplPayment).toBeUndefined();
 }
 
-describe('it. 27 · the chain — an unreadable instant fee never becomes a zero', () => {
+describe('The chain — an unreadable instant fee never becomes a zero', () => {
   /**
-   * it. 29 — REVISED. In it. 27 this exit was REFUSED. But on /vault-withdraw
+   * REVISED. In this exit was REFUSED. But on /vault-withdraw
    * the fee is not payload: `buildInstantRedeemBatch` needs only `sharesUBA`
    * + `receiver`, the fee is charged by the contract either way, and refusing
    * closed an EXIT over a number that does not change the transaction («la
-   * salida jamás se gatea»). What must never happen is the it. 27 finding —
+   * salida jamás se gatea»). What must never happen is the finding —
    * the GROSS handed over as the net, or an empty fee row that reads as free.
    * So the exit COMPOSES, `instantFeeKnown: false` drives the modal's
    * «could not be read on-chain» row (vaultModalTruth: kind 'unreadable'),
@@ -170,8 +160,8 @@ describe('it. 27 · the chain — an unreadable instant fee never becomes a zero
       .post('/api/flare-demo/vault-withdraw/prepare')
       .send({ vault: 'earnxrp', sharesBase: '100000000', evmAddress: EVM_WALLET });
 
-    // Before it. 27: 200 with `estimatedFxrpOut: 100.9202` (the GROSS, fee
-    // silently zero). it. 27: 502. Now: 200, and the unknown is SAID.
+    // Before: 200 with `estimatedFxrpOut: 100.9202` (the GROSS, fee
+    // silently zero).: 502. Now: 200, and the unknown is SAID.
     expect(res.status).toBe(200);
     expect(res.body.calls).toHaveLength(1);
     expect(res.body.calls[0].to).toBe(EARNXRP_VAULT);
@@ -214,7 +204,7 @@ describe('it. 27 · the chain — an unreadable instant fee never becomes a zero
   });
 });
 
-describe('it. 27 · «I could not read paused()» is not «it takes deposits»', () => {
+describe('«I could not read paused()» is not «it takes deposits»', () => {
   it('ENTRY into a vault whose pause read failed is refused, not composed', async () => {
     const res = await request(app)
       .post('/api/flare-demo/vault/prepare')
@@ -237,7 +227,7 @@ describe('it. 27 · «I could not read paused()» is not «it takes deposits»',
   });
 });
 
-describe('it. 27 · what the refusal must NOT take away', () => {
+describe('What the refusal must NOT take away', () => {
   it('THE EXIT THAT DOES NOT DEPEND ON THAT READ STILL WORKS: Firelight redeems', async () => {
     // «La salida jamás se gatea». Firelight has no instant fee to read, so a
     // dead `instantRedemptionFee()` on the Upshift vaults cannot touch it.

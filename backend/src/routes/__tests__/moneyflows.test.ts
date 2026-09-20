@@ -124,7 +124,7 @@ describe('GET /api/moneyflows — rules grouped by canonicalRef', () => {
     expect(mockRuleFindMany.mock.calls[0][0].where.canonicalRef).toEqual({ not: null });
   });
 
-  // El schema es deliberadamente laxo desde 2026-07-19 (min(4).max(64)): la
+  // El schema es deliberadamente laxo (min(4).max(64)): la
   // regex EVM-only devolvía 400 a toda wallet XRPL (r…). "Inválida" hoy =
   // demasiado corta para CUALQUIER chain; una dirección desconocida pero
   // bien formada devuelve lista vacía, no error.
@@ -193,7 +193,6 @@ describe('flow-level revoke — pause/resume/delete by canonicalRef (guardarraí
 });
 
 /**
- * productizer 13-sep — a public address is not a key.
  *
  * The wallet lookups matched the address ALONE, so any session listed, paused,
  * resumed or deleted another user's flows by typing their address. These fail

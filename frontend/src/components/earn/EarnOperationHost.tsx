@@ -26,7 +26,7 @@ const DemoVaultModal = dynamic(
   () => import('./FlareDemoEarn').then((m) => m.DemoVaultModal),
   { ssr: false },
 );
-// El segundo inquilino (2026-08-26): la operación de posiciones — mismo
+// El segundo inquilino: la operación de posiciones — mismo
 // motivo, mismo carril: sobrevivir a la navegación con el anclaje puesto.
 const PaActionsModal = dynamic(
   () => import('../positions/PaActionsModal').then((m) => m.PaActionsModal),
@@ -35,23 +35,20 @@ const PaActionsModal = dynamic(
 // El tercer inquilino: la orden de consejo del hub (la jaula).
 const CouncilVaultEntry = dynamic(() => import('../legacy/CouncilVaultEntry'), { ssr: false });
 // El cuarto: la constitución del Legacy — la pieza del otro builder
-// (ConstituteOperation, 26-ago), que ya venía con OperationSurface, sello
+// (ConstituteOperation), que ya venía con OperationSurface, sello
 // índigo local y regla de no-cierre-accidental; aquí solo cambia DÓNDE vive.
 const ConstituteOperation = dynamic(() => import('../legacy/ConstituteOperation'), { ssr: false });
-// El quinto: reforzar una cuenta personal (fundador 2026-08-27) — la misma
+// El quinto: reforzar una cuenta personal — la misma
 // ceremonia por debajo, pero en ORO y sin el sello índigo del Legacy.
 const ReinforceOperation = dynamic(() => import('../legacy/ReinforceOperation'), { ssr: false });
-// El sexto: el AGENTE como ventana (fundador 2026-08-29) — fuera del tope de
+// El sexto: el AGENTE como ventana — fuera del tope de
 // tres; la conversación sobrevive en su píldora como cualquier operación.
 const AgentOperation = dynamic(() => import('./AgentOperation'), { ssr: false });
-// El séptimo: GOBERNAR un Legacy (fundador 2026-08-30: «que se abra también
-// en formato burbuja anclable») — el gemelo de Constituir, clavado a Govern.
+// El séptimo: GOBERNAR un Legacy — el gemelo de Constituir, clavado a Govern.
 const GovernOperation = dynamic(() => import('../legacy/GovernOperation'), { ssr: false });
-// El octavo: la MESA DEL GESTOR (fundador 2026-09-10: fuera del sidebar, se
-// abre desde Managed vaults «en una ventanita» anclable a la derecha).
+// El octavo: la MESA DEL GESTOR.
 const ManagerOperation = dynamic(() => import('../managed/ManagerOperation'), { ssr: false });
-// Las CEREMONIAS DE CONFIGURACIÓN (fundador 2026-09-12: la plantilla del
-// Legacy para todas): el alta del gestor y la del exchange, cada una UNA vez,
+// Las CEREMONIAS DE CONFIGURACIÓN: el alta del gestor y la del exchange, cada una UNA vez,
 // en su ventana — las mesas y el hub de altas las abren con una puerta.
 const ManagerSetupOperation = dynamic(() => import('../managed/ManagerSetupOperation'), { ssr: false });
 const ExchangeSetupOperation = dynamic(() => import('../demo-exchange/stage/ExchangeSetupOperation'), { ssr: false });
@@ -144,8 +141,7 @@ function renderOp(op: HostedOp, close: () => void) {
 
 /**
  * OpErrorBoundary — una ventana que revienta se CIERRA sola, jamás tumba la
- * app (fundador 2026-09-10: «he refrescado con un QR en pantalla y se ha
- * quedado como pillado»). Desde que las ventanas sobreviven a la recarga, un
+ * app. Desde que las ventanas sobreviven a la recarga, un
  * fallo dentro de una rehidratada (un chunk que ya no existe tras un deploy,
  * un dato persistido que ya no cuadra) subía al error boundary de la app… y
  * al recargar la ventana volvía, y el fallo con ella: un bucle sin salida.
@@ -185,7 +181,7 @@ class OpErrorBoundary extends Component<{ opId: string; onFail: () => void; chil
 }
 
 export default function EarnOperationHost() {
-  // MULTI-OP (fundador 2026-08-27): hasta tres operaciones MONTADAS a la vez
+  // MULTI-OP: hasta tres operaciones MONTADAS a la vez
   // — todas conservan su estado (importes, review, ceremonia) porque nunca se
   // desmontan al plegarse. Solo la activa se despliega; las demás son
   // píldoras en fila. El contexto OpWindow le cuenta a cada superficie su
@@ -194,7 +190,7 @@ export default function EarnOperationHost() {
   const activeId = useOperationStore((s) => s.activeId);
   const activate = useOperationStore((s) => s.activate);
   const close = useOperationStore((s) => s.close);
-  // LAS VENTANAS SOBREVIVEN A LA RECARGA (fundador 2026-09-09): el host es
+  // LAS VENTANAS SOBREVIVEN A LA RECARGA: el host es
   // el único que las monta y vive en el shell, así que es quien las
   // rehidrata — una vez por carga de página.
   useEffect(() => {

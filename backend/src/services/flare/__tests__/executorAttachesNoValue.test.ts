@@ -1,6 +1,5 @@
 /**
- * EL EXECUTOR NO PONE DINERO EN EL BATCH DEL USUARIO (fundador 2026-08-28,
- * al abrir el envío de FLR nativo desde la Smart Account).
+ * EL EXECUTOR NO PONE DINERO EN EL BATCH DEL USUARIO.
  *
  * POR QUÉ ESTE TEST MIRA EL FUENTE Y NO EJECUTA. La línea que decide esto vive
  * en mitad del carril on-chain (FDC → proof → `executeDirectMintingWithData`),
@@ -9,19 +8,6 @@
  * avisa: no revierte, no rompe ningún test, solo vacía la wallet caliente de
  * Astryum un envío cada vez. Eso es justo lo que un tripwire de fuente sí puede
  * fijar, con la misma forma que los «wiring guards» que ya existen en el repo.
- *
- * LO QUE PROTEGE. `MemoInstructions.sol` hace
- * `_personalAccount.call{value: msg.value}(userOp.callData)`: REENVÍA el
- * msg.value, no lo exige. Con 0, la Personal Account paga los `value` de sus
- * propias piernas con su propio saldo nativo (verificado contra mainnet con un
- * eth_call sobre una PA real: fondeada pasa, a cero revierte). Adjuntar
- * Σ call.value —lo que la guía de Flare dice que el executor «debe» hacer— no
- * habilita nada y convierte cada envío de FLR de un usuario en dinero de
- * Astryum, aparcado además en la cuenta del usuario.
- *
- * Mientras todos los batches tenían Σ call.value = 0 daba igual. Dejó de dar
- * igual con `pa-transfer` de FLR nativo, que es exactamente una pierna con
- * `value`.
  */
 import fs from 'fs';
 import path from 'path';

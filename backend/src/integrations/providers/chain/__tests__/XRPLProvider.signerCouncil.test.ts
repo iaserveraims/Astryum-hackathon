@@ -1,26 +1,9 @@
 /**
  * Regression test for the api_version variance in XRPLProvider.getSignerCouncil.
  *
- * The failure that actually happened (verified live 2026-07-24 against the real
+ * The failure that actually happened (verified live against the real
  * council rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf, which HAS a 3-of-4 signer list and
  * a disabled master key on mainnet):
- *
- *   · `account_info` with `signer_lists: true` returns the list UNDER
- *     `account_data` in api_version 1 — the shape of the HTTPS JSON-RPC fallback,
- *     which sends no api_version and therefore gets v1.
- *   · In api_version 2 the field moved to the ROOT of the result. That is what
- *     xrpl.js ≥4 (4.4.3 here) negotiates over the websocket — the DEFAULT
- *     transport of `_request`.
- *
- * Reading only `account_data.signer_lists` therefore returned `null` — "this is
- * not a council" — for a council that demonstrably is one, but ONLY on the
- * websocket path. Over HTTPS it read correctly. Consequences it caused:
- * `rehearsal-status` reported memberCount 0 / rehearsalComplete false, the panel
- * computed `constituted = false` and opened a constituted Legacy in Constitute
- * instead of Govern, and `prepareCouncilMultisig` threw NotACouncilError — i.e.
- * the governed-order flow could not compose at all.
- *
- * Both shapes must yield the same council. The v2 case is the one that regressed.
  */
 import { XRPLProvider } from '../XRPLProvider';
 

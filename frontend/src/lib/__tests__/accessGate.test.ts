@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gateMode, gateOpenFlag, signGateToken, verifyGateToken } from '../accessGate';
 
-// The launch switch has one job and it failed it once: on 2026-08-05 the six
+// The launch switch has one job and it failed it once: the six
 // gold CTAs of the landing were repointed at /login (the gated door) while
 // ACCESS_GATE_OPEN was never seeded on Vercel, so every visitor without the
 // week-old cookie was bounced home in silence. These pin the spellings a human
@@ -20,7 +20,7 @@ describe('gateOpenFlag', () => {
   });
 });
 
-describe('gateMode — DEFAULT OPEN (2026-08-16: the pre-launch curtain retired)', () => {
+describe('GateMode — DEFAULT OPEN (the pre-launch curtain retired)', () => {
   const configured = { code: 'hunter2', secret: 'sshh', nodeEnv: 'production' };
 
   it('opens by default — unset or affirmative, with or without config', () => {

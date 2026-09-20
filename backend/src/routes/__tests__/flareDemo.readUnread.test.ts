@@ -1,32 +1,8 @@
 /**
- * it. 29 — A READ THAT FAILED IS NOT A FACT ABOUT ANYBODY'S POSITION.
+ * A READ THAT FAILED IS NOT A FACT ABOUT ANYBODY'S POSITION.
  *
  * THE FAILURES THIS SUITE PINS (all of them «`.catch(() => 0n)` reaching a
  * screen as a statement about someone's money»):
- *
- *  · Kinetic ISO: `balanceOf` / `balanceOfUnderlying` / `borrowBalanceCurrent`
- *    fell to `0n`; `readIsoLegs` turned the zero into `null`; `/iso-legs`
- *    served it with HTTP 200, and the guided unwind — which only learns of a
- *    failure through HTTP — told the person «No FXRP collateral left — the
- *    unwind is complete» over a carry with live debt. `/iso-withdraw/prepare`
- *    answered an exit with 409 «This wallet has no FXRP supplied».
- *  · The deposit cap was the last guard that trusted a swallowed read:
- *    `capRemainingUBA != null && …` simply SKIPPED the check when
- *    `depositCap()`/`totalAssets()` failed — beside the two (pause, fee) that
- *    refuse. Firelight is 87 % full and earnXRP 72 % on mainnet today.
- *  · Firelight `withdrawalsOf(period)` fell to `0n` inside a 62-period sweep:
- *    one 429 in the right slot and a queued exit — shares already burned —
- *    vanished from `/vault-claims` with its Claim button, and
- *    `/vault-claim/prepare` refused with «nothing queued for this account».
- *  · The it. 27 refusal sentence promised «redeemable from the protocol's own
- *    interface» to every rail; for shares held by a Personal Account that door
- *    does not exist.
- *
- * Hermetic like its siblings: ethers.Contract is a fake keyed by address whose
- * reads can be told NOT to answer. Every assertion is over refusals and
- * UNSIGNED payloads; Astryum signs nothing. Only the EVM-direct rail composes
- * here, so no 0xFE machinery is in the chain under test (the PA-rail case only
- * exercises a refusal that fires BEFORE the Personal Account is resolved).
  */
 import express from 'express';
 import request from 'supertest';
@@ -186,7 +162,7 @@ function assertUnreadRefusal(body: Record<string, unknown>, code: string) {
   expect(body.xrplPayment).toBeUndefined();
 }
 
-describe('it. 29 · (a) the guided unwind can no longer be told a position is empty', () => {
+describe('(a) the guided unwind can no longer be told a position is empty', () => {
   it('GET /iso-legs answers a FAILED read as a failure — never 200 with nulls', async () => {
     const res = await request(app).get(`/api/flare-demo/iso-legs/${EVM_WALLET}`);
 
@@ -203,7 +179,7 @@ describe('it. 29 · (a) the guided unwind can no longer be told a position is em
   });
 });
 
-describe('it. 29 · (b) /iso-withdraw never says «you have nothing» over a read that failed', () => {
+describe('(b) /iso-withdraw never says «you have nothing» over a read that failed', () => {
   it('MAX exit (needs the share balance): refused as UNREADABLE, not as NO_SUPPLY_TO_WITHDRAW', async () => {
     const res = await request(app)
       .post('/api/flare-demo/iso-withdraw/prepare')
@@ -249,7 +225,7 @@ describe('it. 29 · (b) /iso-withdraw never says «you have nothing» over a rea
   });
 });
 
-describe('it. 29 · (c) the deposit cap is checked or refused — never skipped', () => {
+describe('(c) the deposit cap is checked or refused — never skipped', () => {
   it('ENTRY into a vault whose cap could not be read is refused, beside pause and fee', async () => {
     const res = await request(app)
       .post('/api/flare-demo/vault/prepare')
@@ -279,7 +255,7 @@ describe('it. 29 · (c) the deposit cap is checked or refused — never skipped'
   });
 });
 
-describe('it. 29 · the refusal sentence tells each rail the truth about where its shares are', () => {
+describe('The refusal sentence tells each rail the truth about where its shares are', () => {
   it('EVM rail: the shares are in the wallet — the protocol\'s own interface IS a door', async () => {
     const res = await request(app)
       .post('/api/flare-demo/vault-rotate/prepare')
@@ -293,7 +269,7 @@ describe('it. 29 · the refusal sentence tells each rail the truth about where i
 
   it('XRPL rail (Personal Account): NO promise of a door that does not exist', async () => {
     // This refusal fires before the Personal Account is resolved, so the PA
-    // rail is reachable hermetically. Before it. 29 this rail got the EVM
+    // rail is reachable hermetically. Before this rail got the EVM
     // sentence verbatim — «redeemable from the protocol's own interface» —
     // which is false for a PA (Upshift's app connects an EOA, not the PA).
     const res = await request(app)
@@ -309,12 +285,12 @@ describe('it. 29 · the refusal sentence tells each rail the truth about where i
   });
 });
 
-describe('it. 29 · money in flight does not disappear when the queue read fails', () => {
+describe('Money in flight does not disappear when the queue read fails', () => {
   it('GET /vault-claims answers a failed sweep as UNREADABLE — never 200 with an empty queue', async () => {
     const res = await request(app).get(`/api/flare-demo/vault-claims/${EVM_WALLET}`);
 
     // Before: 200 { pending: [] } — the burned-shares exit and its Claim
-    // button vanished from the panel (founder, 9-sep).
+    // button vanished from the panel.
     expect(res.status).toBe(502);
     assertUnreadRefusal(res.body, 'VAULT_CLAIMS_UNREADABLE');
     expect(res.body.pending).toBeUndefined();

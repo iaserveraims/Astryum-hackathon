@@ -1,17 +1,6 @@
 /**
  * councilEmitReport — what the council inbox may do with an emit's verdict, and
  * what its «unreported» panel may still offer.
- *
- * productizer-it6 — PRELIMINARY IS NOT PAID. The inbox reported `/submitted` as
- * soon as the node's PRELIMINARY answer was tesSUCCESS, even when the validated
- * ledger then said tec*. The backend (routes/councilProposals.ts) now refuses
- * that with 409 TX_FAILED_ON_LEDGER, and the refusal landed in the «unreported»
- * panel, which said «This proposal WAS broadcast… Do NOT compose it again:
- * register it here» with a «Register it now» button that 409s for ever — the
- * exact opposite of what the backend says to do (withdraw and compose again).
- *
- * Pure and exported: the frontend vitest env is `node`, so the component that
- * consumes this is not itself coverable.
  */
 
 import type { ConfirmedSubmit } from './councilSigning';

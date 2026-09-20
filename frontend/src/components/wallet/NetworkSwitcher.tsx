@@ -13,16 +13,6 @@ import { translate } from '../../i18n/dict';
  * render a banner with a "Switch to Flare" button. The switch/add engine and
  * its failure contract live in useSwitchToFlare (shared with the active
  * wallet's card in WalletManager — the contextual surface).
- *
- * Shown ONLY when the site has an active EVM connection — a visitor whose
- * MetaMask extension merely exists (e.g. a Xaman-rail user) never sees it.
- * Raw wallet error text is never rendered.
- *
- * Tolerated without the banner: Flare (14, home) and Ethereum (1) — the
- * SIGNING chain of the eth-morpho vault flow (plan §13 / BuildSpec B5-UI
- * paso 1.2): sendIntentCalls switches the wallet there mid-flow, and shouting
- * "Switch to Flare" over an Ethereum signature would fight the product.
- * Still disallowed: Songbird, Coston2, Solana, anything else.
  */
 const TOLERATED_CHAIN_IDS = new Set([FLARE_CHAIN_ID, 1]);
 
@@ -30,8 +20,7 @@ export function NetworkSwitcher() {
   const pathname = usePathname();
   const flare = useSwitchToFlare();
 
-  // PUBLIC ROUTES NEVER WEAR OPS BANNERS (founder 2026-08-22: nothing about
-  // networks may greet someone who has not entered the product yet). The guard
+  // PUBLIC ROUTES NEVER WEAR OPS BANNERS. The guard
   // used to exempt the landing alone, so a visitor whose wallet had ever been
   // approved on this origin met a red "you're on another network" bar on
   // /login, /privacy, /proof… — pages where the wallet's chain is irrelevant

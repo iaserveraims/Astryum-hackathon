@@ -1,5 +1,5 @@
 /**
- * productizer it. 13 (finding 4.1) — an institutional council's EXIT is signable
+ * An institutional council's EXIT is signable
  * from anywhere, even without the exit token.
  *
  * The recall of ExchangeDesk / OperatorConsole and the creator exit reach
@@ -28,21 +28,21 @@ jest.mock('../../connectors/protocols/xrpl/XrplMultisigCoordinator', () => ({
 }));
 const mockReadOrder = jest.fn();
 /**
- * it. 19 (finding 2.7 / R4 #3) — the classifier's distinguishable reasons are an
+ * The classifier's distinguishable reasons are an
  * oracle over other people's memos, so they travel only to a caller who proves this
  * account. This is that verdict's knob; the default is «yes, it is their council»,
  * which is what every case below is about, and one case turns it off.
  */
 const mockProvesCouncil = jest.fn(async () => true);
 /**
- * it. 21 (finding 2.8): the door asks ONE floor now — the READ floor (proven OR
+ * The door asks ONE floor now — the READ floor (proven OR
  * registered). This knob is that floor; it defaults to whatever the proof says, so
  * every case below is unchanged, and one case sets them apart on purpose.
  */
 const mockMayReadCouncil = jest.fn<Promise<boolean>, unknown[]>();
 /**
- * it. 21 (finding 2.8): the door now asks ONE floor — the READ floor (proven OR
- * registered), the one it. 19 opened on purpose so a cosignatory known only to the
+ * The door now asks ONE floor — the READ floor (proven OR
+ * registered), the one opened on purpose so a cosignatory known only to the
  * `wallet` registry stops getting an opaque 409 on their own exit. Same knob.
  */
 jest.mock('../../services/flare/ComposedCouncilOrderStore', () => ({
@@ -54,12 +54,12 @@ jest.mock('../../services/flare/ComposedCouncilOrderStore', () => ({
 const mockReadHandoff = jest.fn();
 jest.mock('../../services/flare/DirectMintHandoffStore', () => ({
   findQueuedHandoffByMemo: (...a: unknown[]) => mockReadHandoff(...a),
-  // it. 29: `xrplDefi.ts` now imports the pure memo reader from the store
+  // `xrplDefi.ts` now imports the pure memo reader from the store
   // (`zeroFeMemoOf` delegates to it). It is pure — keep the real one, or every
   // prepare in this suite dies 400 PREPARE_FAILED «is not a function».
   zeroFeMemoOfTx: jest.requireActual('../../services/flare/DirectMintHandoffStore').zeroFeMemoOfTx,
 }));
-// it. 15: the any-state lookup reads `background_jobs` itself (the store's reads are
+// The any-state lookup reads `background_jobs` itself (the store's reads are
 // queued-only and swallow database errors).
 const mockHandoffRows = jest.fn(async () => [] as Array<{ payload: Record<string, unknown>; status: string }>);
 jest.mock('../../database/prismaClient', () => ({
@@ -100,7 +100,7 @@ const record = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 /**
- * it. 29: the REAL 0xFE shape — 42 bytes / 84 hex, the whole Smart Account
+ * The REAL 0xFE shape — 42 bytes / 84 hex, the whole Smart Account
  * instruction. This suite carried a 64-hex stand-in (`'FE'.repeat(32)`), which is
  * how the handoff branch below passed here while `singleMemoHex` threw every real
  * 0xFE memo away in production.
@@ -186,7 +186,7 @@ describe('a council order the server composed', () => {
     expect(unknown.body.exitClassification).toBe('unknown-memo');
   });
 
-  it('a store we could not read is 503 with a retry, NEVER a 451 about the region (it. 15, 3.3)', async () => {
+  it('A store we could not read is 503 with a retry, NEVER a 451 about the region (3.3)', async () => {
     mockReadOrder.mockRejectedValue(new Error('db down'));
     const res = await request(app).post(PIN).send({ account: COUNCIL, xrplTx: orderTx() });
     expect(res.status).toBe(503);
@@ -204,7 +204,7 @@ describe('a council order the server composed', () => {
   });
 
   /**
-   * productizer it. 17 (finding 3.3) — THE LOOKUP IS NOT A PRIVILEGE OF THE BLOCKED
+   * THE LOOKUP IS NOT A PRIVILEGE OF THE BLOCKED
    * REGIONS. It used to run only when the geofence was about to answer 451, so the
    * one thing it knows that matters everywhere — «the 0xFE this payment carries can
    * no longer be signed» — was withheld from the councils whose region was allowed:
@@ -234,7 +234,7 @@ describe('a 0xFE handoff the server composed', () => {
     expect(res.body.exitClassification).toBe('not-an-exit');
   });
 
-  it('an exit whose 0xFE was superseded is 409 handoff-not-signable — the region is not the reason (it. 15, 3.3)', async () => {
+  it('An exit whose 0xFE was superseded is 409 handoff-not-signable — the region is not the reason (3.3)', async () => {
     // No queued row: the same memo is looked up in ANY state, straight off the table.
     process.env.DATABASE_URL = 'postgres://test';
     mockReadHandoff.mockResolvedValue(null);
@@ -249,7 +249,7 @@ describe('a 0xFE handoff the server composed', () => {
   });
 
   /**
-   * productizer it. 17 (finding 3.3) — THE SAME TRUTH IN AN ALLOWED REGION. The
+   * THE SAME TRUTH IN AN ALLOWED REGION. The
    * council whose region the geofence lets through used to get a 200 over a dead
    * 0xFE: it gathered the quorum, signed, and the carrier was spent on a payment
    * that could never mint. Same 409, same words, no region involved.
@@ -270,7 +270,7 @@ describe('a 0xFE handoff the server composed', () => {
   });
 
   /**
-   * it. 19 (finding 2.7 / R4 #3 and #8) — THE CLASSIFIER STOPS ANSWERING STRANGERS.
+   * THE CLASSIFIER STOPS ANSWERING STRANGERS.
    *
    * Paste any account and any memo and the reasons said whether the server had
    * composed an order for it, whether that order was an exit, whether the amount
@@ -325,17 +325,17 @@ describe('a 0xFE handoff the server composed', () => {
 
 
 /**
- * productizer it. 21 (finding 2.8) — DOS SUELOS EN EL MISMO HANDLER.
+ * DOS SUELOS EN EL MISMO HANDLER.
  *
  * Para DAR LA RAZÓN de un rechazo la puerta exigía PRUEBA
  * (`sessionProvesCouncil`); diez líneas más abajo, para nombrar la fila que tiene el
  * asiento, bastaba proven-O-registrado (`sessionMayReadCouncil`) — el suelo de
- * LECTURA que la it. 19 abrió a propósito, porque los bytes que firma un
+ * LECTURA que la abrió a propósito, porque los bytes que firma un
  * cosignatario salen de una lectura. Así que el cosignatario para el que se escribió
  * aquel arreglo abría la propuesta en la bandeja y aquí recibía un 409 opaco, sin
  * paso siguiente, sobre la salida de su propia familia.
  */
-describe('it. 21 (2.8) — un solo suelo para «¿se te puede decir por qué?»', () => {
+describe('Un solo suelo para «¿se te puede decir por qué?»', () => {
   it('un cosignatario que NO prueba pero SÍ puede leer recibe la razón, no el 409 genérico', async () => {
     mockReadOrder.mockRejectedValue(new Error('store down')); // clasificación ilegible
     mockProvesCouncil.mockResolvedValue(false);

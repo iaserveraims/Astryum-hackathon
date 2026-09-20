@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * StrategyFinder — the guided way into "Choose a Strategy" (founder
- * 2026-08-08: six detailed cards at once read as noise for a first-timer;
- * founder 2026-08-12: the wizard should EXPLAIN, not just filter). Two
+ * StrategyFinder — the guided way into "Choose a Strategy". Two
  * questions — what you hold, how it should work — then a RESULT step that
  * teaches each matching route before landing on the cards: the plain
  * sentence, the live protocol rate with its source, and the risk fact.

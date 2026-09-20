@@ -1,18 +1,6 @@
 /**
- * productizer-it3 — el relayer ya no paga gas por una firma que el contrato iba
+ * El relayer ya no paga gas por una firma que el contrato iba
  * a rechazar.
- *
- * Antes: `relayPasskeyBatch` mandaba `factory.create(x, y)` (gas del relayer)
- * ANTES del único control de la firma (el staticCall de `executeBatch`), así
- * que una sesión SIWE gratis con claves inventadas vaciaba el relayer. Aquí se
- * fija, con una clave P-256 REAL generada en el test y un mensaje con forma
- * WebAuthn (authenticatorData ‖ sha256(clientDataJSON)), que:
- *   · la firma buena pasa y SOLO entonces se despliega;
- *   · calls, nonce, chainid o clave manipulados → BAD_SIG_OFFCHAIN y
- *     `factory.create` jamás se llama;
- *   · un punto fuera de la curva → BAD_PUBKEY sin tocar la red;
- *   · los despliegues por usuario SIWE están limitados (DEPLOY_LIMIT → 429).
- * Los contratos de ethers están simulados; la criptografía no.
  */
 
 const mockAccountFor = jest.fn();

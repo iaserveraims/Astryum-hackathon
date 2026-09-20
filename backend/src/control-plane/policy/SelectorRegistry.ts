@@ -4,16 +4,6 @@ import type { ActionType } from '../../canonical/types/Action';
  * Function selector ↔ canonical action map. Used by PolicyGuard P7 to verify
  * that the calldata in `txData.data` matches the declared action — preventing
  * a provider from mislabelling calldata.
- *
- * Selectors are the first 4 bytes (8 hex chars + `0x`) of keccak256 of the
- * function signature. Verified against:
- *   - Compound V2 / Kinetic CErc20: mint, redeem, redeemUnderlying, borrow, repayBorrow
- *   - WFLR (WNAT): deposit, withdraw
- *   - VPContract / FTSO Manager: delegate, undelegate, claimRewards
- *   - Sceptre sFLR (ERC-4626): deposit, redeem
- *
- * Multi-selector mapping when several signatures map to one canonical action
- * (e.g. `withdraw` may use `redeem(uint256)` or `redeemUnderlying(uint256)`).
  */
 export type ProtocolActionKey = `${string}:${ActionType}`;
 

@@ -1,6 +1,5 @@
 /**
- * betaGate — DEFAULT OPEN since 2026-08-16 (founder: the closed-beta phase
- * ends at the next deploy; acquisition needs the world to sign up), and it
+ * betaGate — DEFAULT OPEN, and it
  * guards CREATION only.
  *
  * The contract flipped: only the literal 'false' closes registration.
@@ -24,7 +23,7 @@ afterAll(() => {
   process.env = ENV;
 });
 
-describe('betaGate — BETA_REGISTRATION_OPEN is DEFAULT OPEN (2026-08-16)', () => {
+describe('BetaGate — BETA_REGISTRATION_OPEN is DEFAULT OPEN', () => {
   it('unset ⇒ open (the closed-beta phase ended; deploying opens public registration)', () => {
     expect(isBetaRegistrationOpen()).toBe(true);
   });

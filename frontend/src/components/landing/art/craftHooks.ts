@@ -10,24 +10,6 @@
  * `useTransform` con `clamp`, y un valor con tope se queda en 1 PARA SIEMPRE
  * después de su tiempo — así que el lago seguía agitándose el resto de la
  * sesión, con la pestaña de fondo incluida.
- *
- * Aquí hay UN bucle por escena, con tres llaves en serie:
- *   · `inView`  — la escena está en pantalla (IntersectionObserver de framer).
- *   · `awake`   — el mundo de este producto es el que se está mirando.
- *   · `!document.hidden` — la pestaña está delante.
- * Cualquiera de las tres a cero y el `requestAnimationFrame` se cancela de
- * verdad, no se queda girando en vacío.
- *
- * ── POR QUÉ LA CÁMARA VIVE AQUÍ ──────────────────────────────────────────
- * Las dos escenas escriben su `viewBox` a mano cada fotograma (framer pisa la
- * transformada de sus elementos, y en SVG el `transform-origin` en porcentaje
- * se resuelve contra la caja del dibujo, que se mueve con él). Escribir una
- * cadena nueva sesenta veces por segundo cuando la cámara está QUIETA es
- * repintar el SVG entero para nada, y además deja `will-change` puesto de por
- * vida, que es lo que acaba fijando la escala del rásterizado y hace que la
- * escena se vea cada vez más pixelada. El protocolo de aparcado —suavizado
- * exponencial, salto por epsilon, cuantización y `will-change` temporal— es el
- * que ya usa el viaje solar y está probado; aquí se escribe una sola vez.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react';

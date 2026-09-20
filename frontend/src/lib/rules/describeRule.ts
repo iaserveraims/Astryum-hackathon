@@ -2,7 +2,7 @@
 
 /**
  * describeRule — the ONE plain-language reading of an automation rule
- * (Fase 3, 2026-07-30). Three surfaces used to describe the same rule three
+ * (Fase 3). Three surfaces used to describe the same rule three
  * different ways: the board's hardcoded-English "When LTV > 0.3 → prepare
  * claimRewards" (raw ratio + machine kind, no t()), StrategySection's
  * untranslated summarize(), and MoneyFlowsPanel's own text. One rule, one

@@ -1,6 +1,6 @@
 // trace-logo.mjs — regenera la geometría de Logo.tsx desde el PNG original.
 //
-// La marca en código es el TRAZADO PIXEL-FIEL del arte (v3, 2026-09-09):
+// La marca en código es el TRAZADO PIXEL-FIEL del arte (v3):
 // marching squares por capa de color (dorado/blanco/oscuro) sobre el PNG
 // transparente + simplificación RDP de lazo cerrado. Si el arte cambia:
 //   node frontend/scripts/trace-logo.mjs   (stdout: capas; stderr: piezas)

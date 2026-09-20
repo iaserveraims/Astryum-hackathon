@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * PortfolioUnreadableNotice — the reader of `snapshot.unreadable` (ola 0,
- * 15-sep). The backend has said since it. 31 which adapters a sweep could
+ * PortfolioUnreadableNotice — the reader of `snapshot.unreadable`. The backend has said which adapters a sweep could
  * not read; this is the card that finally says it to the person, on the Home
  * and on the Portfolio, with a retry that asks the backend for a FRESH read
  * (the degraded copy lives 30 s in its cache — a plain reload would only get

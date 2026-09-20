@@ -4,7 +4,7 @@ import { Wrench } from 'lucide-react';
 import { EmptyState } from '../../../components/ui/primitives';
 
 // Blockchain tools are DISABLED and the old section was RETIRED with the
-// template-era component set (2026-07-21 de-AI pass) — it lived on the dead
+// template-era component set (de-AI pass) — it lived on the dead
 // shadcn kit (ui/card, badge, Button…) outside the surface/volt/ink system.
 // git history keeps it; a future tools section should be rebuilt on primitives.
 

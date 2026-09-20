@@ -1,7 +1,7 @@
 /**
- * resolveRunPote — la resolución GENERACIÓN-primero (X4, 9-sep). Lo que aquí se
+ * resolveRunPote — la resolución GENERACIÓN-primero (X4). Lo que aquí se
  * fija: (1) la cage factory v2 se consulta ANTES que la v1 (el hazard
- * multi-registro del 28-ago); (2) una jaula nacida SIN pote aún resuelve v2 con
+ * multi-registro); (2) una jaula nacida SIN pote aún resuelve v2 con
  * `pote: null` — la ventana E2a→E2b, el caso que regresa en silencio; (3) un
  * factory ilegible NUNCA lanza ni decide la generación: se cae al siguiente y,
  * sin nada legible, se devuelve null («no pude leer» no es «no tienes nada»).

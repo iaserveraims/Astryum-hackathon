@@ -3,7 +3,7 @@
  *
  * Pins: strict write (read back, or ORDER_RECOVERY_UNRECORDED), the memo must be
  * the keccak of the bytes, a re-composition never moves the scan start forward, and
- * (productizer it. 13) every live record is listed oldest first, a council holds at
+ * every live record is listed oldest first, a council holds at
  * most MAX_LIVE_ORDERS_PER_COUNCIL live compositions (an exit is never refused by
  * it), writes/forgets are CAS on the record as read, and a scan that hits its page
  * cap keeps only the progress it fully read.
@@ -216,7 +216,7 @@ describe('recordComposedCouncilOrder', () => {
   });
 });
 
-describe('the per-council cap (it. 13, counted by preparer in it. 15)', () => {
+describe('The per-council cap (counted by preparer in)', () => {
   const fill = async (
     n: number,
     over: Partial<{ lls: number | null; seq: number; proven: boolean; userId: string | null }> = {},
@@ -258,7 +258,7 @@ describe('the per-council cap (it. 13, counted by preparer in it. 15)', () => {
     expect(stored(ethers.keccak256('0xfffffffd').slice(2).toUpperCase())).toBeDefined();
   });
 
-  /* ── it. 15 (finding 2.1): a stranger fills their own bucket, and only theirs ── */
+  /* ──A stranger fills their own bucket, and only theirs ── */
 
   it('a STRANGER composing 50 orders does not stop the proven manager: their records are counted apart', async () => {
     // The stranger stops at their own, small limit…
@@ -280,7 +280,7 @@ describe('the per-council cap (it. 13, counted by preparer in it. 15)', () => {
     await expect(recordComposedCouncilOrder(input({ orderData: '0xbb000002', proven: true, userId: 'manager' }))).resolves.toMatchObject({ recorded: true });
   });
 
-  /* ── it. 17 (finding 2.5): the cap, decided before any chain read is spent ── */
+  /* ──The cap, decided before any chain read is spent ── */
 
   it('councilQueuePrecheck sees a full queue with ONE database read and no ledger read', async () => {
     // Records with no window (a SignerList order) are the ones it can judge blind.
@@ -300,7 +300,7 @@ describe('the per-council cap (it. 13, counted by preparer in it. 15)', () => {
   });
 
   /**
-   * it. 19 (finding 2.6) — THE PRE-CHECK WAS DEAD ON SINGLE-SIG COUNCILS. Counting
+   * THE PRE-CHECK WAS DEAD ON SINGLE-SIG COUNCILS. Counting
    * only windowless records is counting only multisig orders: every single-sign one
    * carries a `LastLedgerSequence`, so the lower bound was always zero and the door
    * spent every chain read the pre-check exists to save. A windowed row is now
@@ -374,7 +374,7 @@ describe('the per-council cap (it. 13, counted by preparer in it. 15)', () => {
   });
 });
 
-describe('listing and CAS (it. 13)', () => {
+describe('Listing and CAS', () => {
   it('lists EVERY record oldest first — past the old window of 200', async () => {
     for (let i = 0; i < 450; i++) {
       rows.push({
@@ -417,7 +417,7 @@ describe('listing and CAS (it. 13)', () => {
   });
 });
 
-describe('councilOrderContentKey — what makes two orders «the same order» (it. 15)', () => {
+describe('CouncilOrderContentKey — what makes two orders «the same order»', () => {
   const key = (action: string, params: unknown, council = COUNCIL) => councilOrderContentKey({ council, action, params });
 
   it('same account, action and params → same key, however the params were typed', () => {
@@ -434,7 +434,7 @@ describe('councilOrderContentKey — what makes two orders «the same order» (i
     expect(key('direct-to', { venueId: 0, amount: '1000' }, 'rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH')).not.toBe(base);
   });
 
-  /** it. 17 (finding 2.4): the same venues in another order are the SAME order. */
+  /** The same venues in another order are the SAME order. */
   it('arrays are sorted before hashing: the same list in another order is one key', () => {
     expect(key('propose-venue', { venues: [1, 0] })).toBe(key('propose-venue', { venues: ['0', 1] }));
     expect(key('set-payees', { payees: ['0xBB', '0xaa'] })).toBe(key('set-payees', { payees: ['0xaa', '0xbb'] }));
@@ -454,7 +454,7 @@ describe('councilOrderContentKey — what makes two orders «the same order» (i
   });
 });
 
-describe('sessionProvesCouncil — who controls the council (it. 15)', () => {
+describe('SessionProvesCouncil — who controls the council', () => {
   const req = (userId = 'u1') => ({ siwe: { userId, walletAddress: 'rSESSION' } }) as unknown as Request;
   beforeEach(() => _resetCouncilProvenMemory());
 
@@ -497,7 +497,7 @@ describe('sessionProvesCouncil — who controls the council (it. 15)', () => {
   });
 
   /**
-   * it. 17 (finding 2.5) — A 429 FROM THE NODE MUST NOT DEMOTE A REAL MANAGER.
+   * A 429 FROM THE NODE MUST NOT DEMOTE A REAL MANAGER.
    * The verdict is only ever remembered after it was READ off the validated ledger,
    * so this is a memory of a proof, never a widening: the previous test pins that a
    * session which never proved anything still gets `false`.

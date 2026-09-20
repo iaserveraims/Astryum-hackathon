@@ -1,9 +1,8 @@
 /**
  * portfolioUnreadable — what the Home and the Portfolio do with a snapshot
- * that could not be read in full (`snapshot.unreadable`, it. 31 / ola 0).
+ * that could not be read in full.
  *
- * THE FAILURE (ola 0, 15-sep, two reviewers). The backend has said since
- * it. 31 which adapters it could not read — and nobody on the client read
+ * THE FAILURE. The backend has said which adapters it could not read — and nobody on the client read
  * the sentence. `app/page.tsx` decided `NoPositionsCTA` on
  * `positions.length === 0` alone: the person signs a withdrawal, the forced
  * refresh lands on a 429, the snapshot comes back without Kinetic, and the

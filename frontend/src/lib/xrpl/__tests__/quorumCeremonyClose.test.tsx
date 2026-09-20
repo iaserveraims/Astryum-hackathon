@@ -1,7 +1,7 @@
 /**
- * productizer it. 29 (§1) → it. 31 (§1, §2, §3) — CERRAR UNA CEREMONIA, POR FASE.
+ * → — CERRAR UNA CEREMONIA, POR FASE.
  *
- * LO QUE it. 29 ARREGLÓ, Y LA PUERTA QUE ABRIÓ. it. 29 hizo que cerrar el diálogo
+ * LO QUE ARREGLÓ, Y LA PUERTA QUE ABRIÓ. Hizo que cerrar el diálogo
  * (Escape, el fondo, la X, desmontar el anfitrión) devolviera el asiento de nonce
  * del 0xFE — sin mirar en qué FASE estaba la ceremonia. El botón «Cancel» se
  * esconde en `submitting`/`done`; el bus no. Tras `broadcast()` con hash y una
@@ -9,22 +9,6 @@
  * still waiting for ledger validation» SIN botón: cerrar era la única salida, y
  * cerrar soltaba el asiento de un Payment YA EMITIDO. Y nadie reportaba el hash a
  * `/handoff/signed`. Consecuencia: el XRP se paga dos veces.
- *
- * Y EL TEST DE it. 29 NO LO CAZÓ porque fingía `useEffect` como un no-op: el código
- * bajo prueba —lo que pasa al DESMONTAR— no podía ejecutarse. Probaba la pieza,
- * no la fase. Aquí los hooks son un runtime mínimo que SÍ ejecuta efectos y
- * limpiezas (`miniReact`), y lo que se recorre es la cadena real: el manejador
- * del modal → el bus → el rechazo/resolución de la promesa → el modal deja de
- * pintar la ceremonia → `CouncilMultisigFlow` se desmonta → su limpieza decide
- * sobre el asiento. La red se finge en el borde (`fetch`).
- *
- * Las fases que se prueban son las que fallaron:
- *   (a) cerrar en `signing` libera; cerrar en `submitting` NO libera y el hash ya
- *       viajó a `/handoff/signed` en cuanto el nodo lo devolvió;
- *   (b) un anfitrión INLINE (las puertas que monta la salida del creador en
- *       `OperatorConsole`, sin bus) libera al desmontar — «Back»;
- *   (c) cerrar en `idle` pregunta por el asiento y, si sigue ocupado, la persona
- *       lo ve con la cuenta atrás del servidor.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,7 +57,7 @@ vi.mock('@/lib/xrpl/verifySignerBlob', () => ({
   verifySignerBlob: () => undefined,
   BlobVerificationError: class BlobVerificationError extends Error {},
 }));
-// it. 33 (B3): combining is LOCAL arithmetic and can throw (a blob that does not
+// Combining is LOCAL arithmetic and can throw (a blob that does not
 // parse). Controllable so a test can make it fail before anything leaves.
 const multisignImpl = vi.fn((_blobs: string[]) => 'COMBINED_BLOB');
 vi.mock('xrpl', async (importOriginal) => {
@@ -270,7 +254,7 @@ describe('(a) el cierre del modal, POR FASE', () => {
     // The chain: the modal dropped the request, the flow unmounted, its cleanup released.
     expect(modal.child(CouncilMultisigFlow)).toBeNull();
     expect(releaseCalls()).toHaveLength(1);
-    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // it. 34: a sitting the server did not name
+    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // A sitting the server did not name
     expect(releaseCalls()[0].keepalive).toBe(true);
     // …and the member's request on the phone was killed on the way out.
     expect(cancelPayloadAndDecide).toHaveBeenCalledWith('payload-1', expect.any(Function));
@@ -391,23 +375,10 @@ describe('(a) el cierre del modal, POR FASE', () => {
 });
 
 /**
- * productizer it. 33 (B2 + B3 del cuadro final de la it. 32) — EL `error` DESPUÉS DE
+ * EL `error` DESPUÉS DE
  * COMPROMETER LOS BYTES.
- *
- * LA PERSONA. Caída de red móvil a mitad del submit: el primer nodo aplicó la tx
- * y la respuesta se perdió; los otros dos fallaron; `broadcast()` lanza (solo lanza
- * si fallan los TRES) y la ceremonia cae en `error` — la misma fase que un QR que
- * Xaman rechazó antes de mandar nada. Allí se ofrecía «Cancel this ceremony», el
- * texto invitaba a pulsarlo, y `abandon()` liberaba el asiento SIN consultar
- * `committedRef`. Y al acabar emitía `abandoned`, que el bus reducía a «nunca
- * empezó»: el Escape siguiente liberaba OTRA vez y decía «nothing left» sobre un
- * Payment que puede estar en el ledger. El gemelo, construido por nuestro botón.
- *
- * Lo que se recorre es la cadena real: el flujo → `broadcast()` que revienta →
- * fase `error` → lo que la pantalla ofrece → un clic rezagado en el Cancel que ya
- * no está → Escape por el bus → la limpieza de desmontaje.
  */
-describe('(d) it. 33 — un broadcast que NINGÚN nodo confirmó: `error` comprometido', () => {
+describe('(d) — un broadcast que NINGÚN nodo confirmó: `error` comprometido', () => {
   const unconfirmed = () =>
     new BroadcastUnconfirmedError([
       { node: 'https://xrplcluster.com', reason: 'Failed to fetch', kind: 'unanswered' },
@@ -538,7 +509,7 @@ describe('(d) it. 33 — un broadcast que NINGÚN nodo confirmó: `error` compro
     expect(modal.child(CouncilMultisigFlow)).toBeNull();
     expect(outcome.error()?.message).toBe(CEREMONY_ABANDONED);
     expect(releaseCalls()).toHaveLength(1); // the flow's unmount cleanup handed the pinned seat back
-    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // it. 34: a sitting the server did not name
+    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // A sitting the server did not name
   });
 });
 
@@ -548,7 +519,7 @@ describe('(b) un anfitrión INLINE, sin bus: las puertas que monta la salida del
    * onStaleFate onSettled defaultTitle />` under «Withdraw the creator's genesis
    * capital» with a «Back» that does `setCreatorExit(null)` — i.e. unmounts the
    * doors. Sixteen hosts mount the flow this way and none of them touches the
-   * bus; before it. 31 the flow's own unmount DECLINED to release («the bus does
+   * bus; before the flow's own unmount DECLINED to release («the bus does
    * it now»), so Back under an EXIT kept the council's seat for 24 h.
    */
   it('«Back» en `signing` — desmontar las puertas libera el asiento con la cuenta y el memo', async () => {
@@ -576,7 +547,7 @@ describe('(b) un anfitrión INLINE, sin bus: las puertas que monta la salida del
     await settle();
 
     expect(releaseCalls()).toHaveLength(1);
-    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // it. 34: a sitting the server did not name
+    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // A sitting the server did not name
     expect(releaseCalls()[0].keepalive).toBe(true);
     expect(cancelPayloadAndDecide).toHaveBeenCalledWith('payload-1', expect.any(Function));
   });
@@ -640,7 +611,7 @@ describe('(b) un anfitrión INLINE, sin bus: las puertas que monta la salida del
     await settle();
 
     expect(releaseCalls().length).toBeGreaterThan(duringPreparing);
-    expect(releaseCalls().at(-1)!.body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // it. 34: a sitting the server did not name
+    expect(releaseCalls().at(-1)!.body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // A sitting the server did not name
     expect(createMemberPayload).not.toHaveBeenCalled(); // no QR is minted for a dead sitting
   });
 });
@@ -669,8 +640,8 @@ describe('(c) cerrar en `idle`: el asiento del dispatch preparado, y lo que la p
     expect(outcome.error()?.message).toBe(CEREMONY_ABANDONED);
     expect(modal.child(CouncilMultisigFlow)).toBeNull();
     expect(releaseCalls()).toHaveLength(1);
-    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // it. 34: a sitting the server did not name
-    // it. 31 (§3): the seat's own answer is READ — the banner says it is still
+    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, memoHex: MEMO, sittingId: null }); // A sitting the server did not name
+    // The seat's own answer is READ — the banner says it is still
     // held, with the server's countdown, instead of a silence the person takes
     // for «free».
     const notice = listLiveNotices().find((n) => n.memoHex === MEMO);
@@ -699,7 +670,7 @@ describe('(c) cerrar en `idle`: el asiento del dispatch preparado, y lo que la p
 
     expect(outcome.error()?.message).toBe(CEREMONY_ABANDONED);
     expect(releaseCalls()).toHaveLength(1);
-    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, sittingId: null }); // it. 34: the account and the (unnamed) sitting — never a seat
+    expect(releaseCalls()[0].body).toEqual({ account: COUNCIL, sittingId: null }); // The account and the (unnamed) sitting — never a seat
   });
 
   it('cerrar sin ceremonia viva no manda nada', async () => {
@@ -720,32 +691,10 @@ describe('(c) cerrar en `idle`: el asiento del dispatch preparado, y lo que la p
 });
 
 /**
- * productizer it. 34 (E) — LA CARRERA DEL BUS: UNA LIBERACIÓN TARDÍA SUELTA EL
+ * LA CARRERA DEL BUS: UNA LIBERACIÓN TARDÍA SUELTA EL
  * ASIENTO BAJO UNA CEREMONIA VIVA PORQUE EL SERVIDOR NO DISTINGUÍA SITTINGS.
- *
- * LA PERSONA. Escape en `signing` → la limpieza de desmontaje dispara
- * `/multisign/release` fire-and-forget con `keepalive`, y el bus rechaza
- * ABANDONED, que desde it. 31 se lee como 'review': la superficie ofrece firmar
- * otra vez → `sendIntent` → nuevo sitting → `/multisign/prepare` de la misma
- * sesión y los mismos bytes. Si la liberación del PRIMERO aterriza después, el
- * servidor soltaba el arriendo y el pin del SEGUNDO: la familia seguía firmando
- * sobre un nonce que el servidor daba por libre.
- *
- * EL ARREGLO tiene dos mitades y aquí se prueba la del cliente: cada liberación
- * lleva el `sittingId` que `/multisign/prepare` devolvió a SU sitting — la de la
- * limpieza (Escape/fondo/X/«Back»), la de «Cancel this ceremony» y la del prepare
- * que aterriza tarde (it. 31 §2). Un sitting sin nombre (cerró en `idle` o en
- * `preparing`) lo dice: `sittingId: null`. La mitad del servidor (un id ajeno
- * es un no-op, `stale-sitting`) vive en `xrplDefi.ceremonySitting.test.ts`.
- *
- * LA FASE, con la red retenida en el borde: la liberación del sitting #1 queda
- * EN VUELO (el `fetch` fingido no contesta), la persona firma otra vez, el
- * prepare #2 vuelve con otro nombre, y SOLO ENTONCES se suelta la respuesta del
- * #1. Lo que se comprueba es qué nombre llevaba cada petición cuando SALIÓ.
- * Mutación: quitar el transporte del id en la limpieza (o no guardarlo al volver
- * el prepare) → la tardía sale sin nombre / con `null` → rojo.
  */
-describe('(e) it. 34 — la carrera del bus: cada liberación lleva el nombre de SU sitting', () => {
+describe('(e) — la carrera del bus: cada liberación lleva el nombre de SU sitting', () => {
   /** A network where the release answers only when the test lets it. */
   let heldReleases: Array<{ body: Record<string, unknown>; answer: (v: unknown) => void }> = [];
   function stubNetworkHoldingReleases(): void {
@@ -901,7 +850,7 @@ describe('(e) it. 34 — la carrera del bus: cada liberación lleva el nombre de
   });
 
   it('(c) control: un servidor ANTERIOR al campo no devuelve nombre → la liberación dice `null` (que ese servidor ignora) y todo lo demás es igual', async () => {
-    // PREPARE has no `sittingId`: the answer of a server from before it. 34.
+    // PREPARE has no `sittingId`: the answer of a server from before.
     const { modal, flow, overlay, outcome } = await openBusCeremony(zeroFePayment(MEMO));
     await driveToSigning(flow, { signed: false });
 

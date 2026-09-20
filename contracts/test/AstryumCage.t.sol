@@ -181,7 +181,7 @@ contract AstryumCageTest is Test {
     function test_a_venue_removed_from_the_registry_cannot_receive_NEW_capital() public {
         AstryumVaultV2 pote = _openPote();
 
-        // Astryum retira Upshift (p. ej. incidente). Estaba en la lista eterna de la
+        // Astryum retira Upshift. Estaba en la lista eterna de la
         // jaula — y aun así ya no entra: el registro se re-comprueba al proponer.
         vm.prank(astryum);
         registry.removeVenue(CHAIN, address(upshift));
@@ -614,7 +614,7 @@ contract AstryumCageTest is Test {
         pote.publishNav();
     }
 
-    // ═══ 27-AGO: LISTA OPCIONAL, POTES SIN FEE, TOPE POR CUENTA, WHITELIST ENUMERABLE ═══
+    // ═══LISTA OPCIONAL, POTES SIN FEE, TOPE POR CUENTA, WHITELIST ENUMERABLE ═══
 
     function _newCageFree(AstryumCage.Target[] memory list, uint16 free) internal returns (AstryumCage c) {
         c = new AstryumCage(address(bridge), fxrp, registry, REF, treasury, FEE, 2000, free, poteDeployer, list);

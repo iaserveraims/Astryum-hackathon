@@ -1,19 +1,11 @@
 /**
- * productizer-it15 §K1 — EL ASIENTO DE NONCE LO DECIDE LA FÍSICA DEL LEDGER.
+ * §K1 — EL ASIENTO DE NONCE LO DECIDE LA FÍSICA DEL LEDGER.
  *
- * Lo que falló (it14 §1.1): el TTL del asiento (5 min) era más corto que la
+ * Lo que falló: el TTL del asiento (5 min) era más corto que la
  * ventana de firma del 0xFE de la mesa (~6-7 min), y el builder no ponía
  * `LastLedgerSequence` en ningún handoff — la mesa la añadía después, así que el
  * registro la desconocía. En el minuto 5 el asiento se declaraba libre, se
  * componía el gemelo en el mismo nonce y se firmaba: pago doble SIN atacante.
- *
- * Ahora todo 0xFE sale con su ventana, el registro la guarda, y el asiento se
- * decide leyendo el ledger: por delante de la LLS no caduca; pasada, solo se
- * sustituye tras leer ENTERA la ventana de la cuenta sin su memo; un `tec` la
- * libera (no entregó XRP: FAssets exige status == PAYMENT_SUCCESS); e «ilegible»
- * jamás libera nada.
- *
- * La cadena se finge en ethers.Contract (PA + nonce 7); el store, en su módulo.
  */
 jest.mock('../../../../services/FlareProvider', () => ({
   FlareProvider: { getInstance: () => ({ getHttpProvider: () => ({}) }) },
@@ -179,7 +171,7 @@ describe('every 0xFE carries its ledger window (contrato C1)', () => {
     );
   });
 
-  // productizer-it17 §L1 (it16 R1 1.5): la ventana plana de 150 ledgers (~10 min)
+  // §L1: la ventana plana de 150 ledgers (~10 min)
   // congelaba el asiento casi el doble de lo que el payload vive. Ahora se mide
   // contra la caducidad del payload: 5 min → 90 ledgers (~6 min).
   it('the default window covers the payload expiry plus a minute, and moves with it (contrato C3)', () => {
@@ -231,7 +223,7 @@ describe('every 0xFE carries its ledger window (contrato C1)', () => {
 });
 
 /**
- * productizer-it23 §Q1 1.1 — EL BUILDER SE NIEGA A ESCRIBIR UNA FILA AMBIGUA.
+ * EL BUILDER SE NIEGA A ESCRIBIR UNA FILA AMBIGUA.
  *
  * `preparedByProven:false` + `preparedByProofUnreadable:false` es una frase:
  * «pregunté, y esta sesión no tiene esa cuenta» — la que hace la fila
@@ -263,7 +255,7 @@ describe('una fila que no sabe decir qué le pasó a la prueba nace en el lado s
 });
 
 /**
- * productizer-it23 §Q1 1.3 — LA CEREMONIA MULTIFIRMA FIRMA BYTES QUE PUEDEN
+ * LA CEREMONIA MULTIFIRMA FIRMA BYTES QUE PUEDEN
  * ENTRAR. Sus payloads viven 24 h (`expire: 1440`) porque un quórum firma a
  * velocidad humana; componer ese 0xFE con la ventana de una firma simple dejaba
  * su `LastLedgerSequence` atrás a los seis minutos, así que el consejo acababa
@@ -346,7 +338,7 @@ describe('un 0xFE que firma un QUÓRUM se compone con SU ventana (§Q1 1.3)', ()
 
 describe('the seat is decided by the ledger, not by a clock (§K1)', () => {
   it('TTL expired but the window still AHEAD → NOT substituted: the twin never gets composed', async () => {
-    // El escenario exacto de it14 §1.1: el borrador tiene 30 min (6× el TTL) y su
+    // El escenario exacto: el borrador tiene 30 min (6× el TTL) y su
     // Payment TODAVÍA puede entrar. Un re-prepare no puede tomar ese asiento.
     const row = await conflictRow({ createdAt: ago(30 * MIN), preparedByUserId: 'owner', preparedByProven: true });
     mockQueued.mockResolvedValue([row]);
@@ -420,7 +412,7 @@ describe('the seat is decided by the ledger, not by a clock (§K1)', () => {
     expect(mockSuperseded).toHaveBeenCalledWith([row.userOpHash]);
   });
 
-  // it17 §1.3: la ÚNICA puerta llega mucho después (ventana + 30 min y sesión que
+  // La ÚNICA puerta llega mucho después (ventana + 30 min y sesión que
   // prueba la cuenta, en su propio bloque); aquí, recién pasada, no hay escape.
   it('past its window but UNREADABLE → NONCE_SEAT_UNREADABLE, with no escape by time or by supersede', async () => {
     const row = await conflictRow({ createdAt: ago(12 * MIN), lastLedgerSequence: VALIDATED - 10, composedLedgerIndex: VALIDATED - 160 });
@@ -429,7 +421,7 @@ describe('the seat is decided by the ledger, not by a clock (§K1)', () => {
 
     const err = await build({ supersedePendingNonce: true, supersedeAuthorized: true }).catch((e) => e);
     expect(err.code).toBe('NONCE_SEAT_UNREADABLE');
-    // productizer-it21 §P2 2.3 — su prosa siempre dijo «vuelve a intentarlo», y
+    // Su prosa siempre dijo «vuelve a intentarlo», y
     // ahora el campo lo dice también: `retryable: false` con ese texto era la
     // contradicción que la pantalla pintaba como callejón. Sobre una SALIDA (esta
     // build es `pa-unmint`) sale además como 503, no como 409: no hay conflicto
@@ -440,7 +432,7 @@ describe('the seat is decided by the ledger, not by a clock (§K1)', () => {
     // Y dice CUÁNDO deja de ser un muro: el instante en que quien prueba la
     // cuenta puede desplazarlo (ventana + margen), no un «espera y ya veremos».
     expect(err.secondsLeft).toBeGreaterThan(0);
-    // it23 §Q1 §3.7 — y lo dice EN INGLÉS: esta frase acaba en el `detail` de
+    // §Q1 §3.7 — y lo dice EN INGLÉS: esta frase acaba en el `detail` de
     // una pantalla de salida inglesa, y el filtro del frontend tiraba el
     // castellano entero, motivo y fecha incluidos.
     expect(err.message).toMatch(/can be displaced by whoever proves this XRPL account|this seat can be displaced/);
@@ -476,7 +468,7 @@ describe('the seat is decided by the ledger, not by a clock (§K1)', () => {
   it('a window that has not closed a single ledger yet is «absent», not a ledger read', async () => {
     mockQueued.mockResolvedValue([await conflictRow({ composedLedgerIndex: VALIDATED + 5 })]);
     // Entrada a propósito: sobre una SALIDA esta misma fila (que nadie probó) se
-    // aparta sola desde it19 §M1 1.5, y aquí lo que se prueba es la lectura.
+    // aparta sola §M1 1.5, y aquí lo que se prueba es la lectura.
     const err = await build({ action: 'e1' }).catch((e) => e);
     expect(err.code).toBe('NONCE_SEAT_TAKEN');
     expect(mockWindow).not.toHaveBeenCalled();
@@ -494,7 +486,7 @@ describe('supersede over a draft whose window is ahead (§K1 regla 3)', () => {
     expect(mockSuperseded).toHaveBeenCalledWith([row.userOpHash]);
   });
 
-  it("and a stranger's own report does not gate the owner (it14 §1.3)", async () => {
+  it("And a stranger's own report does not gate the owner", async () => {
     const row = await conflictRow({
       preparedByUserId: 'stranger',
       preparedByProven: false,
@@ -535,7 +527,7 @@ describe('supersede over a draft whose window is ahead (§K1 regla 3)', () => {
     expect(mockSuperseded).not.toHaveBeenCalled();
   });
 
-  // productizer-it19 §M1 1.2 — LA MISMA ESPERA POR LAS DOS PUERTAS. Esta rama
+  // LA MISMA ESPERA POR LAS DOS PUERTAS. Esta rama
   // desplazaba una fila con la ventana VIVA solo porque su preparador decía que
   // no la había firmado: exactamente el gemelo que `/handoff/release` se niega a
   // crear, alcanzable desde un botón. Decir «no la firmé» desde el navegador no
@@ -575,11 +567,11 @@ describe('supersede over a draft whose window is ahead (§K1 regla 3)', () => {
   it('retryable says whether THIS session could free it — no «Retry» loop over somebody else’s draft', async () => {
     const stranger = await conflictRow({ preparedByUserId: 'stranger', preparedByProven: false });
     mockQueued.mockResolvedValue([stranger]);
-    // El dueño probado ya ni siquiera ve el 409 (it17 §1.4): esa fila se aparta sola.
+    // El dueño probado ya ni siquiera ve el 409: esa fila se aparta sola.
     await expect(build({ preparedByProven: true, preparedByUserId: 'owner' })).resolves.toBeDefined();
 
     // Sobre una ENTRADA, quien no prueba nada sigue viendo el 409 sin «Retry»
-    // (una salida ya no la tapia esa fila — it19 §M1 1.5, probado más abajo).
+    // (una salida ya no la tapia esa fila — §M1 1.5, probado más abajo).
     const others = await build({ action: 'e1', preparedByProven: false, preparedByUserId: 'nobody' }).catch((e) => e);
     expect(others.retryable).toBe(false);
   });
@@ -595,8 +587,8 @@ describe('supersede over a draft whose window is ahead (§K1 regla 3)', () => {
 });
 
 /**
- * productizer-it17 §L1 — EL EXTRAÑO YA NO TAPIA EL ASIENTO, Y UN NODO CAÍDO
- * TAMPOCO PARA SIEMPRE (it16 R1 1.3/1.4/1.6).
+ * §L1 — EL EXTRAÑO YA NO TAPIA EL ASIENTO, Y UN NODO CAÍDO
+ * TAMPOCO PARA SIEMPRE (/1.4/1.6).
  */
 describe('a draft nobody proven prepared never blocks the account (§1.4)', () => {
   const stranger = { preparedByUserId: 'stranger', preparedByProven: false };
@@ -630,15 +622,15 @@ describe('a draft nobody proven prepared never blocks the account (§1.4)', () =
     expect(err.memoHex).toBe('FEAA'); // contrato C3: su propio memo sí se le dice — puede liberarlo
   });
 
-  // productizer-it21 §P1 1.1 — LA ETIQUETA DE SALIDA YA NO ES AUTORIDAD SOBRE LA
-  // CUENTA DE OTRO. La it. 19 dejó que cualquier SALIDA apartara la fila de quien
+  // LA ETIQUETA DE SALIDA YA NO ES AUTORIDAD SOBRE LA
+  // CUENTA DE OTRO. La dejó que cualquier SALIDA apartara la fila de quien
   // no prueba nada, para que un extraño no tapiara al dueño sin binding; pero
   // `action` la fija la ruta y `xrplAddress` viene del CUERPO, así que la puerta
   // valía en las dos direcciones: un extraño llamaba `/pa-unmint/prepare` con la
   // dirección de la víctima y le apartaba su borrador VIVO — dos payloads
-  // firmables en el mismo nonce, y el aviso decía «sign only ONE of the two»
-  // (it20 N1 1.1). Ahora una fila VIVA solo la aparta quien PRUEBA la cuenta.
-  it('una SALIDA de quien no prueba nada ya NO aparta el borrador VIVO de otro (it21 §1.1)', async () => {
+  // firmables en el mismo nonce, y el aviso decía «sign only ONE of the two».
+  // Ahora una fila VIVA solo la aparta quien PRUEBA la cuenta.
+  it('Una SALIDA de quien no prueba nada ya NO aparta el borrador VIVO de otro', async () => {
     const row = await conflictRow(stranger);
     mockQueued.mockResolvedValue([row]);
     const err = await build({ action: 'pa-unmint', preparedByUserId: 'nobody', preparedByProven: false }).catch((e) => e);
@@ -647,7 +639,7 @@ describe('a draft nobody proven prepared never blocks the account (§1.4)', () =
     expect(mockSave).not.toHaveBeenCalled();
   });
 
-  // …y la intención de it18 §1.5 sigue viva por la mitad honesta: el dueño de
+  // …y la intención sigue viva por la mitad honesta: el dueño de
   // verdad PRUEBA la cuenta y la fila del extraño se aparta sola, sin ceremonia.
   it('…pero el dueño PROBADO sí la aparta sobre esa misma salida', async () => {
     const row = await conflictRow(stranger);
@@ -657,12 +649,12 @@ describe('a draft nobody proven prepared never blocks the account (§1.4)', () =
     expect(handoff.seatWarning).toMatch(/sign only ONE of the two/);
   });
 
-  // productizer-it21 §P1 1.4 — «NO PUDE LEER LA PRUEBA» NO ES «NO LA PROBÓ». Con
+  // «NO PUDE LEER LA PRUEBA» NO ES «NO LA PROBÓ». Con
   // la tienda de pruebas caída toda fila nueva se guardaba `preparedByProven:
   // false`, es decir, clasificada como borrador de un extraño y por tanto
   // desplazable: el parpadeo de base de datos entregaba el asiento. La fila que
   // lleva `preparedByProofUnreadable` no la aparta nadie por no estar probada.
-  it('una fila cuya PRUEBA no se pudo leer no la aparta ni el dueño probado (it21 §1.4)', async () => {
+  it('Una fila cuya PRUEBA no se pudo leer no la aparta ni el dueño probado', async () => {
     mockQueued.mockResolvedValue([await conflictRow({ ...stranger, preparedByProofUnreadable: true })]);
     const err = await build({ preparedByProven: true, preparedByUserId: 'owner' }).catch((e) => e);
     expect(err.code).toBe('NONCE_SEAT_TAKEN');
@@ -694,7 +686,7 @@ describe('a draft nobody proven prepared never blocks the account (§1.4)', () =
 
   // …pero una fila que compuso NUESTRO PROPIO SERVIDOR no se aparta jamás sola,
   // ni para una salida: ahí hay un payload que el fundador puede firmar y el XRP
-  // de un cliente esperando (it18 R1 1.1, contrato C1).
+  // de un cliente esperando (contrato C1).
   it('una fila serverComposed no la aparta ni una salida', async () => {
     const desk = await conflictRow({ ...stranger, serverComposed: true, action: 'demo-exchange-desk' });
     mockQueued.mockResolvedValue([desk]);
@@ -771,7 +763,7 @@ describe('an unreadable window long past does not wall the seat for ever (§1.3)
 });
 
 /**
- * productizer-it19 §M1 1.4 — «NO PUDE LEER» NI CONCEDE NI RETIRA UN ASIENTO.
+ * «NO PUDE LEER» NI CONCEDE NI RETIRA UN ASIENTO.
  *
  * Con la tabla de handoffs ilegible, el guard devolvía `[]` (indistinguible de
  * «esta cuenta no tiene ningún 0xFE pendiente») y el `catch` se tragaba el fallo:
@@ -822,11 +814,11 @@ describe('una cuenta operativa que no se pudo comprobar no es «de usuario» (§
     expect(await resolveOperationalAccount(USER)).toBe('no');
   });
 
-  // productizer-it21 §P1 1.6 — …Y UNA SALIDA SIN PRUEBA TAMPOCO PASA POR ENCIMA
+  // …Y UNA SALIDA SIN PRUEBA TAMPOCO PASA POR ENCIMA
   // DE UNA CUENTA QUE QUIZÁ OPERAMOS. `action` la fija la ruta pero `xrplAddress`
   // viene del CUERPO: con el registro ilegible, cualquiera escribía el omnibus de
   // la mesa en un `/pa-unmint/prepare` y se llevaba el asiento que sirve a todos
-  // los clientes de esa run (it20 N1 1.6). La salida NO se gatea: recibe el mismo
+  // los clientes de esa run. La salida NO se gatea: recibe el mismo
   // 503 reintentable — y probando la cuenta compone al instante.
   it('con «unknown», una ENTRADA ajena espera y una SALIDA SIN PRUEBA espera igual (503)', async () => {
     setOperationalAccountResolver(() => false, { ready: () => false });

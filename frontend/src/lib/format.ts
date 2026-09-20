@@ -1,25 +1,6 @@
 /**
  * format — the ONE locale-aware voice for every number in the product (Fase 1
- * of the abstraction prompt, 2026-07-30).
- *
- * The audit found four incompatible locale strategies (en-US pinned, es-ES
- * pinned, browser default, bare toFixed) and ~35 copy-paste formatters; the
- * language switch changed not a single digit. This module fixes the rule at
- * the root: THE LOCALE ENTERS THROUGH THE HOOK (hooks/useFormat.ts) — `es`
- * reads 1.234,56 and `en` reads 1,234.56, everywhere, from one place.
- *
- * Unit rules the formatters enforce (GLOSSARY §9-to-be):
- *  - Ratios never reach the screen: `pct()` takes the 0–1 wire value and is
- *    the only place it is multiplied by 100.
- *  - The health factor is a pure number, 2 decimals, NEVER a percentage
- *    (1.00 = liquidation; "100%" would read as perfect health).
- *  - Money defaults to 2 decimals; token quantities to 4; precision beyond
- *    that belongs only where precision IS the content (signing reviews).
- *  - Addresses/hashes: one truncation (6…4 / 10…6), real ellipsis, full value
- *    in the title attribute of whatever renders it.
- *
- * `lib/formatMoney.ts` (en-US only) predates this and keeps its 8 callers
- * working; new code takes `useFormat()` and existing calls migrate in Fase 3.
+ * of the abstraction prompt).
  */
 
 import type { Lang } from '../i18n/dict';

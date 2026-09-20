@@ -4,10 +4,10 @@ import { join } from 'node:path';
 import { seatContestNotice } from '../CouncilMultisigFlow';
 
 /**
- * productizer it. 19 (R3 N3 / M2) — EL AVISO DEL ASIENTO DISPUTADO SE PINTA.
+ * EL AVISO DEL ASIENTO DISPUTADO SE PINTA.
  *
- * it. 17 cambió un 422 duro por `seatContestWarning` para que una SALIDA no se
- * quedara detrás del payload de otro. it. 18 midió el resultado: `grep
+ * Cambió un 422 duro por `seatContestWarning` para que una SALIDA no se
+ * quedara detrás del payload de otro. Midió el resultado: `grep
  * seatContestWarning frontend/src` → 0. Nadie lo leía. Un consejo juntaba quórum
  * sobre dos payloads del MISMO Sequence sin enterarse — exactamente la cadena
  * del doble pago que la guarda cortaba. Un aviso sin lector es peor que la
@@ -15,7 +15,7 @@ import { seatContestNotice } from '../CouncilMultisigFlow';
  *
  * Y NO SE PINTA LA PROSA DEL SERVIDOR. Esa frase lleva el TÍTULO de la propuesta
  * rival, que es texto que escribió otro consejo, y la puerta la alcanza quien no
- * tiene pertenencia (it. 18, §2.7). El titular sale de los IDs.
+ * tiene pertenencia (§2.7). El titular sale de los IDs.
  */
 
 const t = (s: string) => s;
@@ -73,7 +73,7 @@ describe('seatContestNotice — qué se dice, y con qué', () => {
 describe('el cable: la ceremonia lo pinta ANTES de los QRs', () => {
   const src = read('components/legacy/CouncilMultisigFlow.tsx');
 
-  it('CouncilMultisigFlow lee el aviso (it. 18 medía 0 referencias en todo el frontend)', () => {
+  it('CouncilMultisigFlow lee el aviso (medía 0 referencias en todo el frontend)', () => {
     expect(src).toContain('seatContestNotice');
     expect(src).toContain('seatContestWarning');
   });
@@ -88,7 +88,7 @@ describe('el cable: la ceremonia lo pinta ANTES de los QRs', () => {
   });
 
   /**
-   * it. 21 (it. 20 2.9) — y TAMBIÉN donde firma cada miembro.
+   * Y TAMBIÉN donde firma cada miembro.
    *
    * «Antes del QR» era cierto en el DOM: el compositor lo ve encima de su botón,
    * y los cosignatarios reciben su push y firman sin haber visto nunca esta
@@ -106,7 +106,7 @@ describe('el cable: la ceremonia lo pinta ANTES de los QRs', () => {
   });
 
   /**
-   * it. 23 (it. 22 §2.2) — ESTABA DENTRO DE LA RAMA «waiting».
+   * ESTABA DENTRO DE LA RAMA «waiting».
    *
    * El aviso vivía dentro de `m.status === 'waiting'`, así que en cuanto alguien
    * pulsaba «New QR» (status 'creating', y luego 'waiting' con otro payload) el

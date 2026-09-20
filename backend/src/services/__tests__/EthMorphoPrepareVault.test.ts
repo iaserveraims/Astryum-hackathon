@@ -82,7 +82,7 @@ describe('prepareSentoraVault', () => {
 
   /**
    * Este test fijaba el tope en `maxWithdraw` — y ERA EL QUE ENMASCARABA el
-   * bug (auditoría 2026-08-17): con el stub a 100 RLUSD parecía correcto,
+   * bug (auditorí): con el stub a 100 RLUSD parecía correcto,
    * mientras en la bóveda REAL (Morpho Vault V2) `maxWithdraw` devuelve 0
    * para todo el mundo y dejaba la ÚNICA salida del lend-only deshabilitada.
    * La capacidad se lee ahora del valor de las shares y de la liquidez viva;

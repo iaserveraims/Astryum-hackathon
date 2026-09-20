@@ -13,20 +13,9 @@ import {
 import { postHandoff } from '../../wallet/handoffRelease';
 
 /**
- * productizer it. 19 (R5 R4 / R3 N2 — «la espera ilegible y el "Free the seat"
- * sobre lo firmado»).
+ * .
  *
  * TRES MENTIRAS EN LA MISMA PANTALLA, cada una probada aquí:
- *
- *  1. `WAIT_FOR_PAYLOAD_EXPIRY` no estaba en los códigos que el frontend conoce,
- *     así que el 409 que dice «ese pago TODAVÍA puede firmarse» salía como slug.
- *  2. `postHandoff` parseaba `secondsLeft` y lo tiraba, y la pantalla prometía
- *     «se libera en ~5 minutos» con una constante del cliente sobre una ventana
- *     que el servidor acababa de medir en ~6.
- *  3. Un 200 `{released:false}` — que es «no había nada que liberar», casi
- *     siempre porque YA ESTÁ FIRMADO — se contaba como liberación exitosa, y su
- *     vecino lo traducía como «aún se puede firmar». Las dos son falsas: a un
- *     pago firmado no le espera nadie.
  */
 
 const MEMO = 'FE' + '11'.repeat(40);

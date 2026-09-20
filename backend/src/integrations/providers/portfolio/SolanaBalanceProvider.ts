@@ -8,7 +8,7 @@
  * RPC: uses Helius when HELIUS_API_KEY is set (higher rate limits), otherwise
  * falls back to the public Solana mainnet RPC so the feature works key-less.
  *
- * Read-only. Astryum never signs or broadcasts (CLAUDE.md §0).
+ * Read-only. Astryum never signs or broadcasts.
  */
 
 import type {
@@ -20,7 +20,7 @@ import type {
 } from '../../interfaces/IProvider';
 import type { CanonicalPosition } from '../../../canonical/types/Position';
 
-/** Pseudo chainId for Solana (CLAUDE.md ChainRegistry convention). */
+/** Pseudo chainId for Solana (ChainRegistry convention). */
 export const SOLANA_PSEUDO_CHAIN_ID = 900;
 
 const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';

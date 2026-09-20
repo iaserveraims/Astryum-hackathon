@@ -41,7 +41,7 @@ import { isSessionRevoked, respondSessionRevoked } from '../services/identity/li
 
 const router = Router();
 
-// ── Per-route rate limits (2026-07-23 hardening) ──────────────────────────────
+// ── Per-route rate limits (hardening) ──────────────────────────────
 // The global limiter (500 req/15 min) is sized for the whole app and useless
 // against credential brute force. These are per-IP sliding windows on the
 // credential-bearing POSTs specifically; the Turnstile guard below is the
@@ -155,47 +155,45 @@ router.get('/me', requireSiweAuth, asyncHandler(async (req: Request, res: Respon
     sessionId: req.siwe!.sessionId,
     walletAddress: req.siwe!.walletAddress,
     linkedWallets,
-    // Legal acceptance gate (founder 2026-07-30): whether THIS account still
+    // Legal acceptance gate: whether THIS account still
     // has to be shown the current /demo-terms + /privacy versions. Covers
     // wallet-first accounts (no register click-wrap) and version bumps.
     //
-    // THREE STATES, NOT TWO (it. 25). `legal.unreadable: true` means the stored
+    // THREE STATES, NOT TWO. `legal.unreadable: true` means the stored
     // record did not parse: `required` comes back FALSE and the client shows a
     // sentence instead of a door. A row we cannot read is our failure, and it
     // never becomes a wall in front of somebody's capital — the legal gate is
     // mounted ahead of the whole /app tree, exits included. See
     // config/legalAcceptance.ts `unreadableLegalStatus`.
     legal: computeLegalStatus(profileRow?.preferences, DEMO_TERMS_VERSION),
-    // Server-side profile (founder 2026-07-19: name/photo must survive
-    // logout→login) — the store hydrates presentation from here.
+    // Server-side profile — the store hydrates presentation from here.
     profile: profileRow ?? null,
     // Visibility hint for the founders' panel nav entry (ADMIN_EMAILS door).
     // The panel itself re-checks the allowlist on every read (requireAdmin),
     // so this flag grants nothing on its own.
     // Same door as adminPanel.emailGate: only a VERIFIED allowlisted email — this
     // flag is also PreviewOnly's server verdict, so a password sign-up claiming a
-    // founder's address must not see unreleased surfaces (productizer it. 7).
+    // founder's address must not see unreleased surfaces.
     isAdmin: isAdminEmail(profileRow?.email) && profileRow?.emailVerified === true,
     // Visibility hint for the Personal↔Legacy product toggle. FAIL-CLOSED:
     // LEGACY_ENABLED='true' ⇒ everyone; anything else (incl. unset) ⇒ only
     // the LEGACY_ACCESS_EMAILS allowlist — off + empty list ⇒ nobody. Pure
     // UI discovery — governed-account APIs keep their own server-side auth.
     // The list only counts a VERIFIED email, like requireLegacyAccess and
-    // isAdmin above (productizer it. 8): a password sign-up is not proof.
+    // isAdmin above: a password sign-up is not proof.
     legacyAccess: hasLegacyToggleAccess(profileRow?.emailVerified === true ? profileRow.email : null),
-    // Manager mode (founder 2026-08-30: «se tiene que guardar entre
-    // navegadores»): the vault-manager declaration follows the ACCOUNT, not
+    // Manager mode: the vault-manager declaration follows the ACCOUNT, not
     // the browser. Rides User.preferences like `legal` does. FAIL-CLOSED:
     // only a literal true opens the desk's discovery. Pure UI discovery —
     // creating a cage is governed by the chain, and the KYC rail (colleague's
     // backend) will govern certification.
     managerMode: readManagerMode(profileRow?.preferences),
-    // Apariencia (fundador 2026-09-13): el TEMA (material del panel) y la LUZ
+    // Apariencia: el TEMA (material del panel) y la LUZ
     // siguen a la CUENTA, no al navegador — el mismo raíl que managerMode y
     // por el mismo motivo. Pura presentacion: no abre capacidades, no toca
     // permisos y no decide nada sobre el dinero. Ver config/appearance.ts.
     appearance: readAppearance(profileRow?.preferences),
-    // El cuestionario de alta (2026-09-14): idioma, objetivo y el hecho de
+    // El cuestionario de alta: idioma, objetivo y el hecho de
     // haberlo contestado siguen a la CUENTA, no al navegador — sin esto el
     // mismo correo respondía otra vez en cada navegador. Ver config/onboarding.
     onboarding: readOnboarding(profileRow?.preferences),
@@ -228,7 +226,7 @@ router.post('/manager-mode', requireSiweAuth, asyncHandler(async (req: Request, 
   }
   // Atomic merge under the row lock — never a stale whole-object rewrite, and
   // never the `security` key (identity/userPreferences).
-  // it. 23: a preferences column we cannot read is REFUSED, never rewritten
+  // a preferences column we cannot read is REFUSED, never rewritten
   // (rewriting it drops `security` and resurrects pre-takeover bindings). Say so
   // instead of letting it surface as a bare 500.
   try {
@@ -259,9 +257,8 @@ const appearanceSchema = z
   .refine((v) => v.skin !== undefined || v.theme !== undefined, { message: 'empty_patch' });
 
 /**
- * POST /api/auth/onboarding — guarda el cuestionario de alta EN LA CUENTA
- * (fundador 2026-09-14: «una vez rellenado ese popup, que se guarde y no
- * vuelva a saltar; inicio sesión desde navegadores distintos»). Cabalga
+ * POST /api/auth/onboarding — guarda el cuestionario de alta EN LA CUENTA.
+ * Cabalga
  * User.preferences.onboarding preservando las claves hermanas: el patrón de
  * legal-accept, manager-mode y appearance.
  *
@@ -291,7 +288,7 @@ router.post('/onboarding', requireSiweAuth, asyncHandler(async (req: Request, re
     );
   } catch (err) {
     if (isPreferencesUnreadable(err)) {
-      // EL 409 DEJA TRAZA (productizer it. 27). Este rechazo es correcto — no se
+      // EL 409 DEJA TRAZA. Este rechazo es correcto — no se
       // escribe encima de una columna que no se puede leer — y NO es una cárcel:
       // el asistente tiene «Omitir» y lo local sostiene la sesión. Pero era
       // INVISIBLE por los dos lados: el cliente solo tenía `.catch()`, y un 409
@@ -345,7 +342,7 @@ router.post('/legal-accept', requireSiweAuth, asyncHandler(async (req: Request, 
   }
   // The signature is re-checked against a LIVE session inside its own
   // transaction: a click-wrap posted by a previous account holder must not land
-  // after an account takeover and read as the owner's (it. 14, 4.2).
+  // after an account takeover and read as the owner's (4.2).
   let merged: Record<string, unknown>;
   try {
     merged = await updateUserPreferences(
@@ -356,7 +353,7 @@ router.post('/legal-accept', requireSiweAuth, asyncHandler(async (req: Request, 
   } catch (err) {
     if (isSessionRevoked(err)) return respondSessionRevoked(res);
     if (isPreferencesUnreadable(err)) {
-      // THE 409 STAYS — AND STOPS BEING A DEAD END (it. 25).
+      // THE 409 STAYS — AND STOPS BEING A DEAD END.
       //
       // The refusal itself is right and does not move: `applyPreferencesUpdate`
       // will not write over a `preferences` column it cannot read, because the
@@ -365,20 +362,6 @@ router.post('/legal-accept', requireSiweAuth, asyncHandler(async (req: Request, 
       // binding the previous holder attached comes back with a commit behind
       // it. There is no shape of this write that records the signature without
       // resurrecting that, so the honest answer is to write nothing.
-      //
-      // What WAS wrong is what the caller was left holding. `retryable: false`
-      // told a machine not to retry, but the screen in front of it was a
-      // non-dismissable modal whose only button posts here — so the person was
-      // asked, for ever, for the one action that cannot succeed. The answer now
-      // carries the SAME legal status /auth/me reports for this row
-      // (`unreadable: true`, `required: false`), which is the client's
-      // instruction to retire the modal and show the sentence. A `curl` caller
-      // gets the same story in one response, without reading our UI.
-      //
-      // Note the asymmetry with /manager-mode, /appearance and /onboarding
-      // above, which keep the bare `respondPreferencesUnreadable`: those are
-      // preferences, and a refused preference leaves the person exactly where
-      // they were. This one sits in front of the door.
       return res.status(409).json({
         error: 'PREFERENCES_UNREADABLE',
         detail: PREFERENCES_UNREADABLE_DETAIL,
@@ -458,7 +441,7 @@ function requireEmailAuth(_req: Request, res: Response, next: () => void) {
 }
 
 /**
- * Demo risk acceptance (founder 2026-07-26): the risks live as PUBLIC
+ * Demo risk acceptance: the risks live as PUBLIC
  * reviewable documentation (/demo-terms — experimental software, real XRP
  * under caps, irreversible signatures, no execution guarantee), and the
  * create button carries a notice line linking it — creating the account
@@ -467,15 +450,15 @@ function requireEmailAuth(_req: Request, res: Response, next: () => void) {
  * (see AuthService.register). Bump the version when /demo-terms materially
  * changes.
  */
-// 2026-07-30: /demo-terms gained automation/rules, data & on-chain permanence,
+// /demo-terms gained automation/rules, data & on-chain permanence,
 // the €50 liability cap with consumer carve-outs, and the operator
 // identification link (/privacy) — material additions, hence the bump.
-// 2026-08-01: accuracy audit. The council fee was described as charged "when
+// accuracy audit. The council fee was described as charged "when
 // the order is delivered with its proof" — it is actually paid inside the
 // signed Payment itself, so a failed delivery leaves it already paid: a
 // correction that works AGAINST us, which is exactly why it must ship. Also
 // narrowed the caps, simulation and boot-guard claims to what the code does.
-// 2026-08-01.1 (same day, second material change — hence the suffix: anyone
+// 1 (same day, second material change — hence the suffix: anyone
 // who accepted the morning text must see the evening one): /demo-terms gains
 // the rules of use that never shipped — minimum age 18 (the demo had NONE),
 // excluded/sanctioned territories by declaration, suspension right that can
@@ -486,7 +469,7 @@ export const DEMO_TERMS_VERSION = '2026-08-01.1';
 const registerSchema = z.object({
   email:        z.string().email(),
   password:     z.string().min(8, 'password_too_short'),
-  // Demo-signup profile (founder 2026-07-18): deliberately light — phone/2FA
+  // Demo-signup profile: deliberately light — phone/2FA
   // arrive with the full product.
   username:     z.string().trim().min(2).max(32).optional(),
   firstName:    z.string().trim().min(1).max(64).optional(),
@@ -494,7 +477,7 @@ const registerSchema = z.object({
   referralCode: z.string().length(8).optional(), // P-GROWTH: optional manager referral code
   // Must be literally true — sent by the create form under its /demo-terms notice.
   demoTermsAccepted: z.literal(true, { errorMap: () => ({ message: 'demo_terms_required' }) }),
-  // 2026-09-13: the sign-up ceremony shows BOTH documents, scrolled to the
+  // The sign-up ceremony shows BOTH documents, scrolled to the
   // end, and the user signs by sliding. When the client says so, the unified
   // legal record is written at birth (see AuthService.register). Optional so
   // an older client (or a test) still registers with the click-wrap alone.
@@ -525,8 +508,7 @@ router.post('/register', (req, res, next) => requireEmailAuth(req as Request, re
         legalSigned: parsed.data.privacyRead === true,
       },
     );
-    // Every new account is also a newsletter signup (founder 2026-07-18; the
-    // demo flow is gone but the enrolment stays for the capped early access):
+    // Every new account is also a newsletter signup:
     // same welcome email as the landing waitlist, only on FIRST insertion —
     // fire-and-forget, a mail hiccup must never fail the registration.
     void (async () => {
@@ -613,7 +595,7 @@ const forgotSchema = z.object({ email: z.string().email() });
  * The reset token is NEVER returned by default. Only outside production AND with
  * the explicit opt-in AUTH_EXPOSE_RESET_TOKEN=true (local dev without a mailer)
  * does the body carry it — a staging that forgot NODE_ENV=production must not
- * hand anyone the key to every password account (productizer it. 12, 5.4).
+ * hand anyone the key to every password account (5.4).
  */
 router.post('/forgot-password', (req, res, next) => requireEmailAuth(req as Request, res as Response, next), rateLimitBy(forgotLimiter), requireTurnstile(), async (req: Request, res: Response) => {
   const parsed = forgotSchema.safeParse(req.body);
@@ -809,17 +791,7 @@ router.post('/oauth/xrplid/exchange', rateLimitBy(oauthLimiter), async (req: Req
 
     // The wallet the user connected in their XRP Identity profile. Reachable
     // only with `profile:read`, and only through the operator's Account API —
-    // it is not an OIDC claim (measured 2026-08-18, confirmed by them 08-19).
-    //
-    // Fire-and-forget on purpose: this runs BESIDE a login, never inside it. A
-    // slow or broken call at their end must cost the user nothing, so the
-    // session is already on its way back while this finishes.
-    //
-    // It sits AFTER the login on purpose too: the user id it writes against
-    // only exists once `oauthLogin` has returned, and reading it from a block
-    // above was a race — an await away from a ReferenceError on a `const` that
-    // had not been initialised yet, which in Node ends the process rather than
-    // the request. See the rescue below.
+    // it is not an OIDC claim (measured, confirmed by them 08-19).
     const userId = result.userId;
     if (xrplIdentityProfileScopeEnabled() && accessToken) {
       void probeUserInfo(accessToken, Object.keys(claims as unknown as Record<string, unknown>));

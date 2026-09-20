@@ -1,23 +1,6 @@
 /**
  * DemoExchangeStore — the SIMULATED "exchange system" behind the Demo Exchange
- * surface (2026-08-26, BuildSpec Demo Exchange v2 §2).
- *
- * What this is: the internal ledger a real exchange already has — client
- * accounts, their deposit tags, the XRP each one "has at the exchange", and the
- * book of receipts of every on-chain step of a demo run. It is labelled demo
- * everywhere it is shown. It never holds a key, never signs, never moves money:
- * every amount here is a MIRROR of something that happened on XRPL or Flare and
- * carries the hash that proves it.
- *
- * What this is NOT: custody. The shares of a client live in the client's own
- * account (passkey / Personal Account); the pote enforces who can redeem them.
- *
- * Persistence: `background_jobs` through `backgroundJobKv` with a private
- * jobType — zero migrations, invisible to every other poller. STRICT for runs
- * (productizer cycle, it. 10): a save is read back and compared by version
- * stamp, a load never falls back to a stale in-process copy — money decisions
- * (a reservation, a debit) must not be silently reverted by the next load.
- * Without DATABASE_URL the in-process copy IS the store.
+ * surface (BuildSpec Demo Exchange v2 §2).
  */
 
 import type { DemoStructure } from './structures';
@@ -151,22 +134,7 @@ export interface ClientRequest {
  * A payment of the OMNIBUS that the founder desk composed and hands to Xaman by
  * hand (E8 payout, E5 put-to-work) — recorded server-side so that neither a
  * second desk compose nor the autopilot can pay the same balance again while it
- * is in flight (productizer cycle, it. 6: the desk's pending state lived only in
- * a React component that the stage unmounted).
- *
- * Lifecycle (see availableBalance.ts):
- *  · 'prepared' — composed (withdraw: by /withdraw/prepare, with the
- *    LastLedgerSequence it stamped; put-to-work: reserved, then its 0xFE composed
- *    SERVER-SIDE by desk-payments/:pid/prepare-put-to-work, which stores the memo,
- *    the userOpHash and the LastLedgerSequence it stamped on the Payment). Reserves
- *    its drops. A withdraw closes by itself once the validated ledger is past its
- *    LastLedgerSequence AND the omnibus was scanned after that ledger (the payment
- *    either entered a ledger ≤ LLS — debited by the scan — or can never enter
- *    one). A put-to-work closes only when recorded (put-to-work/record, verified
- *    against the ledger) or released with chain proof (deskPaymentProof).
- *  · 'signed' — the desk reported the hash after the ledger validated it. Reserves
- *    until the ledger mirror applied that hash (movementKey), then 'settled'.
- *  · 'settled' / 'released' — reserve nothing.
+ * is in flight.
  */
 export interface DeskPayment {
   id: string;
@@ -242,8 +210,7 @@ export interface DemoRun {
   createdAt: string;
   status: 'open' | 'closed';
   /**
-   * QUIÉN LO CREÓ (2026-09-20, fundador: «que los exchanges creados solo
-   * aparezcan en la cuenta de quien lo ha creado»). El id de la cuenta de Astryum
+   * QUIÉN LO CREÓ. El id de la cuenta de Astryum
    * que hizo `POST /runs`. Hasta hoy un exchange no tenía dueño: la ruta leía la
    * sesión para comprobar el omnibus y la TIRABA, así que no había nada por lo que
    * filtrar y `GET /runs` devolvía todos a cualquiera. Ausente en los runs
@@ -281,7 +248,7 @@ export interface DemoRun {
    * Per client, the XRPL accounts the WATCHER saw pay a credited deposit in.
    * Written ONLY by syncOmnibus when it credits a deposit (never by a route),
    * so it is the proof a payout wallet can be checked against — receipts
-   * cannot be, because a public route adds them (productizer cycle, it. 3).
+   * cannot be, because a public route adds them.
    */
   provenDepositSenders?: Record<string, string[]>;
 }
@@ -301,7 +268,7 @@ export function deskPaymentsOf(run: DemoRun): DeskPayment[] {
 /**
  * The classic tag space is seq×100+ordinal. Taking seq = max(LIVE runs)+1 reused
  * the seq of a deleted last run — and a late tagged return to one of its clients
- * landed on a client of the NEW run (productizer cycle, it. 6). The highest seq
+ * landed on a client of the NEW run. The highest seq
  * ever allocated is persisted apart from the runs, so deleting a run never frees
  * its seq.
  */
@@ -337,7 +304,7 @@ export async function readSeqHighWater(): Promise<number> {
  *
  * THROWS unless the database PROVES the mark ≥ seq: `kvUpsert` swallows a
  * database error, so a plain await proved nothing and a restart handed the seq
- * out again (productizer it. 8). The comparison is against the DATABASE copy,
+ * out again. The comparison is against the DATABASE copy,
  * not the in-process one — a mark raised in memory by a failed write must not
  * make the retry skip the write.
  */
@@ -361,7 +328,7 @@ export async function bumpSeqHighWater(seq: number): Promise<void> {
  * The seq high-water protects only the classic seq×100 space. A DECLARED range
  * (CONECTA) of a deleted run was checked against LIVE runs only, so a new run
  * could take it — and a late tagged FAssets return to a deleted run's client was
- * credited as 'return' to the new run's client (productizer it. 8). Every range
+ * credited as 'return' to the new run's client. Every range
  * ever assigned is persisted apart from the runs and never freed.
  */
 export const DEMO_TAG_RANGES_JOB_TYPE = 'demo-exchange-tag-ranges';
@@ -525,21 +492,10 @@ function storedVersion(v: unknown): number {
 }
 
 /**
- * Save with compare-and-set and read-back (productizer it. 10). Before, memory
+ * Save with compare-and-set and read-back. Before, memory
  * was set first and `kvUpsert` swallowed a database error: the next load
  * preferred the database copy, so a reservation or a debit silently disappeared
  * and the same balance could be paid twice.
- *
- *  · CAS, ATOMIC (it. 12, 2.4): the copy's `version` must equal the stored one
- *    (absent = 0). The compare and the write are ONE conditional UPDATE under a
- *    per-key advisory lock (`kvCompareAndSet`), so two backend instances (an
- *    overlapping deploy) can never both pass the compare — before, read →
- *    compare → upsert let the second write erase the first. An absent row is
- *    created (same key lock: never two rows).
- *  · then read back STRICTLY and compare version + stamp; any mismatch or
- *    database error THROWS and the in-process copy is left untouched.
- *  · on success the caller's object carries the new version, so a second save of
- *    the same object inside the same handler passes the CAS.
  */
 export async function saveRun(run: DemoRun): Promise<void> {
   const expected = storedVersion(run.version);
@@ -596,19 +552,13 @@ export async function loadRun(runId: string): Promise<DemoRun | null> {
 }
 
 export async function listRuns(): Promise<DemoRun[]> {
-  // it. 19 — «NO RUNS» AND «I COULD NOT READ» ARE NOT THE SAME SENTENCE. This
+  // «NO RUNS» AND «I COULD NOT READ» ARE NOT THE SAME SENTENCE. This
   // list is what declares each run's omnibus to the 0xFE seat guard: read with
   // the best-effort `kvList`, a database outage answered «no runs», the omnibus
   // stopped being an account this deployment operates, and its nonce seat became
   // takeable by any session while client XRP sat in the Core Vault. The strict
   // read throws instead, and the resolver keeps its last good snapshot (or says
   // «unknown», which refuses an entry and still composes an exit).
-  //
-  // it. 21 (3.2) — AND IT THROWS THE STORE'S OWN ERROR, NOT A BARE ONE. The
-  // strict read threw whatever Prisma threw, which `guarded` (it only maps
-  // `DemoRunStoreError`) turned into a **500** on the five routes that list:
-  // a wall with no retry where the surface used to degrade. Same failure, same
-  // family as `loadRun`: RUN_UNREADABLE → 503, retryable, in English.
   let fromDb: DemoRun[];
   try {
     fromDb = (await kvListStrict(DEMO_RUN_JOB_TYPE, 200)) as unknown as DemoRun[];
@@ -639,15 +589,6 @@ export async function deleteRun(runId: string): Promise<void> {
  * The failure it closes: a public /verify loaded the run, verified for seconds,
  * and saved the whole run back — erasing a request the autopilot had minted
  * meanwhile, restoring its balance, and letting a new request mint again.
- *
- * SINGLE-INSTANCE ASSUMPTION: the lock lives in this process's memory. It is
- * correct while one backend process serves /api/demo-exchange and runs the
- * autopilot (Railway today). Across processes (an overlapping deploy) the
- * durable submission journal prevents a double signature, and the ATOMIC CAS of
- * saveRun (it. 12) refuses a stale whole-run save instead of letting it erase
- * another writer's — the loser answers RUN_VERSION_CONFLICT and retries.
- *
- * Not re-entrant: never call it for the same run from inside `fn`.
  */
 const runLocks = new Map<string, Promise<void>>();
 
@@ -693,7 +634,7 @@ export type LedgerMovement =
  * key on purpose: a payment INTO the omnibus is credited once whether the
  * watcher first read it as 'return' (sender unknown) and later as 'deposit'
  * (the client registered their wallet in between). Keying by kind double-
- * credited exactly that case (bug found in review, 2026-08-26).
+ * credited exactly that case (bug found in review).
  */
 export function movementKey(kind: LedgerMovement['kind'], txHash: string): string {
   const direction = kind === 'deposit' || kind === 'return' ? 'in' : 'out';

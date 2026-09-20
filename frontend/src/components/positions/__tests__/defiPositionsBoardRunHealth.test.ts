@@ -12,35 +12,15 @@ import {
 } from '@/lib/rules/runHealth';
 
 /**
- * G4-residuos (auditoría 2026-08-17 §G4) — el tablero que SÍ leía los runs y aun
+ * G4-residuos (auditorí §G4) — el tablero que SÍ leía los runs y aun
  * así no decía que habían fallado.
- *
- * `DefiPositionsBoard` era el único consumidor de GET /rules/:id/runs y tiraba
- * justo lo que importa: se quedaba con `count`/`lastAt`/`lastStatus` y
- * DESCARTABA `notes`, así que el motivo por el que una automatización armada no
- * preparaba nada nunca llegaba al dueño. Un run con `status:'error'` se veía
- * igual que uno sano: la píldora seguía verde por `r.enabled` a secas y el
- * estado aparecía como palabra de máquina entre paréntesis al final de una línea
- * gris. Y la lectura fallida se tragaba en silencio (`if (!r.ok) continue` +
- * `catch { /* history is best-effort *\/ }`), dejando la fila con «No triggers
- * yet» — un hecho que nunca se había establecido.
- *
- * Estos tests fijan las dos mitades: el reductor (importado del módulo
- * compartido) y el cable (que la lectura fallida se diga, que la nota se pinte y que
- * la píldora deje de ser verde incondicional).
- *
- * Por qué a nivel de fuente y no un test de render: importar este componente
- * arrastra AppKit y medio grafo de la app — el propio fichero lo documenta como
- * «intesteable por vecindad» — y el bootstrap de vitest es `environment:
- * 'node'`. Extraer la función pura del fuente mantiene las aserciones sobre el
- * código que se despliega. (Misma técnica que moneyflowsRunHealth.)
  */
 
 const BOARD = join(__dirname, '..', 'DefiPositionsBoard.tsx');
 const src = readFileSync(BOARD, 'utf8');
 
 /**
- * G4-strategies (round 2) — the reducer this suite exercises now lives in ONE
+ * G4-strategies — the reducer this suite exercises now lives in ONE
  * place, `src/lib/rules/runHealth.ts`, and is IMPORTED here instead of being
  * scraped out of the component source with `new Function`. The behavioural
  * cases below are unchanged on purpose: they are the red net proving the
@@ -104,7 +84,7 @@ describe('DefiPositionsBoard · el cable de G4', () => {
     expect(src).not.toMatch(/function summarizeRuns\(/);
   });
 
-  // REUSE (auditoria 2026-08-18) - esta superficie era la UNICA de las seis que
+  // REUSE (auditoria) - esta superficie era la UNICA de las seis que
   // seguia llamando a GET /rules/:id/runs a mano, con sus propios headers y su
   // propia idea de que significa una lectura rota. Las dos aserciones que aqui
   // raspaban ese `fetch` ya no describen nada: el cable es ahora

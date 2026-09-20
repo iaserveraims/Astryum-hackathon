@@ -11,7 +11,7 @@ const STALE_TIMESTAMP_MS = 90 * 1000;
 /**
  * Structured AI response (Zod-validated).
  *
- * 2026-06-01 audit Cat 4.1 — MiCA framing:
+ * Audit Cat 4.1 — MiCA framing:
  *   The previous `recommendations` field was framed as advice and risked
  *   classification under MiCA Article 3(1)(16)(8) "providing advice on
  *   crypto-assets". It has been renamed to `signals` — informational context
@@ -143,7 +143,7 @@ export class AICopilot {
    * Return deterministic CONTEXTUAL SIGNALS detected against the user's
    * portfolio — never framed as recommendations or advice.
    *
-   * 2026-06-01 audit Cat 4.1: renamed from `recommendActions` to comply with
+   * Audit Cat 4.1: renamed from `recommendActions` to comply with
    * MiCA Article 3(1)(16)(8). The legacy method name is kept as a thin alias
    * for callers that haven't migrated yet.
    */
@@ -184,7 +184,7 @@ export class AICopilot {
     });
   }
 
-  /** @deprecated renamed to `getContextualSignals` (2026-06-01 audit Cat 4.1). */
+  /** @deprecated renamed to `getContextualSignals` (audit Cat 4.1). */
   async recommendActions(walletAddress: string, chainId: number = 14): Promise<AIResponse> {
     return this.getContextualSignals(walletAddress, chainId);
   }

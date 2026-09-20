@@ -3,17 +3,11 @@
 /**
  * ClientKycCard — el KYC de la casilla del cliente, en su propia pantalla.
  *
- * Diseño B (fundador 14-sep): el exchange verifica a su cliente y registra ese
+ * Diseño B: el exchange verifica a su cliente y registra ese
  * KYC en el ledger como una credencial XLS-70 `KYC-<tag>` emitida por su raíz
  * sobre el propio omnibus. El cliente NO firma nada: ni tiene que tener wallet
  * XRPL, ni hay aceptación suya. Por eso aquí no hay botón de aceptar ni de
  * emitir — la tarjeta solo dice, leído del ledger, si su casilla está verificada.
- *
- * Lo que la tarjeta NO dice, porque sería falso: que el ledger lo haga cumplir.
- * XRPL no condiciona nada a un tag; lo hace cumplir el exchange (su backend
- * relee la credencial en cada entrada de capital).
- *
- * Y lo que repite siempre: **sacar el dinero no pasa por esta puerta**.
  */
 
 import { useCallback, useEffect, useState } from 'react';

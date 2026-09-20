@@ -3,7 +3,7 @@
 /**
  * walletLinkService — typed client for the unified wallet linkage backend.
  *
- * REGULATORY BOUNDARY (CLAUDE.md §0):
+ * REGULATORY BOUNDARY:
  *   Connecting / logging in a wallet is READ-ONLY. It never authorizes a
  *   transaction. To authorize transactions the user must explicitly sign a
  *   binding message (personal_sign, ownership proof — NOT a tx) which the

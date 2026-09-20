@@ -72,7 +72,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    // EL IDIOMA SIGUE A LA CUENTA (fundador 2026-09-14). localStorage se
+    // EL IDIOMA SIGUE A LA CUENTA. localStorage se
     // conserva como la respuesta INMEDIATA —antes de que /me hable, y sin
     // red— pero quien manda es la cuenta: sin esto, elegir castellano aquí
     // dejaba el panel en inglés en el navegador de al lado.

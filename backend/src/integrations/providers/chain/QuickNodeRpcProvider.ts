@@ -78,7 +78,7 @@ export class QuickNodeRpcProvider implements IProvider {
       capability === 'chain.sendRawTransaction'
     ) {
       throw new Error(
-        'BROADCAST_FORBIDDEN: QuickNodeRpcProvider is read-only. Astryum never broadcasts. See CLAUDE.md §0.',
+        'BROADCAST_FORBIDDEN: QuickNodeRpcProvider is read-only. Astryum never broadcasts.',
       );
     }
 

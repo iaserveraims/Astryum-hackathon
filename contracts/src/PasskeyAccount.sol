@@ -6,7 +6,7 @@ pragma solidity 0.8.24;
  *
  * @notice The exchange client's account on Flare: controlled by ONE WebAuthn
  * passkey (secp256r1), verified on-chain through the RIP-7212 precompile at
- * 0x…0100 — probed LIVE on Flare mainnet 2026-08-20/21 (positive + negative
+ * 0x…0100 — probed LIVE on Flare mainnet (positive + negative
  * vector, ~3450 gas). The Flare-native PersonalAccount is OnlyController
  * (XRPL-commanded only), so the passkey door lives in this contract.
  *
@@ -14,7 +14,7 @@ pragma solidity 0.8.24;
  * scene-5 circuit (deposit lands here in mode B; the holder's Face ID signs
  * the exit; nobody else can). The PRODUCT account adds what this one
  * deliberately lacks: multi-device keys and delayed, veto-able recovery —
- * post-freeze work with its trust residual declared (Orden 22-ago §3.1).
+ * post-freeze work with its trust residual declared (Orden §3.1).
  *
  * How a call is authorized (WebAuthn assertion, bound to THIS account):
  *   challenge = keccak256(chainid ‖ account ‖ nonce ‖ target ‖ value ‖ data)

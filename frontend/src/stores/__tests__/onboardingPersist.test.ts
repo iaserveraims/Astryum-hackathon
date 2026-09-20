@@ -1,5 +1,5 @@
 /**
- * EL 409 DEL ASISTENTE DEJA TRAZA (productizer it. 27).
+ * EL 409 DEL ASISTENTE DEJA TRAZA.
  *
  * `persistToAccount` solo tenía `.catch()`, y un rechazo CON CUERPO —un 409—
  * RESUELVE: la promesa no lanza, así que el rechazo se descartaba en silencio.

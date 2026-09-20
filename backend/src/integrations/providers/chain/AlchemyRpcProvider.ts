@@ -92,7 +92,7 @@ export class AlchemyRpcProvider implements IProvider {
       capability === 'chain.sendRawTransaction'
     ) {
       throw new Error(
-        'BROADCAST_FORBIDDEN: AlchemyRpcProvider is read-only. Astryum never broadcasts. See CLAUDE.md §0.',
+        'BROADCAST_FORBIDDEN: AlchemyRpcProvider is read-only. Astryum never broadcasts.',
       );
     }
 

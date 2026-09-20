@@ -2,26 +2,7 @@
 
 /**
  * ExchangeClientSite — EL SITIO DEL CLIENTE del exchange, el que vive en el
- * menú (fundador 2026-09-11: «tiene que haber un sitio para el usuario y un
- * sitio para el operador; el del operador más escondido… el usuario del
- * exchange tiene que tener una estética más como el resto de la página, más
- * acogedora, con animaciones»).
- *
- * QUIÉN ES EL CLIENTE AQUÍ (flujo canónico §2): alguien que se da de alta en
- * un exchange y recibe su TAG — su casilla dentro del omnibus del exchange
- * (la segunda cuenta, la de los usuarios). Su XRP vive en ese omnibus por
- * tag; sus participaciones, cuando el XRP trabaja, viven en SU cuenta Flare
- * de passkey (Face ID), a su nombre y fuera del alcance del exchange. No
- * necesita cuenta XRPL propia para ENTRAR; la necesita para RETIRAR a
- * autocustodia — y aquí puede crearla, elegir una ya conectada o conectar
- * una nueva.
- *
- * LO QUE ENVUELVE: la lógica del lado cliente es ClientInner (ClientApp.tsx),
- * sin reescribir — aquí se le pone la casa alrededor: cabecera, escena, el
- * camino en cuatro pasos leído del run, la elección de exchange por
- * identidad (jamás por selector cuando ya se es cliente), y la wallet de
- * retiradas. Solo fundadores por ahora (PreviewOnly en la página); cuando
- * llegue CredentialAccessGate, este será el sitio público.
+ * menú.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -120,8 +101,7 @@ function Journey({ run, chain, me }: { run: DemoRun; chain: ChainFacts | null; m
 
 /* ── La wallet de retiradas: elegir, probar por firma, o crear ─────────────── */
 /**
- * Iteración 6 del ciclo productizer: la tarjeta decía «You can change it any
- * time» cuando la wallet se fija UNA vez; enseñaba códigos crudos; listaba cada
+ * Enseñaba códigos crudos; listaba cada
  * Xaman conectada como si valiera, y mandaba a «conectar» (que no prueba nada).
  * Ahora: copy honesto, describeRefusal, el VEREDICTO del servidor por wallet
  * (/wallet-proof: la de login, o una atada por firma) y la firma de propiedad
@@ -132,7 +112,7 @@ export function WithdrawalWalletCard({ run, me, onSaved }: { run: DemoRun; me: D
   const allWallets = useWalletStore((s) => s.wallets);
   const { wallets: myWallets } = useMyWallets();
   // TODAS las wallets XRPL del cliente, no solo la de la sesión viva de ESTE
-  // navegador (fundador 15-sep-2026). Xaman conecta una cuenta cada vez, así
+  // navegador. Xaman conecta una cuenta cada vez, así
   // que filtrar por `isConnected` escondía el resto de wallets enlazadas y el
   // selector parecía tener una sola opción. La prueba de propiedad sigue
   // exigiéndose igual: firmar en Xaman, que pide ESA cuenta.
@@ -153,7 +133,7 @@ export function WithdrawalWalletCard({ run, me, onSaved }: { run: DemoRun; me: D
     }
     return out;
   }, [allWallets, myWallets]);
-  // El apodo del DUEÑO, no la etiqueta de sesión «Xaman 1 (…)» (2026-09-13).
+  // El apodo del DUEÑO, no la etiqueta de sesión «Xaman 1 (…)».
   const linkedOf = useLinkedRecordOf();
   const [door, setDoor] = useState<'pick' | 'create' | null>(null);
   const [picked, setPicked] = useState(xrplWallets[0]?.id ?? '');
@@ -396,7 +376,7 @@ function ClientPortal({ account }: { account: string }) {
   const { t } = useT();
   const [state, setState] = useState<{ phase: 'resolving' } | { phase: 'found'; runId: string; exchange: RunSummary } | { phase: 'new'; exchanges: RunSummary[] } | { phase: 'error'; refusal: Refusal }>({ phase: 'resolving' });
   const [chosen, setChosen] = useState<string | null>(null);
-  // it. 33 (7): «try again» has to actually try again (same as the product portal, it. 21).
+  // «try again» has to actually try again (same as the product portal).
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -415,7 +395,7 @@ function ClientPortal({ account }: { account: string }) {
   }, [account, attempt]);
 
   if (state.phase === 'resolving') return <EmptyState variant="loading" title={t('Finding your exchange…')} />;
-  // it. 33 (7): this «classic» portal is sticky in localStorage, and it read the
+  // This «classic» portal is sticky in localStorage, and it read the
   // 503 of `for-account` (RUN_UNREADABLE, OWNERSHIP_UNREADABLE…) as «could not be
   // found» with no button. Same phase component as the product portal.
   if (state.phase === 'error') return <PortalRefusal refusal={state.refusal} onRetry={() => setAttempt((n) => n + 1)} />;

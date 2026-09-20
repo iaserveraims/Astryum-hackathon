@@ -1,6 +1,6 @@
 /**
  * User region — the client half of the per-jurisdiction interruptor
- * (CLAUDE.md invariant #5 / backend/src/services/JurisdictionService.ts).
+ * (invariant #5 / backend/src/services/JurisdictionService.ts).
  *
  * Astryum never guesses this from IP or browser language: the DeFi execution
  * geofence is fail-closed, so an unset region simply means the execution

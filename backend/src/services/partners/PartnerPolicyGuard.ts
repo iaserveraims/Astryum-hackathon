@@ -25,7 +25,7 @@ export class PartnerPolicyError extends Error {
  * A regulated partner is enabled only if registered in PartnerRegistry AND
  * its enabled() predicate (env vars / API keys) is true.
  *
- * Historical note: pre-2026-06-01 this returned only `['moonpay']` from a
+ * Historical note: pre- this returned only `['moonpay']` from a
  * hardcoded set. The regulatory audit identified this as inadequate — the
  * partner gate was effectively dead because no path consulted it. The
  * registry-backed implementation matches the actual provider catalog and

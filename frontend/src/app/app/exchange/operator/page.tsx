@@ -1,40 +1,13 @@
 'use client';
 
 /**
- * /app/exchange/operator — LA MESA DEL OPERADOR del exchange (fundador
- * 2026-09-11: «el usuario que da el servicio de exchange no lo hace desde el
- * mismo menú que el usuario consumidor… el sitio del operador tiene que
- * estar más escondido que el del usuario, pero se tiene que poder acceder…
- * sencillo, que funcione»).
+ * /app/exchange/operator — LA MESA DEL OPERADOR del exchange.
  *
- * 14-sep — LA CONSOLA PRODUCTIZADA (ExchangeConsole): Resumen · Clientes ·
+ * LA CONSOLA PRODUCTIZADA (ExchangeConsole): Resumen · Clientes ·
  * Omnibus · Potes · Perfil · Auditoría, con la sección de exchanges arriba
  * (elegir uno, crear otro con el alta completa). La mesa por estaciones
  * (ExchangeStage: Set up / Operate / v1, tour incluido) NO se borra — queda a
  * un clic, y el clic se recuerda.
- *
- * 15-sep — EL ENSAYO GUIADO. Recién nacido el exchange, el alta manda aquí con
- * `?guided=1` y la mesa abre por LA MESA POR ESTACIONES, no por la consola:
- * antes de operar con clientes de verdad se prueba el circuito entero y se ve
- * cómo se opera. Dos salidas, las dos del fundador: se puede SALTAR (y el
- * salto se recuerda — la consola pasa a ser la vista de esta mesa) y se puede
- * VOLVER cuando se quiera, con el botón de la cabecera. El `guided=1` se
- * consume al entrar: recargar no vuelve a imponer el ensayo.
- *
- * Sin fila en el menú: se llega desde la portada del exchange (/app/exchange),
- * desde el panel de admin («Mesa del operador del exchange») y desde el pie del
- * sitio del cliente.
- *
- * SOLO FUNDADORES OTRA VEZ (fundador, 2026-09-20: «el producto se podrá probar
- * solo si tienes las credenciales … que los exchanges creados solo aparezcan en
- * la cuenta de quien lo ha creado»). Del 13-sep al 20-sep estuvo publicada para
- * que el jurado recorriera la mesa: con solo el interruptor de entorno, cualquier
- * cuenta con sesión veía TODOS los exchanges del despliegue bajo el rótulo «Your
- * exchanges» y llegaba a la emisión de credenciales de demo. Crear un exchange
- * sigue siendo de admin en el backend, así que para nadie más había producto
- * aquí — solo datos ajenos. El envoltorio vuelve hasta que crear un exchange
- * exija la credencial de la raíz y cada exchange tenga dueño.
- * Ver la nota de /app/exchange/page.tsx: lecturas públicas, mutaciones tras admin.
  */
 
 import { useEffect, useState } from 'react';
@@ -100,8 +73,8 @@ function OperatorRoom() {
         </Link>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link href="/app/exchange" className="text-[12px] text-ink/40 underline underline-offset-2 transition-colors hover:text-ink">{t('Client site')} →</Link>
-          {/* VOLVER AL ENSAYO es un BOTÓN, no una nota al pie (fundador 15-sep:
-              «debe de poder pulsar un botón para volver a ello»). */}
+          {/* VOLVER AL ENSAYO es un BOTÓN, no una nota al pie.
+          { */}
           <GhostButton onClick={() => choose(!stations)} className={stations ? '' : 'border-volt/40 text-volt'}>
             <Compass className="h-3.5 w-3.5" />
             {stations ? t('Back to the console') : t('Station desk (setup, tour, v1)')}

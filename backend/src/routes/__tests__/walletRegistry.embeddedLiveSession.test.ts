@@ -1,5 +1,5 @@
 /**
- * productizer it. 16 (4.1) — POST /api/wallets/embedded/create is the WIDEST
+ * POST /api/wallets/embedded/create is the WIDEST
  * window in the repo: creating the Turnkey sub-org is a round-trip to a partner,
  * and the wallet row used to be written afterwards with no further check. An
  * account takeover that commits while that call is in the air would re-plant the

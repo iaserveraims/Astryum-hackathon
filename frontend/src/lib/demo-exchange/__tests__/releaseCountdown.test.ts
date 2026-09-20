@@ -1,5 +1,5 @@
 /**
- * Productizer it. 14 (R5 1.2) — «Back» on a composed put-to-work leaves the
+ * «Back» on a composed put-to-work leaves the
  * reservation waiting for the LEDGER, and the desk says how long with the
  * server's own numbers, then tries ONCE when the window closes.
  */
@@ -63,7 +63,7 @@ describe('the countdown and the single retry', () => {
   });
 
   /**
-   * it. 16 («Copy y SourceTag»): the three surfaces of one rule. The line no
+   * The three surfaces of one rule. The line no
    * longer promises «release it now» beside a button that says «only if it
    * never reached Xaman» — every one of them now names the SAME fact: the
    * payload can no longer be signed.
@@ -83,13 +83,13 @@ describe('the countdown and the single retry', () => {
 });
 
 /**
- * it. 21 (3.3) — EL ASIENTO DE UN 0xFE QUE SE CANCELÓ EN XAMAN.
+ * EL ASIENTO DE UN 0xFE QUE SE CANCELÓ EN XAMAN.
  *
  * Rechazar (o cerrar la pestaña) no lo libera, y no debe: mientras el payload se
  * pueda firmar, soltarlo pone una segunda instrucción en el mismo nonce. Lo que
- * faltaba era la frase — y una cuenta atrás que CUENTE (it. 20, 3.4).
+ * faltaba era la frase — y una cuenta atrás que CUENTE (3.4).
  */
-describe('la espera del asiento del ómnibus (it. 21, 3.3)', () => {
+describe('La espera del asiento del ómnibus (3.3)', () => {
   const NOW2 = 1_700_000_000_000;
 
   it('toma los segundos del SERVIDOR y les añade el mismo margen', () => {

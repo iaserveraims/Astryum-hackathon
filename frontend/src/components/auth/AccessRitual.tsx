@@ -3,28 +3,6 @@
 /**
  * El RITUAL de acceso — la ceremonia de la puerta, extraída de /login para que
  * también pueda jugarse donde ahora ocurre de verdad la verificación.
- *
- * Fundador 2026-08-23: «al quitar el login convencional y solo dejar el xrp
- * identity se ha perdido la magia del ritual de login con sus animaciones».
- * El diagnóstico, exacto: la puerta única hace un REDIRECT DE PÁGINA COMPLETA
- * (lib/xrplIdentity/login), así que la tarjeta de /login se va del navegador
- * en el instante del clic y el manifiesto no llega a jugarse nunca. La
- * ceremonia no se borró — se quedó sin momento.
- *
- * Su momento es LA VUELTA. Al regresar del proveedor con el código, Astryum lo
- * canjea contra su backend: ahí es donde de verdad «se están verificando las
- * credenciales», que es literalmente lo que este manifiesto narra. Por eso
- * vive aquí, compartido por /login (el carril de email, que sigue vivo en
- * preview y local) y por /auth/xrpl-identity/callback (la puerta única de
- * producción). Una sola copia: dos ceremonias distintas serían dos verdades.
- *
- * Lo que la ceremonia hace, y por qué cada pieza está: campos cifrados que se
- * resuelven en el manifiesto, un registro de terminal línea a línea, un barrido
- * de lectura, un reloj UTC que empieza descodificándose y sigue vivo, y —al
- * conceder— la sesión refrendada con TU trazo más el sello dorado. La única
- * firma del producto es siempre la del usuario, también aquí.
- *
- * Todo colapsa a texto de estado plano bajo prefers-reduced-motion.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -233,19 +211,6 @@ const FINGERPRINT_RIDGES = [
  * La huella de la puerta. En reposo es el icono de siempre; cuando `scanning`
  * se enciende, sus crestas se DIBUJAN una tras otra —de dentro afuera— y un
  * lector barre la yema.
- *
- * Existe por un motivo concreto (fundador 2026-08-23): la puerta única sale de
- * Astryum con un redirect de página completa, así que el clic no tenía ningún
- * acuse — se quedaba quieto hasta que el navegador se iba. El escaneo cubre
- * exactamente ese hueco, y cubre TRABAJO REAL: corre mientras se pide la
- * configuración y se compone el reto PKCE, no es una espera inventada.
- *
- * TODA la animación está RECORTADA dentro de la caja del glifo (fundador
- * 2026-08-23, misma tarde: «no cabe bien en el botón y se rompe»). El barrido
- * viajaba de -20% a 110% sobre un contenedor sin `overflow-hidden`, así que la
- * barra dorada se pintaba fuera de sus 18px y cruzaba el rótulo del botón. Una
- * animación dentro de un botón no puede salirse de su propia caja: si lo hace,
- * lo que el usuario ve no es un detalle, es un fallo de maquetación.
  */
 export function FingerprintIcon({ size = 18, scanning = false }: { size?: number; scanning?: boolean }) {
   const reduce = useReducedMotion();
@@ -511,7 +476,7 @@ export function DecodingManifest({
   );
 }
 
-// ─── Cap the theater (de-AI pass 2026-07-21) ─────────────────────────────────────────
+// ─── Cap the theater (de-AI pass) ─────────────────────────────────────────
 // The decode/grant sequence is real artwork, not stalling — but the ~5s of artificial
 // waits (sign 560 + minShow 3000 + granted 1500) taxed EVERY login, forever. The full
 // cinematic now plays once per device (first login ever); every login after that keeps

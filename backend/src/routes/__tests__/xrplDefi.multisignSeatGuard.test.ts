@@ -1,5 +1,5 @@
 /**
- * puertas-y-permiso (round 3) — THE THIRD COMPOSE DOOR.
+ * puertas-y-permiso — THE THIRD COMPOSE DOOR.
  *
  * A council pins ONE Sequence per proposal, and XRPL burns a Sequence exactly
  * once. Two doors that pin a new one already ask the ledger about the stale
@@ -9,9 +9,6 @@
  * CouncilOrderCard, CouncilVaultEntry and CageBirthCard — did not: with an
  * unresolved row in the inbox the family composed the same payment here,
  * signed it in one sitting and broadcast it. The council pays twice.
- *
- * These fail on the code as it shipped in adb1e90: it answered 200 with a
- * freshly pinned Sequence in every one of them.
  */
 import express from 'express';
 import request from 'supertest';
@@ -25,24 +22,24 @@ const mockCacheUpsert = jest.fn();
 const mockCacheDeleteMany = jest.fn();
 const mockCacheFindUnique = jest.fn();
 /**
- * arriendo-ceremonia (round 5): the lease WRITE now asks the wallet registry
+ * arriendo-ceremonia: the lease WRITE now asks the wallet registry
  * whether this session holds one of the council's seats — the same predicate
  * (`sessionIsCouncilMember`) the proposal router's doors ask.
  */
 const mockWalletFindMany = jest.fn();
 /**
- * it. 29: `readHandoffAnyState` (councilExitToken) reads `background_jobs` STRICTLY
+ * `readHandoffAnyState` (councilExitToken) reads `background_jobs` STRICTLY
  * — a failure there is «I could not read», never «unknown memo».
  */
 const mockBackgroundJobFindMany = jest.fn();
 /**
- * productizer it. 17 (finding 2.1): membership is a PROVEN address (the signed-in
+ * Membership is a PROVEN address (the signed-in
  * one, or a signature-backed binding), never a `wallet` row — a council's signer
  * addresses are public. This is the harness's membership knob.
  */
 const mockProvenAddresses = jest.fn<Promise<string[]>, unknown[]>();
 /**
- * it. 21 (finding 2.1): the council router asks the identity module's MEMBERSHIP
+ * The council router asks the identity module's MEMBERSHIP
  * VERDICT now (`proveMembership`), which can say «I could not read» instead of
  * «you are not a member». Same knob, so a test still only says what this session
  * holds.
@@ -88,23 +85,8 @@ jest.mock('../../integrations/providers/chain/XRPLProvider', () => ({
 }));
 
 /**
- * it. 17: the door classifies EVERY prepare (finding 3.3), and what it answers
+ * The door classifies EVERY prepare (finding 3.3), and what it answers
  * decides whether the seat guards refuse or merely warn (finding 2.1).
- *
- * ── productizer it. 29 — AND THIS HARNESS USED TO REPLACE THAT CLASSIFIER ──────
- *
- * `classifyCouncilExitByMemo` was mocked here, so every test below proved the seat
- * guards against a function that classifies — while the real one answered
- * `no-single-memo` to EVERY 0xFE, because `singleMemoHex` demanded exactly 64 hex
- * and a 0xFE memo is 84. The branch these tests exercise had never run in
- * production. Nothing about the guards was wrong; the harness was standing in for
- * the very thing under test.
- *
- * So the classifier now RUNS, over a real 0xFE memo, and what is replaced are the
- * STORES it reads — the only part a test genuinely cannot have. `asExit()` means «a
- * queued 0xFE exit of this council exists»; `unclassified()` means «those stores are
- * down». The exit token is not mocked either: with no `exitToken` in the body the
- * real verifier answers `absent`, which is exactly what the mock pretended.
  */
 const mockQueuedHandoff = jest.fn();
 const mockComposedOrder = jest.fn();
@@ -144,7 +126,7 @@ const USER_ID = 'user-1';
 const STRANGER = 'user-stranger';
 
 /**
- * arriendo-ceremonia (round 5): the route reads `req.siwe.userId` to decide
+ * arriendo-ceremonia: the route reads `req.siwe.userId` to decide
  * whether this session may take (and later give back) the council's seat, so
  * these tests need a session — the previous harness had none, which is exactly
  * the shape the DoS took: any caller, any council, a 30-minute block.
@@ -168,7 +150,7 @@ const RELEASE_URL = '/api/xrpl-defi/multisign/release';
 /** An ENTRY: no memo at all, so the real classifier answers `no-single-memo`. */
 const BODY = { account: COUNCIL, xrplTx: { TransactionType: 'Payment', Account: COUNCIL } };
 /**
- * it. 29 — THE BYTES OF A REAL 0xFE. `FE` + walletId + executor fee + the 32 bytes
+ * THE BYTES OF A REAL 0xFE. `FE` + walletId + executor fee + the 32 bytes
  * of the userOpHash = 42 bytes / 84 hex, the shape `FlareDirectMintService` really
  * builds. A 64-hex stand-in would have passed the old reader and hidden the bug all
  * over again, which is why these tests carry the real length.
@@ -219,7 +201,7 @@ const staleRow = (overrides: Record<string, unknown> = {}) => ({
   txType: 'Payment',
   txjson: { TransactionType: 'Payment', Account: COUNCIL, Sequence: 7 },
   status: 'ready',
-  // it. 19 (2.7): the row's own signer list decides who reads its title.
+  // The row's own signer list decides who reads its title.
   signerList: SIGNERS,
   expiresAt: new Date(Date.now() - 1000),
   ...overrides,
@@ -230,7 +212,7 @@ const pinned = {
   council: { quorum: 2, masterKeyDisabled: true, signers: SIGNERS },
   fee: { drops: '36', baseFeeDrops: 12, signerCount: 2 },
   preflight: { available: true, willSucceed: true, balanceChanges: [] },
-  // it. 19 (2.2): the coordinator now reports WHICH seat it took and why.
+  // The coordinator now reports WHICH seat it took and why.
   sequence: { pinned: 11, ledgerNext: 11, source: 'ledger' as const },
 };
 
@@ -243,7 +225,7 @@ beforeEach(() => {
   delete process.env.DEFI_EXEC_ALLOWED_REGIONS;
   mockFindFirst.mockResolvedValue(null); // nothing live inside its deadline
   mockFindMany.mockResolvedValue([]);
-  // it. 19 (2.2): the harness mirrors the coordinator's own pin rule — a requested
+  // The harness mirrors the coordinator's own pin rule — a requested
   // seat is taken only when it IS the ledger's next unused Sequence; one the ledger
   // has moved past is ignored (pinning it would compose a tefPAST_SEQ corpse).
   mockPrepare.mockImplementation(async (_reader: unknown, input: { pinSequence?: number | null }) => {
@@ -371,7 +353,7 @@ describe('multisign/prepare — a proposal already collecting owns the seat', ()
     // The refusal SPEAKS, and names the row.
     expect(res.body.detail).toContain('Pago proveedor');
     expect(res.body.detail).toContain('paying twice');
-    // g1-ceremonia (round 4): it must send the family where the seat is really
+    // g1-ceremonia: it must send the family where the seat is really
     // settled — the inbox — and NOT to the two exits the audit found open.
     // Inside its deadline `withdraw` reads no ledger and issues no verdict, and
     // "let it expire" is the seven-day wait that lands on the seat guard.
@@ -384,7 +366,7 @@ describe('multisign/prepare — a proposal already collecting owns the seat', ()
   });
 
   /**
-   * it. 19 (finding 2.7) — THE REFUSAL DOES NOT READ OUT ANOTHER FAMILY'S INBOX.
+   * THE REFUSAL DOES NOT READ OUT ANOTHER FAMILY'S INBOX.
    * The title is free text somebody typed into their own ceremony; the refusal is
    * the same for everyone, and only a session sitting on THAT signer list reads it.
    */
@@ -433,11 +415,11 @@ describe('multisign/prepare — a proposal already collecting owns the seat', ()
 });
 
 /**
- * productizer it. 17 (findings 2.1 / 2.2) — NEITHER GUARD CLOSES AN EXIT.
+ * NEITHER GUARD CLOSES AN EXIT.
  *
  * The two refusals above are right for an ENTRY and wrong for a way out: a recall is
  * capital coming back, and it was being held behind somebody else's proposal — until
- * it.17 closed membership-by-proof, a proposal a stranger could publish by typing the
+ * closed membership-by-proof, a proposal a stranger could publish by typing the
  * council's public signer address, refusing the real family for seven days. Same for
  * a database we cannot read: an outage of ours became a 400 «prepare failed» on an
  * exit.
@@ -465,16 +447,16 @@ describe('multisign/prepare — an EXIT takes the seat; an entry is the one that
     const exit = await request(app).post(URL).send(EXIT_BODY);
     expect(exit.status).toBe(200);
     expect(exit.body.multisigTx.Sequence).toBe(11);
-    // it. 29: the classification really ran, over the real 84-hex 0xFE memo.
+    // The classification really ran, over the real 84-hex 0xFE memo.
     expect(mockQueuedHandoff).toHaveBeenCalledWith(ZERO_FE_MEMO);
-    // it. 19 (2.2): the exit is pinned to the rival's seat ON PURPOSE — not to
+    // The exit is pinned to the rival's seat ON PURPOSE — not to
     // whatever `account_info` happened to answer.
     expect(mockPrepare).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ pinSequence: 11 }));
     expect(exit.body.seatContest).toEqual({ proposalId: 'p9', txType: 'Payment', pinnedSequence: 11 });
     // The warning says what happens to BOTH, and promises nothing it cannot keep.
     expect(exit.body.seatContestWarning).toContain('tefPAST_SEQ');
     expect(exit.body.seatContestWarning).toContain('does not make this exit win the race');
-    // it. 19 (2.7): never the other row's title, and never a word about the region.
+    // Never the other row's title, and never a word about the region.
     expect(String(exit.body.seatContestWarning)).not.toContain('Pago proveedor');
     expect(JSON.stringify(exit.body.seatContest)).not.toContain('Pago proveedor');
     expect(String(exit.body.seatContestWarning)).not.toMatch(/region/i);
@@ -496,7 +478,7 @@ describe('multisign/prepare — an EXIT takes the seat; an entry is the one that
     // seat instead, and the warning says exactly that — never a false contest.
     expect(exit.body.seatContestWarning).toContain('already been spent');
     /**
-     * it. 23 (2.1) — AND IT IS NOT A CONTEST, SO IT IS NOT CALLED ONE. The seat was
+     * AND IT IS NOT A CONTEST, SO IT IS NOT CALLED ONE. The seat was
      * spent before these bytes were composed: `seatContest` (the structured object a
      * screen paints as «you two share a Sequence») is absent, and the notice carries
      * the kind that says what actually happened, with BOTH numbers.
@@ -517,16 +499,16 @@ describe('multisign/prepare — an EXIT takes the seat; an entry is the one that
   });
 
   /**
-   * it. 19 (finding 2.4) — A TRANSACTION WE COULD NOT CLASSIFY IS TREATED AS AN EXIT.
+   * A TRANSACTION WE COULD NOT CLASSIFY IS TREATED AS AN EXIT.
    *
-   * `unreadable` is not «this is an entry»: it is «our store did not answer». it. 17
+   * `unreadable` is not «this is an entry»: it is «our store did not answer».
    * let it fall into the ceremony guards, which judge by `isExit`, so a recall was
    * refused 422 by somebody else's proposal because a database of ours was down.
    */
   /**
-   * it. 21 (finding 2.6) — COMPOSING IS NOT THE SAME AS TAKING THE SEAT.
+   * COMPOSING IS NOT THE SAME AS TAKING THE SEAT.
    *
-   * it. 19 let `exitForSeat` (isExit OR unclassified) govern BOTH the guards and
+   * Let `exitForSeat` (isExit OR unclassified) govern BOTH the guards and
    * `pinSequence`, so a payload the server could not classify — an ENTRY, as often
    * as not — was composed onto the live proposal's Sequence. The collision the guard
    * exists to prevent was then arranged BY CONSTRUCTION, on a read of ours that
@@ -551,7 +533,7 @@ describe('multisign/prepare — an EXIT takes the seat; an entry is the one that
   });
 
   /**
-   * it. 21 (finding 2.5) — THE SCREEN STOPPED INVENTING A RIVAL.
+   * THE SCREEN STOPPED INVENTING A RIVAL.
    *
    * Three different warnings shared one string, and the only reader painted all
    * three as «another payload holds the same Sequence» — sending a family to settle
@@ -596,20 +578,20 @@ describe('multisign/prepare — an EXIT takes the seat; an entry is the one that
       kind: 'rival-seat',
       proposalId: 'p9',
       txType: 'Payment',
-      // it. 23 (2.1): populated ONLY because the coordinator really pinned these
+      // Populated ONLY because the coordinator really pinned these
       // bytes to 11 — it is a fact about THIS payload, not the rival's number.
       pinnedSequence: 11,
       priority: 1,
     });
-    // Never the other family's free text (it. 19, 2.7).
+    // Never the other family's free text (2.7).
     expect(JSON.stringify(res.body.seatNotices)).not.toContain('Pago proveedor');
   });
 
   /**
-   * it. 23 (findings 2.1 / 2.2) — THE TWO NOTICES NO LONGER CONTRADICT EACH OTHER.
+   * THE TWO NOTICES NO LONGER CONTRADICT EACH OTHER.
    *
-   * it. 21 emitted `rival-seat` on `exitForSeat`, which includes a payload the server
-   * could NOT classify — and by it. 21's own split such a payload deliberately takes
+   * Emitted `rival-seat` on `exitForSeat`, which includes a payload the server
+   * could NOT classify — and by 's own split such a payload deliberately takes
    * the NEXT FREE Sequence. So the pair read: «we did not pin this to anybody's seat»
    * next to «that row holds the same Sequence as you, settle it». One of the two was
    * false, and the false one is the one that sends a family to re-settle a payment
@@ -657,7 +639,7 @@ describe('multisign/prepare — an EXIT takes the seat; an entry is the one that
 });
 
 /**
- * g1-ceremonia (round 4) — THE TRACE THE CEREMONY NEVER LEFT.
+ * g1-ceremonia — THE TRACE THE CEREMONY NEVER LEFT.
  *
  * `prepareCouncilMultisig` writes nothing, so a pinned Sequence was invisible
  * server-side and the two asynchronous compose doors could pin it again one
@@ -742,7 +724,7 @@ describe('multisign/prepare — the ceremony records the seat it just took', () 
 });
 
 /**
- * arriendo-ceremonia (round 5) — THE LEASE HAD NO OWNERSHIP FLOOR.
+ * arriendo-ceremonia — THE LEASE HAD NO OWNERSHIP FLOOR.
  *
  * Round 4 closed the proposal router's READS with `sessionIsCouncilMember` and
  * left the WRITE it had just invented with none. `requireLegacyAccess` with
@@ -758,7 +740,7 @@ describe('multisign/prepare — the ceremony records the seat it just took', () 
 describe('multisign/prepare — only a member of THIS council may take its seat', () => {
   it('a stranger pins bytes but leases NOTHING — the DoS needed the write, not the read', async () => {
     // No PROVEN address of this session is in the council's signer list — and a
-    // `wallet` row saying otherwise (it. 17) buys nothing: nobody reads it.
+    // `wallet` row saying otherwise buys nothing: nobody reads it.
     mockWalletFindMany.mockResolvedValue([{ address: MEMBER_A }]);
     holdsSeats([]);
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -801,7 +783,7 @@ describe('multisign/prepare — only a member of THIS council may take its seat'
 });
 
 /**
- * arriendo-ceremonia (round 5) — THE DOOR THE LEASE NEVER HAD.
+ * arriendo-ceremonia — THE DOOR THE LEASE NEVER HAD.
  *
  * `abandon()` in CouncilMultisigFlow killed the Xaman payloads, cleared the
  * screen and claimed in its own comment that "the ceremony gives the seat
@@ -895,7 +877,7 @@ describe('multisign/release — the seat goes back, and only its own lessee may 
 });
 
 /**
- * productizer it. 25 (3) — EL AVISO SE DESMENTÍA A SÍ MISMO EN SU PRIMERA FRASE.
+ * EL AVISO SE DESMENTÍA A SÍ MISMO EN SU PRIMERA FRASE.
  *
  * QUÉ SE VEÍA EN PANTALLA. El aviso `seat-already-spent` se pinta con el titular del
  * cliente («That Sequence has already been used») y el CUERPO es esta prosa del
@@ -908,7 +890,7 @@ describe('multisign/release — the seat goes back, and only its own lessee may 
  * Había UN solo `lead` para tres físicas. Ahora la frase que afirma que la fila
  * retiene el asiento solo se usa cuando de verdad lo retiene.
  */
-describe('it. 25 (3) — un aviso, una sola cosa dicha', () => {
+describe('Un aviso, una sola cosa dicha', () => {
   it('asiento ya gastado: el aviso NO dice que esa fila retiene la única Sequence', async () => {
     // Una propuesta VIVA de esta cuenta fijada en la Sequence 7; el ledger va por la
     // 11, así que su asiento ya se gastó y estos bytes llevan la siguiente libre.
@@ -933,7 +915,7 @@ describe('it. 25 (3) — un aviso, una sola cosa dicha', () => {
     // Y sigue diciendo la fila de la que habla, y el paso correcto: el explorador.
     expect(String(notice.detail)).toContain('id p9');
     expect(String(notice.detail)).toContain('explorer');
-    // it. 19 (2.7): jamás el título ajeno.
+    // Jamás el título ajeno.
     expect(String(notice.detail)).not.toContain('Pago proveedor');
   });
 
@@ -955,16 +937,16 @@ describe('it. 25 (3) — un aviso, una sola cosa dicha', () => {
     expect(res.body.seatNotices[0].kind).toBe('rival-seat');
     const detail = String(res.body.seatNotices[0].detail);
     expect(detail).toContain('holding the account’s only Sequence');
-    // it. 25 (3): «liquida esa fila» jamás va primero — el explorador sí.
+    // «liquida esa fila» jamás va primero — el explorador sí.
     expect(detail).toContain('explorer');
     expect(detail.indexOf('explorer')).toBeLessThan(detail.indexOf('settle it in the proposal inbox'));
   });
 });
 
 /**
- * productizer it. 27 (2) — EL AVISO QUE LLEVABA DENTRO SU PROPIA NEGACIÓN.
+ * EL AVISO QUE LLEVABA DENTRO SU PROPIA NEGACIÓN.
  *
- * La it. 25 partió el `lead` en `{ holdsSeat, neutral }` y usó el neutro SOLO en
+ * La partió el `lead` en `{ holdsSeat, neutral }` y usó el neutro SOLO en
  * `seat-already-spent`. `seat-not-pinned` siguió cogiendo `holdsSeat` — «…is
  * collecting signatures in the inbox and is holding the account’s only Sequence» —
  * y detrás le pegaba `contestPhysics()`, que dice justo lo contrario o admite que no
@@ -974,7 +956,7 @@ describe('it. 25 (3) — un aviso, una sola cosa dicha', () => {
  * Estos tests sujetan la cadena entera: el cuerpo que sale por el cable, no la
  * función de dentro. Una familia lee ese párrafo al lado de un QR.
  */
-describe('it. 27 (2) — `seat-not-pinned` no contiene su propia negación', () => {
+describe('`seat-not-pinned` no contiene su propia negación', () => {
   const seatNotPinned = (body: { seatNotices?: Array<{ kind: string; detail?: string }> }): string => {
     const found = (body.seatNotices ?? []).find((n) => n.kind === 'seat-not-pinned');
     // El aviso TIENE que salir por el cable: sin él no hay nada que leer.
@@ -998,7 +980,7 @@ describe('it. 27 (2) — `seat-not-pinned` no contiene su propia negación', () 
 
     expect(res.status).toBe(200);
     const detail = seatNotPinned(res.body);
-    // LA AFIRMACIÓN que la it. 25 quitó de su gemelo y dejó aquí.
+    // LA AFIRMACIÓN que la quitó de su gemelo y dejó aquí.
     expect(detail).not.toContain('holding the account’s only Sequence');
     // …y LA NEGACIÓN, que sigue estando: juntas eran el aviso.
     expect(detail).toContain('NOT pinned to that seat');
@@ -1008,7 +990,7 @@ describe('it. 27 (2) — `seat-not-pinned` no contiene su propia negación', () 
     // Y el número repetido ya no se imprime dos veces como si fueran dos asientos.
     expect(detail).toContain('the number that row is holding (11)');
     expect(detail).toContain('explorer');
-    // it. 19 (2.7): jamás el título de otra familia.
+    // Jamás el título de otra familia.
     expect(detail).not.toContain('Pago proveedor');
   });
 

@@ -22,7 +22,7 @@ const XRPL_HTTP_URLS: string[] = [
   'https://s1.ripple.com:51234',
 ].filter((v, i, a) => /^https?:\/\//.test(v) && a.indexOf(v) === i);
 
-// XRPL `date` fields count seconds since the Ripple epoch (2000-01-01T00:00Z).
+// XRPL `date` fields count seconds since the Ripple epoch (Z).
 const RIPPLE_EPOCH_UNIX = 946_684_800;
 
 /** TransactionType → canonical ActivityType. Everything unknown lands in 'other'. */

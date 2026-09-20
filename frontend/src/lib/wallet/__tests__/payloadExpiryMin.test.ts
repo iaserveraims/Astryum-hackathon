@@ -7,11 +7,11 @@ import {
 } from '../handoffRelease';
 
 /**
- * productizer it. 21 (it. 20 §3.9) — UN NÚMERO, Y LO POSEE EL SERVIDOR.
+ * UN NÚMERO, Y LO POSEE EL SERVIDOR.
  *
  * `XAMAN_EXPIRE_MIN` estaba escrito a mano en el frontend y
  * `HANDOFF_PAYLOAD_EXPIRY_MIN` a mano en el backend, y el servidor lleva desde
- * la it. 19 contestando el suyo (`payloadExpiryMin`) en cada prepare y en cada
+ * la contestando el suyo (`payloadExpiryMin`) en cada prepare y en cada
  * `payload-opened` — que el frontend nunca leía. Dos copias a mano de un mismo
  * hecho divergen el día que alguien toca una, y las dos direcciones duelen en
  * silencio: un asiento que sobrevive a su payload tapia la cuenta; un asiento
@@ -43,7 +43,7 @@ describe('payloadExpiryMin', () => {
   });
 
   /**
-   * it. 25 (§2) — AQUÍ ESTABA EL CONTAGIO, Y ERA ESTE TEST EL QUE LO BENDECÍA.
+   * AQUÍ ESTABA EL CONTAGIO, Y ERA ESTE TEST EL QUE LO BENDECÍA.
    *
    * Aprender 1440 «para la pestaña» tenía sentido mientras nada contestara 1440.
    * Desde la §2.1 la salida de un pote con consejo SÍ lo contesta, y con la regla

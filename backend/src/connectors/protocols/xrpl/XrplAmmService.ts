@@ -6,16 +6,6 @@
  * "harvest" transaction and we never promise one). Pool data (trading fee,
  * reserves) comes read-only from `XRPLProvider.getAmmInfo` and is disclosed
  * as protocol data with source, never as an Astryum offer (invariant #9).
- *
- * Modes (verified against xrpl.js 4.5 AMMDepositFlags/AMMWithdrawFlags):
- *   deposit  'two-asset'     → Amount + Amount2, tfTwoAsset (proportional).
- *   deposit  'single-asset'  → Amount only, tfSingleAsset (pool rebalances).
- *   deposit  'lp-token-out'  → LPTokenOut, tfLPToken (exact LP tokens out).
- *   withdraw 'all'           → tfWithdrawAll (burn all LP tokens).
- *   withdraw 'lp-token-in'   → LPTokenIn, tfLPToken (burn exact LP tokens).
- *   withdraw 'single-asset'  → Amount, tfSingleAsset (take one side out).
- *
- * Unsigned txjson → Xaman. Astryum signs nothing. SourceTag always.
  */
 
 import { isValidClassicAddress, validate, AMMDepositFlags, AMMWithdrawFlags } from 'xrpl';

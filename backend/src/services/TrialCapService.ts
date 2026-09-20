@@ -1,24 +1,10 @@
 /**
- * TrialCapService — the early-access deposit ceiling (founder 2026-07-19).
+ * TrialCapService — the early-access deposit ceiling.
  *
  * Plan: open the real dashboard to the public as a capped early access. To
  * keep the trial legally boring, a user's CONNECTED wallets may never hold
  * more than TRIAL_WALLET_CAP_USD (≈$100) in total — the gate runs when a
  * wallet is connected, so an over-cap wallet simply never enters the account.
- *
- * Behaviour:
- *   · TRIAL_WALLET_CAP_USD unset/blank/invalid/≤0 → the cap DOES NOT EXIST
- *     (today's state: the dashboard stays invite-only and uncapped).
- *   · Set (e.g. 100) → connecting a wallet values the user's already-connected
- *     wallets PLUS the candidate via PortfolioEngine (multi-ecosystem, gross
- *     assets `totalUSD` — debt does not shrink the exposure story) and rejects
- *     the connect if the sum exceeds the cap.
- *   · FAIL-CLOSED: if valuation is unavailable (RPC/pricing down) the connect
- *     is rejected with a retryable error — a legal ceiling that silently lets
- *     wallets through when the price feed hiccups is not a ceiling.
- *
- * Read-only by construction: this service values addresses; it never signs,
- * never moves, never custodies (CLAUDE.md invariants intact).
  */
 import { prisma } from '../database/prismaClient';
 import { PortfolioEngine } from '../engines/portfolio/PortfolioEngine';

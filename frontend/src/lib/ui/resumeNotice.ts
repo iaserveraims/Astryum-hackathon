@@ -2,8 +2,6 @@
  * resumeNotice — what the one-time toast says when a ceremony lands beyond
  * its first station because the ledger already had the earlier ones done.
  *
- * Founder 2026-09-15: «los popups que aparecen para informar que una acción
- * ya está configurada… molestan bastante… a modo de notificación temporal».
  * The FACT (this station is done, this is what was read) now lives inside
  * the station (StationDoneStrip); the EVENT (you were resumed further in) is
  * a toast, once per opening. Pure: the hook in StationDoneNotice wires it.

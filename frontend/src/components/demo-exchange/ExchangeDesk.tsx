@@ -17,7 +17,7 @@ import { Building2, FileSignature, Landmark, Loader2, RefreshCw, ScanLine, Shiel
 import { useT } from '../../i18n/LanguageProvider';
 import { CouncilSigningDoors } from '../legacy/CouncilMultisigFlow';
 import { CouncilOrderInFlightConfirm, StaleOrderLockNote } from '../xrpl/XamanSingleSign';
-// it. 19 (R5): el candado de la pantalla, compartido — dos copias del mismo
+// El candado de la pantalla, compartido — dos copias del mismo
 // candado dejaban media pantalla pausada después de «I checked».
 import { useExchangeStaleLock } from './ExchangeStaleLockScope';
 import { OmnibusSignDoor } from './OmnibusSignDoor';
@@ -38,7 +38,7 @@ import {
   prepareCouncilAnchor,
   preparePoteCouncilOrder,
   relayCouncilOrder,
-  // it. 23 (3.4): los MISMOS lectores que usan las seis puertas del consejo —
+  // Los MISMOS lectores que usan las seis puertas del consejo —
   // `DUPLICATE_CHECK_UNREADABLE` («no pudimos comprobarlo») lleva reintento
   // además de la escapatoria, y no es lo mismo que un duplicado que sí se vio.
   isDuplicateCheckUnreadable,
@@ -80,7 +80,7 @@ import { DeskRequestQueue } from './console/DeskRequestQueue';
 
 const XRPL_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const EVM_RE = /^0x[a-fA-F0-9]{40}$/;
-// XRPL-only (doctrina del fundador, 12-sep): la identidad vive SOLO en XRPL
+// XRPL-only: la identidad vive SOLO en XRPL
 // (XLS-70 en la raíz y en los clientes). La maquinaria del registro Flare
 // (ExchangeKycRegistry, set-user-gate, publish on-chain) queda INERTE, no
 // borrada: este interruptor la revive si algún día un tenant quiere la puerta
@@ -118,7 +118,7 @@ function writeRecordRetries(next: Record<string, RecordRetry>): void {
 }
 
 /**
- * The waits the LEDGER owes, one per reservation (it. 16, R5 5.5).
+ * The waits the LEDGER owes, one per reservation (R5 5.5).
  *
  * There was ONE `releaseWait` for the whole desk: a second 409
  * WAIT_FOR_LAST_LEDGER replaced the first, killing its countdown and its single
@@ -179,7 +179,7 @@ async function sha256Hex(text: string): Promise<string> {
 /**
  * Lo que la jaula deja DIRIGIR ahora: lo libre menos el colchón mínimo
  * (`bufferFloorBps` sobre el total del pote). Rellenar con TODO lo libre acababa
- * siempre en E7_DENIED · BUFFER_FLOOR_CROSSED (visto en staging, 14-sep).
+ * siempre en E7_DENIED · BUFFER_FLOOR_CROSSED (visto en staging).
  */
 function directableBase(pote: { freeBalance: string; totalAssets: string; bufferFloorBps: number }): bigint {
   const free = BigInt(pote.freeBalance || '0');
@@ -264,7 +264,7 @@ function AutopilotPanel({ demo }: { demo: DemoRunApi }) {
           {status ? (
             <>
               <div className="font-mono text-ink">{status.maxTxXrp} XRP / {t('payment')}</div>
-              {/* it. 23 (3.2): «no se pudo leer» se DICE. Un hueco al lado de
+              {/* «no se pudo leer» se DICE. Un hueco al lado de
                   «/ 200 XRP today» se lee como cero, y es el número que acota
                   una llave que firma. */}
               <div className={typeof status.spentTodayXrp === 'number' ? 'font-mono text-ink' : 'text-tone-warning'}>
@@ -337,7 +337,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   const [constitutionText, setConstitutionText] = useState('');
   const [constitutionHash, setConstitutionHash] = useState('');
   const [anchorPending, setAnchorPending] = useState<{ xrplTx: Record<string, unknown>; account: string } | null>(null);
-  // E2 — generación v2 (X4, 9-sep): el consejo del exchange gobierna una JAULA.
+  // E2 — generación v2 (X4): el consejo del exchange gobierna una JAULA.
   // `cageInfo` es su jaula (null = aún sin nacer) y `cageKnown` evita decidir la
   // generación sin haber leído la cadena — «no pude leer» no es «no hay jaula».
   // El nacimiento son dos actos: la jaula (un 0xFE) y el pote (orden de consejo).
@@ -357,7 +357,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   const [newClientXrpl, setNewClientXrpl] = useState('');
   const [newClientAccount, setNewClientAccount] = useState('');
   const [ceremonyOpen, setCeremonyOpen] = useState(false);
-  // El KYC por casilla (diseño B, 14-sep): la ceremonia se abre YA rellena para un
+  // El KYC por casilla (diseño B): la ceremonia se abre YA rellena para un
   // cliente (raíz → omnibus, `KYC-<tag>`); sin cliente, en blanco como siempre.
   const [ceremonyInitial, setCeremonyInitial] = useState<{ issuer?: string; subject?: string; credentialType?: string } | undefined>(undefined);
   const [kycRows, setKycRows] = useState<Map<string, RunCredentialRow>>(new Map());
@@ -391,12 +391,12 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   const [recordRetries, setRecordRetries] = useState<Record<string, RecordRetry>>({});
   useEffect(() => { setRecordRetries(readRecordRetries()); }, []);
   // The releases the LEDGER owes (409 WAIT_FOR_LAST_LEDGER), ONE PER
-  // RESERVATION (it. 16, R5 5.5): each keeps its own countdown and its own
+  // RESERVATION (R5 5.5): each keeps its own countdown and its own
   // single automatic retry, so a second WAIT never silences the first. Restored
   // from this tab on mount — a reload, or leaving and coming back to the desk,
   // does not lose a countdown the ledger is still running.
   /**
-   * EL CANDADO DE LA ORDEN CADUCADA, también en la mesa (it. 16, R5 5.3).
+   * EL CANDADO DE LA ORDEN CADUCADA, también en la mesa (R5 5.3).
    *
    * Las seis consolas institucionales lo tenían y las DOS pantallas del exchange
    * —las de la demo— no: firmar pasada la ventana dejaba componer otra orden
@@ -407,8 +407,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
    * PERO NUNCA PARA UNA SALIDA. `staleBlocks` es la única lectura del candado
    * aquí, y el «recall» (sacar el capital del venue al colchón) no la consulta:
    * una salida se AVISA, jamás se gatea — ni por un registro, ni por la BD, ni
-   * por una pantalla nuestra (INVARIANTS, y it. 16 R3 3.1, que es esta misma
-   * regresión en las consolas de agente D).
+   * por una pantalla nuestra.
    */
   const staleLock = useExchangeStaleLock();
   const staleBlocks = staleLock.locked;
@@ -466,17 +465,17 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   const [orderPending, setOrderPending] = useState<{ prepared: CouncilOrderPrepared | CageOrderPrepared; action: 'direct-to' | 'recall'; amountBase: string } | null>(null);
   const [denied, setDenied] = useState<{ error: string; detail?: string } | null>(null);
   // The same order went out minutes ago: NOT a cage verdict — an offer to compose
-  // another one on purpose, never a receipt (it. 14, R2 2.4).
+  // another one on purpose, never a receipt (R2 2.4).
   const [duplicateOffer, setDuplicateOffer] = useState<{
     action: 'direct-to' | 'recall';
     text: string;
-    /** it. 23 (3.4): el código del servidor — un duplicado que VIO, o una comprobación que no pudo correr. */
+    /** El código del servidor — un duplicado que VIO, o una comprobación que no pudo correr. */
     code?: string;
     detail?: string;
     retryAfterSeconds?: number | null;
   } | null>(null);
   /**
-   * it. 23 (3.4): lo mismo para las DOS puertas de gobierno de la mesa (abrir el
+   * Lo mismo para las DOS puertas de gobierno de la mesa (abrir el
    * pote, apuntar la puerta KYC), que hasta ahora preguntaban con un
    * `window.confirm` de dos salidas y sin reintento.
    */
@@ -505,13 +504,13 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   const [kycUnconfirmed, setKycUnconfirmed] = useState<{ clientId: string; u: UnconfirmedSignature } | null>(null);
   // A signature in flight / unconfirmed closes the way back of its station:
   // Back → compose again → a fresh door was a second omnibus payment / 0xFE.
-  // E1 too (productizer-it7): its DIDSet ceremony had an unconditional Back.
+  // E1 too: its DIDSet ceremony had an unconditional Back.
   const [anchorBlocked, setAnchorBlocked] = useState(false);
   const [birthBlocked, setBirthBlocked] = useState(false);
   const [workBlocked, setWorkBlocked] = useState(false);
   const [orderBlocked, setOrderBlocked] = useState(false);
   const [payBlocked, setPayBlocked] = useState(false);
-  // 18-sep: la cola de peticiones por QR (sin autopilot) tiene su propia firma en vuelo.
+  // La cola de peticiones por QR (sin autopilot) tiene su propia firma en vuelo.
   const [queueBlocked, setQueueBlocked] = useState(false);
   useEffect(() => { if (!anchorPending) setAnchorBlocked(false); }, [anchorPending]);
   useEffect(() => { if (!cageBirthPending && !govOrderPending) setBirthBlocked(false); }, [cageBirthPending, govOrderPending]);
@@ -614,13 +613,13 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
    * «The same order went out minutes ago» is not a refusal to work around: the
    * person is told what it means and decides.
    *
-   * INERTE desde la it. 23 (3.4), no borrada: las dos puertas de gobierno de E2
+   * INERTE desde la, no borrada: las dos puertas de gobierno de E2
    * preguntaban con este `window.confirm`, que solo tiene DOS salidas — así que
    * sobre un `DUPLICATE_CHECK_UNREADABLE` («no pudimos comprobarlo») afirmaba un
    * duplicado que nadie vio y tiraba el reintento y los segundos que el servidor
    * pidió esperar. Ahora usan `CouncilOrderInFlightConfirm`, el mismo panel de
    * tres botones que las seis puertas del consejo. Queda aquí como referencia de
-   * la frase que se usaba (feedback del fundador: nunca borrar código construido).
+   * la frase que se usaba.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function confirmAnotherOrder(refusal: Refusal): boolean {
@@ -760,7 +759,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
     };
     const res = await prepareCageOrder({ council: run!.councilAddress, action: 'create-pote', params, ...(opts?.confirmAnother ? { confirmAnotherOrder: true } : {}) });
     if (!res.ok) {
-      // it. 23 (3.4): un duplicado que el servidor VIO y una comprobación que no
+      // Un duplicado que el servidor VIO y una comprobación que no
       // pudo correr llegan por la misma puerta y necesitan frases opuestas —
       // y la segunda trae un REINTENTO (`retryable`) además de la escapatoria.
       if (mayConfirmAnotherOrder(res.refusal) && !opts?.confirmAnother) {
@@ -773,7 +772,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   }
 
   /**
-   * Política A para la toma (13-sep): un pote con ventana de salida quema las
+   * Política A para la toma: un pote con ventana de salida quema las
    * participaciones hoy y cobra a las 72 h, y el cliente passkey no tiene paso
    * de cobro. La jaula abre un SEGUNDO pote de salida inmediata y el run lo
    * adopta (resolveRunPote toma el último pote). La política del run cambia al
@@ -880,10 +879,10 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   }
 
   /**
-   * it. 23 (3.4) — EL REINTENTO DEL DUPLICADO NO COMPROBABLE, TAMBIÉN EN LA MESA.
+   * EL REINTENTO DEL DUPLICADO NO COMPROBABLE, TAMBIÉN EN LA MESA.
    *
-   * Las seis puertas del consejo llevan `CouncilOrderInFlightConfirm` desde la
-   * it. 21: tres botones (no componer · Try again · componer otra igual) y los
+   * Las seis puertas del consejo llevan `CouncilOrderInFlightConfirm` desde la:
+   * tres botones (no componer · Try again · componer otra igual) y los
    * segundos que el servidor pidió esperar. Las dos de la mesa se quedaron con
    * un `window.confirm` que solo ofrecía SÍ o NO — y que, sobre un
    * `DUPLICATE_CHECK_UNREADABLE`, afirmaba un duplicado que nadie vio y tiraba
@@ -1214,7 +1213,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
   /**
    * An orphan reservation (this screen lost it: a reload, another tab).
    *
-   * ONE RULE, THREE SURFACES (it. 16, «Copy y SourceTag»): the seat frees when
+   * ONE RULE, THREE SURFACES («Copy y SourceTag»): the seat frees when
    * the Xaman payload can no longer be SIGNED — not when the operator believes
    * the payload never left this screen. The old wording asked them to judge
    * exactly that, beside a countdown that told them to release it now; the
@@ -1311,7 +1310,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
    *  · the SERVER refusing to compose right now (the same order went out minutes
    *    ago, too many pending, it could not be recorded, the region, a chain read,
    *    the network): shown as what it is, and NEVER written as «the cage says no»
-   *    (it. 14, R2 2.4 — a denial the cage never gave in the audit trail).
+   *    (R2 2.4 — a denial the cage never gave in the audit trail).
    * `confirmAnother` is only ever true after the person said so on screen.
    */
   async function composeOrder(action: 'direct-to' | 'recall', confirmAnother = false) {
@@ -1336,7 +1335,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
       if (!res.ok) {
         if (mayConfirmAnotherOrder(res.refusal)) {
           // Not a verdict and not an error: an offer, with the consequence said.
-          // it. 23 (3.4): `DUPLICATE_CHECK_UNREADABLE` entra por aquí también —
+          // `DUPLICATE_CHECK_UNREADABLE` entra por aquí también —
           // con su propio panel, porque decir «la misma orden salió hace un
           // momento» cuando nunca miramos es inventarse el hecho.
           setDuplicateOffer({
@@ -1566,7 +1565,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
 
       {/* E3 */}
       <Step n="E3" title={t('Your clients — they sign up themselves; here you watch them')} icon={UserPlus}>
-        {/* El alta la hace el USER (fundador 13-sep): entra en el sitio del
+        {/* El alta la hace el USER: entra en el sitio del
             cliente, crea su cuenta con Face ID y aparece aquí con su tag. Crear
             uno a mano queda como camino secundario (invitar / demo). */}
         <p className="text-[11px] text-ink/50">
@@ -1674,7 +1673,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
             </tbody>
           </table>
         ) : <p className="text-xs text-ink/50">{t('No clients yet — the first one appears the moment somebody signs up on your client site.')}</p>}
-        {/* El QR de depósito del cliente, también desde la mesa (fundador 14-sep). */}
+        {/* El QR de depósito del cliente, también desde la mesa. */}
         {run.clients.length ? <DeskDepositQr runId={run.runId} clients={run.clients} onSettled={() => void demo.scanOmnibus()} /> : null}
         {ONCHAIN_REGISTRY_UI && !run.registryAddress ? (
           <div className="space-y-1.5">
@@ -1732,7 +1731,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
         ) : null}
       </Step>
 
-      {/* Autopilot — the simulated exchange backend. 18-sep: fuera de la vista
+      {/* Autopilot — the simulated exchange backend. Fuera de la vista
           (AUTOPILOT_UI); la estación sirve las peticiones con el QR del omnibus,
           la MISMA cola que la consola. */}
       {AUTOPILOT_UI ? (
@@ -1783,8 +1782,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
 
       {/* E6 + E7 */}
       <Step n="E6" title={t('Direct the capital — by council order (XRPL → FDC → bridge)')} icon={Landmark}>
-        {/* Qué hay, qué está libre y qué está EN CAMINO (fundador 14-sep: «no me
-            aparece en ningún sitio lo que hay en el vault»). Con todo a 0 la
+        {/* Qué hay, qué está libre y qué está EN CAMINO. Con todo a 0 la
             estación no decía si el pote estaba vacío o si el dinero venía de
             camino — y un 0xFE firmado sin executor que lo acuñe parece dinero
             desaparecido. */}
@@ -1908,7 +1906,7 @@ export function ExchangeDesk({ demo, onBlockedChange }: { demo: DemoRunApi; onBl
               <button
                 onClick={() => void composeOrder(duplicateOffer.action, true)}
                 /**
-                 * it. 19 (R5) — ESTE BOTÓN ES LA CONFIRMACIÓN, NO ALGO QUE
+                 * ESTE BOTÓN ES LA CONFIRMACIÓN, NO ALGO QUE
                  * CONFIRMAR. El candado de la orden caducada existe para que
                  * nadie componga otra vez «sin mirar»; pulsar aquí, con el
                  * aviso delante y la frase de arriba diciendo que nada se firmó

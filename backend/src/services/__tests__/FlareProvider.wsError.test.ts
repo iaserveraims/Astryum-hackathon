@@ -1,7 +1,7 @@
 /**
  * Regression: a websocket transport failure must never kill the backend.
  *
- * Production crash 2026-08-17: the public Flare gateway answered the WS upgrade
+ * Production crash: the public Flare gateway answered the WS upgrade
  * with HTTP 429 (shared PaaS egress IP). `ws` emitted an Error, FlareProvider
  * re-emitted it on itself, nobody listens on the singleton — so Node threw it
  * as an uncaughtException from inside a socket callback, outside every

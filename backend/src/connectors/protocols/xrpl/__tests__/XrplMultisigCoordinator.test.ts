@@ -1,6 +1,6 @@
 /**
  * The multisig coordinator (ADR-008) — it fixes the bytes every council member
- * signs. These tests pin the contract that made the 2026-07-14 mainnet rehearsal
+ * signs. These tests pin the contract that made the mainnet rehearsal
  * work: identical Sequence, fee = base x (1 + signers), the SigningPubKey marker,
  * the SourceTag survives, and the simulate preflight rides along.
  */
@@ -104,9 +104,9 @@ describe('prepareCouncilMultisig', () => {
   });
 
   /**
-   * productizer it. 19 (finding 2.2) — THE CONTESTED SEAT, TAKEN ON PURPOSE.
+   * THE CONTESTED SEAT, TAKEN ON PURPOSE.
    *
-   * it. 17 told a family «the exit takes the seat» while this function pinned whatever
+   * Told a family «the exit takes the seat» while this function pinned whatever
    * `account_info` answered — the rival's number only by luck of timing. The caller
    * may now ask for the exact seat, and the answer says which one was taken and why.
    * What it never does is pin a seat the ledger has moved past: that composes a

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import vm from 'node:vm';
 
 /**
- * LA APARIENCIA (2026-09-13) — las reglas que sostienen el ajuste y que nadie
+ * LA APARIENCIA — las reglas que sostienen el ajuste y que nadie
  * más vigila:
  *
  *   1. Son DOS EJES. El TEMA dice de qué material está hecho el panel y solo

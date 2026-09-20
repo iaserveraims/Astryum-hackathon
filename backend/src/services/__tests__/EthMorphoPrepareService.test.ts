@@ -135,7 +135,7 @@ describe('repay', () => {
   });
 
   it('PARCIAL sin deuda dice NO_DEBT, no manda a un segundo error', async () => {
-    // Visto en el ensayo en seco del 17-ago: el parcial contestaba
+    // Visto en el ensayo en seco: el parcial contestaba
     // REPAY_EXCEEDS_DEBT «use repayMode full to close», y el full contestaba
     // NO_DEBT. Dos pantallas para enterarse de una cosa, y en mitad de una
     // urgencia de health factor.
@@ -232,7 +232,7 @@ describe('helpers', () => {
   });
 });
 
-/* ── 2026-08-25: the Sentora legs INSIDE the market flows ─────────────────── */
+/* ──The Sentora legs INSIDE the market flows ─────────────────── */
 
 import type { SentoraVaultReader } from '../EthMorphoPrepareService';
 import { RLUSD_ETH } from '../../connectors/protocols/adapters/MorphoBlueEthAdapter';
@@ -452,7 +452,7 @@ describe('close_carry — el hueco del interés', () => {
     expect(BigInt(r.close.gapBase)).toBeGreaterThan(0n);
   });
 
-  it('CON hueco y SIN elección del usuario NO decide por él (doctrina 31-jul)', async () => {
+  it('CON hueco y SIN elección del usuario NO decide por él (doctrina)', async () => {
     const reader = stubReaderWithBalances(WITH_DEBT, { [RLUSD_KEY]: 0n });
     const r = await prepareCloseCarry(reader, stubVault({ shares: 0n }), { user: USER }, quoterOk);
     expect(r.preflight.ok).toBe(false);

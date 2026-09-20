@@ -77,7 +77,7 @@ describe('StepUpAuth.issueChallenge / buildStepUpMessage', () => {
 
 
 /**
- * productizer it. 22, «Menor» — A CHALLENGE IS ONE ATTEMPT.
+ * «Menor» — A CHALLENGE IS ONE ATTEMPT.
  *
  * The nonce survived a failed signature, so one challenge accepted guess after
  * guess for its whole five-minute TTL — which is the one thing a nonce exists to

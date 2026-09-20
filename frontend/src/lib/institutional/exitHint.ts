@@ -3,7 +3,7 @@
  * the signing-wallet hint of an exit, and the intro / after-signing line of a
  * claim.
  *
- * Why this exists (reviewer, 14-sep): the exit hint said «one Xaman signature
+ * Why this exists (reviewer): the exit hint said «one Xaman signature
  * redeems them and sends XRP back to you» while `unmintOnExit` defaults to
  * false — the FXRP stays in the Personal Account; and the claim said «moves the
  * capital to your wallet» with FXRP by default. The unit follows the CURRENT

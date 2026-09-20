@@ -31,7 +31,7 @@ const tray = (credentials: CredentialRead[]): CredentialsTray => ({
 });
 
 describe('managerTitleLegs — the gate’s OR-groups resolved to the manager’s legs', () => {
-  it('the exchange-era gate (AIFM|CASP, KYC|KYB) reads as KYC + AIFM on the manager desk (the 15-sep bug)', () => {
+  it('The exchange-era gate (AIFM|CASP, KYC|KYB) reads as KYC + AIFM on the manager desk (the bug)', () => {
     expect(managerTitleLegs(['AIFM|CASP', 'KYC|KYB'])).toEqual(['KYC', 'AIFM']);
   });
 

@@ -1,22 +1,13 @@
 'use client';
 
 /**
- * LegacyComingSoonModal — the Legacy gate popup (founder 2026-07-18; beta
- * variant 2026-07-26).
+ * LegacyComingSoonModal — the Legacy gate popup.
  *
  * The Legacy toggle stays VISIBLE (the product must be seen) but switching is
  * gated: any attempt to activate a governed account opens this
  * blurred-backdrop popup — what Legacy IS, in its own indigo palette, and the
  * honest state: not available yet, under construction. Two audiences, same
  * shell, different copy (LegacyGateVariant carried on the event):
- *
- *   'demo' — public demo account: showcase copy, "ships with the full launch".
- *   'beta' — real beta account without access (LEGACY_ENABLED off and not on
- *            LEGACY_ACCESS_EMAILS): in-development copy + the beta promise
- *            (it will light up on this same switch, nothing to do).
- *
- * Mounted once in the /app layout; opened via the LEGACY_GATE_EVENT fired by
- * setProductMode / the governed-selection interception in useAuthorities.
  */
 
 import { useEffect, useState } from 'react';

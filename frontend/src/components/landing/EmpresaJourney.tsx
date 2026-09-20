@@ -8,12 +8,6 @@
  * (art/StarChartScene) y sus láminas en el idioma de quien las lee
  * (art/EmpresaArtifacts): liquidez por plazo, matriz de firmas, exposición
  * contra un tope, registro de transacciones.
- *
- * Fundador, 2026-09-19: «hay demasiado texto». Cada parada lleva un rótulo,
- * un titular y UNA frase; lo demás lo cuenta la lámina.
- *
- * Voz impersonal —«la entidad»— y nada de «licenciado», «regulado» ni «MiCA»:
- * no es adorno de copy, es una afirmación regulatoria que no se hace.
  */
 
 import { useRef, type ReactNode } from 'react';
@@ -92,7 +86,7 @@ export default function EmpresaJourney({ lang, finaleCta, switcher }: { lang: La
 
         <div className="sticky top-0 h-[100svh] overflow-hidden">
           {/* EL TEXTO A LA IZQUIERDA Y EL ARTEFACTO A LA DERECHA DESDE EL SEGUNDO
-              CERO (fundador 2026-09-20): la misma maqueta que la portada — el
+              CERO: la misma maqueta que la portada — el
               hero ocupa la columna izquierda, la escena la derecha, y las
               paradas entran después por la izquierda mientras la escena se
               queda donde estaba. */}

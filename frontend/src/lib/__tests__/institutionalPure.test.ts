@@ -27,7 +27,7 @@ describe('parseAmountToBase — exact, never floats', () => {
     expect(parseAmountToBase('', 6)).toBeNull();
     expect(parseAmountToBase('1,5', 6)).toBeNull();
     expect(parseAmountToBase('-1', 6)).toBeNull();
-    expect(parseAmountToBase('0.0000001', 6)).toBeNull(); // 7 decimals on a 6-dec asset
+    expect(parseAmountToBase('0.0000001', 6)).toBeNull(); // 7 decimals on asset
     expect(parseAmountToBase('0', 6)).toBeNull();
     expect(parseAmountToBase('0.000000', 6)).toBeNull();
   });

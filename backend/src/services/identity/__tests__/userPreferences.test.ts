@@ -1,5 +1,5 @@
 /**
- * productizer it. 13 (5.2) — `User.preferences` carries `security`
+ * `User.preferences` carries `security`
  * (credentialsEpoch / takeoverAt). A request that rewrites the whole JSON from a
  * stale read erased it and undid an account takeover. The race itself (with the
  * real AuthService takeover) is covered in AuthService.oauthTakeover.test.ts;
@@ -42,7 +42,7 @@ describe('applyPreferencesUpdate', () => {
   });
 
   /**
-   * productizer it. 22, 1.8 — THE WHOLE COLUMN IS CORRUPT.
+   * 1.8 — THE WHOLE COLUMN IS CORRUPT.
    *
    * `asObject(current) ?? {}` made a non-object column indistinguishable from an
    * empty one, so the next write persisted a clean object with NO `security` —

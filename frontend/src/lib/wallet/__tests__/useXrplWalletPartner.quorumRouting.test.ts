@@ -1,17 +1,11 @@
 /**
- * productizer it. 29 (§5) — «NO PUDE LEER» YA NO SE FIRMA COMO SI FUERA UN «NO».
+ * «NO PUDE LEER» YA NO SE FIRMA COMO SI FUERA UN «NO».
  *
  * `sendIntent` decidía entre la ceremonia y la firma simple con una lectura del
  * SignerList en un RPC público; cuando esa lectura devolvía `null` seguía por
  * `service.submitTransaction`, donde Xaman AUTORRELLENA la `Sequence` — la única
- * forma en que dos Payments de la misma cuenta entran los dos. it. 27 puso la
+ * forma en que dos Payments de la misma cuenta entran los dos. Puso la
  * lectura del servidor delante, pero vivía en un Map que un F5 vaciaba.
- *
- * Hasta ahora este hook «no se podía importar» (su grafo arrastra el stack de
- * wallets) y el desvío se comprobaba leyendo el fuente. Aquí se EJECUTA: los tres
- * módulos pesados se fingen en su frontera (la fábrica de wallets, el store y los
- * hooks de React), y `sendIntent` corre de verdad sobre `handoffRelease`,
- * `accountQuorum` y el bus reales.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -117,9 +111,9 @@ describe('sendIntent — qué decide el camino, y qué NO puede decidirlo', () =
   });
 
   /**
-   * it. 31 (§5) — LA COMPROBACIÓN QUE it. 29 QUITÓ, DE VUELTA.
+   * LA COMPROBACIÓN QUE QUITÓ, DE VUELTA.
    *
-   * it. 29 escribió aquí «el servidor compuso esta fila con la ventana de una
+   * Escribió aquí «el servidor compuso esta fila con la ventana de una
    * firma simple → firma simple, sin preguntar a ningún nodo», y el test pasaba.
    * Pero la ventana corta sale igual de una lectura que dijo «firma sola» que de
    * un timeout del SignerList (`signingCeremonyFor` devuelve `{}` con `'unknown'`
@@ -149,7 +143,7 @@ describe('sendIntent — qué decide el camino, y qué NO puede decidirlo', () =
     const msg = await rejectionOf(sendIntent({ tx: zeroFePayment(MEMO) }));
 
     // The ceremony path was taken (no host mounted here → the bus's own code),
-    // which is the one outcome it. 29 made impossible for this row.
+    // which is the one outcome made impossible for this row.
     expect(msg).toMatch(/QUORUM_CEREMONY_NO_HOST/);
     expect(submitTransaction).not.toHaveBeenCalled();
     expect(global.fetch).toHaveBeenCalled(); // the browser DID read the SignerList
@@ -178,7 +172,7 @@ describe('sendIntent — qué decide el camino, y qué NO puede decidirlo', () =
   });
 
   /**
-   * it. 31 (§6): only a 0xFE holds a nonce seat. A memo'd Payment that is not an
+   * Only a 0xFE holds a nonce seat. A memo'd Payment that is not an
    * `FE…` instruction (a proof-by-memo, a tag) used to trip the same refusal
    * because `paymentMemoHex` accepts any 8–2048 hex memo.
    */

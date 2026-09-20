@@ -1,5 +1,5 @@
 /**
- * it. 31 (4) — LA RESERVA DE MESA CON MEMO RETENÍA LA SALIDA INDEFINIDAMENTE.
+ * LA RESERVA DE MESA CON MEMO RETENÍA LA SALIDA INDEFINIDAMENTE.
  *
  * `deskPaymentOpen` jamás cierra un put-to-work por ledger; su única prueba
  * (`provePutToWorkRelease`) solo la pedía el DELETE de admin. Desde que caducaba
@@ -125,7 +125,7 @@ beforeEach(() => {
   mockSaveRun.mockClear();
 });
 
-describe('it. 31 (4): el paso 0 barre put-to-work de mesa pasados de su LastLedgerSequence', () => {
+describe('El paso 0 barre put-to-work de mesa pasados de su LastLedgerSequence', () => {
   it('ventana pasada + omnibus leído en su ventana sin ese 0xFE → released, con recibo, asiento soltado y el saldo del cliente de vuelta', async () => {
     const run = makeRun([composedReservation()]);
     runsToServe = [run];

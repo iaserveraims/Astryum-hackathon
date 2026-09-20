@@ -107,7 +107,7 @@ describe('backgroundJobKv — the shared low-level KV', () => {
     expect(rows.length).toBe(0);
   });
 
-  it('it. 12 (2.4): upsert, get and strict get pick THE SAME row of a key — newest createdAt, id as tie-break', async () => {
+  it('Upsert, get and strict get pick THE SAME row of a key — newest createdAt, id as tie-break', async () => {
     await kvUpsert('t-job', 'k', 'a', { k: 'a', n: 1 });
     await kvGet('t-job', 'k', 'a');
     await kvGetStrict('t-job', 'k', 'a');
@@ -117,7 +117,7 @@ describe('backgroundJobKv — the shared low-level KV', () => {
   });
 });
 
-describe('kvCompareAndSet — ONE conditional write under the key lock (it. 12, 2.4)', () => {
+describe('KvCompareAndSet — ONE conditional write under the key lock (2.4)', () => {
   const cas = (payload: Record<string, unknown>, expectedVersion: number, createIfAbsent = false) =>
     kvCompareAndSet('t-run', 'runId', 'r1', payload, { versionField: 'version', expectedVersion, createIfAbsent });
 

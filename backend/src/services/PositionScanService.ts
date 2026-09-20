@@ -4,18 +4,6 @@
  * Reads a user's open lending positions DIRECTLY from on-chain via JSON-RPC.
  * No 3rd-party data providers — this is the "on-chain directo" path the user
  * picked over Zerion/DeBank/Kryptos.
- *
- * BROADCAST_FORBIDDEN: This service is read-only. It never sends txs.
- * REGULATORY: It does NOT modify positions. Importing here only links
- * existing positions to the user's Strategy / Money Flow context.
- *
- * Supported protocols (V1):
- *   - Aave V3              (Ethereum, Arbitrum, Base, Polygon, Optimism)
- *
- * Roadmap (V2):
- *   - Compound V3 (Comet)  (Ethereum, …)
- *   - Morpho Blue          (Ethereum)
- *   - Kinetic              (Flare 14)
  */
 
 import { ethers, Interface } from 'ethers';
@@ -477,14 +465,6 @@ class PositionScanService {
    * Morpho markets are isolated, so there is no aggregate account view and no
    * on-chain enumeration of the markets a user touched. We iterate the market
    * ids in MORPHO_BLUE_MARKET_IDS (comma-separated bytes32) and read each.
-   *
-   * Returns a single aggregated position row across the markets where the user
-   * has debt or collateral:
-   *   - totalDebtUSD / totalCollateralUSD are summed in loan-token units
-   *     (≈ USD for the common stablecoin-loan markets; documented approximation).
-   *   - healthFactor is the WORST (minimum) HF across markets with debt, since
-   *     each market liquidates independently.
-   * Returns null when no markets are configured or the user has no position.
    */
   private async _scanMorphoBlue(
     provider: ethers.JsonRpcProvider,

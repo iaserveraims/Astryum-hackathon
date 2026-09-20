@@ -5,21 +5,6 @@
  * atestiguado por FDC. El bridge v2 solo ejecuta órdenes que ATERRIZARON en el
  * ancla (`ANCHOR_ADDRESS_HASH`). Este módulo compone lo que convierte el ancla en
  * una puerta que solo cruza quien lleva un título XLS-70 válido:
- *
- *   1. `AccountSet { SetFlag: asfDepositAuth }` — el ancla rechaza a extraños con
- *      `tecNO_PERMISSION`.
- *   2. `DepositPreauth { AuthorizeCredentials: [{ Credential: { Issuer,
- *      CredentialType } }] }` — solo entran los pagos de cuentas que sostengan una
- *      credencial ACEPTADA, no caducada, de ese emisor y tipo.
- *   3. El pago de la orden lleva `CredentialIDs: [<id del objeto Credential>]`.
- *
- * Sin título válido, el ledger rechaza el pago en consenso → no hay pago → no hay
- * prueba FDC → no hay orden. La puerta la pone XRPL; nosotros solo la componemos.
- *
- * Quién firma: 1 y 2 el DUEÑO del ancla (el emisor del título; en la demo, la
- * cuenta de issuing, y se dice). 3 el gestor. Astryum no firma nada.
- *
- * Todo es puro: entra JSON, sale txjson sin firmar. Sin RPC, testable en seco.
  */
 
 import { isValidClassicAddress, validate } from 'xrpl';
@@ -130,13 +115,7 @@ export function withCredentialIds<T extends Record<string, unknown>>(payment: T,
  * que lleva en `CredentialIDs` — como pares {Issuer, CredentialType}, ordenado
  * y sin repetir — es EXACTAMENTE uno de los `AuthorizeCredentials` del destino
  * (`keylet::depositPreauth(dst, sortedSet)`). Ni un subconjunto ni un
- * superconjunto: una credencial de más tumba el pago con `tecNO_PERMISSION`.
- *
- * Visto en mainnet (17-sep-2026): la raíz rNyre… sostiene AIFM+KYC del notario
- * Y un AIFM+KYC que se emitió a sí misma; adjuntar «todas las válidas» le daba
- * 4 IDs, que no casan con {AIFM,KYC} del notario. Por eso la orden ELIGE el
- * conjunto que el ancla admite, en vez de llevarse todo lo que tiene.
- * ──────────────────────────────────────────────────────────────────────────── */
+ * superconjunto: una credencial de más tumba el pago con `tecNO_PERMISSION`. */
 
 /** Un par {emisor, tipo} tal y como lo compara el ledger: tipo YA en hex. */
 export interface CredentialSpecHex {

@@ -11,27 +11,9 @@ import {
 import { releaseCeremonySeat } from '@/components/legacy/CouncilMultisigFlow';
 
 /**
- * productizer it. 27 — LA CADENA DE LA VENTANA, DE PUNTA A PUNTA.
+ * LA CADENA DE LA VENTANA, DE PUNTA A PUNTA.
  *
  * Tres roturas de la misma cadena, y las tres pasaban sus tests de pieza:
- *
- *   1. el servidor decide desde it. 25 §2.1 cuánto vive el payload de un 0xFE
- *      (lee el SignerList de la cuenta y compone la `LastLedgerSequence` con esa
- *      ventana), y su número no llegaba a NINGÚN payload: las tres puertas que
- *      lo aprenden llamaban a `notePayloadExpiryMin` SIN memo, y 1440 pasa del
- *      clamp ordinario, así que la rama de pestaña también lo descartaba. Lo que
- *      hacía funcionar la ceremonia era un `expire: 1440` escrito a mano;
- *   2. la puerta que devuelve el asiento de nonce (`/multisign/release`) se
- *      llamaba con un solo parámetro, y el servidor hace `if (!memo) return {}`
- *      en su primera línea: el asiento seguía ocupado 24 h después de cancelar;
- *   3. el desvío del navegador a la ceremonia dependía SOLO de su propia lectura
- *      del SignerList, que puede discrepar de la del servidor — y en la
- *      dirección que hace daño (servidor «ceremonia», navegador «no lo sé») se
- *      firmaba con la `Sequence` autorrellenada por Xaman.
- *
- * Aquí se ejecuta la cadena entera con los módulos que envían: la respuesta del
- * servidor entra por `lib/institutional/api`, y lo que sale es el `expire` del
- * payload de un miembro y el cuerpo de la petición de liberación.
  */
 
 const API = 'http://localhost:4000';
@@ -114,7 +96,7 @@ describe('la ventana que el servidor decidió llega al payload que un miembro fi
   /**
    * La ventana es de una FILA, no de la pestaña: abrir la salida de un pote de
    * consejo y firmar después un 0xFE cualquiera no puede acuñar 24 h sobre el
-   * asiento de nonce de otra cuenta (it. 25 §2, conservado).
+   * asiento de nonce de otra cuenta (conservado).
    */
   it('la ventana de una ceremonia no se contagia a los bytes de otra fila', async () => {
     stubPrepare({ ok: true, payloadExpiryMin: 1440, memoHex: CEREMONY_MEMO });
@@ -173,7 +155,7 @@ describe('quién decide que estos bytes los firma un quórum', () => {
       join(__dirname, '..', '..', 'wallet', 'useXrplWalletPartner.ts'),
       'utf8',
     );
-    // it. 29 (§5): the memo is read once (`memoHex`) and asked about twice — the
+    // The memo is read once (`memoHex`) and asked about twice — the
     // ceremony verdict and its single-signature twin — before any public node.
     const server = src.indexOf('serverDeclaredCeremony(memoHex)');
     const single = src.indexOf('serverDeclaredSingleSignature(memoHex)');
@@ -186,7 +168,7 @@ describe('quién decide que estos bytes los firma un quórum', () => {
     expect(single).toBeLessThan(browser);
     // …and the null read is refused BEFORE the single-signature submit (the
     // executable proof lives in `useXrplWalletPartner.quorumRouting.test.ts`).
-    // it. 31 (§6): only a 0xFE — an `FE…` instruction memo — holds a nonce seat.
+    // only a 0xFE — an `FE…` instruction memo — holds a nonce seat.
     const refusal = src.indexOf('hasQuorum === null && flareInstructionMemoOf(tx) !== null');
     expect(refusal).toBeGreaterThan(browser);
     expect(refusal).toBeLessThan(submit);
@@ -231,7 +213,7 @@ describe('cancelar la ceremonia devuelve TAMBIÉN el asiento de nonce del 0xFE',
       join(__dirname, '..', '..', '..', 'components', 'legacy', 'CouncilMultisigFlow.tsx'),
       'utf8',
     );
-    // it. 34 (E): the same call now also names the sitting (`sittingIdRef.current`),
+    // The same call now also names the sitting (`sittingIdRef.current`),
     // so a «Cancel» that lands after a newer sitting re-pinned these bytes is a
     // no-op server-side. The memo still comes off the bytes on screen.
     expect(src).toContain('await releaseCeremonySeat(account, paymentMemoHex(xrplTx), sittingIdRef.current)');

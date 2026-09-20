@@ -2,44 +2,7 @@
 
 /**
  * SeatRefusalNotice — THE TWO WAYS A PREPARED 0xFE STOPS BEING USABLE, SAID IN
- * ONE PLACE (productizer it. 17, R5 5.4 + 5.2).
- *
- * A 0xFE instruction takes the nonce seat of its Personal Account, and there are
- * exactly two moments where that bites a person:
- *
- *  · BEFORE the signature — the prepare is refused because an earlier 0xFE of
- *    the same account holds the seat. Five surfaces printed the server's raw
- *    code (`NONCE_SEAT_TAKEN`) and its Spanish paragraph full of hashes, and
- *    offered nothing to do about it. The sentence belongs to the one reader of
- *    that refusal (`lib/xaman/seatRefusal`); what belongs HERE is the ACTION:
- *    when the caller may free the seat (the server said so with a `memoHex`, or
- *    the draft holding it is the one this very screen just abandoned), the
- *    person gets a «Free the seat» button — and when the server answers that
- *    the payload can still be signed (409 `WAIT_FOR_PAYLOAD_EXPIRY`), the wait
- *    is shown as a countdown instead of a dead end.
- *
- *  · AFTER the signature — the payload was signed too late: `tefMAX_LEDGER`
- *    (its LastLedgerSequence passed) or `tefPAST_SEQ` (its Sequence was taken).
- *    Nothing moved and nothing ever will, yet every 0xFE surface answered it
- *    with «we could not confirm this — reload the page», the one sentence that
- *    sends a person looking for money that never left. The honest answer is
- *    «prepare it again», and the seat of that dead payload can be freed.
- *
- * WHY BOTH LIVE IN ONE MODULE. They are the same sentence at two moments — «the
- * payload you are holding is not usable; prepare another one» — and the seat is
- * the thing both of them have to say something about. Splitting them is how the
- * seat ended up released in one surface and forgotten in the next.
- *
- * CROSS-AGENT CONTRACT, READ DEFENSIVELY. `lib/xaman/seatRefusal` and
- * `lib/wallet/signOutcome` may grow their own `memoHex` / `describeStaleHandoff`
- * (another agent owns those files). Everything here works with or without them:
- * the stale verdict prefers their helper when it exists and falls back to
- * reading the XRPL result code out of the error, and the memo is read from the
- * refusal when it carries one and from the caller's own abandoned draft when it
- * does not.
- *
- * NOTHING HERE SIGNS. Freeing a seat marks an UNSIGNED draft superseded
- * server-side; a signed payment is never touched (`lib/wallet/handoffRelease`).
+ * ONE PLACE (R5 5.4 + 5.2).
  */
 
 import { useEffect, useState } from 'react';
@@ -79,7 +42,7 @@ export function normalizeSeatRefusal(body: unknown): SeatRefusalLike | null {
     return { ...b, error: b.code };
   }
   for (const raw of [b.error, b.code, b.detail]) {
-    // it. 21 (3.5): the «could not decide» 503s are read here too, so a screen
+    // The «could not decide» 503s are read here too, so a screen
     // that shows a seat refusal in prose also shows ACCOUNT_BUSY in prose
     // instead of the raw token over the server's Spanish paragraph.
     const wrapped = refusalCodeHead(raw);
@@ -91,7 +54,7 @@ export function normalizeSeatRefusal(body: unknown): SeatRefusalLike | null {
 /**
  * The seat codes THIS component understands, whatever the shared reader knows.
  *
- * it. 19 (R3 3.3 / R5 3.3): `WAIT_FOR_PAYLOAD_EXPIRY` is a seat verdict — «the
+ * `WAIT_FOR_PAYLOAD_EXPIRY` is a seat verdict — «the
  * payment holding the seat can still be signed for N more seconds» — and until
  * the shared reader listed it, every surface printed the raw token. It is read
  * here as well so the sentence survives a reader that has not caught up, and so
@@ -102,7 +65,7 @@ const SEAT_CODE_HEAD =
   /^(NONCE_SEAT_TAKEN(?:_SIGNED|_REPORTED)?|NONCE_SEAT_UNREADABLE|WAIT_FOR_PAYLOAD_EXPIRY)\b/;
 
 /**
- * it. 21 (R5 3.5 / R3 2.7) — THE 503s THAT HAD NO READER AT ALL.
+ * THE 503s THAT HAD NO READER AT ALL.
  *
  * `ACCOUNT_BUSY` (a concurrent write on the same account), `PROOF_STORE_UNREADABLE`
  * (the store that says which addresses you proved could not be read),
@@ -113,7 +76,7 @@ const SEAT_CODE_HEAD =
  * invisible. They are not seat verdicts, so they never touch «Free the seat»:
  * what they get is the sentence and «Try again».
  */
-// it. 29 — `PROOF_FLOOR_AHEAD_OF_CLOCK` joins the family: the takeover mark
+// `PROOF_FLOOR_AHEAD_OF_CLOCK` joins the family: the takeover mark
 // PARSED but is dated ahead of the server's clock, so it cannot date anything
 // yet. Retryable because the clock moves and nothing has to be written; it is
 // NOT a verdict on the person, and «re-link the wallet» would be the one remedy
@@ -123,7 +86,7 @@ const TRANSIENT_CODE_HEAD =
   /^(ACCOUNT_BUSY|PROOF_STORE_UNREADABLE|PROOF_FLOOR_AHEAD_OF_CLOCK|SEAT_STATE_UNREADABLE|HANDOFF_SEAT_UNREADABLE|SEAT_GUARD_UNREADABLE|DUPLICATE_CHECK_UNREADABLE)\b/;
 
 /**
- * it. 22 (Q2 2.5) — THE TWO 409s THAT WAITING CANNOT FIX.
+ * THE TWO 409s THAT WAITING CANNOT FIX.
  *
  * `ACCOUNT_RECORD_MISSING` (the user row behind this session is gone) and
  * `PROOF_FLOOR_UNREADABLE` (its `security` block does not parse, so we cannot
@@ -150,7 +113,7 @@ function refusalCodeHead(raw: unknown): string | null {
 }
 
 /**
- * it. 22 (Q3 3.6, first half) — THE BUTTON THAT COULD ONLY FAIL.
+ * THE BUTTON THAT COULD ONLY FAIL.
  *
  * «Free the seat» used to be offered over BOTH unsigned-draft kinds, and the
  * `taken-window-open` one is the server saying «its signing window is still
@@ -159,12 +122,6 @@ function refusalCodeHead(raw: unknown): string | null {
  * the button under that sentence could only come back with a 409: an offer that
  * contradicts the paragraph it sits under, on a screen whose whole job is to be
  * believed.
- *
- * The release is offered over the ONE kind where the server said this session
- * may displace the draft (`retryable: true`), and even there only once no live
- * signing window is declared — see `SeatRefusalNotice`, which waits the declared
- * window out on the clock before showing it. The way forward for the other kind
- * is the countdown, and a fresh ask when it runs out.
  */
 function mayReleaseFromHere(kind: string | null | undefined): boolean {
   return kind === 'taken-retryable';
@@ -173,14 +130,14 @@ function mayReleaseFromHere(kind: string | null | undefined): boolean {
 /**
  * The kinds this notice renders: the shared reader's seat verdicts plus the two
  * «the server could not decide» families above. Written as a superset so that a
- * shared reader which later learns them (agent D) collapses into the same union.
+ * shared reader which later learns them collapses into the same union.
  */
 export type SeatNoticeKind =
   | SeatRefusalKind
   | 'busy'
   | 'store-unreadable'
   /**
-   * it. 34 (agent D) — 503: the takeover mark PARSED but is dated ahead of the
+   * 503: the takeover mark PARSED but is dated ahead of the
    * server's clock. It used to collapse into `store-unreadable` — «could not
    * read … try again in a moment» — and both halves are false for it: the row
    * was read, and the wait may be a corrupt 2099. Its own kind, so the notice
@@ -196,10 +153,10 @@ export type SeatNoticeKind =
 export interface SeatNoticeView extends Omit<SeatRefusalView, 'kind'> {
   kind: SeatNoticeKind;
   /**
-   * it. 34 (agent D): the server's short heading and its REAL ways forward,
+   * The server's short heading and its REAL ways forward,
    * when it sent them (`provenAddresses.ts` builds every proof refusal with
-   * both; the routes forward them verbatim). `describeServerRefusal` kept them
-   * since it. 27, but it is not the reader of these screens — this one is, and
+   * both; the routes forward them verbatim). `describeServerRefusal` kept them,
+   * but it is not the reader of these screens — this one is, and
    * it dropped both. Never invented: absent when the server sent none and the
    * shared reserve knows no ways for the code.
    */
@@ -214,19 +171,16 @@ export interface SeatNoticeView extends Omit<SeatRefusalView, 'kind'> {
   /** `Retry-After`, in seconds, when the server sent one. */
   retryAfterSeconds?: number;
   /**
-   * it. 25 (§4) — THE FIELD NOBODY READ, OVER THE PROFILE THAT NEEDED IT MOST.
+   * THE FIELD NOBODY READ, OVER THE PROFILE THAT NEEDED IT MOST.
    *
    * `describeDeterministicProofRefusal` has said `maySignInWithWallet: true`
-   * since it. 23 and not one surface read it: `grep` found the field written in
+   * and not one surface read it: `grep` found the field written in
    * exactly two places, both of them its own definition. So the two
    * deterministic 409s reached an email/Google user — the ONE profile that
    * meets them, because they are about a STORED account record and a signed-in
    * wallet needs none — as a paragraph with no button under it: «sign in with
    * the wallet that controls this address» and nothing to press. Three
    * iterations in a row this profile has been rescued by prose alone.
-   *
-   * It travels now, and the notice renders the door (`WALLET_SIGN_IN_HREF`).
-   * It is NOT a retry and never becomes one: nothing here re-asks the server.
    */
   maySignInWithWallet?: boolean;
 }
@@ -254,7 +208,7 @@ function retryAfterSecondsOf(x: unknown): number | null {
 }
 
 /**
- * it. 22 (Q2 2.5) — THE TWO DETERMINISTIC 409s, EACH IN ITS OWN SENTENCE.
+ * THE TWO DETERMINISTIC 409s, EACH IN ITS OWN SENTENCE.
  *
  * `ACCOUNT_RECORD_MISSING` and `PROOF_FLOOR_UNREADABLE` are the answer an
  * email/Google user meets on an EXIT when the stored account record behind
@@ -265,13 +219,6 @@ function retryAfterSecondsOf(x: unknown): number | null {
  * ARE open — sign in with the wallet that controls the address (a signed-in
  * wallet proves itself and needs no stored record), or have an administrator
  * repair the row.
- *
- * Nothing here gates an exit: the refusal is the server's, already sent. What
- * this decides is only what the person READS about it.
- *
- * CROSS-AGENT CONTRACT, READ DEFENSIVELY: agents C/E own the server strings and
- * agent D may grow a shared reader for these codes; whichever arrives first
- * wins, and this fallback says the same thing when neither has.
  */
 function deterministicProofRefusalView(
   refusal: SeatRefusalLike,
@@ -341,8 +288,6 @@ function signInDoorOf(answer: unknown): boolean {
 }
 
 /**
- * The «the server could not decide» refusal, said in one sentence — preferring
- * agent D's helper in `lib/xaman/seatRefusal` when that module grows one.
  *
  * CROSS-AGENT CONTRACT, READ DEFENSIVELY: the helper may arrive under any of
  * several names and return a string or a view. Whatever it returns, the sentence
@@ -361,7 +306,7 @@ function transientRefusalView(
     : code.startsWith('PROOF_FLOOR_AHEAD_OF_CLOCK')
       ? 'floor-ahead-of-clock'
       : 'store-unreadable';
-  // it. 34 (agent D): what the SERVER said besides the sentence — read from the
+  // What the SERVER said besides the sentence — read from the
   // refusal itself first, so a helper that has not learned them cannot lose them.
   const ownHeadline = headlineOf(refusal);
   const ownWays = waysOf(refusal);
@@ -480,7 +425,7 @@ export function seatRefusalView(body: unknown, t: Translate): SeatNoticeView | n
   const refusal = normalizeSeatRefusal(body);
   if (!refusal) return null;
   const code = (refusal.error ?? refusal.code ?? '').trim();
-  // it. 22 (Q2 2.5): the two deterministic 409s are read BEFORE the shared
+  // The two deterministic 409s are read BEFORE the shared
   // reader's generic fallbacks, so they can never degrade into «the server
   // refused this operation» over the one exit a person still has.
   const deterministic = deterministicProofRefusalView(refusal, code, t);
@@ -490,7 +435,7 @@ export function seatRefusalView(body: unknown, t: Translate): SeatNoticeView | n
     return {
       ...shared,
       mayFreeSeat: shared.mayFreeSeat === true && mayReleaseFromHere(shared.kind),
-      // it. 22 (Q3 3.6): a seat whose window is open cannot be displaced from
+      // A seat whose window is open cannot be displaced from
       // here, and when the server did not measure that window there is no
       // countdown either — prose and nothing else. Asking again is the one
       // honest move left: the server decides from scratch, and a seat still
@@ -499,7 +444,7 @@ export function seatRefusalView(body: unknown, t: Translate): SeatNoticeView | n
       ...(shared.kind === 'taken-window-open' && shared.secondsLeft === undefined
         ? { mayTryAgain: true }
         : {}),
-      // it. 21 (2.3) — AN UNREADABLE SEAT IS NOT A DEAD END, AND LEAST OF ALL ON
+      // AN UNREADABLE SEAT IS NOT A DEAD END, AND LEAST OF ALL ON
       // AN EXIT. The shared reader says «could not read … try again shortly» and
       // the screen offered nothing to try: no «Free the seat» (correct: we do
       // not know what we would be freeing) and no «Prepare it again» either, so
@@ -574,22 +519,6 @@ export function seatSecondsLeft(x: unknown): number | null {
  *    preparer or to a session that proved the account;
  *  · the draft is the one THIS screen just abandoned (`fallbackMemoHex`) — the
  *    R1 1.5 case: prepare, walk away, come back and try again.
- *
- * it. 19 — THE STATE OF THE SEAT DECIDES, NOT WHO HAS THE MEMO (R3 N2). The
- * server's memo used to be taken at face value, so a seat held by a SIGNED (or
- * reported, or unreadable) payment still got a «Free the seat» button: a promise
- * that cannot be kept, because the route answers `released:false` over exactly
- * those, and pressing it teaches the person that their signed payment is
- * somehow still cancellable. The button now exists ONLY over an unsigned draft —
- * whichever of the two memos it uses — and «I could not read the ledger» is
- * never permission.
- *
- * it. 22 (Q3 3.6) — …AND ONLY OVER THE DRAFT THIS SESSION MAY DISPLACE. The
- * other unsigned kind (`taken-window-open`) is the server saying its signing
- * window is still open and it cannot be displaced from here; `/handoff/release`
- * says the same thing back with a 409, so the offer under that paragraph was a
- * button that could only fail. It is gone; the countdown, and a fresh ask once
- * the window runs out, are what that kind gets.
  */
 export function seatReleaseOffer(
   body: unknown,
@@ -622,7 +551,7 @@ export type SeatReleaseVerdict =
   /** Nothing to free: no unsigned payment is holding the seat under that reference. */
   | { kind: 'nothing-to-free'; text: string }
   /**
-   * it. 21 (1.2, the money half) — THE THIRD ANSWER, THE ONE THAT WAS MISSING.
+   * THE THIRD ANSWER, THE ONE THAT WAS MISSING.
    *
    * The release could not READ the state of the seat (the store threw, the
    * account was busy, the route answered 503). Nothing was freed and nothing
@@ -637,7 +566,7 @@ export type SeatReleaseVerdict =
       secondsLeft: number | null;
       text: string;
       /**
-       * it. 34 (agent D): the release answered the proof store's «dated in the
+       * The release answered the proof store's «dated in the
        * future» 503. Still not settled (the clock moves), still never a licence
        * — but the sentence names a door, and the notice has to render it.
        */
@@ -645,7 +574,7 @@ export type SeatReleaseVerdict =
       ways?: string[];
     }
   /**
-   * it. 22 (Q2 2.5) — THE 409 THAT IS NOT A WAIT.
+   * THE 409 THAT IS NOT A WAIT.
    *
    * `ACCOUNT_RECORD_MISSING` / `PROOF_FLOOR_UNREADABLE`: the account record
    * behind this session is gone or unreadable, so the release cannot tell whose
@@ -671,10 +600,7 @@ export function seatReleaseSettled(v: SeatReleaseVerdict | null): boolean {
 /**
  * Does this 200 `{released:false}` carry a code that means «I could not read»?
  *
- * Agent A's `/handoff/release` now answers 503 for this, but a backend that has
- * not caught up (or a route that degrades) can still answer 200 with an
- * unreadable code in it, and reading THAT as «nothing to free» is exactly the
- * bug. Matched by shape, not by an exhaustive list, so a code nobody has written
+ * Matched by shape, not by an exhaustive list, so a code nobody has written
  * yet still lands on the honest side.
  */
 function meansUnreadable(code: string | null): boolean {
@@ -690,26 +616,11 @@ function releasedFalseCode(body: unknown): string | null {
 /**
  * The release answer, in English.
  *
- * A 409 is NOT a failure: it is the physics of the seat (it. 17, R1 1.1) —
+ * A 409 is NOT a failure: it is the physics of the seat (R1 1.1) —
  * the payload holding it can still be signed, so nobody may displace it yet.
  * Saying that with the seconds left is the difference between a wait and a dead
  * end. The server's own `detail` is never printed: it is Spanish on several of
  * these routes, and the screens it lands on are in English.
- *
- * it. 19 — A 200 `{released:false}` IS NOT «IT CAN STILL BE SIGNED» (R3 N2).
- * The route answers 200 with `released:false` in three different situations and
- * this function turned all three into the wait sentence, which over a SIGNED
- * payment is a lie in the worst direction: it tells the person the payment that
- * is on its way is still cancellable, and invites them to prepare a twin. The
- * three are now told apart by the code the route sends with them:
- *
- *   · `NONCE_SEAT_TAKEN_SIGNED`   → it is signed and waiting to execute.
- *   · `NONCE_SEAT_TAKEN_REPORTED` → a signature was reported, not yet validated.
- *   · no code                     → there was nothing queued under that memo:
- *                                   the seat is not held by it any more.
- *
- * Only a 409 (`WAIT_FOR_PAYLOAD_EXPIRY`) is a wait, and only that one counts a
- * countdown down.
  */
 export function describeSeatRelease(
   r: HandoffPostResult,
@@ -750,7 +661,7 @@ export function describeSeatRelease(
       text: t('That request never reached the server, so the seat was not freed. Try again in a moment.'),
     };
   }
-  // it. 22 (Q2 2.5): not every 409 is the seat's physics. The two deterministic
+  // Not every 409 is the seat's physics. The two deterministic
   // proof refusals arrive with the same status and mean the opposite thing —
   // nobody is waiting for anything, and retrying changes nothing.
   const proofCode = DETERMINISTIC_PROOF_CODE_HEAD.exec(
@@ -761,11 +672,7 @@ export function describeSeatRelease(
     if (said) return { kind: 'proof-record', text: said.text };
   }
   if (r.status === 409) return { kind: 'wait', secondsLeft: seconds, text: waitText(t, seconds) };
-  // it. 34 (agent D) — THE 503 THAT IS NOT «WE COULD NOT READ THE SEAT».
-  // `/handoff/release` forwards the proof store's `PROOF_FLOOR_AHEAD_OF_CLOCK`
-  // bare (code, `retryable`, `detail` — no `headline`, no `ways`), and this
-  // read it as agent A's seat 503: «we could not check whether that seat is
-  // free … try again in a moment». The row WAS read; its date is ahead of our
+  // THE 503 THAT IS NOT «WE COULD NOT READ THE SEAT». The row WAS read; its date is ahead of our
   // clock; the wait may be 2099. Not settled (the clock moves), never a
   // licence, and it names the two doors that do work.
   const clockCode = String(r.code ?? r.error ?? (r.body as { error?: unknown } | undefined)?.error ?? '').trim();
@@ -781,7 +688,7 @@ export function describeSeatRelease(
       };
     }
   }
-  // it. 21 (1.2) — AGENT A'S 503: THE SEAT STATE COULD NOT BE READ. It used to
+  // It used to
   // be a 200 «nothing freed», which this screen read as «nothing to free» and
   // answered with «Prepare it again». A 5xx here means the server did not
   // decide, so neither do we: it is a retry, never a licence.
@@ -795,7 +702,7 @@ export function describeSeatRelease(
 }
 
 /**
- * it. 21 (1.2) — WHEN «PREPARE IT AGAIN» IS AN HONEST OFFER.
+ * WHEN «PREPARE IT AGAIN» IS AN HONEST OFFER.
  *
  * Exactly two things earn it: the server SAID the seat is gone (it freed it, or
  * there was nothing queued under that memo), or the signing window the server
@@ -829,7 +736,7 @@ export function undecidedSeatKind(kind: SeatNoticeKind | null | undefined): bool
 }
 
 /**
- * it. 25 (§3) — HOW LONG A «TRY AGAIN» CANNOT POSSIBLY WORK FOR.
+ * HOW LONG A «TRY AGAIN» CANNOT POSSIBLY WORK FOR.
  *
  * `null` ⇒ pressing it now is a real attempt. A number ⇒ the SERVER measured a
  * signing window that is still running, so re-preparing lands on the same held
@@ -967,7 +874,7 @@ export function SeatRefusalNotice({
 
   // The wait the server already told us about at the prepare, so the countdown
   // starts before anyone presses anything. A 503's `Retry-After` counts down the
-  // same way — it is the only number those refusals carry (it. 21, 3.5).
+  // same way — it is the only number those refusals carry (3.5).
   const declared = view?.secondsLeft ?? view?.retryAfterSeconds ?? seatSecondsLeft(refusal) ?? null;
   useEffect(() => {
     setLeft(declared);
@@ -989,11 +896,11 @@ export function SeatRefusalNotice({
   // honest offer: the seat is nobody's any more. Only a window the server
   // actually measured counts — an `undecided` refusal measured nothing.
   const windowPassed = !undecided && left !== null && left <= 0;
-  // it. 19 (R3 N2): after a settled answer — freed, already signed, reported, or
+  // After a settled answer — freed, already signed, reported, or
   // nothing queued under that memo — the button can achieve nothing, so it goes.
   // Offering it again would be the same broken promise a second time.
   const settled = seatReleaseSettled(verdict);
-  // it. 21 (1.2) — «we could not check» is not an answer, so the button stays
+  // «we could not check» is not an answer, so the button stays
   // and says what it now does: ask again.
   const askAgain = verdict?.kind === 'unknown' || verdict?.kind === 'refused';
   // «Prepare it again» is offered when the seat is provably free (the release
@@ -1002,13 +909,13 @@ export function SeatRefusalNotice({
   // payment on the same seat is the twin. An unreadable release («unknown»)
   // grants nothing: it is the one answer that never becomes permission.
   const mayPrepareAgain = mayPrepareAgainAfterRelease(verdict, windowPassed);
-  // it. 21 (2.3) — NEVER A DEAD END ON AN EXIT. An unreadable seat, a busy
+  // NEVER A DEAD END ON AN EXIT. An unreadable seat, a busy
   // account or an unreadable store all have the same way forward: ask the
   // server again. That is not a bypass — it decides from scratch, and a seat it
   // still cannot read still refuses. The word is «Try again», never «Prepare it
   // again»: we are not claiming the seat is free.
   const mayTryAgain = Boolean(onPrepareAgain) && view.mayTryAgain === true && !mayPrepareAgain;
-  // it. 22 (Q3 3.6) — THE RELEASE IS OFFERED ONLY WHERE IT CAN DO SOMETHING.
+  // THE RELEASE IS OFFERED ONLY WHERE IT CAN DO SOMETHING.
   // While the server's own measurement says the payload holding the seat is
   // still signable, `/handoff/release` answers 409 by design: showing the
   // button then is a promise that can only come back as a refusal, under a
@@ -1020,25 +927,20 @@ export function SeatRefusalNotice({
   const tryAgainBlockedFor = tryAgainWaitSeconds(view.kind, left);
   const liveWindow = tryAgainBlockedFor !== null;
   const mayOfferRelease = offer !== null && !settled && !liveWindow;
-  // it. 34 (agent D): the ways on screen are the release's when it answered
+  // The ways on screen are the release's when it answered
   // with some (the clock 503), the prepare's otherwise. The wallet door is
   // rendered over either — a link, never a retry.
   const shownWays = verdict?.kind === 'unknown' && verdict.ways?.length ? verdict.ways : view.ways ?? [];
   const verdictNamesWalletDoor = verdict?.kind === 'unknown' && verdict.maySignInWithWallet === true;
-  // it. 25 (§3) — A «TRY AGAIN» THAT COULD ONLY FAIL, AGAIN, ONE STATE OVER.
+  // A «TRY AGAIN» THAT COULD ONLY FAIL, AGAIN, ONE STATE OVER.
   //
-  // it. 22 took «Free the seat» off the state where the release answers 409 by
+  // Took «Free the seat» off the state where the release answers 409 by
   // design. The same promise survived here as a RETRY: over `taken-retryable`
   // with the server's own `secondsLeft`, `mayTryAgain` is true (the refusal
   // carries `retryable: true`) while `mayOfferRelease` is false (a live window
   // hides it) — so the only button on screen re-prepared into the very seat the
   // paragraph above says is held for N more seconds. It came back with the same
   // NONCE_SEAT_TAKEN every time, under a countdown that already said it would.
-  //
-  // The path forward is real, it just is not yet: the button waits the measured
-  // window out and SAYS how long is left, and when the clock reaches zero this
-  // same state turns into `mayPrepareAgain` (the window passed) — so nothing is
-  // taken away from anybody, and nothing is offered before it can work.
 
   async function free() {
     if (!offer || busy) return;
@@ -1063,13 +965,13 @@ export function SeatRefusalNotice({
         'space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-2.5'
       }
     >
-      {/* it. 34 (agent D): the server's short heading, when it sent one and it
+      {/* The server's short heading, when it sent one and it
           is not the sentence itself. Never invented. */}
       {view.headline && view.headline !== view.text ? (
         <p className="text-[12px] font-medium leading-relaxed text-tone-warning">{view.headline}</p>
       ) : null}
       <p className="text-[12px] leading-relaxed text-tone-warning">{view.text}</p>
-      {/* it. 34 (agent D): the REAL ways forward the server named, in its order —
+      {/* The REAL ways forward the server named, in its order —
           «try again later», «sign in with the wallet…», «write to us». A list,
           because a way is something to do, not a clause at the end of a
           paragraph; it was the part the clock refusal lost on this screen. */}
@@ -1108,7 +1010,7 @@ export function SeatRefusalNotice({
             disabled={tryAgainBlockedFor !== null}
             className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 px-2.5 py-1.5 text-[12px] font-medium text-ink/80 disabled:opacity-40"
           >
-            {/* it. 25 (§3): while the server's own window is still running this
+            {/* While the server's own window is still running this
                 can only come back refused, so the button waits — and says what it
                 is waiting for, instead of looking broken. */}
             {tryAgainBlockedFor !== null
@@ -1125,7 +1027,7 @@ export function SeatRefusalNotice({
             {t('Prepare it again')}
           </button>
         ) : null}
-        {/* it. 25 (§4): the two deterministic 409s used to end here with nothing
+        {/* The two deterministic 409s used to end here with nothing
             at all — a paragraph naming a door and no way to walk through it, for
             the one profile (email / Google, no proven binding) that meets them.
             This is that door. It asks the server for nothing and claims nothing
@@ -1183,25 +1085,8 @@ export function StaleSignatureNotice({
 /* ── the seat a cancelled payload is still holding ────────────────────────── */
 
 /**
- * it. 21 (it. 20 §3.3) — REJECTING IN XAMAN DOES NOT FREE THE SEAT, AND NOTHING
+ * REJECTING IN XAMAN DOES NOT FREE THE SEAT, AND NOTHING
  * SAID SO.
- *
- * Cancelling the signature (or closing the tab) leaves the prepared 0xFE queued:
- * it keeps the nonce seat of the Personal Account until its signing window
- * passes. The screens said nothing at all about that, so the next attempt walked
- * straight into a bare `NONCE_SEAT_TAKEN` — a refusal the person had no way of
- * predicting, on an operation they had just chosen not to sign.
- *
- * This is the missing sentence: the seat is still held, here is WHEN it frees
- * itself, and — because the draft is the one THIS screen prepared — here is the
- * button that frees it now. The release only ever supersedes an UNSIGNED row, so
- * pressing it is never a way to cancel a payment that is on its way; and when
- * the server cannot read the seat, the answer is «we could not check», never
- * «there was nothing» (1.2).
- *
- * The window is the SERVER's (`payloadExpiryMin`, learned from any prepare that
- * carries it — agent D's contract in `lib/wallet/handoffRelease`), never a
- * hand-written five.
  */
 export function AbandonedSeatNotice({
   memoHex,
@@ -1223,18 +1108,6 @@ export function AbandonedSeatNotice({
    * frees it — and the button never says «Free the seat now»: freeing the seat
    * of a payload the person can still sign is how a signature that lands finds
    * its instruction superseded.
-   *
-   * it. 22 (Q3 3.6, second half) — …BUT SILENCE IS NOT A PATH EITHER. This
-   * state used to hide ALL THREE actions, so after rejecting in Xaman a person
-   * read a paragraph and had nothing to do: no countdown (no caller passes
-   * `secondsLeft`), no ask, no fresh prepare. The state gets its own path now.
-   * The one thing that can measure this window is the server, so the button
-   * ASKS it: `/handoff/release` releases a row only once it is unsignable
-   * (`classifyHandoffRelease`), so asking can never kill a signature this
-   * person may still give — it comes back either with the seconds that are
-   * left (and then a real countdown runs, and the button waits it out) or
-   * having freed a payload that was already dead. Nothing here decides that:
-   * the server does, and we only say what it answered.
    */
   stillSignable?: boolean;
   /** Offered once the seat is provably free. */
@@ -1271,7 +1144,7 @@ export function AbandonedSeatNotice({
   const settled = seatReleaseSettled(verdict);
   const askAgain = verdict?.kind === 'unknown' || verdict?.kind === 'refused';
   const mayPrepareAgain = mayPrepareAgainAfterRelease(verdict, windowPassed);
-  // it. 22 (Q3 3.6): the ask is hidden only while a MEASURED window says the
+  // The ask is hidden only while a MEASURED window says the
   // payload is still signable — waiting is a real path when there is a clock to
   // watch. With no clock (which is every caller today) the ask is the path, and
   // the server refuses to free anything that can still be signed.
@@ -1310,7 +1183,7 @@ export function AbandonedSeatNotice({
     >
       <p className="text-[12px] leading-relaxed text-tone-warning">{head}.</p>
       <p className="text-[11px] leading-relaxed text-ink/60">{verdict ? verdict.text : when}</p>
-      {/* it. 34 (agent D): the release's own ways forward, when it named some
+      {/* The release's own ways forward, when it named some
           (the clock 503) — a list, not a clause. */}
       {verdict?.kind === 'unknown' && verdict.ways?.length ? (
         <ul className="list-disc space-y-0.5 pl-4 text-[11px] leading-relaxed text-ink/70">
@@ -1319,7 +1192,7 @@ export function AbandonedSeatNotice({
           ))}
         </ul>
       ) : null}
-      {/* it. 22 (Q3 3.6): once the server has measured the window, the wait is a
+      {/* Once the server has measured the window, the wait is a
           clock and not a paragraph — the verdict's own sentence froze the
           number it was written with. Only a wait counts down; a 503's
           `Retry-After` is not a signing window and never pretends to be. */}
@@ -1358,7 +1231,7 @@ export function AbandonedSeatNotice({
             {t('Prepare it again')}
           </button>
         ) : null}
-        {/* it. 25 (§4): the release answered with one of the two deterministic
+        {/* The release answered with one of the two deterministic
             409s — the account record behind this session is gone or unreadable.
             That verdict is settled (asking again answers the same thing forever)
             so every button above disappears, and this state used to end as a
@@ -1372,7 +1245,7 @@ export function AbandonedSeatNotice({
             {t('Sign in with your wallet')}
           </a>
         ) : verdict?.kind === 'unknown' && verdict.maySignInWithWallet ? (
-          // it. 34 (agent D): the release answered the clock 503 — the same
+          // The release answered the clock 503 — the same
           // door, same link, over a verdict that is NOT settled (the clock
           // moves), so «Try again» stays beside it.
           <a

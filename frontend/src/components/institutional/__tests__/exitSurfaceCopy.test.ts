@@ -5,24 +5,12 @@ import { refusalHeadline, serverDetailIfEnglish } from '@/lib/xaman/seatRefusal'
 import { seatRefusalView } from '@/components/wallet/SeatRefusalNotice';
 
 /**
- * productizer it. 25 (§1) — LAS DOS SUPERFICIES DE SALIDA QUE LA it. 23 SE DEJÓ.
+ * LAS DOS SUPERFICIES DE SALIDA QUE LA SE DEJÓ.
  *
  * Aquella iteración dijo haber cerrado «el código crudo y el castellano» en las
  * diez superficies de salida y escribió la lista en
  * `components/wallet/__tests__/seatNoticePaths.test.ts`. Estas dos no estaban en
  * ella y seguían haciéndolo:
- *
- *   · `PoteExitModal` pintaba `{refusal.error}` como titular (el slug del
- *     servidor) sobre `{refusal.detail}`, que este router compone en castellano
- *     («sharesBase debe ser un entero positivo…»);
- *   · `UserVaultPanel` — la pantalla del cliente de EMAIL, el que entra con Face
- *     ID y no tiene wallet — hacía `throw new Error(detail ?? error)` en sus dos
- *     salidas por backend, así que la misma frase acababa en un párrafo suelto.
- *
- * Lo que se prueba aquí: que ninguna de las dos puede volver a hacerlo (por
- * fuente), que todo lo que esas pantallas dicen está en el idioma de la pantalla
- * (con el MISMO filtro que le aplican al servidor), y que un rechazo real se lee
- * como una frase y no como un identificador.
  */
 
 const t = (s: string) => s;
@@ -40,7 +28,7 @@ const codeOf = (source: string): string =>
     .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
     .join('\n');
 
-describe('it. 25 · §1 — ni el código del servidor ni su castellano llegan a la pantalla', () => {
+describe('§1 — ni el código del servidor ni su castellano llegan a la pantalla', () => {
   for (const [name, source] of SURFACES) {
     const code = codeOf(source);
 
@@ -75,7 +63,7 @@ describe('it. 25 · §1 — ni el código del servidor ni su castellano llegan a
   }
 });
 
-describe('it. 25 · §1 — un rechazo de verdad, leído como frase', () => {
+describe('§1 — un rechazo de verdad, leído como frase', () => {
   const REAL = {
     status: 400,
     error: 'NOT_REDEEMABLE_NOW',

@@ -1,5 +1,5 @@
 /**
- * A run save is PROVEN, a run load never guesses (productizer it. 10):
+ * A run save is PROVEN, a run load never guesses:
  *  - saveRun writes, reads back STRICTLY and compares version + stamp — a
  *    swallowed database error throws RUN_NOT_PERSISTED and leaves nothing behind;
  *  - compare-and-set: a stale copy (another writer saved meanwhile) is refused;
@@ -126,7 +126,7 @@ describe('with a database', () => {
     expect((await loadRun('runP'))!.clients[0].xrpOnExchangeDrops).toBe('0');
   });
 
-  it('it. 12 (2.4): two writers of the same version saving CONCURRENTLY (two instances, no shared lock) → exactly one lands, the other is a DemoRunStoreError', async () => {
+  it('Two writers of the same version saving CONCURRENTLY (two instances, no shared lock) → exactly one lands, the other is a DemoRunStoreError', async () => {
     await saveRun(seed());
     const a = (await loadRun('runP'))!;
     const b = (await loadRun('runP'))!;

@@ -10,7 +10,7 @@ import {
 } from '../liveRequests';
 
 /**
- * productizer it. 21 (it. 20 §3.4) — LA CUENTA ATRÁS NO CONTABA.
+ * LA CUENTA ATRÁS NO CONTABA.
  *
  * `pushLiveNotice` no caducaba y el banner imprimía los `secondsLeft` del
  * servidor VERBATIM mientras el aviso viviera: «se libera en 287 segundos»
@@ -20,7 +20,7 @@ import {
  *
  * La medición se convierte en un INSTANTE al empujar el aviso, y el banner
  * deriva lo que queda del reloj. Al llegar a cero no imprime 0: cambia de frase
- * (y sin prometer que preparar otra vez gana la carrera — it. 20 §3.9).
+ * (y sin prometer que preparar otra vez gana la carrera).
  */
 
 const FRONTEND_SRC = join(__dirname, '..', '..', '..');

@@ -1,38 +1,9 @@
 'use client';
 
 /**
- * QUÉ ES ESTA DIRECCIÓN, ANTES DE AÑADIRLA (fundador 2026-09-13: «voy a añadir
- * una wallet y la página no entiende y se queda tonta»).
+ * QUÉ ES ESTA DIRECCIÓN, ANTES DE AÑADIRLA.
  *
  * Añadir una wallet podía acabar en tres sitios distintos sin decir en cuál:
- *
- *  1. **Ya estaba en la lista.** El alta la actualizaba en silencio y en
- *     pantalla no cambiaba nada — indistinguible de «no ha funcionado».
- *  2. **La cuenta tiene consejo (SignerList).** En producción la lista de
- *     wallets FILTRA los consejos, así que el alta entraba de verdad en el
- *     servidor y la fila desaparecía de la pantalla: ese es el «no me la añade
- *     y no dice nada» de la queja. Borrarla luego tampoco era posible desde
- *     donde el usuario miraba, porque la fila no estaba a la vista.
- *  3. **En esta rama ya no desaparece**, pero aterriza en el estante Legacy
- *     como placa de solo lectura sin explicar por qué — «me la ha mostrado
- *     como una wallet legacy».
- *
- * Este módulo contesta qué es la dirección ANTES de escribir nada, para que la
- * pantalla pueda avisar y pedir confirmación en vez de tragarse el resultado.
- * No escribe: mira la lista que ya tienes y, sólo para XRPL, el SignerList del
- * ledger.
- *
- * DOS REGLAS DE LA CASA, LITERALES:
- *
- * · **«No pude leer» nunca se disfraza de «no tiene consejo».** Si la lectura
- *   del ledger falla, el veredicto es `unreadable` y la pantalla lo dice; el
- *   alta sigue disponible, pero bajo una frase honesta y no bajo un silencio
- *   que el usuario leería como «comprobado, está limpia».
- * · **Tener SignerList NO es ser un Legacy.** Una cuenta personal reforzada
- *   también lo tiene (misma distinción que hace WalletManager con
- *   `reinforcedPersonalKeys`). Por eso el veredicto se llama `governed` y el
- *   copy habla de «gobernada por un consejo», que es exactamente lo que el
- *   ledger prueba — ni una palabra más.
  */
 
 import { addressKey } from '../authority';

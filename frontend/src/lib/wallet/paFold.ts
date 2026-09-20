@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * paFold — the visual fold of self-managed accounts (founder 2026-08-17:
- * "esconder las wallets que se autogestionan — que la Smart Account quede,
- * a nivel visual, dentro de la wallet que la gobierna").
+ * paFold — the visual fold of self-managed accounts.
  *
  * ONE mapping, shared by every surface: for each XRPL wallet in the list,
  * resolve its Flare Smart Account (paOwnership, session-cached). A PA whose
@@ -12,10 +10,6 @@
  * its card, and the owner wears a small Flare badge instead. VISUAL ONLY —
  * the PA keeps existing everywhere it matters (rails, prepares, unmint; the
  * unmint door moves onto the owner's row).
- *
- * Deliberately no import from lib/authority (addressKey) — portfolioMerge
- * consumes this module and authority imports portfolioMerge; a local key fn
- * keeps the graph acyclic. Same case rule: EVM lowercased, XRPL verbatim.
  */
 
 import { useEffect, useState } from 'react';
@@ -35,9 +29,7 @@ export function isSmartAccountType(walletType?: string): boolean {
 }
 
 /**
- * Founder 2026-08-19 ("se siguen viendo las smart accounts"): a Smart Account
- * that survived the fold is an ORPHAN by construction — its owner is not in
- * the list (old deployments, test cages, other accounts' PAs). An orphan
+ * An orphan
  * holding NOTHING is registry plumbing, not capital, so personal list
  * surfaces hide it. The "never hide value" rule stands: an orphan PA with
  * real value stays visible, always. Threshold mirrors the dust floor the
@@ -59,7 +51,7 @@ export interface PaFoldMap {
 
 export const EMPTY_FOLD: PaFoldMap = { ownerByPa: new Map(), paByOwner: new Map() };
 
-// El grifo (2026-09-12): como mucho CUATRO resoluciones dueña→PA en vuelo.
+// El grifo: como mucho CUATRO resoluciones dueña→PA en vuelo.
 // Con una docena de wallets, la ráfaga competía con las lecturas de autoridad
 // y el portfolio por el mismo backend — y las que caían dejaban FSAs sueltas.
 const FOLD_MAX_CONCURRENT = 4;
@@ -102,7 +94,7 @@ export async function resolvePaFold(addresses: string[]): Promise<PaFoldMap> {
 
 /** The fold map for a component's wallet list (re-resolves when the SET of
  *  XRPL addresses changes; each resolution is session-cached underneath).
- *  REINTENTO ACOTADO (2026-09-12): la resolución corría UNA vez por montaje,
+ *  REINTENTO ACOTADO: la resolución corría UNA vez por montaje,
  *  así que un fallo puntual dejaba la FSA suelta como fila toda la visita
  *  («ahora me aparecen como wallets las fsa»). Si el mapa vuelve con menos
  *  parejas que dueñas hay lecturas sin contestar: se agendan hasta dos

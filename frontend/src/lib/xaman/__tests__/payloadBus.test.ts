@@ -32,29 +32,6 @@ import {
  * The Xaman signing surface has one job it must never get wrong: never let the
  * user believe a request is dead while it is still signable on their phone.
  * These cover the logic behind that claim.
- *
- * Every failure below is one this surface actually produced while it was being
- * built. They were fixed inside the same working tree, so git history shows the
- * repairs and not the drafts — the tests are the record:
- *
- *  - "Cancel" was fire-and-forget and `fetch` does not throw on 4xx/5xx, so the
- *    modal closed claiming a cancellation that never happened.
- *  - the answer collapsed to a boolean, so a payload that had ALREADY expired or
- *    been answered upstream produced the amber "it stays signable on your phone
- *    until the code expires" — false, and alarming. `expiresAt` is computed
- *    AFTER the payload is created, so that window is real.
- *  - no timeout on the DELETE, and the panel blocks Escape/backdrop/X while it
- *    is in flight → a hung upstream locked the user in a scroll-locked panel
- *    whose only exit was to sign.
- *  - the answer was applied without remembering WHICH payload it was about, so a
- *    late answer for A marked the newly arrived B as "failed" — and the next
- *    Cancel then closed with NO DELETE at all.
- *  - and the fix for that one aborted the in-flight DELETE when a new payload
- *    arrived, which left the OLD payload signable on the phone: the founding
- *    bug, through a new door (QR-cierre final).
- *
- * The vitest env is `node` (no jsdom), which is why the decisions under test
- * live in the bus and not inside the modal.
  */
 
 const t = (s: string) => s; // identity: assert the ENGLISH source strings
@@ -291,7 +268,7 @@ describe('cancelXamanPayload — Cancel must report the truth', () => {
   });
 });
 
-describe('cancelRefusalOutcome — productizer-it6: ALREADY_* is not one family', () => {
+describe('CancelRefusalOutcome: ALREADY_* is not one family', () => {
   // xumm-sdk XummCancelReason: ALREADY_CANCELLED | ALREADY_RESOLVED |
   // ALREADY_OPENED | ALREADY_EXPIRED. ALREADY_OPENED used to become
   // 'already-gone' → 'close' → «Request cancelled in Xaman. Nothing was signed.»
@@ -626,7 +603,7 @@ describe('QR-cierre final: cancelling A and then receiving B', () => {
 });
 
 /**
- * ─── xaman-cancelar (2026-08-19) ────────────────────────────────────────────
+ * ─── xaman-cancelar ────────────────────────────────────────────
  *
  * The same failure, in the doors QR-cierre did not reach. Three of them are the
  * literal shape of "Cancel does not cancel"; one is the fix for the first round
@@ -1107,7 +1084,7 @@ describe('resolvePanelVoice — the panel says ONE thing at a time (uuid-status 
   it('a signature is not a notice: the signed cover plays over the code itself', () => {
     // QR-cierre C — nothing about a signed payload is still pending. Un check
     // quieto tacha el QR gastado en el sitio (la CEREMONIA suena una sola vez,
-    // en el bloque de settlement — fundador 2026-08-26).
+    // en el bloque de settlement — fundador).
     expect(resolvePanelVoice('signed', 'alive')).toBe('invite');
     expect(resolvePanelVoice('signed', 'resolved')).toBe('invite');
   });

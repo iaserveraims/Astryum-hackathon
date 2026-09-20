@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AuthorityContextBar — "estás operando como X" (review 2026-07-17 §1).
+ * AuthorityContextBar — "estás operando como X" (review §1).
  *
  * One app, N authority accounts, two ways to operate. This bar lives in the
  * AppShell (visible on EVERY route) and answers, at a glance:

@@ -37,7 +37,7 @@ describe('holdsManagerCredentials', () => {
     expect(holdsManagerCredentials([cred({})], [])).toBe(false);
   });
 
-  it('reads the gate’s OR-groups: AIFM + KYC satisfy AIFM|CASP,KYC|KYB (the 15-sep shelf bug)', () => {
+  it('Reads the gate’s OR-groups: AIFM + KYC satisfy AIFM|CASP,KYC|KYB (the shelf bug)', () => {
     const creds = [cred({ credentialType: 'AIFM' }), cred({ credentialType: 'KYC' })];
     expect(holdsManagerCredentials(creds, ['AIFM|CASP', 'KYC|KYB'])).toBe(true);
     // Una sola pata no basta, tampoco en grupos.

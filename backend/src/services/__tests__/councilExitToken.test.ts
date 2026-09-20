@@ -1,5 +1,5 @@
 /**
- * productizer-it9 — the exit classification that travels with a council tx.
+ * The exit classification that travels with a council tx.
  * Unit contract of the MAC: it opens only for the same account, the same bytes
  * (coordinator-pinned fields aside), an exit action, and before it expires.
  */
@@ -19,7 +19,7 @@ const ACCOUNT = 'rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh';
 /**
  * A REAL 0xFE memo: `FE` + walletId + executor fee + the 32 bytes of the userOpHash
  * = 42 bytes / 84 hex (`FlareDirectMintService.test.ts` → «42-byte memo»). NOT a
- * 64-hex keccak, which is the whole point of it. 29.
+ * 64-hex keccak, which is the whole point.
  */
 const ZERO_FE_MEMO = 'FE000000000000030D40' + 'AB'.repeat(32);
 const TX = {
@@ -84,13 +84,13 @@ describe('councilExitToken', () => {
     expect(() => issueCouncilExitToken({ account: ACCOUNT, xrplTx: TX, action: 'astryum-pote-fund' })).toThrow(/not an exit/);
   });
 
-  it('a 0xFE exit (it. 13 symmetry) can be tokenised and verifies', () => {
+  it('A 0xFE exit (symmetry) can be tokenised and verifies', () => {
     const { exitToken } = issueCouncilExitToken({ account: ACCOUNT, xrplTx: TX, action: 'astryum-creator-exit' });
     expect(verifyCouncilExitToken(exitToken, { account: ACCOUNT, xrplTx: TX })).toEqual({ ok: true, action: 'astryum-creator-exit' });
   });
 });
 
-describe('the ONE exit classification (it. 13)', () => {
+describe('The ONE exit classification', () => {
   it('council orders: exactly recall and evacuate', () => {
     expect([...COUNCIL_ORDER_EXIT_ACTIONS].sort()).toEqual(['evacuate', 'recall']);
     expect(isCouncilOrderExitAction('recall')).toBe(true);
@@ -121,7 +121,7 @@ describe('the ONE exit classification (it. 13)', () => {
   });
 
   /**
-   * it. 29 — THE BUG THAT KEPT THE WHOLE CLASSIFIER DEAD. This reader demanded
+   * THE BUG THAT KEPT THE WHOLE CLASSIFIER DEAD. This reader demanded
    * EXACTLY 64 hex (a council order's keccak), so the memo of a 0xFE — the whole
    * Smart Account instruction, 42 bytes / 84 hex — read as `null` and every 0xFE
    * came back `no-single-memo`. The two SHAPES are both read now; what tells them
@@ -152,10 +152,10 @@ describe('the ONE exit classification (it. 13)', () => {
   });
 });
 
-/* ── it. 15 (finding 3.3): the refusal has to be true ─────────────────────── */
+/* ──The refusal has to be true ─────────────────────── */
 
 describe('an exit whose 0xFE is no longer queued', () => {
-  // it. 29: the REAL shape — 84 hex, not the 64-hex stand-in these tests used to
+  // The REAL shape — 84 hex, not the 64-hex stand-in these tests used to
   // carry, which is precisely why they never caught the reader that threw it away.
   const MEMO = ZERO_FE_MEMO;
   const exitTx = (over: Record<string, unknown> = {}) => ({

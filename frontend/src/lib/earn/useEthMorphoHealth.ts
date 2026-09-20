@@ -3,22 +3,10 @@
 /**
  * useEthMorphoHealth — el riesgo de Ethereum, para la ÚNICA tira de salud.
  *
- * El hueco que cierra (auditoría 2026-08-17, hallazgo B): la tira de
+ * El hueco que cierra (auditorí, hallazgo B): la tira de
  * `/app/strategies` lee `useAggregatedPortfolio()`, que no tiene adapter para
  * morpho-blue. Con una deuda VIVA en Ethereum el snapshot devolvía
  * `healthFactor == null`, y esa rama pintaba literalmente:
- *
- *     «No debt to watch — your active strategies have no liquidation risk.»
- *
- * Es decir: la única pantalla de riesgo del producto AFIRMABA que estabas a
- * salvo sobre una lectura que nunca hizo. Es la familia «éxito no ganado»
- * aplicada al riesgo, que es su versión peor: un error se reintenta, pero un
- * «no tienes riesgo» hace que dejes de mirar.
- *
- * Este hook lee el carril por su propia puerta (flag + geofence server-side) y
- * devuelve tres cosas separadas a propósito — el HF, si el carril está vivo, y
- * si alguna dirección NO se pudo leer — para que la tira pueda decir «no lo sé»
- * en vez de inventarse una tranquilidad.
  */
 import { useEffect, useState } from 'react';
 import { getApiBase } from '../env';

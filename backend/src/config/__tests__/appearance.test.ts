@@ -1,15 +1,11 @@
 /**
  * La apariencia de la cuenta — la lógica pura detrás de GET /me `appearance`
- * y POST /auth/appearance (fundador 2026-09-13: el tema tiene que seguir a la
- * cuenta, no al navegador).
+ * y POST /auth/appearance.
  *
  * Dos cosas que nadie más vigila:
  *   1. Un valor desconocido o una columna medio escrita NUNCA dejan el panel a
  *      medio vestir: caen al tema de la casa, que es lo que la CSS ya pinta.
  *   2. Guardar el tema no puede borrar las claves hermanas de `preferences`.
- *      Esa columna la comparten la aceptación legal y el modo gestor: una
- *      escritura que la reemplace entera borra el consentimiento de alguien, y
- *      eso convierte un cambio de color en un incidente legal.
  */
 import {
   DEFAULT_APPEARANCE,

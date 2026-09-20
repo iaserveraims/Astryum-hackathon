@@ -1,5 +1,5 @@
 /**
- * JurisdictionService — the per-jurisdiction interruptor (CLAUDE.md invariant #5).
+ * JurisdictionService — the per-jurisdiction interruptor (invariant #5).
  *
  * The in-app DeFi EXECUTION module lives behind its own geofenceable frontier.
  * Monitoring, fiat (regulated partners) and tax are ALWAYS available — only DeFi

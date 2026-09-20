@@ -3,30 +3,6 @@
  *
  * `XrplAnchorGateService` es puro (compone y decide sin red). Este módulo es el
  * que toca el ledger:
- *
- *   - `readAnchorGateState(anchor)` — qué puerta tiene el ancla HOY: el flag
- *     `lsfDepositAuth` del AccountRoot y sus objetos DepositPreauth (conjuntos
- *     por credencial y cuentas). Lo usa la orden del gestor para elegir qué
- *     `CredentialIDs` adjunta, y el panel para enseñar el estado.
- *
- *   - `armAnchorGate` / `disarmAnchorGate` — firman con la clave OPERATIVA del
- *     ancla (`ASTRYUM_ANCHOR_SEED`, la misma que ya firma el anchor-feed) los
- *     DepositPreauth que faltan y el AccountSet{asfDepositAuth}. Es infra PROPIA
- *     de Astryum (el ancla cobra las fees de las órdenes), jamás fondos ni
- *     claves de usuario: la misma frontera que el anchor-feed y el notario.
- *
- * Orden de armado, y por qué: PRIMERO los DepositPreauth, DESPUÉS el flag. Al
- * revés habría una ventana en la que el ancla rechaza a todo el mundo. Cada tx
- * se manda con `submitAndWait` y se comprueba su `TransactionResult`: un `tec`
- * corta el plan y se cuenta tal cual — nunca se sigue encendiendo una puerta a
- * medias. Desarmar es solo apagar el flag: los objetos se quedan (cuestan 0,2
- * XRP cada uno y re-armar es entonces una sola firma).
- *
- * Solo el ancla de la jaula v2 (`ASTRYUM_ORDER_ANCHOR`). El ancla del Legacy v1
- * (`LEGACY_ORDER_ANCHOR`) NO se arma: sus consejos son familias sin licencia y
- * nada en el producto exige título a un Legacy. Si las dos variables apuntan a
- * la misma cuenta (despliegue con ancla compartida) se rehúsa: armarla dejaría
- * fuera a los consejos Legacy.
  */
 
 import type { Client, Wallet } from 'xrpl';

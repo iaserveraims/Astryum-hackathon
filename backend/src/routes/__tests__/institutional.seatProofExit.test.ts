@@ -1,26 +1,6 @@
 /**
- * productizer it. 23, hallazgo 1.1 — **EL FALLO QUE ENCONTRARON CUATRO REVISORES POR
+ * Hallazgo 1.1 — **EL FALLO QUE ENCONTRARON CUATRO REVISORES POR
  * SEPARADO, Y ESTÁ EN EL CARRIL QUE MUEVE EL DINERO DEL CLIENTE.**
- *
- * Las puertas de 0xFE de `institutional.ts` preguntaban «¿esta sesión controla esta
- * cuenta XRPL?» con la forma BOOLEANA y el propósito por defecto `'entry'`, y tiraban
- * el `refusal`. Con la tienda de pruebas parpadeando eso producía, sobre una SALIDA,
- * exactamente el gemelo que la it. 21 daba por cerrado:
- *
- *   · la fila del 0xFE nacía `preparedByProven:false` **y sin**
- *     `preparedByProofUnreadable` → clase «borrador de quien no prueba»;
- *   · esa clase la desplaza el propio dueño en su siguiente prepare…
- *   · …mientras el Payment anterior sigue firmable en Xaman. Dos pagos vivos sobre el
- *     mismo asiento, uno ya en el móvil del cliente.
- *
- * Lo que se prueba aquí no es «devuelve 200», es lo que le pasa al dinero del cliente:
- *   · la SALIDA pregunta con `'exit'` (no con `'entry'`);
- *   · un parpadeo de la tienda sale como **503 REINTENTABLE**, no como un `false` mudo
- *     ni como un 409 definitivo, y **no se compone nada**;
- *   · cuando sí se compone, la fila lleva SIEMPRE el par completo
- *     (`preparedByProven` + `preparedByProofUnreadable`);
- *   · una negativa DETERMINISTA (la fila de usuario no existe) no se disfraza de
- *     espera: la salida se compone igual y el constructor decide — jamás se gatea.
  */
 import express from 'express';
 import request from 'supertest';
@@ -52,7 +32,7 @@ jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => ({
   readMinimumRedeemAmountUBA: jest.fn(),
   readRedemptionFeeBips: jest.fn(),
   mintFeeDisclosure: jest.fn(),
-  // it. 25 (§2.1): la ruta pregunta al ledger si esa cuenta firma por QUÓRUM antes
+  // La ruta pregunta al ledger si esa cuenta firma por QUÓRUM antes
   // de componer. Aquí se finge para que la suite siga siendo HERMÉTICA (sin RPC,
   // sin ledger): lo que decide esa ventana se prueba de punta a punta en
   // `institutional.ceremonySeat.test.ts`.
@@ -194,7 +174,7 @@ const exitBody = { account: XRPL_ACCOUNT, pote: POTE };
 const post = (path: string, body: Record<string, unknown>) =>
   request(app).post(`/api/institutional/${path}`).send(body);
 
-describe('it. 23 (1.1) — la prueba del asiento en una SALIDA', () => {
+describe('La prueba del asiento en una SALIDA', () => {
   it('la salida pregunta con propósito «exit», no con el «entry» por defecto', async () => {
     const res = await post('pote-exit/prepare', exitBody);
 
@@ -291,7 +271,7 @@ describe('it. 23 (1.1) — la prueba del asiento en una SALIDA', () => {
   });
 });
 
-describe('it. 23 (1.1) — la ENTRADA sigue fallando cerrada, pero marca la fila', () => {
+describe('La ENTRADA sigue fallando cerrada, pero marca la fila', () => {
   it('pregunta con «entry» y, con la tienda caída, compone con «no pude preguntar»', async () => {
     // Fiel al módulo real: la MISMA avería produce un refusal distinto según el
     // propósito — 503 reintentable en una salida, 403 que falla cerrado en una

@@ -1,8 +1,7 @@
 import { EMPTY_ONBOARDING, readOnboarding, withOnboarding } from '../onboarding';
 
 /**
- * El cuestionario de alta, EN LA CUENTA (fundador 2026-09-14: «inicio sesión
- * desde navegadores distintos y me vuelve a pedir una y otra vez lo mismo»).
+ * El cuestionario de alta, EN LA CUENTA.
  *
  * Lo que vigila este fichero es que contestar UNA VEZ baste: que el registro
  * sobreviva a un merge parcial (el cuestionario manda objetivo e idioma, el

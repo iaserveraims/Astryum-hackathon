@@ -3,18 +3,14 @@
 /**
  * Astryum brand mark — the single source of truth for the logo.
  *
- * v3 (2026-09-09, fundador: «sigue fallando algo de la forma, no es
- * exactamente igual y se nota»): se acabó el calco a mano — esto es el
- * TRAZADO PIXEL-FIEL del arte original (public/astryum-mark-azul-transparente
- * .png, la misma obra que la variante dorada): marching squares por capa de
+ * V3: se acabó el calco a mano — esto es el
+ * TRAZADO PIXEL-FIEL del arte original (public/astryum-mark-azul-transparente.
+ * png, la misma obra que la variante dorada): marching squares por capa de
  * color + simplificación RDP (~1.3px), generado por script determinista y
  * verificado lado a lado contra el PNG. Cada pieza es un lazo del dibujo
  * real: 4 estelas, el anillo con su hueco, la base oscura (borde + sombra),
  * la cara blanca, los 7 cráteres (huecos de la cara) y los 2 brillos
  * crecientes. Cambiar la marca = re-trazar, no re-dibujar.
- *
- * La misma obra en todas partes (sidebar, onboarding, loader, favicon, OG).
- * AstryumLoader anima EXACTAMENTE estas piezas.
  */
 
 export const GOLD = '#C9A227';

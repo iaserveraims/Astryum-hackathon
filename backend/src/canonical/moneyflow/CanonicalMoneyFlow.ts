@@ -6,19 +6,7 @@
  * MoneyFlow modal, and a deterministic per-chain translator compiles it DOWN to
  * what already exists — AutomationRule + IntentPayload on EVM/Flare today;
  * unsigned txjson on XRPL post-builders (X1); Smart Escrows (XLS-100) only when
- * the amendment activates. The CMF is ADDITIVE: it replaces nothing, and the
- * engine/boundary/builders stay untouched (design doc
- * Astryum_Agente_MoneyFlows_Canonical_Verificacion_Diseno_2026-07-09 §2-§3).
- *
- * Line of custody (invariant #8): the LLM only ever DRAFTS a CMF. Zod validates
- * it server-side (an invalid draft is discarded, never repaired silently), the
- * user confirms it in the modal, the translator is deterministic, and every
- * resulting rule fires through the existing prepare→push→user-signs path.
- * Nothing here can reach a wallet.
- *
- * Naming: `CanonicalIntent` (ERC-7683, EVM solver intents) and
- * `CanonicalAction` (canonical/types/Action.ts, intent-level action) were both
- * taken — CMF sub-types use the `Cmf` prefix to avoid collision.
+ * the amendment activates.
  */
 
 import { z } from 'zod';

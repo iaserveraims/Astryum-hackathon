@@ -1,19 +1,6 @@
 /**
  * MoneyFlowComposer — pure helpers for the strategy assistant's
  * `compose_moneyflow` mode (F1, design doc §4).
- *
- * The LLM writes prose + at most ONE fenced ```cmf block with the CMF DRAFT
- * (name/description/direction/steps/policy). Everything trust-critical
- * happens HERE, server-side and deterministic:
- *   - the block is extracted and zod-validated (invalid → discarded, the
- *     model gets ONE retry with the validation feedback — never silently
- *     repaired);
- *   - version/id/origin are STAMPED by the server (the model cannot forge
- *     provenance — origin.source is always 'ai_copilot' on this path);
- *   - the result is dry-run translated so the user sees the exact rules
- *     before anything persists.
- *
- * No Anthropic imports here: these helpers are unit-tested without a key.
  */
 
 import { randomUUID } from 'crypto';

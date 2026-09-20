@@ -75,7 +75,7 @@ export class SimulationEngine {
 
     const result = await adapter.simulateAction(action);
 
-    // Anti-stale guard (R8 + CLAUDE.md §6 Motor 6)
+    // Anti-stale guard (R8 + Motor 6)
     const ageMs = Date.now() - result.priceTimestamp.getTime();
     if (ageMs > STALE_PRICES_MS) {
       result.isStale = true;
@@ -86,7 +86,7 @@ export class SimulationEngine {
     return persisted;
   }
 
-  /** Convenience wrappers per CLAUDE.md / V1 prompt API surface. */
+  /** Convenience wrappers / V1 prompt API surface. */
   simulateRepay(input: SimulationInput) {
     return this.simulate('repay', input);
   }

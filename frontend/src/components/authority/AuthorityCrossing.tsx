@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * AuthorityCrossing v5 (founder 2026-09-13: «aparecen los dos logos, el de
- * carga y el de cambio de sitio — dejar solo el de carga de la página, y
- * cuando sea para entrar al Legacy que cambie de color simplemente»).
+ * AuthorityCrossing v5.
  *
  * The crossing no longer draws a mark of its own. The ONE mark is the page
  * loader (app/loading.tsx, AstryumLoader tone='auto'), which takes the colour
@@ -12,15 +10,8 @@
  * the destination's hue that breathes in and lets go in well under a second,
  * so that stepping between products is still felt even when the page is
  * already cached and no loader shows. Low alpha, radial: it tints, it never
- * darkens (transitions-no-curtain rule, 2026-07-24). Pointer-events none —
+ * darkens (transitions-no-curtain rule). Pointer-events none —
  * the crossing never blocks a click.
- *
- * v4 (the comet in the destination's tone, 2026-09-12) and v3 (two tiles and
- * an arrow) and v2 (the council constellation) live whole in git.
- *
- * Colours are PINNED to the products' fixed vars (--product-personal /
- * --product-legacy): the global --volt flips mid-crossing with data-authority
- * and cannot be trusted here (founder correction 2026-07-26, kept).
  */
 
 import { useEffect, useRef } from 'react';
@@ -65,7 +56,7 @@ export default function AuthorityCrossing({ direction, onDone }: AuthorityCrossi
 
   const toColor = direction === 'to-legacy' ? INDIGO : GOLD;
   return (
-    // SE FUNDE SOLA, sin depender de <AnimatePresence> (2026-09-14). El
+    // SE FUNDE SOLA, sin depender de <AnimatePresence>. El
     // padre la montaba como hijo directo de una frontera de presencia, y un
     // componente que no es motion.* nunca avisa de que su salida terminó: el
     // nodo se quedaba para siempre. Aquí no congelaba nada (pointer-events

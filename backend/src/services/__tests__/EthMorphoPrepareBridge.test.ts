@@ -21,7 +21,7 @@ import { Interface, MaxUint256 } from 'ethers';
 
 const USER = '0x1111111111111111111111111111111111111111';
 const E18 = 10n ** 18n;
-const QUOTE = 98n * E18; // ≈ the live magnitude verified on-chain 2026-08-16
+const QUOTE = 98n * E18; // ≈ the live magnitude verified on-chain
 
 function stubReader(overrides: Partial<{
   underlying: string; peer: string; fxrpBalance: bigint; flrBalance: bigint; quote: bigint;

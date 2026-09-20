@@ -4,16 +4,7 @@
  * VaultClaimModal — releases a FINISHED Firelight withdrawal period. After a
  * redeem the stXRP is already burned and the FXRP waits ~24h in the vault's
  * period queue; this is the "1 tap" that lands it in the user's wallet once the
- * period ends (the founder's "que llegue cuando esté listo").
- *
- * Backend: POST /flare-demo/vault-claim/prepare — TWO rails, chosen by WHO
- * queued the exit:
- *   - the user's EVM wallet   → one unsigned claimWithdraw(period) call,
- *   - the Personal Account    → 0xFE userOp signed in Xaman (mint-coupled).
- *
- * Prepare → review (full disclosure, invariant #6) → the USER signs → done.
- * Astryum never signs, never broadcasts — it only builds the unsigned call and
- * discloses every number.
+ * period ends.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -186,7 +177,7 @@ export function VaultClaimModal({
   const settlement = useSettlement();
   const { wallets: myWallets } = useMyWallets();
 
-  // LA regla canónica de nombres (2026-08-22): la copia local label??dirección
+  // LA regla canónica de nombres: la copia local label??dirección
   // saltaba el fallback de marca — una wallet sin apodo se llamaba por su
   // código. walletNameResolver numera («MetaMask 2») y jamás usa la dirección
   // como nombre para una fila conocida; una dirección ajena sigue en corto.
@@ -205,7 +196,7 @@ export function VaultClaimModal({
   const [unconfirmed, setUnconfirmed] = useState<{ txHash?: string; trace: string | null } | null>(
     null,
   );
-  // Carrier auto (founder 2026-08-17): live fees + margin from the backend
+  // Carrier auto: live fees + margin from the backend
   // — no user knob; can never block the operation (lib/flare/carrier).
   const xrpForMint = useCarrierXrp();
   // Destino del claim (rail PA): FXRP al Smart Account, o encadenar la
@@ -228,7 +219,7 @@ export function VaultClaimModal({
   /**
    * El memo del último 0xFE preparado aquí, que sobrevive al payload: cuando el
    * siguiente intento choca contra el asiento suele ser ESTE borrador, y con el
-   * memo se puede ofrecer liberarlo (it. 17, R5 5.4 · R1 1.5).
+   * memo se puede ofrecer liberarlo (R5 5.4 · R1 1.5).
    */
   const abandonedMemo = useRef<string | null>(null);
   if (prepared?.rail === 'xrpl' && prepared.memoHex) abandonedMemo.current = prepared.memoHex;
@@ -303,7 +294,7 @@ export function VaultClaimModal({
         }
         if (res.status === 451 || code.startsWith('GEOFENCE')) throw new Error(t('This action is not available in your region yet.'));
         if (code === 'FLARE_DEFI_DISABLED') throw new Error(t('Flare DeFi execution is disabled on this server (feature flag).'));
-        // EL ASIENTO DE NONCE (it. 17, R5 5.4): ni el código crudo ni el
+        // EL ASIENTO DE NONCE (R5 5.4): ni el código crudo ni el
         // párrafo en castellano del servidor. El cuerpo se guarda para poder
         // ofrecer «Free the seat» sobre el borrador que esta pantalla dejó.
         const seat = seatRefusalSentence(resBody, t);
@@ -311,7 +302,7 @@ export function VaultClaimModal({
           setSeatRefusal(resBody);
           throw new Error(seat);
         }
-        // it. 22 (Q3 3.7): ni el slug ni el castellano del servidor por esta
+        // Ni el slug ni el castellano del servidor por esta
         // puerta tampoco — una frase, y el `detail` solo si está en inglés.
         throw new Error(
           [refusalHeadline(resBody, t), serverDetailIfEnglish(resBody.detail)]
@@ -326,7 +317,7 @@ export function VaultClaimModal({
       ) {
         throw new Error(t('The connected Xaman wallet does not control this Smart Account.'));
       }
-      // it. 19 (R5 R7) — LA PALABRA DE LA ENTREGA. Raw `fetch` never told the
+      // LA PALABRA DE LA ENTREGA. Raw `fetch` never told the
       // live banner what the server knows about the executor carrying this 0xFE,
       // so a legitimate claim got the prudent sentence. Defensive: without the
       // field the banner stays neutral; only `executorEnabled === true` promises.
@@ -394,7 +385,7 @@ export function VaultClaimModal({
       // used to classify here and then quote `translateError`, whose sentence
       // for a timeout ("nothing moved — try again in a minute") contradicted
       // the headline above it.
-      // FIRMADA TARDE (it. 17, R5 5.2). tefMAX_LEDGER / tefPAST_SEQ son un
+      // FIRMADA TARDE (R5 5.2). tefMAX_LEDGER / tefPAST_SEQ son un
       // veredicto LEÍDO: ese payload no puede validar nunca, no hubo despacho y
       // no puede haber un segundo. `signFailureAction` lo devuelve como vista
       // 'form' con la frase «prepáralo otra vez» (y el asiento se libera solo
@@ -457,7 +448,7 @@ export function VaultClaimModal({
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-4">
           {/* Un asiento tomado se cuenta en inglés y, cuando el borrador es el
-              que esta pantalla abandonó, con la salida (it. 17, R5 5.4). */}
+              que esta pantalla abandonó, con la salida (R5 5.4). */}
           {seatRefusal ? (
             <SeatRefusalNotice
               refusal={seatRefusal}
@@ -518,10 +509,10 @@ export function VaultClaimModal({
               )}
 
               {/* Destino: FXRP al PA (clásico) o XRP NATIVO a la wallet XRPL
-                  dueña — claim + redención en el MISMO dispatch (2026-07-26). */}
+                  dueña — claim + redención en el MISMO dispatch. */}
               {!ownerIsEvmWallet && (
                 <div className="flex gap-2">
-                  {/* The color IS the arrow (founder 2026-07-30): Flare reads
+                  {/* The color IS the arrow: Flare reads
                       rose, XRPL reads blue — plus the timing, the only
                       difference a person cares about. */}
                   {(['pa', 'xrpl'] as const).map((d) => {
@@ -667,12 +658,12 @@ export function VaultClaimModal({
                   {t('send it ~2 XRP (from an exchange or another wallet) and come back. Your money on Flare is untouched.')}
                 </div>
               )}
-              {/* it. 21 (it. 20 §3.3): tras cancelar en Xaman, el 0xFE preparado
+              {/* Tras cancelar en Xaman, el 0xFE preparado
                   sigue sentado en el nonce. Se dice y se dice CUÁNDO se suelta;
                   el botón de soltarlo no aparece mientras siga firmable aquí
                   (soltarlo mataría la firma que esta persona aún puede dar). */}
               {error && prepared.rail === 'xrpl' && prepared.memoHex ? (
-                /* it. 22 (Q3 3.6): …y con salida. El estado «aun firmable»
+                /* …y con salida. El estado «aun firmable»
                    escondia las TRES acciones, asi que quien rechazaba en Xaman
                    se quedaba con un parrafo y nada que hacer. */
                 <AbandonedSeatNotice

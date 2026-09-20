@@ -1,19 +1,6 @@
 /**
- * it. 31 — ONE unread period is not 62 unread periods (the sweep), and a claim
+ * ONE unread period is not 62 unread periods (the sweep), and a claim
  * reads ONLY its own period (the scope).
- *
- * WHAT THE it. 29 FIX DID. `readPendingWithdrawals` stopped reading a failed
- * `withdrawalsOf(period)` as `0n` — right — by THROWING inside a `Promise.all`
- * of 62 parallel reads. The public Flare gateway rate-limits Railway's egress
- * IP, so 62 `eth_call`s in one burst is the pattern that PRODUCES a 429: one
- * period out of 62 fails routinely, and the whole sweep went down with it —
- * the 61 that answered included. `/vault-claims` answered 502, the sidebar
- * watcher turned that into `null` and REPLACED its list, and the money in the
- * queue disappeared again, one floor up. `/vault-claim/prepare` refused to
- * release period N because period N+1 did not answer.
- *
- * THIS SUITE RUNS THE PHASE THAT FAILED: the sweep itself, with the fake node
- * refusing exactly one slot, and the single-period scope a claim uses.
  */
 jest.mock('../../../../services/FlareProvider', () => ({
   FlareProvider: {
@@ -86,7 +73,7 @@ beforeEach(() => {
   state.calls = [];
 });
 
-describe('it. 31 (c) · the sweep marks the unread period instead of taking the other 61 down', () => {
+describe('The sweep marks the unread period instead of taking the other 61 down', () => {
   it('a 429 on the 17th slot of the sweep returns the other 61 and names that period as unread', async () => {
     // Two real exits: one already claimable (223), one still running (224).
     state.queued[223] = 5_000_000n;
@@ -102,7 +89,7 @@ describe('it. 31 (c) · the sweep marks the unread period instead of taking the 
     expect(scan.scannedPeriods[0]).toBe(225);
     expect(scan.scannedPeriods[16]).toBe(SLOT_17);
     expect(scan.scannedPeriods[61]).toBe(164);
-    // The it. 29 version threw here (VaultQueueUnreadableError(209)) and the
+    // The version threw here (VaultQueueUnreadableError(209)) and the
     // two real exits never reached anybody. Now: the 61 that answered are
     // served, the one that did not is NAMED — neither hidden nor invented.
     expect(state.calls).toHaveLength(62);
@@ -139,7 +126,7 @@ describe('it. 31 (c) · the sweep marks the unread period instead of taking the 
   });
 });
 
-describe('it. 31 (d) · a claim reads ONLY its own period', () => {
+describe('A claim reads ONLY its own period', () => {
   it('scope { period: 223 } issues exactly one withdrawalsOf — the 62-period sweep is not a requirement', async () => {
     state.queued[223] = 5_000_000n;
     // Every OTHER period is down: a claim of 223 must not care.
@@ -162,7 +149,7 @@ describe('it. 31 (d) · a claim reads ONLY its own period', () => {
   });
 });
 
-describe('it. 31 · the dashboard sweep (discoverPositions) still drops the adapter on an unread slot — and names it', () => {
+describe('The dashboard sweep (discoverPositions) still drops the adapter on an unread slot — and names it', () => {
   it('a 429 inside the 8-period lookback rises as FIRELIGHT_QUEUE_UNREADABLE (the engine names the adapter to the person)', async () => {
     state.down.add(220);
     const a = new FirelightAdapter();
@@ -173,7 +160,7 @@ describe('it. 31 · the dashboard sweep (discoverPositions) still drops the adap
 });
 
 /**
- * Ola 0 (15-sep) — the BOARD survives one unread period too. it. 31 saved
+ * The BOARD survives one unread period too. Saved
  * the sidebar (`readPendingWithdrawals` marks the slot); the board still read
  * `discoverPositions`, which threw on the mark, and the CLAIM row of the
  * period that HAD answered vanished with its Claim button. The route and the

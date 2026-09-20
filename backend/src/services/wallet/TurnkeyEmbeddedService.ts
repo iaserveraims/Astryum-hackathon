@@ -3,24 +3,6 @@
  *
  * Creates a user-controlled embedded wallet via a Turnkey SUB-ORGANIZATION whose
  * ROOT authenticator is the USER'S OWN passkey (registered client-side via WebAuthn).
- *
- * REGULATORY INVARIANTS (CLAUDE.md §1, §12):
- *  - The private key is generated inside Turnkey's TEE and is NEVER seen by the
- *    Astryum backend or client. We only pass the user's passkey ATTESTATION
- *    (a public credential) to create the sub-org.
- *  - The user is the sole root user of the sub-org → exclusive control.
- *  - Keys are EXPORTABLE by the user (sovereignty test: if Turnkey disappears,
- *    the user recovers alone). The export flow runs client-side; the backend
- *    never receives the exported material.
- *
- * The parent-org API key (TURNKEY_API_PRIVATE_KEY) is a SERVER secret used only to
- * create the sub-org. It does NOT grant Astryum signing power over the user's wallet
- * (the user's passkey is the root authenticator).
- *
- * ACTIVATION: requires `@turnkey/sdk-server` installed + TURNKEY_ORG_ID /
- * TURNKEY_API_PUBLIC_KEY / TURNKEY_API_PRIVATE_KEY set. Until then the service is
- * "not configured" and the create gate is cleanly DISABLED — we never surface a
- * fake/placeholder embedded wallet as if it were real.
  */
 
 /** WebAuthn passkey attestation, produced client-side and forwarded verbatim. */

@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * RuleEditModal — edit an ACTIVE MoneyFlow rule in place (founder 2026-07-25:
- * the card must be editable in every surface, not recreate-only).
+ * RuleEditModal — edit an ACTIVE MoneyFlow rule in place.
  *
  * Edits only the knobs the user owns: the trigger threshold, the fixed repay
  * amount (PROTECT fixed mode) and the cooldown — through the SAME gated

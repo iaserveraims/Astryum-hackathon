@@ -1,5 +1,5 @@
 /**
- * G3 (auditoría 2026-08-17) — "la ocurrencia quemada".
+ * G3 (auditorí) — "la ocurrencia quemada".
  *
  * `lastTriggeredAt` served TWO masters: the DB cooldown AND the cron occurrence
  * marker. Because the engine stamped it on EVERY fire, a monthly payment whose
@@ -225,20 +225,8 @@ describe('AutomationEngine — G3: a calendar occurrence is served by its ARTEFA
 });
 
 /**
- * G3-tormenta (2ª ronda, 18-ago) — three holes the sceptic MEASURED on the
+ * G3-tormenta (2ª ronda) — three holes the sceptic MEASURED on the
  * round-1 engine, walked here over real ticks:
- *
- *  R1 — a monthly occurrence whose action stays barren fires 37 times inside
- *       the 36h window and inserted an AutomationRun AND an Alert every single
- *       time. The alert loop the retry floor was written to prevent was alive
- *       at 60 minutes instead of 60 seconds.
- *  R3 — after the 37th the occurrence left the window and was abandoned with
- *       NO closing signal: the last line in the inbox still read "council busy
- *       — retries after cooldown".
- *  R4 — `artefactProduced` meant "I tried to notify". For a nudge-only branch
- *       (scheduledPayment / escrow) the push was fire-and-forget and the Alert
- *       insert best-effort: when both failed, the occurrence was stamped as
- *       served and the month burnt exactly as before the split.
  */
 describe('AutomationEngine — G3-tormenta: one notice per occurrence, and the burn is said out loud', () => {
   beforeEach(() => {

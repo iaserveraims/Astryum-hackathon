@@ -1,5 +1,5 @@
 /**
- * it. 31 — LAS RUTAS QUE UNA PERSONA REAL TOCA, contra el router de verdad.
+ * LAS RUTAS QUE UNA PERSONA REAL TOCA, contra el router de verdad.
  *
  *  (1) Una run `closed` no es un interruptor sobre la salida: cerrar con algo en
  *      vuelo se rechaza y lo nombra; cerrada, `POST …/requests withdraw` sigue
@@ -183,11 +183,11 @@ describe('(1) cerrar una toma no gatea la salida', () => {
   });
 
   /**
-   * it. 33 (agente C, 5) — LAS PARTICIPACIONES CUENTAN. Un cliente cuyo XRP ya
+   * LAS PARTICIPACIONES CUENTAN. Un cliente cuyo XRP ya
    * está en el pote (entrada `done`, espejo a 0) no era «funded», y la toma se
    * borraba sin `force` con la ficha y el tag que su salida a XRP necesita.
    */
-  it('it. 33: espejo a 0 pero una entrada EJECUTADA (put-to-work done) sin salida después → 409 RUN_HAS_CLIENT_MONEY con `inPote`; con una salida registrada después → 200', async () => {
+  it('Espejo a 0 pero una entrada EJECUTADA (put-to-work done) sin salida después → 409 RUN_HAS_CLIENT_MONEY con `inPote`; con una salida registrada después → 200', async () => {
     const T1 = '2026-09-01T00:00:00.000Z';
     const T2 = '2026-09-02T00:00:00.000Z';
     __resetDemoExchangeMemoryForTests();
@@ -206,7 +206,7 @@ describe('(1) cerrar una toma no gatea la salida', () => {
     expect((await request(app).delete('/api/demo-exchange/runs/run1').set(admin)).status).toBe(200);
   });
 
-  it('it. 33: una salida ANTERIOR a la última entrada no la tapa (sigue dentro) — y un recibo E5 o una reserva de mesa settled también cuentan', async () => {
+  it('Una salida ANTERIOR a la última entrada no la tapa (sigue dentro) — y un recibo E5 o una reserva de mesa settled también cuentan', async () => {
     const T1 = '2026-09-01T00:00:00.000Z';
     const T2 = '2026-09-02T00:00:00.000Z';
     __resetDemoExchangeMemoryForTests();
@@ -320,7 +320,7 @@ describe('(4) el 409 de la reserva con memo dice la verdad', () => {
     expect(res.body.detail).not.toMatch(/It does not hold your withdrawal/);
     expect(res.body.detail).toMatch(/does hold that XRP, including against your withdrawal/);
     expect(res.body.detail).toMatch(/until XRPL ledger 1090/);
-    // it. 33 (3/7): this take has NO autopilot and the loop is not running here —
+    // This take has NO autopilot and the loop is not running here —
     // «releases it on its own» would be a promise nobody keeps. The sentence
     // says what is true: the desk closes it against the ledger.
     expect(res.body.sweepRunning).toBe(false);
@@ -331,7 +331,7 @@ describe('(4) el 409 de la reserva con memo dice la verdad', () => {
     expect((await ask('withdraw', '2')).status).toBe(409);
   });
 
-  it('it. 33 (3): con el bucle VIVO la promesa «releases it on its own» vale también en una toma sin autopilot — porque el barrido de mesa corre ahí (manualDeskSweep.test)', async () => {
+  it('Con el bucle VIVO la promesa «releases it on its own» vale también en una toma sin autopilot — porque el barrido de mesa corre ahí (manualDeskSweep.test)', async () => {
     const { demoExchangeAutopilot } = await import('../../services/demoExchange/DemoExchangeAutopilot');
     const running = jest.spyOn(demoExchangeAutopilot, 'isRunning').mockReturnValue(true);
     try {
@@ -352,7 +352,7 @@ describe('(4) el 409 de la reserva con memo dice la verdad', () => {
 });
 
 /**
- * it. 33 (7) — `servedBy` says who ACTUALLY serves: `run.autopilot` means the
+ * `servedBy` says who ACTUALLY serves: `run.autopilot` means the
  * take is meant for the loop, not that the loop is running (start() exits
  * without a seed or the flags). With it down, the 201 must not promise «in a
  * few seconds».
@@ -380,14 +380,14 @@ describe('(7) servedBy comes from the live loop, not from the flag', () => {
 });
 
 /**
- * it. 33 (agente C, 4) — UN ENTRY MALFORMADO DEL JOURNAL TIENE PUERTA DE ADMIN.
+ * UN ENTRY MALFORMADO DEL JOURNAL TIENE PUERTA DE ADMIN.
  * `submitting` sin hash / sin LastLedgerSequence: nadie puede seguirlo en el
  * ledger ni probarlo muerto, retenía la salida de su dueño para siempre y el
  * DELETE contestaba 409 «no hash recorded» al dueño Y al admin. El runbook
  * nombraba una puerta que no existía. Ahora existe (`?closeMalformed=1`, solo
  * operador), y el 409 la nombra.
  */
-describe('(it. 33, 4) el entry malformado: la puerta del operador', () => {
+describe('(4) el entry malformado: la puerta del operador', () => {
   const del = (rid: string, headers: Record<string, string>, q = '') =>
     request(app).delete(`/api/demo-exchange/runs/run1/clients/c1/requests/${rid}${q}`).set(headers);
   async function malformedPending(): Promise<string> {
@@ -458,11 +458,11 @@ describe('(it. 33, 4) el entry malformado: la puerta del operador', () => {
 });
 
 /**
- * it. 33 (agente C, 7) — cerrar no espera a una entrada pendiente que nadie
+ * Cerrar no espera a una entrada pendiente que nadie
  * firmó: es lo que el tick de la toma cerrada haría con ella (RUN_CLOSED). Lo
  * firmado, y lo que no se pudo leer, sigue contando.
  */
-describe('(it. 33, 7) RUN_HAS_LIVE_WORK no cuenta entradas pendientes que el propio cierre cerraría', () => {
+describe('(7) RUN_HAS_LIVE_WORK no cuenta entradas pendientes que el propio cierre cerraría', () => {
   it('una put-to-work pendiente sin journal → el cierre pasa (200) y la cierra con RUN_CLOSED y recibo; una RETIRADA pendiente sigue impidiéndolo', async () => {
     const entry = await ask('put-to-work', '1');
     expect(entry.status).toBe(201);

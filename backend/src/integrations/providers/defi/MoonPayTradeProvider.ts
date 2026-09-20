@@ -3,30 +3,6 @@
  *
  * Wraps MoonPay Trade API — B2B execution engine for DeFi protocol access.
  * DISTINCT from the MoonPay on-ramp (fiat → crypto) already in partners.ts.
- *
- * MoonPay Trade provides programmatic access to:
- *   - Aave v3 supply/borrow/repay across 10+ chains
- *   - Morpho vaults (Blue + Optimizers)
- *   - Uniswap v3 LP management
- *   - Stablecoin AMMs (Curve, Balancer stable pools)
- *   - Yield vaults and strategies
- * All via a unified quote + unsigned-calldata API on 200+ chains.
- *
- * Revenue model:
- *   - MOONPAY_TRADE_FEE_BPS (default 20 = 0.20%) embedded per B2B agreement.
- *   - Fee routed to ASTRYUM_FEE_WALLET per MoonPay Trade partner terms.
- *   - disclosedToUser: true — always shown before user signs.
- *
- * Requirements:
- *   - MOONPAY_TRADE_API_KEY: B2B partner key (request at moonpay.com/business)
- *   - MOONPAY_TRADE_ENABLED=true: explicit gate after B2B agreement is signed
- *   Both must be set — provider stays disabled (returns 503) otherwise.
- *
- * Regulatory invariants (never remove):
- *   authorization.astryumRelays: false
- *   referralAttribution.disclosedToUser: true
- *   Astryum never holds funds — returns unsigned calldata only.
- *   MoonPay Trade executes on behalf of the user after their on-device signature.
  */
 
 import { randomUUID } from 'crypto';

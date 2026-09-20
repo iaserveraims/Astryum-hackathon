@@ -1,10 +1,9 @@
 /**
- * strategyTaxonomy — ONE vocabulary for the strategy catalogue (founder
- * 2026-08-22). The interactive path, the filter chips and the kinship notes
+ * strategyTaxonomy — ONE vocabulary for the strategy catalogue. The interactive path, the filter chips and the kinship notes
  * all read from here, so the screen can never speak two languages about the
  * same route.
  *
- * WHY OUTCOME FIRST (founder decision): six of the eight routes are FXRP, so
+ * WHY OUTCOME FIRST: six of the eight routes are FXRP, so
  * asking for the token first barely narrows anything. What actually separates
  * them is what the user wants to HAPPEN — and it can be asked without DeFi
  * jargon, keeping the mechanism (lend/borrow/stake/vault) as the subtitle.
@@ -53,12 +52,10 @@ export function outcomeOf(kind: VaultKind): OutcomeId | null {
   return OUTCOMES.find((o) => o.kinds.includes(kind))?.id ?? null;
 }
 
-/* ── The catalogue's COLUMNS — INERTE desde el 25-ago ────────────────── */
+/* ── The catalogue's COLUMNS — INERTE ────────────────── */
 
 /**
- * NADA DE ESTO SE PINTA HOY. Las columnas verticales se montaron el 24-ago y
- * el fundador pidió el 25 volver a la mano horizontal de siempre
- * (StrategyFan). Se deja en pie, sin usar, porque el componente que lo lee
+ * NADA DE ESTO SE PINTA HOY. Se deja en pie, sin usar, porque el componente que lo lee
  * —StrategyColumns— también sigue en el árbol: código construido se deja
  * inerte, no se borra, y volver a montarlo es cambiar un elemento por otro.
  *
@@ -70,20 +67,6 @@ export function outcomeOf(kind: VaultKind): OutcomeId | null {
  * How the catalogue is LAID OUT: two vertical stacks side by side, «make it
  * earn» on the left and «get cash» in the middle. The horizontal hand pushed
  * eight cards across the width and clipped every title after ~20 characters.
- *
- * TWO columns, not three: FTSO rides in the earn column by founder decision.
- * This is a LAYOUT fold and nothing else — `outcomeOf()` still answers
- * 'network' for it, so the filter path and the "without debt first" sort keep
- * seeing three distinct outcomes. Grouping the screen must never quietly
- * redefine what a route IS.
- *
- * WHICH IS WHY THE COLUMN CARRIES ITS OWN SUBTITLE. The earn outcome's sub
- * says "Lend, stake or deposit in a vault", and delegating to the FTSO is none
- * of those three — the tokens never leave your wallet. Reusing that sentence
- * over a column that now contains FTSO would describe the mechanism wrongly
- * for one of its six cards. What IS true of all six is the part that matters
- * before signing: no debt, nothing that can be liquidated. So that is what the
- * column says, and the per-route mechanism stays on each card where it belongs.
  */
 export interface CatalogueColumn {
   id: 'earn' | 'liquidity';
@@ -160,9 +143,7 @@ export function assetGroupOf(kind: VaultKind): AssetGroupId | null {
 /* ── Routes that share a market ──────────────────────────────────────────── */
 
 /**
- * Two pairs of the catalogue run on the SAME market, and the founder asked for
- * the relationship to be visible instead of leaving the user to guess
- * (2026-08-22: "es la misma estrategia pero con otro ending"). The two
+ * The two
  * relationships are NOT the same, so neither is the sentence:
  *
  *   · Kinetic — one route is the other PLUS a step (supply, then borrow).

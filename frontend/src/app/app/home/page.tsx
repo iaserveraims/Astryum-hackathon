@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /app/home → /app (fusión 2026-08-22): the Summary absorbed the Home — the
+ * /app/home → /app (fusión): the Summary absorbed the Home — the
  * greeting, the fleet capital, the hidden Wallets surface (?panel=wallets)
  * and the first-run tour live there now. Every old deep-link keeps working:
  * the query string travels along. HomeHub is preserved, unmounted, at

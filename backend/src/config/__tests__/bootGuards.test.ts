@@ -64,7 +64,7 @@ describe('bootGuards — prod-database guard ("seguridad no ganada")', () => {
   });
 
   it('REFUSES a dev/local boot pointed at the prod DB (the incident)', () => {
-    // The exact combination found on 2026-07-22: local backend, auth bypassed, prod DB.
+    // The exact combination: local backend, auth bypassed, prod DB.
     const env = { DATABASE_URL: PROD, ALLOW_NO_AUTH: '1' } as NodeJS.ProcessEnv;
     expect(productionDatabaseMarker(env)).toBe('supabase.com');
     expect(() => assertNotProductionDatabase(env)).toThrow(/PRODUCTION database/i);

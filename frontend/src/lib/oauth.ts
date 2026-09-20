@@ -5,17 +5,6 @@
  * Connect id_token; the backend (/api/auth/oauth/:provider) is the ONLY
  * place that token is trusted — it verifies signature/iss/aud/exp against
  * the provider's JWKS before any account is touched.
- *
- * Feature-flagged per provider by its NEXT_PUBLIC_* client id (public by
- * design — client ids are not secrets; the flows here never see one).
- * Unset → the login page keeps its honest "channel not open" notice.
- *
- *   NEXT_PUBLIC_GOOGLE_CLIENT_ID   …apps.googleusercontent.com (Web client)
- *   NEXT_PUBLIC_APPLE_CLIENT_ID    the Services ID (e.g. xyz.astryum.web)
- *   NEXT_PUBLIC_APPLE_REDIRECT_URI must EXACTLY match a Return URL registered
- *                                  on the Services ID; defaults to
- *                                  `${origin}/login`. Apple requires https +
- *                                  a registered domain (no localhost).
  */
 
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? '';

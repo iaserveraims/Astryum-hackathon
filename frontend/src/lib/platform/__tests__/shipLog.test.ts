@@ -15,7 +15,7 @@ const milestone = (version: string, date: string, extra: ChangelogEntry['items']
 
 describe('buildShipLog', () => {
   it('a month without a DeFi milestone does NOT fold into a single row: one row per day', () => {
-    // The 2026-09-15 bug: 38 generic releases → 1 clump → nothing to scroll.
+    // The bug: 38 generic releases → 1 clump → nothing to scroll.
     const entries: ChangelogEntry[] = [];
     for (let i = 0; i < 38; i++) {
       const day = 14 - Math.floor(i / 8); // 8 releases a day, newest first

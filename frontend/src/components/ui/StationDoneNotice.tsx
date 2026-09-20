@@ -3,26 +3,9 @@
 /**
  * StationDoneNotice — «¿POR QUÉ ESTÁ HECHA?», sin popup.
  *
- * Fundador 2026-09-12: al entrar en una estación ya hecha, explicar por qué
- * (el ledger es POR CUENTA: lo que esta cuenta hizo en otra ceremonia cuenta
- * aquí). Fundador 2026-09-15: «los popups que aparecen para informar que una
- * acción ya está configurada/terminada no me gustan… molestan bastante».
  * Tenía razón dos veces: un modal con fondo oscuro para un dato que no pide
  * nada rompe la regla de la casa (los overlays nunca oscurecen) y en un
  * Legacy ya constituido saltaba en TODAS las estaciones.
- *
- * Ahora son dos cosas distintas, porque son dos cosas distintas:
- *   - El HECHO (esta estación está hecha, y esto es lo que se leyó) vive
- *     DENTRO de la estación: `StationDoneStrip`, una franja bajo la cabecera,
- *     siempre ahí mientras la estación esté hecha, sin reloj, sin cerrar.
- *     «¿Por qué cuenta?» despliega la explicación; «→ primera pendiente»
- *     salta. En una pendiente, la misma franja dice qué se mira.
- *   - El EVENTO (has aterrizado más allá de la primera estación porque las
- *     anteriores ya estaban hechas) es una notificación temporal, arriba a
- *     la derecha, UNA vez por apertura: `useResumeToast`. Arriba y no abajo:
- *     abajo viven las píldoras de las operaciones.
- *
- * UNA pieza para las tres ceremonias (Legacy, gestor, exchange).
  */
 
 import { useEffect, useRef, useState } from 'react';

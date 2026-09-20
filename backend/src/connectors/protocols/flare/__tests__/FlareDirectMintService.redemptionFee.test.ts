@@ -1,11 +1,11 @@
 /**
- * productizer-it9 §3.4 · it13 §4.3 — the FAssets redemption fee is a LIVE protocol
+ * · The FAssets redemption fee is a LIVE protocol
  * figure, and the hand-walked `getSettings()` decoder answers it only when the
  * struct is EXACTLY the one it expects.
  *
  * `getSettings()` returns `AssetManagerSettings.Data`, a DYNAMIC tuple (string #5,
  * two uint256[] #49/#50). What these tests pin: the right number from the real
- * mainnet return (read 2026-09-14) and from faithful re-encodings of it; null —
+ * mainnet return (read) and from faithful re-encodings of it; null —
  * never a wrong number, never 0 — from any struct that moved (a field inserted, a
  * field removed, or both cancelling out around #25), from anything that does not
  * look like that struct; and null when the chain cannot be read.
@@ -22,7 +22,7 @@ import {
   SETTINGS_FIELD_TYPES,
 } from '../FlareDirectMintService';
 
-/** AssetManagerSettings.Data, declaration order (flare-foundation/fassets main, 2026-09-14). */
+/** AssetManagerSettings.Data, declaration order (flare-foundation/fassets main). */
 const SETTINGS_TYPES = [
   'address', 'address', 'address', 'address', 'address', 'string', 'address', 'address', 'address', 'address',
   'address', 'uint8', 'uint8', 'bytes32', 'uint32', 'uint32', 'uint16', 'uint64', 'uint64', 'uint64',
@@ -34,7 +34,7 @@ const SETTINGS_TYPES = [
 
 const XRP_BYTES32 = '39948964274347012936981351272266369804895606997075518274053929213164037079040';
 /**
- * `AssetManagerFXRP.getSettings()` on Flare mainnet, 2026-09-14, word by word
+ * `AssetManagerFXRP.getSettings()` on Flare mainnet, word by word
  * (0x2a3Fe068cD92178554cabcf7c95ADf49B4B0B6A8). Word 0 is the tuple offset; words
  * 1-60 are the head; then the "XRP" suffix string and the two liquidation arrays.
  */

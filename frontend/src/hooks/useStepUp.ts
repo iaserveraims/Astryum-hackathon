@@ -10,17 +10,6 @@ import { useT } from '../i18n/LanguageProvider';
 /**
  * useStepUp — runs the "prove you still control a linked wallet" handshake and
  * caches the resulting short-lived grant in the auth store (in memory only).
- *
- *   challenge → personal_sign → verify → grant
- *
- * personal_sign here is APP-LEVEL auth, NOT a DeFi transaction. The wallet's own
- * popup is the user-facing confirmation; the optional StepUpSignatureModal just
- * explains why it's happening.
- *
- * - ensureGrant(feature, action): returns a valid grant token, prompting a
- *   signature only if none is cached.
- * - withStepUp(feature, action, fn): runs fn(grant?), and if the backend replies
- *   STEP_UP_REQUIRED, runs the handshake once and retries.
  */
 export function useStepUp() {
   const getValidGrant = useAuthStore((s) => s.getValidGrant);

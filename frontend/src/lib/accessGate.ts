@@ -1,23 +1,11 @@
 /**
- * accessGate — the pre-launch door, server-side edition (2026-07-23).
+ * accessGate — the pre-launch door, server-side edition.
  *
  * Until launch, every dashboard surface (/app/*, /login, /register,
  * /forgot-password) sits behind an ACCESS CODE. The old door compared
  * hardcoded credentials inside the client bundle and set a sessionStorage
  * flag — anyone reading the JS walked straight in (and bots did). This one
  * is real:
- *
- *   · the code lives ONLY in server env (ACCESS_GATE_CODE — never NEXT_PUBLIC_*),
- *   · /api/access-gate verifies it (captcha + per-IP throttle) and answers
- *     with an httpOnly cookie carrying an HMAC-signed expiry,
- *   · middleware.ts verifies that signature on EVERY page request — client
- *     JS cannot mint, read or forge it.
- *
- * Web Crypto only (no node:crypto): the SAME helpers run in the Edge
- * middleware and the Node route handler.
- *
- * Launch day: set ACCESS_GATE_OPEN=1 (or `true`) and the whole gate steps
- * aside — no deploy, no code change.
  */
 
 export const GATE_COOKIE = 'astryum_gate';
@@ -79,14 +67,6 @@ export type GateMode = 'open' | 'enforced' | 'closed';
  * (the spelling its own sibling flag uses, BETA_REGISTRATION_OPEN=true on
  * Railway) left the gate shut with no signal anywhere. A launch switch that
  * fails silently on the obvious spelling is a trap, and it sprang once already.
- *
- * Deliberately MORE generous than backend betaGate.isBetaRegistrationOpen(),
- * which pins the literal 'true' and nothing else — do not "unify" them. That
- * one decides who may CREATE AN ACCOUNT and must fail closed on a typo; this
- * one only draws back a pre-launch curtain. Account creation stays guarded by
- * the backend gate + the waitlist approval behind it either way, so the worst
- * this flag can do when it reads generously is show the login card to someone
- * the backend will still turn away in plain words.
  */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 export function gateOpenFlag(value?: string): boolean {
@@ -100,10 +80,7 @@ export function gateClosedFlag(value?: string): boolean {
 }
 
 /**
- * How the gate behaves given the server env — DEFAULT OPEN since 2026-08-16
- * (founder: the pre-launch curtain retires; acquisition needs the login card
- * visible to the world. The account-creation door is still the backend's
- * betaGate — this only decides whether /login and /register are reachable).
+ * How the gate behaves given the server env — DEFAULT OPEN.
  *
  *   'open'     — the default: ACCESS_GATE_OPEN unset, truthy, or anything
  *                that is not an explicit close spelling.
@@ -112,10 +89,6 @@ export function gateClosedFlag(value?: string): boolean {
  *   'closed'   — explicitly closed WITHOUT code/secret in production →
  *                nobody enters (a deliberate lock stays a lock even if the
  *                code envs were dropped).
- *
- * History: until 2026-08-16 this was fail-closed (unset in production =
- * closed) — right for the pre-launch phase, a wall for acquisition after it.
- * Closing again is one env: ACCESS_GATE_OPEN=0.
  */
 export function gateMode(env: { open?: string; code?: string; secret?: string; nodeEnv?: string }): GateMode {
   if (!gateClosedFlag(env.open)) return 'open';

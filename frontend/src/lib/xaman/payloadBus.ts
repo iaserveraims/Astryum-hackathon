@@ -4,22 +4,6 @@
  * payloadBus — tiny module-level event bus that carries the Xaman signing
  * payload (QR image + deeplink + what is being signed) from XamanWalletService
  * to the UI.
- *
- * WHY: XamanWalletService creates the payload and then blocks on
- * waitForPayloadCompletion() for up to 5 minutes. The QR/deeplink live inside
- * that payload but were never surfaced, so the user had nothing to scan and the
- * connection always timed out. The bus lets a globally-mounted modal render the
- * QR the instant the payload exists, without forcing the service singleton (and
- * its XRPL WebSocket) to be constructed at app load.
- *
- * The prompt carries CONTEXT, not just a QR: what the user is about to sign
- * (purpose + a human summary derived from the real txjson) and when the payload
- * expires. A signing surface that shows only a bare QR asks the user to approve
- * something they cannot see — the modal renders these fields so the review
- * happens on-screen, next to the code they are about to scan.
- *
- * REGULATORY BOUNDARY (CLAUDE.md §0): this only DISPLAYS the unsigned payload.
- * The user signs in the Xaman mobile app. Astryum never holds keys nor signs.
  */
 
 import { xrplTxTypeLabel } from '../xrpl/txTypeLabels';
@@ -155,21 +139,6 @@ export function onXamanStatus(cb: StatusListener): () => void {
  * Emit a live status update for ONE payload ('opened' when the user has the
  * request on screen in Xaman, 'signed' once approved). Purely informational —
  * the signing flow itself is driven by the service's own WS/poll loop.
- *
- * THE UUID IS REQUIRED, and `tsc` is what keeps it that way (uuid-status).
- * The PAYLOAD channel was disciplined by uuid (emitXamanPayload) and this one
- * was not, so the same failure simply moved next door. Every ceremony shares
- * this bus: payload A resolving painted ITS terminal state over payload B, and
- * B then looked 'signed' / 'rejected' / 'expired' to decideCloseStep — which
- * answers 'close', so the panel left WITHOUT asking Xaman to kill anything. B
- * stayed alive and signable on the phone, in silence. That is the founding bug
- * of this surface, reopened through the last door the uuid discipline had not
- * reached.
- *
- * The reverse order was just as bad: a stray NON-terminal status ('pending' /
- * 'opened' from another ceremony) overwrote a terminal one nobody had read yet,
- * and resolveClearAction — which keeps the panel up precisely for 'rejected' /
- * 'expired' — then let the next clear erase it.
  */
 export function emitXamanStatus(status: XamanPayloadStatus, statusUuid: string): void {
   statusListeners.forEach((cb) => {
@@ -192,16 +161,6 @@ const cancelListeners = new Set<CancelListener>();
  * await depended entirely on Xaman pushing a resolution down its websocket
  * (the poll fallback only starts when that socket errors or closes). This
  * channel makes the resolution deterministic for whoever is waiting.
- *
- * SUBSCRIBER (QR-cierre): XamanWalletService.waitForPayloadCompletion listens
- * and resolves its wait with null. Before that, Cancel left the origin await
- * hanging for the rest of PAYLOAD_TIMEOUT (5 min) and then REJECTED — the user
- * got a red error minutes later for something they had deliberately cancelled.
- *
- * It only fires when the payload is CONFIRMED dead by our own DELETE, never on
- * a failed one and never on 'already-gone': an ALREADY_RESOLVED payload may
- * have been SIGNED, and resolving the wait with null there would throw away a
- * real signature (and, for submit:true, a broadcast transaction).
  */
 export function onXamanCancelled(cb: CancelListener): () => void {
   cancelListeners.add(cb);
@@ -241,21 +200,6 @@ export interface XamanCancelResult {
 /**
  * What a `cancelled: false` answer means, by Xaman's `reason`
  * (xumm-sdk `XummCancelReason`).
- *
- * ALREADY_* is NOT one family (productizer-it6). ALREADY_OPENED is Xaman saying
- * "the user has this request OPEN on the phone, it can no longer be cancelled"
- * — and it is STILL SIGNABLE. Folding it into 'already-gone' closed the panel
- * with «Request cancelled in Xaman. Nothing was signed.», the parent dropped
- * the order and offered «Review and sign» again: a second payload beside a
- * live one, sign both = two orders.
- *
- *   · ALREADY_EXPIRED / ALREADY_CANCELLED → 'already-gone' (nothing left).
- *   · ALREADY_RESOLVED → 'already-gone'; resolveCancelAction turns it into
- *     'warn-resolved' (answered on the phone — maybe signed).
- *   · ALREADY_OPENED → 'still-live' (open on the phone, signable).
- *   · any OTHER ALREADY_* → 'unknown': a reason we have never read is never a
- *     licence to close.
- *   · a refusal that is not ALREADY_* → 'still-live' (Xaman refused the kill).
  */
 export function cancelRefusalOutcome(reason: string | undefined): XamanCancelOutcome {
   const r = (reason ?? '').toUpperCase();
@@ -434,13 +378,6 @@ export function resolveCancelAction(args: {
  * confirmed, A's ceremony resolves and its caller emits a bare `null` — and the
  * panel dropped payload B, which was live, on the phone, and one tap from being
  * signed. No DELETE, no message, nothing.
- *
- * xaman-cancelar 5 — AND A WARNING MUST NOT ERASE ITSELF. After 'alive',
- * 'unknown' or 'resolved' the panel is the only place that knows something may
- * still be signable (or may already be on the ledger). The ceremony that raised
- * the prompt eventually rejects with PAYLOAD_TIMEOUT and its catch emits a
- * clear: five minutes later the warning vanished on its own, unread and
- * unacknowledged. It stays until the person closes it.
  */
 export type XamanClearAction =
   /** The clear is about a DIFFERENT payload: not our business. */
@@ -482,10 +419,6 @@ export function resolveClearAction(args: {
  * then believed B was over — decideCloseStep answers 'close' for a terminal
  * status, so the next press left WITHOUT a DELETE and B stayed signable on the
  * phone with nothing said. Same bug, fifth door.
- *
- * Pure and exported for the usual reason: the frontend vitest env is `node`
- * with no jsdom, so the listener that consumes this is not itself coverable,
- * and the five times this bug came back it lived in the WIRING.
  */
 export type XamanStatusAction =
   /** Not about what this surface is showing: drop it. */
@@ -570,10 +503,6 @@ export function payloadStrayNotice(state: XamanStrayState, t: (s: string) => str
  * BROADCASTS it and keeps it signable for 24 HOURS — and the council inbox did
  * `setSign(null)`, while "New QR" minted a second signable payload without
  * killing the first.
- *
- * `onScreenUuid` is read AFTER the round trip on purpose: by then the surface
- * may have moved on, and an answer that no longer describes what is on screen
- * must be dropped rather than written into someone else's state.
  */
 export async function cancelPayloadAndDecide(
   uuid: string,
@@ -596,22 +525,6 @@ export async function cancelPayloadAndDecide(
  * was already 'expired': the panels stood down and the screen read "The code
  * expired. Nothing was signed." over a request Xaman had just said was
  * ANSWERED — and, for a submit:true payload, possibly broadcast.
- *
- * A guess never outranks a reading — and this guess is not even a tight one.
- * `expiresAt` is computed CLIENT-SIDE as `Date.now() + 300_000`, and only after
- * the create round trip has already come back, while Xaman's own 300 s window
- * started when IT created the payload: the countdown therefore runs LATE, on a
- * clock that is not Xaman's, and can still be ticking over a request that is
- * already dead upstream.
- *
- * CORRECTED IN uuid-status 3: an earlier version of this note justified the
- * flag with a 300 s ↔ `expire: 1440` (24 h) misalignment. That misalignment is
- * real in CloseDoorSign and lib/xrpl/councilSigning, but NEITHER of them emits
- * on this bus — every emitter here is XamanWalletService, and all of them use
- * `expire: 5`. A false claim about expiry, in the file that decides what
- * expiry is allowed to mean, is exactly the kind of claim that gets believed.
- * (productizer-it6: Xaman's `options.expire` is in MINUTES. Those emitters were
- * `expire: 300` — five HOURS of a signable orphan, not five minutes.)
  */
 export interface XamanStatusOrigin {
   /** `status === 'expired'` was inferred by the surface's own countdown, not
@@ -674,13 +587,6 @@ export function shouldReportPayloadResolved(
  * signature. One panel, asking the person to kill the request and to sign it,
  * in the same breath. On a submit:true payload the invitation it accidentally
  * extends is a broadcast.
- *
- * Composes the two predicates above rather than restating them, so the
- * precedence lives in one place: what Xaman told us about the CANCEL outranks a
- * terminal state, because a terminal state that contradicts a reading is a
- * false all-clear (xaman-cancelar 2). Pure and exported because the frontend
- * vitest env is `node` with no jsdom — inline in the component, this precedence
- * was untestable.
  */
 export type XamanPanelVoice =
   /** A live request and nothing else to report: code, countdown, "waiting…". */
@@ -729,10 +635,6 @@ export type XamanCancelRelease =
  * PAYLOAD_TIMEOUT and then rejected. That is this surface's founding bug,
  * reopened through a new door. The late ANSWER is what must be dropped (by
  * uuid, in resolveCancelAction), never the request.
- *
- * Single choke point on purpose: this is the only place in the signing surface
- * allowed to call .abort() on a cancel, so "who may kill a DELETE" is one
- * readable rule instead of three call sites that must each stay correct.
  */
 export function releaseInFlightCancel(
   inFlight: XamanInFlightCancel | null,
@@ -794,22 +696,6 @@ function notifyCancelled(uuid: string): void {
  * R6.5). COMPLETES the shared `xrplTxTypeLabel` map (lib/xrpl/txTypeLabels.ts,
  * shared with ProposalInbox/LegacyPanel) instead of duplicating it: only the
  * types that map is missing, plus one correction.
- *
- * `Payment` is the correction: the shared label reads "Payment — sends XRP",
- * and this rail also signs IOU payments (RLUSD). Printing "sends XRP" over a
- * "100 RLUSD" payment is a false statement on the very surface where the user
- * decides. The currency lives in the detail line, so the headline stays
- * currency-neutral.
- *
- * QR-cierre F asked to unify on the shared map instead. NOT DONE, on purpose:
- * unifying downwards would import the falsehood, because the emitter really
- * does produce IOU summaries — describeXrplTx (XamanWalletService) formats
- * `${value} ${currency}` for any object Amount, i.e. "Payment · 100 RLUSD".
- * The single source must be corrected at its own file instead
- * (lib/xrpl/txTypeLabels.ts → MAP.Payment, which is not ours this round; the
- * same falsehood is shown today by ProposalInbox and LegacyPanel). Once it
- * reads currency-neutral, DELETE the Payment entry below and the two surfaces
- * agree with one string. See the report.
  */
 const XRPL_TYPE_LABEL: Record<string, string> = {
   Payment: 'Sends money out of your account',

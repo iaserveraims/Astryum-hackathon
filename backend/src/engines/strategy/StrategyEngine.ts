@@ -41,7 +41,7 @@ export class StrategyEngine {
   /**
    * Detect defensive contextual signals against the portfolio.
    *
-   * 2026-06-01 audit Cat 4.2: renamed from `recommendDefensive` to avoid the
+   * Audit Cat 4.2: renamed from `recommendDefensive` to avoid the
    * "advice" framing under MiCA Article 3(1)(16)(8). The signals are
    * deterministic computations, not financial recommendations.
    * The old method name is kept as a thin alias for callers that haven't
@@ -59,7 +59,7 @@ export class StrategyEngine {
     return this.recommendFromSnapshot(portfolio, risk);
   }
 
-  /** @deprecated renamed to `detectDefensiveSignals` (2026-06-01 audit Cat 4.2). */
+  /** @deprecated renamed to `detectDefensiveSignals` (audit Cat 4.2). */
   async recommendDefensive(
     walletAddress: string,
     chainId: number = 14

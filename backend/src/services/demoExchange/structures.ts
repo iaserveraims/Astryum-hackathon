@@ -1,28 +1,6 @@
 /**
  * demoExchange/structures — the registry of STRUCTURES a tenant gave birth to,
  * and the gate that decides which ceremony step may be composed next.
- *
- * A structure is a COMMANDED XRPL account: the user's PERSONAL account is seated
- * in its signer list — alone, or as one of a quorum — and that is what makes it
- * "a subwallet". The authority tree is the USER's, not the exchange's; the
- * exchange only funnels money. Design and seat chart in
- * `docs/context/Astryum_Exchange_2_Estructuras_Bajo_El_Omnibus_2026-09-18.md`;
- * the verdicts (who can bind it, reserve figure, door lock) are pure and live in
- * `connectors/protocols/xrpl/XrplStructureBirth.ts`.
- *
- * WHAT THIS STORES AND WHAT IT NEVER STORES. Rows here are POINTERS plus the
- * hash of each act: the kind, the governance, the address, the seat chart and
- * one record per ceremony step. The STATE is never stored — whether the signer
- * list exists, whether the master key is disabled, whether the credential is
- * still valid is read fresh from the ledger on every paint (getSignerCouncil).
- * Losing this table loses pointers, never governance.
- *
- * THE GATE THIS FILE EXISTS FOR. `planStructureBirth` says a step waits for
- * others; that is a plan, not enforcement. `stepBlockedBy` is the enforcement:
- * a step is composed ONLY when every step it waits for is recorded as validated
- * on the ledger, with its hash. Without it the irreversible one — the door,
- * `AccountSet(asfDisableMaster)` — could be composed before the rehearsal and
- * strand the account forever. Pure, so it is testable.
  */
 import type { BirthStep, BirthStepId, StructureGovernance, StructureKind, StructureSeat } from '../../connectors/protocols/xrpl/XrplStructureBirth';
 

@@ -1,7 +1,7 @@
 /**
- * it. 31 — «KINETIC REVIERTE» ERA FALSO, and the queued exit kept vanishing.
+ * «KINETIC REVIERTE» ERA FALSO, and the queued exit kept vanishing.
  *
- * (a) `/iso-withdraw/prepare`. it. 29 dropped OUR ceiling check when the live
+ * (a) `/iso-withdraw/prepare`. Dropped OUR ceiling check when the live
  *     supply could not be read, on the premise that «Kinetic itself rejects a
  *     redeem larger than your position». A real `eth_call` against kFXRP_ISO
  *     (0xD1b7…9CB3) from an account with `balanceOf = 0` answers
@@ -10,19 +10,8 @@
  *     code, `estimateGas` passes, MetaMask does not warn, the transaction
  *     MINES with status 1, the person pays gas, nothing moves — and the
  *     frontend tracker reads that receipt as success. `/iso-withdraw` was the
- *     ONLY route of the ISO family without a preflight, and the 502 of it. 29
+ *     ONLY route of the ISO family without a preflight, and the 502
  *     pushed people to it («Withdraw an exact amount instead»).
- *
- *     THE CONSUMER UNDER TEST: the route with the GENUINE `preflightEvmCalls`
- *     (no stub) over a fake node whose eth_call returns exactly what mainnet
- *     returned — code 9 — and a disclosure note that no longer claims a revert.
- *
- * (d) `/vault-claim/prepare` of period N composes although period N+1 does not
- *     answer; `/vault-claims` serves a partial sweep as partial (200 with the
- *     unread periods named), and only an all-unread sweep as 502.
- *
- * Hermetic like its siblings: ethers.Contract and JsonRpcProvider are fakes;
- * every assertion is over UNSIGNED payloads. Astryum signs nothing.
  */
 import express from 'express';
 import request from 'supertest';
@@ -46,7 +35,7 @@ const SEL_CLAIM = '0xb13acedd';
 const QUEUE: { currentPeriod: bigint; slots: Record<number, bigint | typeof DOWN> } = { currentPeriod: 224n, slots: {} };
 
 const STATE: Record<string, Record<string, unknown>> = {
-  // kFXRP_ISO: the live supply CANNOT be read (the it. 29 situation).
+  // kFXRP_ISO: the live supply CANNOT be read (the situation).
   [KFXRP_ISO.toLowerCase()]: { balanceOf: DOWN, balanceOfUnderlying: DOWN },
   // kUSDT0_ISO: readable — 3 USDT0 supplied, 2.95 shares.
   [KUSDT0_ISO.toLowerCase()]: { balanceOf: 2_950_000n, balanceOfUnderlying: 3_000_000n },
@@ -149,7 +138,7 @@ beforeEach(() => {
   QUEUE.slots = {};
 });
 
-describe('it. 31 (a) · /iso-withdraw with an unread supply and an exact amount: the dry-run is the ceiling now', () => {
+describe('/iso-withdraw with an unread supply and an exact amount: the dry-run is the ceiling now', () => {
   it('attaches a preflight that, with the kToken RETURNING code 9, says the redeem WILL FAIL — before anyone pays gas', async () => {
     // Exactly what mainnet answered from an account with balanceOf = 0:
     // redeemUnderlying → 0x…09 (MATH_ERROR). No revert.
@@ -165,7 +154,7 @@ describe('it. 31 (a) · /iso-withdraw with an unread supply and an exact amount:
     expect(res.body.calls[0].to).toBe(KFXRP_ISO);
     expect(res.body.calls[0].data.startsWith(SEL_REDEEM_UNDERLYING)).toBe(true);
     expect(res.body.disclosure.supplyRead).toBe('unreadable');
-    // … and now it carries the verdict it. 29 left out. `available: true` +
+    // … and now it carries the verdict left out. `available: true` +
     // `willSucceed: false` is a PROVEN failure: PreflightNotice paints it red
     // and the button reads «Sign anyway — the dry-run says it will fail».
     expect(res.body.preflight).toBeDefined();
@@ -184,9 +173,9 @@ describe('it. 31 (a) · /iso-withdraw with an unread supply and an exact amount:
       .send({ evmAddress: EVM_WALLET, asset: 'fxrp', amountBase: '2000000' });
     expect(res.status).toBe(200);
     const note = String(res.body.disclosure.note);
-    // The it. 29 sentence that was false.
+    // The sentence that was false.
     expect(note).not.toMatch(/Kinetic itself rejects/i);
-    // The it. 29 last sentence that was false too («reverts if …»): the
+    // The last sentence that was false too («reverts if …»): the
     // comptroller answers code 3, the transaction still mines.
     expect(note).not.toMatch(/\breverts\b/i);
     expect(note).toMatch(/returns a code/i);
@@ -194,7 +183,7 @@ describe('it. 31 (a) · /iso-withdraw with an unread supply and an exact amount:
     expect(note).toMatch(/you pay gas/i);
     expect(note).toMatch(/nothing moves/i);
     expect(note).toMatch(/dry-run/i);
-    // Still what it. 29 owed: nothing here is a statement about what you hold.
+    // Still what owed: nothing here is a statement about what you hold.
     expect(note).toMatch(/Nothing here is a statement about what you hold/i);
     expect(res.body.disclosure.disclosedToUser).toBe(true);
     expect(res.body.disclosure.astryumSigns).toBe(false);
@@ -234,7 +223,7 @@ describe('it. 31 (a) · /iso-withdraw with an unread supply and an exact amount:
   });
 });
 
-describe('it. 31 (d) · a claim of period N is not closed by a read of period N+1', () => {
+describe('A claim of period N is not closed by a read of period N+1', () => {
   it('POST /vault-claim/prepare composes claimWithdraw(223) although 224, 225 and the rest of the sweep are down', async () => {
     QUEUE.slots[223] = 5_000_000n;
     for (let p = 164; p <= 225; p++) if (p !== 223) QUEUE.slots[p] = DOWN;
@@ -243,7 +232,7 @@ describe('it. 31 (d) · a claim of period N is not closed by a read of period N+
       .post('/api/flare-demo/vault-claim/prepare')
       .send({ evmAddress: EVM_WALLET, period: 223 });
 
-    // it. 29 answered 502 VAULT_CLAIMS_UNREADABLE here — «period 225 did not
+    // Answered 502 VAULT_CLAIMS_UNREADABLE here — «period 225 did not
     // answer» — over money already burned out of shares.
     expect(res.status).toBe(200);
     expect(res.body.rail).toBe('evm');
@@ -282,7 +271,7 @@ describe('it. 31 (d) · a claim of period N is not closed by a read of period N+
   });
 });
 
-describe('it. 31 (d) · GET /vault-claims serves a PARTIAL sweep as partial — the rows that answered are not thrown away', () => {
+describe('GET /vault-claims serves a PARTIAL sweep as partial — the rows that answered are not thrown away', () => {
   it('one slot down → 200, queueRead "partial", the pending rows AND the unread periods named', async () => {
     QUEUE.slots[223] = 5_000_000n;
     QUEUE.slots[209] = DOWN;

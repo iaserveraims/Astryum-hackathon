@@ -6,10 +6,10 @@ import { parseBaseUnits, tryParseBaseUnits } from '../baseUnits';
 /**
  * F4 doctrine — what a quorum signs must say the truth, exactly.
  *
- * Two failures of the same family (2026-08-03): a governed payment built its
+ * Two failures of the same family: a governed payment built its
  * drops with `Math.round(x * 1_000_000)` on a float (0.0000001 XRP passed the
  * "> 0" check and became a payment of ZERO drops), and the review screen
- * promised a "1-drop Payment" while the order fee made it 200,001 drops.
+ * promised a "1-drop Payment" while the order fee made,001 drops.
  *
  * Both are pinned at the SOURCE, the way `consumers-wired` pins the settlement
  * cable: the maths is easy to reintroduce by hand, and by the time it shows up

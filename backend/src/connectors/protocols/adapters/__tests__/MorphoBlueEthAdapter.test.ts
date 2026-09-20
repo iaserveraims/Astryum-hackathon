@@ -38,7 +38,7 @@ const decodeIface = new Interface([
   'function approve(address spender, uint256 amount)',
 ]);
 
-describe('market constants (on-chain verified 2026-08-15)', () => {
+describe('Market constants (on-chain verified)', () => {
   it('pins the flagship market params', () => {
     expect(FXRP_RLUSD_MARKET_ID).toBe(
       '0x4fa31e3f8ba345227d44e1cf48559eea53a90dd5311dc006984c060f2f311d96',

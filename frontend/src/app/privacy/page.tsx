@@ -4,13 +4,13 @@ import PrivacyPage from '@/components/landing/PrivacyPage';
 /**
  * /privacy — the privacy notice as a living page.
  *
- * robots noindex (founder decision 2026-07-30): the page holds the holder's
+ * robots noindex: the page holds the holder's
  * name and tax id — the law requires it VISIBLE to anyone who visits (and it
  * is, linked from the footer of every landing surface, from the sign-up form
  * and from the acceptance gate), not that it feeds search engines. Common,
  * defensible practice for legal pages of natural-person operators.
  *
- * 2026-08-01: the "and from the sign-up form" half of that sentence used to be
+ * The "and from the sign-up form" half of that sentence used to be
  * false — the sign-up notice linked /demo-terms only. Fixed there rather than
  * softened here: the collection point is exactly where art. 13 wants the link.
  */

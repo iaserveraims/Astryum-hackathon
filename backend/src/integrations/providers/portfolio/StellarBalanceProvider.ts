@@ -5,7 +5,7 @@
  * returns them as CanonicalPosition[]. XLM priced via DeFiLlama (coingecko:stellar);
  * USD-pegged issued assets (USDC) valued ~$1.
  *
- * Read-only. Astryum never signs or broadcasts (CLAUDE.md §0).
+ * Read-only. Astryum never signs or broadcasts.
  */
 
 import type {

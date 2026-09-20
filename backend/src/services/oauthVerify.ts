@@ -5,28 +5,6 @@
  * popup / Sign in with Apple JS / the XRP Identity authorization-code+PKCE
  * exchange) and it reaches /api/auth/oauth/*. NOTHING in that token is trusted
  * until this module has:
- *
- *   1. fetched the provider's published JWKS (cached in-process),
- *   2. verified the signature against the key the token names (kid),
- *   3. checked issuer, audience (our client id) and expiry via jwt.verify.
- *
- * Zero new dependencies — same philosophy as AuthService's scrypt: Node's
- * crypto.createPublicKey() imports the JWK natively (Node 17+), and the
- * existing `jsonwebtoken` does the claim checks.
- *
- * Feature-flagged per provider by its client-id env var; the route answers
- * 503 oauth_not_configured until the env is set. Comma-separated values are
- * accepted (e.g. a web + an iOS client id later).
- *
- *   GOOGLE_OAUTH_CLIENT_ID      → aud for Google (…apps.googleusercontent.com)
- *   APPLE_OAUTH_CLIENT_ID       → aud for Apple  (the Services ID, e.g. xyz.astryum.web)
- *   XRPL_IDENTITY_CLIENT_ID     → aud for XRP Identity (account.xrpl.in)
- *
- * XRP Identity note: it is a plain OIDC provider (node-oidc-provider) run for
- * the XRPL ecosystem. Its id_token says WHO the person is — it carries no XRPL
- * address, no credential and no KYC claim. Which ledger account a user controls
- * is still proven the only way it can be: a signature, via the wallet-binding
- * rail. The two layers stack; neither replaces the other.
  */
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -71,8 +49,8 @@ const PROVIDERS: Record<OAuthProvider, ProviderConfig> = {
     algs: ['RS256'],
   },
   xrplid: {
-    // Verified against https://account.xrpl.in/.well-known/openid-configuration
-    // (2026-08-09): issuer, jwks_uri, and id_token_signing_alg_values_supported
+    // Verified against https://account.xrpl.in/.well-known/openid-configuration:
+    // issuer, jwks_uri, and id_token_signing_alg_values_supported
     // ["EdDSA","RS256","ES256"]. Our client is registered as RS256 — the value
     // the whole rail already verifies — so the narrow list stays narrow.
     jwksUrl: 'https://account.xrpl.in/jwks',

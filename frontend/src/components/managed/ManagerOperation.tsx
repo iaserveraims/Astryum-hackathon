@@ -1,16 +1,14 @@
 'use client';
 
 /**
- * ManagerOperation — LA MESA DEL GESTOR como ventana (fundador 2026-09-10:
- * fuera del sidebar, se abre desde Managed vaults «en una ventanita»
- * anclable a la derecha). Dentro va ManagerDesk entero: sus salas, sus
+ * ManagerOperation — LA MESA DEL GESTOR como ventana. Dentro va ManagerDesk entero: sus salas, sus
  * bóvedas, sus consolas. La sala «Configurar» es una PUERTA al alta
  * (ManagerSetupOperation), que vive una sola vez en su propia ventana.
  *
- * Desde el 2026-09-12 monta la PLANTILLA común de toda ceremonia
+ * Monta la PLANTILLA común de toda ceremonia
  * (SetupOperationShell): misma cabecera, mismos mandos, mismo cuerpo que
  * Constituir un Legacy y las altas. Cierra en dos pasos, como las
- * estrategias (fundador 12-sep).
+ * estrategias.
  */
 
 import Link from 'next/link';

@@ -118,7 +118,7 @@ export interface XamanPayloadStatus {
     /** El veredicto del NODO al enviarla (`options.submit: true`): `tesSUCCESS`,
      *  `tefPAST_SEQ`, `tecUNFUNDED_PAYMENT`… Sin esto, `txid` por sí solo no
      *  dice nada: es el hash del blob firmado y existe aunque la red la
-     *  rechazara (incidente 22-ago-2026). */
+     *  rechazara. */
     dispatched_result?: string;
     multisign_account?: string;
     account: string;
@@ -195,7 +195,7 @@ export class XamanWalletService implements WalletService {
   private readonly BALANCE_CACHE_TTL = 30000; // 30 seconds
   private readonly PAYLOAD_TIMEOUT = 300000; // 5 minutes
   private readonly POLL_INTERVAL = 2000; // 2 seconds
-  // it. 23 (it. 22 §1.2): ceiling on what we will believe about a window. Xaman
+  // Ceiling on what we will believe about a window. Xaman
   // allows up to 24 h; a 0xFE seat measured against a day-long window would be
   // held for a day. Anything beyond this is treated as absent, never sealed.
   private readonly MAX_BELIEVABLE_WINDOW_MS = 15 * 60_000;
@@ -534,7 +534,7 @@ export class XamanWalletService implements WalletService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  /* ── it. 23 (it. 22 §1.2) — ONE WINDOW, AND THE SERVER OWNS IT ──────────── */
+  /* ── ONE WINDOW, AND THE SERVER OWNS IT ──────────── */
 
   /**
    * The `expire` every payload this service mints must carry, IN MINUTES.
@@ -612,7 +612,7 @@ export class XamanWalletService implements WalletService {
       options: {
         submit: false,
         multi_sign: false,
-        // it. 23 (it. 22 §1.2): the SERVER's window, in MINUTES (Xaman counts
+        // The SERVER's window, in MINUTES (Xaman counts
         // minutes — 300 was five hours). Never a literal here again.
         expire: this.payloadExpireMinutes(),
         return_url: {
@@ -1175,7 +1175,7 @@ export class XamanWalletService implements WalletService {
     let promptedUuid: string | null = null;
     try {
       // A transaction that PINS its Account needs no connected session: the
-      // payload names the account and Xaman asks for it (2026-09-17). Only an
+      // payload names the account and Xaman asks for it. Only an
       // unpinned one borrows the connected account as its signer.
       if (!this.currentAccount && !transaction.Account) {
         await this.ensureCurrentAccount();
@@ -1186,7 +1186,7 @@ export class XamanWalletService implements WalletService {
 
       // Respect the transaction's own Account when the builder pinned one —
       // stomping it with the singleton's first-connected account was the
-      // active-account bug (switcher review 2026-07-17, Fase 0). Only inject
+      // active-account bug (switcher review, Fase 0). Only inject
       // when the caller left it empty.
       const signerAddress = transaction.Account || this.currentAccount!.address;
       const txWithAccount = {
@@ -1220,7 +1220,7 @@ export class XamanWalletService implements WalletService {
 
       if (payloadResponse.uuid && !payloadResponse.uuid.startsWith('mock-')) {
         promptedUuid = payloadResponse.uuid;
-        // it. 23 (it. 22 §1.2): the QR goes up NOW, with the window we asked
+        // The QR goes up NOW, with the window we asked
         // for; the REAL `expires_at` Xaman is counting to replaces it a round
         // trip later, before anybody can have signed. The omnibus door seals a
         // 0xFE's nonce seat from this very field, and it was sealing a guess.
@@ -1267,7 +1267,7 @@ export class XamanWalletService implements WalletService {
    * payload bus so the globally-mounted XamanQRModal renders it (scan from phone,
    * or "open in Xaman" on desktop). The tx is NEVER submitted — proof only.
    *
-   * REGULATORY (CLAUDE.md §0): Astryum never signs/holds keys. The user signs in
+   * REGULATORY: Astryum never signs/holds keys. The user signs in
    * their own Xaman app; we relay the unsigned proof and read back the signature.
    */
   public async signOwnershipProof(
@@ -1364,7 +1364,7 @@ export class XamanWalletService implements WalletService {
     let promptedUuid: string | null = null;
     try {
       // A transaction that PINS its Account needs no connected session: the
-      // payload names the account and Xaman asks for it (2026-09-17). Only an
+      // payload names the account and Xaman asks for it. Only an
       // unpinned one borrows the connected account as its signer.
       if (!this.currentAccount && !transaction.Account) {
         await this.ensureCurrentAccount();
@@ -1375,7 +1375,7 @@ export class XamanWalletService implements WalletService {
 
       // Respect the transaction's own Account when the builder pinned one —
       // stomping it with the singleton's first-connected account was the
-      // active-account bug (switcher review 2026-07-17, Fase 0). Only inject
+      // active-account bug (switcher review, Fase 0). Only inject
       // when the caller left it empty.
       const signerAddress = transaction.Account || this.currentAccount!.address;
       const txWithAccount = {
@@ -1413,7 +1413,7 @@ export class XamanWalletService implements WalletService {
       // Xaman's side but the user never sees anything to sign.
       if (payloadResponse.uuid && !payloadResponse.uuid.startsWith('mock-')) {
         promptedUuid = payloadResponse.uuid;
-        // it. 23 (it. 22 §1.2): the QR goes up NOW, with the window we asked
+        // The QR goes up NOW, with the window we asked
         // for; the REAL `expires_at` Xaman is counting to replaces it a round
         // trip later, before anybody can have signed. The omnibus door seals a
         // 0xFE's nonce seat from this very field, and it was sealing a guess.
@@ -1439,7 +1439,7 @@ export class XamanWalletService implements WalletService {
       // Get the payload status to retrieve the transaction hash
       const status = await this.getPayloadStatus(payloadResponse.uuid);
 
-      // EL VEREDICTO DEL NODO, ANTES QUE EL HASH (incidente 22-ago-2026).
+      // EL VEREDICTO DEL NODO, ANTES QUE EL HASH.
       // Este payload lleva `options.submit: true`, así que Xaman YA la envió y
       // guardó lo que contestó la red. Devolver `txid` sin mirarlo era entregar
       // al vigilante el hash de un blob que el nodo había rechazado: no existe
@@ -1449,7 +1449,7 @@ export class XamanWalletService implements WalletService {
       // `ter*` NO se corta: significa «retenida, puede entrar en un ledger
       // posterior», y ahí vigilar es exactamente lo correcto. Sin código
       // tampoco se corta — «no lo he leído» no es «ha fallado» (ese error, al
-      // revés, es el que empujaba al doble depósito el 17-ago).
+      // revés, es el que empujaba al doble depósito).
       const dispatched = status?.response?.dispatched_result;
       const resultClass = classifyXrplResult(dispatched);
       if (isTerminalFailure(resultClass)) {
@@ -2516,17 +2516,6 @@ export class XamanWalletService implements WalletService {
   /**
    * Cancel a payload. ONE implementation of the DELETE, in the bus
    * (cancelXamanPayload) — this used to hand-roll a second one (QR-cierre).
-   *
-   * They were not equivalent, which is why the duplication mattered: this copy
-   * read only `response.ok`, so Xaman answering `{ cancelled: false }` over a
-   * 200 counted as a kill, and it never told the waiting ceremony anything.
-   * The bus version reads the body, distinguishes "refused" from "already
-   * gone" from "no answer", bounds the round trip, and notifies the wait loop.
-   *
-   * INERT (QR-cierre final): nothing in the repo calls this today — the signing
-   * panel cancels through the bus directly. Kept, not deleted, because it is
-   * the public per-payload door of the service and the pool teardown below is
-   * real work; it is documented here so nobody mistakes it for a live path.
    */
   public async cancelPayload(payloadId: string): Promise<boolean> {
     const result = await cancelXamanPayload(payloadId);

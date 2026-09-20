@@ -1,31 +1,6 @@
 /**
  * MorphoBlueEthAdapter — pure calldata builder for the FXRP/RLUSD Morpho Blue
  * market on Ethereum mainnet (W3, plan §13 / BuildSpec B3).
- *
- * LIVE-pattern builder: this module is consumed by the ad-hoc /prepare route
- * (B5), NOT by the cold control-plane neck (CalldataBuilder has zero live HTTP
- * routes; founder decision 2026-08-15: CMF facade post-hackathons).
- *
- * Signing rail: EVM-direct (A1) — the user's own wallet on chainId 1. The 0xFE
- * Flare rail cannot reach Ethereum. Astryum only builds unsigned legs.
- *
- * Market facts verified ON-CHAIN, REPETIBLE: `npm run verify:eth-morpho`
- * (src/scripts/verify-eth-morpho.ts) — drift-check de estos params contra la
- * cadena, liquidez viva y decimales leídos. Última corrida: 2026-08-16.
- * [La cita anterior apuntaba a `verify-morpho-rlusd-fxrp.js`, un fichero que
- * nunca existió en el repo: un comentario que promete una verificación
- * inexistente es peor que no tener comentario.]
- *   - marketId 0x4fa31e3f…311d96 on singleton 0xBBBB…FFCb
- *   - collateral FXRP (LayerZero OFT) — 6 decimals
- *   - loan RLUSD — 18 decimals
- *   - lltv 0.77 · IRM 0x870aC11D…00BC · oracle 0x5AC03061…c39D (1e36 scale
- *     adjusted by 10^(18-6) for the decimal asymmetry)
- * The 6/18 decimal asymmetry is why every amount here is taken in BASE UNITS
- * (bigint) — callers convert from human units reading decimals on-chain,
- * never assuming them (F4 bug family).
- *
- * Approvals are FINITE by house rule (no MaxUint): the route computes
- * debt+buffer for repay and the exact amount for supplyCollateral.
  */
 import { Interface } from 'ethers';
 
@@ -33,30 +8,19 @@ export const ETH_CHAIN_ID = 1;
 
 export const MORPHO_BLUE_SINGLETON = '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb';
 
-/** FXRP/RLUSD market on Ethereum mainnet (created ~2026-07-28, curated by Sentora). */
+/** FXRP/RLUSD market on Ethereum mainnet (created ~, curated by Sentora). */
 export const FXRP_RLUSD_MARKET_ID =
   '0x4fa31e3f8ba345227d44e1cf48559eea53a90dd5311dc006984c060f2f311d96';
 
 export const FXRP_ETH = '0xCE6170EA245dC8D1f275A710a062b70f125F0110';
 export const RLUSD_ETH = '0x8292Bb45bf1Ee4d140127049757C2E0fF06317eD';
 
-/* ── El venue del swap-fill en Ethereum (2026-08-29) ─────────────────────────
+/* ── El venue del swap-fill en Ethereum ─────────────────────────
  *
  * El repago total nunca cuadra solo: la deuda devenga interés (7,53% APR) y lo
  * prestado en la bóveda rinde menos (6,21%), así que SIEMPRE falta un poco. El
  * carril de Flare ya resolvió esto con `SwapFillService` — un `exactOutput` que
- * compra el hueco EXACTO dentro del mismo lote (incidente 26-jul, shortfall
- * 0,000291 → revert). Aquí van las direcciones del gemelo de Ethereum.
- *
- * VERIFICADO ON-CHAIN 2026-08-29, leyendo la forma del bytecode — no adivinada,
- * la misma disciplina que se usó con SparkDEX:
- *   · SwapRouter CLÁSICO 0xE592…1564 → `exactOutputSingle` CON deadline
- *     (selector 0xdb3e2198). Es EXACTAMENTE la forma que SparkDEX expone, así
- *     que el ABI del servicio compartido sirve tal cual.
- *   · SwapRouter02 0x68b3…5Fc45 tiene la OTRA forma (0x5023b4df) — apuntar ahí
- *     con este ABI no falla al compilar: falla en la firma del usuario.
- *   · QuoterV2 0x61fF…B21e cotiza el hueco exacto incluso en polvo:
- *     0,2516 RLUSD → 0,183475 FXRP y 0,000291 RLUSD → 0,000213 FXRP (tier 3000).
+ * compra el hueco EXACTO dentro del mismo lote. Aquí van las direcciones del gemelo de Ethereum.
  */
 export const UNISWAP_V3_ROUTER_ETH = '0xE592427A0AEce92De3Edee1F18E0157C05861564';
 export const UNISWAP_V3_QUOTER_ETH = '0x61fFE014bA17989E743c5F6cB21bF9697530B21e';

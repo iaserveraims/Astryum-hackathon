@@ -73,14 +73,13 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
 
   let subOrgId = '';
   // Hoisted for the orphan ledger: when the write half fails we still want to
-  // write down WHICH address is sitting unreferenced at Turnkey (it. 20, 3.8).
+  // write down WHICH address is sitting unreferenced at Turnkey (3.8).
   let subOrgAddress = '';
   try {
     // THE NETWORK CALL HAPPENS FIRST, AND IT IS THE WIDEST WINDOW IN THE REPO.
     // Creating the Turnkey sub-org is a round-trip to a partner; an account
     // takeover can commit while it is in the air. The live-session check
-    // therefore runs AFTER it returns and BEFORE the row is written (productizer
-    // it. 16, 4.1): a wallet born after the handover, with `isPrimary` and
+    // therefore runs AFTER it returns and BEFORE the row is written: a wallet born after the handover, with `isPrimary` and
     // purpose 'sign', is a DESTINATION the owner never chose.
     const created = await turnkeyEmbeddedService.createWallet(userId, passkey);
     subOrgId = created.subOrgId;
@@ -124,14 +123,14 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
 
     return res.status(201).json({ success: true, data: { wallet, subOrgId } });
   } catch (err) {
-    // ORPHAN LEDGER FIRST, ALWAYS (productizer it. 18, 3.6). Once `subOrgId` is
+    // ORPHAN LEDGER FIRST, ALWAYS (3.6). Once `subOrgId` is
     // set, a sub-org EXISTS at Turnkey holding the user's key and no row in our
     // database points at it. Only the revoked-session branch used to say so, so
     // every other failure — a pool timeout, a unique-constraint clash, the
     // takeover's lock — left the sub-org with no trace anywhere and nobody able
     // to reconcile it. It is recorded before we decide what to answer.
     //
-    // AND IT IS NO LONGER ONLY A LOG (productizer it. 20, 3.8). A greppable line
+    // AND IT IS NO LONGER ONLY A LOG (3.8). A greppable line
     // on a platform that rotates logs is not a record: «reconciliable» promised
     // more than it could keep. `recordOrphanSubOrg` keeps the same log line and
     // adds a durable `background_jobs` row (its own jobType, no poller, no
@@ -183,7 +182,7 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
     if ((err as Error).message === 'PASSKEY_ATTESTATION_REQUIRED') {
       return res.status(400).json({ success: false, error: 'INVALID_PASSKEY' });
     }
-    // NO RAW ERROR ON THE WIRE (it. 18, 3.6). `(err as Error).message` here was a
+    // NO RAW ERROR ON THE WIRE (3.6). `(err as Error).message` here was a
     // Prisma chain — table names, constraint names, connection strings — shown to
     // the user as if it were an explanation. The chain stays in the log above.
     console.error('[wallets/embedded/create] failed:', err);
@@ -199,22 +198,11 @@ router.post('/embedded/create', requireSiweAuth, async (req: Request, res: Respo
   }
 });
 
-// ─── Block G (2026-06-02) — wallet connect / destination_only flows ─────────
+// ─── Block G — wallet connect / destination_only flows ─────────
 //
 // POST /api/wallets/connect
 //   Persists a freshly-connected (or manually-pasted) wallet into the unified
 //   `wallets` table with the right ecosystem + purpose + auto-isPrimary.
-//
-// Behaviors:
-//   - `ecosystem` auto-derives from caip2 or network if not provided
-//   - `isPrimary` defaults to true when the user has NO other wallets in this
-//     ecosystem yet (atomic check inside a transaction)
-//   - `purpose` defaults to 'sign'; 'destination_only' supported for the
-//     manual-paste flow described in the Block G design (no signing capable)
-//   - When a Wallet already exists for (userId, address, network), the
-//     endpoint UPGRADES its purpose:
-//       'watch' + reconnect with sign capability → 'both'
-//       'destination_only' + later connect with signing → 'both'
 
 // Address shapes we can verify by inspection. An `ecosystem` that contradicts
 // the address is always a caller bug, never user intent: an EVM address is
@@ -243,7 +231,7 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
   }
   const d = parsed.data;
 
-  // Early-access deposit ceiling (founder 2026-07-19): with TRIAL_WALLET_CAP_USD
+  // Early-access deposit ceiling: with TRIAL_WALLET_CAP_USD
   // set, a wallet cannot be connected if the user's connected wallets plus this
   // one would hold more than the cap. Dynamic import so the engine's module
   // graph loads only when the trial flag is actually on.
@@ -276,8 +264,8 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
     ecosystemFromNetworkLabel(d.network) ??
     'evm';
 
-  // The ecosystem must match the ADDRESS, not the caller's claim. Bug
-  // (2026-08-01): the Wallets page auto-registered `user.address` hard-coded as
+  // The ecosystem must match the ADDRESS, not the caller's claim. Bug:
+  // the Wallets page auto-registered `user.address` hard-coded as
   // Flare/eip155:14/evm, and `user.address` falls back to the first linked
   // wallet — which for a Xaman login is an XRPL r-address. Lower-cased and
   // filed as EVM, it surfaced as a phantom "Flare N" twin of the user's real
@@ -299,7 +287,7 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
   }
 
   // The whole connect runs as one transaction, and that transaction first proves
-  // the session is STILL live (productizer it. 16, 4.1). `TrialCapService` above
+  // the session is STILL live (4.1). `TrialCapService` above
   // is a pricing round-trip, so the window is real: a wallet row written after a
   // takeover becomes the owner's primary EVM wallet — the address the send modal
   // pre-fills and the router picks — without a single signature from them.
@@ -355,8 +343,7 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
           ? 'both'
           : d.purpose;
 
-      // NO auto-nickname (founder 2026-08-08: their own Xaman read "XRPL 1"
-      // everywhere — the machine name shadowed the provider's). A wallet
+      // NO auto-nickname. A wallet
       // without a user nickname stores NULL; the frontend's display rule
       // (walletDisplayName) then shows the provider's proper name (Xaman,
       // MetaMask…) or the short address. Rows already carrying the old
@@ -418,7 +405,7 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
   } catch (err) {
     if (isSessionRevoked(err)) return respondSessionRevoked(res);
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) return respondBusyRetry(res);
     console.error('[wallets/connect] failed:', err);
     return res.status(500).json({ success: false, error: 'CONNECT_FAILED', detail: (err as Error).message });
@@ -429,16 +416,6 @@ router.post('/connect', requireSiweAuth, asyncHandler(async (req: Request, res: 
 //
 // List the AUTHENTICATED user's wallets from the unified `wallets` table, joined
 // with their active tx-bindings. This is the source of truth for the Wallets tab:
-//
-//   - `wallets` table → the LIST (every connected/watched/pasted wallet)
-//   - `wallet_bindings` table → the tx PROOF (mode read_and_receive)
-//
-// Each returned wallet is annotated with `txAuthorized` so the frontend can show
-// "Read-only" vs "Tx enabled" without a second round-trip. A wallet is tx-enabled
-// only when it has an active read_and_receive binding (signature-proven) OR its
-// purpose was already upgraded to sign/both.
-//
-// MUST be defined BEFORE GET /:address so "mine" is not treated as an address.
 router.get('/mine', requireSiweAuth, async (req: Request, res: Response) => {
   const userId = req.siwe!.userId;
   try {
@@ -633,7 +610,7 @@ router.patch('/mine/:id', requireSiweAuth, asyncHandler(async (req: Request, res
  * GET /api/wallets
  *
  * List all registered wallets.
- * Auth (2026-08-06): the registry enumerates every registered address+label —
+ * Auth: the registry enumerates every registered address+label —
  * that is account data, not public chain data. Session required.
  */
 router.get('/', requireSiweAuth, async (req: Request, res: Response) => {
@@ -736,7 +713,7 @@ router.get('/:address', async (req: Request, res: Response) => {
  * - label: string (optional)
  * - addToAllowlist: boolean (optional, default false)
  *
- * Auth (2026-08-06): registering (and self-allowlisting) was open to anyone on
+ * Auth: registering (and self-allowlisting) was open to anyone on
  * the internet — registry pollution for free. Mutations require a session; the
  * authed app flow lives in /connect and /mine.
  */

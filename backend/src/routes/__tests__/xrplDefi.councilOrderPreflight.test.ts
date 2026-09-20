@@ -1,17 +1,6 @@
 /**
  * G12-move (ronda 2) — la puerta HTTP corre el MISMO pre-flight que el carril
  * de reglas.
- *
- * `POST /api/xrpl-defi/council-order/prepare` carried its own COPY of the
- * pre-flight, and the copy judged `direct-to`, `recall` and `set-payees` only.
- * So a `move` into a venue that does not exist (or out of one with no basis)
- * composed here, the quorum signed it, the FDC round was paid for (~20 FLR) —
- * and the vault reverted inside `_allocate` / `InsufficientVenueBasis`.
- *
- * These tests fail on the code as it shipped in d99063e: the route returned
- * 200 with a handoff for every one of them. They also pin the doctrine that
- * matters more than the guard: a vault we could not READ is never reported as
- * an order that would revert.
  */
 import express from 'express';
 import request from 'supertest';

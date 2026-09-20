@@ -4,25 +4,6 @@
  * Prepare-only de punta a punta: cada POST devuelve calls EVM sin firmar (o
  * txjson XRPL sin firmar en la ceremonia de credencial) + disclosure. Astryum
  * jamás firma, jamás custodia, jamás emite credenciales — compone.
- *
- * Gating (invariantes #10 y #5):
- *  - Los prepare van tras `INSTITUTIONAL_POTES_ENABLED` (ship OFF, 503).
- *  - Los prepare que MUEVEN CAPITAL van además tras el geofence de jurisdicción:
- *    `capitalGate()` = flag + `isDefiExecutionAllowed`, 451 GEOFENCE_BLOCKED fuera
- *    de región. Las ceremonias de identidad XRPL (credencial, ancla, dominio) NO
- *    lo llevan: no son ejecución DeFi y bloquearlas por región no protege nada.
- *  - Los prepare que ABREN POSICIÓN llevan además el cap off-chain compartido
- *    (`config/demoCap`) — protección mientras el contrato no está auditado.
- *  - Las lecturas (pote-state, credential-gate) quedan abiertas: es estado
- *    público de la cadena, igual que el criterio de xrpl-defi.
- *
- * La puerta de credencial (escena 2): un pote listado en
- * `POTE_CREDENTIAL_GATED` exige que la RAÍZ XRPL del depositante sostenga una
- * credencial válida de un emisor de `XRPL_CREDENTIAL_ISSUERS` — fail-closed
- * por las dos vías (sin allowlist configurada, nada desbloquea).
- *
- * Cada pre-flight espeja un revert real de AstryumVault: aquí no se invita a
- * firmar transacciones condenadas (patrón ORDER_WOULD_REVERT / CLAIM_NOT_READY).
  */
 
 import { handoffPayloadExpiryMin, forwardedProofRefusalBody, forwardedProofRefusalStatus } from '../services/flare/handoffAuthority';
@@ -56,7 +37,7 @@ import {
 import { COUNCIL_ORDER_EXIT_ACTIONS } from '../services/councilExitToken';
 
 /**
- * it. 23 (it. 22 §1.2) — THE SIGNING WINDOW TRAVELS WITH THE 0xFE.
+ * THE SIGNING WINDOW TRAVELS WITH THE 0xFE.
  *
  * The seat's life is measured from the Xaman payload's expiry, and the client
  * used to invent that number (a hardcoded 5). One deployment changing the
@@ -70,7 +51,7 @@ function zeroFeSigningWindow(h: {
   signerListRead?: string | null;
 }): { payloadExpiryMin: number; payloadExpiresAt?: string; signerListRead?: 'single' | 'quorum' | 'unknown' } {
   const min = typeof h?.payloadExpiryMin === 'number' && h.payloadExpiryMin > 0 ? h.payloadExpiryMin : handoffPayloadExpiryMin();
-  // it. 31 (§5): whether that window is a READ or a default travels beside it.
+  // Whether that window is a READ or a default travels beside it.
   // The browser only skips its own SignerList read on `'single'` — a window
   // alone never says why it is short.
   const read = h?.signerListRead;
@@ -135,32 +116,8 @@ const POTE_IFACE = new ethers.Interface([
 ]);
 
 /**
- * ⛔ INERTE desde 2026-08-24 — devuelve null siempre. NO se borra (regla del
+ * ⛔ INERTE — devuelve null siempre. NO se borra (regla del
  * repo: el código construido se deja inerte, no se elimina), pero NO se cobra.
- *
- * POR QUÉ. Esta fee muerde al CLIENTE, en participaciones, o sea sobre
- * principal + yield. El canon lo prohíbe sin matices
- * (`Institutional_Infraestructura_Final_2026-08-18`):
- *
- *   «Astryum cobra licencia al operador, jamás un corte del rendimiento del
- *    cliente. Cobrar de ahí nos convertiría de proveedor de software en
- *    prestador de servicio financiero.»
- *
- * …y lista «fee de Astryum = 0» entre los inmutables del pote. El fundador fijó
- * el 24-ago el modelo bueno (doc Producto A §15.1): el ingreso viene SIEMPRE del
- * lado del operador — corte de la fee del manager, fee de integrador del venue
- * (p. ej. Kinetic partner), y pago por creación de pote. El test es uno solo:
- * ¿el cliente recibe menos porque Astryum esté en medio? Aquí la respuesta era
- * sí, así que la puerta se cierra en el único sitio que la enciende.
- *
- * Con null, el fee-leg de más abajo produce feeShares=0 / feeCalls=[] /
- * feeInfo=null: cero efecto, cero rama muerta, y el redeem del user queda
- * intacto. Las envs `INSTITUTIONAL_FEE_COLLECTOR` /
- * `INSTITUTIONAL_REDEEM_FEE_BPS` ya no hacen nada — a propósito.
- *
- * Si algún día se cobra on-chain, tiene que ser DENTRO del cap del manager
- * (`PAYEE_BPS_CAP = 2000`) y sin subir el total, o vuelve a ser un corte al
- * cliente con otro nombre.
  */
 function redeemServiceFee(): { bps: bigint; collector: string } | null {
   return null;
@@ -194,7 +151,7 @@ function rpcUrl(): string {
 }
 
 /**
- * LAS LECTURAS SE SIRVEN DE CACHÉ (2026-09-11, `swrCache`): fresco se sirve,
+ * LAS LECTURAS SE SIRVEN DE CACHÉ (`swrCache`): fresco se sirve,
  * pasado se sirve YA y se recalcula por detrás, y N lectores concurrentes son
  * UNA lectura de cadena. Ventanas cortas a propósito — la UI que espera un
  * cambio (el creador esperando su pote, la consola tras una orden) relee cada
@@ -260,26 +217,10 @@ function regionOf(req: Request): string | null {
 /**
  * Puerta de las rutas que MUEVEN CAPITAL: flag (#10) + geofence (#5).
  *
- * Hasta 2026-08-24 este router era el único carril DeFi sin geofence: sus
+ * Hasta este router era el único carril DeFi sin geofence: sus
  * hermanos (xrplDefi, ethMorpho, flareDemo, walletTransfer, councilProposals)
  * ya llamaban a `isDefiExecutionAllowed` y este no. Un usuario no necesita
  * nuestra UI para llamar a un endpoint: le basta curl.
- *
- * NO se aplica a dos familias, y las dos por la misma razón — el geofence
- * existe para impedir que se ABRA exposición DeFi donde no toca, jamás para
- * atrapar capital que ya está dentro:
- *
- *  1. Las ceremonias de identidad XRPL (credencial, ancla, dominio): no son
- *     ejecución DeFi y bloquearlas por región no protege nada.
- *  2. Las salidas y las reducciones de exposición — redeem, claimRedeem,
- *     exit-xrp, creator-exit y recall. El propio contrato ya sienta el
- *     precedente: el `userGate` de AstryumVault es ENTRY-ONLY («la salida nunca
- *     lo llama»), y las redenciones pueden cruzar el suelo del colchón porque la
- *     salida del holder manda. Un 451 en el redeem convertiría un límite
- *     regulatorio en un secuestro de fondos ajenos.
- *
- * Si algún día hay que bloquear una salida, será una decisión de producto
- * explícita y documentada — nunca el efecto lateral de copiar una línea.
  */
 function capitalGate(req: Request): { status: number; body: { error: string; detail: string } } | null {
   const flag = poteGate();
@@ -309,26 +250,15 @@ function capitalGate(req: Request): { status: number; body: { error: string; det
  * allowlist configurada, `capitalGate` rechazaba TODO recall, en cualquier sitio.
  *
  * No lleva a propósito un parámetro `req`: no hay nada de la petición que pueda
- * cerrar una salida. El flag se queda (kill-switch del módulo, decisión del fundador).
+ * cerrar una salida. El flag se queda.
  */
 function exitGate(): { status: number; body: { error: string; detail: string } } | null {
   return poteGate();
 }
 
 /**
- * UNA ORDEN FIRMABLE POR ASIENTO (2026-09-14) — el pin de Sequence de las órdenes
+ * UNA ORDEN FIRMABLE POR ASIENTO — el pin de Sequence de las órdenes
  * que firma una cuenta de consejo en Xaman (`XrplOrderSequencePin`).
- *
- * Sin él, desmontar el componente de firma dejaba componer una SEGUNDA orden con la
- * primera aún firmable en el móvil, y las dos validaban. Con la Sequence actual
- * fijada, dos composiciones seguidas comparten asiento y solo una entra en el ledger.
- * En firma simple lleva además LastLedgerSequence (ventana `ORDER_LEDGER_WINDOW`); en
- * una cuenta con SignerList no, porque la ceremonia multisig la fija su coordinador.
- *
- * Responde ÉL MISMO el 503 ORDER_SEQUENCE_UNREADABLE y devuelve null: jamás se
- * compone una orden sin fijar. Se llama DESPUÉS de las negativas deterministas y
- * ANTES de componer — en el nacimiento, antes de tomar el asiento de nonce del 0xFE,
- * para que un 503 no deje un asiento ocupado.
  */
 async function readOrderPinOr503(res: Response, account: string): Promise<OrderSequencePin | null> {
   try {
@@ -340,7 +270,7 @@ async function readOrderPinOr503(res: Response, account: string): Promise<OrderS
 }
 
 /**
- * LA ORDEN FIRMADA SE ENTREGA SIN NAVEGADOR (2026-09-14) — cada orden de consejo
+ * LA ORDEN FIRMADA SE ENTREGA SIN NAVEGADOR — cada orden de consejo
  * compuesta para firmar se RECUERDA en el servidor antes de entregarla
  * (`ComposedCouncilOrderStore`): memo, bytes, cuenta, Sequence/LastLedgerSequence
  * fijadas y ledger de composición. El vigía del relé (`sweepComposedCouncilOrders`)
@@ -358,9 +288,9 @@ async function recordComposedOrderOr503(
   input: Parameters<typeof import('../services/flare/ComposedCouncilOrderStore').recordComposedCouncilOrder>[0],
   opts: { exit?: boolean } = {},
 ): Promise<{ proceed: boolean; warning: string | null; serverDelivery: { recorded: boolean; executorEnabled: boolean } }> {
-  // LA SALIDA JAMÁS SE GATEA (productizer it. 11): este registro es una RED DE
+  // LA SALIDA JAMÁS SE GATEA: este registro es una RED DE
   // SEGURIDAD — el relé normal lo lanza la pantalla que firma (onSettled). Una base
-  // de datos caída o la cola del consejo llena (it. 13, TOO_MANY_PENDING_ORDERS) no
+  // de datos caída o la cola del consejo llena (TOO_MANY_PENDING_ORDERS) no
   // pueden cerrar un recall/evacuate: la orden se entrega igual con un aviso. Las
   // demás acciones se niegan (503 / 429). La regla vive UNA vez, en el store: la
   // comparte con `/xrpl-defi/council-order/prepare`.
@@ -374,7 +304,7 @@ async function recordComposedOrderOr503(
 }
 
 /**
- * EL TOKEN DE SALIDA TAMBIÉN SALE DE AQUÍ (productizer it. 13, simetría con el
+ * EL TOKEN DE SALIDA TAMBIÉN SALE DE AQUÍ (simetría con el
  * Legacy). Una salida compuesta en este router que firma un consejo multifirma
  * pasa por `/xrpl-defi/multisign/prepare`; el token (MAC del servidor sobre la
  * cuenta + los bytes exactos + la acción, 15 min) le deja tomar la puerta de solo
@@ -397,13 +327,13 @@ async function exitTokenFor(
 }
 
 /**
- * ¿ESTA SESIÓN CONTROLA ESTA CUENTA XRPL? (productizer it. 13 J1, ampliado en it. 15).
+ * ¿ESTA SESIÓN CONTROLA ESTA CUENTA XRPL? (J1, ampliado).
  * Lo decide el servidor (`handoffAuthority`), jamás el body, y se pregunta UNA vez
  * por petición, cuenta Y PROPÓSITO: lo usan el `supersede` del 0xFE, la guarda de
  * cuenta operativa (`preparedByProven`) y el tope por preparador de las órdenes
  * compuestas.
  *
- * productizer it. 23 (hallazgo 1.1, CUATRO revisores) — EL PROPÓSITO ES PARTE DE LA
+ * EL PROPÓSITO ES PARTE DE LA
  * PREGUNTA, y esta puerta no lo pasaba. La clave de caché lo incluye porque `'entry'`
  * y `'exit'` son dos preguntas distintas sobre la misma cuenta: la primera falla
  * cerrada cuando la tienda no contesta, la segunda conserva el derecho y devuelve un
@@ -434,37 +364,9 @@ async function authorityFor(
 }
 
 /**
- * productizer it. 23 (hallazgo 1.1) — LAS DOS MITADES DEL ASIENTO, POR UNA SOLA
+ * LAS DOS MITADES DEL ASIENTO, POR UNA SOLA
  * PUERTA. **EL FALLO QUE ENCONTRARON CUATRO REVISORES POR SEPARADO, Y ESTÁ EN EL
  * CARRIL QUE MUEVE EL DINERO DEL CLIENTE.**
- *
- * QUÉ FALLABA EN SILENCIO: las seis puertas de 0xFE de este router preguntaban con
- * la forma BOOLEANA (`provenFor` → `sessionMayActOnXrplAccount`), que (a) usa el
- * propósito por defecto `'entry'` —así que en una SALIDA una tienda de pruebas caída
- * fallaba cerrada— y (b) tira el `refusal`, así que el 503 reintentable que el módulo
- * de identidad devuelve para una salida no llegaba a ninguna parte. Resultado con la
- * BD parpadeando: la fila del 0xFE nacía `preparedByProven:false` **y sin**
- * `preparedByProofUnreadable`, es decir, en la clase «borrador de quien no prueba» —
- * y esa clase la desplaza el propio dueño en su siguiente prepare, **mientras la
- * primera todavía puede firmarse en Xaman**. Eso es el GEMELO: dos Payments vivos
- * sobre el mismo asiento, uno de ellos ya en el móvil del cliente.
- *
- * Esta es la ÚNICA forma de rellenar esos dos campos en este router. Hace tres cosas
- * y las tres importan:
- *   · pregunta con el propósito real de la puerta (`'exit'` en una salida);
- *   · **propaga** el 503 reintentable en vez de un `false` mudo — nada se compone,
- *     nada se mueve, y no es un «no»: es «vuelve a intentarlo»;
- *   · persiste `preparedByProven` **y** `preparedByProofUnreadable`, para que ninguna
- *     regla de asiento aparte una fila por un `false` que en realidad era «no pude
- *     preguntar».
- *
- * SOLO el refusal REINTENTABLE se convierte en 503 (`refusal.retryable`, clasificado
- * por el agente E): `no-user-row` y `unreadable-floor` son deterministas y esperar no
- * los cura, así que la salida se compone igual con `preparedByProven:false` y el
- * constructor decide — la salida jamás se gatea por una lectura nuestra.
- *
- * Misma pieza que `seatClaimOf` en `flareDemo.ts`: `seatProofFromVerdict` (contrato
- * del agente E). Una sola manera de rellenar el par, sin copias que se separen.
  */
 interface SeatProofFields {
   preparedByProven: boolean;
@@ -488,9 +390,9 @@ async function seatProofFieldsFor(
     },
     { supersede: opts.supersede === true },
   );
-  // productizer it. 31 (agente D, 4.1) — EL REFUSAL VIAJA ENTERO. Esta rama
+  // EL REFUSAL VIAJA ENTERO. Esta rama
   // reescribía cualquier refusal reintentable como un `PROOF_STORE_UNREADABLE`
-  // de frase fija («could not read … try again in a moment»). Desde it. 29
+  // de frase fija («could not read … try again in a moment»).
   // también entra por aquí `PROOF_FLOOR_AHEAD_OF_CLOCK` (la marca de toma de
   // posesión adelantada a nuestro reloj), para el que esa frase es falsa por
   // las dos mitades: la fila SE LEYÓ y el instante puede ser 2099. Se perdían el
@@ -510,7 +412,7 @@ async function seatProofFieldsFor(
 }
 
 /**
- * productizer it. 25 (§2.1) — ¿LA FIRMA ESTE 0xFE UN QUÓRUM? SE PREGUNTA AL LEDGER.
+ * ¿LA FIRMA ESTE 0xFE UN QUÓRUM? SE PREGUNTA AL LEDGER.
  *
  * Las siete puertas de 0xFE de este router componen para cuentas de las DOS clases:
  * un pote de consejo (SignerList, ceremonia multifirma de horas) y un pote PERSONAL
@@ -528,7 +430,7 @@ async function ceremonyWindowFor(
 ): Promise<{ signingCeremony?: true; signerListRead?: 'single' | 'quorum' | 'unknown' }> {
   try {
     const { signingCeremonyFor } = await import('../connectors/protocols/flare/FlareDirectMintService');
-    // it. 31 (§5): `signerListRead` rides along — the builder stamps it on the
+    // `signerListRead` rides along — the builder stamps it on the
     // handoff and `zeroFeSigningWindow` answers it, so the browser can tell a
     // window that was READ from one that is merely the default.
     return await signingCeremonyFor(account);
@@ -538,7 +440,7 @@ async function ceremonyWindowFor(
 }
 
 /**
- * @deprecated productizer it. 23 (1.1) — SUPERSEDIDA por `seatProofFieldsFor`, que es
+ * @deprecated — SUPERSEDIDA por `seatProofFieldsFor`, que es
  * la única puerta que rellena el par `preparedByProven` / `preparedByProofUnreadable`.
  * Se conserva viva (nunca se borra código construido) para cualquier lector que solo
  * necesite el booleano y NO decida asiento; delega en el mismo veredicto cacheado, así
@@ -552,9 +454,9 @@ async function provenFor(req: Request, account: string): Promise<boolean> {
 
 /**
  * `supersede` solo vale si la sesión puede actuar sobre esa cuenta XRPL
- * (productizer it. 13, J1 — lo decide `handoffAuthority`, del agente del 0xFE).
+ * (J1 — lo decide `handoffAuthority`, del agente del 0xFE).
  *
- * @deprecated productizer it. 23 (1.1) — usa `seatProofFieldsFor(...).supersedeAuthorized`:
+ * @deprecated — usa `seatProofFieldsFor(...).supersedeAuthorized`:
  * ahí el permiso sale del MISMO veredicto que los dos campos de prueba, y un «no pude
  * leer» jamás concede un desplazamiento. Inerte pero viva.
  */
@@ -564,22 +466,10 @@ async function supersedeAuthorizedFor(req: Request, account: string, supersede: 
 }
 
 /**
- * LA ORDEN DOBLE, POR CONTENIDO (productizer it. 15, hallazgo 2.2 — sustituye a la
- * guarda «en vuelo» de la it. 13, que miraba el estado del relé: bloqueaba lo
+ * LA ORDEN DOBLE, POR CONTENIDO (hallazgo 2.2 — sustituye a la
+ * guarda «en vuelo» de la, que miraba el estado del relé: bloqueaba lo
  * inofensivo —dos `direct-to` distintos, un relé en `error`— y se retiraba justo
  * cuando la orden ya `executed` hace posible el doble pago).
- *
- * Ahora la pregunta es la del usuario: «¿esta MISMA orden (misma cuenta, misma
- * acción, mismos parámetros) ya salió hace menos de 30 min?». Si sí y NO es salida,
- * 409 `SAME_ORDER_RECENTLY_LAUNCHED` salvo `confirmAnotherOrder: true`. Una SALIDA
- * jamás se para: sigue, con `duplicateWarning`.
- *
- * it. 17 (hallazgos 2.3 / 2.4): `content.params` son los params COMPUESTOS — los que
- * el builder va a usar, no `req.body.params` (un `feePayer` derivado o un campo de
- * más esquivaban la clave). Y antes de dar por bueno «no hay duplicado» se consulta
- * el LEDGER por lo que el barrido (cada 5 min) todavía no ha marcado, con la caché y
- * el presupuesto de la lectura de fate. Una lectura fallida sale como aviso, nunca
- * como negativa ni como silencio.
  */
 async function councilDuplicateOr409(
   req: Request,
@@ -608,7 +498,7 @@ async function councilDuplicateOr409(
 }
 
 /**
- * ¿ESTÁ ENCENDIDO EL VIGÍA QUE ENTREGA ESTE 0xFE? (productizer it. 16, hallazgo 3.2).
+ * ¿ESTÁ ENCENDIDO EL VIGÍA QUE ENTREGA ESTE 0xFE? (hallazgo 3.2).
  *
  * El banner del frontend servía su frase prudente («no te prometo la entrega»)
  * sobre TODA salida institucional, porque ninguna ruta 0xFE devolvía
@@ -621,7 +511,7 @@ function handoffServerDelivery(): { serverDelivery: { executorEnabled: boolean }
 }
 
 /**
- * EL CUERPO 409 DE UN ASIENTO OCUPADO, ENTERO (productizer it. 17 — encargo del
+ * EL CUERPO 409 DE UN ASIENTO OCUPADO, ENTERO (encargo del
  * agente de los asientos 0xFE).
  *
  * Estas rutas construían el 409 a mano con `code` y `retryable` y tiraban el resto,
@@ -634,27 +524,16 @@ function handoffServerDelivery(): { serverDelivery: { executorEnabled: boolean }
  * confirma jamás que ese memo exista.
  */
 /**
- * productizer it. 21 (P2, encargo del agente de los asientos) — EL ASIENTO OCUPADO
+ * EL ASIENTO OCUPADO
  * Y EL ASIENTO ILEGIBLE NO SON EL MISMO RECHAZO.
- *
- * QUÉ FALLABA EN SILENCIO: `SeatStateUnreadableError` hereda de `NonceSeatTakenError`
- * y CONSERVA su `name` a propósito (para que una ruta antigua conteste un 409 que la
- * pantalla ya conoce en vez de un 500 mudo). Estas rutas casan por nombre, así que un
- * «no pude leer el estado del asiento» salía como 409 definitivo — también sobre una
- * SALIDA, que es exactamente lo que el invariante prohíbe: una lectura fallida
- * nuestra no es ni permiso ni castigo, y menos un hecho.
- *
- * La clase trae su propia marca (`unreadableSeatState`), leída aquí sin importar el
- * módulo — estas rutas lo cargan perezosamente a propósito. 503 reintentable cuando
- * no pudimos leer; el 409 queda para el asiento que de verdad está ocupado.
  */
 function seatRefusalStatus(e: unknown): number {
-  // it. 31 (4.1): un refusal de la tienda de pruebas reenviado trae su status.
+  // Un refusal de la tienda de pruebas reenviado trae su status.
   return forwardedProofRefusalStatus(e) ?? ((e as { unreadableSeatState?: boolean })?.unreadableSeatState === true ? 503 : 409);
 }
 
 function nonceSeatBody(e: unknown): Record<string, unknown> {
-  // it. 31 (4.1): la puerta del asiento reenvía el refusal de la tienda de
+  // La puerta del asiento reenvía el refusal de la tienda de
   // pruebas ENTERO (código, headline, ways, retryAfterSeconds, detail) — jamás
   // un `PROOF_STORE_UNREADABLE` reconstruido a partir del mensaje.
   const forwarded = forwardedProofRefusalBody(e);
@@ -679,7 +558,7 @@ function nonceSeatBody(e: unknown): Record<string, unknown> {
 }
 
 /**
- * EL TOPE, DECIDIDO ANTES DE GASTAR LECTURAS (productizer it. 17, hallazgo 2.5).
+ * EL TOPE, DECIDIDO ANTES DE GASTAR LECTURAS (hallazgo 2.5).
  *
  * El 429 lo levantaba `recordComposedCouncilOrder`, que corre el ÚLTIMO: para
  * entonces la puerta ya se había gastado `isCageV2Council`, `resolveAstryumCage`,
@@ -706,7 +585,7 @@ async function councilQueueFull429(
 }
 
 /**
- * LA COMISIÓN DE REDENCIÓN sobre lo que DE VERDAD se desmintea (productizer it. 13,
+ * LA COMISIÓN DE REDENCIÓN sobre lo que DE VERDAD se desmintea (
  * hallazgo 4.2; invariantes #6/#9). Cifra viva de AssetManagerFXRP; ilegible → null
  * y una línea que lo dice: jamás 0. `netUBA` es la estimación neta que llega cuando
  * el agente de FAssets paga.
@@ -862,22 +741,9 @@ router.get('/pote-state', guarded(async (req: Request, res: Response) => {
  * Sustituye a las dos direcciones de entorno que hacían de catálogo: con potes
  * que nacen bajo demanda, un pote creado por un gestor tiene que existir para
  * todo el mundo sin desplegar nada.
- *
- * Lectura abierta como `/pote-state`: es estado público de la cadena.
- *
- * ORDEN NEUTRO, y no es un detalle de implementación. Se devuelven en orden de
- * creación, sin ranking, sin destacados y sin ordenar por rendimiento. Ordenar
- * es elegir, y elegir por el usuario es lo que separa publicar un catálogo de
- * recomendar un producto. Cada pote lleva la marca de su operador, nunca la
- * nuestra.
- *
- * El tick de credencial (`?withCredentials=1`) se lee del LEDGER XRPL y dice
- * quién acreditó, jamás «verificado por Astryum»: no somos emisores, solo
- * enseñamos lo que el ledger ya publica. Un fallo de lectura deja el pote sin
- * tick — nunca lo marca como no verificado, porque no saberlo no es saber que no.
  */
 router.get('/potes', guarded(async (req: Request, res: Response) => {
-  // Dos generaciones, UN catálogo (27-ago): los potes sueltos de la factory v1
+  // Dos generaciones, UN catálogo: los potes sueltos de la factory v1
   // y los potes de las jaulas v2. Cualquiera de las dos factories puede faltar;
   // las dos a la vez es «no hay catálogo».
   const v1Raw = process.env.ASTRYUM_FACTORY_ADDRESS;
@@ -889,13 +755,13 @@ router.get('/potes', guarded(async (req: Request, res: Response) => {
   }
 
   try {
-    // LA LECTURA VIVE EN PoteCatalogRead (12-sep): la misma que calienta el
+    // LA LECTURA VIVE EN PoteCatalogRead: la misma que calienta el
     // arranque y relee cada 20 min — con su caché swr, su RPC propio del
     // catálogo y su fallback al público. Aquí solo se sirve.
     const { readFullPoteCatalog, peekPoteCatalog } = await import('../services/flare/PoteCatalogRead');
     const override = String(req.query.fromBlock ?? '');
     // SIN NADA SERVIBLE (arranque en frío), no se cuelga al cliente hasta su
-    // tope (12-sep: «The catalogue could not be read»): se lanza la lectura
+    // tope («The catalogue could not be read»): se lanza la lectura
     // en segundo plano y se contesta 202 «calentando»; el cliente vuelve a
     // preguntar en unos segundos. Con algo servible (fresco o pasado) se
     // sirve al instante y la caché se recalcula por detrás.
@@ -1146,24 +1012,14 @@ router.post('/pote-redeem/prepare', guarded(async (req: Request, res: Response) 
 }));
 
 
-// ── it. 34 — las colas de venue del cobro: una lectura, jamás un cero ───────
+// ── Las colas de venue del cobro: una lectura, jamás un cero ───────
 //
 // Las dos rutas de cobro (`/pote-claim-redeem` por EVM y `/pote-claim-exit` por
-// 0xFE) componen `claimRedeem(ticket, venueClaims[])`. Dos lecturas deciden ese
-// array y las dos se tragaban su fallo:
-//   · `balanceOf(pote).catch(() => 0n)`: un colchón ILEGIBLE se leía como «el
-//     pote no tiene nada», forzaba el escaneo y podía meter un venueClaim de un
-//     periodo ya recogido — el revert del incidente del 10-sep, compuesto a
-//     propósito por un 429.
-//   · `readPendingWithdrawals` (it. 31) ya no lanza por un periodo caído: lo
+// 0xFE) componen `claimRedeem(ticket, venueClaims[])`.
+//   · `readPendingWithdrawals` ya no lanza por un periodo caído: lo
 //     marca en `unreadablePeriods`. Nadie lo miraba: el periodo no leído no
 //     entraba en `venueClaims`, y con el colchón corto `claimRedeem` revierte
 //     `UnwindShortfall` (AstryumVault.sol) — la persona firma una tx condenada.
-//
-// Regla: con periodos ilegibles y (colchón + colas legibles) que NO cubren el
-// ticket, no se compone (502 reintentable: la salida no se gatea, se dice que
-// no pudimos mirar). Si cubren, se compone y la nota dice qué periodos no se
-// leyeron. Lo firmado sigue siendo del usuario; Astryum no firma.
 
 interface FirelightClaimSweep {
   venueClaims: Array<{ venueId: number; period: number }>;
@@ -1292,13 +1148,13 @@ router.post('/pote-claim-redeem/prepare', guarded(async (req: Request, res: Resp
   // único venue encolado del rodaje es Firelight; el escaneo por periodos es
   // el del adapter (withdrawalsOf devuelve ASSETS, claimable = period < current).
   //
-  // GUARDA (incidente 10-sep): si el colchón del pote ya cubre el ticket (el
+  // GUARDA: si el colchón del pote ya cubre el ticket (el
   // gestor lo recuperó al buffer con un recall), se paga del colchón y
   // venueClaims queda VACÍO — meter un venueClaim de un periodo YA recogido hace
   // REVERTIR el claim. Solo se escanean colas si el colchón no llega al importe.
   const ticket = state.tickets[id];
   const claimProvider = new ethers.JsonRpcProvider(rpcUrl());
-  // it. 34 — the cushion is a READ (see venueClaimCoverage above): unreadable
+  // The cushion is a READ (see venueClaimCoverage above): unreadable
   // is a 502 to retry, never a zero that forces the scan.
   const cushionRead = await readPoteCushion(claimProvider, state);
   if (cushionRead.ok === false) return void res.status(502).json(cushionUnreadableBody(state, cushionRead.detail));
@@ -1355,7 +1211,7 @@ router.post('/pote-claim-redeem/prepare', guarded(async (req: Request, res: Resp
  * Estas dos rutas componen una firma EVM DEL DIRECTOR. Si el pote no tiene un
  * director cedido vigente, esa firma revierte con `NotDirectorOrCouncil` y el
  * firmante paga gas por una transacción condenada sin entender por qué — pasó en
- * vivo (23-ago-2026: `directTo` firmado con MetaMask sin cesión, revert
+ * vivo (`directTo` firmado con MetaMask sin cesión, revert
  * `0x16baed6b`, horas de diagnóstico). Sin cesión, el camino correcto es la
  * ORDEN DE CONSEJO por XRPL.
  *
@@ -1586,7 +1442,7 @@ router.post('/pote-create/prepare', guarded(async (req: Request, res: Response) 
     // PARE potes con esta ceremonia v1 — su jaula los abre por orden de consejo
     // (`create-pote` en /cage-order/prepare). Componer aquí produciría un 0xFE
     // firmable que minta FXRP real para levantar un stack v1 paralelo al lado de
-    // la jaula (el hazard multi-registro del 28-ago). Si la lectura falla, la
+    // la jaula (el hazard multi-registro). Si la lectura falla, la
     // ruta falla entera: «no pude comprobar» no es «adelante».
     const { isCageV2Council } = await import('../services/flare/LegacyCageResolver');
     if (await isCageV2Council(account)) {
@@ -1664,11 +1520,11 @@ router.post('/pote-create/prepare', guarded(async (req: Request, res: Response) 
         innerCalls,
         action: 'astryum-pote-create',
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): una ENTRADA sigue fallando cerrada si no se puede leer la
+        // Una ENTRADA sigue fallando cerrada si no se puede leer la
         // prueba, pero la fila se marca `preparedByProofUnreadable` igual — así
         // ninguna regla de asiento la aparta por un `false` que era «no pude leer».
         ...(await seatProofFieldsFor(req, account, { purpose: 'entry' })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+        // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
         // compone con la ventana de su ceremonia; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
         supersedeAuthorized: false,
@@ -1709,7 +1565,7 @@ router.post('/pote-create/prepare', guarded(async (req: Request, res: Response) 
       },
     });
   } catch (e) {
-    // it. 15: esta puerta también toma un asiento de nonce y también puede tocar una
+    // Esta puerta también toma un asiento de nonce y también puede tocar una
     // cuenta operativa; devolvía 500 «falló» para las dos negativas que sí tienen
     // remedio (esperar / usar la cuenta correcta).
     const name = (e as { name?: string })?.name;
@@ -1717,7 +1573,7 @@ router.post('/pote-create/prepare', guarded(async (req: Request, res: Response) 
       return void res.status(403).json({ error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) });
     }
     if (name === 'NonceSeatTakenError') {
-      // it. 17: el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
+      // El cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
       // memo de la fila que bloquea) — un código a secas es un callejón.
       return void res.status(seatRefusalStatus(e)).json(nonceSeatBody(e));
     }
@@ -1755,7 +1611,7 @@ router.post('/pote-fund-xrp/prepare', guarded(async (req: Request, res: Response
     if (!amountXrp || !/^[0-9]+(\.[0-9]{1,6})?$/.test(amountXrp)) return void badRequest(res, 'amountXrp es obligatorio');
   }
 
-  // El receiver es OPCIONAL desde 2026-08-24 (modo no-custodial, Producto A).
+  // El receiver es OPCIONAL (modo no-custodial, Producto A).
   //
   // Antes era obligatorio y se tecleaba: una dirección mal copiada mandaba las
   // participaciones de alguien a una cuenta ajena, sin vuelta atrás. En el modo
@@ -1882,9 +1738,9 @@ router.post('/pote-fund-xrp/prepare', guarded(async (req: Request, res: Response
         innerCalls,
         action: fromSmartAccount ? 'astryum-pote-fund-pa' : 'astryum-pote-fund',
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): ENTRADA — mismo par de campos, mismo sitio único.
+        // ENTRADA — mismo par de campos, mismo sitio único.
         ...(await seatProofFieldsFor(req, account, { purpose: 'entry' })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+        // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
         // compone con la ventana de su ceremonia; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
         supersedeAuthorized: false,
@@ -1926,16 +1782,16 @@ router.post('/pote-fund-xrp/prepare', guarded(async (req: Request, res: Response
     });
   } catch (e) {
     const name = (e as { name?: string })?.name;
-    // it. 13 (2.1): an XRPL account Astryum operates (the exchange omnibus) only takes
+    // An XRPL account Astryum operates (the exchange omnibus) only takes
     // the exchange's own 0xFE — a stranger can no longer occupy its nonce seat from here.
     if (name === 'OperationalAccountHandoffError') {
       return void res.status(403).json({ error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) });
     }
     if (name === 'NonceSeatTakenError') {
-      // it. 15: el CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
+      // El CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
       // reintentar puede servir — la pantalla ofrecía «Reintentar liberando el asiento»
       // en bucle porque todos llegaban como un NONCE_SEAT_TAKEN plano.
-      // it. 17: el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
+      // el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
       // memo de la fila que bloquea) — un código a secas es un callejón.
       return void res.status(seatRefusalStatus(e)).json(nonceSeatBody(e));
     }
@@ -2020,7 +1876,7 @@ router.post('/pote-exit-xrp/prepare', guarded(async (req: Request, res: Response
 
     const call = await buildRedeemToXrplCall(provider, { amountUBA: BigInt(amountFxrpBase), xrplDestination: dest, destinationTag: tag });
     const target = tag !== undefined ? `${dest} (tag ${tag})` : dest;
-    // productizer-it9 §3.4 — la comisión de redención, cifra VIVA del protocolo
+    // La comisión de redención, cifra VIVA del protocolo
     // (invariantes #6/#9). Ilegible → null y una línea que lo dice: jamás 0.
     const redemptionFee = estimateRedemptionFee(BigInt(amountFxrpBase), await readRedemptionFeeBips(provider));
     res.json({
@@ -2049,7 +1905,7 @@ router.post('/pote-exit-xrp/prepare', guarded(async (req: Request, res: Response
   }
 }));
 
-// ── el PERFIL PÚBLICO del gestor (fundador 6-sep) ───────────────────────────
+// ── el PERFIL PÚBLICO del gestor ───────────────────────────
 // Auto-declarado (nombre, foto, bio) + HECHOS del ledger (credenciales con su
 // «verified», hasta cuándo, y el enlace a la prueba — el URI de la XLS-70).
 // Lo escribe SOLO el dueño probado de la r-address: la wallet tiene que estar
@@ -2174,7 +2030,7 @@ router.post('/manager-profile', guarded(async (req: Request, res: Response) => {
   }
 }));
 
-// ── la COMUNIDAD de gestores (fundador 8-sep) ───────────────────────────────
+// ── la COMUNIDAD de gestores ───────────────────────────────
 // Apoyos públicos («upvotes») por r-address y la imagen elegida por pote. Nada
 // de esto mueve capital ni promete rendimiento: es reputación declarada por
 // usuarios logueados, y el cliente la cruza con el catálogo que ya tiene.
@@ -2323,7 +2179,7 @@ router.get('/council/anchor', guarded(async (req: Request, res: Response) => {
   }
 }));
 
-// ── el REGISTRO DE VENUES de Astryum (X1 de la revisión 2-sep) ──────────────
+// ── el REGISTRO DE VENUES de Astryum (X1 de la revisión) ──────────────
 // El scanner on-chain que todo pote v2 consulta en `_addVenue`. Sin entradas,
 // todo pote nace con CERO destinos: era el primer bloqueante absoluto del
 // deploy mainnet. Aquí: leerlo (público) y COMPONER las tres escrituras del
@@ -2474,7 +2330,7 @@ router.post('/venue-registry/remove/prepare', guarded(async (req: Request, res: 
  * registro con su wallet EVM (Astryum no firma). Es el gap 3 acotado en cadena:
  * a partir de aquí, el unmint saca el tag de aquí, no de lo tecleado.
  */
-// SOLO FUNDADORES (2026-09-20): sus dos pantallas —la mesa del partner de KYC
+// SOLO FUNDADORES: sus dos pantallas —la mesa del partner de KYC
 // (/app/partner) y la del operador del exchange— van tras PreviewOnly, y una
 // ruta que sirve a una sección tapada lleva requireAdmin (404: ni admite que
 // existe). Compone sin firmar; el registro exige a su admin en cadena igual.
@@ -2536,11 +2392,11 @@ router.post('/pote-council-order/prepare', guarded(async (req: Request, res: Res
   if (!Number.isInteger(venueId) || venueId < 0) return void badRequest(res, 'venueId debe ser un entero >= 0');
   if (!/^[0-9]{1,30}$/.test(amount) || BigInt(amount) === 0n) return void badRequest(res, 'amount debe ser un entero positivo (unidades base)');
   const isExit = COUNCIL_ORDER_EXIT_ACTIONS.has(action);
-  // Qué cola cuenta esta composición (it. 15, hallazgo 2.1): la del consejo si la
+  // Qué cola cuenta esta composición (hallazgo 2.1): la del consejo si la
   // sesión lo controla, la suya propia si no — un extraño ya no llena la ajena.
   const preparedByProven = await (await import('../services/flare/ComposedCouncilOrderStore')).sessionProvesCouncil(req, council);
-  // it. 17 (2.5): el tope ANTES de `isCageV2Council`, `readPoteState` y el pin.
-  // it. 19 (2.6): y ANTES de la guarda de duplicado, que gasta lecturas DE CADENA
+  // El tope ANTES de `isCageV2Council`, `readPoteState` y el pin.
+  // y ANTES de la guarda de duplicado, que gasta lecturas DE CADENA
   // (hasta tres memos en `ledgerDuplicateCheck`). Preguntarla primero dejaba que
   // quien ya tiene la cola llena provocara lecturas de nodo en cada intento.
   if (await councilQueueFull429(res, council, preparedByProven, req.siwe?.userId ?? null, isExit)) return;
@@ -2627,34 +2483,6 @@ router.post('/pote-council-order/prepare', guarded(async (req: Request, res: Res
  * POST /pote-exit/prepare { account: "r…", pote, sharesBase?, amountXrpForMint?, marginBps?, supersede? }
  *
  * LA SALIDA POR DONDE SE ENTRÓ — el corazón del modo no-custodial (Producto A).
- *
- * Hasta ahora quien entraba con su cuenta XRPL no podía salir por ahí: sus
- * participaciones viven en su Personal Account, que no firma sola, y las dos
- * mitades del camino existían sueltas (`/pote-redeem/prepare` construye una call
- * EVM que la PA no puede enviar; `/pote-exit-xrp/prepare` desmintea FXRP que
- * todavía está dentro del pote). Esta ruta las encadena: UNA firma en Xaman y el
- * XRP aterriza en la r-address del usuario.
- *
- * El batch que ejecuta su PA:
- *   1. redeem(shares, PA, PA)            ← saca el FXRP del pote a su propia PA
- *   2. redeemAmount(uba, su r-address)   ← lo desmintea a XRP nativo, a su casa
- *
- * DESTINO. Siempre la MISMA cuenta XRPL que firma. No se acepta un destino
- * arbitrario a propósito: el capital vuelve por donde vino, y así esta ruta no
- * hereda el problema abierto de «acotar el receiver del redeem» que sí tiene el
- * carril custodial. Quien quiera mandarlo a otro sitio lo hace después, desde su
- * wallet, con una transferencia normal que él controla.
- *
- * IMPORTE. `redeem` entrega lo que valgan las participaciones EN EJECUCIÓN; el
- * unmint pide una cifra fija. Se dimensiona a la baja (ver
- * `AstryumPoteExitService.sizeUnmintConservatively`): pedir de más revertiría el
- * batch entero, pedir de menos deja FXRP en su propia PA. Solo uno de los dos
- * errores cuesta dinero.
- *
- * SIN geofence y SIN cap sobre lo que sale (es una salida — el geofence impide
- * abrir exposición, no atrapar capital). El CARRIER sí se capa, pero SOLO por
- * transacción (mintea de verdad): el presupuesto diario por dirección jamás
- * rechaza esta salida — quien depositó hoy puede salir hoy.
  */
 router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) => {
   const g = poteGate();
@@ -2665,7 +2493,7 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
   // Sin carrier explícito: el default que CABE bajo el tope por tx (defaultExitCarrierXrp).
   const amountXrpForMint = String(req.body?.amountXrpForMint ?? (await defaultExitCarrierXrp())).trim();
   const supersede = req.body?.supersede === true;
-  // UNMINT OPCIONAL (fundador 8-sep): por defecto el FXRP se queda en la cuenta
+  // UNMINT OPCIONAL: por defecto el FXRP se queda en la cuenta
   // Flare (la PA); solo si el user lo pide se desmintea a XRP nativo en la misma
   // firma. Solo afecta a la salida INMEDIATA (en cola no hay FXRP hasta el claim).
   const unmint = req.body?.unmint === true;
@@ -2769,14 +2597,14 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
           action: 'astryum-pote-request-exit',
           supersedePendingNonce: supersede,
           preparedByUserId: req.siwe?.userId ?? null,
-          // it. 15 (3.4): una sesión autorizada sobre esta cuenta pasa la guarda de
+          // Una sesión autorizada sobre esta cuenta pasa la guarda de
           // cuenta operativa con una etiqueta de SALIDA — su propia salida jamás se
           // le cierra por estar la cuenta en la lista de Astryum.
-          // it. 23 (1.1): y se pregunta con `'exit'`, así que una tienda de pruebas
+          // y se pregunta con `'exit'`, así que una tienda de pruebas
           // caída sale como 503 REINTENTABLE (`SeatStateUnreadableError` → el catch
           // de abajo, `seatRefusalStatus`) en vez de nacer como fila desplazable.
           ...(await seatProofFieldsFor(req, account, { purpose: 'exit', supersede })),
-          // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+          // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
           // compone con la ventana de su ceremonia; si no, con la de siempre.
           ...(await ceremonyWindowFor(account)),
         },
@@ -2796,7 +2624,7 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
         ...zeroFeSigningWindow(handoff),
       ...zeroFeSigningWindow(handoff),
         userOpData: handoff.userOpData,
-        // it. 19 (3.4, encargo del agente D): la salida también dice si el vigía
+        // La salida también dice si el vigía
         // entrega su 0xFE. Sin el campo la pantalla no puede distinguir «va en
         // camino» de «no llega nada salvo que lo relances», justo en una salida.
         ...handoffServerDelivery(),
@@ -2810,7 +2638,7 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
           marginBps: 0,
           // Lo que valdrá el ticket, en el asset del pote (aún no es XRP): BRUTO. La
           // comisión de redención no existe todavía — el FXRP llega al COBRAR el
-          // ticket, y es esa ruta la que trae su neto (it. 15, 3.2).
+          // ticket, y es esa ruta la que trae su neto (3.2).
           xrpOutHuman: fxrpHuman,
           xrpOutNetHuman: null,
           xrpOutNetOfRedemptionFee: false,
@@ -2891,10 +2719,10 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
         action: unmint ? 'astryum-pote-exit' : 'astryum-pote-exit-fxrp',
         supersedePendingNonce: supersede,
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): SALIDA — propósito `'exit'`, 503 propagado, y el par
+        // SALIDA — propósito `'exit'`, 503 propagado, y el par
         // `preparedByProven` / `preparedByProofUnreadable` escrito de una vez.
         ...(await seatProofFieldsFor(req, account, { purpose: 'exit', supersede })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+        // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
         // compone con la ventana de su ceremonia; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
       },
@@ -2906,7 +2734,7 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
     const outHuman = sizing ? formatBaseUnits(sizing.unmintUBA, state.asset.decimals) : fxrpHuman;
     const marginHuman = sizing ? formatBaseUnits(sizing.marginUBA, state.asset.decimals) : '0';
     const carrierMint = formatBaseUnits(net.netToPersonalAccountUBA, 6);
-    // it. 13 (4.2): la comisión de redención sobre lo que DE VERDAD se desmintea.
+    // La comisión de redención sobre lo que DE VERDAD se desmintea.
     const redemption = sizing ? await redemptionFeeFor(provider, sizing.unmintUBA) : null;
     const netHuman = redemption?.netUBA != null ? formatBaseUnits(redemption.netUBA, state.asset.decimals) : null;
     const exitAction = unmint ? 'astryum-pote-exit' : 'astryum-pote-exit-fxrp';
@@ -2921,7 +2749,7 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
       memoHex: handoff.memoHex,
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
-      // it. 19 (3.4, encargo del agente D): ver el comentario de la rama `request`.
+      // Ver el comentario de la rama `request`.
       ...handoffServerDelivery(),
       ...(await exitTokenFor(account, handoff.xrplPayment, exitAction)),
       exit: {
@@ -2931,7 +2759,7 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
         unmintUBA: sizing ? sizing.unmintUBA.toString() : '0',
         marginUBA: sizing ? sizing.marginUBA.toString() : '0',
         marginBps: sizing ? sizing.marginBps : 0,
-        // it. 15 (hallazgo 3.2) — BRUTO Y NETO EN CAMPOS DISTINTOS. `xrpOutHuman`
+        // BRUTO Y NETO EN CAMPOS DISTINTOS. `xrpOutHuman`
         // vuelve a ser SIEMPRE el bruto (lo que se desmintea); el neto de la comisión
         // de redención viaja aparte y es null cuando la cifra no se pudo leer. Antes
         // se mandaba el neto en el campo del bruto y la pantalla le restaba la
@@ -2982,10 +2810,10 @@ router.post('/pote-exit/prepare', guarded(async (req: Request, res: Response) =>
       return void res.status(403).json({ error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) });
     }
     if (name === 'NonceSeatTakenError') {
-      // it. 15: el CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
+      // El CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
       // reintentar puede servir — la pantalla ofrecía «Reintentar liberando el asiento»
       // en bucle porque todos llegaban como un NONCE_SEAT_TAKEN plano.
-      // it. 17: el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
+      // el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
       // memo de la fila que bloquea) — un código a secas es un callejón.
       return void res.status(seatRefusalStatus(e)).json(nonceSeatBody(e));
     }
@@ -3072,18 +2900,6 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
 
     // Colas de venue maduras que se cobran en la MISMA tx (mismo escaneo que la
     // ruta EVM: hoy solo Firelight, por periodos ya reclamables).
-    //
-    // GUARDA (incidente 10-sep): si el COLCHÓN del pote ya cubre este ticket
-    // —p. ej. el gestor recuperó el capital del venue al buffer con un recall—,
-    // se paga del colchón y venueClaims queda VACÍO. Añadir un venueClaim de un
-    // periodo YA recogido hace REVERTIR claimRedeem, y el claim se quedaba
-    // aparcado reintentando (el escaneo del adapter seguía marcando ese periodo
-    // «claimable» aunque el pote ya no lo tuviera). Solo se escanean colas si el
-    // colchón NO llega al importe fijado del ticket.
-    // it. 34 — same two reads, same rule as the EVM route (venueClaimCoverage):
-    // an unreadable cushion is a 502, and unread periods with a short cover do
-    // not compose (the 0xFE would carry a claimRedeem doomed to UnwindShortfall
-    // — and on this rail the carrier XRP is spent too).
     const cushionRead = await readPoteCushion(provider, state);
     if (cushionRead.ok === false) return void res.status(502).json(cushionUnreadableBody(state, cushionRead.detail));
     const cushionUBA = cushionRead.value;
@@ -3132,9 +2948,9 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
         action: claimAction,
         supersedePendingNonce: supersede,
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): SALIDA (cobro del ticket) — propósito `'exit'`.
+        // SALIDA (cobro del ticket) — propósito `'exit'`.
         ...(await seatProofFieldsFor(req, account, { purpose: 'exit', supersede })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+        // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
         // compone con la ventana de su ceremonia; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
       },
@@ -3143,7 +2959,7 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
 
     const ticketHuman = formatBaseUnits(BigInt(ticket.assets), state.asset.decimals);
     const outHuman = sizing ? formatBaseUnits(sizing.unmintUBA, state.asset.decimals) : ticketHuman;
-    // it. 13 (4.2): la comisión de redención sobre lo que DE VERDAD se desmintea.
+    // La comisión de redención sobre lo que DE VERDAD se desmintea.
     const redemption = sizing ? await redemptionFeeFor(provider, sizing.unmintUBA) : null;
     const netHuman = redemption?.netUBA != null ? formatBaseUnits(redemption.netUBA, state.asset.decimals) : null;
     res.json({
@@ -3153,7 +2969,7 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
       mode: 'claim',
       unminted: unmint,
       ticketId: id,
-      // it. 34 — the venue queues this claim collects, and what could not be read
+      // The venue queues this claim collects, and what could not be read
       // (same fields the EVM route answers; empty when the buffer paid alone).
       venueClaims: venueClaims.map((c) => ({ venueId: Number(c.venueId), period: Number(c.period) })),
       notes: claimNotes,
@@ -3161,7 +2977,7 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
       memoHex: handoff.memoHex,
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
-      // it. 19 (3.4, encargo del agente D): el cobro del ticket también es un 0xFE.
+      // El cobro del ticket también es un 0xFE.
       ...handoffServerDelivery(),
       ...(await exitTokenFor(account, handoff.xrplPayment, claimAction)),
       exit: {
@@ -3171,7 +2987,7 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
         unmintUBA: sizing ? sizing.unmintUBA.toString() : '0',
         marginUBA: sizing ? sizing.marginUBA.toString() : '0',
         marginBps: sizing ? sizing.marginBps : 0,
-        // it. 15 (3.2): bruto en `xrpOutHuman`, neto aparte (null si no se pudo leer).
+        // Bruto en `xrpOutHuman`, neto aparte (null si no se pudo leer).
         xrpOutHuman: outHuman,
         xrpOutNetHuman: netHuman,
         xrpOutNetOfRedemptionFee: false,
@@ -3211,7 +3027,7 @@ router.post('/pote-claim-exit/prepare', guarded(async (req: Request, res: Respon
     const name = (e as { name?: string })?.name;
     if (name === 'OperationalAccountHandoffError') return void res.status(403).json({ error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) });
     if (name === 'NonceSeatTakenError') {
-      // it. 17: el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
+      // El cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
       // memo de la fila que bloquea) — un código a secas es un callejón.
       return void res.status(seatRefusalStatus(e)).json(nonceSeatBody(e));
     }
@@ -3319,9 +3135,9 @@ router.post('/pote-creator-exit/prepare', guarded(async (req: Request, res: Resp
         action: 'astryum-creator-exit',
         supersedePendingNonce: supersede,
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): SALIDA del creador — propósito `'exit'`.
+        // SALIDA del creador — propósito `'exit'`.
         ...(await seatProofFieldsFor(req, account, { purpose: 'exit', supersede })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+        // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
         // compone con la ventana de su ceremonia; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
       },
@@ -3339,9 +3155,9 @@ router.post('/pote-creator-exit/prepare', guarded(async (req: Request, res: Resp
       memoHex: handoff.memoHex,
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
-      // it. 19 (3.4, encargo del agente D): la salida del creador también es un 0xFE.
+      // La salida del creador también es un 0xFE.
       ...handoffServerDelivery(),
-      // Simetría (it. 13): la salida del creador la firma un consejo multifirma por /multisign/prepare.
+      // Simetría: la salida del creador la firma un consejo multifirma por /multisign/prepare.
       ...(await exitTokenFor(account, handoff.xrplPayment, 'astryum-creator-exit')),
       redeem: { shares: shares.toString(), estFxrp: fxrpHuman },
       order: {
@@ -3372,10 +3188,10 @@ router.post('/pote-creator-exit/prepare', guarded(async (req: Request, res: Resp
       return void res.status(403).json({ error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) });
     }
     if (name === 'NonceSeatTakenError') {
-      // it. 15: el CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
+      // El CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
       // reintentar puede servir — la pantalla ofrecía «Reintentar liberando el asiento»
       // en bucle porque todos llegaban como un NONCE_SEAT_TAKEN plano.
-      // it. 17: el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
+      // el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
       // memo de la fila que bloquea) — un código a secas es un callejón.
       return void res.status(seatRefusalStatus(e)).json(nonceSeatBody(e));
     }
@@ -3534,7 +3350,7 @@ router.get('/cages', guarded(async (req: Request, res: Response) => {
       });
       // El nacimiento en vuelo viaja FUERA de la caché: es lo que le dice a la
       // estación «ya firmaste, no hay nada que firmar» antes de que la factory
-      // conozca la jaula (fundador 2026-09-15).
+      // conozca la jaula.
       const birthInFlight = body.cage ? null : await birthInFlightFor(council);
       return void res.json({ ...body, birthInFlight });
     }
@@ -3596,14 +3412,13 @@ router.post('/cage-create/prepare', guarded(async (req: Request, res: Response) 
   if (!amountXrp || !/^[0-9]+(\.[0-9]{1,6})?$/.test(amountXrp) || Number(amountXrp) <= 0) {
     return void badRequest(res, 'amountXrp es obligatorio (el carrier del 0xFE; lo que mintee queda en tu PA para las fees de creación)');
   }
-  // La lista eterna es OPCIONAL (27-ago): ausente o vacía = la jaula sigue al
+  // La lista eterna es OPCIONAL: ausente o vacía = la jaula sigue al
   // registro de Astryum tal y como esté cada día. Si viene, es para siempre.
   if (rawTargets !== undefined && rawTargets !== null && !Array.isArray(rawTargets)) {
     return void badRequest(res, 'allowedTargets, si viene, debe ser una lista [{chainId, target}] (vacía = sigue al registro)');
   }
   if (!asset) return void res.status(503).json({ error: 'ASSET_UNCONFIGURED', detail: 'Falta FXRP_TOKEN.' });
-  // UN NACIMIENTO FIRMADO EN VUELO CIERRA LA PUERTA (fundador 2026-09-15: «me
-  // chirría que te deje firmar dos veces el mismo tema»). Mientras el 0xFE
+  // UN NACIMIENTO FIRMADO EN VUELO CIERRA LA PUERTA. Mientras el 0xFE
   // firmado espera su prueba, componer otro sería un segundo pago del carrier
   // por una jaula que la factory revertirá (CageAlreadyExists). 409, con la
   // misma salida explícita que las órdenes: `confirmAnotherOrder: true`.
@@ -3627,7 +3442,7 @@ router.post('/cage-create/prepare', guarded(async (req: Request, res: Response) 
   if (cappedCarrier) return void res.status(cappedCarrier.status).json(cappedCarrier.body);
 
   // La puerta del TÍTULO DE GESTOR (AIFMD): sin credencial vigente de un emisor
-  // acreditado no se hace nacer una jaula. PUESTA EN CÓDIGO desde el 20-sep
+  // acreditado no se hace nacer una jaula. PUESTA EN CÓDIGO
   // (`managerGateEnforced`): en producción ninguna variable la apaga, y fuera solo
   // un `MANAGER_GATE_ENABLED=false` explícito. El ledger la hará cumplir de verdad; esto es el
   // pre-flight, para no firmar el 0xFE de una jaula condenada.
@@ -3733,9 +3548,9 @@ router.post('/cage-create/prepare', guarded(async (req: Request, res: Response) 
         innerCalls,
         action: 'astryum-cage-create',
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): ENTRADA — mismo par de campos, mismo sitio único.
+        // ENTRADA — mismo par de campos, mismo sitio único.
         ...(await seatProofFieldsFor(req, account, { purpose: 'entry' })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
+        // Y si esa cuenta firma por QUÓRUM (SignerList), este 0xFE se
         // compone con la ventana de su ceremonia; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
         supersedeAuthorized: false,
@@ -3796,10 +3611,10 @@ router.post('/cage-create/prepare', guarded(async (req: Request, res: Response) 
       return void res.status(403).json({ error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) });
     }
     if (name === 'NonceSeatTakenError') {
-      // it. 15: el CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
+      // El CÓDIGO exacto del asiento (…_SIGNED / _REPORTED / _UNREADABLE) y si
       // reintentar puede servir — la pantalla ofrecía «Reintentar liberando el asiento»
       // en bucle porque todos llegaban como un NONCE_SEAT_TAKEN plano.
-      // it. 17: el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
+      // el cuerpo ENTERO (cuenta atrás, ventana y, a quien puede tocarla, el
       // memo de la fila que bloquea) — un código a secas es un callejón.
       return void res.status(seatRefusalStatus(e)).json(nonceSeatBody(e));
     }
@@ -3814,34 +3629,10 @@ const CAGE_ACTIONS = new Set([
 ]);
 
 /**
- * CLASIFICACIÓN DE LAS ÓRDENES DE JAULA — «LA SALIDA JAMÁS SE GATEA» (2026-09-14).
+ * CLASIFICACIÓN DE LAS ÓRDENES DE JAULA — «LA SALIDA JAMÁS SE GATEA».
  *
  * Decidida leyendo lo que cada una ejecuta (`AstryumCageOrderService.ACTIONS` →
  * `AstryumCage.sol` → `AstryumVault.sol`), no por el nombre:
- *
- * SALIDA / REDUCE EXPOSICIÓN — `exitGate` (solo flag), SIN geofence y SIN la
- * puerta del título de gestor:
- *   · `recall`   → `AstryumVault.recall(venueId, amount)`: saca `amount` de un
- *                  venue y lo devuelve al colchón del pote (o lo encola en un venue
- *                  ERC4626Queued). Solo reduce exposición; es lo que deja redimir.
- *   · `evacuate` → `AstryumVault.evacuate(venueId)`: la emergencia del consejo,
- *                  TODO lo recuperable del venue de vuelta al colchón. No exige que
- *                  el venue esté retirado antes.
- *
- * ABRE EXPOSICIÓN o GOBIERNA — `capitalGate` (flag + geofence) + título de gestor:
- *   · `direct-to`, `move` (mete capital en un venue; `move` lo abre en OTRO),
- *     `create-pote`, `propose-venue`, `set-max-venue-bps` (sube o baja: el contrato
- *     no distingue), `set-payees`, `set-user-gate`, `set-max-deposit`, `cede`,
- *     `set-constitution-ref`, `register-remote-wallet`, `register-remote-pote`,
- *     `propose-successor`, `execute-succession`.
- *   · `retire-venue`, `end-cession` y `cancel-successor` NO mueven capital: quitan
- *     una puerta de entrada, una autoridad delegada o una sucesión pendiente. No son
- *     una salida de capital y se quedan donde estaban (candidatas a revisión del
- *     fundador: retirar poder de otro tampoco abre exposición).
- *
- * CONTINUIDAD — `accept-pote`: `capitalGate` y sin título de gestor, como antes.
- *
- * Una orden nueva nace en la puerta ESTRICTA: pasarla aquí es una decisión explícita.
  */
 const CAGE_EXIT_ACTIONS: ReadonlySet<string> = COUNCIL_ORDER_EXIT_ACTIONS; // una sola clasificación (councilExitToken)
 
@@ -3851,7 +3642,7 @@ const CAGE_EXIT_ACTIONS: ReadonlySet<string> = COUNCIL_ORDER_EXIT_ACTIONS; // un
  * Cualquier orden de una cuenta a SU jaula, por el raíl de siempre: un pago
  * XRPL con memo, FDC, `bridge.execute` contra la jaula. Tras firmar, el
  * frontend dispara `/xrpl-defi/council-order/relay` con `order.orderData`,
- * igual que con el pote (lección del 23-ago: firmar ≠ ejecutar).
+ * igual que con el pote (lección: firmar ≠ ejecutar).
  *
  * Pre-flight: lo que reventaría en la jaula o en el pote DESPUÉS de firmar y
  * de pagar la ronda FDC, se dice aquí como 409 — pote ajeno, jaula que ya pasó
@@ -3871,9 +3662,9 @@ router.post('/cage-order/prepare', guarded(async (req: Request, res: Response) =
   if (!XRPL_ADDRESS_RE.test(council)) return void badRequest(res, 'council debe ser una r-address XRPL');
   if (!CAGE_ACTIONS.has(action)) return void badRequest(res, `action desconocida: ${action}`);
   const preparedByProven = await (await import('../services/flare/ComposedCouncilOrderStore')).sessionProvesCouncil(req, council);
-  // it. 17 (2.5): el tope, ANTES de resolver la jaula, leer el pote y fijar el pin.
+  // El tope, ANTES de resolver la jaula, leer el pote y fijar el pin.
   if (await councilQueueFull429(res, council, preparedByProven, req.siwe?.userId ?? null, isExit)) return;
-  // it. 17 (2.4): la guarda de duplicado se hace más abajo, sobre los params
+  // La guarda de duplicado se hace más abajo, sobre los params
   // COMPUESTOS (con el `feePayer` ya resuelto) — no sobre `req.body.params`, que un
   // campo de más bastaba para esquivar.
 
@@ -3928,13 +3719,13 @@ router.post('/cage-order/prepare', guarded(async (req: Request, res: Response) =
       params.feePayer = pa;
     }
 
-    // LA ORDEN DOBLE, sobre lo que DE VERDAD se va a componer (it. 17, hallazgo 2.4):
+    // LA ORDEN DOBLE, sobre lo que DE VERDAD se va a componer (hallazgo 2.4):
     // aquí `params` ya es el objeto que recibe `buildCageOrderHandoff`. Va antes de
     // `readPoteState` y del pin para no gastar esas lecturas en una orden repetida.
     const duplicate = await councilDuplicateOr409(req, res, council, isExit, { action, params });
     if (!duplicate.proceed) return;
 
-    // Pre-flight del pote (el mismo que salvó al direct del 23-ago).
+    // Pre-flight del pote (el mismo que salvó al direct).
     let summaryCtx: { decimals: number; symbol: string; venueLabels?: Record<number, string> } | undefined;
     if (isPoteScoped(action as CageOrderAction)) {
       const pote = parseEvmAddress(params.pote);
@@ -4021,7 +3812,7 @@ router.post('/cage-order/prepare', guarded(async (req: Request, res: Response) =
 }));
 
 /**
- * GET /council-order/fate?memo=<64 hex> — ¿QUÉ FUE DE ESTA ORDEN? (productizer it. 13, hallazgo 3.1)
+ * GET /council-order/fate?memo=<64 hex> — ¿QUÉ FUE DE ESTA ORDEN? (hallazgo 3.1)
  *
  * Tras un veredicto 'stale' la pantalla ofrecía «prepárala otra vez» sin mirar si el
  * payload hermano (mismo asiento, mismo memo) ya había validado y viajaba a Flare:
@@ -4042,7 +3833,7 @@ router.get('/council-order/fate', guarded(async (req: Request, res: Response) =>
     CouncilOrderFateRateLimitedError,
   } = await import('../services/flare/CouncilOrderRelayLauncher');
   try {
-    // it. 15 (hallazgo 2.5): la lectura cuesta `account_info` + hasta 5 `account_tx`
+    // La lectura cuesta `account_info` + hasta 5 `account_tx`
     // en un nodo FRESCO y estaba abierta a cualquier ritmo — un bucle podía dejar el
     // nodo XRPL en 429 y tumbar con él los pins de todos. Una lectura de cadena por
     // memo cada 15 s (el resto, caché) y un presupuesto por sesión y minuto.
@@ -4093,7 +3884,7 @@ router.post('/passkey/relay', guarded(async (req: Request, res: Response) => {
   );
   const gate = passkeyRelayGate();
   if (gate) return void res.status(gate.status).json(gate.body);
-  // productizer-it3: los despliegues que paga el relayer se cuentan por usuario
+  // Los despliegues que paga el relayer se cuentan por usuario
   // SIWE (DEPLOY_LIMIT → 429). Montado tras requireSiweAuth; sin sesión, nada.
   const userId = req.siwe?.userId;
   if (!userId) return void res.status(401).json({ error: 'missing_siwe_session' });

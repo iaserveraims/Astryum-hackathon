@@ -4,14 +4,6 @@
  * Verifies the whole alerting circuit end-to-end: structured log + admin-panel
  * inbox + external webhook (Discord/Slack). Run it after wiring a new webhook
  * so the first real critical is not also the first delivery attempt.
- *
- *   npx ts-node src/scripts/test-ops-alert.ts [webhookUrl]
- *
- * With no argument it uses OPS_ALERT_WEBHOOK_URL / EXECUTOR_ALERT_WEBHOOK_URL
- * from backend/.env. Passing a URL overrides them for this run only — useful to
- * try a freshly created Discord webhook BEFORE putting it in Railway.
- *
- * Read-only otherwise: no executor, no signing, no chain access.
  */
 import path from 'path';
 import dotenv from 'dotenv';

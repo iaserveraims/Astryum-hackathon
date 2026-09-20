@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * Wiring guard — the 2026-07-25 review found settlement.ts with 17 green tests
+ * Wiring guard — the review found settlement.ts with 17 green tests
  * and ZERO consumers while ≥6 surfaces painted success from an unconfirmed
  * bundle id. This suite pins the cable at the SOURCE level so it cannot
  * silently regress: every surface that hands calls to a wallet must consume
@@ -59,9 +59,9 @@ describe('every wallet-signing surface consumes the settlement machine', () => {
   });
 
   it('loadAllPending has a REAL consumer — the resume path is wired into the shell', () => {
-    // The 2026-07-25 scan found loadAllPending with zero consumers (the same
+    // The scan found loadAllPending with zero consumers (the same
     // hole R1 had): pin the whole rehydration cable at the source level.
-    // 2026-08-08: the visible surface moved from the floating bottom-right
+    // the visible surface moved from the floating bottom-right
     // cards (ResumedSettlements) to the sidebar card under "To sign"
     // (SidebarSettlements), and the hook now ALSO listens for pendings saved
     // mid-session (PENDING_CHANGED_EVENT from savePending).
@@ -97,7 +97,7 @@ describe('every wallet-signing surface consumes the settlement machine', () => {
     expect(src).not.toMatch(/if \(st\.executed\)/);
   });
 
-  it('ProposalInbox: emitting a council order tracks the machine (the async path was the 2026-07-29 hole)', () => {
+  it('ProposalInbox: emitting a council order tracks the machine (the async path was the hole)', () => {
     // The relay itself starts SERVER-SIDE on /submitted; the inbox must still
     // consume the machine so "emitted" never reads as "executed".
     const src = read('components/legacy/ProposalInbox.tsx');

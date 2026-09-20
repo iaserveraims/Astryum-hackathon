@@ -19,8 +19,8 @@ export interface StoredProfile {
 
 /** Stable identity for a user: wallet address first, then email. */
 /**
- * The identity a profile is LOOKED UP by. The account (email) comes first
- * (2026-09-13): a second account created in the same browser used to inherit
+ * The identity a profile is LOOKED UP by. The account (email) comes first:
+ * a second account created in the same browser used to inherit
  * the first one's photo because both resolved to the same linked MetaMask
  * address and the lookup preferred `addr:`. A wallet-first account (no email)
  * is still identified by its address. Saves keep writing under BOTH keys, so

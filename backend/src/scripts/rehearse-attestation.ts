@@ -2,16 +2,6 @@
  * rehearse-attestation — ensaya la tubería de atestación FDC SIN el quórum.
  *
  *   npx ts-node src/scripts/rehearse-attestation.ts <xrplTxHash>
- *
- * Corre los pasos 1-4 del relay (leer tx → prepareRequest → attestation → proof
- * del DA layer) contra CUALQUIER tx XRPL validada de tu cuenta — el paso 5
- * (execute) es el único que necesita la firma 3-de-4, y aquí NO se hace. Sirve
- * para saber, antes de la ceremonia, lo que no te puedes permitir descubrir en
- * vivo: cuánto tarda una ronda FDC de verdad, qué devuelve cada etapa, y si la
- * persistencia del proof aguanta un ciclo. Cuesta UNA fee FDC real (~FLR).
- *
- * Env: LEGACY_CHAIN, LEGACY_BRIDGE_ADDRESS, FLARE_EXECUTOR_ENABLED=true,
- *      FLARE_EXECUTOR_PK, (FDC_* / LEGACY_XRPL_RPC overrides).
  */
 
 import dotenv from 'dotenv';

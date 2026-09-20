@@ -9,7 +9,7 @@ import { ethers } from 'ethers';
 import { parseMemo0xFE, describeRevert, assertUserOpExecutable, ExecutorAbort, isOwnInstruction } from '../DirectMintExecutorService';
 
 describe('parseMemo0xFE', () => {
-  // Memo real de la tx 23C43B96… (earnXRP, 2026-07-12): FE | walletId(1B) |
+  // Memo real de la tx 23C43B96… (earnXRP): FE | walletId(1B) |
   // executorFee(8B) | userOpHash(32B) = 42 bytes.
   const REAL_MEMO =
     'FE000000000000030D40B17C530F24AA1011AC0CB1E3A8CC4B2E027BE2A7A9D2081C3D3B9BCE3EB98A67';
@@ -38,9 +38,9 @@ describe('parseMemo0xFE', () => {
   });
 });
 
-describe('isOwnInstruction — qué 0xFE del Core Vault compartido es NUESTRO (14-sep)', () => {
+describe('IsOwnInstruction — qué 0xFE del Core Vault compartido es NUESTRO', () => {
   const TAG = 2607090002;
-  // Memo real del put-to-work del autopilot en staging (tx 88653B9C…, 14-sep): el
+  // Memo real del put-to-work del autopilot en staging (tx 88653B9C…): el
   // omnibus lo firmó SIN SourceTag, como toda cuenta operativa.
   const OMNIBUS_MEMO = 'FE000000000000030D40805F132F386E1AF698C4A8332C8900EE5F46FD626E66FF28B862117977F817DA';
   const OMNIBUS_HASH = '0x805f132f386e1af698c4a8332c8900ee5f46fd626e66ff28b862117977f817da';
@@ -102,8 +102,7 @@ describe('describeRevert', () => {
 });
 
 describe('assertUserOpExecutable — el veredicto barato ANTES de pagar attestation', () => {
-  // Los tres casos reales del incidente 2026-07-18 (244 attestations × 20 FLR
-  // quemadas): sender ajeno, nonce consumido, y el caso sano que debe pasar.
+
   const PA = '0xe3030A6B8b567f4755A03791A91F51Cd57855697';
   const OTHER = '0xe7A124A08933d246398382be0Ce246157D9750a6';
 

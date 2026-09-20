@@ -46,7 +46,7 @@ describe('computeAnchorFeed — el umbral (misma forma que el refuel del executo
   });
 
   it('con la reserva clavada en la del ledger, el hop mandaría una tx IMPOSIBLE', () => {
-    // El caso real de mainnet (8-ago-2026): saldo 1,900006, base reserve 1 XRP,
+    // El caso real de mainnet: saldo 1,900006, base reserve 1 XRP,
     // LEGACY_ANCHOR_RESERVE_XRP=1. Sin suelo, feedXrp = 0,900006 y al descontar
     // la fee el anchor cae por debajo de su reserva → tecUNFUNDED_PAYMENT.
     const sinSuelo = computeAnchorFeed(1.900006, 1, 0.5);

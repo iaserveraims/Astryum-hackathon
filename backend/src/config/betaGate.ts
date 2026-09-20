@@ -1,31 +1,7 @@
 /**
  * Beta gate — who may CREATE an account.
  *
- * DEFAULT OPEN since 2026-08-16 (founder: the closed-beta phase ends at the
- * next deploy of this code — acquisition needs the world to be able to sign
- * up). One env closes it again:
- *
- *   · BETA_REGISTRATION_OPEN — only the literal 'false' (case-insensitive)
- *     CLOSES registration. Closed ⇒ an account can only be created by an
- *     email a founder approved in the waitlist (waitlist_signups.approvedAt
- *     set via the admin panel's approve button, POST /api/admin-beta/approve).
- *     Unset, 'true', or anything else ⇒ OPEN.
- *
- * History: until 2026-08-16 this was FAIL-CLOSED (only the literal 'true'
- * opened it) — right while the public X post said "Closed beta — request
- * early access"; a wall once the doors are meant to be open. The waitlist
- * keeps working either way (marketing list + the approve flow still sends
- * the boarding-pass email); it is simply no longer the only way in.
- *
- * Scope — the gate guards CREATION only, on every path that mints a new User:
- *   · email register        (AuthService.register)
- *   · OAuth first login     (AuthService.oauthLogin)
- *   · SIWE first login      (SiweAuth wallet-first create)
- *   · Xaman first login     (SiweAuth.verifyXamanPayload)
- * Existing accounts are NEVER touched: login/refresh/OAuth-returning all skip
- * this module. When CLOSED, wallet-first signup has no email to approve, so
- * it is closed — an approved user registers with their email first and binds
- * wallets inside the app (the product's normal binding flow).
+ * DEFAULT OPEN. One env closes it again:
  */
 import { prisma } from '../database/prismaClient';
 

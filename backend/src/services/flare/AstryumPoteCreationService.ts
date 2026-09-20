@@ -2,23 +2,6 @@
  * AstryumPoteCreationService — un pote institucional nace de UNA firma del
  * consejo. Clon del patrón probado de LegacyCageCreationService, con las tres
  * diferencias de AstryumVault:
- *
- *   1. Params eternos nuevos: {name, symbol, cooldown, bufferFloorBps} en vez
- *      de {protocolTreasury, linajeFeeBps} — no hay linaje ni fee hook (Z2).
- *   2. El depósito génesis es ERC-4626: `deposit(assets, receiver)`, y el
- *      `receiver` es la PROPIA cuenta-consejo — el depósito génesis del
- *      operador es la defensa de inflación (Z10), sus shares son suyas.
- *   3. El pote B (cooldown > 0) sólo admite venue encolado; el pote A
- *      (cooldown 0) sólo síncrono — el propio contrato lo fuerza
- *      (QueuedVenueNeedsCooldown), esto sólo lo pre-valida para no gastar gas.
- *
- * El batch (una firma XRPL vía la Personal Account del consejo, 0xFE):
- *   1. AstryumStackFactory.create(councilR, params)   ← msg.sender = la PA
- *   2. FXRP.approve(predictedPote, genesisUBA)
- *   3. AstryumVault.deposit(genesisUBA, councilPA)     ← génesis anti-inflación
- *
- * Prepare-only de punta a punta: codifica bytes y lee estado público. Ni firma,
- * ni envía, ni tiene llave (invariantes #1/#8).
  */
 
 import { ethers } from 'ethers';

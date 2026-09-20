@@ -5,17 +5,6 @@
  * H9: los adapters citan `verify-fxrp-oft-bridge.js` como su fuente de verdad
  * y ese fichero NO existe en el repo. Un comentario que apunta a una
  * verificación inexistente es peor que no tener comentario: promete rigor.
- *
- * Y H3: la vuelta (Ethereum→Flare) no estaba construida. Antes de construirla
- * hay que saber, contra la cadena, cuál es el EID de Flare y si los dos lados
- * están emparejados — un `peers()` que no cuadra significa que el envío se
- * traga los tokens en el origen y no aparecen nunca en el destino.
- *
- * Uso:
- *   ETHEREUM_RPC_URL=https://… npm run verify:fxrp-bridge
- *
- * Salidas: 0 ok · 1 falta RPC · 2 cadena equivocada · 3 sin código ·
- *          4 peering roto (NO construir la vuelta) · 5 lectura fallida
  */
 
 import { ethers } from 'ethers';

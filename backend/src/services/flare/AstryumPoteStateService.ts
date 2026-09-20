@@ -2,16 +2,6 @@
  * AstryumPoteStateService — the read layer of the institutional pote.
  *
  * Same discipline as LegacyVaultStateService, two deliberate differences:
- *
- *  1. The cage is INJECTED ({rpcUrl, pote}) — this module never touches
- *     legacyStackConfig() or any Legacy env var. The audit flagged that
- *     coupling in readVaultState; the new pote is born without it.
- *  2. The pure logic (kind decoding, pre-flight verdicts, ticket clocks)
- *     lives at top level with NO network anywhere near it, so it is testable
- *     by nature, not by mocking ("lógica pura enterrada = lógica sin red").
- *
- * Every check mirrors a REAL revert in AstryumVault — the pre-flight tells
- * the truth or it does not exist (the ORDER_WOULD_REVERT doctrine).
  */
 
 import { ethers } from 'ethers';

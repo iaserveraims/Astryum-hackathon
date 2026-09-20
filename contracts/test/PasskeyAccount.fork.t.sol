@@ -8,7 +8,7 @@ import {PasskeyAccount, PasskeyAccountFactory} from "../src/PasskeyAccount.sol";
 
 /**
  * The passkey door against the REAL RIP-7212 precompile on a Flare mainnet
- * fork (probed live 2026-08-20/21) — plus THE scene-5 integration: an exchange
+ * fork (probed live) — plus THE scene-5 integration: an exchange
  * client whose ONLY key is a WebAuthn passkey exits the pote against the real
  * Firelight queue, and the money lands on the exchange's rails.
  *
@@ -17,7 +17,7 @@ import {PasskeyAccount, PasskeyAccountFactory} from "../src/PasskeyAccount.sol";
  * PRECOMPILE CAVEAT, on the record: a Foundry fork copies Flare's STATE but
  * executes on local revm — and precompiles are node code, not state, so
  * 0x…0100 is EMPTY here. The curve math itself was verified against the LIVE
- * chain (eth_call, reference vector + negative control, 2026-08-20/21); what
+ * chain (eth_call, reference vector + negative control); what
  * these tests pin is OUR side of the contract: the WebAuthn message
  * construction, the exact precompile input encoding, and the nonce lifecycle.
  * vm.mockCall answers 1 ONLY for the byte-exact expected input — any tampered

@@ -8,27 +8,6 @@
  * authenticator is the USER'S PASSKEY, and nothing in our database points at it.
  * Nobody is locked out of anything (only the user can ever reach that key), but
  * the account is real, it may be billed, and it must be reconciled or retired.
- *
- * WHY THIS FILE EXISTS (productizer it. 20, 3.8). It. 19 made the failure
- * greppable — `console.warn('orphan-suborg …')` — and called it reconciliable.
- * A log line on a platform that rotates logs is not a record: by the time anybody
- * looks for it, it is gone, and «reconciliable» promised more than it could keep.
- * The record now lands in THREE places, in this order, each independent:
- *   1. the log line, unchanged (it costs nothing and it is instant);
- *   2. a DURABLE row in `background_jobs` under this module's own `jobType`,
- *      keyed by `subOrgId`. It has no poller, no pruning and no expiry — unlike
- *      `ops-alert`, which is a 500-row circular buffer and would rotate the very
- *      same way the log does;
- *   3. an ops alert (`source: 'turnkey'`, level `critical`), so it appears in the
- *      admin panel's inbox at /app/admin without anyone going to look for it.
- *
- * AND WE CHECK THAT (2) LANDED. `kvUpsert` is best-effort: it swallows its own
- * database failure and returns as if it had written. So the row is read back
- * strictly, and when it is NOT there the alert SAYS SO rather than implying a
- * record exists — «I could not write it» is not «it is written».
- *
- * Never throws: recording an orphan cannot be the thing that breaks the response
- * the user is waiting for.
  */
 
 import { kvGetStrict, kvList, kvListStrict, kvUpsert } from '../persistence/backgroundJobKv';
@@ -134,7 +113,7 @@ export async function recordOrphanSubOrg(input: {
   try {
     await kvUpsert(ORPHAN_SUBORG_JOB_TYPE, ORPHAN_SUBORG_KEY_FIELD, record.subOrgId, record as unknown as Record<string, unknown>);
     // kvUpsert swallows its own failure, so «it returned» is not «it is written».
-    // AND «A ROW EXISTS» IS NOT «THIS RECORD WAS WRITTEN» (it. 23, task 4): the
+    // AND «A ROW EXISTS» IS NOT «THIS RECORD WAS WRITTEN» (task 4): the
     // rows are keyed by subOrgId, so a SECOND orphan for the same sub-org whose
     // update was lost reads back as the FIRST one and looked persisted. The
     // read-back compares the payload, so a stale row is «not persisted» and the
@@ -210,7 +189,7 @@ function onlyOrphanRecords(rows: Record<string, unknown>[]): OrphanSubOrgRecord[
  * not read the ledger» are opposite answers, and the whole point of the durable
  * row is that somebody can act on it. An empty screen that means «Postgres was
  * down» is the failed read dressed up as a fact — the thing this iteration is
- * about (it. 23, task 5).
+ * about (task 5).
  */
 export async function listOrphanSubOrgsStrict(limit = 200): Promise<OrphanSubOrgRecord[]> {
   return onlyOrphanRecords(await kvListStrict(ORPHAN_SUBORG_JOB_TYPE, limit));

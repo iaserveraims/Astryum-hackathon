@@ -1,21 +1,6 @@
 /**
  * managerAccount — WHICH XRPL account the manager desk and its setup ceremony
  * follow (pure; the hook `useManagerAccount` wires it to the stores).
- *
- * Founder 2026-09-14: «desde la wallet que marca como managed no puedo
- * acceder». Founder 2026-09-15: «el proceso de configuración de una account
- * como manager se ha perdido» — the setup window only looked at the Xaman
- * session LIVE in this browser, so in a new browser (or the preview domain)
- * a manager whose account is LINKED to their Astryum account saw the
- * "create one in Xaman" panel instead of their six stations.
- *
- * The rule, in one place for the desk AND the ceremony:
- *   candidates = Xaman sessions connected in this browser ∪ XRPL wallets
- *                linked to the account (never a synthetic Legacy row)
- *   account    = the one chosen by hand (if still a candidate)
- *                → the live session → the first linked wallet
- * Reading a ledger needs no session; signing does, and Xaman asks for the
- * account the order names — so a linked-only account is a full candidate.
  */
 
 /** A Xaman session of this browser (walletStore). */

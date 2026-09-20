@@ -2,7 +2,7 @@
  * El desvío a la ceremonia multifirma, que es el punto por el que pasan las
  * DIECISIETE llamadas a `sendIntent` de esta app.
  *
- * Motivo (22-ago-2026): una cuenta reforzada pedía UN QR en todas las
+ * Motivo: una cuenta reforzada pedía UN QR en todas las
  * superficies — enviar, Kinetic lend, el vault, posiciones, moneyflows —
  * porque cada una construía su propio payload single-sig. Se arreglaron tres
  * pantallas sueltas antes de entender que el arreglo iba en el cuello de
@@ -117,7 +117,7 @@ describe('quorumCeremonyBus', () => {
 });
 
 /**
- * productizer it. 33 (B2) — LO QUE EL BUS NO PUEDE OLVIDAR.
+ * LO QUE EL BUS NO PUEDE OLVIDAR.
  *
  * El botón «Cancel» del flujo terminaba emitiendo `abandoned`, cuyo parche es
  * `{committed:false, started:false}`: una sesión que había COMPROMETIDO bytes a
@@ -126,7 +126,7 @@ describe('quorumCeremonyBus', () => {
  * de nunca-empezó y rechazaba ABANDONED sobre un Payment que puede estar en el
  * ledger. El flujo ya no manda ese informe; esta es la mitad del bus.
  */
-describe('it. 33 — un `abandoned` rezagado no deshace una emisión comprometida', () => {
+describe('Un `abandoned` rezagado no deshace una emisión comprometida', () => {
   it('dispatchReportAdmissible: `abandoned` solo se admite sobre una petición NO comprometida', () => {
     expect(dispatchReportAdmissible(null, { stage: 'abandoned' })).toBe(true);
     expect(dispatchReportAdmissible({ started: true }, { stage: 'abandoned' })).toBe(true);

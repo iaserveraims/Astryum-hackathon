@@ -1,22 +1,8 @@
 /**
- * La licencia de DEMO del notario — quién puede pedirla desde el 20-sep.
+ * La licencia de DEMO del notario — quién puede pedirla.
  *
- * Fundador, 2026-09-20: «quitemos los botones de issue credential demo para que
- * la gente no pueda probarlo así como así … el producto se podrá probar solo si
- * tienes las credenciales», y al aprobar el cierre: «hay que reubicar los
+ * Y al aprobar el cierre: «hay que reubicar los
  * issuing de credentials demo en la consola admin».
- *
- * Del 15-sep al 20-sep la pedía CUALQUIER cuenta con sesión (para que el jurado
- * recorriera la mesa entera). Este router no va tras el interruptor del módulo
- * institucional, así que en producción lo único entre un usuario corriente y
- * una CASP firmada en mainnet era una variable de entorno. Vuelve la puerta de
- * los fundadores. Lo que este test vigila:
- *   · una cuenta corriente recibe 403 y el emisor NI SE TOCA;
- *   · un email de la allowlist SIN verificar tampoco pasa (es la misma puerta
- *     que el panel — productizer it. 8);
- *   · un fundador emite para CUALQUIER sujeto: desde la consola se emite para la
- *     cuenta que va a rodar, que no tiene por qué ser suya;
- *   · el tope sigue en pie también para un fundador.
  */
 import express from 'express';
 import request from 'supertest';

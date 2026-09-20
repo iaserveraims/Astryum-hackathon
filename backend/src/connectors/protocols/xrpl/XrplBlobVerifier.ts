@@ -3,37 +3,6 @@
  *
  * Astryum's XRPL authority layer already has two safety checks; this is the one
  * that was missing IN BETWEEN them:
- *
- *   1. simulate  — proves a tx WILL succeed BEFORE anyone signs (XrplMultisigCoordinator).
- *   2. THIS      — proves a returned blob is FROM the member we asked and OVER the
- *                  exact tx we built, BEFORE it is combined and handed off.
- *   3. broadcast — hard-blocked (XRPLProvider): Astryum never submits.
- *
- * Why `xrpl.multisign()` is not enough. multisign() decodes every blob, validates
- * it, requires SigningPubKey:'' and a Signers entry, and rejects blobs that
- * disagree with EACH OTHER (validateTransactionEquivalence). But it does NOT
- * check two things this guard adds:
- *
- *   - IDENTITY — that each signature came from the member we actually asked.
- *   - FIDELITY — that the combined tx is still the transaction WE built.
- *
- * The hole IDENTITY closes. legacy-multisign asks Xaman for one signature per
- * member, binding each QR to a member with the `signers` option. Some Xaman
- * deployments reject that option, so the script retries WITHOUT it — and on that
- * path any member can answer any member's QR. One member could sign all N QRs
- * with their own key: the blobs would be byte-identical, multisign() would
- * combine them happily, and the rehearsal verdict — whose entire premise is "the
- * ledger records WHO really signed" (XrplLegacyRehearsal) — would read "all N
- * signed" when ONE signed N times. It would not fail; it would LIE. The identity
- * check below makes that impossible: a blob signed by the wrong member is rejected
- * before it is ever combined.
- *
- * Adapted from the `tx_decode_verify` pattern (xrpl-identity-mcp) and the shape
- * of XRPL-Labs' own verify-xrpl-signature — the idea, as our own tested guard,
- * with no third-party runtime dependency anywhere near the signing path.
- *
- * Pure and side-effect free: decode + re-encode + verify. Never signs, never
- * submits, never touches the network.
  */
 import { decode, encode, encodeForMultisigning } from 'ripple-binary-codec';
 import { verify } from 'ripple-keypairs';

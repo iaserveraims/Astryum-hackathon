@@ -6,15 +6,9 @@
  * Cuatro segmentos (governors.ts) y UNA consola. Al cambiar de gobernador no
  * cambia la página: cambia la consola —su vocabulario, su credencial, sus
  * cuentas, sus asientos— y cambia el material con el que está hecha: el radio
- * de sus esquinas, el trazo y el brillo. Es la tesis del 15-sep («una web, un
+ * de sus esquinas, el trazo y el brillo. Es la tesis («una web, un
  * kernel, N tipos de cuenta») convertida en un gesto: lo que se ve es lo mismo,
  * lo que cambia es quién firma.
- *
- * El pomo viaja con un muelle (`layoutId`), como en ProductSwitch: es el mismo
- * control, con otras opciones. El `layoutId` cuelga de un `useId` por la misma
- * razón que allí — dos instancias en el árbol no pueden compartirlo.
- *
- * Cifras de MAQUETA, rotuladas «datos de ejemplo» en la propia consola.
  */
 
 import { useId, useRef, useState } from 'react';
@@ -318,8 +312,8 @@ function ChangeCard({ g, lang }: { g: Governor; lang: Lang }) {
                 {T(g.console.cta.label.es, g.console.cta.label.en, lang)}
               </a>
             </Magnetic>
-            {/* Fundador 2026-09-20: «debe haber algo que te diga si quieres
-                conocer más sobre este producto». En palabras, no en un icono. */}
+            {/* En palabras, no en un icono.
+            { */}
             <span className="text-[11.5px] leading-snug text-white/45 md:text-center md:max-w-[170px]">
               {T('Abre su página: el mismo sistema, contado para ese caso, y cómo empezar.', 'Opens its page: the same system, told for that case, and how to start.', lang)}
             </span>
@@ -333,7 +327,7 @@ function ChangeCard({ g, lang }: { g: Governor; lang: Lang }) {
 /**
  * LA SEÑAL HACIA LAS PUERTAS. Quien llega aquí desde «Productos» tiene que
  * saber que cada producto tiene su página y que las cuatro están justo
- * debajo; si hay que adivinarlo, está mal (fundador 2026-09-20).
+ * debajo; si hay que adivinarlo, está mal.
  */
 function KnowMore({ lang }: { lang: Lang }) {
   return (

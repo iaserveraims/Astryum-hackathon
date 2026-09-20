@@ -32,13 +32,10 @@ const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
  * synthetic "Login wallet" row that `dedupeWallets` folds in for an account
  * whose login address is not registered in /api/wallets/mine — and that row
  * even carries a hardcoded `chainId: 14`. Trusting the field alone made an
- * XRPL wallet read as non-XRPL on exactly the surface where the user keeps it
- * (founder 2026-08-21: "no me aparece"). The backend already applies the same
+ * XRPL wallet read as non-XRPL on exactly the surface where the user keeps it.
+ * The backend already applies the same
  * rule the other way round — it derives the ecosystem from the address and
  * refuses a caller's contradicting claim.
- *
- * Lives here, exported, because two surfaces need the same answer and a copy
- * in each is how they start disagreeing.
  */
 export function isXrplWallet(w: { address?: string; ecosystem?: string }): boolean {
   if (w.ecosystem === 'xrpl') return true;
@@ -112,12 +109,7 @@ function shortAddress(addr: string): string {
 }
 
 /**
- * A walletType that is already a PRESENTABLE app name — the AppKit/wagmi
- * connector name ('MetaMask', 'Rabby', 'Brave Wallet') or the injected-brand
- * detection write the readable name straight into walletType, and refusing to
- * show it would throw away exactly the identity the founder asked for
- * (2026-08-22: «el logo de la wallet en función de qué aplicación sea», y el
- * nombre con ella). Raw plumbing values ('siwe', 'manual', 'xrp_identity',
+ * Raw plumbing values ('siwe', 'manual', 'xrp_identity',
  * 'evm') stay banned: the gate is proper-casing + a plain-words shape, which
  * no plumbing value passes.
  */
@@ -128,8 +120,7 @@ function connectorProperName(walletType?: string): string | null {
 }
 
 /**
- * The last resort when nothing names the wallet — NEVER the address (founder
- * 2026-08-22: «el nombre de la wallet nunca sea el código de esta»). An
+ * The last resort when nothing names the wallet — NEVER the address. An
  * honest generic by ecosystem; the address survives one tap away (copy
  * button, manage panel), just not as a NAME.
  */
@@ -143,8 +134,8 @@ function genericWalletLabel(ecosystem?: string, address?: string): string {
 /**
  * The backend used to AUTO-nickname every tracked wallet "<Chain> <n>"
  * ("XRPL 1", "Flare 2"…) when the client sent none — and since the nickname
- * wins the display rule, the founder's own Xaman read "XRPL 1" everywhere
- * (founder 2026-08-08: "sigue siendo confuso"). The generator is gone from
+ * wins the display rule, the founder's own Xaman read "XRPL 1" everywhere.
+ * The generator is gone from
  * the backend, but the strings already live in user rows, so the display
  * layer treats them as NOT a nickname and falls through to the provider
  * name. Only this exact machine pattern is filtered — anything a user typed
@@ -155,9 +146,7 @@ export function isAutoNickname(name?: string | null): boolean {
 }
 
 /**
- * THE wallet display name, shared by Wallets, Summary and Portfolio (founder
- * 2026-08-08: the same Xaman wallet read "Xaman" on one screen and "XRPL 1"
- * on another). Rule: the user's nickname wins; otherwise the provider's
+ * THE wallet display name, shared by Wallets, Summary and Portfolio. Rule: the user's nickname wins; otherwise the provider's
  * proper name; otherwise the short address — never a raw walletType value.
  * `t` translates the curated labels ('Watch-only', 'Embedded wallet'…);
  * brand names pass through it unchanged (no dict entry needed).
@@ -174,14 +163,13 @@ export function walletDisplayName(
   // The connector already told us the app's name — show it before giving up.
   const connector = connectorProperName(w.walletType);
   if (connector) return connector;
-  // NEVER the address (founder 2026-08-22). Generic but honest.
+  // NEVER the address. Generic but honest.
   return t(genericWalletLabel(w.ecosystem, w.address));
 }
 
 /**
- * Numbered display names for a LIST of wallets — «MetaMask», «MetaMask 2»
- * (founder 2026-08-22: the auto name must identify; two unnamed MetaMasks
- * must not read as one). Numbering is assigned in address order, so it is
+ * Numbered display names for a LIST of wallets — «MetaMask», «MetaMask 2».
+ * Numbering is assigned in address order, so it is
  * stable across renders, devices and re-sorts; the first of a duplicate set
  * keeps the bare name. A user nickname never gets a number — it is theirs.
  * Case-aware key like every resolver here (EVM lowercased, XRPL verbatim).
@@ -218,8 +206,7 @@ export function walletDisplayNameMap(
 }
 
 /**
- * Nombre de una Smart Account con su DUEÑA al lado (fundador 2026-08-22: con
- * varias FSA «no se sabe cuál es cuál»). Una PA no tiene identidad propia — es
+ * Nombre de una Smart Account con su DUEÑA al lado. Una PA no tiene identidad propia — es
  * el lado Flare de una cuenta XRPL — así que su nombre lleva SIEMPRE el de su
  * dueña: «Smart Account · <apodo de la Xaman>». Sin dueña resoluble (huérfana),
  * cae a la dirección corta: decir menos es mejor que señalar a la dueña
@@ -252,8 +239,7 @@ export function walletNameResolver(
 }
 
 /** The preset palette offered by the colour picker (12 tags + none).
- *  Ampliada el 2026-08-29 (fundador: «el color de xaman, un azul más oscuro,
- *  no está puesto»): entra el azul profundo de Xaman y, con él, tres huecos
+ *  Ampliada: entra el azul profundo de Xaman y, con él, tres huecos
  *  más del espectro que faltaban (lima, violeta, plata) — la paleta cubre la
  *  rueda sin duplicar tonos vecinos. */
 export const WALLET_COLOR_PRESETS = [
@@ -289,7 +275,7 @@ const BRAND_FALLBACK: Record<WalletBrand, string> = {
 /** El `walletType` que marca a una cuenta como consejo. Era un literal
  *  repetido en cada sintetizador, y ahí nació la deriva: la fila del
  *  Portfolio se creaba sin él y la misma cuenta se veía como «XRPL wallet»
- *  en un sitio y como placa índigo en otro (2026-09-07). */
+ *  en un sitio y como placa índigo en otro. */
 export const COUNCIL_WALLET_TYPE = 'Council \u00b7 multisig';
 
 export function isCouncilType(walletType?: string): boolean {
@@ -298,29 +284,17 @@ export function isCouncilType(walletType?: string): boolean {
 
 /** The Legacy indigo — the product token, NOT a user colour: a governed
  *  account wears it on every surface so «esto es un Legacy» reads at a
- *  glance (founder 2026-08-22), and personalization never overrides it. */
+ *  glance, and personalization never overrides it. */
 export const LEGACY_WALLET_COLOR = 'hsl(var(--product-legacy))';
 
 /**
- * EL COLOR POR DEFECTO SE DERIVA DE LA DIRECCIÓN, NO DE LA MARCA (fundador
- * 2026-09-13: «quiero la X de Xaman, pero con un distintivo para cada wallet
- * de Xaman que se conecte»).
+ * EL COLOR POR DEFECTO SE DERIVA DE LA DIRECCIÓN, NO DE LA MARCA.
  *
  * Antes, sin color elegido a mano, TODAS las wallets de una misma marca caían
  * en el mismo tono (BRAND_FALLBACK): dos cuentas de Xaman salían idénticas en
  * todas partes. El color ya era el distintivo de la casa — solo que el reparto
  * por defecto lo anulaba justo donde más falta hace, entre cuentas del mismo
  * proveedor.
- *
- * Ahora el tono sale de la propia dirección: estable entre renders, entre
- * sesiones y entre dispositivos (misma dirección → mismo color, siempre), sin
- * pedir nada a nadie — a diferencia del avatar remoto que se retiró en
- * 7c1aeffb. El color que el usuario elige a mano sigue ganando, y un consejo
- * conserva su índigo: la personalización nunca pisa al producto.
- *
- * FNV-1a de 32 bits: una línea, sin dependencias y bien repartido para esto.
- * Con doce tonos, dos wallets pueden coincidir; el usuario siempre puede
- * separarlas con la etiqueta de color de «Gestionar».
  */
 function hueFromAddress(address: string): string {
   let h = 0x811c9dc5;
@@ -336,8 +310,7 @@ function hueFromAddress(address: string): string {
  *
  * Precedencia: consejo (índigo del producto) → color elegido a mano → EL
  * COLOR DEL CUBITO de Xaman si es una wallet de Xaman y ya se leyó
- * (fundador 2026-09-13: «que los colores de cada cubito se vean reflejados
- * en la propia card», la opción «seguir el avatar» de Gestionar, activa por
+ * (la opción «seguir el avatar» de Gestionar, activa por
  * defecto) → tono derivado de la dirección → tono de la marca.
  */
 export function walletColor(
@@ -358,8 +331,7 @@ export function walletColor(
 }
 
 /**
- * The whole-box wash (founder 2026-08-22: «no solo el iconito, sino todo el
- * recuadro»). ONE recipe for every surface that frames a wallet: the box
+ * The whole-box wash. ONE recipe for every surface that frames a wallet: the box
  * borrows the wallet's colour at the house's subtle alphas — 7% ground, 30%
  * hairline — so six wallets read as six identities, not as a rainbow. The
  * 18-20% + inset-ring mix stays reserved for the small icon chip. Works with

@@ -7,16 +7,6 @@
  * (compose → propose → collect signatures over hours or days → combine →
  * emit). This inbox is the surface of that asymmetry: proposals waiting for
  * YOUR signature / waiting for others / ready to emit / emitted.
- *
- * ONE SEAT PER ACCOUNT (2026-08-04). This is the async tempo, so the only QR
- * this screen ever mints is for an address linked to THIS account through
- * Xaman. Gathering the whole council in one sitting is the other tempo, and it
- * lives in CouncilMultisigFlow — the two are deliberately not mixed.
- *
- * The engine is the existing coordinator machinery, persisted: the backend
- * stores the pinned tx + verified blobs; each member signs their own Xaman
- * request whenever they can; combining (xrpl.multisign) and broadcasting stay
- * in THIS browser. Astryum never signs, never combines server-side.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { multisign } from 'xrpl';
@@ -89,18 +79,6 @@ const XRPSCAN_ACCOUNT = XRPSCAN_TX.replace(/\/tx\/$/, '/account/');
  * CONSUMED (it may have executed) or could not be READ keeps its stored status
  * and carries `ledgerCheck`. Nobody told this screen. So the bucketing, which
  * splits on status ALONE, kept filing those rows as live work:
- *
- *   · a `ready` zombie landed in "Ready to emit" with a GREEN pill, "0 days
- *     left" and a «Combine & broadcast» button whose only possible answer is
- *     tefPAST_SEQ — the seat is spent;
- *   · a `collecting` zombie asked for a signature forever and answered the raw
- *     code PROPOSAL_NOT_LIVE.
- *
- * A dead end with the SAME incentive as the old lie: recompose, and pay twice.
- * So an unresolved seat gets its own tray — the verdict, the explorer, and only
- * the two actions that can actually succeed.
- *
- * Pure and primitive-only on purpose: this is the piece a test can hold.
  */
 type ProposalTray = 'unresolved' | 'toSign' | 'waiting' | 'ready' | 'emitted' | 'archived';
 
@@ -123,13 +101,6 @@ function trayOf(status: string, ledgerState: string | null, myPendingSeats: numb
  * labelled filing "(proposer only)" always (wrong, and a dead end). A council
  * whose proposer is not around had NO way out of a `collecting` row whose seat
  * the ledger says is spent: 422 on every compose, for ever.
- *
- * The server settles it with something it already knows — status flips to
- * `ready` the instant the collected weight reaches the quorum, and signatures
- * are only added — so a past-deadline `collecting` row is a proposal that was
- * never assembled into a complete transaction here, and ANY member may file it.
- * This is the browser half of that rule, and it is a MIRROR of the withdraw
- * route's `neverAssembled`: if one moves, the other must.
  */
 function unresolvedSeatMoves(status: string): { registerHash: boolean; file: 'proposer' | 'anyone' } {
   const quorumMet = status === 'ready';
@@ -147,10 +118,6 @@ function unresolvedSeatMoves(status: string): { registerHash: boolean; file: 'pr
  * answered at all, was swallowed. The request stayed signable on that member's
  * phone for the rest of its 24 hours with nothing on screen to say so, which is
  * the very silence this rail exists to end.
- *
- * So an answer we could not act on is never dropped for being late: it goes to
- * the tray-level banner (the one that already exists for a superseded payload)
- * instead of into a box that is no longer about it.
  */
 type CancelAnswerSink = 'close-box' | 'in-box' | 'banner' | 'drop';
 
@@ -173,43 +140,6 @@ function cancelAnswerSink(action: XamanCancelAction, stillOnScreen: boolean): Ca
  * (routes/councilProposals.ts) asks `prisma.wallet` — the addresses this
  * account has REGISTERED. A councillor whose Xaman is connected but never
  * registered is a member here and a stranger there.
- *
- * It does not bite on signing: `POST /:id/signatures` gates on the signer list
- * and the blob, not on the wallet registry, so a signature from that address
- * lands. It bites on the two doors of an UNRESOLVED seat — `/:id/submitted`
- * (record the hash) and `/:id/withdraw` (file it) — which is the one place
- * where the refusal arrives AFTER the money moved: the transaction is on the
- * ledger, the row cannot be told so, it expires, and the family composes the
- * payment again. Say it before they need the door, not after.
- *
- * 'linked' is also what the proposer has by another route (the server accepts
- * `createdByUserId`), so the warning is worded as a risk, never as a verdict.
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * prosa-y-lectores — WHERE THIS WARNING MOVED, AND WHY IT HAD TO MOVE.
- *
- * It used to render on the UNRESOLVED row, next to «record its hash» and «file
- * it». Two things were wrong with it there, both in the same direction:
- *
- *  · IT COULD NOT BE TRUE. The permission floor added this round
- *    (`mayReadProposal`) is the SAME predicate as the doors it warns about —
- *    proposer, or a session holding one of THIS row's signer addresses in the
- *    registry (`sessionIsCouncilMember`, which `/submitted`, `/withdraw` and
- *    `/positions/anchored` all call). If the row is on screen at all, the
- *    session already cleared that floor, so both doors accept it. The row's
- *    presence IS the server's answer, and it beats any client-side guess.
- *  · IT COULD STILL FIRE. `linkedAddrs` is built from `useMyWallets`, and
- *    `fetchMyWallets` (lib/portfolioMerge.ts) CATCHES EVERY ERROR AND RETURNS
- *    `[]` with `loading:false`. A failed read therefore empties `linkedAddrs`
- *    while the connected Xaman keeps `myAddrs` populated — 'unlinked', derived
- *    from a list nobody managed to read, telling a family the two exits of an
- *    already-moved payment may refuse them. "I could not read" painted as a
- *    verdict, at the money door, where deterrence costs the most.
- *
- * The audience it was written for is the councillor the server does NOT see —
- * and that person never reaches the row: the listing answers them 403
- * NOT_A_COUNCIL_MEMBER. So the sentence now lives on that refusal, the only
- * place it is both reachable and true (see `inboxRefusalCause`).
  */
 type SeatClaim = 'linked' | 'unlinked' | 'none';
 
@@ -227,34 +157,19 @@ function seatClaimOf(seats: string[], linkedAddrs: Set<string>, myAddrs: Set<str
  * that the wallet holding their seat was never REGISTERED — the server reads
  * membership from `prisma.wallet`, never from the tab. Naming that cause is the
  * difference between a closed door and a door with the key beside it.
- *
- * `registryWasRead` is the premise the old call site never had. `useMyWallets`
- * cannot fail loudly (`fetchMyWallets` swallows and returns `[]`), so the guard
- * is positive evidence instead: at least one row that CAME FROM the server (an
- * `id`). `dedupeWallets` appends the SIWE login address as a synthetic row
- * WITHOUT an id precisely when it is not registered, so an empty read cannot
- * masquerade as a read. No evidence ⇒ no cause named, and the server's own
- * sentence stands alone. Never a verdict over something we did not read.
  */
 type RefusalCause = 'unlinked-wallet' | 'prove-membership' | 'none';
 
 /**
- * it. 19 (R2 N6) — REGISTERING IS NO LONGER THE CURE, AND THIS SAID IT WAS.
+ * REGISTERING IS NO LONGER THE CURE, AND THIS SAID IT WAS.
  *
- * Until it. 17 the server read membership from `prisma.wallet`, so «link it in
+ * Until the server read membership from `prisma.wallet`, so «link it in
  * Wallets and the inbox opens as soon as it is registered» was true. It is not
  * any more: membership is decided by a PROVEN address — the wallet the session
  * signed in with, or one that signed a binding challenge — because a council's
  * signer addresses are public and anyone could type one in. A person who
  * follows the old sentence registers the wallet, comes back, and meets the same
  * wall with no idea why. The recovery prose has to name the SIGNATURE.
- *
- * The client cannot tell a proven address from a merely registered one (no
- * wallet row carries that flag), so it never claims either; it names the cure
- * and lets the server keep the verdict. And when the server's own refusal
- * already explains the proof (`PROVE_MEMBERSHIP_HINT` / `READ_MEMBERSHIP_HINT`
- * travel in `detail` and win over every hardcoded sentence), nothing is added:
- * saying it twice in different words is how two sentences start to disagree.
  */
 export function refusalExplainsProof(detail: string | null | undefined): boolean {
   const d = (detail ?? '').toLowerCase();
@@ -381,10 +296,10 @@ export default function ProposalInbox({
    */
   const [proposals, setProposals] = useState<CouncilProposalRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  // `detail` travels too (it. 19, R2 N6): the server's own membership hint is
+  // `detail` travels too (R2 N6): the server's own membership hint is
   // what decides whether this screen adds a sentence of its own or stays quiet.
   /**
-   * it. 27 (3): el rechazo ENTERO, no tres campos elegidos a mano. El lector
+   * El rechazo ENTERO, no tres campos elegidos a mano. El lector
    * compartido ya trae `headline`, `ways[]`, `retryAfterSeconds` y la puerta, y
    * este es EL sitio donde el usuario de email/Google se come el 403
    * `NOT_A_COUNCIL_MEMBER`: leía «Register the wallet that holds your seat» y no
@@ -392,9 +307,9 @@ export default function ProposalInbox({
    */
   const [error, setError] = useState<ReadableRefusal | null>(null);
   /**
-   * productizer it. 25 (1) — LAS FILAS QUE EL SERVIDOR NO PUDO DECIDIR.
+   * LAS FILAS QUE EL SERVIDOR NO PUDO DECIDIR.
    *
-   * it. 23 dejó de tirarlas: el 200 las trae NOMBRADAS en `unreadable[]`, con su
+   * Dejó de tirarlas: el 200 las trae NOMBRADAS en `unreadable[]`, con su
    * código y su frase. Esta bandeja desestructuraba `{ proposals: list }` y las
    * descartaba, así que la fila seguía sin existir para la familia — y son los únicos
    * bytes que un cosignatario puede firmar. Estado propio, no `error`: `error` es «la
@@ -406,7 +321,7 @@ export default function ProposalInbox({
   const [emittingId, setEmittingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   /**
-   * it. 34 (agente D) — LO QUE EL WITHDRAW DIJO DEL ASIENTO. Desde it. 29 (§2)
+   * LO QUE EL WITHDRAW DIJO DEL ASIENTO.
    * la ruta devuelve `seat` con la gramática de la ceremonia (`seatReleaseAnswer`):
    * si el asiento de nonce del 0xFE se soltó y, si no, por qué (ventana viva con
    * sus segundos, firma reportada, lectura que falló). Esta bandeja lo ignoraba:
@@ -424,7 +339,7 @@ export default function ProposalInbox({
   // decides whether registering can still work (councilEmitReport.unreportedPanel).
   const [unreported, setUnreported] = useState<{ id: string; hash: string; detail: string; code?: string } | null>(null);
   // Council-order aftermath: the backend starts the FDC relay server-side on
-  // /submitted (2026-07-29 hole closed); this state mirrors it in the tray and
+  // /submitted (hole closed); this state mirrors it in the tray and
   // the settlement machine owns the DONE verdict (rail 'council-order').
   const [orderRelay, setOrderRelay] = useState<{
     proposalId: string;
@@ -486,7 +401,7 @@ export default function ProposalInbox({
     try {
       const { proposals: list, unreadable } = await councilProposalsApi.list([account]);
       setProposals(list);
-      // it. 25 (1): una lectura COMPLETA es la única que puede apagar el aviso. Si el
+      // Una lectura COMPLETA es la única que puede apagar el aviso. Si el
       // 200 trae filas ilegibles, se dicen; si no trae ninguna, entonces sí se apaga.
       setUnreadableRows(describeUnreadableRows(unreadable, tRef.current));
     } catch (e) {
@@ -657,24 +572,6 @@ export default function ProposalInbox({
         // can still land as tec*. The DB report (relay launch) stays keyed off
         // the submit (the relay re-verifies on XRPL itself), but the green and
         // onSettled only follow the ledger's verdict.
-        //
-        // productizer it. 33 (B1) — THE HASH REACHES THE SEAT'S REGISTER THE
-        // MOMENT THE NODE HANDS IT BACK, exactly as `CouncilMultisigFlow.submit`
-        // does since it. 31 — this surface never did. `submitAndConfirm` hid the
-        // gap: it returned only after validation (or 20 s), and nothing here
-        // called `/handoff/signed` at any point. So for those seconds the
-        // server counted this 0xFE as an UNSIGNED draft: the proposer, still
-        // seeing the row `ready`, withdrew it to recompose; with the ceremony pin
-        // `holderEndedCeremony` replaced the clock, the memo's ledger window read
-        // `absent` (the Payment had not validated yet) and the seat was freed
-        // with the Payment in flight. The executor ran the row anyway and the
-        // next prepare composed another 0xFE over the same nonce: XRP paid twice.
-        // Now the hash travels BEFORE the validation wait, with the same rule as
-        // the ceremony (`broadcastMayLand`: only a submit that can still land is
-        // reported; `tef`/`tem` never enter a ledger), and only for a 0xFE (an
-        // `FE…` memo) — a constitution or a council order has no row to tell.
-        // The server verifies the hash against the ledger itself and decides
-        // whether this session may report it; this browser only reports.
         const sub = await broadcast(combined);
         if (sub.hash && broadcastMayLand(sub.engine)) {
           notifyHandoffSigned(flareInstructionMemoOf(proposal.txjson ?? p.txjson), sub.hash);
@@ -683,7 +580,7 @@ export default function ProposalInbox({
         if (sub.engine !== 'tesSUCCESS' || !sub.hash) res = { ...sub, validated: false };
         else res = { ...sub, ...(await awaitValidation(sub.hash)) };
         setEmitResult({ id: p.id, ...res });
-        // productizer-it6 — PRELIMINARY IS NOT PAID. `/submitted` is reported
+        // PRELIMINARY IS NOT PAID. `/submitted` is reported
         // ONLY for a validated tesSUCCESS (councilEmitReport). A validated tec*
         // is never reported: the row says it applied and failed and to withdraw
         // and compose again. No validated verdict → the hash is held in the
@@ -697,7 +594,7 @@ export default function ProposalInbox({
           });
         }
         if (decision.kind === 'report') {
-          // G1 (auditoría 17-ago) — el reporte va en su PROPIO try. Antes
+          // G1 (auditorí) — el reporte va en su PROPIO try. Antes
           // compartía el del broadcast, así que un fallo de red al registrar el
           // hash se leía como «falló la emisión» cuando la tx YA estaba en el
           // ledger: la fila se quedaba en `ready`, caducaba a los 7 días, la
@@ -747,7 +644,7 @@ export default function ProposalInbox({
       setUnreported(null);
       void reload();
     } catch (e) {
-      // productizer-it6: the refusal stays IN the panel, with the backend's
+      // The refusal stays IN the panel, with the backend's
       // detail and code — TX_FAILED_ON_LEDGER / TX_NOT_THIS_PROPOSAL retire the
       // «Register it now» that could only 409 again.
       const refusal = describeServerRefusal(e, tRef.current);
@@ -802,9 +699,9 @@ export default function ProposalInbox({
         // whose pinned seat the ledger says was USED — "withdrawn" would record
         // that it never happened. The flag is the proposer saying they looked.
         const res = await councilProposalsApi.withdraw(p.id, acknowledgeLedgerCheck ? { acknowledgeLedgerCheck: true } : undefined);
-        // it. 34 (agente D): el campo `seat` viaja al lado de `proposal` (it. 29 §2)
+        // El campo `seat` viaja al lado de `proposal`
         // y no es un veredicto sobre la retirada — la propuesta está retirada
-        // diga lo que diga —, pero sí sobre la SIGUIENTE salida de esta cuenta.
+        // diga lo que diga, pero sí sobre la SIGUIENTE salida de esta cuenta.
         setWithdrawnSeat(describeWithdrawnSeat((res as { seat?: unknown }).seat, tRef.current));
         void reload();
       } catch (e) {
@@ -849,19 +746,7 @@ export default function ProposalInbox({
   const signedBy = (p: CouncilProposalRecord) => new Set(p.signatures.map((s) => s.signerAccount));
   /**
    * MY missing signatures only — the addresses this account has linked through
-   * Xaman, never anybody else's (2026-08-04).
-   *
-   * Between 2026-08-03 and today this returned EVERY pending member, so one
-   * session could mint the QR of a councillor who was not there. That is the
-   * SYNCHRONOUS tempo, and it has its own surface: CouncilMultisigFlow lays out
-   * one QR per member in a single sitting. Nothing was lost — the two tempos
-   * were untangled. Here, in the async inbox, the rule is one seat per account:
-   * each councillor signs from their own Astryum, with their own linked wallet.
-   *
-   * (The QR was never an authority hole — payloads are scoped to the member in
-   * Xaman and `verifySignerBlob` checks identity + fidelity twice. It was a
-   * clarity hole: a screen that says "sign as rDEF…" to someone who is not
-   * rDEF… teaches the wrong thing about who holds what.)
+   * Xaman, never anybody else's.
    */
   const pendingMembers = (p: CouncilProposalRecord) =>
     p.signerList.filter((s) => myAddrs.has(s.account) && !signedBy(p).has(s.account)).map((s) => s.account);
@@ -886,7 +771,7 @@ export default function ProposalInbox({
             small technical marker (a family signs "set XRP aside until a
             date", not "EscrowCreate"). */}
         <span className="text-sm text-ink/85">{p.title || xrplTxTypeLabel(p.txType, t)}</span>
-        {/* it. 23 (it. 22 §2.3): a title that was WITHHELD is not a proposal
+        {/* A title that was WITHHELD is not a proposal
             with no title. Without this, a registered-only reader is shown the
             generic ledger label as if that were the name the family gave it. */}
         {readCouncilRedaction(p).titleHidden && !p.title && (
@@ -1107,7 +992,7 @@ export default function ProposalInbox({
                   <PenLine size={14} /> {t('Sign as')} {shortAddr(member)}
                 </PrimaryButton>
 
-                {/* ESCAPE HATCH (2026-08-03): Xaman gates account-security
+                {/* ESCAPE HATCH: Xaman gates account-security
                     transaction types per app (error 1217 on SignerListSet), so
                     the QR rail can refuse a tx the council legitimately needs.
                     The pinned bytes are public material: a member can sign them
@@ -1168,7 +1053,7 @@ export default function ProposalInbox({
       {/* Waiting with no seat of your own: say WHY there is no button, so the
           missing wallet reads as a connection to make, not a dead end. Without
           this the strict filter would leave a councillor staring at 1/3 and no
-          way in — the very hole the 2026-08-03 change was reaching for. */}
+          way in — the very hole the change was reaching for. */}
       {tray === 'waiting' && !p.signerList.some((s) => myAddrs.has(s.account)) && (
         <p className="text-[11px] text-ink/40">
           {t(
@@ -1202,7 +1087,7 @@ export default function ProposalInbox({
           {emitResult.engine} — {emitResult.message}
         </InlineNotice>
       )}
-      {/* productizer-it6 — a validated tec* APPLIED and FAILED: never reported,
+      {/* A validated tec* APPLIED and FAILED: never reported,
           never «register it». The backend says the same (TX_FAILED_ON_LEDGER):
           withdraw, fix the cause, compose again. */}
       {emitResult?.id === p.id && decideEmitReport(emitResult).kind === 'failed-on-ledger' && (
@@ -1313,7 +1198,7 @@ export default function ProposalInbox({
           <div className="space-y-1.5">
             <ServerRefusalBody refusal={error} t={t} />
             {(() => {
-              // it. 19 (R2 N6): the cure is a SIGNATURE, not a registration —
+              // The cure is a SIGNATURE, not a registration —
               // and it is only spelled out here when the server did not already
               // spell it out itself.
               const cause = inboxRefusalCause(
@@ -1347,7 +1232,7 @@ export default function ProposalInbox({
           </div>
         </InlineNotice>
       )}
-      {/* it. 25 (1) — LAS FILAS QUE NO SE PUDIERON LEER, DICHAS. No desaparecen del
+      {/* LAS FILAS QUE NO SE PUDIERON LEER, DICHAS. No desaparecen del
           listado en silencio: se cuentan, se dice la frase del servidor y se ofrece
           el reintento cuando el servidor dijo que reintentar sirve. «No pude leer»
           no es permiso, ni castigo, ni un hecho sobre esta persona. */}
@@ -1355,7 +1240,7 @@ export default function ProposalInbox({
         <InlineNotice tone="warning">
           <div className="space-y-1.5">
             <p>{unreadableRows.text}</p>
-            {/* it. 27 (5): el lector calculaba los ids y no los pintaba nadie,
+            {/* El lector calculaba los ids y no los pintaba nadie,
                 mientras la prosa del servidor decía «open it on its own». Sin el
                 id no hay nada que abrir ni que nombrar al escribirnos. */}
             {unreadableRows.ids.length > 0 && (
@@ -1370,7 +1255,7 @@ export default function ProposalInbox({
         </InlineNotice>
       )}
       {actionError && <InlineNotice tone="warning">{actionError}</InlineNotice>}
-      {/* it. 34 (agente D): lo que el withdraw dijo del asiento de nonce. Verde
+      {/* Lo que el withdraw dijo del asiento de nonce. Verde
           solo cuando el servidor dijo «soltado»; lo demás es «sigue ocupado» o
           «no pude leer», que es justo lo que la siguiente salida va a contestar. */}
       {withdrawnSeat && (
@@ -1397,7 +1282,7 @@ export default function ProposalInbox({
       {unreported && (
         <InlineNotice tone="warning">
           <div className="space-y-2">
-            {/* productizer-it6 — the panel follows the backend's refusal: a
+            {/* The panel follows the backend's refusal: a
                 FAILED transaction is withdrawn and composed again, never
                 «registered»; a hash that is not this proposal's is not either. */}
             {unreportedView.voice === 'failed-on-ledger' ? (

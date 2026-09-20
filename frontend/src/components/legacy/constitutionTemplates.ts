@@ -2,22 +2,6 @@
  * constitutionTemplates — the gallery behind the Constitution builder (§4:
  * nobody writes a constitution from a blank page, and nobody should hunt
  * [BRACKETS] in a wall of text either).
- *
- * Each template is a body with {{slots}} plus a field list (label, help,
- * default, type). The FORM generates the document text; the user never touches
- * a placeholder by hand. Assembly, editing and hashing all happen CLIENT-SIDE —
- * the document (with real names and addresses) never leaves the browser; only
- * its SHA-256 fingerprint is anchored (XLS-40 DID).
- *
- * Copy rule (L5 — legal): never "testamento / herencia / fideicomiso /
- * sucesión". This is a programmed, conditioned, revocable transfer constituted
- * in life. Every body ends with the honest legal caveat (forced-heirship).
- *
- * Bodies are BILINGUAL (founder 2026-08-11: an English page produced a Spanish
- * document — now the document is born in the page's language and the user
- * rewrites it freely afterwards; the anchored text is whatever they edit).
- * Field labels, help lines and placeholders are English t() keys so the UI
- * translates.
  */
 
 export type TemplateFieldType = 'text' | 'multiline' | 'number' | 'percent' | 'date';
@@ -44,10 +28,10 @@ export interface ConstitutionTemplate {
   /** Council shape this template assumes — shown on the card (informative only). */
   recommendedCouncil: string;
   /**
-   * Templates open ONE BY ONE, and only once their whole chain is real
-   * (founder 2026-07-16). Open today: FAMILIAR (a family of 4, quorum 3) and
+   * Templates open ONE BY ONE, and only once their whole chain is real.
+   * Open today: FAMILIAR (a family of 4, quorum 3) and
    * PERSONAL (the reinforced personal account, 2-of-3 of your own keys —
-   * founder 2026-08-21). The rest stay visible as read-only previews.
+   * founder). The rest stay visible as read-only previews.
    */
   available: boolean;
   fields: TemplateField[];
@@ -94,10 +78,10 @@ const F_SUPERVIVENCIA: TemplateField = {
   placeholder: 'ipfs://… / "the safe at home"',
 };
 
-/** H7 — the supremacy-and-cure clause every NEW template carries (E4,
- *  2026-08-16). If law and ledger diverge, the law prevails and the quorum
+/** H7 — the supremacy-and-cure clause every NEW template carries (E4,).
+ * If law and ledger diverge, the law prevails and the quorum
  *  binds itself to the cure ceremony (quorum re-enablement of the master key
- *  is possible on XRPL — validated 15-ago) within a written deadline. */
+ *  is possible on XRPL — validated) within a written deadline. */
 const SUPREMACIA = `SUPREMACÍA Y CURACIÓN
 Si la ley aplicable y el estado del ledger divergen, manda la ley: el ledger
 es el mecanismo de ejecución, no la fuente del derecho. El quórum se obliga a
@@ -131,7 +115,7 @@ const F_CUENTA: TemplateField = {
   placeholder: 'r…',
 };
 
-/** The REINFORCED PERSONAL account's own account field (founder 2026-08-21).
+/** The REINFORCED PERSONAL account's own account field.
  *  Same slot, different truth: there is no council here and nothing is
  *  "governed" by other people — it is the holder's own account, and calling it
  *  a Legacy account in the document would be a plain misdescription. */
@@ -180,8 +164,7 @@ nothing to anyone, creates no structure, and does not replace a lawyer.`;
 
 export const CONSTITUTION_TEMPLATES: ConstitutionTemplate[] = [
   {
-    // THE REINFORCED PERSONAL ACCOUNT (founder 2026-08-21 — the "Reinforce it"
-    // door on every XRPL wallet card). It is the SAME ceremony as a Legacy —
+    // THE REINFORCED PERSONAL ACCOUNT. It is the SAME ceremony as a Legacy —
     // SignerList, rehearsal, master key off, anchored constitution — with two
     // differences that the text must never blur: every key belongs to ONE
     // person, and there is NO cage on Flare. Nothing here is locked away, the
@@ -400,9 +383,9 @@ the assets. When the term expires, the right expires with it.
     },
   },
   {
-    // T4 (tipologías 15-ago). The referee is NOT optional: 2-of-2 over shared
+    // T4 (tipologías). The referee is NOT optional: 2-of-2 over shared
     // capital is a freezer the day the couple breaks — the referee is the
-    // on-ledger way OUT of deadlock, never a third owner. E4, 2026-08-16.
+    // on-ledger way OUT of deadlock, never a third owner. E4.
     id: 'matrimonial',
     name: 'Couple patrimony (matrimonial)',
     description:
@@ -547,7 +530,7 @@ automatism — no quorum, no split, and that is exactly the protection.
     },
   },
   {
-    // T6 (tipologías 15-ago). Weights = ownership: basis points that add to
+    // T6 (tipologías). Weights = ownership: basis points that add to
     // 10,000 across at most 32 seats (the ledger's SignerList bound). Entry
     // is NEVER permissionless; the Q5 line (passive contributors expecting
     // managed returns = collective investment) is said in the text itself.

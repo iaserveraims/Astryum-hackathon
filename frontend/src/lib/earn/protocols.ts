@@ -1,25 +1,11 @@
 /**
  * protocols — the catalogue as DATA: who offers what, and what is true about it.
  *
- * Why this exists (founder, 2026-08-23). Today a card IS a route with the asset
+ * Why this exists. Today a card IS a route with the asset
  * welded inside (`FXRP → Kinetic (carry)`), so every protocol × action × asset
  * combination is one more card, and the identity of a protocol lives smeared
  * across routes: PRODUCT_META repeats Kinetic twice, with two different texts,
  * and /product-info is indexed by route rather than by protocol.
- *
- * The shape here is the one the screen needs: a PROTOCOL is an entity, an
- * ACTION of that protocol is what a card shows, and the TYPOLOGY decides which
- * of its actions is on screen. Kinetic is one card that shows `supply` under
- * "earn" and `supply + borrow` under "cash" — not two cards.
- *
- * ADDITIVE ON PURPOSE: nothing here replaces strategyTaxonomy or DEMO_VAULTS
- * yet. Both keep working exactly as they do, and the test suite pins that this
- * file and strategyTaxonomy can never disagree about where a route belongs. A
- * second source of truth is only safe while something forces the two to agree.
- *
- * NOT a recommendation surface (invariant #9): every field is a FACT about the
- * route — what it does, who decides, what can happen to you, where the number
- * comes from. Nothing ranks and nothing promises.
  */
 
 import type { VaultKind } from '@/components/earn/FlareDemoEarn';
@@ -27,7 +13,7 @@ import type { VaultKind } from '@/components/earn/FlareDemoEarn';
 /* ── What the user wants to happen ───────────────────────────────────────── */
 
 /**
- * The five typologies the ecosystem actually needs (the 2026-08-23 Flare
+ * The five typologies the ecosystem actually needs (the Flare
  * sweep). Only three have a connected product today; `fixed` and `liquidity`
  * are declared so the screen is built for them and they appear the day Ēnosys
  * and Spectra have a connector — not as a hole, as an empty shelf.
@@ -47,8 +33,7 @@ export interface Typology {
 export const TYPOLOGIES: Typology[] = [
   {
     id: 'earn',
-    // Aquí vive TAMBIÉN la delegación al FTSO (fundador, 23-ago: «back the
-    // network debe estar en make it earn porque al final es lo mismo»). Y tiene
+    // Aquí vive TAMBIÉN la delegación al FTSO. Y tiene
     // razón: desde la pregunta del usuario —«que mi dinero rinda sin deuda»— un
     // FTSO es un sitio más donde ponerlo a trabajar. Que el token no se mueva de
     // la wallet es un HECHO de esa card, no una tipología aparte.
@@ -139,7 +124,7 @@ export interface Protocol {
   /**
    * A LOCATABLE audit report, or null.
    *
-   * The 2026-08-23 sweep found that most of the Flare ecosystem publishes no
+   * The sweep found that most of the Flare ecosystem publishes no
    * findable report: only Kinetic (Hacken) and FAssets (Zellic, Coinspect,
    * Code4rena) do. So this field is either a link a person can open, or null —
    * which the card renders as "not published", a true and useful fact. A badge
@@ -155,20 +140,12 @@ export interface Protocol {
   /**
    * The venue's OWN doors — where a person goes when the problem is THEIRS.
    *
-   * Why this field exists (founder, 2026-08-28). Astryum already declares the
+   * Why this field exists. Astryum already declares the
    * risk it inherits from each venue; what it never gave was the other half of
    * that sentence: an address. Without one, a person whose vault is paused, or
    * whose rate moved, or whose withdrawal is queued, writes to the Astryum
    * Discord — where nobody can do anything about it, because we did not build
    * the thing that broke.
-   *
-   * Same discipline as `audit` (#9): every entry is a link a person can open,
-   * READ FROM THE VENUE'S OWN SITE on 2026-08-28, never guessed. A venue that
-   * publishes nothing gets an empty array, which the screen renders as the true
-   * fact that it is — a dead invite would be worse than no invite.
-   *
-   * This does NOT move responsibility. The user still sees the inherited risk
-   * declared; this only stops the declaration from being a dead end.
    */
   support: SupportChannel[];
 }
@@ -176,7 +153,7 @@ export interface Protocol {
 /**
  * earnXRP and Monarq are two products of ONE venue, so they share ONE set of
  * doors — written once, because two copies is how they drift.
- * Read from upshift.finance on 2026-08-28.
+ * Read from upshift.finance.
  */
 const UPSHIFT_SUPPORT: SupportChannel[] = [
   { kind: 'chat', name: 'Discord', url: 'https://discord.gg/eMGRewH6vY' },
@@ -417,7 +394,7 @@ export const ACTIONS: ProductAction[] = [
     // "—" is the honest answer; a 0% would read as a bad deal instead of a
     // stage of the product.
     rate: 'none',
-    // The one that matters: 56.3M FXRP in, ~3.86M of room left (2026-08-23).
+    // The one that matters: 56.3M FXRP in, ~3.86M of room left.
     // Read live before offering entry, or a prepared deposit reverts.
     cap: 'erc4626-max-deposit',
     exitRoute: '/flare-demo/vault-withdraw/prepare',

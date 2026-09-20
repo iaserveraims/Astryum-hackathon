@@ -11,7 +11,7 @@ import {MockFXRP, Mock4626Venue} from "./mocks/Mocks.sol";
  * The factory's one job: a cage belongs to ONE council, and only that council
  * can bring it into the world.
  *
- * The bug this exists to make impossible (founder, 2026-08-05): the product
+ * The bug this exists to make impossible: the product
  * resolved "the" cage from configuration, so a second Legacy was shown — and
  * would have funded — the first Legacy's vault, which has no function that
  * pays principal back to any address.

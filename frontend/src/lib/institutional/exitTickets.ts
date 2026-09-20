@@ -1,7 +1,7 @@
 /**
  * exitTickets — which exit tickets are YOURS, and what the board may say.
  *
- * Why this exists (productizer, 13-sep): TicketsBoard returned `null` without a
+ * Why this exists: TicketsBoard returned `null` without a
  * connected EVM wallet and matched tickets only against the EVM address. An
  * XRPL exit opens its ticket for the user's Flare Personal Account, so those
  * tickets — capital already burned out of the pot, waiting to be collected —

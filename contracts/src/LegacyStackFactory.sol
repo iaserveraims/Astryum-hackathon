@@ -99,7 +99,7 @@ contract LegacyVaultDeployer {
  * vault. Reading it was cosmetic damage. Funding it was not: the funding rail
  * composes a mint that deposits into the vault, and no function in the vault
  * pays principal to an address. A second council would have signed its own
- * capital into the first council's cage, permanently (founder, 2026-08-05).
+ * capital into the first council's cage, permanently.
  *
  * The deployed code already stated the rule — XrplCouncilBridge holds
  * COUNCIL_ADDRESS_HASH as `immutable`, so one bridge obeys one XRPL council for

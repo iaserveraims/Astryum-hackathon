@@ -1,6 +1,6 @@
 /**
- * «This payment is NOT on the ledger» is only concluded from an EXHAUSTIVE read
- * (productizer cycle, it. 8): a 2-page scan (400 rows, newest first) missed a
+ * «This payment is NOT on the ledger» is only concluded from an EXHAUSTIVE read:
+ * a 2-page scan (400 rows, newest first) missed a
  * validated payout on a busy omnibus and its reservation was released → the
  * client was paid again. scanOmnibusWindow paginates until the marker is gone,
  * inside [min, max], and throws instead of answering partially.
@@ -12,7 +12,7 @@ jest.mock('../../flare/DirectMintExecutorService', () => ({
 
 import { scanOmnibusWindow, scanOmnibusWindowUntil } from '../OmnibusWatcher';
 
-describe('scanOmnibusWindowUntil — forward, bounded, stops at the first answer (it. 10)', () => {
+describe('ScanOmnibusWindowUntil — forward, bounded, stops at the first answer', () => {
   const OMNI = 'rLcoFM9XF8CL5GoFyMACguhdnDtwkNYDn7';
   const pages = (total: number, targetAt: number, target: string) => {
     const rows = Array.from({ length: total }, (_, i) => ({
@@ -53,7 +53,7 @@ describe('scanOmnibusWindowUntil — forward, bounded, stops at the first answer
     await expect(scanOmnibusWindowUntil(OMNI, { ledgerIndexMin: 1200, ledgerIndexMax: 1100 })).rejects.toThrow(/INVALID/);
   });
 
-  it('it. 12 (2.6d): a node that does not STATE its served range (missing / null / NaN) → unreadable, never «absent»', async () => {
+  it('A node that does not STATE its served range (missing / null / NaN) → unreadable, never «absent»', async () => {
     for (const served of [{}, { ledger_index_min: null, ledger_index_max: null }, { ledger_index_min: 'abc', ledger_index_max: 1100 }, { ledger_index_min: 1000 }, { ledger_index_min: 1000, ledger_index_max: Number.NaN }]) {
       mockRpc.mockReset();
       mockRpc.mockResolvedValue({ ...served, transactions: [] });
@@ -130,7 +130,7 @@ describe('scanOmnibusWindow — exhaustive, bounded, never partial', () => {
     await expect(scanOmnibusWindow(OMNIBUS, { ledgerIndexMin: 1000, ledgerIndexMax: 1100 })).rejects.toThrow(/HISTORY_MISSING/);
   });
 
-  it('it. 12 (2.6d): an unstated served range reads as unreadable (the old NaN checks let a partial history through)', async () => {
+  it('An unstated served range reads as unreadable (the old NaN checks let a partial history through)', async () => {
     mockRpc.mockResolvedValueOnce({ transactions: [] });
     await expect(scanOmnibusWindow(OMNIBUS, { ledgerIndexMin: 1000, ledgerIndexMax: 1100 })).rejects.toThrow(/RANGE_UNREADABLE/);
     mockRpc.mockResolvedValueOnce({ ledger_index_min: 1000, ledger_index_max: '1100x', transactions: [] });

@@ -25,7 +25,7 @@ jest.mock('../../database/prismaClient', () => ({
       count: (...a: unknown[]) => mockCouncilProposalCount(...a),
     },
     waitlistSignup: {
-      // .count/.groupBy are gone from the route (§ signal-vs-noise, 2026-07-23):
+      // .count/.groupBy are gone from the route (§ signal-vs-noise):
       // the overview now derives both from a single findMany + isNoiseEmail.
       findMany: (...a: unknown[]) => mockWaitlistFindMany(...a),
     },
@@ -50,7 +50,7 @@ jest.mock('../../services/OpsAlertStore', () => ({
 }));
 
 // /orphan-suborgs reads the durable Turnkey orphan ledger through a dynamic
-// import — stub it so the route test never needs a DB (it. 23, task 4).
+// import — stub it so the route test never needs a DB (task 4).
 const mockListOrphanSubOrgsStrict = jest.fn();
 jest.mock('../../services/identity/orphanSubOrgLedger', () => ({
   listOrphanSubOrgsStrict: (...a: unknown[]) => mockListOrphanSubOrgsStrict(...a),
@@ -101,7 +101,7 @@ function buildApp(withSession = true) {
 // a@example.com (reserved RFC 2606) and spam@mailinator.com (disposable).
 function mockHealthyCounts() {
   // Two user.count calls now: real accounts, then the quarantine rows a takeover
-  // leaves behind (productizer it. 16, 4.2 — they are evidence, not users).
+  // leaves behind (4.2 — they are evidence, not users).
   mockUserCount.mockImplementation(async (args: any) =>
     args?.where?.authProvider === 'quarantine' ? 1 : 3,
   );
@@ -211,7 +211,7 @@ describe('GET /api/admin-panel/overview — gate', () => {
     expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
-  // productizer-it6 — plain registration stores any email unverified, so an
+  // Plain registration stores any email unverified, so an
   // allowlisted address with no User row could be registered by a squatter.
   // This was a 200 on the code before this round.
   test('siwe door: allowlisted email WITHOUT verified provenance → 403, nothing read', async () => {
@@ -279,7 +279,7 @@ describe('GET /api/admin-panel/overview — gate', () => {
   });
 
   /**
-   * productizer it. 16 (4.2) — a takeover does not delete the previous holder's
+   * A takeover does not delete the previous holder's
    * row, it moves the residue to a `quarantine` account nobody can sign into.
    * Those rows were counted as users, and the freshest one (created at the
    * instant of the handover) always sat at the top of "recent users". The Make
@@ -379,10 +379,10 @@ describe('GET /api/admin-panel/alerts — the ops-alert inbox', () => {
 });
 
 /**
- * productizer it. 23, task 4 — THE DURABLE ORPHAN ROW FINALLY HAS A READER.
+ * Task 4 — THE DURABLE ORPHAN ROW FINALLY HAS A READER.
  *
  * `recordOrphanSubOrg` has written a row for every Turnkey sub-org with no
- * wallet row behind it since it. 21, and it. 21 shipped a runbook for
+ * wallet row behind it, and shipped a runbook for
  * reconciling them — but `listOrphanSubOrgs` had no caller, so the ledger was
  * write-only and the runbook could not actually be followed.
  */
@@ -453,7 +453,7 @@ describe('GET /api/admin-panel/orphan-suborgs — the Turnkey orphan ledger', ()
   });
 });
 
-describe('isAdminEmail — the /auth/me visibility hint (2026-07-25)', () => {
+describe('IsAdminEmail — the /auth/me visibility hint', () => {
   test('matches the allowlist case-insensitively; unset env means nobody is admin', () => {
     expect(isAdminEmail(ADMIN_EMAIL)).toBe(false); // env deleted in beforeEach
     process.env.ADMIN_EMAILS = ` Other@Founder.xyz , ${ADMIN_EMAIL.toUpperCase()} `;
@@ -465,7 +465,7 @@ describe('isAdminEmail — the /auth/me visibility hint (2026-07-25)', () => {
   });
 });
 
-describe('POST /api/admin-panel/session — the 2h panel session (2026-07-23 hardening)', () => {
+describe('POST /api/admin-panel/session — the 2h panel session (hardening)', () => {
   test('unconfigured panel → 404, no hint that the endpoint exists', async () => {
     const res = await request(buildApp(false)).post('/api/admin-panel/session').send({ key: 'whatever' });
     expect(res.status).toBe(404);

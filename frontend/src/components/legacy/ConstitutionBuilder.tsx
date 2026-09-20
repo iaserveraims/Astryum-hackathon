@@ -41,7 +41,7 @@ export default function ConstitutionBuilder({
   onUse: (text: string) => void;
   onClose: () => void;
 }) {
-  // The document is born in the page's language (founder 2026-08-11): `lang`
+  // The document is born in the page's language: `lang`
   // picks the template body, `t` localizes labels, defaults and the marker.
   const { t, lang } = useT();
   // Restore the draft on mount: typed work survives a refresh/deploy. The
@@ -121,8 +121,7 @@ export default function ConstitutionBuilder({
     );
   }
 
-  // ── locked template: read-only preview, never a form (founder decision:
-  //    templates open one by one — FAMILIAR and PERSONAL today) ──
+  // ── locked template: read-only preview, never a form ──
   if (!picked.available) {
     return (
       <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-3">

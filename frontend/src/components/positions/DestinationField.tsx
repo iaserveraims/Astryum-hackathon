@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * DestinationField — where withdrawn capital goes, never a forced paste
- * (founder 2026-07-30): the user picks among their OWN linked wallets and
+ * DestinationField — where withdrawn capital goes, never a forced paste:
+ * the user picks among their OWN linked wallets and
  * their saved address book (agenda); typing an address is just the third
  * option. When the caller passes the wallet the capital LEAVES FROM, it is
  * pinned first and marked with a dot — picking it means "take it out of the
@@ -60,13 +60,13 @@ export function DestinationField({
    *  wallet of a Smart Account, reached via the built unmint leg). They skip
    *  the kind regex — the parent routes them — and carry their own hint, so
    *  the picker can offer "arrives as native XRP" without opening arbitrary
-   *  other-rail addresses (founder 2026-07-30: non-EVM wallets must show too). */
+   *  other-rail addresses. */
   extraOptions?: RowOption[];
   t: (s: string) => string;
 }) {
   const re = kind === 'evm' ? EVM_ADDRESS_RE : XRPL_CLASSIC_RE;
 
-  // Cada cuenta con su DUEÑA en el nombre (fundador 2026-08-22): tres «Flare
+  // Cada cuenta con su DUEÑA en el nombre: tres «Flare
   // Smart Account» seguidas eran tres desconocidas, y aquí se elige a dónde va
   // el capital. `nameOf` cubre también la fila de origen y las opciones extra
   // que el padre sintetiza (una PA sin fila propia se nombra por su dueña).
@@ -193,7 +193,7 @@ export function DestinationField({
         <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
           {(mode === 'mine' ? mine : saved).map((o) => {
             const selected = value.toLowerCase() === o.address.toLowerCase();
-            // The color IS the arrow (founder 2026-07-30): XRPL rows read
+            // The color IS the arrow: XRPL rows read
             // blue, Flare rows read rose — the destination is understood
             // before a single word is read. Identity never color-alone: the
             // ecosystem dot rides next to the label, the hint spells it out.

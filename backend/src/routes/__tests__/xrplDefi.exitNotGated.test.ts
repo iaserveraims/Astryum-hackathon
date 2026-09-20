@@ -1,5 +1,5 @@
 /**
- * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13) — the
+ * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA») — the
  * XRPL-native DeFi router.
  *
  * Releasing an escrow (finish), recovering it (cancel — what the EscrowCreate
@@ -114,8 +114,7 @@ describe('xrpl-defi — an ENTRY in a blocked region still answers 451', () => {
  * council-order/relay DELIVERS an order the council already signed and the XRPL
  * already validated. A 451 here did not stop exposure from opening — it left a
  * signed order (a recall, an evacuation) undelivered and unregistered, so the
- * watcher never recovered it. Flag-only; requireLegacyAccess stays (founder
- * decision pending) — LEGACY_ENABLED=true opens it here without a DB read.
+ * watcher never recovered it. Flag-only; requireLegacyAccess stays — LEGACY_ENABLED=true opens it here without a DB read.
  *
  * Hermetic: with FLARE_EXECUTOR_ENABLED unset the route answers 503 RELAYER_DISABLED
  * right after the gate — reaching it (instead of 451) is the proof, no FDC launched.
@@ -203,7 +202,7 @@ describe('by source — every exit uses the flag-only gate; no exit reaches the 
 
 
 /**
- * productizer it. 21 (P2, encargo del agente de los asientos 0xFE) — EL ASIENTO
+ * EL ASIENTO
  * ILEGIBLE NO ES UN CONFLICTO.
  *
  * `SeatStateUnreadableError` hereda de `NonceSeatTakenError` y conserva su `name`
@@ -213,7 +212,7 @@ describe('by source — every exit uses the flag-only gate; no exit reaches the 
  * propia marca de instancia (`unreadableSeatState`); leerla es lo que separa «hay
  * algo de alguien ahí» (409) de «no lo sé y no compuse nada» (503, reintentable).
  */
-describe('it. 21 — un asiento que no se pudo LEER responde 503, nunca un 409 definitivo', () => {
+describe('Un asiento que no se pudo LEER responde 503, nunca un 409 definitivo', () => {
   const read = (file: string): string => readFileSync(join(__dirname, '..', file), 'utf8');
 
   it('xrpl-defi: handoffErrorResponse decide el status por unreadableSeatState', () => {
@@ -239,21 +238,10 @@ describe('it. 21 — un asiento que no se pudo LEER responde 503, nunca un 409 d
 });
 
 /**
- * productizer it. 23 (hallazgo 1.1, CUATRO revisores) — LA SALIDA PREGUNTA CON
+ * LA SALIDA PREGUNTA CON
  * «EXIT», Y LA FILA LLEVA LAS DOS MITADES.
- *
- * Las tres puertas de 0xFE de este router usaban `sessionMayActOnXrplAccount(req, a)`:
- * forma BOOLEANA, propósito por defecto `'entry'`, `refusal` a la basura. Sobre
- * `/vault-yield/claim/prepare` —que es una SALIDA, `legacy-yield-claim` está en
- * `HANDOFF_EXIT_ACTIONS`— eso convertía un parpadeo de la tienda de pruebas en una
- * fila `preparedByProven:false` SIN `preparedByProofUnreadable`: la clase que el
- * propio dueño desplaza en su siguiente prepare, con el Payment anterior todavía
- * firmable en Xaman. El gemelo.
- *
- * Tripwire de código fuente, como el de arriba: lo que se fija no es una respuesta
- * concreta sino que no vuelva a existir la forma que causó el fallo.
  */
-describe('it. 23 (1.1) — ninguna puerta de 0xFE de este router pregunta en booleano', () => {
+describe('Ninguna puerta de 0xFE de este router pregunta en booleano', () => {
   const src = (): string => readFileSync(join(__dirname, '..', 'xrplDefi.ts'), 'utf8');
 
   it('no queda ni una llamada a la forma booleana en una puerta que compone un 0xFE', () => {
@@ -269,10 +257,10 @@ describe('it. 23 (1.1) — ninguna puerta de 0xFE de este router pregunta en boo
     expect(s).toContain('async function seatProofFieldsFor(');
     expect(s).toContain('seatProofFromVerdict');
     expect(s).toContain('preparedByProofUnreadable');
-    // Y propaga el refusal ENTERO en vez de un `false` mudo — it. 31 (4.1): este
+    // Y propaga el refusal ENTERO en vez de un `false` mudo: este
     // tripwire exigía el literal `code: 'PROOF_STORE_UNREADABLE'`, es decir,
     // consagraba que la puerta colapsara TODO refusal reintentable (también
-    // `PROOF_FLOOR_AHEAD_OF_CLOCK`, de it. 29) en ese código con una frase falsa
+    // `PROOF_FLOOR_AHEAD_OF_CLOCK`) en ese código con una frase falsa
     // («could not read … in a moment» sobre una fila leída y un instante que
     // puede ser 2099). Lo que se fija ahora es la forma contraria: el error se
     // construye DESDE el refusal, y ningún código de prueba se escribe a mano.

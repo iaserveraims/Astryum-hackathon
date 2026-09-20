@@ -1,25 +1,6 @@
 /**
  * Admin panel — read-only overview for the 2 founders (DB counts + the
  * waitlist), so they never need to open the database directly.
- *
- * Gate, two doors (founder 2026-07-19 — "de momento un login estático"):
- *
- *   1. STATIC KEY (the current door): ADMIN_PANEL_KEY env — the founders type
- *      it into the panel's login card and it travels as `x-admin-key`. The
- *      secret lives ONLY in the backend env (never NEXT_PUBLIC_*, never in
- *      the repo — invariant §2), and the comparison is constant-time over
- *      sha256 digests. Works without a backend account, mirroring how the
- *      dashboard's own static door creates no backend session.
- *
- *   2. SIWE + ADMIN_EMAILS (the future default): a logged-in caller whose
- *      email is on the comma-separated allowlist. Kept fully functional so
- *      retiring the static key is a one-env change, not a code change.
- *
- * If NEITHER env is configured the whole surface 404s — it doesn't even
- * reveal it exists. Nothing is read from the DB before a gate passes.
- *
- * Read-only by construction: every handler in this router is a GET, and none
- * of them ever selects passwordHash, resetToken or any other secret column.
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import { createHash, timingSafeEqual } from 'crypto';
@@ -33,7 +14,7 @@ import { isNoiseEmail } from './waitlist';
 
 const router = Router();
 
-// ── Failed-attempt tracker (2026-07-23 hardening) ─────────────────────────────
+// ── Failed-attempt tracker (hardening) ─────────────────────────────
 // The static key is strong only while nobody can grind it. Every WRONG key —
 // on POST /session or on a raw x-admin-key header — is recorded per IP; past
 // MAX_KEY_FAILURES in the window the door answers 429 BEFORE any comparison
@@ -108,35 +89,8 @@ function keyMatches(presented: string, expected: string): boolean {
 }
 
 /**
- * productizer-it6 — AN EMAIL ON THE ALLOWLIST IS NOT AN ADMIN UNTIL SOMEONE
+ * AN EMAIL ON THE ALLOWLIST IS NOT AN ADMIN UNTIL SOMEONE
  * VERIFIED IT.
- *
- * WHAT FAILED IN SILENCE: this gate trusted `user.email` as typed. Plain
- * registration (`AuthService.register`) stores whatever address the caller
- * sends, with no verification loop, so a founder address on ADMIN_EMAILS that
- * had no User row yet could be registered by anyone — and `requireAdmin`
- * (hence `callerIsAdmin` on the demo exchange desk) opened for them.
- *
- * What the schema offers: `User.emailVerified` (Boolean, default false). The
- * ONLY writer that sets it true is `AuthService.oauthLogin` — on create, and on
- * linking an OAuth identity onto an existing account by email — and only when
- * the provider's id_token says `email_verified` (Google/Apple). Plain email
- * registration leaves it false; SIWE/Xaman users carry no real email. There is
- * no magic-link or verification-mail path in the backend today.
- *
- * So the door requires `emailVerified === true`, fail-closed: an allowlisted
- * founder whose account was created with a password uses the static-key door.
- * Same 403 either way — the refusal does not tell a squatter that the address
- * they registered is on the list.
- *
- * ⚠ (2026-09-18) Do NOT tell that founder to «sign in once with Google/Apple on
- * that same address», as this comment used to. Since it. 8 that login is a
- * TAKEOVER of an unverified password row (`AuthService._takeOverSquattedAccount`):
- * the founder's own wallets, rules and MoneyFlows move to a quarantine account
- * and their signed bindings are deactivated. There is no mailer behind
- * /auth/forgot-password either, so a reset cannot verify the address. Until a
- * verification mail exists, the safe ways are the panel key or flipping
- * `users."emailVerified"` for that row by hand, in that environment's database.
  */
 async function emailGate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const allowlist = adminAllowlist();
@@ -159,7 +113,7 @@ async function emailGate(req: Request, res: Response, next: NextFunction): Promi
   next();
 }
 
-// Exported (2026-07-25) so platformStatus.ts can guard its ONE write — the
+// Exported so platformStatus.ts can guard its ONE write — the
 // online/offline switch — behind the exact same founders' doors. THIS router
 // stays read-only by construction; the write lives in its own router.
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
@@ -258,8 +212,7 @@ router.post('/session', requireTurnstile(), (req: Request, res: Response) => {
 router.use(requireAdmin);
 
 // GET /executor — gauges vivos del executor 0xFE, servidos bajo la sesión del
-// panel (regla fundador 2026-07-25: las métricas se miran en /app/admin, no en
-// snippets de consola). Mismo snapshot que /flare-demo/executor-health: todo
+// panel. Mismo snapshot que /flare-demo/executor-health: todo
 // información on-chain pública o booleanos de config, jamás claves ni env.
 router.get('/executor', async (_req: Request, res: Response) => {
   try {
@@ -271,23 +224,13 @@ router.get('/executor', async (_req: Request, res: Response) => {
 });
 
 /**
- * GET /orphan-suborgs — THE READER THE DURABLE ROW NEVER HAD (it. 23, task 4).
+ * GET /orphan-suborgs — THE READER THE DURABLE ROW NEVER HAD (task 4).
  *
  * `recordOrphanSubOrg` writes a row for every Turnkey sub-org that exists at the
- * provider with no `wallet` row pointing at it, and it. 21 shipped a runbook for
+ * provider with no `wallet` row pointing at it, and shipped a runbook for
  * reconciling them — but `listOrphanSubOrgs` had no caller, so the ledger was
  * write-only and the runbook could not actually be followed without opening the
  * database. Here it is, behind the founders' door like every other panel read.
- *
- * READ STRICTLY ON PURPOSE. `listOrphanSubOrgsStrict` throws when the database
- * cannot answer, and this answers 503 — because «there are no orphan sub-orgs»
- * and «I could not read the ledger» are opposite answers, and an empty table
- * that means the second is a failed read presented as a fact. `readable` is in
- * the body so the panel never has to infer it from an empty array.
- *
- * Read-only, and it carries no secret: a sub-org id, a user id, an address and
- * an error message. The KEY inside the sub-org is the user's, reachable only
- * with their passkey, and nothing here goes anywhere near it.
  */
 router.get('/orphan-suborgs', async (req: Request, res: Response) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
@@ -346,24 +289,14 @@ router.get('/alerts', async (req: Request, res: Response) => {
 // GET /overview — counts + waitlist + recentUsers. Read-only, capped
 // (10,000 waitlist rows fetched once to separate signal from noise, 200
 // shown in the table, 50 users) — this is a glance at the DB, not an export.
-//
-// Signal vs noise (founder 2026-07-23): the public POST gets hammered by bots
-// with syntactically-valid throwaway addresses. `isNoiseEmail` — the SAME
-// predicate waitlist.ts uses to reject new noise at the door — separates
-// signal from whatever got in before/around that guard, so the two never
-// drift into different definitions of "noise". `counts.waitlistSignups` /
-// `waitlistBySource` count clean rows only; `counts.waitlistNoise` is the
-// noisy total. The `waitlist` table defaults to clean rows (each tagged
-// `noise: false`); `?includeNoise=1` swaps in the top 200 rows by recency
-// regardless of noise, tagged `noise: true/false`, for the rare audit pass.
 router.get('/overview', async (req: Request, res: Response) => {
   const includeNoise = req.query.includeNoise === '1';
 
   // A takeover does not delete the previous holder's row — it moves the residue
-  // to a `quarantine` account that can never be signed into (AuthService
-  // ._takeOverSquattedAccount, invariant #11: nothing is destroyed). Those rows
+  // to a `quarantine` account that can never be signed into (AuthService.
+  // _takeOverSquattedAccount, invariant #11: nothing is destroyed). Those rows
   // are evidence, NOT users: counting them inflates the account figure, and the
-  // freshest one always sits at the top of "recent users" (productizer it. 16,
+  // freshest one always sits at the top of "recent users" (
   // 4.2). They are reported on their own line instead.
   const REAL_USER = { authProvider: { not: 'quarantine' } } as const;
 
@@ -387,7 +320,7 @@ router.get('/overview', async (req: Request, res: Response) => {
       take: 50,
       select: { email: true, username: true, createdAt: true, lastLogin: true, authProvider: true, oauthSub: true },
     }),
-    // OAuth users separated from plain-email users (founder 2026-07-23).
+    // OAuth users separated from plain-email users.
     prisma.user.groupBy({ by: ['authProvider'], where: REAL_USER, _count: { _all: true } }),
   ]);
 

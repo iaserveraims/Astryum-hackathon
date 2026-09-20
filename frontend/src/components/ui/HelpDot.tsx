@@ -1,10 +1,7 @@
 'use client';
 
 /**
- * HelpDot — el interrogante que guarda la letra pequeña (fundador 2026-09-07:
- * «los botones se ven sobrecargados… reduce el texto de manera importante y
- * añade un simbolito de interrogación en cada botón; la ayuda salta cuando el
- * usuario pase el ratón por encima»).
+ * HelpDot — el interrogante que guarda la letra pequeña.
  *
  * El reparto que instaura: el botón lleva UNA línea corta; la explicación
  * entera vive aquí y aparece al pasar el ratón por el interrogante — visible
@@ -12,14 +9,6 @@
  * de PrimaryButton): nada de estado, nada de framer. El clic se traga
  * (stopPropagation) para que preguntar jamás abra la puerta anfitriona; con
  * teclado, enfocar el punto también muestra la ayuda.
- *
- * DOS CAPAS, y es la lección de su primer día (fundador, con captura: «donde
- * están ahora no se ven»): la v1 llevaba `relative` en su propia lista de
- * clases y el `absolute` del consumidor PERDÍA la cascada — el punto acababa
- * medio guillotinado en el borde izquierdo de cada puerta. Ahora la capa
- * EXTERNA es del consumidor (posición/display, sin clases propias que
- * choquen) y la INTERNA es siempre `relative` para anclar el globo. Un
- * conflicto de utilidades ya no es posible.
  */
 export function HelpDot({
   text,

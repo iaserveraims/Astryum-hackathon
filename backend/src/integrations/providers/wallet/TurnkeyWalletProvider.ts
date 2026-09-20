@@ -2,16 +2,6 @@
  * TurnkeyWalletProvider
  *
  * Backend metadata provider for Turnkey user-controlled signing infrastructure.
- *
- * REGULATORY NOTE:
- * - Turnkey keys are user-controlled and never leave the user's device.
- * - Astryum never holds, sees, or manages private keys.
- * - This provider only exposes capabilities metadata and session validation.
- * - canBroadcast is always false — Astryum does not broadcast transactions.
- * - userControlledKeys is always true — user owns the keys, not Astryum.
- *
- * The actual signing happens client-side in frontend/src/wallet/TurnkeyWalletProvider.ts.
- * This backend provider exists only for Control Plane capability routing.
  */
 import type { IProvider, ProviderHealth, ProviderCallContext, ProviderCallResult, Capability } from '../../interfaces/IProvider';
 

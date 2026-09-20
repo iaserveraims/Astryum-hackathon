@@ -6,17 +6,6 @@
  * button that only lights up when the chain will say yes. A 409 from the
  * prepare is painted verbatim — CLAIM_NOT_READY is the product telling the
  * truth, not a failure.
- *
- * A claim whose signature could not be followed (RECEIPT_UNREAD, a dropped
- * RPC…) is never offered again from this screen: its button stays locked and
- * the amber panel says to check first (unearned-success family, 13-sep).
- *
- * The holder is the EVM wallet AND the Personal Account of the connected XRPL
- * wallet (13-sep): an XRPL exit opens its ticket for the PA, and matching only
- * the EVM address left that capital — already out of the pot — invisible. PA
- * tickets are claimed by 0xFE, signed in Xaman, with the disclosure shown first.
- * The board never goes silent: no wallet, a read in progress, a failed read and
- * «no exits» are four different sentences (`lib/institutional/exitTickets`).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -126,7 +115,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
   const [paSignError, setPaSignError] = useState('');
   const [paUnconfirmed, setPaUnconfirmed] = useState<UnconfirmedSignature | null>(null);
   /**
-   * A claim signed past its ledger window (it. 17, R5 5.2). It never validated
+   * A claim signed past its ledger window (R5 5.2). It never validated
    * and never will, so the ticket is NOT locked and the row's own offer is a
    * fresh prepare.
    */
@@ -195,14 +184,14 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
     try {
       const res = await prepareClaimRedeem({ pote: policy.poteAddress, ticketId });
       if (!res.ok) {
-        // A seat refusal has ONE reader and it speaks English (it. 17, R5 5.4):
+        // A seat refusal has ONE reader and it speaks English (R5 5.4):
         // never the raw code, never the server's Spanish detail.
         const seat = seatRefusalSentence(res.refusal, t);
         setNotice(
           seat ??
             (res.refusal.error === 'NOT_MATURE' && res.refusal.remainingSeconds
               ? `${t('Not yet — this exit matures in')} ${Math.ceil(res.refusal.remainingSeconds / 3600)} h`
-              : // it. 22 (Q3 3.7): ni el código crudo ni el castellano del
+              : // Ni el código crudo ni el castellano del
                 // servidor. `refusalHeadline` convierte un slug en una frase y
                 // el `detail` solo acompaña si está en el idioma de la pantalla.
                 [refusalHeadline(res.refusal, t), serverDetailIfEnglish(res.refusal.detail)]
@@ -248,7 +237,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
       return;
     }
     // Kept past the payload's own life: a seat refusal on the next attempt is
-    // usually THIS draft still sitting on the nonce (it. 17, R1 1.5).
+    // usually THIS draft still sitting on the nonce (R1 1.5).
     if (res.data.memoHex) abandonedPaMemo.current = res.data.memoHex;
     setPaClaim({ ticketId, phase: 'ready', handoff: res.data });
   }
@@ -269,7 +258,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
       setLockedTickets((m) => ({ ...m, [ticketId]: true }));
       setPaClaim({ ticketId, phase: 'sent', handoff });
     } catch (e) {
-      // Signed too late (it. 17, R5 5.2): this payload can never validate, so
+      // Signed too late (R5 5.2): this payload can never validate, so
       // the honest offer is a fresh prepare — not the amber «could not confirm».
       if (describeStaleSignature(e, t)) {
         setPaStale({ ticketId, error: e });
@@ -334,7 +323,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
   const paCopy = paClaim && 'handoff' in paClaim ? exitCopyFor(paClaim.handoff.mode, paClaim.handoff.unminted) : null;
   // Invariant #6 (4.2): an unmint claim pays the FAssets redemption fee out of
   // the XRP the agent sends — net amount when read, gross + caveat when not.
-  // The gross and the rows come from ONE reader (it. 14, R3 3.2): reading
+  // The gross and the rows come from ONE reader (R3 3.2): reading
   // `exit.xrpOutHuman` here as the gross subtracted the fee a second time over a
   // figure the backend had already netted.
   const paHandoff = paClaim && 'handoff' in paClaim ? paClaim.handoff : null;
@@ -392,7 +381,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
       ) : null}
 
       {/* The review of a Personal Account claim: the unit comes from what the backend composed. */}
-      {/* A taken nonce seat, said in English and with the way out (it. 17, R5
+      {/* A taken nonce seat, said in English and with the way out (R5
           5.4): the code and the server's Spanish paragraph never reach the
           screen, and the draft this person just abandoned can be freed. */}
       {paClaim && paClaim.phase === 'refused' && normalizeSeatRefusal(paClaim.refusal) ? (
@@ -412,7 +401,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
         />
       ) : null}
 
-      {/* it. 21 (it. 20 §3.3): the claim was dropped because its payload is
+      {/* The claim was dropped because its payload is
           spent, and its 0xFE is still holding the seat. Said here, with the
           release, so re-claiming from the row does not meet NONCE_SEAT_TAKEN. */}
       {!paClaim && !paStale && paSignError && abandonedPaMemo.current ? (
@@ -421,7 +410,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
 
       {paClaim && paClaim.phase === 'refused' && !normalizeSeatRefusal(paClaim.refusal) ? (
         <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-2.5">
-          {/* it. 22 (Q3 3.7): el titular era el CÓDIGO del servidor y debajo su
+          {/* El titular era el CÓDIGO del servidor y debajo su
               párrafo en castellano. Un slug no es una frase: `refusalHeadline`
               lo dice en inglés, y el `detail` solo se pinta si está en el
               idioma de la pantalla. Sin él queda nuestra propia frase — jamás
@@ -473,7 +462,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
           ) : null}
           {paCopy.unminted ? <RedemptionFeeNotice response={paClaim.handoff} grossFxrp={paGrossFxrp} t={t} /> : null}
           {paSignError ? <p className="text-[11px] leading-relaxed text-tone-warning">{paSignError}</p> : null}
-          {/* it. 21 (it. 20 §3.3): rejecting in Xaman leaves this 0xFE holding
+          {/* Rejecting in Xaman leaves this 0xFE holding
               the seat. It is said here, with WHEN it frees itself — and the
               release is not offered while the payload is still signable, which
               is exactly what the button above still is. */}
@@ -499,7 +488,7 @@ export function TicketsBoard({ policy }: { policy: PolicyCard }) {
               <button
                 type="button"
                 onClick={() => {
-                  // it. 21 (it. 20 §3.3): walking away from an UNSIGNED claim
+                  // Walking away from an UNSIGNED claim
                   // used to leave its 0xFE sitting on the nonce, so the next
                   // claim of this account met a bare NONCE_SEAT_TAKEN. Only a
                   // draft nobody signed is released, and only from here.

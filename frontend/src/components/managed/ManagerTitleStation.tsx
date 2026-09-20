@@ -2,21 +2,7 @@
 
 /**
  * ManagerTitleStation — la estación «Título» entera, ordenada de arriba abajo
- * como se lee (fundador 10-sep: «demasiada información… me aparece primero
- * el apartado de verificar y debajo la descripción… reorganízalo mejor, que
- * sea notorio»):
- *
- *   1. QUÉ es esto, en una frase, y cuánto llevas (k / N vigentes).
- *   2. LA LISTA: una fila por credencial exigida (KYC, AIFM), con su estado
- *      leído del ledger y, en la fila, lo único que se puede hacer por ella.
- *   3. UNA acción: «Verificar y emitir» — el notario comprueba las dos patas
- *      (Coinbase para la KYC, los tres hechos públicos para la AIFM) y emite
- *      lo que falte. Cada pata contesta por separado.
- *   4. LA FIRMA: lo que espera tu aceptación, destacado, con el QR de Xaman.
- *   5. Lo demás (emisores, credencial del partner, certificadora), plegado.
- *
- * Astryum no emite ni verifica el título: lee el ledger y compone lo que TÚ
- * firmas. Aceptar la credencial en tu Xaman es tu consentimiento.
+ * como se lee:
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,8 +40,7 @@ type LegState = 'in-force' | 'pending' | 'expired' | 'other-issuer' | 'missing';
  * El estado de UNA credencial exigida, leído de la bandeja. La puerta del
  * ledger solo cuenta las de un emisor de SU allowlist: una credencial válida
  * de otro emisor (p. ej. auto-emitida por la propia cuenta) existe, pero no
- * abre la puerta — y hay que decirlo así, no como «aún no la tienes»
- * (fundador 10-sep: «tengo válido el AIFM… ¿qué onda?»).
+ * abre la puerta — y hay que decirlo así, no como «aún no la tienes».
  *
  * `tray` llega ya acotada a lo que ES de esta cuenta (sujeto = la cuenta) y a
  * las patas del gestor — ver managerTitleTray. El directorio del ledger
@@ -84,7 +69,7 @@ export function ManagerTitleStation({ account, onChanged }: { account: string; o
   /** «No pude leer» la puerta o la bandeja: se dice, y NADA se pinta como vigente. */
   const [readFailed, setReadFailed] = useState<'status' | 'tray' | null>(null);
   const [tick, setTick] = useState(0);
-  // Secuencia (revisión 10-sep): al cambiar de cuenta, una respuesta lenta de
+  // Secuencia (revisión): al cambiar de cuenta, una respuesta lenta de
   // la anterior no puede pintarse bajo la nueva.
   const seqRef = useRef(0);
 
@@ -104,9 +89,7 @@ export function ManagerTitleStation({ account, onChanged }: { account: string; o
 
   // ── El robot: descubrir la atestación → firmar el reto → emitir ─────────
   const { signMessageAsync } = useSignMessage();
-  // LA WALLET EVM DE LA PATA KYC (fundador 2026-09-15: «he conectado las dos
-  // wallets de MetaMask que tengo a Astryum, debería funcionar como la última
-  // vez»). Antes solo contaba la sesión viva de wagmi, que se guarda POR
+  // LA WALLET EVM DE LA PATA KYC. Antes solo contaba la sesión viva de wagmi, que se guarda POR
   // DOMINIO: en otro navegador o en el dominio del preview no había sesión y
   // la estación decía «sin wallet EVM» con las dos enlazadas en Wallets. La
   // atestación de Coinbase se busca por DIRECCIÓN, así que una EVM enlazada a
@@ -204,8 +187,7 @@ export function ManagerTitleStation({ account, onChanged }: { account: string; o
   // ── Las credenciales exigidas, con su estado — identidad antes que licencia ─
   // La puerta habla en grupos OR (`AIFM|CASP`, `KYC|KYB`: la licencia de CADA
   // sector y su identidad). Esta mesa es la del GESTOR: cada grupo se resuelve
-  // a su pata —AIFM, KYC— y SOLO esas se leen (fundador 15-sep: «solo KYC y
-  // AIFM»). Antes el grupo entero se buscaba como tipo literal: a una cuenta
+  // a su pata —AIFM, KYC— y SOLO esas se leen. Antes el grupo entero se buscaba como tipo literal: a una cuenta
   // con AIFM+KYC vigentes se le decía «0 / 2» y las filas se titulaban con
   // los tipos del exchange.
   const required = useMemo(() => managerTitleLegs(status?.credentialTypes), [status]);
@@ -215,7 +197,7 @@ export function ManagerTitleStation({ account, onChanged }: { account: string; o
   const issuers = useMemo(() => new Set(status?.acceptedIssuers ?? []), [status]);
   // Sin veredicto de la puerta (aún cargando, o ilegible) NO se decide nada:
   // una lista de emisores vacía por no haberla leído pintaba «vigente» lo que
-  // la puerta rechazaría (revisión 10-sep).
+  // la puerta rechazaría (revisión).
   const gateKnown = status !== null;
   const rows = required.map((type) => ({ type, ...(gateKnown ? legStateOf(type, ownTray, issuers) : { state: 'missing' as LegState, cred: null }) }));
   const inForceCount = rows.filter((r) => r.state === 'in-force').length;
@@ -308,9 +290,8 @@ export function ManagerTitleStation({ account, onChanged }: { account: string; o
                       {issuers.size > 0 ? <>: <span className="font-mono">{[...issuers].map(short).join(', ')}</span></> : null}. {t('Ask your issuer to grant it from an accepted key; it will then appear below to accept.')}
                     </p>
                   ) : null}
-                  {/* La puerta al partner y la GUÍA paso a paso, en la fila que les toca
-                      (fundador 10-sep: «si el usuario se ve confundido, que sea fácil de
-                      abrir la pantalla con la configuración necesaria en Coinbase»). */}
+                  {/* La puerta al partner y la GUÍA paso a paso, en la fila que les toca.
+                  { */}
                   {r.type.toUpperCase() === 'KYC' && r.state !== 'in-force' ? (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {(status?.verificationPartners ?? []).map((p) => (
@@ -413,7 +394,7 @@ export function ManagerTitleStation({ account, onChanged }: { account: string; o
           </p>
         ) : null}
         {/* El paste-link del AIFM llamaba al notario de RODAJE (issue-aifm-demo).
-            Desde el 20-sep esa emisión vive en /app/admin, tras la puerta de los
+            Esa emisión vive en /app/admin, tras la puerta de los
             fundadores: aquí el título lo concede un emisor acreditado, o el
             notario con sus comprobaciones de verdad («Verify & issue»). */}
       </Card>

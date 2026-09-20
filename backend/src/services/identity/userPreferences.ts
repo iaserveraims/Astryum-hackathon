@@ -8,20 +8,7 @@
  * /appearance request that read before the takeover and wrote after it erased
  * `security`, and with it the epoch that kills the intruder's sessions and the
  * `takeoverAt` that stops their wallets and exchange tickets passing as the
- * owner's (productizer it. 12, finding 5.2).
- *
- * Two rules, both enforced here rather than trusted to each caller:
- *   · read-merge-write happens INSIDE one transaction that first takes the row
- *     lock (a conditional UPDATE, the lockCredentialState pattern). The takeover
- *     also updates the row first, so the two serialise: whichever commits second
- *     re-reads the other's committed version (READ COMMITTED takes a fresh
- *     snapshot per statement) — no stale snapshot is ever written back;
- *   · `security` is never the caller's to touch: the updater receives the
- *     preferences WITHOUT it, and whatever it returns under that key is
- *     discarded — the locked row's own `security` (or its absence) is kept.
- *
- * And a third, added in it. 23 (finding 1.8): a column that is not an object at
- * all is NOT merged into — the write is refused. See `applyPreferencesUpdate`.
+ * owner's (finding 5.2).
  */
 import type { Prisma } from '@prisma/client';
 import type { Response } from 'express';
@@ -89,17 +76,6 @@ export function isPreferencesUnreadable(err: unknown): boolean {
  * The 409 a route sends when the column could not be read. Shaped exactly like
  * every other refusal in this iteration so one reader covers them all:
  * `{ error, detail, retryable }`.
- *
- * Any route that calls `updateUserPreferences` should wrap it:
- *
- *     try { … } catch (err) {
- *       if (isPreferencesUnreadable(err)) return respondPreferencesUnreadable(res);
- *       throw err;
- *     }
- *
- * Without that wrapper the refusal still writes nothing (which is the security
- * property), but it reaches the client as the generic 500 — true, and much less
- * useful.
  */
 export function respondPreferencesUnreadable(res: Response): Response {
   return res.status(409).json({
@@ -119,33 +95,6 @@ export function withoutReservedKeys(preferences: unknown): Record<string, unknow
 /**
  * Pure: the object to persist — the caller's result with the reserved keys
  * restored from the CURRENT (locked) row, whatever the caller put there.
- *
- * A COLUMN WE CANNOT READ IS NEVER WRITTEN OVER (productizer it. 22, 1.8).
- *
- * WHAT WENT WRONG. This began `asObject(current) ?? {}`. When the WHOLE column
- * was corrupt — a string, an array, a number — `base` became `{}`, so
- * `hasOwnProperty('security')` was false and the very next /appearance,
- * /onboarding or /legal-accept write persisted a well-formed object WITHOUT
- * `security`. And a row with no `security` key is not «unreadable» to anyone
- * downstream: `readTakeoverAtStrict` answers `{ readable: true, at: null }` —
- * «there was no takeover» — so every wallet binding the PREVIOUS holder attached
- * came back to life, with a commit behind it. A corrupt blob (fail-closed,
- * bindings dropped) silently upgraded itself into a clean grant.
- *
- * WHY REFUSE RATHER THAN REPAIR OR QUARANTINE HERE. Both of the other options
- * end in the same place. «Ignore it» is what the bug already did. «Repair it»
- * has to invent a `security`, and the only honest value to invent is none —
- * the same resurrection. «Quarantine the raw value and keep going» writes a row
- * that STILL has no `security` key, which is exactly the resurrection again: the
- * quarantine slot means nothing to `readTakeoverAtStrict`. The one answer that
- * cannot resurrect anything is to write nothing at all. The cost is bounded and
- * visible: a theme, a language, a click-wrap — never an exit, never a signature,
- * never capital (nothing on a capital path writes this column).
- *
- * The takeover is the ONE writer that cannot refuse, and it does not go through
- * here: `withCredentialsReset` / `splitTakeoverPreferences` park the raw value
- * under `QUARANTINED_PREFERENCES_KEY` and write a fresh, well-formed `security`
- * on top — readable afterwards, and nothing destroyed.
  *
  * @throws the `preferences_unreadable` 409 when `current` is not an object.
  */
@@ -183,7 +132,7 @@ export function userNotFound(): Error {
  * `liveSession`: pass `req.siwe` when the value being written is a CONSENT (the
  * legal click-wrap) rather than a preference. The session is then re-checked
  * under the same row lock, so a record clicked by a previous holder cannot land
- * after a takeover and read as the owner's signature (it. 14, 4.2 / 4.4).
+ * after a takeover and read as the owner's signature (4.2 / 4.4).
  */
 export async function updateUserPreferences(
   userId: string,

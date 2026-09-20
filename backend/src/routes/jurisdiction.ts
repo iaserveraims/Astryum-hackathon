@@ -1,5 +1,5 @@
 /**
- * Jurisdiction routes (CLAUDE.md invariant #5) — public.
+ * Jurisdiction routes (invariant #5) — public.
  *   GET /api/jurisdiction/modules?region=XX → which app modules are available.
  * Monitoring/fiat/tax are always available; only DeFi execution is geofenceable.
  */

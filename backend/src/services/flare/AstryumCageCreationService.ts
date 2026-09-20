@@ -3,23 +3,6 @@
  *
  * Clon del patrón de `AstryumPoteCreationService` (que a su vez clona el del
  * Legacy), con lo que cambia en la jaula v2:
- *
- *   1. La jaula NO custodia: no hay depósito génesis. Lo que nace es el mando.
- *   2. Lo que sí va en el mismo batch es la APROBACIÓN de la fee de creación de
- *      potes: cada `createPote` cobra `CREATION_FEE` del `feePayer` DIRECTO a la
- *      tesorería de Astryum, y el pagador natural es la Personal Account del
- *      consejo — que en este mismo 0xFE recibe el FXRP del carrier. Así el XRP
- *      que paga el peaje del nacimiento deja en la PA justo la gasolina para los
- *      primeros potes, sin una segunda ceremonia.
- *   3. Los parámetros eternos son otros: activo, constitución y la LISTA ETERNA
- *      de destinos (⊆ registro de Astryum — el contrato lo comprueba al nacer).
- *
- * El batch (una firma XRPL vía la Personal Account del consejo, 0xFE):
- *   1. AstryumCageFactory.create(councilR, params)   ← msg.sender = la PA
- *   2. FXRP.approve(predictedCage, feeAllowanceUBA)  ← para los createPote futuros
- *
- * Prepare-only de punta a punta: codifica bytes y lee estado público. Ni firma,
- * ni envía, ni tiene llave (invariantes #1/#8).
  */
 
 import { ethers } from 'ethers';
@@ -95,7 +78,7 @@ export interface CageCreationParams {
    * La lista ETERNA, OPCIONAL. Si viene, cada entrada tiene que estar ya en el
    * registro de Astryum y la jaula no podrá tocar nada fuera de ella jamás.
    * Vacía = la jaula sigue al registro de Astryum tal y como esté cada día
-   * (decisión 27-ago: el gestor elige dentro de la whitelist desde el pote).
+   * (decisión: el gestor elige dentro de la whitelist desde el pote).
    */
   allowedTargets: CageTarget[];
 }
@@ -259,7 +242,7 @@ export interface CageSummary {
 
 /**
  * El estado de una jaula, entero. Devuelve null si no se pudo leer — y «no pude
- * leer» nunca es «no existe» (lección de la jaula sin registrar, 22-ago): el
+ * leer» nunca es «no existe» (lección de la jaula sin registrar): el
  * que llama decide cómo pintarlo, nunca como cero.
  */
 export async function readCageSummary(provider: ethers.Provider, cage: string): Promise<CageSummary | null> {

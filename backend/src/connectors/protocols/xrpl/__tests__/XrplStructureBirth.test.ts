@@ -14,7 +14,7 @@ const KID = 'rsuHaTvJh1bDmDoxX9QcKP7HThk8NJQTNb';
 const SPOUSE = 'rK4tsuHUu9M5WxqbvGGLaXRHbQ9YqmXqPS';
 const OPERATOR = 'rDcohDbBFvNCwXvNEaJDpJmsrYRdAAZFjq';
 
-/** Cifras de mainnet, verificadas en xrpl.org el 18-sep-2026. */
+/** Cifras de mainnet, verificadas en xrpl.org. */
 const RESERVE = { baseXrp: 1, incrementXrp: 0.2 };
 
 function seat(account: string, weight: number, holder: StructureSeat['holder']): StructureSeat {
@@ -82,7 +82,7 @@ describe('assessStructureAuthority — quién puede mover esta cuenta, en aritm�
   });
 
   /**
-   * EL HALLAZGO QUE IMPORTA (18-sep): la forma más simple del modelo — una
+   * EL HALLAZGO QUE IMPORTA: la forma más simple del modelo — una
    * personal sentada SOLA, quórum 1 — tiene margen 0, así que su puerta NO se
    * puede cerrar. Y es correcto: con la master desactivada y un único asiento,
    * perder la llave de la personal deja esa cuenta muerta con su dinero dentro.
@@ -181,7 +181,7 @@ describe('planStructureBirth — el árbol es del usuario', () => {
   });
 });
 
-describe('planStructureBirth — el hallazgo del 18-sep: la credencial la lleva QUIEN ENVÍA', () => {
+describe('PlanStructureBirth — el hallazgo: la credencial la lleva QUIEN ENVÍA', () => {
   test('una comandada que paga por sí misma a un destino con puerta, sin credenciales propias, se rehúsa', () => {
     const plan = planStructureBirth(input({ paysThroughCredentialGate: true, carriesOwnCredentials: false }));
     expect(codes(plan)).toContain('COMMANDED_PAYS_THROUGH_GATE');

@@ -1,7 +1,7 @@
 /**
  * toAuthorityAccount — the ONE mapping from the authority model (ADR-009) to
  * the adapter vocabulary (AuthorityAccount, ADR-011). Extracted pure
- * (2026-08-16, E2) so the third state is testable without dragging the hook
+ * (E2) so the third state is testable without dragging the hook
  * graph: a wrong mapping here paints a quorum as single-key — or a personal
  * wallet as a Legacy.
  *

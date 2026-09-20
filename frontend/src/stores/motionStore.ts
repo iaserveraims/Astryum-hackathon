@@ -2,9 +2,7 @@
 
 /**
  * motionStore — CUÁNTO se mueve la interfaz y CON QUÉ CARA, decidido por el
- * usuario (fundador 2026-09-10: «se me generan problemas de concentración con
- * las animaciones de los botones del Earn… una serie de estilos, más
- * complejos y más sencillos, que se compartan por toda la web»; segunda
+ * usuario (segunda
  * pasada el mismo día: «no quiero solo que se desactiven las animaciones,
  * quiero estilos nuevos y distintos» y «no quiero que el selector tenga
  * Sistema»).
@@ -29,7 +27,7 @@
  *               pulsos que viajan, motas) se apagan. LENTO Y PEQUEÑO — esa
  *               es la regla; lo que sigue al cursor (la luz de las tarjetas,
  *               la inclinación de las wallets) lo sigue CON RETARDO, no en
- *               tiempo real (fundador 2026-09-12; ui/motion useCursorGlow).
+ *               tiempo real.
  *               Es el nivel para leer y comparar sin ruido.
  *   · minimal — el TEXTO PRIMERO. Las puertas y las rutas se convierten en
  *               listas (una fila por puerta, una fila por ruta con su radio);

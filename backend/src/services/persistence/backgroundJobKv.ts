@@ -9,12 +9,6 @@
  *   - `if (!DATABASE_URL)` ⇒ null / no-op (in-memory fallback lives in the caller);
  *   - DB error ⇒ logged, NEVER thrown (best-effort, exactly the prior posture);
  *   - upsert = find-by-key then update|create; delete = deleteMany-by-key.
- *
- * Each caller keeps its OWN private `jobType` (invisible to other pollers), its own key
- * field, payload shape, and SEMANTICS (daily reset / rolling window / delete-on-consume /
- * counter increment). Those deliberate differences stay explicit at the call site — this
- * helper never encodes them. The payload MUST contain `keyField` (the where-clause reads
- * it back).
  */
 
 import type { Prisma } from '@prisma/client';
@@ -30,7 +24,7 @@ function asJson(payload: Record<string, unknown>): Prisma.InputJsonValue {
 }
 
 /**
- * THE row of a key when duplicates exist (productizer it. 12, 2.4): every read
+ * THE row of a key when duplicates exist (2.4): every read
  * AND every write picks the same one — the newest by `createdAt`, `id` as the
  * tie-break (the table has no `updatedAt`). Before, `kvUpsert` updated whichever
  * row `findFirst` happened to return while `kvGetStrict` read the newest: a save
@@ -120,7 +114,7 @@ export async function kvList(jobType: string, limit = 200): Promise<Record<strin
 
 /**
  * The same read, but a database that cannot answer THROWS instead of looking
- * empty (productizer it. 19, agent B's note).
+ * empty.
  *
  * `kvList` turns any failure into `[]`, and a caller that cannot tell «there are
  * no rows» from «I could not read» decides with the wrong answer. That is how a
@@ -152,23 +146,10 @@ export function kvVersionOf(payload: unknown, field: string): number {
 
 /**
  * STRICT, ATOMIC compare-and-set of the row for (jobType, keyField=key)
- * (productizer it. 12, 2.4). Before, `saveRun` read the version, compared it and
+ * (2.4). Before, `saveRun` read the version, compared it and
  * then upserted — three statements: two backend instances (an overlapping deploy)
  * could both pass the compare and the second write erased the first (a
  * reservation that disappears).
- *
- * One interactive transaction:
- *  · `pg_advisory_xact_lock` on the key serializes every CAS writer of that key
- *    across processes — which also makes the CREATE path unique-safe (the table
- *    has no unique index on the payload key);
- *  · the newest row (the one kvGet / kvGetStrict read) is compared by
- *    `versionField`; absent row → created only when `expectedVersion` is what an
- *    absent row means (0, or any version: `createIfAbsent`);
- *  · the write is ONE conditional UPDATE (`updateMany` on id + the stored
- *    version) that must touch exactly one row.
- * A database error THROWS (never «written»). Without DATABASE_URL there is no
- * database to compare against: it throws too — callers keep their own in-process
- * path.
  */
 export async function kvCompareAndSet(
   jobType: string,

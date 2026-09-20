@@ -80,7 +80,7 @@ export interface IProtocolAdapter {
    */
   discoverPositions(wallet: string): Promise<RawPosition[]>;
   /**
-   * Per-read degradation (ola 0, 15-sep). One 429 among ~20 reads used to
+   * Per-read degradation. One 429 among ~20 reads used to
    * take the WHOLE adapter down: the carry's FXRP supply and USDT0 debt — and
    * their Repay door — vanished from the board because the probe of an
    * unrelated market did not answer. Adapters that can tell which read fell
@@ -91,7 +91,7 @@ export interface IProtocolAdapter {
   discoverPositionsPartial?(wallet: string): Promise<PositionDiscovery>;
   /**
    * Forget whatever this adapter remembers about a wallet between sweeps
-   * (2026-09-18: the LP adapters memoise which pairs a wallet holds). The
+   * (the LP adapters memoise which pairs a wallet holds). The
    * engine calls it on a forced refresh — after a signature — so a position
    * opened a moment ago is found by a full sweep, not by the memo.
    */

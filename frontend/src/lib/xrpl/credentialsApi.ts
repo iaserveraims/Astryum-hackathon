@@ -121,7 +121,7 @@ export interface DiscoveredNotaryAttestation {
 
 /**
  * Encuentra la atestación de Coinbase de la wallet EVM conectada, sin pegar
- * nada (9-sep): el backend pregunta al indexador de EAS y relee la cadena.
+ * nada: el backend pregunta al indexador de EAS y relee la cadena.
  * 404 ATTESTATION_NOT_FOUND = no hay atestación para ESA wallet (el detalle
  * dice qué hacer en Coinbase); 502 = el indexador no respondió, que no es lo
  * mismo que «no estás verificado».
@@ -167,8 +167,7 @@ export async function requestNotaryAifm(input: { subject: string }): Promise<Cre
 /**
  * SOLO RODAJE — el servidor firma la LICENCIA (AIFM por defecto, CASP para la
  * raíz de un exchange, KYB para el vehículo) con la seed del notario, saltándose
- * los checks de Domain (flag MANAGER_DEMO_AIFM_ENABLED en el backend). Desde el
- * 20-sep vuelve a pedir la puerta de los fundadores (`NOT_AN_ADMIN` para una
+ * los checks de Domain (flag MANAGER_DEMO_AIFM_ENABLED en el backend). Vuelve a pedir la puerta de los fundadores (`NOT_AN_ADMIN` para una
  * cuenta corriente) y se llama solo desde /app/admin; el sujeto puede ser
  * cualquier r-address. Sigue con tope (`RATE_LIMITED`). Devuelve el
  * emisor real (la seed del notario) para que el sujeto acepte contra él.

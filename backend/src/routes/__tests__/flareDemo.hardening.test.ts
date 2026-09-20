@@ -1,17 +1,10 @@
 /**
- * Hardening post-ensayo mainnet (2026-07-26):
+ * Hardening post-ensayo mainnet:
  *
  * §A — un dispatch 0xFE con XRP ≤ fees del mint responde 400 AMOUNT_BELOW_MINT_FEES
  *      con mensaje accionable en las TRES rutas (supply-usdt0, pa-withdraw-transfer,
  *      pa-repay) — el ensayo lo observó saliendo como 500 genérico; walletTransfer
  *      ya tenía el mapeo y aquí se replica.
- *
- * §B — el cap-al-saldo-del-firmante de a1 (1a7d2ac) es lógica de dinero del camino
- *      crítico: full capado al saldo con disclosure coherente, 409 sin saldo, y el
- *      FAIL-OPEN deliberado cuando el saldo no se puede leer (ver el test).
- *
- * Hermetic: FakeContract keyed por address (un value Error ⇒ el read revienta),
- * FTSO/preflight/handoff/PA-resolution stubbeados.
  */
 import express from 'express';
 import request from 'supertest';
@@ -84,7 +77,7 @@ jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => {
   const actual = jest.requireActual('../../connectors/protocols/flare/FlareDirectMintService');
   return {
     ...actual,
-    // it. 29 — `seatClaimOf` asks the SignerList before every 0xFE composition;
+    // `seatClaimOf` asks the SignerList before every 0xFE composition;
     // unmocked that is a LIVE account_info against a public XRPL node. A route
     // suite must not depend on the network. `{}` = ordinary single-sig account.
     signingCeremonyFor: jest.fn(async () => ({})),

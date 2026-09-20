@@ -129,7 +129,7 @@ export class AgentContextBuilder {
         },
       });
 
-      // Get active alerts — THIS user's only. Unscoped (productizer it. 14,
+      // Get active alerts — THIS user's only. Unscoped (
       // 4.5) this read put other people's alert messages into the caller's
       // prompt and sent them to Anthropic. `Alert` has `userId`; use it.
       const alerts = await prisma.alert.findMany({

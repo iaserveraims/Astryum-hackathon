@@ -1,5 +1,5 @@
 /**
- * Beta invite email — the boarding pass (founder 2026-08-01, beta opens 08-06).
+ * Beta invite email — the boarding pass.
  *
  * Sent when a founder APPROVES a waitlist email (POST /api/admin-beta/approve).
  * Same branded dark template as waitlistWelcome; the copy changes from "you're

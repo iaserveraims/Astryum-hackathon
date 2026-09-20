@@ -55,12 +55,12 @@ router.put(
       return res.status(400).json({ error: 'VALIDATION_ERROR', details: parsed.error.issues });
     }
     const userId = req.siwe!.userId;
-    // Live-session check inside the write (it. 16, 4.1): see setConfig.
+    // Live-session check inside the write (4.1): see setConfig.
     try {
       const config = await setConfig(userId, parsed.data, req.siwe!);
       return res.json({ config });
     } catch (err) {
-      // 401 WITH A BODY THE CLIENT CAN READ (productizer it. 18, 3.7). The
+      // 401 WITH A BODY THE CLIENT CAN READ (3.7). The
       // client that calls this route logged the user out on ANY 401, so a
       // refusal meant to protect the matrix threw the person out of the app
       // instead of telling them what happened. The code is the one the rest of
@@ -77,7 +77,7 @@ router.put(
         );
       }
       // Contention with the takeover's long transaction is a WAIT, not a fault:
-      // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+      // 503 «try again» (3.6), never a 500 that reads as «we broke».
       if (isTransactionBusy(err)) return respondBusyRetry(res);
       throw err;
     }
@@ -85,7 +85,7 @@ router.put(
 );
 
 /**
- * productizer it. 20 (3.8, and the doctrine behind 2.4) — «NO PUDE LEER» IS NOT
+ * «NO PUDE LEER» IS NOT
  * A VERDICT ABOUT YOUR SIGNATURE.
  *
  * Both handshake routes used to end in `err?.code ?? 'verification_failed'` with
@@ -111,7 +111,7 @@ const STEP_UP_UNAVAILABLE_DETAIL =
   'or granted. Try again in a moment.';
 
 /**
- * it. 23 («Menor») — the challenge door now has a per-user cap (StepUpAuth). A
+ * The challenge door now has a per-user cap (StepUpAuth). A
  * caller over it is not wrong and is not broken: it is early. 429 with a real
  * `Retry-After`, `retryable: true`, and a sentence that says nothing was changed
  * — never the 422 that would read as «your signature did not verify».

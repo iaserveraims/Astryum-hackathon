@@ -1,21 +1,13 @@
 'use client';
 
 /**
- * ExchangeSetupOperation — NACE TU EXCHANGE como ceremonia de configuración
- * (fundador 2026-09-12: «la misma plantilla de configuración que el Legacy,
- * con su pantalla flotante y sus pasos, para el exchange»).
+ * ExchangeSetupOperation — NACE TU EXCHANGE como ceremonia de configuración.
  *
  * La MISMA ventana que Constituir un Legacy y el alta del gestor
  * (SetupOperationShell), con el wizard del exchange dentro
  * (ExchangeSetupWizard: dos cuentas nuevas, credenciales, constitución,
  * registro, jaula, pote, puerta, mesa). Vive UNA vez, aquí: la mesa del
  * operador y el hub de altas la abren con una puerta (SetupDoorCard).
- *
- * Sin cuenta XRPL elegida como raíz, la ceremonia empieza por la puerta de
- * cuenta (ExchangeAccountGate). Al terminar («Abrir la mesa») se cierra la
- * ventana y se va a la mesa del operador — al ENSAYO GUIADO (`?guided=1`,
- * 15-sep): antes de operar con clientes de verdad, la mesa por estaciones
- * enseña el circuito entero y deja probarlo. Se puede saltar de un clic.
  */
 
 import { useRouter } from 'next/navigation';

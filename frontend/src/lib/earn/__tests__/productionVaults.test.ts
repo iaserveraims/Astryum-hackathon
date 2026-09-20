@@ -1,9 +1,7 @@
 /**
  * Producción solo enseña lo que está en la lista — y la lista es código.
  *
- * El incidente que fija esto (2026-09-14): «Lend your RLUSD» apareció en
- * astryum.xyz porque una variable de entorno clonada se hizo efectiva con el
- * primer deploy que construyó. Con esta lista, una variable no puede publicar
+ * Con esta lista, una variable no puede publicar
  * un vault: hace falta un commit a main.
  */
 import { describe, it, expect } from 'vitest';

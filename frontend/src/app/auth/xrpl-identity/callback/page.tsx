@@ -3,23 +3,6 @@
 /**
  * XRP Identity callback — donde aterriza la puerta del ecosistema, Y DONDE
  * AHORA VIVE EL RITUAL.
- *
- * El proveedor nos devuelve aquí con `code` + `state`. Comprobamos el estado
- * contra el que guardamos (un desajuste es CSRF, no un reintento), entregamos
- * el código y el verificador PKCE a nuestro backend y dejamos que él haga el
- * intercambio. Nada de esto sostiene jamás un token ni un secreto.
- *
- * Por qué la ceremonia está aquí (fundador 2026-08-23: «se ha perdido la magia
- * del ritual de login»): la puerta única sale de Astryum con un redirect de
- * página completa, así que la tarjeta de /login se va del navegador en el
- * instante del clic — el manifiesto no llegaba a jugarse ni un fotograma. Y el
- * momento que ese manifiesto narra —«verificando credenciales»— es justo ESTE:
- * la vuelta, mientras el backend canjea el código. Antes esta pantalla era un
- * fondo negro con «Verificando tu identidad…»; ahora es la ceremonia entera,
- * con su sello al final.
- *
- * En éxito el usuario va adonde iba; en fallo vuelve a /login con un motivo
- * honesto en vez de una pantalla en blanco.
  */
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -201,7 +184,7 @@ function CallbackInner() {
     }
 
     void (async () => {
-      // El teatro tiene tope (misma regla que /login desde 2026-07-21): la
+      // El teatro tiene tope (misma regla que /login): la
       // ceremonia entera se juega UNA vez por dispositivo; a partir de ahí los
       // mismos compases duran una fracción. El canje corre EN PARALELO, así
       // que el único coste es el mínimo para que el manifiesto se lea.

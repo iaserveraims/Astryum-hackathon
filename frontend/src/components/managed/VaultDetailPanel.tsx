@@ -4,27 +4,9 @@
  * VaultDetailPanel — lo que se despliega al elegir una bóveda del catálogo.
  *
  * El usuario escoge una bóveda como escogería cualquier estrategia de «Choose a
- * Strategy» (fundador 2026-08-26). El gestor no es un producto aparte: es una
+ * Strategy». El gestor no es un producto aparte: es una
  * PROPIEDAD de la bóveda, como su plazo de salida o su lista de destinos. Por
  * eso el panel se abre sobre la bóveda y el gestor aparece dentro, no al revés.
- *
- * ── POR QUÉ LOS DESTINOS SE ENSEÑAN SIN NOMBRE ──────────────────────────────
- * La tentación es traducir cada dirección a «Kinetic», «Firelight», «Sentora».
- * No se hace, y no es pereza: no existe en el repo un mapa fiable de
- * dirección→protocolo, y ETIQUETAR MAL UN DESTINO ES PEOR QUE NO ETIQUETARLO.
- * Un nombre conocido sobre una dirección que no es la suya es exactamente la
- * cara que pondría un vault falso — el ataque que está reproducido en
- * `AstryumCage.t.sol` y que en el pote v1 funciona.
- *
- * Así que el panel enseña lo que la CADENA sabe —la dirección, su tipo, su
- * estado— y dice en alto que Astryum no avala ninguno. Cuando la jaula v2 esté
- * en mainnet, cada destino podrá decir si está en el registro on-chain o no, y
- * ESA sí es la señal que vale. El hueco está marcado abajo.
- *
- * ── Y POR QUÉ LA LISTA VA ENTERA ────────────────────────────────────────────
- * No hay «ver más». La lista de destinos es el conjunto exacto de sitios a los
- * que ese gestor puede llevar tu dinero: recortarla para que quepa sería
- * esconder justo la parte con la que se decide.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -74,9 +56,9 @@ export function VaultDetailPanel({
   const evm = useWalletPartner();
   const xrpl = useXrplWalletPartner();
   const mgr = managerOf(entry);
-  // El perfil público delante: nombre, foto y persona/agente (8-sep).
+  // El perfil público delante: nombre, foto y persona/agente.
   const { actors } = useCommunity();
-  // El tipo actual de cada destino, como lo publica el protocolo (11-sep).
+  // El tipo actual de cada destino, como lo publica el protocolo.
   const venueYields = useVenueYields();
   const who = withProfile(mgr, mgr.address ? actors.get(mgr.address) : null);
   const ready = entry.venues.filter((v) => !v.retired);
@@ -87,7 +69,7 @@ export function VaultDetailPanel({
   // Personal Account de tu wallet XRPL (depósito por XRP — ahí van por defecto).
   // Resolvemos la PA para poder mirar las DOS y no perder la posición.
   //
-  // Un fallo al resolverla YA NO se traga (13-sep): con la PA desconocida, las
+  // Un fallo al resolverla YA NO se traga: con la PA desconocida, las
   // shares que viven allí son desconocidas, y decir «no estás en esta bóveda»
   // sería afirmar algo que nadie sabe. El backend siempre devuelve la PA
   // determinista de una r-address, así que `null` aquí es «no se pudo leer».
@@ -108,13 +90,13 @@ export function VaultDetailPanel({
    * Tu posicion dentro. `pote-state` la devuelve cuando se le pasa la cuenta:
    * sin ella el usuario no sabe si ya esta dentro. Se mira en TODOS tus holders
    * (EVM + PA) y manda el que tenga shares — el depósito por XRP las deja en la
-   * PA, así que mirar solo la EVM las perdía (fundador 8-sep).
+   * PA, así que mirar solo la EVM las perdía.
    *
-   * Cada lectura guarda su resultado —ok o FALLIDA— y `decidePosition` decide
-   * (13-sep): antes un fallo se convertía en `null` y `null` pintaba «You are
+   * Cada lectura guarda su resultado —ok o FALLIDA— y `decidePosition` decide:
+   * antes un fallo se convertía en `null` y `null` pintaba «You are
    * not in this vault.» escondiendo la salida.
    */
-  // Secuencia (revisión 10-sep): la PA llega después que la wallet EVM y las
+  // Secuencia (revisión): la PA llega después que la wallet EVM y las
   // dos lecturas se solapan; la más antigua no puede pisar a la más nueva.
   const reloadSeq = useRef(0);
   const holdersKey = [pa, evm.address].filter((a): a is string => !!a).join('|').toLowerCase();
@@ -218,8 +200,7 @@ export function VaultDetailPanel({
         ))}
       </div>
 
-      {/* ── QUÉ PASA CON TUS TOKENS (fundador 11-sep: «que se sepa qué te da
-          dejar los tokens en ese vault en concreto»). No es un préstamo ni
+      {/* ── QUÉ PASA CON TUS TOKENS. No es un préstamo ni
           hay colateral: se dice el mecanismo entero en cuatro frases, y lo
           que produce cada destino como MECANISMO, nunca como cifra (#9). ── */}
       <div className="mt-6 rounded-xl border border-ink/10 bg-ink/[0.02] p-4">
@@ -343,7 +324,7 @@ export function VaultDetailPanel({
       <div className="mt-6">
         <MicroLabel>{t('Who runs it')}</MicroLabel>
 
-        {/* EL GESTOR CON CARA (fundador 2026-08-29): avatar, nombre y la
+        {/* EL GESTOR CON CARA: avatar, nombre y la
             puerta a su perfil — sus otras bóvedas, el apoyo de la comunidad y
             su enlace. Tres identidades: gestor real, «Astryum made» (bóveda
             de demostración declarada por env — jamás «gestionada por
@@ -387,7 +368,7 @@ export function VaultDetailPanel({
               // Ausencia de tick = ausencia de afirmacion. El backend junta «no
               // tiene credencial» y «no se pudo leer» a proposito: pintar «sin
               // verificar» seria afirmar algo que nadie sabe.
-              // La credencial es REQUISITO desde el 27-ago, asi que su ausencia
+              // La credencial es REQUISITO, asi que su ausencia
               // ya no es silencio: es una señal. Pero el backend junta «no
               // tiene» y «no se pudo leer» en el mismo null, asi que la palabra
               // es «sin acreditar» — cubre los dos casos sin acusar de ninguno.
@@ -411,8 +392,8 @@ export function VaultDetailPanel({
         <MicroLabel>{t('Your position')}</MicroLabel>
         {/* La posición puede vivir en la wallet EVM o en la Personal Account de
             la Xaman: si existe, se enseña — sin pedir una wallet de Flare a
-            quien entró con XRP (revisión 10-sep). */}
-        {/* Tres estados, jamás dos (13-sep): leyendo, NO SE PUDO LEER, leído.
+            quien entró con XRP (revisión). */}
+        {/* Tres estados, jamás dos: leyendo, NO SE PUDO LEER, leído.
             «No se pudo leer» nunca se pinta como «no estás dentro»: quien cree
             que no tiene nada puede no intentar salir nunca. */}
         {position.kind === 'in' ? (

@@ -141,7 +141,7 @@ export class PortfolioRiskEngine {
     // Sin DEUDA no hay liquidación posible — aunque una posición Lend arrastre
     // un HF residual (p.ej. un supply que reportó hf=1.0), sin borrow no puede
     // liquidarse. Reportar HF/liquidación aquí pintaba una posición "at risk"
-    // con LTV 0% (bug 2026-07-29). El HealthStrip cae entonces en su rama
+    // con LTV 0% (bug). El HealthStrip cae entonces en su rama
     // honesta "No debt to watch — no liquidation risk".
     const hasDebt = totalDebt > 1e-6;
 

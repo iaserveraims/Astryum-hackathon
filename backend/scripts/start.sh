@@ -7,7 +7,7 @@
 set -e
 
 # ── Guard: a preview must never migrate — or run against — the production
-# database (2026-08-20).
+# database.
 #
 # The danger is not the migration. `migrate deploy` is additive and Prisma
 # selects explicit columns, so a column production does not know about is

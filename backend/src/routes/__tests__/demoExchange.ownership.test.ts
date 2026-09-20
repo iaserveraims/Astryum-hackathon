@@ -1,21 +1,11 @@
 /**
- * UN EXCHANGE ES DE QUIEN LO CREÓ (fundador, 2026-09-20: «mira que los exchanges
- * creados solo aparezcan en la cuenta de quien lo ha creado»).
+ * UN EXCHANGE ES DE QUIEN LO CREÓ.
  *
  * Hasta hoy un exchange no tenía dueño — `POST /runs` leía la sesión para
  * comprobar el omnibus y la tiraba — y TODA lectura era pública: `GET /runs`
  * listaba todos a cualquiera, y con el id, `GET /runs/:id` servía la ficha de cada
  * cliente de un exchange ajeno (etiqueta, tag, r-address, cuenta de passkey, saldo,
  * KYC), más `/chain`, `/credentials`, `/omnibus` y un dossier en markdown.
- *
- * Lo que esta suite fija:
- *  · sin sesión ni puerta de fundador no hay lectura (401);
- *  · la lista es la de TUS exchanges; los anteriores al 20-sep, sin creador, son de
- *    los fundadores; `?all=1` es del panel de operaciones y solo con puerta de admin;
- *  · el exchange de otro contesta 404, lo mismo que un id inventado;
- *  · un CLIENTE lee su exchange y, de las fichas, solo la suya — nunca la
- *    conciliación del omnibus ni el dossier;
- *  · el creador no sale en ningún cuerpo de respuesta.
  */
 import express from 'express';
 import request from 'supertest';
@@ -118,7 +108,7 @@ beforeEach(() => {
     } as never),
     // de Pau
     run('pau-ex', { createdByUserId: 'pau' }),
-    // anterior al 20-sep: sin creador
+    // anterior al: sin creador
     run('legacy-ex'),
   ];
 });
@@ -139,7 +129,7 @@ describe('la regla, pura', () => {
     expect(ownsRun({ createdByUserId: 'olga' }, { admin: true })).toBe(false);
   });
 
-  it('uno sin creador (anterior al 20-sep) es de los fundadores, y de nadie más', () => {
+  it('Uno sin creador (anterior al) es de los fundadores, y de nadie más', () => {
     expect(ownsRun({}, { admin: true })).toBe(true);
     expect(ownsRun({}, { admin: false, userId: 'olga' })).toBe(false);
   });
@@ -168,7 +158,7 @@ describe('GET /runs — la lista es la de TUS exchanges', () => {
     expect(ids(await request(app).get('/api/demo-exchange/runs').set(as('zoe')))).toEqual([]);
   });
 
-  it('un fundador ve los anteriores al 20-sep, no los de otro creador — salvo `?all=1`, que es del panel', async () => {
+  it('Un fundador ve los anteriores al, no los de otro creador — salvo `?all=1`, que es del panel', async () => {
     expect(ids(await request(app).get('/api/demo-exchange/runs').set(admin))).toEqual(['legacy-ex']);
     expect(ids(await request(app).get('/api/demo-exchange/runs?all=1').set(admin))).toEqual(['legacy-ex', 'olga-ex', 'pau-ex']);
   });

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AmountSliderUsd — the two 2026-07-30 founder asks under a withdraw amount
+ * AmountSliderUsd — the two asks under a withdraw amount
  * input: the quantity as a draggable 0→balance slider (typing stays possible,
  * never required) and the small live dollar value of the typed amount
  * ("≈ $x · FTSO"). Pure presentation — the parent owns the amount state and

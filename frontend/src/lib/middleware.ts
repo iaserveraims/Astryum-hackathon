@@ -3,13 +3,13 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { GATE_COOKIE, GATE_TTL_MS, gateMode, signGateToken, verifyGateToken } from './accessGate';
 
-// Pre-launch access gate (2026-07-23): these surfaces require the signed
+// Pre-launch access gate: these surfaces require the signed
 // httpOnly gate cookie minted by /api/access-gate. Everything else (landing,
 // /early-access, public assets) stays open. The check runs SERVER-SIDE on
 // every matching request — client JS cannot bypass it.
 const GATED_PATHS = [/^\/app(\/|$)/, /^\/login(\/|$)/, /^\/register(\/|$)/, /^\/forgot-password(\/|$)/];
 
-// The bounce used to be MUTE: since 2026-08-05 the six gold CTAs of the landing
+// The bounce used to be MUTE: the six gold CTAs of the landing
 // point at /login, so a visitor without the gate cookie tapped "Entra en la
 // beta", got a 307 home, and read the landing again from the top with nothing
 // said — a dead button. It only looked device-specific because the founder's

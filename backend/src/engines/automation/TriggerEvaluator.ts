@@ -2,7 +2,7 @@ import type { PortfolioSnapshot } from '../portfolio/SnapshotBuilder';
 import type { RiskSnapshot } from '../risk/types';
 
 /**
- * V1 trigger types — discriminated union mirroring CLAUDE.md §21.
+ * V1 trigger types — discriminated union
  * Adapter for `AutomationRule.trigger` JSON field.
  */
 export type TriggerConfig =
@@ -12,7 +12,7 @@ export type TriggerConfig =
   | { type: 'LIQUIDATION_DISTANCE_USD'; minBuffer: number }
   | { type: 'OUT_OF_RANGE'; positionId?: string }
   | { type: 'OUT_OF_RANGE_DURATION'; minutes: number; positionId?: string }
-  // Price protection (M3, 2026-08-16): fires when the asset's LIVE FTSO price
+  // Price protection (M3): fires when the asset's LIVE FTSO price
   // sits `pct`% (or more) below `baselineUsd` — the price the owner saw when
   // they wrote the rule. The baseline lives IN the rule on purpose: no price
   // history storage, fully deterministic, auditable in the rule the owner
@@ -33,7 +33,7 @@ export interface TriggerContext {
   now: Date;
   /**
    * Cooldown stamp — the engine writes it on EVERY fire, artefact or not.
-   * G3 (auditoría 17-ago): this is deliberately NO LONGER the "occurrence
+   * G3 (auditorí): this is deliberately NO LONGER the "occurrence
    * already served" marker (see `lastArtefactAt`); TIME_TRIGGER only uses it
    * to space RETRIES of an occurrence still owed.
    */
@@ -174,41 +174,6 @@ function minutesToNextOccurrence(m: CronMatcher, from: Date, maxScan: number): n
 /**
  * G3-tormenta (R2) — the retry floor of an occurrence, capped by the rule's OWN
  * period.
- *
- * WHAT FAILED IN SILENCE: the floor was the constant 60 for every rule. For any
- * cron whose period is 60 minutes or less (`0 * * * *`, `*\/15 * * * *` — both
- * accepted; the route validator is a bare `z.string()`), the NEXT occurrence
- * always arrived before the floor expired, so the failed one was superseded
- * after EXACTLY ONE attempt and abandoned. The half of G3 that keeps a failed
- * occurrence alive simply never reached those rules, and nothing said so.
- *
- * The floor is now one minute short of the gap to the next occurrence, so a
- * still-owed occurrence gets a retry before it is superseded, and never fires
- * more often than a rule of that cadence already could. When the next
- * occurrence is farther away than the ceiling (daily, monthly) the ceiling
- * wins, exactly as before.
- *
- * G3-final (blocker 2) — WHERE THIS FLOOR STOPS, SAID OUT LOUD. This floor is
- * SUBORDINATE to the engine's DB cooldown guard, which sits BEFORE the
- * evaluator (`now - lastTriggeredAt < cooldownMinutes*60_000 → continue`,
- * AutomationEngine.tick). So the retry only actually happens when
- * `cooldownMinutes < floor`. With the schema default (`cooldownMinutes` 15) and
- * a cron whose period is 15 minutes or less — `*\/15 * * * *`, `*\/5`, `* * * * *`
- * — the cooldown outlasts the floor and the owed occurrence IS superseded after
- * exactly one attempt. The round-2 commit message claimed that case closed; it
- * is not, and this is the honest boundary:
- *
- *   - it is NOT a burn. The next occurrence of such a rule arrives WITHIN the
- *     cooldown window carrying the IDENTICAL action, so the owner gets another
- *     attempt in ≤ one period — which is the whole point of the retry. The
- *     thing G3 exists to kill is the monthly payment whose next chance is a
- *     month away, and a monthly/daily/hourly cron (gap > 15) is exactly where
- *     this floor DOES bite.
- *   - forcing a retry there would mean letting the tick ignore the cooldown the
- *     owner set — twice the fires and twice the notices per period, i.e. the
- *     R1 storm re-entering by the back door. Deliberately not done.
- *   - `__tests__/AutomationEngine.expiredNotice.test.ts` walks this boundary
- *     over real ticks ("*\/15 with the DEFAULT cooldown"): executable, not prose.
  */
 export function retryFloorMinutes(m: CronMatcher, due: Date): number {
   const gap = minutesToNextOccurrence(m, due, TIME_TRIGGER_RETRY_FLOOR_MINUTES);
@@ -228,14 +193,6 @@ export interface TriggerEvalResult {
    * last thing they were told was "retries after cooldown" and that promise has
    * quietly expired.
    * Consumer: AutomationEngine.tick — one alert + one `expired` run, once.
-   *
-   * G3-final (blocker 5) — `dueAt` is a STRING, never null. Round 2 announced
-   * with `dueAt: null` whenever the occurrence could not be located, which is
-   * precisely the shape of a FABRICATED notice: a rule whose barren attempt
-   * belongs to some other trigger entirely (`PATCH /rules/:id` accepts a new
-   * `trigger` and clears neither stamp) has no occurrence to abandon. If the
-   * attempt cannot be attributed to THIS cron, nothing is announced at all —
-   * see the guards below.
    */
   expiredOccurrence?: {
     cron: string;
@@ -321,7 +278,7 @@ export class TriggerEvaluator {
         return { fired: false, reason: 'OUT_OF_RANGE_DURATION not implemented in V1' };
 
       case 'PRICE_DROP_PCT': {
-        // Real since M3 (2026-08-16): live FTSO price vs the rule's OWN
+        // Real since M3: live FTSO price vs the rule's OWN
         // baseline. Three honest refusals before any fire:
         //  - no baseline in the rule → it cannot mean anything (legacy rules
         //    from the stub era say so instead of guessing a baseline);
@@ -366,7 +323,7 @@ export class TriggerEvaluator {
       }
 
       case 'IDLE_BALANCE': {
-        // G8 (auditoría 17-ago) — this arm used to collapse THREE different
+        // G8 (auditorí) — this arm used to collapse THREE different
         // worlds into one silent `{ fired: false }`:
         //   (a) the balance was read and there is nothing idle above the line;
         //   (b) the balance is there but nobody could put a USD price on it;
@@ -475,32 +432,6 @@ export class TriggerEvaluator {
             // told a payment was abandoned. `owedAttempt` is just
             // `lastTriggeredAt`: it says "some fire produced nothing", NOT
             // "an occurrence of THIS cron produced nothing". Two ways it lies:
-            //
-            //  (a) the trigger changed under it. `PATCH /rules/:id`
-            //      (backend/src/routes/rules.ts) takes a partial of the create
-            //      schema — `trigger` included — and clears NEITHER stamp. A
-            //      rule that errored as HF_BELOW and was re-pointed at a
-            //      monthly TIME_TRIGGER carried a barren stamp that belongs to
-            //      no occurrence at all, and round 2 announced it anyway (HIGH
-            //      alert + push) for an occurrence that never existed.
-            //  (b) the stamp is stale. A rule disabled after a barren attempt
-            //      and re-enabled a month later still carries it, and the
-            //      schedule has moved on since: whole periods have come and
-            //      gone. Shouting about that one now is not news, it is a wolf.
-            //
-            // Guard (a): the attempt must sit inside the catch-up window of a
-            // real occurrence of THIS cron — that is exactly what
-            // `lastCronOccurrence` scanning back from the attempt answers.
-            // Guard (b): that occurrence must still be the most recent one of
-            // the schedule; if a LATER one has already passed, the abandonment
-            // is old news and stays a log line.
-            //
-            // Neither guard can hide a genuine abandonment: a genuine last
-            // attempt happens while the occurrence is still inside its own
-            // window, and the next occurrence of a cron sparse enough to reach
-            // this branch (weekly, monthly — sub-hourly crons never have a null
-            // `due`) is a period away. An engine that was DOWN for days still
-            // announces, because no later occurrence has passed yet.
             const missed = lastCronOccurrence(matcher, owedAttempt);
             if (!missed) {
               return {
@@ -538,7 +469,7 @@ export class TriggerEvaluator {
         // the last fire that actually PRODUCED something (catches occurrences
         // missed between ticks).
         //
-        // G3 (auditoría 17-ago) — this used to read `lastTriggeredAt`, which the
+        // G3 (auditorí) — this used to read `lastTriggeredAt`, which the
         // engine stamps on EVERY fire, errors and busy-council included. So an
         // occurrence whose fire failed came back as `due <= lastTriggeredAt`
         // (now > due, always) and was never offered again: the monthly payment

@@ -1,22 +1,6 @@
 /**
- * productizer it. 31 (agente D, 4.2) — EL PORTAL DEL EXCHANGE, ANTE EL 503 DE
+ * EL PORTAL DEL EXCHANGE, ANTE EL 503 DE
  * «NO PUDE USAR TU MARCA», PINTA LA FRASE DEL SERVIDOR Y UN REINTENTO.
- *
- * Lo que falló y por qué esta prueba existe: la it. 29 hizo que la retirada
- * contestara 503 `OWNERSHIP_UNREADABLE` con «dated later than our clock» cuando
- * la marca de toma de posesión está adelantada al reloj del servidor — y probó
- * `takeoverAtOf`, la pieza. Nadie probó el CONSUMIDOR: la primera llamada del
- * cliente (`GET /runs/for-account`) convertía esa misma marca en «la toma fue
- * ahora», contestaba `heldElsewhere.reclaimRequired: true`, y el portal decía
- * «the exchange has to confirm it is you again with a claim code» — acción de
- * fundador, sin botón, sin reintento (solo la fase `error` incrementa
- * `attempt`). La persona no pasaba del portal, así que los 503 de la retirada
- * ni se alcanzaban. Y aunque hubieran llegado, `REFUSAL_TEXT.OWNERSHIP_UNREADABLE`
- * pisaba el `detail` con «could not be read just now».
- *
- * Aquí se renderiza la fase de verdad (react-dom/server sobre el componente que
- * `ClientPortal` monta en `phase: 'error'`) con el cuerpo que ahora manda el
- * servidor, y se mira el HTML: la frase del servidor, y el botón.
  */
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
@@ -37,7 +21,7 @@ const AHEAD_OF_CLOCK: Refusal = {
     "This sign-in's security record is dated later than our own clock, so the exchange cannot yet tell whether your account here was opened before or after it last changed hands. Nothing was changed and nothing is lost: this clears on its own once our clock passes that date — try again later. Re-linking a wallet will not help, and no claim code is needed. If it persists, write to us: an administrator can check that date.",
 };
 
-describe('PortalRefusal — el 503 OWNERSHIP_UNREADABLE del portal (it. 31, 4.2)', () => {
+describe('PortalRefusal — el 503 OWNERSHIP_UNREADABLE del portal (4.2)', () => {
   it('pinta la frase del SERVIDOR («dated later than our own clock»), no «could not be read just now»', () => {
     const html = render(AHEAD_OF_CLOCK);
     expect(html).toContain('dated later than our own clock');
@@ -51,7 +35,7 @@ describe('PortalRefusal — el 503 OWNERSHIP_UNREADABLE del portal (it. 31, 4.2)
   it('ofrece el reintento: hay un botón «Try again»', () => {
     const html = render(AHEAD_OF_CLOCK);
     expect(html).toMatch(/<button[^>]*>[\s\S]*?Try again[\s\S]*?<\/button>/);
-    // Jamás la frase del fundador: la persona no necesita un código de reclamación.
+
     expect(html).not.toMatch(/claim code\b(?! is needed)/);
   });
 

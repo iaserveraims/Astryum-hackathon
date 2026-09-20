@@ -4,29 +4,6 @@
  * Wraps CoW Protocol (Coincidence of Wants) batch auction for MEV-protected swaps.
  * CoW's solver network competes to fill orders off-chain, settling in batches.
  * Users receive surplus (price improvement) instead of being MEV-extracted.
- *
- * Authorization flow — different from standard eth_sendTransaction providers:
- *   1. Astryum calls /quote → returns unsigned CoW order struct
- *   2. User approves sell token to GPv2VaultRelayer (eth_sendTransaction — this is the IntentPayload.tx)
- *   3. User signs the order via EIP-712 (wallet_signTypedData — frontend handles separately)
- *   4. Frontend POSTs {order, signature} to CoW API → solver network fills the order
- *
- * The IntentPayload.tx represents the ERC-20 approval step (2).
- * The EIP-712 signing data is included in metadata.cowOrder for frontend use.
- * For native ETH: no approval needed — GPv2Settlement wraps ETH internally.
- *
- * Revenue model:
- *   - No explicit fee BPS — CoW's referral program shares solver surplus with Astryum.
- *   - appData encodes Astryum referral info (ASTRYUM_COW_APP_CODE).
- *   - Surplus is distributed by CoW's settlement contract post-batch.
- *
- * Regulatory invariants (never remove):
- *   authorization.astryumRelays: false
- *   referralAttribution.disclosedToUser: true
- *   Astryum never calls sendTransaction on the CoW order — only on the ERC-20 approval
- *
- * Supported chains: Ethereum (1), Gnosis (100), Arbitrum (42161), Base (8453).
- * NOT Flare (14). No API key required.
  */
 
 import { ethers } from 'ethers';

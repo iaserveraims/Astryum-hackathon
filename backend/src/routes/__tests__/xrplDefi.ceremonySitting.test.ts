@@ -1,28 +1,6 @@
 /**
- * productizer it. 34 (E) — LA CARRERA DEL BUS: UNA LIBERACIÓN TARDÍA BAJO UNA
+ * LA CARRERA DEL BUS: UNA LIBERACIÓN TARDÍA BAJO UNA
  * CEREMONIA VIVA, PORQUE EL SERVIDOR NO DISTINGUÍA SITTINGS.
- *
- * LA PERSONA. Escape en `signing`: la limpieza de desmontaje dispara
- * `/multisign/release` fire-and-forget (`keepalive`) y el bus rechaza ABANDONED,
- * que desde it. 31 se lee como 'review' → la superficie ofrece firmar otra vez →
- * `sendIntent` → nuevo sitting → `/multisign/prepare` de la MISMA sesión y los
- * MISMOS bytes: `recordCeremonySeat` upserta el arriendo por cuenta y
- * `stampCeremonyPin` re-estampa la misma Sequence. Si la liberación del primero
- * aterriza DESPUÉS: suelta el arriendo (mismo usuario → `heldTheLease`), lee el
- * pin, sustituye el reloj (`holderEndedCeremony`), ventana `absent` → el asiento
- * de nonce queda LIBRE bajo la ceremonia que la familia sigue firmando. Cualquier
- * otro 0xFE de esa cuenta (otra pestaña, otro operador) compone encima.
- *
- * EL ARREGLO. `/multisign/prepare` genera un id de sitting, lo escribe en el
- * arriendo y en el pin y lo devuelve; `/multisign/release` exige el mismo: otro
- * id es un no-op (`stale-sitting`, `seat.released:false`, la fila no se toca).
- *
- * LA FASE, con el arriendo REAL (`councilProposals.releaseCeremonySeatFor`) y el
- * store REAL (`DirectMintHandoffStore`) sobre una base fingida en memoria: dos
- * prepares de la misma sesión sobre los mismos bytes, y la liberación del
- * primero llegando después del segundo. Mutación: quitar la comparación del id
- * en el arriendo (`ceremonySittingIsStale` en `releaseCeremonySeatFor`) o en el
- * pin (`releaseAbandonedCeremonySeat`) → el asiento se suelta → rojo.
  */
 import express from 'express';
 import request from 'supertest';

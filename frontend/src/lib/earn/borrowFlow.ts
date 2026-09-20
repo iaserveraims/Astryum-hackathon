@@ -5,16 +5,6 @@
  * modal para el puente, otro para la entrada, otro para el repago) y el usuario
  * tenía que saber cuál abrir, en qué orden y cuándo. La aplicación sabía todo
  * eso y no lo usaba: se limitaba a avisar de que faltaba algo.
- *
- * Aquí el flujo se DERIVA del estado real —dónde está el dinero, qué wallet
- * eligió, qué posición tiene— y avanza solo: prepara el paso, lo enseña, el
- * usuario firma, espera lo que haya que esperar, y pasa al siguiente. El
- * usuario nunca elige un paso; elige un destino.
- *
- * Todo lo de este fichero es lógica pura: qué pasos hacen falta, cuál toca
- * ahora y cómo avanza. Quien la ejecuta (el componente) es quien llama a los
- * prepare y a la firma. Separarlo es lo que permite testear el orden y las
- * transiciones sin red, sin cadena y sin wallet.
  */
 import {
   planBorrowRoute,

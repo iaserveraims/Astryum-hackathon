@@ -118,8 +118,7 @@ export const usePortfolioStore = create<PortfolioState>()((set, get) => ({
 /* poller. Read through useAggregatedFor().                                 */
 /* ------------------------------------------------------------------------ */
 
-// Su PROPIO mapa, no el del hueco de la autoridad (fundador 19-sep: «entro en
-// Home, tarda mucho y no carga; voy a Portfolio, vuelvo y aparece todo»). En
+// Su PROPIO mapa, no el del hueco de la autoridad. En
 // vista general los dos holders piden la MISMA flota, así que la misma clave;
 // con un mapa compartido, el que llegaba segundo devolvía la promesa del
 // primero sin escribir nada en su propio estado. En Home llega primero el

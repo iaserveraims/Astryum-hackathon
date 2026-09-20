@@ -24,7 +24,7 @@ function authHeader(): Record<string, string> {
 }
 
 /**
- * A 401 THAT IS NOT «YOUR SESSION ENDED» (productizer it. 17, R5 5.6).
+ * A 401 THAT IS NOT «YOUR SESSION ENDED» (R5 5.6).
  *
  * `withLiveSession` refuses an authority write whose session predates an account
  * takeover, and it answers 401 `session_revoked`. That is a verdict about THIS
@@ -67,7 +67,7 @@ function handleUnauthorized(body?: unknown): void {
 }
 
 /**
- * A PREPARED 0xFE REACHES THE LIVE-REQUESTS REGISTRY (productizer it. 17, R2 2.6).
+ * A PREPARED 0xFE REACHES THE LIVE-REQUESTS REGISTRY (R2 2.6).
  *
  * The banner over every in-flight Xaman request can only promise «Flare will act
  * on this» when somebody actually said the executor runs. `lib/institutional/api`
@@ -75,13 +75,6 @@ function handleUnauthorized(body?: unknown): void {
  * ride the same 0xFE rail — funding a cage, the birth of a cage, the heir's
  * yield claim — did not, so their instructions sat in the registry as «nobody
  * said», and the banner stayed neutral over a payment that DOES get delivered.
- *
- * Read defensively, in this order: `serverDelivery.executorEnabled`, then a
- * top-level `executorEnabled`. A route that sends neither leaves the state
- * UNKNOWN on purpose — the registry remembers «nobody told us» separately from
- * «the executor is stopped», because only the second is an accusation.
- *
- * Pass-through: it returns the same response, so a caller sees no difference.
  */
 function noteInstructionDelivery<T>(r: T): T {
   const body = r as { xrplPayment?: unknown; xrplTx?: unknown; serverDelivery?: unknown; executorEnabled?: unknown } | null;
@@ -96,7 +89,7 @@ function noteInstructionDelivery<T>(r: T): T {
   const tx = body.xrplPayment ?? body.xrplTx;
   // A body that is not a 0xFE instruction is ignored inside the registry.
   noteFlareInstructionDelivery(tx, delivery);
-  // it. 19 (R3 N4 / R5 R7) — AND THE OTHER HALF OF THE SAME TRUTH. A COUNCIL
+  // AND THE OTHER HALF OF THE SAME TRUTH. A COUNCIL
   // ORDER is a 1-drop Payment with a 32-byte memo, not a `FE…` one, so the call
   // above ignores it: `/council-order/prepare` answers `serverDelivery` and
   // nothing in this module was ingesting it, leaving the banner to promise a
@@ -107,7 +100,7 @@ function noteInstructionDelivery<T>(r: T): T {
 }
 
 /**
- * it. 21 (it. 20 §3.9) — THE EXPIRY THE SERVER ANSWERS, AND THE FRONTEND IGNORED.
+ * THE EXPIRY THE SERVER ANSWERS, AND THE FRONTEND IGNORED.
  *
  * Every route that composes a 0xFE answers `payloadExpiryMin` (the minutes its
  * seat is measured with). Nothing here read it, so the Xaman `expire` came from
@@ -119,11 +112,11 @@ function noteInstructionDelivery<T>(r: T): T {
 function learnPayloadExpiry<T>(body: T): T {
   const b = body as { payloadExpiryMin?: unknown; memoHex?: unknown; signerListRead?: unknown } | null;
   const v = b?.payloadExpiryMin;
-  // it. 27 (§3): the memo travels with it. A ceremony's window (24 h) is above
+  // The memo travels with it. A ceremony's window (24 h) is above
   // the ordinary clamp, so learning it WITHOUT a memo discarded it entirely —
   // the server's one read never reached a single payload, and the sitting ran on
   // a number hand-written in `lib/xrpl/councilSigning.ts`.
-  // it. 31 (§5): and whether that window was READ (`signerListRead`) or merely
+  // and whether that window was READ (`signerListRead`) or merely
   // defaulted — without it a short window was taken for a «signs alone» verdict
   // and the browser stopped checking the SignerList on its own.
   if (v !== undefined) notePayloadExpiryMin(v, b?.memoHex, b?.signerListRead);
@@ -131,7 +124,7 @@ function learnPayloadExpiry<T>(body: T): T {
 }
 
 /**
- * it. 21 (it. 20 §3.5) — `Retry-After` IS PART OF THE REFUSAL.
+ * `Retry-After` IS PART OF THE REFUSAL.
  *
  * `ACCOUNT_BUSY` answers 503 with the header and nothing on this side read it,
  * so the one refusal that KNOWS when to come back said only «try again» — or,
@@ -161,7 +154,7 @@ async function jget<T>(path: string, params?: Record<string, string | number | u
   const r = await fetch(`${API_BASE}${path}${qs}`, { headers: authHeader() });
   if (!r.ok) {
     // The body is read BEFORE deciding, so a `session_revoked` can be shown in
-    // place instead of logging the person out (it. 17, R5 5.6).
+    // place instead of logging the person out (R5 5.6).
     const body = await r.json().catch(() => ({}));
     if (r.status === 401) handleUnauthorized(body);
     throw Object.assign(new Error(body?.error ?? `http_${r.status}`), {
@@ -569,29 +562,7 @@ function isXrplCaip2(chain: string | undefined): boolean {
 
 /**
  * Which translator rail a CMF must compile through — G7 (auditoría de los
- * SILENCIOSOS, 2026-08-17).
- *
- * WHAT FAILED IN SILENCE: `translate()` used to hardcode chainId 14, and its
- * only caller took that default, so POST /api/moneyflows/translate NEVER
- * reached its `chainId === 1440002` branch. The CanonicalXrplTranslator — the
- * ONLY producer of PRICE_DROP_PCT (M3), scheduledPayment (M1) and escrow (B.1)
- * rules — therefore had no caller at all: evaluator, zod, FTSO prefetch and
- * tests all existed and shipped, and no person could ever create one of those
- * rules. Nothing errored; an XRPL-shaped flow simply came back with the EVM
- * translator's `verb_not_supported`, which reads like the PRODUCT refusing the
- * flow instead of the CLIENT asking the wrong rail.
- *
- * Detection is deliberately CONSERVATIVE: only shapes Flare/EVM can NEVER
- * compile route to XRPL, so an ordinary Flare flow keeps its rail and the
- * error it already had.
- *   - an explicit CAIP-2 `xrpl:*` chain on any asset (the strongest signal);
- *   - verb 'transfer' — not an AutomationRule action on EVM at all
- *     (FLARE_EVM_CAPABILITY.verbs excludes it);
- *   - venue.params.destination that is an XRPL classic r-address;
- *   - venue.params.lockDays — the XRPL savings-escrow (B.1) shape.
- * Anything else stays on 14. Guessing a rail for money is worse than an honest
- * "this does not translate here": a mixed flow lands on the first rail matched
- * and its foreign steps fail readably (both translators are all-or-nothing).
+ * SILENCIOSOS).
  */
 export function cmfRailChainId(cmf: CanonicalMoneyFlow): number {
   for (const step of cmf.steps) {
@@ -1835,7 +1806,7 @@ export async function fetchActivityExport(params: {
     // El backend se niega a entregar un fichero fiscal incompleto y explica por
     // qué (explorer_unavailable). Un `http_502` a secas escondería ese motivo.
     // El cuerpo se lee ANTES de decidir: un `session_revoked` se enseña, no
-    // expulsa (it. 17, R5 5.6).
+    // expulsa (R5 5.6).
     const parsed = await r
       .json()
       .then((b: { message?: string; error?: string }) => b)
@@ -1909,7 +1880,7 @@ export interface AdminOverview {
     waitlistNoise: number;
     /** Clean-only breakdown, so bot floods don't skew the source mix. */
     waitlistBySource: Record<string, number>;
-    /** OAuth users separated from plain-email users (founder 2026-07-23). */
+    /** OAuth users separated from plain-email users. */
     usersByProvider: Record<string, number>;
   };
   waitlist: AdminWaitlistRow[];
@@ -1970,7 +1941,7 @@ export const adminBetaApi = {
 export const adminPanelApi = {
   /**
    * Trade the static panel key for a 2h scope-limited session token
-   * (2026-07-23 hardening). Captcha-gated + per-IP failure limit server-side.
+   * (hardening). Captcha-gated + per-IP failure limit server-side.
    * The raw key is typed once and never stored client-side; only THIS token
    * is kept (sessionStorage) and travels on overview calls.
    */
@@ -1992,7 +1963,7 @@ export const adminPanelApi = {
    * `x-admin-session`). Throws with `.status` so the page can tell an expired
    * session (401) apart from "panel not available" (404/403).
    *
-   * `includeNoise` (2026-07-23): swaps the waitlist table for the top 200
+   * `includeNoise`: swaps the waitlist table for the top 200
    * rows by recency regardless of noise, each tagged `noise` — an audit view,
    * off by default so the panel opens clean.
    */
@@ -2037,7 +2008,7 @@ export const adminPanelApi = {
 
   /** Estado de la cuenta ANCHOR en XRPL (Sistema tab). Ahí caen las fees de las
    *  órdenes del consejo y de ahí tira el hop B3 para reponer FLR al executor.
-   *  El gauge vive aquí, no en la consola (regla del fundador). */
+   *  El gauge vive aquí, no en la consola. */
   anchor: async (sessionToken: string): Promise<AdminAnchorStatus> => {
     const headers: Record<string, string> = { ...authHeader() };
     if (sessionToken) headers['x-admin-session'] = sessionToken;
@@ -2478,7 +2449,7 @@ export interface AdminStuckTx {
   account: string | null;
   xrp: number | null;
   dateISO: string | null;
-  /** Ruta del prepare que lo construyó ('e1', 'pa-repay', 'vault-withdraw:…') — null en filas pre-2026-07-26. */
+  /** Ruta del prepare que lo construyó ('e1', 'pa-repay', 'vault-withdraw:…') — null en filas pre-. */
   action: string | null;
   direction: 'entrante' | 'saliente' | 'otra' | 'desconocida';
   failures?: number;
@@ -2678,12 +2649,6 @@ export interface CouncilPositionRow {
  *                    is archived as `expired`, so this state rarely travels).
  *   · `unverified` — WE could not read XRPL. A failure of ours, never a state
  *                    of the world: nothing is archived and nothing is claimed.
- *
- * It travels as a FIELD, never as a status: the inbox buckets by status
- * equality, so a sixth status value would make the row vanish from every tray
- * — trading a lie for a disappearance.
- *
- * Only present when the deadline has passed AND the row kept a live status.
  */
 export type CouncilLedgerCheck =
   | {
@@ -2734,9 +2699,9 @@ export interface CouncilProposalRecord {
    *  passed. Absent while the proposal is still inside its 7 days. */
   ledgerCheck?: CouncilLedgerCheck;
   /**
-   * it. 23 (it. 22 §2.3) — HOW MUCH OF THIS ROW YOU ARE BEING SERVED.
+   * HOW MUCH OF THIS ROW YOU ARE BEING SERVED.
    *
-   * it. 21 §3.7 gave a REGISTERED-only cosignatory the signing material in full
+   * Gave a REGISTERED-only cosignatory the signing material in full
    * (txjson, signerList, quorum, blobs) and none of the family's deliberation:
    * `title` arrives null and `positions` empty, with `access: 'registered'` and
    * `redacted: ['title','positions']` saying so. The frontend read neither
@@ -2753,16 +2718,16 @@ export interface CouncilProposalRecord {
 }
 
 /**
- * productizer it. 25 (1) — LA FILA QUE EL SERVIDOR NO PUDO DECIDIR, DECLARADA.
+ * LA FILA QUE EL SERVIDOR NO PUDO DECIDIR, DECLARADA.
  *
- * it. 23 dejó de tirarla: `GET /council/proposals` responde 200 con las filas
+ * Dejó de tirarla: `GET /council/proposals` responde 200 con las filas
  * legibles en `proposals` y las indecidibles NOMBRADAS en `unreadable`, con el mismo
  * cuerpo (`error`/`retryable`/`detail`) que llevaría la respuesta entera si no
  * hubiese nada legible — para que la pantalla use UN solo lector en los dos sitios.
  * Este tipo no existía, así que los consumidores desestructuraban `proposals` y la
  * fila volvía a desaparecer: el mismo fallo, un piso más arriba.
  *
- * `PROPOSAL_STATUS_UNREADABLE` (it. 25) se suma a los códigos del piso de lectura:
+ * `PROPOSAL_STATUS_UNREADABLE` se suma a los códigos del piso de lectura:
  * la fila ES tuya, pero su estado no se pudo poner al día contra el ledger.
  */
 export interface CouncilUnreadableRow {
@@ -3047,20 +3012,12 @@ export interface MultisigPrepare {
     balanceChanges: Array<{ account: string; value: string; currency: string; issuer?: string }>;
   };
   /**
-   * productizer it. 17/19 (R3 N3, it.18 §2.1) — THE CONTESTED SEAT.
+   * /19 (R3 N3) — THE CONTESTED SEAT.
    *
    * An EXIT is never refused for somebody else's payload, so `/multisign/prepare`
    * composes it and says that ANOTHER proposal of this account is holding the same
    * Sequence. XRPL burns a Sequence exactly once: signing and broadcasting this
    * exit means the other payload can never apply.
-   *
-   * The warning existed and had NO READER on any screen (`grep seatContestWarning
-   * frontend/src` → 0), so a council collected a quorum over two payloads of the
-   * same seat without being told. It is read by `CouncilMultisigFlow` now.
-   *
-   * `seatContestWarning` is the server's prose and MAY name another council's
-   * ceremony — so the screen renders its own sentence from the IDS in
-   * `seatContest` instead (it. 19, cross-agent contract with the ceremony guard).
    */
   seatContestWarning?: string;
   seatContest?: {
@@ -3072,7 +3029,7 @@ export interface MultisigPrepare {
     pinnedSequence?: number;
   };
   /**
-   * productizer it. 21 (it. 20 §2.5) — THREE DIFFERENT WARNINGS, ONE SENTENCE.
+   * THREE DIFFERENT WARNINGS, ONE SENTENCE.
    *
    * `seatContestWarning` was a single free-text field into which the route
    * concatenated up to three UNRELATED things: a real rival payload holding the
@@ -3081,10 +3038,6 @@ export interface MultisigPrepare {
    * holding the same Sequence» for all three — so a council whose only problem
    * was a database blip was sent to the inbox to settle a proposal that does
    * not exist, and the two warnings that are true had no reader at all.
-   *
-   * The server now sends them TYPED and the screen renders each with its own
-   * sentence (`seatContestNotices`, CouncilMultisigFlow). The old field stays
-   * for older clients; a client that understands this one ignores it.
    */
   seatNotices?: Array<{
     kind: 'rival-seat' | 'unclassified-exit' | 'inbox-unreadable';
@@ -3136,7 +3089,7 @@ export const xrplLegacy = {
   /** The cage of THIS Legacy: asset + decimals, idle vs working principal, and
    *  the REGISTERED venues. A cage belongs to exactly one council, so the
    *  account is what resolves it — a Legacy without one gets NO_CAGE_FOR_LEGACY
-   *  instead of another council's balance (2026-08-05). `address` inspects any
+   *  instead of another council's balance. `address` inspects any
    *  vault directly (public on-chain state). Read-only. */
   vaultState: (account: string, address?: string) =>
     jget<LegacyVaultState>('/xrpl-defi/vault-state', address ? { address } : { account }),
@@ -3201,10 +3154,10 @@ export const xrplLegacy = {
     action: string;
     params: Record<string, unknown>;
     region?: string;
-    /** Only after an explicit confirm on 409 COUNCIL_ORDER_IN_FLIGHT (it.13). */
+    /** Only after an explicit confirm on 409 COUNCIL_ORDER_IN_FLIGHT. */
     confirmAnotherOrder?: boolean;
   }) =>
-    // it. 19 (R3 N4): this route ALWAYS answers `serverDelivery`, and until now
+    // This route ALWAYS answers `serverDelivery`, and until now
     // nothing on this rail read it — the banner promised «Flare will act on
     // this» from the memo's shape. `lib/institutional/api` had the same wiring
     // for its own council orders; this is the Legacy one.
@@ -3232,13 +3185,13 @@ export interface CouncilOrderHandoff extends XrplTxHandoff {
   exitToken?: string | null;
   /** When that token stops verifying (15 min). */
   exitTokenExpiresAt?: string;
-  /** it.13: what the server took on (recorded + executor running = delivered without this screen). */
+  /** What the server took on (recorded + executor running = delivered without this screen). */
   serverDelivery?: { recorded: boolean; executorEnabled: boolean };
-  /** it.13, exits only: the server could not remember the order — keep the screen open or relay by hash. */
+  /** Exits only: the server could not remember the order — keep the screen open or relay by hash. */
   recoveryWarning?: string;
-  /** it.13, exits only: another order of this account is already in flight. */
+  /** Exits only: another order of this account is already in flight. */
   inFlightWarning?: string;
-  /** it.14, exits only: the SAME order (action + parameters) was launched for this council a moment ago. */
+  /** Exits only: the SAME order (action + parameters) was launched for this council a moment ago. */
   duplicateWarning?: string;
   order: {
     action: string;

@@ -1,22 +1,13 @@
 'use client';
 
 /**
- * /proof — "La prueba" (founder 2026-07-29): the trust section that asks for
+ * /proof — "La prueba": the trust section that asks for
  * none. One idea told at three depths: (1) the lock — you sign a fingerprint
  * and the chain re-checks it, so nothing you didn't sign can ever run; (2) who
  * is who — the four pieces on the money's path, three of them Flare's, one
  * ours, each with its live address and explorer link; (3) verify it yourself —
  * a real settled operation whose fingerprint the visitor recomputes IN THEIR
  * OWN BROWSER. Closed by the honest block: what we cannot promise.
- *
- * Data: GET /api/platform/trust (public) — addresses resolved live from the
- * chain so this page can never drift from production, plus the latest settled
- * 0xFE operation (bytes already public on-chain). No hardcoded addresses here,
- * ever: a stale proof page would be worse than none.
- *
- * Copy doctrine (GLOSSARY §6): no guarantee language — the page shows the
- * mechanism and lets the visitor conclude; the "what we cannot promise" block
- * is load-bearing, not a disclaimer.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -443,8 +434,7 @@ const HONEST_LIMITS = (lang: Lang) => [
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Legacy — the council circuit, told with the same three depths (founder
-// 2026-07-29: "un toggle con las pruebas, más o menos como el de personal").
+// Legacy — the council circuit, told with the same three depths.
 // Honest by construction: Legacy is VALIDATING on mainnet and not open yet —
 // the tab says so before it proves anything. Indigo accents mirror the
 // journey's governed palette; the trust claim and the door stay shared.

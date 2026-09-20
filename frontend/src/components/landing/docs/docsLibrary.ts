@@ -2,7 +2,7 @@
  * LA BIBLIOTECA — los datos de /docs, en un solo sitio.
  *
  * Esto vivía dentro del `<script>` de `public/docs/index.html`, la página
- * estática con la que se publicó la biblioteca el 19-sep. Al pasar /docs a una
+ * estática con la que se publicó la biblioteca. Al pasar /docs a una
  * página de Next con la carcasa de las demás (`SubpageShell`: el mismo cielo,
  * la misma cabecera y el mismo pie que /about y /proof), los datos salen del
  * HTML y entran aquí tipados. Los ficheros no se mueven: las diapositivas
@@ -573,10 +573,7 @@ export const DOCS: readonly DocDeck[] = [
 /**
  * LOS DOCUMENTOS WEB — páginas propias, no decks.
  *
- * `explained` y `mainnet-evidence` se publicaron el 19-sep en la biblioteca
- * estática «como páginas propias, no como imágenes»: son HTML de
- * `public/docs/` (los genera docs/context/astryum-docs/make_pages.py) con su URL
- * limpia vía rewrite en next.config.js. Al pasar /docs a página de la app,
+ * Al pasar /docs a página de la app,
  * `DocDeck` solo sabía de diapositivas y estos dos se quedaron sin listar:
  * respondían por URL, pero desde /docs no se llegaba a ellos — mientras que en
  * producción sí estaban enlazados. El texto es el mismo que tenía allí.

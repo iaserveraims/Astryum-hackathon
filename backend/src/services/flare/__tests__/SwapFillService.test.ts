@@ -1,5 +1,5 @@
-// SwapFillService — el auto-completado de cantidades exactas (variante A del
-// doc 2026-07-26). Encode-only: composición del swap leg y la matemática del
+// SwapFillService — el auto-completado de cantidades exactas (variante A del).
+// Encode-only: composición del swap leg y la matemática del
 // tope; las cotizaciones on-chain no se tocan aquí.
 jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => ({
   resolveFxrpToken: jest.fn(async () => '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE'),
@@ -74,7 +74,7 @@ describe('buildFillSwapCalls — la composición del swap leg (unsigned)', () =>
     expect(calls[0].value).toBe('0');
 
     // [1] exactOutputSingle — forma V3 clásica con deadline (0xdb3e2198,
-    // la única en el bytecode del router SparkDEX, verificado 2026-07-26)
+    // la única en el bytecode del router SparkDEX, verificado)
     expect(calls[1].to.toLowerCase()).toBe(ROUTER.toLowerCase());
     expect(calls[1].calldata.slice(0, 10)).toBe('0xdb3e2198');
     const swap = ROUTER_IFACE.parseTransaction({ data: calls[1].calldata });

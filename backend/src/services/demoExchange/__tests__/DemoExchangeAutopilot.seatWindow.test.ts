@@ -1,6 +1,6 @@
 /**
  * The autopilot's 0xFE and its nonce seat bound the SAME ledgers, and the seat is
- * never declared signed before the run says so (productizer it. 14, R1 1.1/1.5):
+ * never declared signed before the run says so (R1 1.1/1.5):
  *
  *  · the builder is asked for a LastLedgerSequence (`lastLedgerWindow`) and the
  *    payment that gets signed carries exactly the one it handed back — a seat
@@ -11,7 +11,7 @@
  *    save must never leave a 'signed' seat holding a blob that was never sent.
  */
 import type { DemoRun } from '../DemoExchangeStore';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC al ejecutar (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC al ejecutar
 // se prueba en DemoExchangeAutopilot.kycAtFulfil.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 
@@ -66,7 +66,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   spentToday: async () => BigInt(0),
   sweepStaleReservations: async () => [],
   recordSpend: async () => undefined,
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -107,7 +107,7 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => ({
   },
 }));
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
 
 import { DemoExchangeAutopilot } from '../DemoExchangeAutopilot';
@@ -185,7 +185,7 @@ describe('the 0xFE of the autopilot and its nonce seat bound the same ledgers', 
 
     expect(mockSign).not.toHaveBeenCalled();
     expect(mockSubmit).not.toHaveBeenCalled();
-    // it. 19: this 0xFE is signed here with Astryum's own seed and never reached a
+    // This 0xFE is signed here with Astryum's own seed and never reached a
 // wallet, so its seat is freed at once instead of waiting out the window.
 expect(mockReleaseQueued).toHaveBeenCalledWith(MEMO, { neverHandedOut: true });
     expect(live.requests![0].status).toBe('pending');

@@ -4,26 +4,15 @@
  * SignedMark — LA ceremonia de firma. Una sola, y donde el proceso continúa.
  *
  * Historia en dos actos, para que nadie la duplique otra vez:
- *  · 2026-08-08 — la SignedCelebration a pantalla completa se retira («aparece
+ *  · — la SignedCelebration a pantalla completa se retira («aparece
  *    de golpe y se pone todo el fondo borroso») y la ceremonia pasa a vivir
  *    dentro de la vista de cada operación.
- *  · 2026-08-26 — el fundador caza que sonaba DOS VECES por firma: una tapando
+ *  · — el fundador caza que sonaba DOS VECES por firma: una tapando
  *    el QR gastado y otra en el bloque de settlement al cerrarse aquél («quiero
  *    que haya una, solo la segunda»). El QR ahora solo tacha su código con un
  *    check quieto; la ceremonia suena UNA vez, aquí, montada por
  *    SettlementIndicator — la vista que se queda en pantalla mientras la
  *    operación llega a la cadena.
- *
- * La versión profesional (mismo encargo): el trazo se firma SOBRE SU LÍNEA —la
- * gramática de un documento: primero se dibuja la línea de firma, después el
- * autógrafo encima— y el sello cae una vez, con un único pulso de tinta que se
- * disipa. Las cuatro estrellas de la versión anterior se retiran: eran confeti,
- * y una firma no celebra — certifica.
- *
- * Suena UNA vez al montarse y luego DESCANSA como emblema — sin exit, sin
- * remount: mantenerla en un slot ESTABLE para que los re-renders de estado no
- * la relancen. Colores por currentColor desde un envoltorio `text-volt`: oro en
- * Personal, índigo bajo Legacy. Reduced motion pinta el emblema terminado.
  */
 
 import { motion } from 'framer-motion';

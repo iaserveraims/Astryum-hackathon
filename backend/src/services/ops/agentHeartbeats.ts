@@ -7,15 +7,6 @@
  * `setInterval` dejaba de correr — una excepción que mata el ciclo, un
  * `clearInterval` de un apagado a medias, un tick que tarda más que su propio
  * intervalo — se apagaban en silencio y todo seguía pareciendo normal.
- *
- * Aquí cada uno deja su latido: cuándo fue el último tick, si salió bien y cada
- * cuánto DEBERÍA latir. El probe `agentes` del Sentinel compara esas tres cosas
- * y avisa cuando uno se calla o falla repetidamente.
- *
- * En memoria a propósito: un reinicio limpia el registro y cada agente vuelve a
- * anunciarse en su primer tick. Un agente que nunca se registra sencillamente
- * no se vigila — no se puede echar de menos lo que nunca dijo estar (evita
- * falsos positivos con carriles apagados por flag).
  */
 
 export interface AgentTick {

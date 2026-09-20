@@ -1,6 +1,5 @@
 /**
- * The marks that keep a deleted run's tags its own are PROVEN persisted
- * (productizer cycle, it. 8):
+ * The marks that keep a deleted run's tags its own are PROVEN persisted:
  *  - every tag range ever assigned lives apart from the runs, read STRICTLY and
  *    written with read-back — `kvUpsert` swallows a database error;
  *  - the seq high-water is read back too, and a failed write never makes the

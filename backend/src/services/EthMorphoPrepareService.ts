@@ -98,7 +98,7 @@ export interface EthMorphoPrepareRequest {
   /**
    * open_carry only: lend the RLUSD you borrow into the Sentora vault IN THE
    * SAME signing session ([…, borrow, approve RLUSD, deposit]). The founder's
-   * scenario (2026-08-25) — «borrow against FXRP and put the RLUSD to work in
+   * scenario — «borrow against FXRP and put the RLUSD to work in
    * Sentora» — was two cards and two trips; the physics allow one signature
    * (same chain, no settlement wait between legs), so it is one.
    */
@@ -258,17 +258,13 @@ export async function simulateLegsBestEffort(
  * The ammo of a repay can be LENT in the Sentora vault — the carry itself
  * leaves it there when the user ticks «lend the borrowed RLUSD», and the
  * protection nudge has always said so («the Sentora lend-only position
- * redeems on the same chain»). Until 2026-08-25 nobody COMPOSED it: the repay
+ * redeems on the same chain»). Until nobody COMPOSED it: the repay
  * door looked at the wallet only, said INSUFFICIENT_BALANCE and sent the user
  * to another screen to withdraw and come back — with the liquidation clock
  * running. Here it is derived from real state: if the wallet does not cover
  * and the vault does, the withdrawal of the EXACT shortfall becomes the first
  * leg of the same signature. Nothing beyond the shortfall, nothing at all when
  * the wallet already covers.
- *
- * Returns `null` when the plan cannot be built honestly (a read failed, the
- * reader cannot answer balances) — the caller then falls back to the plain
- * wallet pre-flight, which says what it can and never pretends.
  */
 async function planRepayFromVault(
   reader: MorphoChainReader,
@@ -332,7 +328,7 @@ async function planRepayFromVault(
   }
   if (idle < shortfall) {
     // Vault V2 pays withdrawals from its idle balance only (no liquidity
-    // adapter, read 2026-08-17): a HARD ceiling, not a conservative one.
+    // adapter, read): a HARD ceiling, not a conservative one.
     return {
       checks: [{
         name: 'vault-liquidity', ok: false, code: 'WITHDRAW_EXCEEDS_VAULT_LIQUIDITY',
@@ -711,7 +707,7 @@ export async function prepareSentoraVault(
     }
     // ⚠ NO se usa `maxDeposit` como tope. Esta bóveda es Morpho **Vault V2**,
     // donde `maxDeposit`/`maxWithdraw`/`maxRedeem` son stubs que devuelven 0
-    // SIEMPRE (verificado en mainnet 2026-08-17: maxDeposit(cualquiera)=0
+    // SIEMPRE (verificado en mainnet: maxDeposit(cualquiera)=0
     // mientras la bóveda tiene 319M de assets y acepta depósitos). Un 0 ahí
     // significa «esta bóveda no implementa la vista», no «está llena»; usarlo
     // como cap pintaba un rojo PERMANENTE y falso en cada depósito — y
@@ -762,7 +758,7 @@ export async function prepareSentoraVault(
       }
     }
     // La liquidez viva es un techo DURO, no un exceso de celo: esta bóveda
-    // tiene `liquidityAdapter() == address(0)` (leído de mainnet el 17-ago), o
+    // tiene `liquidityAdapter() == address(0)` (leído de mainnet), o
     // sea que `withdraw` no desasigna de los mercados al vuelo — paga de su
     // saldo y nada más. No relajar este check por parecer conservador.
     if (vault.idleAssets) {
@@ -1023,31 +1019,16 @@ export async function prepareFxrpBridgeBack(
   };
 }
 
-/* ── Cerrar la posición ENTERA en un lote (2026-08-29) ─────────────────────── */
+/* ── Cerrar la posición ENTERA en un lote ─────────────────────── */
 
 /**
  * `close_carry` — cancelar del todo, sin traer nada de fuera.
  *
- * El problema que resuelve (fundador, 29-ago): para cancelar hay que devolver
+ * El problema que resuelve: para cancelar hay que devolver
  * MÁS de lo que se pidió, porque la deuda devenga interés (7,53% APR) y lo
  * prestado en la bóveda rinde menos (6,21%). Ese hueco —pequeño, pero real y
  * creciente— obligaba al usuario a traer RLUSD de otro sitio, probablemente
  * desde Flare. Fricción fea para una empresa que vende abstracción.
- *
- * La respuesta: la posición YA tiene con qué. Está sobrecolateralizada por
- * diseño, y ese exceso de colateral se puede retirar ANTES de repagar (Morpho
- * lo permite mientras la posición siga sana). Con él se compra el hueco EXACTO
- * y se cierra. Verificado por simulación sobre una posición real de mainnet el
- * 29-ago: hueco de 0,2516 RLUSD cubierto con 0,18 FXRP del propio colateral.
- *
- * El swap reusa `SwapFillService` —el mismo `exactOutput`, el mismo tope con
- * slippage, la misma divulgación— con el venue de Ethereum. No es una copia: es
- * el mismo código con otro venue (ver la nota de `SwapVenue`).
- *
- * DOCTRINA DE LA CASA, heredada del 31-jul: elegir es OBLIGATORIO. Si hay hueco
- * y el usuario no ha dicho cómo cubrirlo, esto NO decide por él: devuelve el
- * hueco y sus opciones, y el pre-flight bloquea. Un default silencioso que vende
- * colateral del usuario sería exactamente lo que no hacemos.
  */
 export function ethereumSwapVenue(): SwapVenue {
   return {
@@ -1170,7 +1151,7 @@ export async function prepareCloseCarry(
   const available = fromWallet + fromVaultUsed;
   const gap = need > available ? need - available : 0n;
 
-  // 2. El hueco: cómo se cubre. Sin elección del usuario NO se decide (31-jul).
+  // 2. El hueco: cómo se cubre. Sin elección del usuario NO se decide.
   let swapPlan: CloseCarryResult['close']['swap'] = null;
   let collateralSold = 0n;
   const fillLegs: EvmLeg[] = [];

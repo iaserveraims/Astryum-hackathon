@@ -48,7 +48,7 @@ export interface GetTimelineOptions {
 /**
  * Whether we could actually SEE the chain on this read.
  *
- * Familia "éxito no ganado" (2026-08-03): cuando el explorador de Flare se cayó,
+ * Familia "éxito no ganado": cuando el explorador de Flare se cayó,
  * el timeline devolvió [] y la pantalla dijo "No activity yet" — afirmando un
  * hecho sobre el capital del usuario que no podíamos saber. Un [] por ceguera y
  * un [] por cartera tranquila NO son la misma respuesta y no pueden pintarse

@@ -1,40 +1,8 @@
 /**
  * Demo transaction cap — the "radius limiter" for the open MVP (judge / public phase).
  *
- * It is NOT a safety guard against stranding (that is pre-sign simulation, invariant
- * #12 — see R8 in the productizer plan). It BOUNDS the blast radius: with a 1-XRP cap,
+ * It is NOT a safety guard against stranding. It BOUNDS the blast radius: with a 1-XRP cap,
  * the worst case of a batch that reverts is a judge losing ~1 XRP, not 100.
- *
- * Three layers, all FAIL-CLOSED (missing/malformed config ⇒ protection ON, never off):
- *   1. Per-transaction cap        — DEMO_MAX_XRP_PER_TX (default 1).
- *   2. Per-address daily volume   — DEMO_MAX_XRP_PER_ADDRESS_PER_DAY (calibrated below):
- *      protects the executor budget from one address draining it. PERSISTED (survives a
- *      redeploy / covers multi-instance — see below).
- *   3. Global fee-budget pre-check — lives in the route middleware (flareDemo.ts) via
- *      ExecutorFuelService: refuse before signing if the executor can't attest one more
- *      mint. This layer, not the cap, is what stops the executor running dry.
- *
- * Exemption is by an EXPLICIT list, NEVER the execution allowlist: opening the app
- * relaxes/retires that allowlist for the judge path, which would silently exempt
- * everyone entering — a permissions-layer version of the "unearned success" bug family
- * (a change in one dimension erasing a guarantee in another). Two explicit lists:
- *   · DEMO_CAP_EXEMPT_EMAILS (2026-07-25, preferred) — ACCOUNT-based: the authenticated
- *     user's email (from the session JWT, unforgeable client-side) exempts every wallet
- *     the account pays from. Deliberately its OWN list, NOT ADMIN_EMAILS: the panel
- *     allowlist serves a different power, and adding someone there must not silently
- *     grant cap exemption (the same cross-purpose-list disease as above).
- *   · DEMO_CAP_EXEMPT_ADDRESSES — address-based fallback. Weaker: the address in the
- *     prepare body is CLAIMED by the client (any caller can type a founder's public r…),
- *     though a claimed-but-not-owned address yields a payload the caller cannot sign and
- *     an on-chain sender check the executor enforces. Kept for wallets without accounts.
- *
- * IDENTITY (§5). Both the exemption and the daily counter key on the PAYER the user
- * controls: the XRPL classic address (r…) for the 0xFE mint rail — that address signs
- * the Payment in Xaman and is the only budget-relevant rail (it spends the executor's
- * FLR). The EVM-direct rail (evmAddress) settles with the user's own signature and
- * spends NO executor budget, so it keys separately with no evasion of the budget: there
- * is nothing to evade. The per-tx cap is per-request (no accumulation) so keying can't
- * be gamed there either.
  */
 
 import { kvGetStrict, kvUpsert } from '../services/persistence/backgroundJobKv';
@@ -118,7 +86,7 @@ export function getDemoCapExemptEmails(): Set<string> {
  * The email set is checked before touching the DB so the common case (no list
  * configured) costs nothing.
  *
- * VERIFIED email only (productizer it. 8, same door as adminPanel.emailGate):
+ * VERIFIED email only (same door as adminPanel.emailGate):
  * `AuthService.register` stores whatever address it is sent, so a plain email
  * on the list proved nothing — registering an exempt address skipped the real
  * 0xFE mint caps (and the cage-creation limits that reuse this check). Only
@@ -146,23 +114,7 @@ export async function isDemoCapExemptUser(userId: string | null | undefined): Pr
 // ── Per-address daily volume — RESERVA → CONFIRMACIÓN, persistida (§1, v2) ──
 //
 // v1 contaba el gasto EN EL PREPARE y jamás lo soltaba: un intent preparado y
-// cancelado seguía consumiendo el cupo del día (incidente fundador 2026-07-25 —
-// el gauge "XRP fuel" contaba humo). v2 separa las dos verdades:
-//
-//   · El prepare RESERVA (sigue siendo el único punto de control antes de la
-//     firma — sin reserva, un burst de prepares rebasaría el cupo).
-//   · Una reserva sin confirmar EXPIRA sola (DEMO_CAP_RESERVATION_TTL_MIN,
-//     default 30): el prepare cancelado deja de contar al rato.
-//   · La EJECUCIÓN del mint (el executor, cuando el Payment firmado corre en
-//     Flare) CONFIRMA la reserva — eso ya no expira jamás: es gasto real.
-//   · RE-ASERCIÓN: un Payment firmado tarde que ejecuta SIN reserva viva se
-//     suma como confirmado igual — el acaparador que deja expirar sus reservas
-//     y firma en ráfaga se reencuentra con su cupo al ejecutar. El techo duro
-//     global sigue siendo el presupuesto FDC (assertDailyFeeBudget).
-//
-// Persistencia: mismo patrón probado (background_jobs, jobType propio), fila
-// por `${address}:${dayUTC}` con la LISTA de entradas. Filas legacy ({xrp: n})
-// migran en lectura como gasto confirmado. Sin DB ⇒ espejo en memoria.
+// cancelado seguía consumiendo el cupo del día. v2 separa las dos verdades:
 interface DailySpendEntry {
   xrp: number;
   /** unix ms de la reserva/confirmación. */
@@ -192,7 +144,7 @@ function liveSpendXrp(entries: DailySpendEntry[], now: number): number {
 }
 
 /**
- * it. 29 — el gasto del día NO SE PUDO LEER (Postgres falló). Hermano del
+ * El gasto del día NO SE PUDO LEER (Postgres falló). Hermano del
  * `FeeLedgerUnreadable` del executor: «no sé cuánto lleva hoy esta dirección»
  * no es «no lleva nada». Lo lanza `readDailyEntries`; `checkDemoCap` lo
  * convierte en un 503 retryable que no reserva, no cuenta y no inventa.
@@ -205,7 +157,7 @@ export class DailySpendUnreadable extends Error {
 }
 
 async function readDailyEntries(capKey: string): Promise<DailySpendEntry[]> {
-  // it. 29 — `kvGetStrict`, no `kvGet`: el laxo devolvía `null` tanto sin fila
+  // `kvGetStrict`, no `kvGet`: el laxo devolvía `null` tanto sin fila
   // como con Postgres caído, y ese `null` caía al espejo en memoria — VACÍO
   // tras cada redeploy — devolviendo el cupo diario ÍNTEGRO a cada dirección
   // justo cuando la BD parpadea. Ahora `null` significa sólo «la BD contestó
@@ -277,23 +229,6 @@ export interface DemoCapError {
  * LA SALIDA NUNCA SE GATEA (doctrina de producto). Un redeem / claim / withdraw /
  * unwind de vuelta a la wallet del holder no se bloquea por geofence ni por el
  * presupuesto diario por dirección: eso es política, no física.
- *
- * Lo que SÍ se mantiene sobre una salida es el tope POR TRANSACCIÓN de su CARRIER
- * 0xFE: el carrier mintea de verdad y es el radio de explosión del contrato no
- * auditado (una tx que revierte deja como mucho `maxTx` XRP en juego). No limita
- * lo que sale — solo el tamaño del pago XRP que transporta la operación, y el
- * carrier mínimo (~0,35 XRP) cabe siempre bajo cualquier tope viable.
- *
- * CONTABILIDAD DIARIA de un carrier de salida — decisión:
- *   · El prepare NO lo lee ni lo reserva: jamás puede rechazarlo, y un prepare de
- *     salida sin firmar no le quita cupo de ENTRADA al holder.
- *   · Si se EJECUTA, el executor lo confirma igual que cualquier mint
- *     (`confirmDailySpendXrp`, re-aserción): el presupuesto FLR se gastó de
- *     verdad y el contador lo refleja con honestidad. Efecto: una salida
- *     ejecutada puede reducir el cupo de ENTRADAS de ese día; nunca el de salidas.
- * El guard global de combustible del executor (§3) sigue aplicando en la ruta —
- * sin executor no hay transporte — pero con su propio mensaje: el capital no se
- * ha movido y sigue donde está.
  */
 export function checkExitCarrierCap(
   carrierXrp: number,
@@ -355,7 +290,7 @@ export async function checkDemoCap(
     entries = await readDailyEntries(capKey);
   } catch (e) {
     if (!(e instanceof DailySpendUnreadable)) throw e;
-    // it. 29 — ENTRADAS solamente (las salidas nunca pasan por aquí): sin la
+    // ENTRADAS solamente (las salidas nunca pasan por aquí): sin la
     // lectura no hay cupo que conceder ni que negar. No se reserva nada y no
     // se afirma nada sobre lo gastado; se reintenta.
     console.error(`[demoCap] ${e.message}`);
@@ -427,7 +362,7 @@ export function isXrplMintBody(body: unknown): boolean {
 }
 
 /**
- * Read-only snapshot for the Summary's usage bar (founder 2026-07-25): the caps
+ * Read-only snapshot for the Summary's usage bar: the caps
  * in force, what `address` has spent today (the SAME counter the daily layer
  * enforces — prepare-level accounting), and whether the caller is exempt (by
  * account or by address). NEVER records anything: reading the gauge twice must

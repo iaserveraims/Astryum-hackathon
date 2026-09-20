@@ -121,7 +121,7 @@ describe('probeUserInfo', () => {
 
 /**
  * The Account API — the operator's documented way to the connected wallet
- * (Thomas Hussenet, 2026-08-19), since OIDC does not carry it.
+ * (Thomas Hussenet), since OIDC does not carry it.
  *
  * The ceiling matters as much as the plumbing: their backend stores what the
  * wallet connector returned and does NOT verify or persist proof of ownership.

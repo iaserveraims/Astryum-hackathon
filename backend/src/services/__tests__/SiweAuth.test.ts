@@ -17,7 +17,7 @@ jest.mock('../../database/prismaClient', () => {
         ),
         create: jest.fn(async ({ data }: any) => {
           // isActive defaults to true in the schema; the fake must say so, or
-          // verifyToken's account-active check (it. 16, 4.5) refuses every token.
+          // verifyToken's account-active check (4.5) refuses every token.
           const u = { id: `user-${++userSeq}`, isActive: true, preferences: null, ...data };
           users.set(data.xrplAddress, u);
           usersById.set(u.id, u);
@@ -138,7 +138,7 @@ describe('SiweAuth', () => {
   });
 
   /**
-   * productizer it. 16 (4.5) — before this, SUSPENDING AN ACCOUNT DID NOTHING.
+   * Before this, SUSPENDING AN ACCOUNT DID NOTHING.
    * `verifyToken` never looked at `User.isActive`, so every token already minted
    * kept working: the quarantine row a takeover creates is `isActive:false`, and
    * so would be any account a founder ever disabled. And the JWT's `sub` was

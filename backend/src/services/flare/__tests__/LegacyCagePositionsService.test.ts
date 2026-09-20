@@ -1,7 +1,7 @@
 /**
  * LegacyCagePositionsService — the cage as normal portfolio positions.
  *
- * Pins the 2026-08-01 contract: working principal per venue reads as
+ * Pins the contract: working principal per venue reads as
  * 'collateral' (→ SUPPLY, counts as earning), idle as 'free', owed yield as
  * 'reward'; everything valued at the XRP price with the same $1 dust rule as
  * the XRPL wallet reader; and a zero/absent price emits NOTHING rather than
@@ -110,7 +110,7 @@ describe('buildCagePositions', () => {
 });
 
 /**
- * The other half of the 2026-08-22 staging bug: the cage was resolved fine and
+ * The other half of the staging bug: the cage was resolved fine and
  * the READ failed, and `cageStateFor` returned null for it — indistinguishable
  * from "this account has no cage". Real principal left the Home's totals with
  * no error anywhere. A cage we know exists and cannot read must say so.

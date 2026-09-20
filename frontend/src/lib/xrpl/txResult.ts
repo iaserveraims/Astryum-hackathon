@@ -1,33 +1,7 @@
 /**
  * txResult — qué significa, para el dinero, el código que devuelve XRPL.
  *
- * DOS FALLOS QUE CIERRA (incidente del fundador, 22-ago-2026: un recibo colgado
- * en «In progress» sobre una tx que no existe en el ledger).
- *
- *  1. **El fallo que no se reconocía.** `XamanWalletService.submitTransaction`
- *     pedía el payload con `options.submit: true` — Xaman envía la tx y guarda
- *     el veredicto del nodo en `response.dispatched_result` — y devolvía
- *     `response.txid` SIN MIRARLO. El txid es el hash del blob firmado y existe
- *     aunque el nodo la haya rechazado, así que el vigilante se quedaba
- *     esperando un hash que jamás iba a aparecer.
- *
- *  2. **El verde no ganado.** El vigilante daba por asentada cualquier tx con
- *     `validated === true`, sin leer `meta.TransactionResult`. Un `tec*` ESTÁ
- *     validado —ocupa ledger y cobra fee— y sin embargo NO hizo lo que se pedía.
- *     Se pintaba verde sobre un pago que no ocurrió.
- *
- * Las clases, tal y como XRPL las define:
- *
- *  · `tes` — la única que asienta.
- *  · `tec` — VALIDADA y fallida: está en el ledger, cobró fee, no hizo el trabajo.
- *            Terminal, y hay que decir que costó dinero.
- *  · `ter` — reintentable: el nodo la retiene y puede entrar en un ledger
- *            posterior. NO es terminal; seguir vigilando es lo correcto.
- *  · `tef` / `tem` / `tel` — jamás entrará: malformada, ya aplicada, secuencia
- *            pasada o rechazada localmente. Terminal, y sin coste.
- *
- * Puro a propósito: la regla se ejecuta en tests, no se lee en un `if` metido
- * en un componente. Es la lección que este repo lleva reaprendiendo.
+ * DOS FALLOS QUE CIERRA.
  */
 
 export type XrplResultClass =
@@ -45,7 +19,7 @@ export type XrplResultClass =
 /**
  * Clasifica un código de resultado de XRPL (`tesSUCCESS`, `tecUNFUNDED_PAYMENT`,
  * `tefPAST_SEQ`…). Un código vacío/ausente es `unknown` — NUNCA se inventa un
- * veredicto: «no lo he leído» no es «ha fallado» (el bug del recibo del 17-ago,
+ * veredicto: «no lo he leído» no es «ha fallado» (el bug del recibo,
  * donde anunciar el timeout como fallo empujaba al doble depósito).
  */
 export function classifyXrplResult(code: string | null | undefined): XrplResultClass {

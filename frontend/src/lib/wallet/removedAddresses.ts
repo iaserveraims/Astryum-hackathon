@@ -9,19 +9,6 @@
  * que resucitaba lo borrado. Extraída aquí sin ninguna dependencia, la misma
  * respuesta sirve a las dos superficies — que es la única forma de que no se
  * contradigan.
- *
- * POR QUÉ EXISTE (fundador 2026-09-13, segunda vuelta: «la firma y demás
- * funciona, pero no se borra la wallet, no desaparece de la account»).
- * Borrar la fila y el puntero del registro no bastaba, porque cada carga del
- * registro VUELCA los punteros locales del navegador y vuelve a dar de alta lo
- * que el volcado encuentre. El comentario de ese volcado lo decía sin darse
- * cuenta: «localStorage nunca se borra, así que las dos listas no pueden
- * divergir» — un diseño que asume que nadie quita nada. En cuanto el usuario
- * quita algo, ese mismo mecanismo se lo devuelve.
- *
- * La regla, en una frase: **una dirección que el usuario quitó no vuelve por
- * ningún camino automático**. Vuelve cuando él la añade otra vez, que es un
- * acto explícito y por eso limpia la marca.
  */
 
 const REMOVED_ADDRESSES_KEY = 'astryum-removed-wallet-addresses';

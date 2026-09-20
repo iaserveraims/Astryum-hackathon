@@ -1,24 +1,13 @@
 'use client';
 
 /**
- * StrategyPath — the interactive path that opens the catalogue (founder
- * 2026-08-22: "quiero que sea interactivo y se muestre de primeras, no que
- * tenga que darle el usuario a Guide me").
+ * StrategyPath — the interactive path that opens the catalogue.
  *
  * It is NOT a wizard that ends and then reveals a result: it is a FILTER
  * wearing the face of a path. Every card you pick narrows the catalogue
  * underneath live, in front of you, and the chips below write this same
  * state — one vocabulary (lib/earn/strategyTaxonomy), one list, never two
  * copies of the same information.
- *
- * Order of the questions (founder decision): OUTCOME first — six of the eight
- * routes are FXRP, so asking for the token first barely narrows anything, and
- * "what do you want to happen" can be asked without DeFi jargon. The mechanism
- * (lend · borrow · stake · vault) rides along as the subtitle, so the word is
- * learnt instead of demanded.
- *
- * Never ranks and never recommends (invariant #9): the copy states what each
- * route does and what it risks. Counts are facts about the catalogue.
  */
 
 import { motion, AnimatePresence } from 'framer-motion';

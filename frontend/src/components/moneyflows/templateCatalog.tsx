@@ -3,7 +3,7 @@
 /**
  * templateCatalog — the ONE source of the MoneyFlow template definitions
  * (PROTECT / HARVEST): fields, defaults and the trigger/action payload each
- * template builds. Moved out of DefiPositionsBoard (2026-07-25) so every
+ * template builds. Moved out of DefiPositionsBoard so every
  * creation path renders the SAME manual card over the SAME payload shape —
  * the position board's template modal, the embedded entry card
  * (ProtectRuleCard), and whatever comes next. If these diverged, the entry

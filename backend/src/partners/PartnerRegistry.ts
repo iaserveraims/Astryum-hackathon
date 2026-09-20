@@ -2,46 +2,8 @@
  * PartnerRegistry — Three-Tier Model
  *
  * The single source of truth for "who routes an execution intent" in Astryum.
- * Per the 2026-06-01 regulatory audit and architectural principles
- * (CLAUDE.md §0 + ASTRYUM DOCS):
- *
- *   "Astryum never executes, never broadcasts, never has discretion;
- *    every execution path passes through a registered partner."
- *
- * Three partner types — clean MiCA framing:
- *
- *   TIER 1 · WALLET_PARTNER
- *     For all self-custody DeFi onchain operations (lending, borrowing,
- *     staking, LP, vaults, swaps EVM↔EVM within one chain).
- *     The PARTNER IS THE USER'S WALLET — MetaMask / Phantom / Xaman / Petra.
- *     Astryum builds the unsigned tx, the wallet shows it to the user, the
- *     user signs, the wallet broadcasts. Aggregators that add value (Enso
- *     bundling, CoW MEV protection, 1inch routing) register as alternative
- *     WALLET_PARTNERS — they too produce calldata for the user's wallet.
- *
- *     Fee embedded in calldata is legitimate under this model — it is
- *     disclosed to the user before authorization.
- *
- *   TIER 2 · BRIDGE_PARTNER
- *     ONLY for cross-ecosystem moves where the two ecosystems are
- *     architecturally incompatible (EVM ↔ Solana, EVM ↔ XRPL, EVM ↔ Aptos).
- *     Same-ecosystem cross-chain swaps (e.g. Arbitrum → Base) are routed as
- *     WALLET_PARTNER swaps, NOT bridges.
- *
- *   TIER 3 · REGULATED_CASP
- *     ONLY for fiat on-ramp / off-ramp. The only flow where Astryum hands
- *     to a licensed Crypto-Asset Service Provider (MoonPay, Transak, Meld).
- *     KYC is required by the partner.
- *
- * Resolver semantics (resolveForOperation):
- *   - Self-custody DeFi MUST ALWAYS resolve to SOME WALLET_PARTNER — either a
- *     value-add aggregator (Enso/CoW/1inch/...) if enabled, or the
- *     ecosystem-default wallet partner ('wallet-evm-defi'/'wallet-solana-defi'/
- *     'wallet-xrpl-defi'/'wallet-aptos-defi') which is ALWAYS enabled.
- *   - This means Aave V3 supply on Ethereum NEVER fails for lack of an
- *     external aggregator — the user's own wallet is a valid partner.
- *   - BRIDGE_PARTNER and REGULATED_CASP are NOT used as fallback for
- *     self-custody DeFi — they have distinct operation domains.
+ * Per the regulatory audit and architectural principles
+ * (+ ASTRYUM DOCS):
  */
 
 export type PartnerType = 'WALLET_PARTNER' | 'BRIDGE_PARTNER' | 'REGULATED_CASP';
@@ -101,7 +63,7 @@ export interface RegisteredPartner {
   /** Display name shown to the user before they authorize. */
   readonly displayName: string;
   /**
-   * Tier classification (2026-06-01 audit §1.3).
+   * Tier classification (audit §1.3).
    * Determines resolver semantics and which fee/audit rules apply.
    */
   readonly type: PartnerType;
@@ -462,28 +424,6 @@ class PartnerRegistry {
    * Resolve a partner for a given operation + chain (+ optional protocol slug).
    *
    * Resolution semantics (three-tier model):
-   *
-   *   1. If `preferred` is provided AND that partner is enabled AND supports
-   *      the (operation, chain, protocol) → return it (user override wins).
-   *
-   *   2. For onramp / offramp → only REGULATED_CASP candidates considered.
-   *      Returns null if no enabled CASP matches (fail-loud — operation
-   *      genuinely does not exist without a fiat partner).
-   *
-   *   3. For bridge → only BRIDGE_PARTNER candidates considered. Returns null
-   *      if no enabled bridge matches.
-   *
-   *   4. For self-custody DeFi (supply/borrow/...../swap):
-   *        a. Enabled WALLET_PARTNER aggregators that explicitly support the
-   *           protocolSlug (Enso for aave-v3) — best priority wins.
-   *        b. Enabled WALLET_PARTNER aggregators without a protocolSlug
-   *           whitelist (1inch/CoW universal swap routers) — best priority wins.
-   *        c. The ecosystem's default wallet partner (wallet-evm-defi etc.) —
-   *           ALWAYS enabled, ALWAYS the safety net.
-   *
-   *   Returns null only if (a) operation is onramp/offramp/bridge AND no enabled
-   *   partner matches, or (b) the chain's ecosystem has no default wallet
-   *   partner registered. Self-custody DeFi NEVER returns null.
    */
   resolveForOperation(q: ResolveQuery): RegisteredPartner | null {
     // 1. Honor preferred override first

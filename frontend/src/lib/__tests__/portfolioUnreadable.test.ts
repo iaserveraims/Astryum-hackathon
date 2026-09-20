@@ -1,19 +1,6 @@
 /**
- * Ola 0 (15-sep) — THE HOME DOES NOT SAY «nothing is working yet» OVER A
+ * THE HOME DOES NOT SAY «nothing is working yet» OVER A
  * SWEEP IT COULD NOT READ, and `snapshot.unreadable` survives the client.
- *
- * THE FAILURE (two reviewers). The backend has said since it. 31 which
- * adapters it could not read (`snapshot.unreadable`); no client surface read
- * it. `app/page.tsx` decided `NoPositionsCTA` on `positions.length === 0`
- * alone, and `mergeSnaps` (the fleet view) dropped the field on the way. So
- * after a signed withdrawal the forced refresh landed on a 429, the snapshot
- * came back without Kinetic, and the Home told the person «Your wallet is
- * connected, but nothing is working yet — Open your first strategy».
- *
- * THE CONSUMERS UNDER TEST: `homePositionsVerdict` (the Home's decision),
- * `mergeSnaps` / `normaliseSnap` (the merge every surface reads through), and
- * the Home's own `normaliseSnap` compiled out of page.tsx and executed. The
- * cable check at the end is a supplement, never the proof.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';

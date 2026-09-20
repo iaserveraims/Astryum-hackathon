@@ -18,31 +18,13 @@ import { describeStaleSignature } from '../../../components/wallet/SeatRefusalNo
 import { translateError } from '../../errors/translateError';
 
 /**
- * metamask-parcial (2026-08-20) — the last live door to the double spend.
+ * metamask-parcial — the last live door to the double spend.
  *
  * Sibling of `familia-no-pude-leer`, and NOT the same bug. There the failure
  * was "I could not read the receipt"; here it is "I read it, and it went out
  * HALF WAY": the sequential EVM rail — the one MetaMask uses when the wallet
  * does not speak EIP-5792 — signs N calls in order, and when call 2 dies with
  * call 1 already mined, the surface offered to sign THE WHOLE ARRAY again.
- *
- * The cause was textual. The hook wrapped the wallet's own words into the
- * message it threw, and those words are exactly what classifies the outcome
- * downstream. Measured against the shipping `signOutcome`, with step 1 mined:
- *
- *   "User rejected the request"  → 'not-sent' → "Nothing moved — try again"
- *                                  + the sign button
- *   "insufficient funds"         → 'not-sent' → the same sign button
- *   a revert on step 2           → 'reverted' → "Your money did not move"
- *                                  (false: step 1 moved it)
- *
- * The first two tests below still run that old shape, so the rule that fixes
- * it can never be undone by accident: THE WALLET'S REASON MUST NEVER TRAVEL IN
- * `.message`. It travels in `cause`, which no classifier reads.
- *
- * Everything here RUNS shipping code: the pure decision (`sequentialStepError`)
- * is imported and executed, the classification is the real `signOutcome`, and
- * the three Ethereum-rail modals are driven through the very catch they ship.
  */
 
 // translateError writes the raw failure to console.error by design.
@@ -295,7 +277,7 @@ describe('inFlightMessage — the partial branch says the truth and offers nothi
   });
 });
 
-/* ── 4b · batch-evm (2026-08-20): the two fields nobody read, and the offer
+/* ── 4b · batch-evm: the two fields nobody read, and the offer
         that could not be taken up ─────────────────────────────────────────── */
 
 describe('inFlightMessage — batch-evm', () => {
@@ -410,7 +392,7 @@ function runSignCatch(file: string, e: unknown, handedToPartner = true) {
   const body = blockFrom(fn.slice(at), 'catch (e) {')
     .replace(/^catch \(e\) \{/, '{')
     .replace(/\s+as\s+[A-Za-z_$][\w$.]*/g, '');
-  // unearned-success residues (13-sep): the hand-off must be DECLARED in sign()
+  // unearned-success residues: the hand-off must be DECLARED in sign()
   // itself, before the wallet call — a catch that reads a flag nobody sets
   // would classify every failure 'not-sent', the bug wearing a new hat.
   expect(fn, `${file}: sign() must declare the hand-off`).toMatch(/handedToPartner = true;\s*(\/\/[^\n]*\n\s*)*const \{ handle \} = await evm\.sendIntentCalls/);
@@ -494,7 +476,7 @@ describe.each(ETH_RAIL)('$label — the "Back to the form" offer is withdrawn', 
   });
 
   it('a "Failed to fetch" AFTER the calls reached the wallet lands amber, not red', () => {
-    // unearned-success residues (13-sep): the catch only asked isInFlight, so a
+    // unearned-success residues: the catch only asked isInFlight, so a
     // dropped RPC or a timeout after the hand-off went red with a way back to
     // the form — a double repay / exit / bridge / close one click away.
     for (const err of [new TypeError('Failed to fetch'), new Error('Timed out while waiting for transaction receipt.')]) {
@@ -543,7 +525,7 @@ describe('BorrowFlowRunner — an unknown ending after the hand-off never offers
     const deps: Record<string, unknown> = {
       signOutcome,
       inFlightInfo,
-      // it.17 (R5 5.2): el catch pregunta primero si el ledger ya dio veredicto
+      // El catch pregunta primero si el ledger ya dio veredicto
       // (tefMAX_LEDGER / tefPAST_SEQ). Se inyecta la función REAL, no un stub:
       // este arnés ejecuta el código que se despliega.
       describeStaleSignature,

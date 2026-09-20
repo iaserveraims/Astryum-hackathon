@@ -24,7 +24,7 @@ export function settlementReasonText(
     // The stalled HEADLINE already says this — no second sentence needed.
     STALLED_SLOW: '',
   };
-  // batch-evm (2026-08-20) — THE SAME LIE AS THE SEQUENTIAL RAIL, ONE FILE OVER.
+  // batch-evm — THE SAME LIE AS THE SEQUENTIAL RAIL, ONE FILE OVER.
   // `evaluate5792` names the FIRST call whose receipt is not a success, and the
   // machine's own §1.1 says a bundle can be CONFIRMED with an individual call
   // reverted. With N>1 the calls before it ARE on the chain — and this sentence
@@ -37,7 +37,7 @@ export function settlementReasonText(
       ? `${t('Batch step')} ${stepN} ${t('of the batch was rejected by the network. The steps before it already went through — do NOT sign this again, it would repeat them. Check the explorer and reload your position.')}`
       : `${t('Batch step')} ${stepN} ${t('of the batch was rejected by the network — nothing was applied.')}`;
   }
-  // it. 34 — MINED WITHOUT EFFECT (a Compound-v2 code, Kinetic). The transaction
+  // MINED WITHOUT EFFECT (a Compound-v2 code, Kinetic). The transaction
   // is on the chain and the wallet showed it green; the receipt is where the
   // person learns that the fee was spent and nothing moved. With the code by
   // name (MATH_ERROR = more than the position holds) and, in a batch, the same

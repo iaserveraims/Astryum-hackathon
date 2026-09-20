@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * productizer it. 34 (agente D) — `persistRefusal` Y `ONBOARDING_NOT_SAVED_*` SIN
+ * `persistRefusal` Y `ONBOARDING_NOT_SAVED_*` SIN
  * NINGÚN CONSUMIDOR.
  *
- * it. 27 hizo que el store del asistente anotara por qué la última escritura no
+ * Hizo que el store del asistente anotara por qué la última escritura no
  * llegó a la cuenta (409 `PREFERENCES_UNREADABLE`, otro rechazo, sin red) y
  * escribió la frase en los dos idiomas. Tres iteraciones después, `grep` seguía
  * encontrando las dos cosas solo en el store y en su test: la persona a la que

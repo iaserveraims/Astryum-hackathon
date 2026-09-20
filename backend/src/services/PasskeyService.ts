@@ -172,19 +172,7 @@ function credentialRevoked(): Error {
  * it runs (or right after), deleting this credential and moving the credential
  * epoch. A session issued outside any lock is born AFTER the epoch, passes
  * verifyToken, and with it /register/verify adds a brand-new passkey — the
- * previous holder would be back forever (productizer it. 12, finding 5.1).
- *
- * So `issue` runs inside a transaction that first takes the row lock
- * (lockCredentialState, CAS on the credential state observed BEFORE the
- * verification) and then, under that lock:
- *   · re-reads the credential: it must still exist, still be this user's, and
- *     be born after the credential epoch — or `credential_revoked`;
- *   · advances the counter conditionally on the value verified against, in the
- *     same transaction (a parallel use of the same assertion loses);
- *   · refuses a disabled account.
- * A takeover that committed first fails the CAS (`credentials_changed`); one
- * that locks after us sees and revokes the session we just wrote.
- * `issue` is mandatory: no caller gets a verified user id without the lock.
+ * previous holder would be back forever (finding 5.1).
  */
 export async function verifyAuthentication<T>(
   challengeId: string,
@@ -193,7 +181,7 @@ export async function verifyAuthentication<T>(
 ): Promise<{ userId: string; issued: T }> {
   const { verifyAuthenticationResponse } = getLib();
   purge(authChallenges);
-  // CONSUMED FIRST, in one synchronous step (productizer it. 14, menores). The
+  // CONSUMED FIRST, in one synchronous step (menores). The
   // challenge used to be deleted only after the WebAuthn verification, so two
   // assertions of the SAME challenge both read it before either deleted it and
   // both reached the issue step — and an authenticator that always reports

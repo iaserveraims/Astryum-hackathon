@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * ChatMarkdown — el Markdown del agente, renderizado de verdad (fundador
- * 2026-08-29: la respuesta llegaba con los `**`, `##` y `|---|` a pelo —
- * «tantos simbolitos»). Un renderizador propio y determinista, sin
+ * ChatMarkdown — el Markdown del agente, renderizado de verdad. Un renderizador propio y determinista, sin
  * dependencias: líneas → bloques (tabla, lista, encabezado, regla, párrafo),
  * y dentro de cada uno, negritas y código inline. Nada de HTML del modelo:
  * todo se construye como nodos React — jamás dangerouslySetInnerHTML.

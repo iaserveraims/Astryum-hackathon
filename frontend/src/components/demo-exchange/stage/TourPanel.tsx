@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * TourPanel — el TOUR GUIADO de Operar (fundador 2026-09-11: «un tour guiado
- * de manera que el usuario no se pierda… los tutoriales escondidos detrás de
- * botones, para que el que ya sabe tenga la vía libre»).
+ * TourPanel — el TOUR GUIADO de Operar.
  *
  * Una tarjeta pegada al lado del contenido que cuenta el paso actual del
  * guion: qué se hace, quién firma, qué hay que tener listo (con comprobaciones

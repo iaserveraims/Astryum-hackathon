@@ -2,18 +2,6 @@
  * paDispatchDisclosure — what a Smart Account (0xFE) order may SAY about its
  * fees before the user signs, decided only by what the prepare returned
  * (invariant #6).
- *
- * WHAT WAS WRONG (productizer, 14-sep). The Send/Unmint modal rebuilt the
- * pa-unmint / pa-transfer disclosure on the client with `astryumFee: 0` and a
- * fixed «net cost ≈ 0.3 XRP», throwing away the real `mintingFeeXrp` /
- * `executorFeeXrp` the backend spreads in from `mintFeeDisclosure(net)`. A
- * figure the client invents is not a disclosure, and a missing figure is not 0.
- *
- * It also covers the balance reads that decide which asset may be offered:
- * «could not read» is never «zero», so a failed read must not hide the choice
- * and must never let an FXRP/FLR send slide into an XRP payment.
- *
- * Strings are English sources for `t()`; `{placeholders}` are filled by the caller.
  */
 
 /** A finite number from an untyped disclosure field, or null ("not returned"). */
@@ -147,7 +135,7 @@ export function redemptionFeeRow(fees: PaDispatchFees): FeeText {
 /* ── pa-unmint: does the FXRP the carrier mints really come back? ─────────── */
 
 /**
- * WHAT WAS WRONG (productizer, 14-sep). The unmint review said «Returns to your
+ * WHAT WAS WRONG. The unmint review said «Returns to your
  * account ≈ X FXRP» for every order — also when the amount exceeds the free FXRP
  * and the redemption burns the FXRP this same dispatch mints (backend
  * `ridesOwnMint = amountUBA > freeUBA`, flareDemo.ts pa-unmint/prepare).
@@ -169,7 +157,7 @@ export type PaUnmintReturn =
  * (`amountUBA > freeUBA`, flareDemo.ts pa-unmint/prepare) and states it as
  * `disclosure.ridesOwnMint`: that boolean wins, then a top-level one.
  *
- * FALLBACK ONLY (productizer it. 12, finding 4.4 — deducing it from text is
+ * FALLBACK ONLY (finding 4.4 — deducing it from text is
  * fragile): a response without the field falls back to the preflight step of the
  * redeem — the backend marks it `unverified` («depends on an earlier step»)
  * exactly when it rides the mint, and dry-runs it (`ok` / `fail`) when free FXRP

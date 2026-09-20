@@ -50,7 +50,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Bloqueante: la suite vitest existe y pasa (bootstrapeada 2026-07-23, commit 4923855;
+      # Bloqueante: la suite vitest existe y pasa (bootstrapeada, commit 4923855;
       # 5/5 verdes). Antes esto era un echo honesto porque NO había suite (R4a); ahora corre
       # de verdad — se cumple el objetivo de R4a: un verde de CI que sí comprobó algo.
       - name: Unit tests

@@ -130,7 +130,7 @@ describe('el depósito en la bóveda deja de firmarse a ciegas', () => {
 
   // La bóveda REAL: Morpho Vault V2, cuyos max* son stubs a 0 aunque tenga
   // 319M de assets, el titular 2,17M de shares y las retiradas funcionen.
-  // Valores leídos de mainnet el 2026-08-17.
+  // Valores leídos de mainnet.
   function vaultV2(over: Partial<{ shares: bigint; claim: bigint; idle: bigint }> = {}): SentoraVaultReader {
     return {
       async asset() { return RLUSD_ETH; },

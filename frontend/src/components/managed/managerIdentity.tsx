@@ -3,46 +3,10 @@
 /**
  * managerIdentity — quién lleva una bóveda, con cara.
  *
- * EL GESTOR ES UNA PROPIEDAD DE LA BÓVEDA (fundador 26-ago), pero desde el
- * 29-ago también es su TOQUE DISTINTIVO: cada card del catálogo lleva el
+ * EL GESTOR ES UNA PROPIEDAD DE LA BÓVEDA, pero también es su TOQUE DISTINTIVO: cada card del catálogo lleva el
  * avatar y el nombre de quien la gobierna, y ese avatar abre camino a su
  * perfil. Aquí vive la única regla de identidad, para que card, ficha y
  * perfil digan siempre el mismo nombre.
- *
- * ── TRES IDENTIDADES, NO DOS ────────────────────────────────────────────────
- * La primera versión tenía dos («gestor» / «Astryum made») y el fallback caía
- * en Astryum siempre que `councilXrplAddress` era null. Eso era un fallo
- * grave, porque ese null significa DOS cosas distintas que el backend junta a
- * propósito: «este pote no tiene consejo» y «no pude resolverlo»
- * (`resolveCouncilAddresses` se traga un queryFilter fallido y devuelve el
- * mapa vacío — «cada pote se queda sin dueño visible, nunca un dueño
- * equivocado»). Con un 429 del RPC de Flare —el incidente del 17-ago— TODAS
- * las bóvedas de terceros habrían aparecido con el logo de Astryum como
- * gestor, y sus capitales sumados en un perfil de una entidad que no existe.
- *
- * Así que:
- *  · 'astryum'  — SOLO si la bóveda está declarada de la casa por env
- *                 (NEXT_PUBLIC_ASTRYUM_MADE_POTES por dirección del pote, o
- *                 NEXT_PUBLIC_ASTRYUM_MADE_COUNCILS por cuenta del consejo).
- *                 Es una afirmación, y una afirmación necesita que alguien la
- *                 firme — aquí, la configuración del despliegue.
- *  · 'unknown'  — consejo sin resolver. No se agrupa, no se le abre perfil y
- *                 no se le suma capital: no sabemos quién es.
- *  · 'manager'  — una cuenta XRPL real.
- *
- * ── EL AVATAR ES DETERMINISTA, NO UNA FOTO ──────────────────────────────────
- * No existe (todavía) ningún raíl donde un gestor suba imagen o alias: lo
- * único verificable es su cuenta XRPL. Así que el avatar se DERIVA de la
- * dirección — tono y dos letras, siempre iguales para la misma cuenta — y el
- * nombre es la dirección abreviada. Cuando el backend de perfiles exista,
- * esta función es el único sitio a cambiar. Inventar alias bonitos aquí sería
- * exactamente la cara que pondría un gestor falso.
- *
- * ── «ASTRYUM MADE» NO ES «GESTIONADA POR ASTRYUM» ───────────────────────────
- * Astryum jamás gestiona capital de nadie (invariantes #1/#8). El copy de esta
- * identidad dice SIEMPRE «bóveda de demostración, sin gestor externo» — nunca
- * «la lleva Astryum». Por eso la frase de la card la construye quien la pinta
- * a partir de `kind`, y no concatenando «Run by» + este nombre.
  */
 
 import { Bot, HelpCircle } from 'lucide-react';
@@ -78,8 +42,8 @@ function envSet(raw: string | undefined): Set<string> {
  * puede declarar por SU dirección — la de prueba de hoy no necesita tener un
  * consejo especial para llevar el perfil de Astryum.
  */
-// Las declaraciones de la casa se leen del env UNA vez por carga (revisión
-// 10-sep): managerOf corre dentro de comparadores de sort y por carta por
+// Las declaraciones de la casa se leen del env UNA vez por carga (revisión):
+// managerOf corre dentro de comparadores de sort y por carta por
 // render — reconstruir dos Sets en cada llamada era trabajo tirado.
 const HOUSE_POTES = envSet(process.env.NEXT_PUBLIC_ASTRYUM_MADE_POTES);
 const HOUSE_COUNCILS = envSet(process.env.NEXT_PUBLIC_ASTRYUM_MADE_COUNCILS);
@@ -104,7 +68,7 @@ export function managerOf(entry: { pote?: string | null; councilXrplAddress: str
 }
 
 /**
- * EL NOMBRE Y LA CARA, con el perfil público delante (8-sep). El raíl de
+ * EL NOMBRE Y LA CARA, con el perfil público delante. El raíl de
  * perfiles ya existe (lo escribe el dueño PROBADO de la r-address), así que
  * cuando hay perfil, manda: su nombre y su foto — al 100%, la misma en la
  * carta, la ficha, la mesa y la comunidad. Sin perfil, lo de siempre: la

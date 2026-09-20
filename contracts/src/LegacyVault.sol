@@ -6,7 +6,7 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /// Minimal ERC-4626 surface the vault consumes (Firelight stXRP, earnXRP —
-/// verified in-repo 2026-07-10: asset()==FXRP, standard deposit/withdraw/redeem).
+/// verified in-repo: asset()==FXRP, standard deposit/withdraw/redeem).
 interface IERC4626Venue {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
@@ -36,7 +36,7 @@ interface ILegacyVaultContinuity {
 /**
  * @title LegacyVault — the cage of code (Astryum Legacy, epochal vessel v1)
  *
- * @notice The thesis (auditoría de la constitución del producto, 2026-07-13 §4):
+ * @notice The thesis (auditoría de la constitución del producto, §4):
  * the AUTHORITY is eternal (the council + its constitution, anchored on XRPL);
  * this contract is an EPOCHAL VESSEL where the capital produces without being
  * sellable. The code cages the PRINCIPAL; the fruits are governed by the council.
@@ -50,9 +50,7 @@ interface ILegacyVaultContinuity {
  *    the linaje cut (capitalized to principal, D5), the protocol fee (hard-
  *    capped, default 0, D6) and the council-configured payees (D3).
  *
- * Founder decisions wired in:
- *  D1a  addVenue takes effect after VENUE_DELAY (30d, on-chain event at
- *       proposal); moveToVenue/evacuate/recall are IMMEDIATE (rescue).
+ * MoveToVenue/evacuate/recall are IMMEDIATE (rescue).
  *  D2   maxVenueBps caps capital ENTRY only (deposit path / directTo);
  *       rescue moves are never blocked by the cap.
  *  D3   harvest() is permissionless; director directs but does not earn by

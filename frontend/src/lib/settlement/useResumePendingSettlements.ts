@@ -42,7 +42,7 @@ export function useResumePendingSettlements(): {
           p.ref,
           resumePending(p, deps, (ref, state) => {
             setStates((prev) => ({ ...prev, [ref]: state }));
-            // ASENTADA → el Portfolio se entera solo (2026-09-09). Este hook
+            // ASENTADA → el Portfolio se entera solo. Este hook
             // vive en el shell y sigue TODA operación firmada (el tracker del
             // modal la persiste y avisa por PENDING_CHANGED_EVENT), así que
             // es el único sitio que hace falta. Una vez por referencia.

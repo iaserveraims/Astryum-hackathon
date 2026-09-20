@@ -51,7 +51,7 @@ describe('emPreflightMessage', () => {
 /**
  * El contrato con el backend. Si allí nace un código nuevo y aquí no entra, el
  * usuario ve la frase inglesa del servidor — degradación honesta, pero hay que
- * enterarse. Esta lista es la del backend el 19-ago-2026 (grep de `code: '…'`
+ * enterarse. Esta lista es la del backend (grep de `code: '…'`
  * en EthMorphoPrepareService + EthMorphoMarketService).
  */
 describe('cobertura frente a los códigos que el backend emite', () => {

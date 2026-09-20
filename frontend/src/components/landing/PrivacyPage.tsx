@@ -2,28 +2,7 @@
 
 /**
  * /privacy — the privacy notice, published as a living page (C1 of the legal
- * implementation checklist, founder go 2026-07-30).
- *
- * Single source of truth: legal/12-aviso-privacidad.md — every section here
- * mirrors that document, which is itself written against the code (inventory
- * at commit f121511, revisions 2026-07-29/30). If a treatment changes, the md
- * changes first, then this page.
- *
- * Identity by env (NEXT_PUBLIC_LEGAL_HOLDER_NAME / _NRT / _ADDRESS): the
- * holder's data never enters git history — the page reads it at build time
- * from Vercel. ADDRESS is deliberately optional (founder decision 30-jul: the
- * personal address is NOT published; the row renders only when a professional
- * address exists). The page is served with robots noindex (see app/privacy/
- * page.tsx): visible to anyone who visits — the legal requirement — without
- * feeding the holder's name to search engines.
- *
- * ── UN SOLO TEXTO, DOS SITIOS (2026-09-13) ──────────────────────────────────
- * El cuerpo se exporta (`PrivacyNoticeBody`) y la ceremonia de firma del alta
- * (components/legal) monta ESTE componente en `plain`. El aviso no se copia:
- * dos copias divergen, y la lectura quedaría registrada contra un texto que el
- * usuario no vio. `plain` quita los márgenes de página y apaga los revelados
- * por scroll (Reveal mira el viewport; dentro de una caja con scroll propio
- * las secciones se quedarían invisibles).
+ * implementation checklist, founder go).
  */
 
 import { createContext, useContext, type ReactNode } from 'react';

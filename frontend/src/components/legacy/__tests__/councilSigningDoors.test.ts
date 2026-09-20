@@ -25,16 +25,6 @@ import { cancelPayloadAndDecide, strayStateOf } from '@/lib/xaman/payloadBus';
  *    presses left N requests signable on that phone for 24 hours, each of them
  *    producing a signature this browser would happily combine — and the surface
  *    had no Cancel at all, so leaving the screen left them all behind.
- *
- * 2. `ProposeToCouncil` was rendered directly underneath, at all four call
- *    sites, with NO condition on the ceremony's phase. With a Sequence pinned
- *    and the QRs already out, the button beside it composed the same
- *    transaction again on the same seat. Whichever copy executes spends the
- *    Sequence; the other becomes a row the ledger says is spent, and the
- *    family's next move is to compose the payment AGAIN with a fresh Sequence.
- *
- * The decisions are executed here, never matched as substrings: the whole point
- * is that the rule holds for every phase, including the ones nobody demoes.
  */
 
 const PHASES = ['idle', 'preparing', 'signing', 'submitting', 'done', 'error'] as const;
@@ -153,7 +143,7 @@ describe('ceremonyExit — cerrar una puerta sin dejar salida seria la misma tra
     const trapped = PHASES.filter(
       (p: Phase) => ceremonyHoldsSeat(p, true) && ceremonyExit(p) === 'none',
     );
-    // arriendo-ceremonia (round 5): this list used to be the END of the test —
+    // arriendo-ceremonia: this list used to be the END of the test —
     // it FROZE the dead end. Those three phases are still exitless (a round trip
     // with no answer, and bytes already sent, must not offer "start again"), but
     // what they are TOLD is now checked below: the copy no longer sends the
@@ -163,13 +153,13 @@ describe('ceremonyExit — cerrar una puerta sin dejar salida seria la misma tra
   });
 
   /**
-   * productizer it. 33 (B2) — `error` ES DOS ESTADOS. `broadcast()` solo lanza si
+   * `error` ES DOS ESTADOS. `broadcast()` solo lanza si
    * fallan los TRES nodos, y el primero pudo aplicar el blob y perder la respuesta:
    * ese `error` es un Payment que puede estar en el ledger, y ofrecer «Cancel»
    * sobre él (que liberaba el asiento) era construir el gemelo con nuestro botón.
    * Comprometida la sesión, `error` no ofrece Cancel: ofrece el ledger.
    */
-  it('it. 33 — an `error` AFTER the bytes were committed to a node offers the ledger, never «Cancel»', () => {
+  it('An `error` AFTER the bytes were committed to a node offers the ledger, never «Cancel»', () => {
     expect(ceremonyExit('error', false)).toBe('cancel'); // a QR Xaman refused: nothing left, the exit stays
     expect(ceremonyExit('error', true)).toBe('check-ledger'); // a broadcast no node confirmed: only the ledger answers
     expect(ceremonyExit('error')).toBe(ceremonyExit('error', false)); // the default is the pre-commit reading
@@ -184,7 +174,7 @@ describe('ceremonyExit — cerrar una puerta sin dejar salida seria la misma tra
     for (const p of trappedOnceCommitted) expect(seatHoldOf(p, true, false, true)).toBe('committed');
   });
 
-  it('it. 33 — the post-commit sentence names the two halves: it may have gone out, and nothing is handed back', () => {
+  it('The post-commit sentence names the two halves: it may have gone out, and nothing is handed back', () => {
     expect(CEREMONY_UNCONFIRMED_BROADCAST_SENTENCE).toMatch(/may have gone out/);
     expect(CEREMONY_UNCONFIRMED_BROADCAST_SENTENCE).toMatch(/cannot be cancelled from here/);
     expect(CEREMONY_UNCONFIRMED_BROADCAST_SENTENCE).toMatch(/Nothing is being handed back/);
@@ -194,7 +184,7 @@ describe('ceremonyExit — cerrar una puerta sin dejar salida seria la misma tra
 });
 
 /**
- * productizer it. 33 (B2) — `broadcast()` NOMBRA A TODOS LOS NODOS, NO SOLO AL ÚLTIMO.
+ * `broadcast()` NOMBRA A TODOS LOS NODOS, NO SOLO AL ÚLTIMO.
  *
  * `lastFailure` se sobrescribía por nodo y el último de la lista (`s1.ripple.com`)
  * falla SIEMPRE por CORS desde un navegador: la pantalla decía «s1.ripple.com:
@@ -253,7 +243,7 @@ describe('broadcast — what the thrown error says when no node confirmed', () =
 });
 
 /**
- * arriendo-ceremonia (round 5) — LO QUE LA PUERTA CERRADA PROMETE.
+ * arriendo-ceremonia — LO QUE LA PUERTA CERRADA PROMETE.
  *
  * The closed door said ONE sentence for every hold: «cancel the ceremony there,
  * and this door opens again». In `preparing`, `submitting` and `done` there is
@@ -327,7 +317,7 @@ describe('seatDoorNotice — una frase por estado, elegida por el mismo predicad
 });
 
 /**
- * arriendo-ceremonia (round 5) — EL HUERFANO DE 24 h, POR LA PUERTA NUEVA.
+ * arriendo-ceremonia — EL HUERFANO DE 24 h, POR LA PUERTA NUEVA.
  *
  * `abandon()` asked `livePayloadUuids(members)` alone. A payload minted while
  * that cancel was in flight (the «New QR» button stayed enabled through the
@@ -388,7 +378,7 @@ describe('payloadAnswered — cuando Xaman ya contesto, la peticion sale del reg
 });
 
 /**
- * arriendo-ceremonia (round 5) — DEVOLVER EL ASIENTO.
+ * arriendo-ceremonia — DEVOLVER EL ASIENTO.
  *
  * `abandon()` claimed in its own comment that "the ceremony gives the seat
  * back" and made NO server call: the 30-minute lease stayed, and «Propose to
@@ -441,7 +431,7 @@ describe('releaseCeremonySeat — y lo que no puede leer, no lo pinta verde', ()
 });
 
 /**
- * it. 29 (§4) — SOLTAR EL ASIENTO CUANDO XAMAN SE NEGÓ A MATAR UNA PETICIÓN.
+ * SOLTAR EL ASIENTO CUANDO XAMAN SE NEGÓ A MATAR UNA PETICIÓN.
  *
  * `abandon()` recogía los fallos de cancelación en `strayPayload` y soltaba el
  * asiento incondicionalmente, sin decir nada. La decisión de soltar es correcta
@@ -478,7 +468,7 @@ describe('ceremonyOrphanWarned — cuándo hay que decir que puede quedar un hu�
 });
 
 /**
- * productizer it. 31 (§1 + §2) — LA REGLA DEL DESMONTAJE, POR FASE.
+ * LA REGLA DEL DESMONTAJE, POR FASE.
  *
  * La cadena real (cerrar/«Back» → desmontar → liberar o no) se ejecuta en
  * `lib/xrpl/__tests__/quorumCeremonyClose.test.tsx`; aquí la tabla entera, para

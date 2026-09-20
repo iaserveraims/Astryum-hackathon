@@ -59,7 +59,7 @@ describe('the batch that funds the cage', () => {
   });
 
   it('handles 6-decimal FXRP amounts (10 FXRP = 10000000 UBA)', () => {
-    // FXRP on Flare mainnet has SIX decimals, verified on-chain 2026-07-28.
+    // FXRP on Flare mainnet has SIX decimals, verified on-chain.
     const calls = buildVaultFundingBatch({ fxrpToken: FXRP, vault: VAULT, supplyUBA: 10_000_000n });
     expect(calls[1].calldata.toLowerCase().endsWith((10_000_000n).toString(16).padStart(64, '0'))).toBe(true);
   });
@@ -75,7 +75,7 @@ describe('the batch that funds the cage', () => {
 });
 
 describe('the smallest funding that actually lands', () => {
-  // The live mainnet figures, read 2026-07-29.
+  // The live mainnet figures, read.
   const LIVE = {
     minFeeUBA: 100_000n, // 0.1 XRP
     feeBIPS: 10n,

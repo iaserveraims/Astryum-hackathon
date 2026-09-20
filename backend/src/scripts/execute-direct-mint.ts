@@ -2,41 +2,13 @@
 /**
  * EXECUTE-DIRECT-MINT — CLI manual del executor `0xFE` (rescate + operación).
  *
- * Desde 2026-07-12 el executor corre AUTOMÁTICO en el backend
+ * El executor corre AUTOMÁTICO en el backend
  * (services/flare/DirectMintExecutorService, tras FLARE_EXECUTOR_ENABLED +
  * FLARE_EXECUTOR_PK): barre el Core Vault y ejecuta todo 0xFE firmado usando
  * el handoff persistido en el prepare (DirectMintHandoffStore). Este CLI es
  * la misma maquinaria a mano, para: rescatar txs anteriores a la persistencia
  * (override USER_OP_DATA / reconstrucción), inspeccionar pendientes (--check)
  * y ejecutar puntualmente sin backend.
- *
- * Línea de custodia (invariantes #1/#7): ni el CLI ni el watcher tocan fondos
- * de usuario ni deciden nada — el contrato solo acepta los bytes EXACTOS que
- * la firma de Xaman comprometió (keccak256(_data) == hash del memo + sender +
- * nonce). Quien ejecuta tiene cero discreción: o ejecuta lo firmado, o
- * revierte. La clave del executor firma únicamente (1) la solicitud de
- * attestation al FDC Hub y (2) la llamada de ejecución — gas propio, nunca
- * del backend de Astryum como custodio. Verificado contra
- * MemoInstructionsFacet.sol (flare-smart-accounts) y DirectMintingFacet.sol
- * (fassets): el camino Core Vault NO tiene ventana de expiración
- * (PaymentProofExpired es del carril del operator, no de este).
- *
- * Uso:
- *   npx ts-node src/scripts/execute-direct-mint.ts                  # DRY-RUN (sin clave, no firma nada)
- *   npx ts-node src/scripts/execute-direct-mint.ts --live           # ejecuta (requiere FLARE_EXECUTOR_PK)
- *   npx ts-node src/scripts/execute-direct-mint.ts --check [--mine] # barrido de pendientes (exit 1 si hay)
- *
- * Env:
- *   XRPL_TX_HASH          hash del Payment XRPL a ejecutar (default: 7BFCF65F… del 2026-07-12)
- *   FLARE_EXECUTOR_PK     clave de la EOA del executor — SOLO en .env local/Railway, jamás en el repo
- *   EXECUTOR_ADDRESS      (dry-run) dirección a la que ligar el proof si no hay PK
- *   VAULT                 pista de shape: firelight | earnxrp | monarq | e3-kinetic (default firelight)
- *   USER_OP_DATA          override: bytes exactos del userOp si store+reconstrucción no cuadran
- *   SUPPLY_UBA            override: supply exacto si los params del protocolo cambiaron desde el prepare
- *   FDC_VERIFIER_URL      default https://fdc-verifiers-mainnet.flare.network
- *   FDC_VERIFIER_API_KEY  default clave pública (rate-limited)
- *   DA_LAYER_URL          default https://flr-data-availability.flare.network
- *   FLARE_RPC_URL / XRPL_WSS_URL   RPCs (defaults públicos)
  */
 import dotenv from 'dotenv';
 import path from 'path';
@@ -53,7 +25,7 @@ import { resolveFxrpToken } from '../connectors/protocols/flare/FlareDirectMintS
 
 const DROPS = 1_000_000;
 
-/** Tx atascada del 2026-07-12 (5 XRP → FXRP → Firelight stXRP). */
+/** Tx atascada (5 XRP → FXRP → Firelight stXRP). */
 const DEFAULT_XRPL_TX_HASH =
   '7BFCF65F8B7853C58B3990E9496EFFED132E78D44871E787993CA692E622F2DE';
 
@@ -83,7 +55,7 @@ async function runCheck(): Promise<void> {
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   console.log(`═══ execute-direct-mint --check ═══`);
-  // Misma regla que el watcher (isOwnInstruction, 14-sep): «mío» = la etiqueta del
+  // Misma regla que el watcher (isOwnInstruction): «mío» = la etiqueta del
   // proyecto O un despacho que está en nuestro store — los 0xFE de cuentas
   // operativas (omnibus, consejo) van sin etiqueta a propósito. Sin BD alcanzable
   // la búsqueda no encuentra nada y el barrido se queda en la regla de la etiqueta.

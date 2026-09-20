@@ -30,7 +30,7 @@ describe('relayNeverBroadcast', () => {
   });
 
   it('no session (401) and the deploy cap (429) are answered before any broadcast', () => {
-    // productizer-it6: the route answers 401 missing_siwe_session before
+    // The route answers 401 missing_siwe_session before
     // relayPasskeyBatch runs, and DEPLOY_LIMIT (429) is checked before sending.
     expect(relayNeverBroadcast(passkeyRelayRefusal({ status: 401, error: 'missing_siwe_session' }))).toBe(true);
     expect(relayNeverBroadcast(passkeyRelayRefusal({ status: 429, error: 'DEPLOY_LIMIT' }))).toBe(true);

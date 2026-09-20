@@ -4,33 +4,6 @@
  * Todos los vigías/ejecutores del backend (executor 0xFE, vigía XRPL, health
  * de providers, Sentinel) empujan aquí: log estructurado SIEMPRE + bandeja del
  * panel admin SIEMPRE + los canales externos que estén armados.
- *
- * Tres destinos, cada uno con su umbral (un canal que grita por todo se
- * silencia, y entonces no sirve el día que importa):
- *
- *   1. OPS_ALERT_WEBHOOK_URL — el canal común. Si la URL es de Discord se
- *      manda un EMBED nativo (color por severidad, el objeto en campos, el
- *      arreglo destacado); cualquier otra recibe el body genérico con
- *      `content` y `text` a la vez, que sirve a Slack sin config extra.
- *      Umbral OPS_ALERT_MIN_LEVEL (default `info`).
- *      EXECUTOR_ALERT_WEBHOOK_URL sigue valiendo como alias.
- *   2. OPS_ALERT_WEBHOOK_URL_CRITICAL — un segundo webhook SOLO para críticos
- *      (otro canal, otra sala, otro grito).
- *   3. Telegram (OPS_ALERT_TELEGRAM_BOT_TOKEN + _CHAT_ID) — opcional.
- *      Umbral OPS_ALERT_TELEGRAM_MIN_LEVEL (default `warn`).
- *
- * Que suene el móvil (founder 2026-08-03, Discord elegido como canal): Discord
- * solo notifica de verdad cuando MENCIONA. `OPS_ALERT_DISCORD_MENTION`
- * (`@everyone`, `<@tu_id>`, `<@&rol>`) se antepone a partir de
- * OPS_ALERT_DISCORD_MENTION_MIN_LEVEL (default `critical`): el registro no
- * molesta, y lo grave despierta.
- *
- * El texto que sale es AUTOSUFICIENTE por diseño: qué pasa, sobre qué objeto
- * (hash/cuenta/importe) y — la línea que lo convierte en acción — QUÉ HACER
- * (`runbook`). Leer la notificación en el móvil debe bastar para saber si hay
- * que levantarse o no, y para arreglarlo sin abrir el código.
- *
- * Nunca lanza: una alerta caída no puede tumbar el tick de ningún agente.
  */
 
 export type AlertLevel = 'info' | 'warn' | 'critical';
@@ -148,7 +121,7 @@ async function assertOk(res: Response, name: string): Promise<void> {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Discord — el canal elegido (founder 2026-08-03): tarjeta y mención          */
+/* Discord — el canal elegido: tarjeta y mención */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /** Color de la barra lateral del embed: se distingue de un vistazo, sin leer. */
@@ -302,9 +275,7 @@ export function hasChannelFor(level: AlertLevel): boolean {
 }
 
 /**
- * Deduplicación (founder 2026-08-01: el anchor-feed roto repetía el MISMO warn
- * en cada tick del executor y ensuciaba el canal — "un canal que grita por
- * todo se silencia"). Identidad = source + (key ?? mensaje literal). Dentro de
+ * Deduplicación. Identidad = source + (key ?? mensaje literal). Dentro de
  * la ventana, una repetición al MISMO nivel o inferior se loguea pero no se
  * re-entrega (ni canal ni panel); una ESCALADA de nivel pasa siempre; y al
  * reaparecer tras la ventana el texto declara cuántas veces se silenció —

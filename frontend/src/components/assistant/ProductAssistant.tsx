@@ -25,7 +25,7 @@ import { getApiBase } from '../../lib/env';
 import { useAuthorityStore } from '../../stores/authorityStore';
 import { useDockStore } from '../../stores/dockStore';
 import { useLegacyJourney } from '../../lib/legacy/guideContext';
-// The Guía's starters — the embedded Legacy chat is unmounted (2026-08-04);
+// The Guía's starters — the embedded Legacy chat is unmounted;
 // this co-pilot IS the Guía whenever the product toggle sits on Legacy.
 import { SUGGESTED_DISCOVER, SUGGESTED_GUIDE } from '../legacy/LegacyDiscovery';
 
@@ -122,7 +122,7 @@ export default function ProductAssistant() {
   const [loggedIn, setLoggedIn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // In Legacy product mode this co-pilot IS the Guía (founder 2026-08-04): it
+  // In Legacy product mode this co-pilot IS the Guía: it
   // talks to the Legacy assistant's public endpoint EXCLUSIVELY, grounded in
   // the abstract journey the panel publishes (ledger flags only — never
   // names, addresses or amounts). In Personal mode, unchanged.
@@ -265,14 +265,12 @@ export default function ProductAssistant() {
       {/* Chat panel — rises from the sidebar's guide button (bottom-left on
           desktop), so it reads as part of the shell instead of covering the
           page's own content in the corner.
-
-          LA IZQUIERDA SIGUE AL RAÍL (fundador 2026-08-27: «cuando la barra está
-          colapsada se sigue cargando a la distancia como si estuviera
-          desplegada»). El 268px estaba clavado para el raíl de 256px; con una
+      { *
+          LA IZQUIERDA SIGUE AL RAÍL. El 268px estaba clavado para el raíl de 256px; con una
           operación anclada el raíl se pliega a 72px y el popup quedaba flotando
           a 20 rem de su propio botón. Misma fórmula que el shell: colapsado =
           docked && !minimized.
-
+      { *
           Y EL GENIO al abrir: el panel SALE del botón del pie del raíl —
           transform-origin abajo-izquierda, receta compartida (genieMotion). */}
       <AnimatePresence>
@@ -285,7 +283,7 @@ export default function ProductAssistant() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink/5">
             <div className="flex items-center gap-2">
               <span className="grid place-items-center w-7 h-7 rounded-full bg-volt/15">
-                {/* The product's own mark (founder 2026-08-08): gold asteroid
+                {/* The product's own mark: gold asteroid
                     as Co-pilot, blue as the Legacy guide. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

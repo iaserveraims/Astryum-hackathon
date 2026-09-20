@@ -31,7 +31,7 @@ let _modal: ReturnType<typeof createAppKit> | null = null;
  * Lazy-initialize the AppKit modal. Returns the same instance on every call.
  * Idempotent — safe to call from multiple components.
  *
- * ONE wallet, ONE network (founder 2026-08-04): the picker offers MetaMask on
+ * ONE wallet, ONE network: the picker offers MetaMask on
  * Flare Mainnet and nothing else. The other rail of this beta is Xaman on XRPL,
  * which never passes through AppKit — it connects through its own service.
  *

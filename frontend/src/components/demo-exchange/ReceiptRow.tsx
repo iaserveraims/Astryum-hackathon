@@ -39,7 +39,7 @@ export const STEP_SIDE: Record<ReceiptStep, 'exchange' | 'user' | 'cage'> = {
   U4_EXIT: 'user',
   U4_EXIT_XRP: 'user',
   E8_WITHDRAW: 'exchange',
-  // 18-sep: una nota es el LIBRO del exchange (peticiones, reservas soltadas),
+  // Una nota es el LIBRO del exchange (peticiones, reservas soltadas),
   // no un veredicto de la jaula — pintarla «Cage» la hacía pasar por uno.
   NOTE: 'exchange',
 };

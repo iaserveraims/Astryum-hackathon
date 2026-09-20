@@ -8,10 +8,6 @@
  * podría contradecirse a sí misma sobre el riesgo — que es la peor forma del
  * bug «éxito no ganado»: un error se reintenta, una falsa tranquilidad hace que
  * dejes de mirar.
- *
- * LLTV del mercado insignia FXRP/RLUSD = 0,77 (verificado on-chain, ver
- * MorphoBlueEthAdapter). Aquí se pasa siempre explícito: ningún cálculo asume
- * el techo del mercado.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -116,8 +112,7 @@ describe('los dos «porcentajes» NO son el mismo', () => {
   });
 
   it('el default de hoy (stop-loss HF 1,10) deja un colchón del 9 %', () => {
-    // El otro extremo del que planteó el fundador: su 32 % de LTV salta con un
-    // 6 % de caída; HF 1,10 espera a que caiga un 57 % desde un LTV del 30 %.
+    // HF 1,10 espera a que caiga un 57 % desde un LTV del 30 %.
     expect(priceDropFromHf(1.10)).toBeCloseTo(0.0909, 4);
     expect(ltvFromHf(1.10, LLTV)).toBeCloseTo(0.70, 4);
     expect(stopLossTriggerDrop(0.30, ltvFromHf(1.10, LLTV))).toBeCloseTo(0.5714, 4);

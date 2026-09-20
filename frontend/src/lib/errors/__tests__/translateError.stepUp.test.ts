@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { translateError } from '../translateError';
 
 /**
- * productizer it. 23 (it. 22 §3.5) — LOS 503 DEL STEP-UP SE PERDÍAN.
+ * LOS 503 DEL STEP-UP SE PERDÍAN.
  *
  * `ApiError.message` es literalmente «HTTP 503: Service Unavailable», así que la
  * rama de conectividad de `translateError` se tragaba los dos 503 del step-up

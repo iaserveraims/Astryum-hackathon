@@ -14,31 +14,6 @@
  * CouncilOrderCard, CouncilVaultEntry and CageBirthCard) painted the bare slug
  * `PRIOR_SEAT_UNRESOLVED`. A dead end at the exact moment the server is
  * stopping a double payment.
- *
- * WHY HERE AND NOT INSIDE `translateError`. That sibling is the reader for RAW
- * failures (wallet rejections, EVM reverts, XRPL engine codes) and it gates
- * pass-through prose at 160 characters; the seat-guard detail is longer than
- * that, so folding this in would flatten the very sentence this exists to show.
- * Two readers, two jobs, one folder.
- *
- * THE SUPERSET. Six near-twins were compared before writing this
- * (ProposalInbox.errText, LegacyActivityFeed.errText,
- * FormalPositions.positionErrorText, LegacyPanel.gateMessage,
- * CouncilVaultEntry.orderError, CageBirthCard.birthError). They are NOT
- * equivalent, so this keeps the best of each instead of the average:
- *   - arrays in `detail` are collapsed AND non-strings dropped (only
- *     gateMessage did both; errText joined raw and could print "undefined"),
- *   - INFRASTRUCTURE refusals (session, region, feature flag, access list) win
- *     over `detail`, because there the server's detail is machinery, not prose,
- *   - every other refusal lets `detail` win, because the server's own sentence
- *     is more specific and more current than any hardcoded client copy,
- *   - a known refusal code with NO detail still gets a human sentence (nobody
- *     had this: all six fell through to `.message`, i.e. back to the slug),
- *   - an unknown code is named as a refusal and keeps the code for support,
- *     instead of being shown naked or swallowed into "something went wrong".
- *
- * It never states a verdict it did not read: a refusal is reported as a
- * refusal, never as "nothing moved" — this module cannot know that.
  */
 
 export interface ServerRefusal {
@@ -51,7 +26,7 @@ export interface ServerRefusal {
   /** `Error.message` verbatim — what callers still pattern-match on. */
   raw: string;
   /**
-   * productizer it. 27 (3) — LOS TRES CAMPOS QUE EL LECTOR COMPARTIDO TIRABA.
+   * LOS TRES CAMPOS QUE EL LECTOR COMPARTIDO TIRABA.
    *
    * `provenAddresses.ts` construye cada rechazo con `headline`, `ways[]` y
    * (cuando de verdad se cura esperando) `retryAfterSeconds`, y las rutas los
@@ -119,17 +94,6 @@ function looksLikeMachineCode(s: string): boolean {
 /**
  * prosa-y-lectores — IS THIS `detail` A SENTENCE, OR AN IDENTIFIER THE ROUTE
  * ECHOED BACK?
- *
- * `POST /council/proposals/:id/signatures` answers NOT_A_COUNCIL_MEMBER with
- * `detail: signerAccount` (backend/src/routes/councilProposals.ts), and
- * `/positions` does the same with `memberAccount`: a bare r-address. Letting
- * `detail` win unconditionally put `rNaFf…` on screen AS the whole explanation
- * — the same dead end as the slug, one field over, at the door where a member
- * is trying to add the signature that completes a quorum.
- *
- * Prose has whitespace; an address, a code and an id do not. When it is an
- * identifier the reserve sentence speaks and the identifier is kept in
- * parentheses, so nothing the server said is lost.
  */
 function detailIsProse(detail: string): boolean {
   return /\s/.test(detail);
@@ -159,7 +123,7 @@ export function readServerRefusal(err: unknown): ServerRefusal {
   const raw = typeof err === 'string' ? err : typeof e.message === 'string' ? e.message : '';
   const bodyError = typeof e.body?.error === 'string' ? (e.body.error as string) : '';
   const code = bodyError || (looksLikeMachineCode(raw) ? raw : '');
-  // it. 27 (3): el sobre entero, no solo `detail`. Nada de esto DECIDE — son
+  // El sobre entero, no solo `detail`. Nada de esto DECIDE — son
   // campos que el servidor mandó y que este lector venía tirando al suelo.
   const headline = typeof e.body?.headline === 'string' ? (e.body.headline as string).trim() : '';
   const ways = collapseWays(e.body?.ways);
@@ -180,7 +144,7 @@ export function readServerRefusal(err: unknown): ServerRefusal {
 /**
  * ¿Puede una pantalla ofrecer «intentar otra vez» sin prometer nada?
  *
- * it. 27 (1). El servidor lo dice cuando lo sabe (`retryable`), y esa palabra
+ * . El servidor lo dice cuando lo sabe (`retryable`), y esa palabra
  * manda siempre. Cuando no lo dice, solo se ofrece sobre un fallo que PARECE
  * nuestro — 5xx, o una llamada que ni llegó a tener status. Un 4xx sin
  * `retryable` es un veredicto: volver a preguntar contesta lo mismo para
@@ -247,19 +211,16 @@ function infrastructureText(r: ServerRefusal, t: (s: string) => string): string 
 function reserveText(code: string, t: (s: string) => string): string | null {
   switch (code) {
     /**
-     * productizer it. 25 (3) — MANDABA A LIQUIDAR ANTES DE MIRAR EL EXPLORADOR.
+     * MANDABA A LIQUIDAR ANTES DE MIRAR EL EXPLORADOR.
      *
      * «Register the transaction hash it produced, or file it» son las dos únicas
      * salidas reales, sí — pero la razón por la que esa fila está sin liquidar es,
      * con frecuencia, que NO SABEMOS si llegó a ejecutarse (`ledgerCheck` en estado
      * `unverified`, o un asiento que el ledger ya consumió). Archivar o re-difundir
-     * algo que pudo aterrizar es el pago doble en persona. it. 23 añadió el paso del
+     * algo que pudo aterrizar es el pago doble en persona. Añadió el paso del
      * explorador a la prosa del servidor (`routes/xrplDefi.ts`,
      * `routes/councilProposals.ts`) y esta reserva —la que habla cuando el `detail`
      * no llega— se quedó sin él.
-     *
-     * El primer paso va delante, y la frase de it. 19 se conserva íntegra detrás: así
-     * la entrada del diccionario que ya la traduce sigue sirviendo.
      */
     case 'PRIOR_SEAT_UNRESOLVED':
       return `${t(
@@ -297,9 +258,9 @@ function reserveText(code: string, t: (s: string) => string): string | null {
     case 'VAULT_STATE_READ_FAILED':
       return t('The vault could not be read from Flare right now. Nothing was composed — try again in a moment.');
     /**
-     * it. 23 (it. 22 §2.5) — THE TWO 409s NOBODY READ.
+     * THE TWO 409s NOBODY READ.
      *
-     * `ACCOUNT_RECORD_MISSING` and `PROOF_FLOOR_UNREADABLE` (it. 21 §2.4) carry
+     * `ACCOUNT_RECORD_MISSING` and `PROOF_FLOOR_UNREADABLE` carry
      * their prose in `detail`, so the branch above normally speaks for them —
      * but a route that drops the detail (or a caller holding only the code) fell
      * through to «The server refused this and did not explain why», which is the
@@ -316,7 +277,7 @@ function reserveText(code: string, t: (s: string) => string): string | null {
         'This account’s security record cannot be read, so we cannot tell which of your linked wallets were added before the account last changed hands. We will not guess: guessing could hand the account back to a previous holder. Linked wallets stay out until it is repaired, and re-linking one will not help either. This will not fix itself by waiting, and nothing was composed and nothing moved. Sign in with the wallet that controls this address, or write to us: an administrator can repair the security record.',
       );
     /**
-     * productizer it. 27 (4) — EL 409 QUE LLEGABA DESPUÉS DE FIRMAR EN XAMAN.
+     * EL 409 QUE LLEGABA DESPUÉS DE FIRMAR EN XAMAN.
      *
      * `POST /council/proposals/:id/positions` contesta `POSITION_ALREADY_SET`
      * SIN `detail` (backend/src/routes/councilProposals.ts). Al cosignatario
@@ -335,7 +296,7 @@ function reserveText(code: string, t: (s: string) => string): string | null {
 }
 
 /**
- * productizer it. 27 (3) — LAS SALIDAS, CUANDO EL SERVIDOR NO LAS MANDÓ.
+ * LAS SALIDAS, CUANDO EL SERVIDOR NO LAS MANDÓ.
  *
  * `provenAddresses.ts` manda `ways[]` en sus cuatro rechazos y las rutas los
  * pasan verbatim; el resto de puertas (la bandeja del consejo, las posiciones)
@@ -373,7 +334,7 @@ function reserveWays(code: string, t: (s: string) => string): string[] {
         t('Try again in a moment — this one really does clear on its own.'),
         t('If it keeps failing, sign in again with the wallet that controls this account.'),
       ];
-    // it. 29 — the mark parsed but is dated ahead of our clock. Waiting works
+    // The mark parsed but is dated ahead of our clock. Waiting works
     // (the clock moves); re-linking provably does not (the new binding is
     // stamped now, still below the mark), so it is never offered here.
     case 'PROOF_FLOOR_AHEAD_OF_CLOCK':
@@ -404,7 +365,7 @@ const WALLET_CURE_CODES = new Set([
 const WALLET_SIGN_IN_PROSE = /\bsign in (again )?with (the|that|your) wallet\b/i;
 
 /**
- * productizer it. 34 (agente D) — LA RESERVA Y LA PUERTA, COMPARTIDAS.
+ * LA RESERVA Y LA PUERTA, COMPARTIDAS.
  *
  * `lib/xaman/seatRefusal` lee los 503 de la tienda de pruebas para el carril
  * 0xFE y no tenía ni las `ways` de reserva ni la regla de la puerta: un
@@ -448,7 +409,7 @@ function refusalText(r: ServerRefusal, t: (s: string) => string): string {
 export function describeServerRefusal(err: unknown, t: (s: string) => string): ReadableRefusal {
   const r = readServerRefusal(err);
   const text = refusalText(r, t);
-  // it. 27 (3): las del servidor mandan; la reserva solo habla cuando no las
+  // Las del servidor mandan; la reserva solo habla cuando no las
   // mandó. `text` NO las absorbe — hay pantallas y tests que comparan la frase
   // con el `detail` del servidor, y una salida es un botón, no una coletilla.
   const ways = (r.ways ?? []).length > 0 ? (r.ways as string[]) : reserveWays(r.code, t);
@@ -467,20 +428,16 @@ export function serverRefusalText(err: unknown, t: (s: string) => string): strin
 }
 
 /**
- * productizer it. 25 (1) — LA FILA QUE NO PUDIMOS LEER TENÍA QUE LLEGAR A LA PANTALLA.
+ * LA FILA QUE NO PUDIMOS LEER TENÍA QUE LLEGAR A LA PANTALLA.
  *
- * QUÉ FALLABA EN SILENCIO. it. 23 dejó de tirar la fila indecidible: `GET
+ * QUÉ FALLABA EN SILENCIO. Dejó de tirar la fila indecidible: `GET
  * /council/proposals` la manda nombrada en `unreadable[]`, con el MISMO cuerpo que
  * llevaría la respuesta entera si no hubiese nada legible (`error` / `retryable` /
  * `detail`). Pero el tipo del cliente no declaraba el campo y los tres consumidores
  * desestructuraban solo `proposals` — así que la fila seguía sin existir para la
- * persona, que es exactamente el fallo que it. 23 dijo cerrar. Peor: la bandeja
+ * persona, que es exactamente el fallo que dijo cerrar. Peor: la bandeja
  * lateral ponía su aviso a null en el `then` del éxito, o sea que un 200 que TRAE
  * filas ilegibles BORRABA la advertencia.
- *
- * Un solo lector, aquí, porque el cuerpo de cada entrada es el mismo que el de un
- * rechazo entero: `refusalText` ya sabe decirlo. Puro, para que la frase se pruebe
- * sin navegador.
  */
 export interface UnreadableRowsNotice {
   /** Cuántas filas no se pudieron leer. Nunca 0: sin filas, esto es `null`. */
@@ -516,7 +473,7 @@ export function describeUnreadableRows(rows: unknown, t: (s: string) => string):
   const head = t(
     '{count} of this council’s proposals could not be read, so they are not on the list below. That is a failure of ours, not an empty inbox — and never a statement about what you may sign.',
   ).replace('{count}', String(entries.length));
-  // El código viaja entre paréntesis, nunca como la frase (la lección de it. 23).
+  // El código viaja entre paréntesis, nunca como la frase (la lección).
   const tail = codes.length > 0 ? ` (${codes.join(' · ')})` : '';
   return {
     count: entries.length,

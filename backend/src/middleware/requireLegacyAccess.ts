@@ -1,6 +1,5 @@
 /**
- * requireLegacyAccess — the server-side half of the Legacy gate (§1.3,
- * 2026-08-02).
+ * requireLegacyAccess — the server-side half of the Legacy gate (§1.3,).
  *
  * `hasLegacyToggleAccess` was a CLIENT hint only (its own header said "must
  * not guard any capital operation") and no council/cage route checked it:
@@ -8,14 +7,6 @@
  * council orders by API. This middleware applies the SAME fail-closed
  * predicate the toggle uses (LEGACY_ENABLED global switch, else
  * LEGACY_ACCESS_EMAILS) to the COMPOSE surfaces server-side.
- *
- * Placement rules:
- *  · AFTER requireSiweAuth — it reads req.siwe.userId.
- *  · On prepare/relay/proposal surfaces, NEVER on read-only monitoring
- *    (invariant #5: /vault-state-style reads stay open).
- *
- * The userId→email read is cached 60s: the gate sits on human-paced compose
- * flows, but a ceremony's polling must not hammer the users table.
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -23,7 +14,7 @@ import { hasLegacyToggleAccess, isLegacyEnabledForAll } from '../config/legacyAc
 
 const CACHE_TTL_MS = 60_000;
 /**
- * `email` is cached ONLY when the address is verified (productizer it. 8):
+ * `email` is cached ONLY when the address is verified:
  * `AuthService.register` stores any address unverified, so a plain email on
  * LEGACY_ACCESS_EMAILS proved nothing. Unverified ⇒ cached as null ⇒ 403,
  * the same door as adminPanel.emailGate.

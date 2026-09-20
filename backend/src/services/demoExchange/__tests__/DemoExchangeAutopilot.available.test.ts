@@ -1,11 +1,11 @@
 /**
- * The omnibus never pays the same balance twice (productizer cycle, it. 6).
+ * The omnibus never pays the same balance twice.
  * A request in 'submitting' (signed, submit threw, outcome unread) used to
  * reserve nothing: with X deposited, «withdraw X» + «put X to work» were BOTH
  * signed and the omnibus paid 2X. Now what is in flight is reserved.
  */
 import type { DemoRun } from '../DemoExchangeStore';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC al ejecutar (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC al ejecutar
 // se prueba en DemoExchangeAutopilot.kycAtFulfil.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 
@@ -54,7 +54,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   spentToday: async () => BigInt(0),
   sweepStaleReservations: async () => [],
   recordSpend: async () => undefined,
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -87,7 +87,7 @@ jest.mock('../../../connectors/protocols/flare/FlareDirectMintService', () => ({
   }),
 }));
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
 
 import { DemoExchangeAutopilot } from '../DemoExchangeAutopilot';
@@ -152,7 +152,7 @@ describe('withdraw X + put-to-work X with X at the exchange', () => {
     runsToServe = [live];
     mockSubmit.mockRejectedValue(new Error('socket hang up'));
 
-    // it. 27 — EL ORDEN DE LA COLA YA NO DECIDE QUIÉN COBRA. Antes esto era FIFO
+    // EL ORDEN DE LA COLA YA NO DECIDE QUIÉN COBRA. Antes esto era FIFO
     // puro: con `['put-to-work','withdraw']` se firmaba la ENTRADA y la retirada
     // de su dueño quedaba detrás hasta morir en `INSUFFICIENT_LEDGER_BALANCE`.
     // La reserva es asimétrica desde esta iteración: una entrada meramente
@@ -186,7 +186,7 @@ describe('withdraw X + put-to-work X with X at the exchange', () => {
   });
 
   /**
-   * it. 27 — UNA ENTRADA MUERTA NO RETIENE LA SALIDA DE SU DUEÑO (el autopiloto).
+   * UNA ENTRADA MUERTA NO RETIENE LA SALIDA DE SU DUEÑO (el autopiloto).
    *
    * El caso real: alguien deposita, el autopiloto le fabrica una put-to-work que
    * muere porque todavía no ha creado su cuenta Flare, y esa petición se queda

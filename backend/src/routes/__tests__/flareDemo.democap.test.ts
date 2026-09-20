@@ -4,7 +4,7 @@
  * POST is rejected before the handler; an exempt address bypasses it; and when the demo
  * is off the cap is moot (503 precedence preserved). All three reject before any RPC.
  */
-// Account-based exemption (2026-07-25): the middleware resolves the authenticated
+// Account-based exemption: the middleware resolves the authenticated
 // userId → email through prisma. Mock the client so the wired test proves the
 // req.siwe → demoCapFromBody plumbing without a real DB.
 const mockUserFindUnique = jest.fn();
@@ -101,8 +101,8 @@ describe('flare-demo router — demo cap is WIRED (middleware)', () => {
     expect(capped.status).toBe(400);
     expect(capped.body.error).toBe('DEMO_TX_CAP_EXCEEDED');
 
-    // …and so is the listed address registered with a password, never verified
-    // (productizer it. 8): typing a founder's email is not being the founder.
+    // …and so is the listed address registered with a password, never verified:
+    // typing a founder's email is not being the founder.
     mockUserFindUnique.mockResolvedValue({ email: 'founder@astryum.xyz', emailVerified: false });
     const squatter = await request(authedApp)
       .post('/api/flare-demo/e1/prepare')

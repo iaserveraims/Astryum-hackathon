@@ -6,8 +6,7 @@
  * Antes Operar montaba la puerta entera (ManagerCredentialGate) arriba y la
  * bandeja (CredentialTray) abajo — las mismas dos piezas que ya viven en la
  * estación «Título» del alta. Tres montajes de lo mismo, dos de ellos en la
- * pantalla que el gestor abre cada día (fundador 8-sep: «tedioso y
- * repetitivo»). Aquí solo se dice el HECHO —vigente o pendiente— y, si está
+ * pantalla que el gestor abre cada día. Aquí solo se dice el HECHO —vigente o pendiente— y, si está
  * pendiente, una puerta a la estación donde está toda la maquinaria.
  *
  * Con la puerta del ledger apagada, o sin lectura, no se pinta nada: no hay

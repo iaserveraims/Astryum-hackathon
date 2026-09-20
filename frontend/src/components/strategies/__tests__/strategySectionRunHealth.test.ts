@@ -5,28 +5,8 @@ import { join } from 'node:path';
 import { RULE_PILL_TONE, rulePillState } from '@/lib/rules/runHealth';
 
 /**
- * G4-strategies (auditoría 2026-08-17 §G4) — la página dedicada a las
+ * G4-strategies (auditorí §G4) — la página dedicada a las
  * automatizaciones era la que más mentía.
- *
- * La ronda 1 arregló el panel EMBEBIDO del tablero de posiciones… que en
- * /app/strategies NO SE RENDERIZA: la página monta el tablero con
- * `showStrategyPanel={false}` (split «My strategies», decisión del fundador
- * 2026-07-20) y las automatizaciones viven en ESTE apartado. Y este apartado
- * decidía el estado de una regla con `r.enabled` a secas:
- *   `<Pill tone={r.enabled ? 'success' : 'neutral'}>`.
- *
- * Una regla PROTECT / HARVEST / councilOrder que revienta en CADA disparo sigue
- * `enabled: true`, no incrementa `totalTimesTriggered` y no manda push (guarda
- * del «éxito no ganado» en AutomationEngine), así que se pintaba verde
- * «active», idéntica a una sana.
- *
- * Estos tests fijan el cable de ESTA superficie. El reductor en sí ya tiene su
- * suite propia (src/lib/rules/__tests__/runHealth.test.ts) — aquí se comprueba
- * que la superficie lo USA, que lo lee del endpoint y que dice cuando no pudo.
- *
- * Por qué a nivel de fuente: el bootstrap de vitest es `environment: 'node'` y
- * tsconfig deja `jsx: "preserve"`, así que importar un .tsx revienta en el
- * transform. (Misma técnica que moneyflowsRunHealth y defiPositionsBoardRunHealth.)
  */
 
 const SECTION = join(__dirname, '..', 'StrategySection.tsx');
@@ -100,12 +80,12 @@ describe('StrategySection · el cable de G4-strategies', () => {
  * StrategySection, la página se queda sin superficie honesta de reglas.
  */
 describe('/app/strategies · la composición que hace de este apartado LA superficie de automatizaciones', () => {
-  it('el tablero sigue montado con el panel embebido oculto (split del fundador 2026-07-20)', () => {
+  it('El tablero sigue montado con el panel embebido oculto (split del fundador)', () => {
     expect(page).toContain('<DefiPositionsBoard autoAction={autoAction} showStrategyPanel={false} embedded />');
   });
 
   /**
-   * 2026-08-24 — el fundador esconde MoneyFlows y el pago recurrente de esta
+   * El fundador esconde MoneyFlows y el pago recurrente de esta
    * pantalla («escóndela… esconde también el toggle de running saved»), y a la
    * vez le añade un botón que CREA protecciones. Eso deja exactamente el
    * agujero que este bloque existe para impedir: reglas que se pueden crear
@@ -144,7 +124,7 @@ describe('/app/strategies · la composición que hace de este apartado LA superf
     expect(page).not.toContain('<Zap size={14} className="text-volt" />');
     expect(page).toMatch(/from '\.\.\/\.\.\/\.\.\/lib\/rules\/runHealth'/);
     expect(page).toMatch(/loadRunHealth\(/);
-    // G4 · la SÉPTIMA superficie (20-ago). Estas dos aserciones clavaban antes
+    // G4 · la SÉPTIMA superficie. Estas dos aserciones clavaban antes
     // la forma de un arreglo A MEDIAS: `isFailing` es FALSO para `unread` y
     // `unreadable`, así que el brazo verde se comía los dos ⇒ «active» en el
     // primer pintado y tras cualquier timeout de /runs — y en la MISMA fila ya

@@ -26,7 +26,7 @@ export default function AccessGate({ children }: { children: React.ReactNode }) 
   const setUser = useAuthStore((s) => s.setUser);
 
   useEffect(() => {
-    // Stage 1 (the pre-launch code gate) moved SERVER-SIDE (2026-07-23):
+    // Stage 1 (the pre-launch code gate) moved SERVER-SIDE:
     // middleware.ts verifies the signed httpOnly cookie before this page is
     // ever served, so a client-side flag check here would be theater.
     //
@@ -63,8 +63,7 @@ export default function AccessGate({ children }: { children: React.ReactNode }) 
     setChecked(true);
   }, [router, refreshMe]);
 
-  // ── El velo del arranque, AL 100% (fundador 2026-09-08, segunda pasada:
-  // «quiero que la animación se vea fluida y entera») ────────────────────────
+  // ── El velo del arranque, AL 100% ────────────────────────
   // La verificación es casi instantánea (localStorage), así que sin retén el
   // nacimiento del asteroide quedaba decapitado a medio trazo. El velo se
   // RETIENE hasta que el acto termina (~1.9s) y se retira con un fundido —
@@ -74,7 +73,7 @@ export default function AccessGate({ children }: { children: React.ReactNode }) 
   // cae, la app ya está más cargada que antes sin él.
   // Reduced motion: sin retén — a quien pidió menos teatro no se le cobra.
   const veiled = !checked || (minHold && !reduced);
-  // LA COREOGRAFÍA ESPERA AL VELO (2026-09-14, lib/motion/veil.ts): las
+  // LA COREOGRAFÍA ESPERA AL VELO (lib/motion/veil.ts): las
   // entradas de página (RevealGroup, Arrive) arrancaban al montar, o sea
   // detrás del velo, y terminaban antes de que cayera — en recarga dura la
   // página aparecía ya colocada. La señal baja mientras se vela y sube en el

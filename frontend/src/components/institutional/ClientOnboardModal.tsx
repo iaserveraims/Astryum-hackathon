@@ -5,15 +5,6 @@
  * deposita el FXRP de un cliente en el pote, con `receiver` = la dirección del
  * cliente. El operador paga y firma; **las participaciones son del cliente** —
  * solo su firma puede redimirlas (invariante: el director nunca es approved).
- *
- * La diferencia con el depósito modo A (PoteDepositModal, el cliente deposita
- * desde su wallet): aquí el capital YA estaba en el exchange, y emplearlo no lo
- * mueve de custodio, cambia su estado. La ventana de custodia no se abre porque
- * no hay depósito nuevo del cliente.
- *
- * La puerta de la credencial se comprueba sobre la RAÍZ XRPL del cliente
- * (getCredentialGate) ANTES de dejar depositar — fail-closed: sin credencial
- * válida de un emisor configurado, el onboard no se compone.
  */
 
 import { useEffect, useState } from 'react';

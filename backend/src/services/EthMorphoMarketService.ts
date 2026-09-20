@@ -4,14 +4,9 @@
  * The data layer of the FXRP/RLUSD flow on Ethereum: typed, provider-injectable
  * reads of the Morpho Blue market + the pure pre-flight checks the /prepare
  * route (B5) enforces BEFORE the user signs (ORDER_WOULD_REVERT pattern —
- * binding adjustment #4 of the 15-ago infrastructure review: at ~90%
+ * binding adjustment #4 of the infrastructure review: at ~90%
  * utilisation a borrow above available liquidity must be blocked pre-signature,
  * not fail on-chain).
- *
- * Reuses the battle-tested Morpho math from PositionScanService (shares→assets,
- * maxBorrow, healthFactor) — one math, one bug surface. Decimals are READ
- * on-chain (6/18 asymmetry, F4 family), never assumed. Rates are protocol data
- * with a named on-chain source, or absent — never invented (invariant #9).
  */
 import { ethers, Interface } from 'ethers';
 import {

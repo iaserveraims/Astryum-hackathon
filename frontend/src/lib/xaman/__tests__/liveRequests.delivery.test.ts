@@ -21,7 +21,7 @@ import {
 import type { CouncilOrderFateReadLike } from '../../xrpl/singleSignVerdict';
 
 /**
- * productizer it.13 — the banner promises only what the server took on, a stale
+ * The banner promises only what the server took on, a stale
  * council order asks the order's fate first, and a refused seat release is seen.
  */
 
@@ -92,7 +92,7 @@ describe('noteCouncilOrderDelivery → deliversToFlareAutomatically (R5 1.3 / R2
     expect(deliversToFlareAutomatically(key)).toBe(false);
   });
 
-  it('a 0xFE instruction needs the same word (it.14, R2 2.6): the syntax alone promises nothing', () => {
+  it('A 0xFE instruction needs the same word (R2 2.6): the syntax alone promises nothing', () => {
     const instruction = JSON.stringify(orderTx('FE' + '01'.repeat(40)));
     // THE REGRESSION: this used to be `true` from the transaction's shape alone,
     // so with the executor STOPPED the banner promised a delivery nobody made.

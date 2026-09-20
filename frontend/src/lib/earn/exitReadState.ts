@@ -2,20 +2,7 @@
  * exitReadState — what an Ethereum exit screen does when a READ fails.
  *
  * Doctrine: the exit is never gated, and «could not read» is never shown as
- * «you have nothing». Two reads were dead ends (reviewer, 14-sep):
- *
- *  1. The exit modals read `/eth-morpho/market` only to learn the decimals for
- *     converting the typed amount; a non-OK read threw and the exit died there.
- *  2. The positions board read `/eth-morpho/position`, dropped the rejection,
- *     and said «retry in a moment» — even for a permanent 451.
- *
- * DECIMALS. The F4 asymmetry (FXRP 6 · RLUSD 18) is documented across the rail
- * (`ethMorphoPrepare`) and the modals already fall back to those constants when
- * the field is missing. A failed market read may use them too — but ONLY if the
- * prepared transaction confirms them: every prepare returns the decimals it read
- * on-chain, and a fallback that the prepare does not confirm (missing, or
- * different) never reaches the signature. Twelve orders of magnitude are not
- * assumed; they are cross-checked.
+ * «you have nothing». Two reads were dead ends (reviewer):
  */
 
 export type EmDecimalsSide = 'collateral' | 'loan';

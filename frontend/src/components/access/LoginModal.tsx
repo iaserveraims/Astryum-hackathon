@@ -6,7 +6,7 @@
  * The 5-click / Ctrl+Shift+L door opens THIS first. It asks for the shared
  * ACCESS CODE and settles it against /api/access-gate (server-side compare +
  * captcha + per-IP throttle) — nothing secret ships in this bundle anymore
- * (2026-07-23; the old hardcoded user/password pair was readable in the
+ * (the old hardcoded user/password pair was readable in the
  * public JS and bots walked in). On success the server sets the signed
  * httpOnly gate cookie the middleware demands, and we forward to /login.
  */

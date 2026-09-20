@@ -1,11 +1,6 @@
 'use client';
 
 /**
- * ExchangeSetupWizard — NACE TU EXCHANGE: la fase 1 del flujo canónico
- * (Astryum_Flow_Exchange_Tenant_EndToEnd_2026-09-11 §1), estación a estación,
- * con el patrón de la casa (Constituir un Legacy, Configurar la cuenta del
- * gestor): una pregunta por pantalla, la barra de progreso pegada arriba, y
- * cada check DETECTADO del ledger — jamás marcado a mano.
  *
  *   0 Raíz          una cuenta XRPL nueva y virgen en tu Xaman (K1)
  *   1 Credenciales  CASP (tu licencia) + KYB (el registro del vehículo), paste-link→URI
@@ -14,17 +9,6 @@
  *   4 Pote          orden de consejo create-pote, venues de la whitelist
  *   5 Designación   la raíz nombra a su omnibus (OMNIBUS, 2 firmas) — jerarquía en el ledger
  *   6 La mesa       el perfil del run (omnibus, política) → Operar; tus users se dan de alta
- *
- * XRPL-only (fundador 13-sep): las estaciones de registro Flare y puerta
- * quedaron DESCARTADAS del flujo — componentes conservados inertes abajo.
- *
- * REUTILIZA las estaciones del gestor que son genéricas (ConstitutionStation,
- * CageBirthStation: una cuenta XRPL que ancla y pare) y la bandeja de
- * credenciales. Lo que es del exchange (la raíz, la licencia CASP, el registro
- * KYC, la puerta, el perfil) vive aquí.
- *
- * Solo fundadores (la página vuelve a ir tras PreviewOnly desde el 20-sep); lo que se firma, lo firma
- * la raíz en SU Xaman. Astryum compone y lee.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -48,7 +32,7 @@ import { ManagerPublicProfile } from '../../managed/ManagerPublicProfile';
 import { CredentialTray } from '../../institutional/CredentialTray';
 import { CredentialCeremonyModal } from '../../institutional/CredentialCeremonyModal';
 import { CouncilOrderInFlightConfirm, StaleOrderLockNote, XamanSignBlockedNote, XamanSingleSign } from '../../xrpl/XamanSingleSign';
-// it. 19 (R5): UN candado por pantalla. Dos consolas con su propio
+// UN candado por pantalla. Dos consolas con su propio
 // `useStaleOrderLock` acababan con dos copias del mismo candado, y «I checked»
 // liberaba solo la de su componente — la otra seguía pausada hasta remontar.
 import { ExchangeStaleLockScope, useExchangeStaleLock } from '../ExchangeStaleLockScope';
@@ -63,7 +47,7 @@ import {
   prepareCageOrder,
   readCouncilAnchor,
   relayCouncilOrder,
-  // it. 23 (3.4): los MISMOS lectores de las seis puertas del consejo.
+  // Los MISMOS lectores de las seis puertas del consejo.
   mayConfirmAnotherOrder,
   sameOrderMinutesAgo,
   type CageOrderPrepared,
@@ -71,13 +55,13 @@ import {
   type RegistryVenue,
 } from '../../../lib/institutional/api';
 import {
-  // 18-sep: el paso que resuelve la puerta de operador en la estación 7.
+  // El paso que resuelve la puerta de operador en la estación 7.
   adminDoorStep,
   councilOrderServerWarnings,
   demoApi,
   describeCouncilOrderRefusal,
   describeRefusal,
-  // it. 23 (3.3): el paso que resuelve OMNIBUS_OWNER_UNKNOWN (null en todo lo demás).
+  // El paso que resuelve OMNIBUS_OWNER_UNKNOWN (null en todo lo demás).
   omnibusOwnerUnknownStep,
   refusalIsRetryable,
   type DemoPolicy,
@@ -118,7 +102,7 @@ function writeLocal(account: string, patch: Partial<LocalSetup>): LocalSetup {
   return next;
 }
 
-/* ── Estación 5: la DESIGNACIÓN — la raíz nombra a su caja (13-sep) ──────── */
+/* ── Estación 5: la DESIGNACIÓN — la raíz nombra a su caja ──────── */
 function AppointmentStation({ root, omnibus, appointed, onChanged }: { root: string; omnibus: string; appointed: boolean; onChanged: () => void }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -202,7 +186,7 @@ function ExchangeRootInXaman() {
 function OmnibusStation({ root, omnibus, onSaved }: { root: string; omnibus: string; onSaved: (addr: string) => void }) {
   const { t } = useT();
   const allWallets = useWalletStore((s) => s.wallets);
-  // El apodo del DUEÑO, no la etiqueta de sesión (fundador 2026-09-13).
+  // El apodo del DUEÑO, no la etiqueta de sesión.
   const linkedOf = useLinkedRecordOf();
   const others = useMemo(() => allWallets.filter((w) => w.isConnected && w.walletType === 'xaman' && w.address !== root), [allWallets, root]);
   const [input, setInput] = useState(omnibus);
@@ -284,7 +268,7 @@ function CredentialsStation({ account, status, statusFailed, onChanged }: { acco
   const legMeta = (group: string) => {
     const up = group.toUpperCase();
     if (up.includes('CASP') || up.includes('AIFM')) return { title: t('CASP — the licence of your sector'), how: t('Issued by an accredited issuer as an XLS-70 credential with an expiry. In the demo the reference issuer signs it; in production, a regulated third party.') };
-    // KYB (13-sep): la raíz de un exchange es una SOCIEDAD — su identidad es el
+    // KYB: la raíz de un exchange es una SOCIEDAD — su identidad es el
     // asiento del registro mercantil, no un KYC personal. El copy KYC queda
     // solo para entornos cuyo gate aún exija KYC a secas.
     if (up.includes('KYB')) return { title: t('KYB — the registration of your legal vehicle'), how: t('The entry of your company in the public register, as an XLS-70 credential with the register link as its evidence. It travels with the account, never with a document.') };
@@ -331,10 +315,7 @@ function CredentialsStation({ account, status, statusFailed, onChanged }: { acco
             );
           })}
         </ul>
-        {/* LA EMISIÓN DE DEMO SE FUE DE AQUÍ (fundador 2026-09-20: «quitemos los
-            botones de issue credential demo para que la gente no pueda probarlo
-            así como así … el producto se podrá probar solo si tienes las
-            credenciales»). Los dos paste-link y los dos botones «sin link»
+        {/* LA EMISIÓN DE DEMO SE FUE DE AQUÍ. Los dos paste-link y los dos botones «sin link»
             llamaban al notario de rodaje, y esta pantalla no tiene puerta de
             fundadores. Viven ahora en /app/admin, tras `requireAdmin`. Aquí
             queda el camino de verdad: tu emisor acreditado emite, y tú aceptas
@@ -348,8 +329,7 @@ function CredentialsStation({ account, status, statusFailed, onChanged }: { acco
       {/* La bandeja: lo pendiente arriba, aceptar en Xaman — la firma es el consentimiento. */}
       {/* Con la bandeja YA leída aquí se le pasa (una lectura, no dos); si la
           lectura falló, se le deja leer por su cuenta y decir «no pude leer». */}
-      {/* El botón «ceremonia como emisor» salió de esta estación (fundador
-          13-sep): aquí la emisión la hace el notario de referencia — la
+      {/* El botón «ceremonia como emisor» salió de esta estación: aquí la emisión la hace el notario de referencia — la
           ceremonia genérica sigue viva en el desk (E3) y en la designación. */}
       <CredentialTray account={account} tray={trayFailed ? undefined : tray} onReload={bump} refreshKey={tick} onAccepted={bump} gateIssuers={status?.acceptedIssuers} />
     </div>
@@ -357,7 +337,7 @@ function CredentialsStation({ account, status, statusFailed, onChanged }: { acco
 }
 
 /* ── Estación 3: el registro KYC ─────────────────────────────────────────── */
-/** DESCARTADA del flujo (fundador 13-sep, XRPL-only) — CONSERVADA inerte, no
+/** DESCARTADA del flujo — CONSERVADA inerte, no
  *  borrada: si algún tenant quiere la puerta escrita en el contrato, vuelve. */
 export function RegistryStation({ registry, runRegistry, onSaved }: { registry: string; runRegistry: string | null; onSaved: (addr: string) => void }) {
   const { t } = useT();
@@ -420,7 +400,7 @@ function PoteStation({ account, cage, policy, onPolicy, onOpened, onBlockedChang
   const [venuesFailed, setVenuesFailed] = useState(false);
   const [order, setOrder] = useState<CageOrderPrepared | null>(null);
   /**
-   * EL CANDADO DE LA ORDEN CADUCADA (it. 16, R5 5.3). Las seis consolas
+   * EL CANDADO DE LA ORDEN CADUCADA (R5 5.3). Las seis consolas
    * institucionales lo tenían y las dos pantallas del exchange no: firmar
    * pasada la ventana dejaba componer una SEGUNDA apertura sobre el mismo
    * capital sin un aviso. `create-pote` es una ENTRADA, así que se para y solo
@@ -430,7 +410,7 @@ function PoteStation({ account, cage, policy, onPolicy, onOpened, onBlockedChang
   const staleBlocks = staleLock.locked;
   // The create-pote request is live in Xaman (or signed): Cancel steps aside.
   const [orderBlocked, setOrderBlocked] = useState(false);
-  // …and so does the station rail (productizer-it6): leaving the station
+  // …and so does the station rail: leaving the station
   // unmounts the signature and drops it blind.
   useEffect(() => { onBlockedChange?.(orderBlocked); }, [orderBlocked, onBlockedChange]);
   useEffect(() => () => onBlockedChange?.(false), [onBlockedChange]);
@@ -438,7 +418,7 @@ function PoteStation({ account, cage, policy, onPolicy, onOpened, onBlockedChang
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   /**
-   * it. 23 (3.4): la negativa que la persona puede contestar — un duplicado que
+   * La negativa que la persona puede contestar — un duplicado que
    * el servidor VIO, o una comprobación que no pudo correr (`retryAfterSeconds`
    * y `confirmAnotherOrder` incluidos, que el `window.confirm` anterior tiraba).
    */
@@ -471,14 +451,14 @@ function PoteStation({ account, cage, policy, onPolicy, onOpened, onBlockedChang
       };
       const res = await prepareCageOrder({ council: account, action: 'create-pote', params, ...(opts?.confirmAnother ? { confirmAnotherOrder: true } : {}) });
       // The same order went out minutes ago: said in words, and composed again
-      // only if the person says so — never a raw code on screen (it. 14, R5 1.1).
+      // only if the person says so — never a raw code on screen (R5 1.1).
       //
-      // it. 23 (3.4) — Y «NO PUDIMOS COMPROBARLO» NO ES «SALIÓ HACE UN MOMENTO».
+      // Y «NO PUDIMOS COMPROBARLO» NO ES «SALIÓ HACE UN MOMENTO».
       // Esto era un `window.confirm` de dos salidas, así que sobre un
       // `DUPLICATE_CHECK_UNREADABLE` afirmaba un duplicado que nadie vio y tiraba
       // el reintento (`retryable`) y los segundos que el servidor pidió esperar.
       // Es el mismo panel de tres botones (no componer · Try again · componer
-      // otra igual) que llevan las seis puertas del consejo desde la it. 21.
+      // otra igual) que llevan las seis puertas del consejo desde la.
       if (!res.ok) {
         if (mayConfirmAnotherOrder(res.refusal) && !opts?.confirmAnother) {
           setDuplicate({ code: res.refusal.error, detail: res.refusal.detail, minutesAgo: sameOrderMinutesAgo(res.refusal), retryAfterSeconds: res.refusal.retryAfterSeconds ?? null });
@@ -540,7 +520,7 @@ function PoteStation({ account, cage, policy, onPolicy, onOpened, onBlockedChang
         <div className="mt-3 space-y-2">
           <p className="text-[12px] text-ink/70">{order.order.summary}</p>
           {/* What the server took on, or could not: delivery it cannot promise, the
-              same order already out. Signing stays possible (it. 13 residual). */}
+              same order already out. Signing stays possible (residual). */}
           {councilOrderServerWarnings(order).map((w) => (
             <p key={w} data-testid="order-server-warning" className="text-[11px] text-tone-warning">{w}</p>
           ))}
@@ -584,7 +564,7 @@ function PoteStation({ account, cage, policy, onPolicy, onOpened, onBlockedChang
 }
 
 /* ── Estación 6: la puerta ───────────────────────────────────────────────── */
-/** DESCARTADA del flujo (fundador 13-sep, XRPL-only) — CONSERVADA inerte. */
+/** DESCARTADA del flujo — CONSERVADA inerte. */
 export function GateStation({ account, pote, registry, sent, onSent }: { account: string; pote: string | null; registry: string | null; sent: LocalSetup['gateSent']; onSent: (hash: string) => void }) {
   const { t } = useT();
   const [order, setOrder] = useState<CageOrderPrepared | null>(null);
@@ -592,13 +572,13 @@ export function GateStation({ account, pote, registry, sent, onSent }: { account
   // ENTRADA (apunta la puerta), nunca una salida — se para con el candado.
   const staleLock = useExchangeStaleLock();
   const staleBlocks = staleLock.locked;
-  // The gate order is live in Xaman (or signed): Cancel steps aside (productizer-it7).
+  // The gate order is live in Xaman (or signed): Cancel steps aside.
   const [orderBlocked, setOrderBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   /**
-   * it. 23 (3.4): la negativa que la persona puede contestar — un duplicado que
+   * La negativa que la persona puede contestar — un duplicado que
    * el servidor VIO, o una comprobación que no pudo correr (`retryAfterSeconds`
    * y `confirmAnotherOrder` incluidos, que el `window.confirm` anterior tiraba).
    */
@@ -610,7 +590,7 @@ export function GateStation({ account, pote, registry, sent, onSent }: { account
       if (!pote || !registry) throw new Error(t('The pote and the KYC registry must both exist first.'));
       const params = { pote, gate: registry };
       const res = await prepareCageOrder({ council: account, action: 'set-user-gate', params, ...(opts?.confirmAnother ? { confirmAnotherOrder: true } : {}) });
-      // it. 23 (3.4): el mismo panel de tres botones que la puerta de arriba —
+      // El mismo panel de tres botones que la puerta de arriba —
       // «no pudimos comprobarlo» lleva reintento, y jamás afirma un duplicado.
       if (!res.ok) {
         if (mayConfirmAnotherOrder(res.refusal) && !opts?.confirmAnother) {
@@ -657,7 +637,7 @@ export function GateStation({ account, pote, registry, sent, onSent }: { account
         <div className="mt-3 space-y-2">
           <p className="text-[12px] text-ink/70">{order.order.summary}</p>
           {/* What the server took on, or could not: delivery it cannot promise, the
-              same order already out. Signing stays possible (it. 13 residual). */}
+              same order already out. Signing stays possible (residual). */}
           {councilOrderServerWarnings(order).map((w) => (
             <p key={w} data-testid="order-server-warning" className="text-[11px] text-tone-warning">{w}</p>
           ))}
@@ -707,10 +687,10 @@ function DeskStation({ account, demo, existing, registry, policy, pote, omnibusD
   const [omnibus, setOmnibus] = useState(omnibusDefault);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  // it. 19 (R5 copy): un 503 «no pude leerlo» no creó nada — se puede repetir.
+  // Un 503 «no pude leerlo» no creó nada — se puede repetir.
   const [errorRetryable, setErrorRetryable] = useState(false);
   /**
-   * it. 23 (3.3): y una negativa que NO se arregla repitiendo, pero sí tiene un
+   * Y una negativa que NO se arregla repitiendo, pero sí tiene un
    * paso — `OMNIBUS_OWNER_UNKNOWN`, que tapiaba al fundador que había entrado
    * por la puerta de admin. Se dice el paso; el botón de crear sigue ahí para
    * cuando lo haya dado.
@@ -728,7 +708,7 @@ function DeskStation({ account, demo, existing, registry, policy, pote, omnibusD
     setBusy(false);
     // La frase es NUESTRA. Aquí se pintaba el `detail` del servidor tal cual (y,
     // a falta de él, el código): la última estación del alta enseñaba
-    // «OMNIBUS_IS_A_CLIENT_WALLET» a un operador (it. 19, R5 copy).
+    // «OMNIBUS_IS_A_CLIENT_WALLET» a un operador (R5 copy).
     if (!r.ok) {
       setErrorRetryable(refusalIsRetryable(r.refusal));
       setErrorStep(omnibusOwnerUnknownStep(r.refusal, t) ?? adminDoorStep(r.refusal, t));
@@ -767,7 +747,7 @@ function DeskStation({ account, demo, existing, registry, policy, pote, omnibusD
         <div className="rounded-xl bg-surface-2 p-3 text-[12px]"><p className="text-[10px] uppercase tracking-wider text-ink/45">{t('Root (council)')}</p><p className="break-all font-mono text-ink">{account}</p></div>
         <div className="rounded-xl bg-surface-2 p-3 text-[12px]"><p className="text-[10px] uppercase tracking-wider text-ink/45">{t('Policy · registry · pote')}</p><p className="font-mono text-ink">{policy} · {registry ? shortAddr(registry) : t('none')} · {pote ? shortAddr(pote) : t('not born yet')}</p></div>
       </div>
-      {/* LO QUE DECLARAR EL OMNIBUS SIGNIFICA (it. 16, R5 5.1). Antes esta
+      {/* LO QUE DECLARAR EL OMNIBUS SIGNIFICA (R5 5.1). Antes esta
           pantalla pedía la cuenta y el servidor la rechazaba si un administrador
           de sistemas no la había puesto antes en una variable de entorno: el
           alta moría aquí. Ahora la declaración ES la autorización, y se dice en
@@ -801,7 +781,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
   const setActiveWallet = useWalletStore((s) => s.setActiveWallet);
   const xrplWallets = useMemo(() => allWallets.filter((w) => w.isConnected && w.walletType === 'xaman'), [allWallets]);
   // El apodo del DUEÑO en el selector de la raíz, no la etiqueta de sesión
-  // «Xaman 1 (…)» (fundador 2026-09-13).
+  // «Xaman 1 (…)».
   const linkedOf = useLinkedRecordOf();
 
   const [step, setStep] = useState(0);
@@ -811,8 +791,8 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
   // The active station has a Xaman signature that can no longer be dropped
   // (live QR, confirming, unconfirmed, validated failure). Leaving the station
   // unmounts it, and XamanSingleSign's unmount cancel is blind: a signature made
-  // in that gap is followed by nobody and the station re-offers it
-  // (productizer-it6). The rail stays put until it resolves.
+  // in that gap is followed by nobody and the station re-offers it.
+  // The rail stays put until it resolves.
   const [stationBlocked, setStationBlocked] = useState(false);
   const go = (i: number) => { if (stationBlocked) return; landed.current = true; setStep(i); };
 
@@ -821,7 +801,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
   const [credFailed, setCredFailed] = useState(false);
   // La bandeja de la raíz, leída aquí para el CHECK de la estación: con la
   // puerta apagada el gate contesta ok:true sin credencial alguna, y eso pintaba
-  // la estación en verde sin mérito (fundador 12-sep). Verde = las dos patas
+  // la estación en verde sin mérito. Verde = las dos patas
   // vigentes en el ledger, diga lo que diga la puerta.
   const [tray, setTray] = useState<CredentialsTray | null>(null);
   const [anchor, setAnchor] = useState<{ anchored: boolean; sha256?: string }>({ anchored: false });
@@ -835,13 +815,11 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
     () => demo.runs.find((r) => r.councilAddress === account && r.status === 'open') ?? demo.runs.find((r) => r.councilAddress === account),
     [demo.runs, account],
   );
-  // RAÍZ CON HISTORIA (fundador 12-sep, captura: la raíz era la cuenta del
-  // gestor, y constitución/jaula/pote salían verdes porque el ledger los tiene
-  // hechos PARA ESA CUENTA). Una jaula sin mesa de este exchange es una vida
+  // RAÍZ CON HISTORIA. Una jaula sin mesa de este exchange es una vida
   // anterior — de gestor, o de otro producto. El flujo exige una raíz NUEVA
   // (un consejo = una jaula, para siempre; el hazard multi-registro): aquí se
   // dice, la estación 1 queda pendiente y no se avanza sobre esa cuenta. Pero
-  // la jaula de ESTA alta también es «jaula sin mesa» hasta la estación 7 (18-sep):
+  // la jaula de ESTA alta también es «jaula sin mesa» hasta la estación 7:
   // la regla entera y sus pruebas viven en lib/demo-exchange/foreignHistory.
   const foreignHistory = isForeignHistory({ cage: Boolean(cage), existing: Boolean(existing), local, appointed });
   const registry = existing?.registryAddress ?? local.registry ?? null;
@@ -858,7 +836,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
     const [c, a, cg, tr] = await Promise.allSettled([readManagerCredentialStatus(account), readCouncilAnchor(account), getCageOf(account), readCredentialTray(account)]);
     void refreshRuns();
     const out = { credOk: false, gateOn: false, legsOk: false, anchored: false, cage: false, potes: 0, appointed: false };
-    // La DESIGNACIÓN (13-sep): ¿el omnibus sostiene una `OMNIBUS` vigente
+    // La DESIGNACIÓN: ¿el omnibus sostiene una `OMNIBUS` vigente
     // EMITIDA POR esta raíz? Relacional — el emisor ES el vínculo, no hay
     // allowlist que valga aquí. Ilegible = sin veredicto (queda lo anterior).
     const omnibusAddr = readLocal(account).omnibus ?? '';
@@ -894,7 +872,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
     void detect().then((r) => {
       if (!r || landed.current) return;
       landed.current = true;
-      // XRPL-only (fundador 13-sep): las estaciones de registro Flare y puerta
+      // XRPL-only: las estaciones de registro Flare y puerta
       // quedaron DESCARTADAS del flujo (los componentes se conservan abajo,
       // inertes). En su lugar: la DESIGNACIÓN del omnibus.
       const pending = [
@@ -945,7 +923,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
     { label: t('Two new accounts'), purpose: t('The root that governs (council) and the omnibus where your users deposit by tag — both NEW, in your Xaman'), effort: t('~5 min · Xaman'), done: !!account && !!local.omnibus && !foreignHistory, required: true, how: foreignHistory ? t('this root already governs a cage from another life — the exchange root must be a NEW account') : t('root = the connected Xaman · omnibus = saved on this device') },
     { label: t('Credentials'), purpose: t('CASP (your licence) and KYB (your legal vehicle), issued to THIS account and accepted in Xaman'), effort: t('~10 min · issuer + your signatures'), done: legsOk, required: gateOn, how: t('both legs in force in the ledger (XLS-70)') },
     { label: t('The constitution'), purpose: t('Template or your own document; the fingerprint computes itself and anchors with 1 signature'), effort: t('~5 min · 1 signature'), done: anchor.anchored, required: true, how: t('DID object of the root, read from XRPL') },
-    // XRPL-only (fundador 13-sep): registro Flare y puerta DESCARTADOS del
+    // XRPL-only: registro Flare y puerta DESCARTADOS del
     // flujo (componentes conservados, inertes). La identidad vive en XLS-70 y
     // la jerarquía se hace ledger con la DESIGNACIÓN del omnibus.
     { label: t('The cage'), purpose: t('Born with one 0xFE signature, obeying this account for ever — it locks no capital'), effort: t('~3 min · 1 signature + toll'), done: !!cage, required: true, how: t('cageOf(root) on the factory, read from Flare') },
@@ -957,11 +935,11 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
   const firstRun = doneCount <= 1;
   // «¿Por qué está hecha?» vive en la franja de la estación (StationDoneStrip);
   // el aterrizaje más allá de la primera estación se avisa UNA vez, en una
-  // notificación temporal (15-sep: sin popups).
+  // notificación temporal (sin popups).
   useResumeToast({ landed: landedAt, stations, key: account });
   const nextPendingIdx = stations.findIndex((st) => !st.done);
 
-  // EL RAÍL LATERAL (12-sep): la barra al lado del contenido, pegada arriba
+  // EL RAÍL LATERAL: la barra al lado del contenido, pegada arriba
   // mientras se hace scroll, con los nombres a la vista, Atrás/Siguiente y el
   // «¿Por qué hecha?» — la misma pieza que el alta del gestor.
   const rail = (
@@ -990,10 +968,9 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
           <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink/40">{stations[step].effort}</span>
         </span>
       </div>
-      {/* DE DÓNDE SALE EL CHECK (fundador 12-sep: «pasos en verde y pasos que no
-          lo están»): cada estación dice qué se leyó para darla por hecha, o por
+      {/* DE DÓNDE SALE EL CHECK: cada estación dice qué se leyó para darla por hecha, o por
           qué sigue pendiente — la barra jamás inventa, y aquí se ve qué mira.
-          La misma franja que el gestor y el Legacy (15-sep). */}
+          La misma franja que el gestor y el Legacy. */}
       <StationDoneStrip
         done={stations[step].done}
         how={stations[step].how}
@@ -1078,7 +1055,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
           anchored={anchor.anchored}
           anchoredSha={anchor.sha256}
           onAnchored={() => settleThenDetect((r) => r.anchored)}
-          // La constitución del EXCHANGE (13-sep): el omnibus aparece como
+          // La constitución del EXCHANGE: el omnibus aparece como
           // REGLA de designación + dirección inicial (Art. 3) — rotar la caja
           // es un acto de designación, no una enmienda.
           template={buildExchangeConstitution(t, account, local.omnibus ?? '')}
@@ -1111,7 +1088,7 @@ export function ExchangeSetupWizard({ demo, onOperate }: { demo: DemoRunApi; onO
       {step === 6 && account && (
         <>
           <DeskStation account={account} demo={demo} existing={existing} registry={registry} policy={policy} pote={pote} omnibusDefault={local.omnibus ?? ''} onOperate={onOperate} />
-          {/* El espejo del gestor (13-sep): lo que ven tus clientes — tu zona
+          {/* El espejo del gestor: lo que ven tus clientes — tu zona
               de credencial pública (CASP con su link del registro + disclaimer). */}
           <details className="rounded-2xl border border-ink/10 bg-surface-1 p-4">
             <summary className="cursor-pointer text-xs text-ink/60 hover:text-ink">{t('What your clients see — your public credential zone')}</summary>

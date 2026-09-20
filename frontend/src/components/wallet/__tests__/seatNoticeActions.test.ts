@@ -14,24 +14,8 @@ import {
 import type { HandoffPostResult } from '@/lib/wallet/handoffRelease';
 
 /**
- * productizer it. 25 — §3 (UN «TRY AGAIN» QUE SOLO PODÍA FALLAR) y §4 (PROSA SIN
+ * §3 (UN «TRY AGAIN» QUE SOLO PODÍA FALLAR) y §4 (PROSA SIN
  * NINGÚN BOTÓN).
- *
- * §3. La it. 22 quitó «Free the seat» del estado donde el release contesta 409
- * por diseño. La misma promesa sobrevivió un estado más allá, disfrazada de
- * REINTENTO: sobre `taken-retryable` con los segundos que el propio servidor
- * midió, `mayTryAgain` era `true` (el rechazo trae `retryable: true`) y
- * `mayOfferRelease` era `false` (la ventana viva lo esconde), así que el ÚNICO
- * botón en pantalla volvía a preparar contra el mismo asiento ocupado y volvía
- * con el mismo `NONCE_SEAT_TAKEN` — debajo de una cuenta atrás que ya lo decía.
- *
- * §4. Los dos 409 deterministas (`ACCOUNT_RECORD_MISSING`,
- * `PROOF_FLOOR_UNREADABLE`) son los que se encuentra un usuario de EMAIL sin
- * binding probado, precisamente porque hablan del REGISTRO guardado de su
- * cuenta. Su frase nombra dos puertas — entrar con la wallet que controla la
- * dirección, o que un administrador repare la fila — y la pantalla no ofrecía
- * ninguna: `maySignInWithWallet` llevaba dos iteraciones escrito y sin un solo
- * lector.
  */
 
 const t = (s: string) => s;
@@ -39,7 +23,7 @@ const SRC = readFileSync(join(__dirname, '..', 'SeatRefusalNotice.tsx'), 'utf8')
 
 /* ── §3: el reintento espera a que pueda funcionar ────────────────────────── */
 
-describe('it. 25 · §3 — ningún reintento que solo pueda fallar', () => {
+describe('§3 — ningún reintento que solo pueda fallar', () => {
   it('con la ventana del SERVIDOR corriendo, el reintento está bloqueado y dice cuánto queda', () => {
     expect(tryAgainWaitSeconds('taken-retryable', 300)).toBe(300);
     expect(tryAgainWaitSeconds('taken-window-open', 42)).toBe(42);
@@ -82,7 +66,7 @@ describe('it. 25 · §3 — ningún reintento que solo pueda fallar', () => {
 
 /* ── §4: el perfil de email tiene al menos una puerta ─────────────────────── */
 
-describe('it. 25 · §4 — los dos 409 deterministas dejan de ser prosa sin botón', () => {
+describe('§4 — los dos 409 deterministas dejan de ser prosa sin botón', () => {
   for (const code of ['ACCOUNT_RECORD_MISSING', 'PROOF_FLOOR_UNREADABLE']) {
     it(`${code}: la vista nombra la puerta de la wallet, y sigue sin prometer un reintento`, () => {
       const view = seatRefusalView({ status: 409, error: code, retryable: false }, t);
@@ -109,7 +93,7 @@ describe('it. 25 · §4 — los dos 409 deterministas dejan de ser prosa sin bot
   });
 
   it('por fuente: los dos avisos la pintan — el del rechazo y el del asiento abandonado', () => {
-    // it. 34 (agente D): tres anclas, no dos — el aviso del asiento abandonado
+    // Tres anclas, no dos — el aviso del asiento abandonado
     // pinta la puerta también cuando el release contesta el 503 del reloj
     // (`verdict.kind === 'unknown' && verdict.maySignInWithWallet`), que NO es
     // un veredicto zanjado y por eso no cabe en la rama `proof-record`.

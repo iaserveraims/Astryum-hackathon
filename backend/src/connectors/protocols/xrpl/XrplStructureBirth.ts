@@ -3,59 +3,6 @@
  * una persona bajo una sola cuenta»: qué hace falta para que nazca una cuenta
  * COMANDADA (la familiar, la de la empresa) y todas las negativas que tienen
  * que saltar ANTES de que nadie firme.
- *
- * EL ÁRBOL ES DEL USUARIO, NO DEL EXCHANGE (corrección del fundador, 18-sep).
- * La cuenta PERSONAL es la que manda: lleva las credenciales y se sienta en la
- * lista de firmantes de las demás — sola (quórum 1) o como uno de varios. Las
- * otras son comandadas. En el ledger no cambia nada de lo que ya tenemos: es
- * `SignerListSet` + multifirma, las primitivas que el repo ya usa. Lo único que
- * este módulo añade es decir que NO antes de que una firma cueste dinero.
- *
- * CUATRO HECHOS DEL PROTOCOLO QUE DECIDEN EL DISEÑO (xrpl.org, 18-sep-2026):
- *
- *  1. **Firmar por otra cuenta no consume el `Sequence` de quien firma.** El
- *     `Sequence` que avanza es el de la cuenta COMANDADA, que es el `Account`
- *     de la transacción. Una personal puede mandar en N cuentas sin colisión de
- *     nonce: el problema de «un 0xFE en vuelo por cuenta» (decisión 11-sep) es
- *     de las cuentas que ORIGINAN, no de las que firman por otras.
- *  2. ⚠ **La credencial la tiene que llevar quien ENVÍA, no quien firma.** Para
- *     cruzar una puerta `DepositAuth` + `AuthorizeCredentials`, los
- *     `CredentialIDs` del pago tienen que ser del *sender*: «The sender of this
- *     transaction must be the subject of each of the credentials». En una
- *     multifirma el sender es la COMANDADA. Así que la credencial de la
- *     personal NO le sirve a la comandada — y eso es una excepción real al
- *     principio del 9-sep, que valía porque allí los subordinados nunca
- *     iniciaban. Aquí sí inician. Ver `COMMANDED_PAYS_THROUGH_GATE`.
- *  3. **Cada comandada paga lo suyo**: reserva base (1 XRP) + su `SignerList`
- *     (0,2 XRP, un objeto sea cual sea su tamaño) + la comisión de multifirma,
- *     que escala con el número de firmas. El que se sienta no paga nada.
- *  4. **La puerta (`asfDisableMaster`) solo la firma la master.** Un multifirma
- *     recibe `tecNEED_MASTER_KEY`. Es el último acto de la llave de nacimiento:
- *     después de él NADIE tiene llave de esa cuenta — ni su titular, ni el
- *     operador, ni nosotros. Solo manda quien esté sentado.
- *  5. **Un asiento NO necesita ser una cuenta.** «It does not need to be a
- *     funded address in the ledger»: un firmante puede ser un simple par de
- *     llaves, y entonces **cuesta cero**. Solo pagan reserva las cuentas que
- *     tienen saldo. Contrapartida, y es dura: un firmante sin cuenta solo puede
- *     firmar con su MASTER — no admite regular key, así que **no se puede rotar**
- *     sin reformar la lista de cada cuenta en la que se siente; y no puede
- *     sostener credenciales (aceptar una es una transacción suya).
- *  6. **Fundar una cuenta no da ningún poder sobre ella.** «Funding an account
- *     does not give you any special privileges»: quien tiene la llave la
- *     controla. Así que el omnibus puede CREAR la cuenta (un Payment es lo
- *     único que crea cuentas en XRPL) pero **no puede configurarla**: el
- *     `SignerListSet` lo firma la cuenta nueva. «Creada y seteada por el
- *     omnibus» solo es posible si el omnibus sostiene la llave de nacimiento —
- *     y esa llave puede ser del EXCHANGE, jamás del backend de Astryum.
- *
- * EL TIPO ES SOLO EL CUADRO DE ASIENTOS. Una familiar, una de empresa y una
- * caja del operador corren la misma máquina; lo que cambia es quién se sienta.
- * Regla del kernel (mapa 15-sep): una pieza que tiene que preguntar «qué tipo de
- * cuenta eres» está mal puesta. Por eso los asientos son ENTRADA y este módulo
- * los juzga — jamás ramifica por el tipo para hacer un trabajo distinto.
- *
- * Puro: sin red, sin reloj, sin llaves. Toda cifra sale de las reservas que el
- * llamante leyó del ledger.
  */
 import { quorumMargin } from './XrplLegacyRehearsal';
 
@@ -95,11 +42,11 @@ export interface StructureSeat {
 
 /** Reservas tal como las da el ledger (server_info), jamás cableadas. */
 export interface ReserveFigures {
-  /** Reserva base por cuenta — 1 XRP en mainnet (xrpl.org, verificado 18-sep-2026). */
+  /** Reserva base por cuenta — 1 XRP en mainnet (xrpl.org, verificado). */
   baseXrp: number;
   /**
    * Reserva por objeto — 0,2 XRP en mainnet. Un `SignerList` cuenta como UN
-   * objeto sea cual sea su tamaño (MultiSignReserve, activa desde 2019-04-17).
+   * objeto sea cual sea su tamaño (MultiSignReserve, activa).
    */
   incrementXrp: number;
 }
@@ -119,7 +66,7 @@ export interface StructureBirthInput {
   reserve: ReserveFigures;
   /**
    * ¿Emitirá la personal una credencial de DESIGNACIÓN sobre esta comandada (la
-   * clase del 12-sep: raíz→subordinada, la firma de la raíz hecha objeto)? Le
+   * clase: raíz→subordinada, la firma de la raíz hecha objeto)? Le
    * cuesta a la comandada una reserva de objeto una vez aceptada.
    */
   designation: boolean;
@@ -152,7 +99,7 @@ export interface StructureBirthInput {
   operatorMayBind?: boolean;
   /**
    * ¿Se va a armar la puerta del ancla (`DepositAuth` + `AuthorizeCredentials`)
-   * sobre esta cuenta? Aprendido en el runbook del ancla (17-sep): armarla sobre
+   * sobre esta cuenta? Aprendido en el runbook del ancla: armarla sobre
    * una cuenta que cobra de un tercero mata ese cobro.
    */
   armAnchorGate: boolean;
@@ -282,7 +229,7 @@ const MAX_SEATS = 32; // límite del protocolo para un SignerList
 const MAX_WEIGHT = 65535; // SignerWeight es UInt16
 const XRPL_ADDRESS_RE = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 
-/** `AccountDelete` destruye al menos una reserva de objeto (xrpl.org, 18-sep-2026). */
+/** `AccountDelete` destruye al menos una reserva de objeto (xrpl.org). */
 export const ACCOUNT_DELETE_BURN_OBJECTS = 1;
 
 /**
@@ -466,7 +413,7 @@ export function planStructureBirth(input: StructureBirthInput): StructureBirthPl
     });
   }
 
-  // El hallazgo del 18-sep: en una multifirma el SENDER es la comandada, y el
+  // El hallazgo: en una multifirma el SENDER es la comandada, y el
   // ledger exige que el sender sea el sujeto de cada credencial que presente.
   if (input.paysThroughCredentialGate && !input.carriesOwnCredentials) {
     refusals.push({
@@ -523,7 +470,7 @@ export function planStructureBirth(input: StructureBirthInput): StructureBirthPl
     });
   }
 
-  // Principio 9-sep: la credencial vive en la raíz del árbol de autoridad.
+  // Principio: la credencial vive en la raíz del árbol de autoridad.
   if (input.carriesOwnCredentials && (input.kind === 'agent' || input.kind === 'box')) {
     refusals.push({
       code: 'COMPLIANCE_ON_CAPTIVE',

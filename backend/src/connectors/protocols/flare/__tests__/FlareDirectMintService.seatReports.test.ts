@@ -1,18 +1,11 @@
 /**
- * productizer-it13 §1.1 / §2.1 — who decides the nonce seat of a 0xFE.
+ * / §2.1 — who decides the nonce seat of a 0xFE.
  *
- * §1.1 (regression of it11): `/handoff/signed` answers PENDING_LEDGER before the
+ * §1.1 (regression): `/handoff/signed` answers PENDING_LEDGER before the
  * Payment validates, and only the executor sweep marks it. With the executor
  * stopped past the TTL, the next prepare invalidated a SIGNED 0xFE and composed
- * its twin on the same nonce (the 2026-08-21 incident). A reported hash is now
+ * its twin on the same nonce (the incident). A reported hash is now
  * looked up on the ledger before the TTL may retire the seat.
- *
- * §2.1: `supersede` came from the body, so any session displaced anybody's draft,
- * and any session could prepare against the demo exchange omnibus. Now supersede
- * displaces a fresh draft only for its preparer or a session that proved the
- * account, and an operational account only takes Astryum's own server flows.
- *
- * The chain is faked at ethers.Contract (PA + nonce 7), the store at its module.
  */
 jest.mock('../../../../services/FlareProvider', () => ({
   FlareProvider: { getInstance: () => ({ getHttpProvider: () => ({}) }) },
@@ -59,8 +52,8 @@ jest.mock('../../../../services/flare/DirectMintHandoffStore', () => ({
   saveHandoffRecord: (...a: unknown[]) => mockSave(...a),
   verifyHandoffPaymentOnLedger: (...a: unknown[]) => mockVerify(...a),
   markHandoffSignedByMemo: (...a: unknown[]) => mockMarkSigned(...a),
-  // it15 §K1: estas filas son las ANTIGUAS, sin ventana de ledger — el ledger
-  // validado se lee como ilegible, así que rige la regla de it13 (TTL+informes).
+  // §K1: estas filas son las ANTIGUAS, sin ventana de ledger — el ledger
+  // validado se lee como ilegible, así que rige la regla.
   readValidatedLedgerIndex: (...a: unknown[]) => mockLedger(...a),
   readHandoffMemoWindow: (...a: unknown[]) => mockWindow(...a),
   markHandoffLedgerFailedByMemo: (...a: unknown[]) => mockMarkFailed(...a),
@@ -240,19 +233,19 @@ describe('buildDirectMintHandoff — supersede is not the body’s to decide (§
     const err = await build({ action: 'e1', supersedePendingNonce: true, preparedByUserId: 'mallory', supersedeAuthorized: false }).catch((e) => e);
     expect(err).toBeInstanceOf(NonceSeatTakenError);
     expect(err.message).toMatch(/^NONCE_SEAT_TAKEN: /);
-    expect(err.message).toContain('whoever prepared it'); // it23 §3.7 — en inglés, como la pantalla
+    expect(err.message).toContain('whoever prepared it'); // En inglés, como la pantalla
     expect(mockSuperseded).not.toHaveBeenCalled();
     expect(mockSave).not.toHaveBeenCalled();
   });
 
-  // productizer-it21 §P1 1.1 — …Y UNA SALIDA DE UN EXTRAÑO TAMPOCO LA APARTA. La
-  // it. 19 abrió esa puerta para que el borrador de quien no prueba nada no
+  // …Y UNA SALIDA DE UN EXTRAÑO TAMPOCO LA APARTA. La
+  // abrió esa puerta para que el borrador de quien no prueba nada no
   // tapiara la salida del dueño; pero la etiqueta la fija la RUTA y `xrplAddress`
   // viene del CUERPO, así que servía igual para lo contrario: Mallory pedía
   // `/pa-unmint/prepare` sobre la cuenta de Alice y le apartaba su borrador VIVO,
-  // dejándole dos payloads firmables en el mismo nonce (it20 N1 1.1). Apartar algo
+  // dejándole dos payloads firmables en el mismo nonce. Apartar algo
   // que todavía puede firmarse exige PROBAR la cuenta.
-  it('…y una SALIDA de quien no prueba nada NO aparta la fila viva de otro (it21 §1.1)', async () => {
+  it('…y una SALIDA de quien no prueba nada NO aparta la fila viva de otro', async () => {
     const row = await conflictRow({ preparedByUserId: 'alice' });
     mockQueued.mockResolvedValue([row]);
     const err = await build({ action: 'pa-unmint', preparedByUserId: 'mallory' }).catch((e) => e);
@@ -299,7 +292,7 @@ describe('buildDirectMintHandoff — supersede is not the body’s to decide (§
     mockQueued.mockResolvedValue([row]);
     const err = await build({ action: 'e1', preparedByUserId: 'alice' }).catch((e) => e);
     expect(err).toBeInstanceOf(NonceSeatTakenError);
-    // it23 §Q1 §3.7 — la misma frase, en inglés: es lo que lee la pantalla.
+    // §Q1 §3.7 — la misma frase, en inglés: es lo que lee la pantalla.
     expect(err.message).toContain('whoever prepared it, or the owning account, cancels it');
     expect(err.message).toContain('it frees itself in 5 min');
     expect(err.message).not.toMatch(/frees itself when it is cancelled/);
@@ -319,7 +312,7 @@ describe('buildDirectMintHandoff — an operational account only takes Astryum�
     expect(mockSave).not.toHaveBeenCalled();
   });
 
-  // it14 §3.4 / contrato C4: LA SALIDA JAMÁS SE GATEA. Un consejo operado por
+  // / contrato C4: LA SALIDA JAMÁS SE GATEA. Un consejo operado por
   // Astryum que estuviera en la lista de entorno recibía 403 en su propia
   // salida. Ahora una etiqueta de salida pasa si la sesión prueba la cuenta.
   it.each([['pa-unmint'], ['astryum-pote-exit'], ['vault-withdraw:firelight']])(
@@ -419,7 +412,7 @@ describe('resolveReportedSignature — folds the ledger answers', () => {
     });
   });
 
-  // it15 §K1: un tec* validado NO ocupa el asiento — entró en el ledger y no
+  // §K1: un tec* validado NO ocupa el asiento — entró en el ledger y no
   // entregó XRP, y FAssets exige status == PAYMENT_SUCCESS para el direct
   // minting. Pero cualquier respuesta que aún pueda volverse firma viva manda.
   it('a validated tec* is «failed», not «validated»', async () => {

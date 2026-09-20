@@ -89,7 +89,7 @@ export default function ExchangeJourney({ lang, finaleCta, switcher }: { lang: L
 
         <div className="sticky top-0 h-[100svh] overflow-hidden">
           {/* EL TEXTO A LA IZQUIERDA Y EL ARTEFACTO A LA DERECHA DESDE EL SEGUNDO
-              CERO (fundador 2026-09-20): la misma maqueta que la portada — el
+              CERO: la misma maqueta que la portada — el
               hero ocupa la columna izquierda, la escena la derecha, y las
               paradas entran después por la izquierda mientras la escena se
               queda donde estaba. */}

@@ -1,30 +1,8 @@
 /**
- * it. 27 — UNA DEUDA QUE NO SE PUDO LEER NO ES UNA DEUDA DE CERO.
+ * UNA DEUDA QUE NO SE PUDO LEER NO ES UNA DEUDA DE CERO.
  *
  * THE FAILURE THIS SUITE PINS. `/e1-borrow/prepare` read the person's live
  * position with `.catch(() => 0n)` on both legs:
- *
- *   kFxrp.balanceOfUnderlying(...).catch(() => 0n)     // their collateral
- *   kUsdt0.borrowBalanceCurrent(...).catch(() => 0n)   // their current debt
- *
- * and then used those zeros as if they were facts. The damage is not cosmetic:
- *
- *   · `borrowUsdt0 = target - debtNow` with `debtNow = 0` asks for the WHOLE
- *     target, ignoring what that person already owes — they borrow more than
- *     the ratio they chose;
- *   · `totalDebtAfter = debtNow + borrowUsdt0` is what `computeTriggerPrice`
- *     turns into the LIQUIDATION PRICE shown before the signature, so the
- *     number is wrong in the dangerous direction: the warning they are given
- *     arrives later than it promises;
- *   · an unread collateral answered 409 NO_COLLATERAL — «this wallet has no
- *     FXRP supplied» — an assertion about THEIR position that nobody looked at.
- *
- * Same family as the unreadable instant fee one file over (invariants #6 and
- * #9: the number in front of a signature is protocol data with its source, or
- * it is not there), deciding this time how much debt to put on somebody.
- *
- * Hermetic: ethers.Contract is faked by address, and the reads under test
- * REJECT. Every assertion is over a refusal or an UNSIGNED payload.
  */
 import express from 'express';
 import request from 'supertest';
@@ -124,7 +102,7 @@ function assertHonestRefusal(body: Record<string, unknown>) {
   expect(body.disclosure).toBeUndefined();
 }
 
-describe('it. 27 · the chain — an unread position never becomes a zero', () => {
+describe('The chain — an unread position never becomes a zero', () => {
   it('a debt that did not answer refuses, instead of sizing the loan as if there were none', async () => {
     DOWN.debt = true;
     const res = await borrow();

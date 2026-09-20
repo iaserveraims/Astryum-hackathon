@@ -7,17 +7,6 @@
  * bridge) o MetaMask, aquí se ejecuta LA MISMA calldata impersonando al
  * firmante con `anvil_impersonateAccount`. Lo que se ensaya es byte a byte lo
  * que se firmaría; lo único que se salta es la firma y la prueba FDC.
- *
- * ── FAIL-CLOSED, TRES VECES ────────────────────────────────────────────────
- *  1. El router entero solo se monta con `DRY_RUN_MODE=true` (index-simple).
- *  2. Cada llamada re-comprueba el flag Y que el RPC del ensayo sea LOCAL
- *     (`assertLocalRpc`): este módulo jamás puede impersonar contra un RPC
- *     remoto — anvil es el único sitio donde `anvil_*` existe, pero la guarda
- *     no depende de eso.
- *  3. Nada de aquí toca claves: impersonar en anvil no usa ninguna.
- *
- * Invariantes intactos: Astryum no firma (aquí NADIE firma), no custodia, y el
- * capital del ensayo es del fork — no existe.
  */
 
 import { ethers } from 'ethers';
@@ -211,9 +200,9 @@ export class DryRunExecutor {
         await this.provider.call(tx); // revienta aquí, con motivo, si está condenada
         // Gas = estimación ×2 (capada bajo el límite del bloque del fork): la
         // estimación pelada se queda CORTA en los caminos fríos de Compound —
-        // visto 5-sep, recall de Kinetic: OutOfGas dentro del transfer del FXRP
+        // visto, recall de Kinetic: OutOfGas dentro del transfer del FXRP
         // por la regla 63/64. Pedir un fijo enorme tampoco: «intrinsic gas too
-        // high» (lección del 28-ago). Estimar y dar margen es el punto medio.
+        // high» (lección). Estimar y dar margen es el punto medio.
         try {
           const est = (await this.provider.send('eth_estimateGas', [tx])) as string;
           const withMargin = (BigInt(est) * 2n > 7_500_000n ? 7_500_000n : BigInt(est) * 2n);

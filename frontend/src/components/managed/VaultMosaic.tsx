@@ -1,47 +1,12 @@
 'use client';
 
 /**
- * VaultMosaic — CONSTRUIDO, DESMONTADO EL MISMO DÍA (2026-09-13).
+ * VaultMosaic — CONSTRUIDO, DESMONTADO EL MISMO DÍA.
  *
- * Fue el catálogo durante unas horas; se retiró en la segunda pasada del
- * fundador («se ven achatados y pequeñitos, deberían verse como todas las
- * estrategias del Earn»): las filas de 10,5 rem y las columnas de 12 rem
- * dejaban un «cuadrado» a 192×168 px frente a los 224×288 de una carta de
- * Earn, y el flujo denso ponía los cuadrados en horizontal de todos modos.
+ * Fue el catálogo durante unas horas;
  * El catálogo vuelve a StrategyFan (ManagerDirectory) y lo que vale de aquí
  * —el dinero delante, «tuyo» sumado por bóveda— vive en vaultMoney.tsx y va
  * dentro de la carta. Se conserva sin montar por si la forma vuelve.
- *
- * ── Lo que era ──────────────────────────────────────────────────────────────
- * VaultMosaic — el catálogo de bóvedas con gestor como MOSAICO (fundador
- * 2026-09-13: «que esté mejor repartido el tema de los vaults, el dinero que
- * tiene cada usuario, y lo de la imagen del vault que es secundario… que no
- * estén todos en horizontal: que haya más de uno en un recuadro vertical»).
- *
- * Sustituye a la mano solapada (StrategyFan) SOLO aquí: Earn conserva su
- * mano; el catálogo de bóvedas pasa a una rejilla de recuadros de tres formas
- * —ALTO (una columna, dos filas), CUADRADO y ANCHO (dos columnas)— que el
- * navegador empaqueta denso. Con tres bóvedas: un recuadro alto y dos
- * cuadrados apilados a su lado; con más, la forma rota y aparecen más altos.
- *
- * LO QUE MANDA EN CADA RECUADRO ES EL DINERO: cuánto hay en la bóveda y
- * cuánto de eso es TUYO (sumado en todas tus wallets y sus Smart Accounts),
- * en el activo de la bóveda — participaciones convertidas a activo con la
- * proporción del pote, nunca en euros inventados. La imagen del gestor queda
- * pequeña en la esquina: identifica, no preside.
- *
- * LA FORMA NO ES UN RANKING (invariante #9): se asigna por POSICIÓN en el
- * orden que el usuario eligió (ciclo alto·cuadrado·cuadrado·ancho), nunca
- * por rentabilidad ni por tamaño. La única excepción es un hecho tuyo: la
- * bóveda donde YA tienes capital se pinta alta, porque tu cifra necesita sitio.
- *
- * Tres artefactos por nivel de movimiento (stores/motionStore.ts): en
- * Completo el recuadro sube al pasar y se posa al llegar; en Sereno solo se
- * funde; en Mínimo el mosaico es una LISTA de filas.
- *
- * «NO PUDE LEER» ≠ «NO HAY»: una bóveda ilegible no pinta cifras — lo dice
- * en ámbar; y mientras tus posiciones se leen, «tuyo» es una espera, no un
- * cero.
  */
 
 import { useMemo } from 'react';

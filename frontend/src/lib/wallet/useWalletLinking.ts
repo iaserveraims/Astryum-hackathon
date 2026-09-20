@@ -4,17 +4,6 @@
  * useWalletLinking — orchestrates the Wallets tab.
  *
  * Bridges the wallet partner layer (wagmi/AppKit) with the unified backend:
- *
- *   1. LOGIN / CONNECT  → register the wallet READ-ONLY (purpose 'watch').
- *                         Repeatable: connect many wallets, even several from
- *                         the same provider (switch account → add again).
- *   2. ENABLE TX        → user explicitly signs an ownership-proof message
- *                         (personal_sign, NOT a transaction). Backend verifies
- *                         and records a read_and_receive binding, upgrading the
- *                         wallet to tx-capable.
- *
- * REGULATORY: this hook never broadcasts and never auto-signs. Logging in only
- * reads an address; transactions require the separate, explicit binding step.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -268,7 +257,7 @@ export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
     }
   }, [disconnectAsync]);
 
-  // ─── The EVM door of this beta (founder 2026-08-04) ─────────────────────────
+  // ─── The EVM door of this beta ─────────────────────────
   // MetaMask, on Flare Mainnet (14), or nothing. No wallet picker to wander
   // through, no chain to pick wrong: press the button, MetaMask opens, and the
   // connection only survives if it ends up on chain 14 — otherwise this throws
@@ -436,7 +425,7 @@ export function useWalletLinking(enabled: boolean): UseWalletLinkingResult {
       // NO key: it only executes 0xFE userOps signed from the XRPL account that
       // controls it. Falling into the EVM branch below opened the wallet picker
       // and asked the user to "connect this exact wallet" — a demand no wallet
-      // app can ever satisfy (founder 2026-08-03). Say so instead of pretending.
+      // app can ever satisfy. Say so instead of pretending.
       if (known && known.walletType === 'smart-account') {
         throw new Error(
           'This is a Flare Smart Account: it has no key of its own — it executes orders signed in Xaman by the XRPL account that controls it. There is nothing to enable here.',

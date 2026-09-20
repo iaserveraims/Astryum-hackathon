@@ -179,7 +179,7 @@ function Seal({ size = 96 }: { size?: number }) {
 function Telemetry({ lang }: { lang: Lang }) {
   const es = lang === 'es';
   const reduce = useReducedMotion();
-  // Only readings that are true statements (de-AI pass 2026-07-21): the
+  // Only readings that are true statements (de-AI pass): the
   // invented "RELAY 14" / "DRIFT 0.003°" numbers looked like live telemetry
   // but measured nothing — cut, not replaced.
   const items = [
@@ -301,7 +301,7 @@ function Console({
   const [email, setEmail] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [step, setStep] = useState(0);
-  // Anti-bot pair (2026-07-23 — bots flooded this relay): a Turnstile token
+  // Anti-bot pair (bots flooded this relay): a Turnstile token
   // when the sitekey is configured, plus a honeypot no human ever sees.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
@@ -417,8 +417,8 @@ function Console({
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-sm font-semibold text-black transition-all hover:brightness-105 disabled:opacity-80"
               style={{ background: GOLD, boxShadow: '0 8px 30px hsl(var(--volt) / 0.28)' }}
             >
-              {/* Literal verb, not metaphor (founder rule: concrete copy > metaphor,
-                  2026-07-21) — the button says what clicking it does. */}
+              {/* Literal verb, not metaphor — the button says what clicking it does.
+              { */}
               {phase === 'sending' ? (es ? 'Pidiendo acceso' : 'Requesting access') : es ? 'Pedir acceso' : 'Request access'}
               {phase === 'sending' ? (
                 <motion.span
@@ -672,7 +672,7 @@ export default function EarlyAccessPage() {
           <HackathonFooterNote lang={lang} tone="dark" />
           {/* Legal links: this page COLLECTS an email, so it is a collection
               point under art. 13 — it shipped without a single link to the
-              notice (audit 2026-08-01). Also Llei 20/2014: visible, permanent. */}
+              notice (audit). Also Llei 20/2014: visible, permanent. */}
           <span className="flex items-center gap-3 text-[11px]">
             <a href="/demo-terms" className="text-white/35 underline-offset-2 transition-colors hover:text-white/70 hover:underline">
               {es ? 'Condiciones' : 'Terms'}

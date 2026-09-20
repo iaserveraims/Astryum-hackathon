@@ -1,24 +1,6 @@
 /**
- * productizer it. 33 (agente C, 2) — «NO PUDE LEER SI ESTA CUENTA ES TUYA» NO ES
+ * «NO PUDE LEER SI ESTA CUENTA ES TUYA» NO ES
  * «ABRE UNA»: EL CONSUMIDOR, contra el cuerpo REAL de `GET /runs/:id`.
- *
- * Lo que fallaba (R2/R4 de la it. 32): el libro del cliente se recarga cada 20 s
- * por `GET /runs/:id`. Con la marca de toma de posesión del lector inutilizable
- * (adelantada, ilegible, o la base caída) el servidor fallaba cerrado a
- * `mine:false` en TODAS las filas y no decía nada más; `useExchangeClient`
- * derivaba «mi fila» de `mine`, se quedaba `undefined`, y `ClientDashboard`
- * pintaba `<OpenAccount/>` sobre la cuenta de una persona con XRP dentro. Si
- * pulsaba, 409 ACCOUNT_ALREADY_A_CLIENT sin lector. Un parpadeo del pooler.
- *
- * La cadena del lado del cliente:
- *   1. el cuerpo que el servidor manda ahora (`run` + `viewerUnreadable`) entra
- *      por `call()` y la marca viaja DENTRO del run (`r.data.run.viewerUnreadable`);
- *   2. `ownershipUnreadableFor` (lo que el hook expone como `ownershipUnreadable`)
- *      da la negativa solo cuando hay una fila CON dueño para esta passkey que
- *      el servidor no pudo atribuir — sin fila con dueño, el alta es la verdad;
- *   3. `PortalRefusal` (lo que `ClientDashboard` monta en ese caso) pinta la frase
- *      del servidor y «Try again»;
- * y el cable: la pantalla pregunta por `c.ownershipUnreadable` ANTES de `<OpenAccount/>`.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';

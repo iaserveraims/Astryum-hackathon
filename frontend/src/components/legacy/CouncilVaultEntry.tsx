@@ -4,19 +4,6 @@
  * CouncilVaultEntry — a council enters and leaves a venue the same way a person
  * enters a vault in Earn, except the signature is the quorum's and the rail
  * underneath is always the cage.
- *
- * The founder's verdict on the old surface (2026-07-28) was blunt: "desde esta
- * ui no se puede hacer nada". It asked for a VENUE NUMBER and an AMOUNT IN BASE
- * UNITS, with nothing on screen to say which venues existed, what they held, or
- * how many decimals the token had. This is the same rail with the facts read
- * out loud — the vault's registered venues, its idle principal, its asset — and
- * amounts typed in the units a person actually thinks in.
- *
- * What did NOT change, and must not: the plumbing. Entering is `directTo`,
- * leaving is `recall`; the quorum signs one 1-drop XRPL Payment carrying the
- * order's hash; the FDC proves it; the bridge executes exactly those bytes on
- * the vault. Astryum composes and relays with zero discretion (#8), never signs
- * (#1), and no order can extract the principal — that function does not exist.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -72,16 +59,16 @@ interface PendingOrder {
    * the order ON XRPL; something still has to carry the FDC proof to the
    * bridge. Kept here so `onSettled` can fire that relay — without it the order
    * validates, looks signed, and simply never executes (exactly what happened
-   * on the first live run, 2026-07-29 12:29 UTC).
+   * on the first live run, 12:29 UTC).
    */
   orderData?: string;
   /** council-order/prepare's exit token (recall): forwarded to /multisign/prepare. */
   exitToken?: string | null;
-  /** it.13: exits the server could not remember — keep the screen open or relay by hash. */
+  /** Exits the server could not remember — keep the screen open or relay by hash. */
   recoveryWarning?: string;
-  /** it.13: another order of this council is already in flight. */
+  /** Another order of this council is already in flight. */
   inFlightWarning?: string;
-  /** it.14: the SAME order went out for this council a moment ago. */
+  /** The SAME order went out for this council a moment ago. */
   duplicateWarning?: string;
 }
 
@@ -175,11 +162,11 @@ export default function CouncilVaultEntry({
   const [pending, setPending] = useState<PendingOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 409 SAME_ORDER_RECENTLY_LAUNCHED (it.14; COUNCIL_ORDER_IN_FLIGHT in it.13):
+  // 409 SAME_ORDER_RECENTLY_LAUNCHED (COUNCIL_ORDER_IN_FLIGHT in):
   // composing the same order again is an explicit confirm, never a silent retry.
   const [inFlight, setInFlight] = useState<{ detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
   /**
-   * it.14 (R2 2.3): the ceremony's broadcast landed on a spent Sequence and the
+   * The ceremony's broadcast landed on a spent Sequence and the
    * order's fate says a sibling already went out (or could not be checked).
    * Composing stays shut here until the council says it checked.
    */
@@ -283,8 +270,8 @@ export default function CouncilVaultEntry({
     (direction === 'fund' ? !fundOutOfRange : !!venue && !overCeiling && !venueBlocked);
 
   const compose = useCallback(async (opts?: { confirmAnotherOrder?: boolean }) => {
-    // it.14: a stale order of this council may already be on its way to Flare.
-    // it.16 (R3 3.1): direction 'out' is a RECALL — capital coming out — and an
+    // A stale order of this council may already be on its way to Flare.
+    // direction 'out' is a RECALL — capital coming out — and an
     // exit is warned, never stopped. Only 'fund' / 'in' are paused, and the
     // person's «compose it again anyway» composes instead of returning here.
     if (!state || parsed === null) return;
@@ -331,18 +318,18 @@ export default function CouncilVaultEntry({
       }
     } catch (err) {
       const body = (err as { body?: { error?: string; detail?: string; minutesAgo?: number; launchedAt?: string; retryAfterSeconds?: number } })?.body;
-      // it. 21 (§2.7): «we could not check» comes through this same door and is
+      // «we could not check» comes through this same door and is
       // NOT «it already went out» — its own sentence, its own retry.
       if (mayConfirmAnotherOrder(body) && !opts?.confirmAnotherOrder) {
         // The same order went out a moment ago: an explicit confirm, never a
-        // silent retry. Both guard names are read (it.13 / it.14).
+        // silent retry. Both guard names are read.
         setInFlight({ detail: body?.detail, code: body?.error, minutesAgo: sameOrderMinutesAgo(body), retryAfterSeconds: body?.retryAfterSeconds ?? null });
         return;
       }
       // Funding adds principal that is as one-way as the first: the server holds
       // the disclosure gate, and its refusal opens the text (then retries).
       //
-      // it. 31 (4.3) — …ONLY when confirming can clear it (`cause`, it. 27, was
+      // …ONLY when confirming can clear it (`cause`, was
       // never read here): a security record that does not parse, or is dated
       // ahead of the server's clock, or a database that did not answer, reopened
       // the modal and confirming brought the same 409 back. Those show the
@@ -435,7 +422,7 @@ export default function CouncilVaultEntry({
           exitToken={pending.exitToken}
           onStaleFate={staleLock.report}
         />
-        {/* it.16 (R5 5.5): the lock ARMS here — the ceremony's broadcast is what
+        {/* The lock ARMS here — the ceremony's broadcast is what
             comes back stale — and its note used to live only in the form branch
             below this early `return`, so the console paused with no headline and
             no way out. It is rendered on both screens now. */}
@@ -708,7 +695,7 @@ export default function CouncilVaultEntry({
                 {quote.quote.principalAdded} FXRP
               </span>
             )}
-            {/* El tope beta, dicho ANTES de teclear (fundador 2026-08-06): el
+            {/* El tope beta, dicho ANTES de teclear: el
                 principal enjaulado no vuelve a una dirección; en beta la jaula
                 admite un total limitado por Astryum. */}
             {direction === 'fund' && quote?.cage?.capXrp != null && (

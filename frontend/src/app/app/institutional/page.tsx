@@ -40,7 +40,7 @@ export default function InstitutionalPage() {
     );
   }
 
-  // Gate de admin (28-ago, cerrado 8-sep): esta página monta la consola de la
+  // Gate de admin (cerrado): esta página monta la consola de la
   // JAULA v2 (gobierno completo) y con la flag sola entraba cualquier usuario
   // logueado que tecleara la URL — con capital real detrás en mainnet. Durante
   // la ventana de demo va tras PreviewOnly (fail-closed, veredicto de servidor);
@@ -60,7 +60,7 @@ function InstitutionalLenses() {
   // La cuenta XRPL conectada: quien firma la salida del modo no-custodial.
   const { address: xrplAddress } = useXrplWalletPartner();
   // A Xaman signature of the operator lens (CageConsole / CredentialTray) can no
-  // longer be dropped: switching lens would unmount it (productizer-it7). The
+  // longer be dropped: switching lens would unmount it. The
   // scope below hears every XamanSingleSign inside the lens.
   const [lensBlocked, setLensBlocked] = useState(false);
 

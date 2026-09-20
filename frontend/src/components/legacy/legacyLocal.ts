@@ -22,8 +22,7 @@ const OWNER_KEY = 'astryum-legacy-owner';
  * it, every trace is wiped first (pointers, nicknames, drafts, plans): the
  * write-buffer is browser-scoped, so without this an account switch inherited
  * the previous user's Legacies — and the registry drain then WROTE them into
- * the new user's registry (founder 2026-08-11: logging in with a second email
- * showed the main account's Legacy). Same philosophy as authStore's
+ * the new user's registry. Same philosophy as authStore's
  * disconnectWalletSession: account switches start clean.
  */
 export function claimLegacyLocalOwner(userId: string): void {
@@ -85,9 +84,7 @@ export function rememberLegacy(address: string): void {
   if (!list.includes(address)) writeObservedLegacies([...list, address]);
 }
 
-/** Remove EVERY local trace of an address (founder 2026-08-11: removing a
- *  Legacy and re-adding it resurrected its nickname and half-written
- *  constitution draft — "quitar" must mean a clean slate). The ledger side is
+/** Remove EVERY local trace of an address. The ledger side is
  *  untouched by design: council, rehearsal and door are read fresh from chain
  *  and the wizard will honestly resume whatever the ledger says is done. */
 export function forgetLegacy(address: string): void {

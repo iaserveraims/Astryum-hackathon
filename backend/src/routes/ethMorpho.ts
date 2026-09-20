@@ -8,11 +8,6 @@
  * geofence (#5). EXIT prepares and every READ are flag-only — «LA SALIDA JAMÁS
  * SE GATEA» (gateEthMorphoExit / gateEthMorphoRead). The flag ships OFF and does
  * not turn on until the 4-contract risk scan passes (BuildSpec B5).
- *
- * Surface:
- *   GET  /status  → { active }              (the Earn cards ask before showing)
- *   GET  /market  → live market snapshot    (flag-only read; protocol data with source)
- *   POST /prepare → unsigned legs + pre-flights + simulation + disclosure
  */
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
@@ -72,7 +67,7 @@ function gateEthMorpho(region: string | null): { status: number; error: string }
 }
 
 /**
- * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13).
+ * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA»).
  *
  * The gate for EXITS on this rail: flag-only (#10), NO geofence. Repaying debt,
  * withdrawing one's own collateral, closing the whole carry, redeeming from the
@@ -80,7 +75,7 @@ function gateEthMorpho(region: string | null): { status: number; error: string }
  * already has. The geofence (#5) exists to stop OPENING exposure from a blocked
  * region; applied to an unwind it leaves someone with a leveraged position and no
  * way down while liquidation runs. The flag stays (module kill-switch, pending
- * founder decision). Entries keep `gateEthMorpho(region)`.
+ * Entries keep `gateEthMorpho(region)`.
  */
 function gateEthMorphoExit(): { status: number; error: string } | null {
   if (process.env.ETH_RLUSD_FXRP_ENABLED !== 'true') {
@@ -100,7 +95,7 @@ function gateEthMorphoExit(): { status: number; error: string } | null {
  * board reads /position. With the reads geofenced, the (already ungated) exit
  * prepares were unreachable from the app in a blocked region — someone with a
  * leveraged position could not even SEE it, let alone unwind it. Monitoring is
- * always available (#5). The module flag stays (kill-switch, founder decision).
+ * always available (#5). The module flag stays.
  */
 function gateEthMorphoRead(): { status: number; error: string } | null {
   return gateEthMorphoExit();
@@ -237,7 +232,7 @@ router.get('/position', async (req: Request, res: Response) => {
     // de la aplicación entera: ni fila en el tablero, ni saldo en la salida, ni
     // manera de saber cuánto tienes. Y la pantalla de éxito prometía que
     // aparecería en Positions. El usuario que no ve su dinero vuelve a
-    // depositar (auditoría 2026-08-17, hallazgo crítico).
+    // depositar (auditorí, hallazgo crítico).
     //
     // Best-effort A PROPÓSITO: si la bóveda no se puede leer, la posición del
     // MERCADO sigue saliendo. Meterlas en el mismo try haría que un fallo de la
@@ -309,15 +304,6 @@ router.get('/position', async (req: Request, res: Response) => {
  * botón MAX estaban ocultos a propósito para este carril (el endpoint de saldo
  * nativo solo sabe leer Flare), así que el usuario escribía la cantidad a
  * ciegas y el único aviso llegaba del pre-flight, ya con el formulario relleno.
- *
- * Es además lo que permite DECIDIR el camino en vez de preguntarlo: con FXRP
- * suficiente en Ethereum se entra directo; si está en Flare hace falta el
- * puente. El cliente no tiene que adivinar cuál, y el usuario tampoco.
- *
- * Cada cadena se lee por separado y a propósito: si una falla, la otra sigue
- * contestando. Un fallo devuelve `null`, NUNCA 0 — «no pude leer» y «no tienes»
- * llevan a decisiones opuestas, y confundirlos aquí manda a alguien a puentear
- * un FXRP que ya tenía, o a creer que no tiene nada.
  */
 router.get('/balances', async (req: Request, res: Response) => {
   const gate = gateEthMorphoRead(); // a read never takes the geofence — see gateEthMorphoRead
@@ -585,7 +571,7 @@ const closePrepareSchema = z.object({
   /**
    * Cómo cubrir el hueco del interés. Se omite a propósito en la primera
    * llamada: la respuesta trae el hueco y sus opciones, y el usuario ELIGE
-   * (doctrina del 31-jul — un default silencioso que vende su colateral, no).
+   * (doctrina — un default silencioso que vende su colateral, no).
    */
   coverGap: z.enum(['swap-collateral', 'wallet']).optional(),
   region: z.string().trim().min(2).max(8).nullable().optional(),

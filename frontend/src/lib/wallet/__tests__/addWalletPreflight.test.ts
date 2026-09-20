@@ -1,7 +1,7 @@
 /**
  * Añadir una wallet no puede acabar en silencio.
  *
- * Los tres silencios que se pagaron en vivo (fundador 2026-09-13) y que este
+ * Los tres silencios que se pagaron en vivo y que este
  * módulo convierte en una frase: la dirección ya estaba, la cuenta tiene
  * consejo (y por eso desaparecía de la lista en producción), y la lectura del
  * ledger no llegó. El cuarto caso —alta limpia— es el único que puede entrar

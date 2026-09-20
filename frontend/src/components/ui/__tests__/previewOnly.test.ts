@@ -9,13 +9,6 @@ import { join } from 'node:path';
  * `jsx: "preserve"`, así que importar el .tsx revienta en el transform. Se
  * extrae la DECISIÓN del fuente que se publica y se EJECUTA — misma técnica que
  * `strategySectionRunHealth` y `proposalInboxLedgerCheck`.
- *
- * Lo que se vigila aquí es una sola cosa, y es la que no puede fallar nunca:
- * cualquier estado que no sea un `true` confirmado del servidor NO renderiza.
- * Un `undefined` mientras carga el store, un `null` de una lectura fallida o un
- * string cualquiera tienen que esconder la sección — porque «no pude leer» no
- * es «eres fundador», que es la misma familia de fallo que esta auditoría lleva
- * persiguiendo desde el primer día.
  */
 
 const SRC = join(__dirname, '..', 'PreviewOnly.tsx');

@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { councilRedactionSentence, readCouncilRedaction } from '../councilSigning';
 
 /**
- * productizer it. 23 (it. 22 §2.3) — LA REDACCIÓN SE PRESENTABA COMO UN HECHO.
+ * LA REDACCIÓN SE PRESENTABA COMO UN HECHO.
  *
- * it. 21 §3.7 sirve al cosignatario solo REGISTRADO el material de firma entero
+ * Sirve al cosignatario solo REGISTRADO el material de firma entero
  * y nada de la deliberación: `title: null`, `positions: []`, con `access` y
  * `redacted` dichos en la respuesta. El frontend no leía ninguno de los dos
  * campos (grep: cero), así que al cosignatario se le pintaba «nadie ha fijado
@@ -66,7 +66,7 @@ describe('la frase: se dice qué se ocultó y por qué, sin tocar la firma', () 
 });
 
 describe('el cable: las dos superficies lo leen', () => {
-  // it. 25 — ESTE TEST CONSAGRABA EL FALLO. Exigía en el fuente la puerta
+  // ESTE TEST CONSAGRABA EL FALLO. Exigía en el fuente la puerta
   // `&& !hidden`, que apagaba «Fix my position» para el cosignatario
   // REGISTRADO. El servidor nunca cerró esa puerta: `POST /:id/positions` no
   // tiene suelo de lectura, comprueba la SignerList, la coherencia del JSON

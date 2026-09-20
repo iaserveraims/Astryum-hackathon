@@ -5,14 +5,6 @@
  * en la pantalla de hoy. Eso está bien mientras algo obligue a los dos modelos a
  * decir lo mismo; en cuanto se separen, la pantalla dirá una cosa y el motor
  * otra, que es exactamente cómo se cuelan los bugs de esta familia.
- *
- * Así que estos tests no comprueban «que el fichero compile»: comprueban las
- * tres cosas que romperían el catálogo en silencio.
- *
- *   1. Que ninguna ruta viva se pierda ni se duplique al reagrupar.
- *   2. Que la tipología nueva y el `outcome` viejo no puedan discrepar.
- *   3. Que ningún hecho de riesgo contradiga a otro — la franja se DERIVA,
- *      nunca se escribe, y una card sin ruta jamás ofrece firmar.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -73,7 +65,7 @@ describe('las dos fuentes no pueden discrepar', () => {
    * de sitio en uno de los dos ficheros, este test cae.
    *
    * Y hay UNA divergencia deliberada: el outcome «network» del modelo viejo se
-   * fusiona en «earn» (fundador, 23-ago: «al final es lo mismo»). Desde la
+   * fusiona en «earn». Desde la
    * pregunta del usuario —que mi dinero rinda sin deuda— delegar al FTSO es un
    * sitio más donde ponerlo a trabajar; que el token no salga de la wallet es un
    * hecho de esa card, no una tipología con su propia sección.
@@ -164,7 +156,7 @@ describe('la pantalla nunca ofrece lo que no existe', () => {
     const kinetic = actionOfKind('e3')!;
     expect(isExecutable(kinetic, 'FXRP')).toBe(true);
     // Kinetic tiene mercado de USDC.e, pero no hay ruta de preparación para él:
-    // se puede leer, no firmar (barrido 2026-08-23).
+    // se puede leer, no firmar (barrido).
     expect(isExecutable(kinetic, 'USDC.e')).toBe(false);
   });
 });

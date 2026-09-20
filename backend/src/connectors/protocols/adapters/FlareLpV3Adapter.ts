@@ -18,7 +18,7 @@ import type { FlareLpV3Venue } from '../../../config/flareLpVenues';
  * positions(tokenId) tuple: Algebra Integral (SparkDEX V4) carries `deployer`
  * (address) in the slot where UniV3 (Enosys V3) carries `fee` (uint24) —
  * decoding with the wrong layout reverts on custom-deployer pools, hence the
- * per-venue `tupleStyle` (verified on-chain 2026-07-11, see flareLpVenues.ts).
+ * per-venue `tupleStyle` (verified on-chain, see flareLpVenues.ts).
  */
 
 const NPM_COMMON_ABI = [

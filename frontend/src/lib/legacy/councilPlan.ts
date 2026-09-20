@@ -1,7 +1,7 @@
 /**
  * councilPlan — the rules of a signer list, as pure functions.
  *
- * WHY THIS EXISTS (2026-08-03). The council is NOT created inside Astryum any
+ * WHY THIS EXISTS. The council is NOT created inside Astryum any
  * more: Xaman refuses a `SignerListSet` composed by a third-party app (401 /
  * code 1217, "No permission to create this type of sign request"), and that
  * permission is granted per app by Xaman's support. The family creates its
@@ -9,17 +9,6 @@
  * amended this project's own council in July (verified on-ledger: those two
  * SignerListSets carry no SourceTag, fee 800 drops, and Xaman's own
  * "YOU ARE GIVING AWAY CONTROL OF YOUR ACCOUNT" memo).
- *
- * So Astryum's job shifts from COMPOSING the transaction to being the place
- * where the plan is decided, checked and — afterwards — verified against the
- * ledger. That makes these rules the load-bearing part, and they must hold in
- * two places at once (the live form and the unsigned-composer fallback), so
- * they live here: pure, no React, no network, testable.
- *
- * The rule that matters most is F10: a quorum above the total weight is a
- * signer list NO combination of keys can ever satisfy. With the master key
- * later disabled, that is an account locked forever, with the capital inside.
- * It has to be said HERE, in words, before anyone types it into a wallet.
  */
 
 /** One row of the plan, exactly as a person types it. */

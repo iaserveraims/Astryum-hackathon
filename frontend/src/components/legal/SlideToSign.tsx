@@ -1,28 +1,11 @@
 'use client';
 
 /**
- * SlideToSign — LA FIRMA ES UN GESTO, no un clic (fundador 2026-09-13: «quiero
- * que la firma sea como en Xaman, que sea deslizar una flecha hacia la
- * derecha»).
+ * SlideToSign — LA FIRMA ES UN GESTO, no un clic.
  *
  * Un clic se da sin mirar; un deslizamiento hay que quererlo. Es exactamente
  * el gesto que Xaman pone delante de cada firma XRPL, así que el usuario que
  * llega aquí ya lo conoce: el mismo gesto para lo mismo — comprometerse.
- *
- * TRES REGLAS QUE ESTE CONTROL NO NEGOCIA:
- *
- * · NO SE FIRMA LO QUE NO SE PUEDE FIRMAR. Con `disabled` el carril queda
- *   inerte y DICE POR QUÉ (`hint`) en lugar de quedarse gris y mudo. Una
- *   firma bloqueada sin motivo se lee como una pantalla rota.
- * · SE COMPLETA AL SOLTAR EN EL FINAL, no al rozarlo: si sueltas antes, el
- *   tirador vuelve solo. Arrastrar sin querer no firma nada.
- * · SE PUEDE FIRMAR SIN RATÓN. El tirador es un `slider` real: flechas para
- *   avanzar, Fin para llegar al final. Un gesto de arrastre que solo existe
- *   para el ratón dejaría fuera a quien navega con teclado — y esto es la
- *   única puerta a la cuenta.
- *
- * Sin red y sin estado propio más allá del gesto: quién firma y qué se
- * registra lo decide quien lo monta (LegalSignCeremony).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

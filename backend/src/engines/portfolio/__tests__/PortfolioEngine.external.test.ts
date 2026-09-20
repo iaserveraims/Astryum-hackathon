@@ -162,7 +162,7 @@ describe('PortfolioEngine external provider gating', () => {
     expect(external).toBeDefined();
     expect(external?.asset).toBe('ETH');
     expect(external?.amountUSD).toBe(3000);
-    // La cantidad del proveedor SOBREVIVE (14-sep-2026): venía en unidades
+    // La cantidad del proveedor SOBREVIVE: venía en unidades
     // humanas y se tiraba (`amount: 0n`), así que cada fila externa —todo XRPL,
     // los potes— se enseñaba con un 0 al lado de su valor en dólares.
     expect(external?.qty).toBe('1');
@@ -207,7 +207,7 @@ describe('PortfolioEngine external provider gating', () => {
     expect(deBankCall).toHaveBeenCalledTimes(1);
   });
 
-  // Regression (2026-07-04): the external multichain reader re-reported the
+  // Regression: the external multichain reader re-reported the
   // SAME native FLR the Flare NativeBalanceAdapter already read, so the wallet
   // balance appeared twice ('wallet' + 'wallet-14') and inflated totals. The
   // engine must drop external rows whose (chain, wallet-bucket, kind, asset)

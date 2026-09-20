@@ -9,7 +9,7 @@ import {
 } from '../../../lib/wallet/handoffRelease';
 
 /**
- * productizer it. 23 (it. 22 §1.2) — LA MESA NUNCA APRENDÍA LA VENTANA.
+ * LA MESA NUNCA APRENDÍA LA VENTANA.
  *
  * `XamanWalletService` creaba TODOS sus payloads con `expire: 5` escrito a mano,
  * y el asiento del 0xFE se mide contra la ventana del BACKEND

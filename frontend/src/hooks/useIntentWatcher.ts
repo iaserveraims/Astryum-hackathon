@@ -10,7 +10,7 @@
  * user already granted permission) pointing back at /app/intents.
  *
  * Read + alert only: nothing here signs, custodies or broadcasts anything
- * (CLAUDE.md invariants #1/#8). Mount ONCE in AppShell — not per page — so
+ * (invariants #1/#8). Mount ONCE in AppShell — not per page — so
  * every surface shares one poller and one badge count.
  */
 

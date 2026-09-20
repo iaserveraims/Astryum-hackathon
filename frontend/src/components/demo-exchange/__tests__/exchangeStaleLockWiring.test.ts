@@ -3,21 +3,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * productizer it. 16 (R5 5.3 y 5.5) — EL CABLE, EN LAS DOS PANTALLAS DE LA DEMO.
+ * EL CABLE, EN LAS DOS PANTALLAS DE LA DEMO.
  *
  * El candado de la orden caducada existía y estaba cableado en las SEIS consolas
  * institucionales… y el test que lo fijaba miraba exactamente esas seis. Las dos
  * pantallas del exchange — las que se ven en la demo — componían órdenes de
  * consejo SIN candado: firmar pasada la ventana dejaba componer otra orden sobre
  * el mismo capital, y el verde del cableado era falso porque nadie las miraba.
- *
- * Este fichero es el cable-trampa de esas dos. Además fija la otra mitad de la
- * regla, que es la que de verdad importa: el candado JAMÁS para una SALIDA. En
- * la mesa la salida es «Recall to buffer» (venue → colchón), y su botón no
- * consulta `staleBlocks` — se avisa, nunca se gatea.
- *
- * Las decisiones se prueban ejecutándolas (singleSignVerdict.staleFate,
- * releaseCountdown, seatRefusal); esto solo impide que se desconecten otra vez.
  */
 
 const FRONTEND_SRC = join(__dirname, '..', '..', '..');
@@ -31,7 +23,7 @@ const SURFACES: Array<[string, string]> = [
 describe('las dos pantallas del exchange componen órdenes de consejo CON candado', () => {
   it.each(SURFACES)('%s: toma el candado, escucha el destino, para de componer y lo dice', (_name, rel) => {
     const src = read(rel);
-    // it. 19 (R5): el candado se toma COMPARTIDO — `useExchangeStaleLock`, que
+    // El candado se toma COMPARTIDO — `useExchangeStaleLock`, que
     // dentro del scope devuelve el único de la pantalla y fuera cae en el suyo.
     expect(src).toContain('useExchangeStaleLock');
     // El destino del stale entra por el prop; sin esto el candado nunca se cierra.
@@ -61,7 +53,7 @@ describe('el candado no toca una SALIDA', () => {
   });
 
   /**
-   * it. 19 (R5) — «Compose another order anyway» ES la confirmación.
+   * «Compose another order anyway» ES la confirmación.
    *
    * Ese botón aparece DENTRO del aviso de duplicado, con la frase que dice que
    * nada se firmó ni se registró: pulsarlo es exactamente el acto que el
@@ -82,7 +74,7 @@ describe('el candado no toca una SALIDA', () => {
 });
 
 /**
- * it. 19 (R5) — UN SOLO CANDADO POR PANTALLA.
+ * UN SOLO CANDADO POR PANTALLA.
  *
  * `useStaleOrderLock` guarda el candado en estado de React y solo lo LEE al
  * montar: dos consolas que lo llamaran cada una por su cuenta acababan con dos

@@ -1,20 +1,6 @@
 /**
  * submissionVerdict — what a signed-and-persisted XRPL payment of the demo
  * exchange omnibus became, decided from the ledger alone. Pure: no network.
- *
- * The rule comes from xrpl.org (Reliable Transaction Submission, and the `tx`
- * method's Not Found Response):
- *   · persist the signed hash BEFORE submitting;
- *   · a transaction is final only once it appears in a VALIDATED ledger;
- *   · it can never be included in a ledger whose index is past its
- *     LastLedgerSequence;
- *   · `tx` with both `min_ledger` and `max_ledger` answers `txnNotFound` with
- *     `searched_all: true` only when the server searched that whole range and
- *     the transaction is in none of it. `txnNotFound` alone proves nothing.
- *
- * So a payment is dead — and signing a new one is safe — only when BOTH hold:
- * the full range was searched and missed, AND the last validated ledger is
- * already past LastLedgerSequence. Everything else is "wait".
  */
 
 export type TxLookup =

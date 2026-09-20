@@ -12,21 +12,9 @@ import {
 import { describeRetryableRefusal } from '../../xaman/seatRefusal';
 
 /**
- * it. 31 (b) — THE CONSUMER of `/vault-claims`: the watcher's tick, and the
- * tray's «may I go quiet?» guard, run against the exact answer it. 29 taught
+ * THE CONSUMER of `/vault-claims`: the watcher's tick, and the
+ * tray's «may I go quiet?» guard, run against the exact answer taught
  * the route to give.
- *
- * it. 29 fixed the ROUTE: a failed sweep is 502 VAULT_CLAIMS_UNREADABLE, never
- * 200 with an empty `pending`. The hook that consumes it did
- * `if (!res.ok) return null`, that owner contributed no rows, and
- * `setEntries(next)` REPLACED the list. The tray's guard knew `councilUnreadable`
- * and not the claim queue, so with no rows and no notice it printed the quiet
- * marker: «nothing waiting for you». The queued exit — shares already burned,
- * FXRP waiting — vanished exactly as before, one floor up.
- *
- * The tick is `readOwnerQueue` + `mergeClaimsTick` (lib/earn/vaultClaimsTick),
- * which the hook calls verbatim; the guard is `mayClaimNothingWaiting`, pulled
- * out of the shipping SidebarIntents.tsx and executed.
  */
 
 const CARD = join(__dirname, '..', '..', '..', 'components', 'intents', 'SidebarIntents.tsx');
@@ -44,7 +32,7 @@ const OTHER = '0x1111111111111111111111111111111111111111';
 const API = 'https://api.example';
 const t = (s: string) => s;
 
-/** The exact 502 body `/vault-claims` sends since it. 29. */
+/** The exact 502 body `/vault-claims` sends. */
 const REFUSAL_502 = {
   error: 'VAULT_CLAIMS_UNREADABLE',
   retryable: true,
@@ -80,8 +68,8 @@ const PREV: VaultClaimEntry[] = [
   },
 ];
 
-describe('it. 31 (b) · a 502 keeps the last good list and marks the owner unreadable', () => {
-  it('readOwnerQueue turns the it. 29 refusal into an UNREADABLE read — never an empty one', async () => {
+describe('A 502 keeps the last good list and marks the owner unreadable', () => {
+  it('ReadOwnerQueue turns the refusal into an UNREADABLE read — never an empty one', async () => {
     const read = await readOwnerQueue(OWNER, fakeFetch({ [OWNER]: { status: 502, body: REFUSAL_502 } }), API, {});
     expect(read.kind).toBe('unreadable');
     expect(read).toMatchObject({ owner: OWNER, status: 502, error: 'VAULT_CLAIMS_UNREADABLE' });
@@ -91,7 +79,7 @@ describe('it. 31 (b) · a 502 keeps the last good list and marks the owner unrea
     const read = await readOwnerQueue(OWNER, fakeFetch({ [OWNER]: { status: 502, body: REFUSAL_502 } }), API, {});
     const { entries, unreadable } = mergeClaimsTick(PREV, [read]);
 
-    // Before it. 31: entries = [] (the owner contributed no rows) — the Claim
+    // Before: entries = [] (the owner contributed no rows) — the Claim
     // button went with them.
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ owner: OWNER, period: 223, claimable: true, stale: true });
@@ -122,7 +110,7 @@ describe('it. 31 (b) · a 502 keeps the last good list and marks the owner unrea
     expect(entries).toHaveLength(1);
   });
 
-  it('a 200 WITHOUT a `pending` array is not a read (the it. 29 second door) — the list is kept', async () => {
+  it('A 200 WITHOUT a `pending` array is not a read (the second door) — the list is kept', async () => {
     const read = await readOwnerQueue(OWNER, fakeFetch({ [OWNER]: { status: 200, body: { owner: OWNER } } }), API, {});
     expect(read.kind).toBe('unreadable');
     expect(read).toMatchObject({ error: 'QUEUE_BODY_UNREADABLE' });
@@ -160,7 +148,7 @@ describe('it. 31 (b) · a 502 keeps the last good list and marks the owner unrea
   });
 });
 
-describe('it. 31 (b) · a PARTIAL sweep (200, queueRead "partial") keeps only the unread periods from the last list', () => {
+describe('A PARTIAL sweep (200, queueRead "partial") keeps only the unread periods from the last list', () => {
   const partialBody = {
     owner: OWNER,
     queueRead: 'partial',

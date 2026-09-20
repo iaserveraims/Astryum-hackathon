@@ -82,7 +82,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   if (!XRPL_ADDRESS_RE.test(address)) {
     return res.status(400).json({ error: 'INVALID_XRPL_ADDRESS' });
   }
-  // Live-session check INSIDE the write (productizer it. 16, 4.1). A pointer is
+  // Live-session check INSIDE the write (4.1). A pointer is
   // what the authority switcher reads to decide which councils this account
   // governs; a request already in flight when the account is taken over would
   // otherwise plant the previous holder's council on the owner's switcher, dated
@@ -100,7 +100,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   } catch (err) {
     if (isSessionRevoked(err)) return respondSessionRevoked(res);
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) return respondBusyRetry(res);
     throw err;
   }

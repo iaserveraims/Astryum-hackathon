@@ -1,14 +1,12 @@
 /**
- * La regla que decide si un pago XRPL ocurrió. Dos fallos reales la motivan
- * (incidente 22-ago-2026, recibo 79E1DB6E… colgado en «In progress» sobre una
- * tx que no existe en el ledger):
+ * La regla que decide si un pago XRPL ocurrió. Dos fallos reales la motivan:
  *
  *   · un `tec*` está VALIDADO y no hizo el pago — se pintaba verde;
  *   · un rechazo del nodo (`tef*`/`tem*`) devuelve txid igualmente — se vigilaba
  *     para siempre un hash que jamás iba a aparecer.
  *
  * Y el contrapeso, que también es un bug cerrado de esta casa: «no he podido
- * leer» JAMÁS puede convertirse en «ha fallado» (17-ago: anunciar el timeout
+ * leer» JAMÁS puede convertirse en «ha fallado» (anunciar el timeout
  * como fallo empujaba al DOBLE depósito).
  */
 

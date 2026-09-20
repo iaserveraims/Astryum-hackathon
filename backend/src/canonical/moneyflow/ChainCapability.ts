@@ -1,19 +1,6 @@
 /**
  * ChainCapability — the HONEST matrix of what each chain's translator can
  * compile TODAY, and in which execution mode (design doc §2.3).
- *
- * Degradation rule (deterministic, audited): the translator picks the best
- * mode AVAILABLE and declares it in its result; when a flow asks for something
- * the chain does not support, translation FAILS with a readable explanation —
- * it never approximates silently.
- *
- * The execution ladder both chains share today is `sign-at-trigger` (N1): the
- * engine detects → prepares unsigned → the USER signs. Each chain has its own
- * gated non-custodial upgrade: XRPL `native-conditional` (Smart Escrows
- * XLS-100 — amendment "In Development", NOT on mainnet) and EVM
- * `session-scoped` (session keys 4337/7702 — V1.1, MiCA-gated per
- * docs/regulatory/MICA_BOUNDARIES.md). Neither is reachable from here until
- * its gate opens.
  */
 
 import type { CmfAmountType, CmfTriggerKind, CmfVerb } from './CanonicalMoneyFlow';
@@ -42,13 +29,6 @@ export interface ChainCapability {
  * A verb a given ADAPTER doesn't implement fails at prepare time through the
  * engine's existing readable error path (`intent_prepare_failed`) — the
  * matrix is vocabulary-level, not per-adapter feature detection.
- *
- * Triggers: only the evaluators TriggerEvaluator actually implements.
- * TIME_TRIGGER is REAL (5-field cron subset, UTC) and PRICE_DROP_PCT is REAL
- * since M3 (2026-08-16: live FTSO price vs the rule's own baselineUsd) →
- * 'time' and 'price' are both included below; the notes carry the fine
- * print. [This header once claimed both were excluded — it had gone stale
- * against line 57 and its own notes (plan 14-ago §10.3); kept fixed.]
  */
 export const FLARE_EVM_CAPABILITY: ChainCapability = {
   chain: 'eip155:14',
@@ -68,7 +48,7 @@ export const FLARE_EVM_CAPABILITY: ChainCapability = {
 };
 
 /**
- * XRPL — NON-EMPTY since M4 (2026-08-16): the CanonicalXrplTranslator
+ * XRPL — NON-EMPTY since M4: the CanonicalXrplTranslator
  * compiles to the rule vocabulary this window built (M1 scheduledPayment ·
  * B.1 escrow · councilPayment · M3 real price evaluator). Honest matrix:
  * only what a live rail serves is listed.

@@ -2,7 +2,7 @@
  * reinforcedPersonalKeys — quién sigue siendo una wallet personal después de
  * ponerle un quórum.
  *
- * EL FALLO QUE CIERRA (fundador, 21-ago-2026). La pantalla de Wallets daba por
+ * EL FALLO QUE CIERRA. La pantalla de Wallets daba por
  * consejo a CUALQUIER dirección con SignerList y la sacaba de la lista. Como
  * una cuenta personal reforzada también tiene SignerList, terminar la ceremonia
  * hacía DESAPARECER la wallet justo de la pantalla donde la función promete

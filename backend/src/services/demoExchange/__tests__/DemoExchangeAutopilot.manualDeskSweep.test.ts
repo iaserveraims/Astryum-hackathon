@@ -1,22 +1,6 @@
 /**
- * productizer it. 33 (agente C, 3) — EL BARRIDO «SUELTA SOLO» CORRE TAMBIÉN EN
+ * EL BARRIDO «SUELTA SOLO» CORRE TAMBIÉN EN
  * TOMAS SIN AUTOPILOT, que es donde existen las reservas de mesa.
- *
- * Lo que fallaba (R2/R4 de la it. 32): la reserva de mesa con memo la compone
- * la puerta del ESCRITORIO (`prepare-put-to-work`), o sea, una toma que sirve
- * una persona. Su 409 al dueño (`DESK_PAYMENT_NOT_RELEASABLE_HERE`) promete sin
- * condición «once that ledger is past, the exchange proves it absent and
- * releases it on its own» — consagrado por `closedRunOwnerDoor.test.ts` sobre
- * una toma SIN autopilot. Pero `tick()` hacía `continue` para `!listed.autopilot`
- * antes de `serveRun`, y el paso 0 (`sweepDeskPutToWorkPastLls`) no corría nunca
- * en manual: la promesa era falsa justo donde aplicaba, y el saldo del cliente
- * seguía retenido — también frente a su retirada — hasta que un fundador se
- * acordara del DELETE de admin.
- *
- * FASE: un tick entero sobre una toma `autopilot:false` con esa reserva, el
- * ledger validado pasado su LastLedgerSequence y la ventana leída vacía.
- * Y (7): un veredicto que no suelta ya no es un `console.error` por tick y
- * nadie avisado — llega a ops una vez por media hora.
  */
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 
@@ -144,7 +128,7 @@ beforeEach(() => {
   mockSync.mockClear();
 });
 
-describe('it. 33 (3): el barrido de mesa en una toma SIN autopilot', () => {
+describe('El barrido de mesa en una toma SIN autopilot', () => {
   it('CADENA: ventana pasada + omnibus leído en su ventana sin ese 0xFE → released, con recibo, asiento soltado, guardado, y el saldo del cliente de vuelta — sin escanear ni firmar nada', async () => {
     const run = manualRun([composedReservation()]);
     runsToServe = [run];

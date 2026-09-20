@@ -1,30 +1,13 @@
 /**
  * ceremonyReserve — the whole-ceremony XRPL reserve preflight.
  *
- * WHY THIS EXISTS (product finding inside a bug finding, 2026-07-22): on the
+ * WHY THIS EXISTS (product finding inside a bug finding): on the
  * test council rsmv…KDmrf, SIX ceremony transactions failed with
  * `tecINSUFFICIENT_RESERVE` (a SignerListSet + tickets) — the account ran short
  * on reserve mid-ceremony, each failed signature still burning its fee. XRPL's
  * per-tx `simulate` only checks the NEXT single tx at the current ledger state;
  * it cannot see that the full constitution ceremony (signer list + rehearsal
  * escrow + constitution DID) will immobilise more reserve than the account holds.
- *
- * This computes that cost ONCE, before the user starts, from the reserve figures
- * the panel already reads (getSpendableBalance → escrows endpoint). It is Astryum's
- * own thesis applied to Astryum: say "fund the account with X XRP first" BEFORE,
- * not discovered at the third failed signature.
- *
- * Astryum's ceremony adds exactly THREE owner objects — SignerList (the council),
- * the rehearsal Escrow, the constitution DID. Astryum composes NO Tickets (the
- * multisig coordinator is ticketless by design).
- *
- * BUT the projection must NOT be optimistic — an under-stating preflight is this
- * exact bug family in positive form (a figure that looks right and comes up
- * short). The ceremony the test council actually ran DID create reserve-consuming
- * Tickets, from the Xaman Multisign xApp fallback that the panel links out to
- * when a signer can't multisign in-app. So the figure carries MARGIN for that
- * fallback (CEREMONY_MARGIN_OBJECTS) even though this app never composes a Ticket.
- * We do not model the xApp; we leave headroom so the observed path can't overrun.
  */
 
 /** The reserve snapshot the panel already holds (XRPLProvider.getSpendableBalance). */

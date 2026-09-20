@@ -42,12 +42,12 @@ export function useManagerAccount(): ManagerAccountView {
   const { address: live } = useXrplWalletPartner();
   const sessions = useWalletStore((s) => s.wallets);
   const setActiveWallet = useWalletStore((s) => s.setActiveWallet);
-  // EVERY linked wallet, also the ones toggled out of the dashboard totals
-  // (founder 2026-09-15: «no me reconoce la cuenta»): the desk follows an
+  // EVERY linked wallet, also the ones toggled out of the dashboard totals:
+  // the desk follows an
   // account as an IDENTITY that governs, not as money — and a dedicated
   // governing account is exactly the kind one excludes from the totals.
   const { wallets: myWallets, loading } = useMyWallets({ includeExcluded: true });
-  // The hand-pick of THIS user, remembered across reloads (15-sep); a pointer
+  // The hand-pick of THIS user, remembered across reloads; a pointer
   // only — resolveManagerAccount drops it the moment it is not a candidate.
   const chosen = useChosenManagerAccount();
   const remember = useManagerAccountStore((s) => s.choose);
@@ -72,8 +72,8 @@ export function useManagerAccount(): ManagerAccountView {
     (addr: string) => {
       const session = connected.find((w) => w.address === addr);
       // A connected one also becomes the active signer (the primitive
-      // useXrplWalletPartner follows). The pick itself is ALWAYS remembered
-      // (15-sep): it used to be dropped for a connected account, so in the
+      // useXrplWalletPartner follows). The pick itself is ALWAYS remembered:
+      // it used to be dropped for a connected account, so in the
       // next browser — where that session does not exist — the desk fell back
       // to the first linked wallet instead of the one the manager chose.
       if (session) setActiveWallet(session);

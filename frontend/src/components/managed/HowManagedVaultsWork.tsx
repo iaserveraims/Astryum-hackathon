@@ -9,19 +9,6 @@
  * derecha. La misma pieza en los dos sitios — dos explicaciones que se
  * mantienen aparte acaban divergiendo, y aquí divergir sería contar dos
  * versiones distintas de qué puede hacer alguien con tu dinero.
- *
- * ── LO QUE ESTAS FRASES NO PUEDEN VOLVER A DECIR ────────────────────────────
- * Hasta el 26-ago esto prometía que el gestor «nunca puede quedarse con tus
- * activos». En el pote v1 —el vivo hoy— eso es FALSO: quien gobierna puede
- * proponer un vault falso, esperar 31 días y mandarle capital
- * (`AstryumCage.t.sol::test_v1_the_robbery_that_WAS_possible`). Y en Bóvedas
- * con gestor el gestor ES el consejo, así que ese poder es suyo.
- *
- * Lo que sí es cierto, y además vende mejor: añadir un destino se puede, y por
- * eso tienes 30 días para irte antes de que un solo token pueda ir allí. La
- * protección es el AVISO. Cuando la jaula v2 llegue a mainnet —registro
- * on-chain al que el pote pregunta él mismo— esta sección podrá volver a hablar
- * de imposibilidad. Hoy no.
  */
 
 import { AlertTriangle, Landmark, Lock, LogOut, ShieldCheck, SlidersHorizontal } from 'lucide-react';

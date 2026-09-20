@@ -5,24 +5,6 @@
  * Acts as a second opinion on calldata produced by CalldataBuilder, Enso,
  * or any other preparation provider before presenting a TransactionIntent
  * to the user.
- *
- * Cross-validation flow:
- *   1. Another provider (e.g. Enso, 1inch) builds unsigned calldata.
- *   2. `security.crossValidateCalldata` submits that calldata to Tenderly Simulate.
- *   3. Tenderly returns: success/revert, gas estimate, decoded output, call trace.
- *   4. If the simulation reverts, the intent is flagged UNSAFE before user sees it.
- *   5. Significant gas divergence (>30%) also triggers a WARNING flag.
- *
- * Capabilities:
- *   security.simulateTransaction   — simulate any raw tx through Tenderly
- *   security.crossValidateCalldata — validate a prepared-intent calldata object
- *   security.getTrace              — fetch full call trace for a confirmed on-chain tx
- *
- * Env vars:
- *   TENDERLY_API_KEY         — access key (X-Access-Key header). Required.
- *   TENDERLY_ACCOUNT_SLUG    — account slug from dashboard (e.g. "astryum").
- *   TENDERLY_PROJECT_SLUG    — project slug (e.g. "v1").
- *   TENDERLY_API_URL         — base URL (default: https://api.tenderly.co/api/v1)
  */
 
 import type {

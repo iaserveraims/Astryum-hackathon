@@ -68,7 +68,7 @@ export default function GoverningBar() {
             {activeGoverned.pendingSignatures} {t('waiting for your signature')}
           </span>
         )}
-        {/* it. 34 (agente D): la lectura de propuestas se intentó y falló (it. 27 §6).
+        {/* La lectura de propuestas se intentó y falló.
             Sin esto, la barra de gobierno callaba igual que con cero pendientes. */}
         {activeGoverned.proposalsUnread && typeof activeGoverned.pendingSignatures !== 'number' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">

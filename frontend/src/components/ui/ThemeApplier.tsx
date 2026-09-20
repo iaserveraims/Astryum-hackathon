@@ -3,30 +3,6 @@
 /**
  * ThemeApplier — estampa en <html> los TRES atributos que visten el panel
  * mientras el panel está montado:
- *
- *   · data-skin      el TEMA (material): astryum · institutional
- *   · data-theme     la LUZ: dark · light ('system' se resuelve en vivo)
- *   · data-authority la autoridad activa: single · governed
- *
- * En <html> (no en el div del shell) para que todo lo que vive FUERA del
- * árbol del shell —los portales de body (ProductTour, modales de la puerta,
- * el QR de Xaman) y los hermanos del layout (ProductAssistant,
- * LegacyComingSoonModal)— herede los tres. El copiloto salía dorado dentro de
- * Legacy precisamente porque el sello de autoridad vivía solo en el div del
- * shell y el copiloto es un hermano (fundador 2026-08-04).
- *
- * Los tres leen el mismo par de stores, así que no pueden discrepar. Al
- * desmontar se retiran los tres: la landing y el login llevan su propio
- * aspecto fijo (la landing gestiona data-authority por su cuenta). La misma
- * frontera que respeta el script pre-pintado — ver lib/theme/appearance.ts
- * §pathWearsAppearance.
- *
- * EL PRIMER FRAME NO ES SUYO. Estos efectos corren DESPUÉS del primer
- * pintado; con un tema que cambia fondo, radio, tipografía y sombras, ese
- * frame no es un detalle. Lo cubre el script pre-pintado
- * (lib/theme/prepaint.ts, inyectado en app/layout.tsx), que ya dejó data-skin
- * y data-theme puestos antes de que existiera React; aquí solo se mantienen
- * al día cuando el usuario cambia de opinión.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -36,8 +12,7 @@ import { useMotionLevel } from '../../stores/motionStore';
 import { SKIN_ATTRIBUTE, THEME_ATTRIBUTE } from '../../lib/theme/appearance';
 import { bumpSkinEpoch } from '../../lib/theme/sweep';
 
-/** EL RE-TINTE LENTO (fundador 2026-08-25: «el color de la página cambiando
- *  lentamente, simple pero potente»). Las variables CSS no transicionan, pero
+/** EL RE-TINTE LENTO. Las variables CSS no transicionan, pero
  *  los elementos que las consumen sí: durante ~1s tras cada cruce, la clase
  *  authority-retint (globals.css) pide a todo el árbol transicionar
  *  background/border/color — y se retira sola, así que el coste vive solo en
@@ -79,13 +54,12 @@ export default function ThemeApplier() {
   }, [skin]);
   useSlowRetint(skin);
 
-  // ── EL BARRIDO DEL CAMBIO DE TEMA (fundador 2026-09-14: «alguna especie de
-  // barrido para cuando se cambia el tema») ─────────────────────────────────
+  // ── EL BARRIDO DEL CAMBIO DE TEMA ─────────────────────────────────
   // Cambiar de material es cambiar de mundo, y un mundo no se sustituye de
   // golpe: con el re-tinte de arriba los colores cruzan despacio; con la ÉPOCA
   // (lib/theme/sweep.ts) cada RevealGroup vuelve a jugar su entrada en el
   // lenguaje del tema nuevo —la página se imprime al pasar a la lámina, se
-  // posa al volver a Astryum—; y con la luz de abajo (.theme-sweep,
+  // posa al volver a Astryum; y con la luz de abajo (.theme-sweep,
   // globals.css) una banda del acento nuevo recorre la pantalla entera, que
   // es lo que llega al menú y a las cabeceras, que no viven en ningún grupo.
   // El primer estampado no es un cambio: entrar ya vestido no barre nada.
@@ -98,10 +72,7 @@ export default function ThemeApplier() {
     bumpSkinEpoch();
     setSweep((n) => n + 1);
   }, [skin]);
-  // LA LUZ TAMBIÉN BARRE, pero no reimprime: cambiar de claro a oscuro no
-  // cambia de material —no hay entrada nueva que jugar—, pero en Ajustes las
-  // dos filas viven bajo «Apariencia» y el fundador pidió un barrido «cuando
-  // se cambia el tema». La banda pasa (con el acento de la cara nueva y su
+  // La banda pasa (con el acento de la cara nueva y su
   // mezcla: multiply sobre papel) y la época se queda quieta. Se mira la luz
   // RESUELTA: pasar de «sistema» a lo que el sistema ya era no barre nada.
   const resolved = useResolvedTheme();
@@ -112,7 +83,7 @@ export default function ThemeApplier() {
     if (!isFlip) return;
     setSweep((n) => n + 1);
   }, [resolved]);
-  // En Mínimo la banda NO SE MONTA (astryum-73, 14-sep): con `display: none`
+  // En Mínimo la banda NO SE MONTA (astryum-73): con `display: none`
   // una animación CSS no termina y `animationend` no llega, así que el nodo
   // se quedaba montado el resto de la sesión. Lo que no se va a ver, no se
   // pinta.
@@ -121,7 +92,7 @@ export default function ThemeApplier() {
   // ── LA LUZ ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const root = document.documentElement;
-    // 'system' (fundador 2026-08-17) sigue al SO en vivo: se resuelve contra
+    // 'system' sigue al SO en vivo: se resuelve contra
     // prefers-color-scheme y se re-estampa cuando el SO cambia — la app
     // cambia con el atardecer sin recargar.
     if (theme === 'system') {

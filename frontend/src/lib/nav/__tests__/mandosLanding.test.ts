@@ -3,7 +3,7 @@ import { MANDOS_LANDING_PUBLISHED, WORLD_ROUTES, mandosLandingOpen } from '../ma
 
 /**
  * La landing «a los mandos» se ve en preview y en local, y en producción SOLO
- * cuando un commit la publica. Es la regla del 14-sep escrita en código: una
+ * cuando un commit la publica. Es la regla escrita en código: una
  * variable de entorno clonada entre entornos jamás puede abrirla.
  */
 describe('mandosLandingOpen', () => {

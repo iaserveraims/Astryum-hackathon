@@ -1,9 +1,7 @@
 'use client';
 
 /**
- * SetupHub — UN SOLO SITIO para todas las ceremonias de configuración
- * (fundador 2026-09-12: «que todo se acceda fácil y desde un sitio… que los
- * menús de configuración no tengan varias páginas iguales»).
+ * SetupHub — UN SOLO SITIO para todas las ceremonias de configuración.
  *
  * Tres puertas, una plantilla: Constituir un Legacy, el alta del gestor y
  * el alta del exchange. Cada una abre SU ventana (SetupOperationShell) —

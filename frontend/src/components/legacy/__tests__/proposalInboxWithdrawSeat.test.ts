@@ -4,19 +4,15 @@ import { join } from 'node:path';
 import { describeWithdrawnSeat } from '@/lib/xaman/seatRefusal';
 
 /**
- * productizer it. 34 (agente D) — `ProposalInbox.withdraw` IGNORABA EL CAMPO `seat`.
+ * `ProposalInbox.withdraw` IGNORABA EL CAMPO `seat`.
  *
- * Desde it. 29 (§2), `POST /council/proposals/:id/withdraw` contesta
+ * `POST /council/proposals/:id/withdraw` contesta
  * `{ ok, proposal, seat }` y `seat` lleva la MISMA gramática que el release de la
  * ceremonia (`seatReleaseAnswer`): si el asiento de nonce del 0xFE se soltó y, si
  * no, por qué. La bandeja hacía `await withdraw(); reload()` y tiraba el campo, así
  * que el proponente no veía que el asiento quedó retenido ni por qué — y se
  * encontraba `NONCE_SEAT_TAKEN` en la siguiente salida sin que nadie se lo hubiera
  * dicho, cuando el servidor SÍ se lo había dicho.
- *
- * Los cuerpos de aquí son los que afirma el test del servidor
- * (backend/src/routes/__tests__/councilProposals.ceremonySeat.test.ts, «POST
- * /:id/withdraw»), no inventados.
  */
 
 const t = (s: string) => s;
@@ -74,7 +70,7 @@ describe('describeWithdrawnSeat — la gramática del servidor, en una frase', (
     expect(v.text).toMatch(/is withdrawn/);
   });
 
-  it('soltado: verde, y sin reservar el asiento (it. 21 §3.9)', () => {
+  it('Soltado: verde, y sin reservar el asiento', () => {
     const v = describeWithdrawnSeat({ released: true, reason: 'ceremony-ended', pin: 'row' }, t)!;
     expect(v.kind).toBe('freed');
     expect(v.text).toMatch(/free again/);

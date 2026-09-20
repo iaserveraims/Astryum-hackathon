@@ -8,9 +8,7 @@
  * se ve.
  *
  * Y la otra mitad: con un asset elegido, la sección que se queda sin filas
- * tiene que decir POR QUÉ y adónde ir. Ese hueco explicado es lo que el
- * fundador pidió — poder revisarlo todo antes de elegir — y es exactamente lo
- * que se pierde cuando alguien "limpia" la pantalla escondiendo lo vacío.
+ * tiene que decir POR QUÉ y adónde ir.
  */
 import { describe, it, expect } from 'vitest';
 import {

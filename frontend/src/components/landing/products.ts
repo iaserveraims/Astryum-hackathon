@@ -3,22 +3,9 @@
  *
  * Hasta hoy la página tenía DOS productos y un conmutador que solo cambiaba el
  * tinte: Legacy era la misma página en índigo — mismo titular, mismo asteroide,
- * mismo sistema solar, mismas paradas (comprobado con capturas el 2026-09-18).
- * El fundador: «me parece cutre que haya un botón de cambio de producto y no
- * cambie la página». Desde aquí, cada producto es un MUNDO: su narrativa, su
+ * mismo sistema solar, mismas paradas (comprobado con capturas).
+ * Desde aquí, cada producto es un MUNDO: su narrativa, su
  * escena, su material y sus animaciones.
- *
- *   · personal      — el espacio. El sistema solar que ya existe (SolarJourney).
- *   · legacy        — entre el cielo y la tierra.
- *   · institutional — la tierra. Sin nada espacial: el nombre, la Y, el valle,
- *                     el lago y las montañas (art/ValleyScene.tsx).
- *
- * ── UN SITIO PARA LOS COLORES, Y SON TOKENS ──────────────────────────────
- * El conmutador viejo clavaba '#C9A227' y '#000' a hueso, y el aviso de Legacy
- * vivía incrustado en su cuerpo. Aquí cada producto declara su token
- * (--product-*, globals.css) y nadie escribe un hex: así el tercer producto no
- * hereda el oro del primero por descuido, que es exactamente lo que pasaba con
- * la travesía de AuthorityCrossing antes de que existiera su token.
  */
 
 export type LandingProduct = 'personal' | 'legacy' | 'institutional';
@@ -34,8 +21,7 @@ export interface ProductDef {
   accent: string;
   ink: string;
   /** El aviso honesto bajo el conmutador, si lo hay. Un producto que todavía
-   *  no está abierto LO DICE — es la regla que ya cumplía Legacy desde el
-   *  2026-07-29, y la que impide que una narrativa bonita se lea como una
+   *  no está abierto LO DICE — es la regla que ya cumplía Legacy, y la que impide que una narrativa bonita se lea como una
    *  promesa de producto. */
   notice?: { es: string; en: string };
 }
@@ -78,9 +64,9 @@ export const PRODUCTS: Record<LandingProduct, ProductDef> = {
  * EL INTERRUPTOR DEL TERCER SEGMENTO — una CONSTANTE EN CÓDIGO, jamás una
  * variable de entorno.
  *
- * No es manía: es literalmente el incidente del 14-sep. Una variable clonada
+ * Una variable clonada
  * entre entornos publicó «Lend your RLUSD» en producción sin que nadie lo
- * decidiera, y de ahí salió la regla que hoy está escrita en CLAUDE.md — lo
+ * decidiera, y de ahí salió la regla que hoy está escrita — lo
  * que decide si algo se VE vive en código, en un commit que dice qué se probó
  * y cuándo. El fundador lo enciende aquí cuando sepa qué ofrece Institucional.
  */

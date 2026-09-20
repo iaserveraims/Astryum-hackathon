@@ -1,6 +1,6 @@
 /**
  * xrplTxTypeLabel — XRPL TransactionTypes in words a family understands
- * (Fase 1, 2026-07-30). Before this, the proposal inbox titled decisions with
+ * (Fase 1). Before this, the proposal inbox titled decisions with
  * `EscrowCreate` / `AccountSet` / `SignerListSet` — a member was asked to sign
  * something named after a ledger opcode. The raw type stays available as the
  * technical marker; this is the sentence a person reads.

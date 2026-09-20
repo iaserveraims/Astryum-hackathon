@@ -1,18 +1,13 @@
 /**
  * exitRiskWarnings — the scanner verdict that travels WITH an exit prepare.
  *
- * Why this exists (reviewer, 14-sep): the Ethereum Morpho exits (close, repay,
+ * Why this exists (reviewer): the Ethereum Morpho exits (close, repay,
  * withdraw_collateral, vault_withdraw, bridge back) no longer answer 409 when
  * GoPlus flags FXRP or RLUSD as DANGER — THE EXIT IS NEVER GATED, a flagged
  * token is exactly when a holder wants out. The verdict now rides in the 200 as
  * `riskWarnings`, and not a single screen rendered it: users signed an exit
  * with a flagged token without seeing anything. Invariant #10: the risk is
  * visible BEFORE the signature.
- *
- * Pure and defensive: the field is optional (absent when nothing is flagged),
- * and a malformed entry is dropped rather than rendered half-empty — but a
- * warning with a token and no flags still shows, because «flagged, reason
- * unknown» is still a warning.
  */
 
 /** One DANGER finding, as the backend sends it (`KwyhRiskWarning`). */

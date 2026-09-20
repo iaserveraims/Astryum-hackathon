@@ -8,15 +8,6 @@ import { describe, expect, it } from 'vitest';
  * curva degenera en una ELIPSE (el par de Tusi). No lanza, no rompe el build,
  * no lo ve tsc: simplemente pinta una raya plana donde debería haber una
  * filigrana.
- *
- * Y pasó. El commit 9712f43d publicó 46/23 y 38/19 —las dos son R = 2r—, así
- * que dos de las tres vueltas del sello del tema eran rayas de 80x12 y 60x16.
- * Lo cazó la sesión paralela astryum-27 EJECUTANDO la fórmula, no mirando el
- * dibujo, que es exactamente lo que hace este fichero de forma permanente.
- *
- * Por eso esto es una prueba y no un comentario: en este repo los comentarios
- * ya han fallado dos veces por depender de que alguien se acuerde. Cualquiera
- * que añada una vuelta nueva al sello se entera aquí, no en producción.
  */
 
 import {
@@ -206,7 +197,7 @@ describe('el suelo de píxel del trazo', () => {
   });
 });
 
-/* ── Los grabados de las páginas (2026-09-14): el globo y el sello ──────────
+/* ── Los grabados de las páginas: el globo y el sello ──────────
    Misma doctrina que el hipotrocoide: geometría calculada, y lo calculable se
    comprueba aquí — que quepa en la caja y que ningún parámetro colapse la
    figura en algo que no es. */

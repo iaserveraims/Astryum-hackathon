@@ -11,7 +11,7 @@
  *
  * The surrounding chip carries the wallet's personal colour (walletIdentity);
  * these marks keep their own provider-brand hex (the one hardcode exception —
- * see CLAUDE.md's colour-tokens rule).
+ * 's colour-tokens rule).
  */
 
 import type { WalletBrand } from '../../lib/walletIdentity';
@@ -26,8 +26,7 @@ export default function WalletBrandIcon({
   size?: number;
   className?: string;
   /**
-   * EL DISTINTIVO POR WALLET (fundador 2026-09-13: «la X de Xaman, pero con un
-   * distintivo para cada wallet de Xaman que se conecte»). Cuando se pasa —el
+   * EL DISTINTIVO POR WALLET. Cuando se pasa —el
    * color de esa cuenta, `walletColor()`— la marca de Xaman se dibuja DENTRO
    * de un aro de ese color: la X sigue siendo la misma en todas, que es lo que
    * dice «esto es Xaman», y el aro dice CUÁL de ellas.
@@ -43,8 +42,7 @@ export default function WalletBrandIcon({
 
   switch (brand) {
     case 'metamask': {
-      // LA ZORRA ORIGINAL (fundador 2026-08-27: «se parece al original pero se
-      // nota que no lo es — pon el original»). Este es el metamask-fox.svg
+      // LA ZORRA ORIGINAL. Este es el metamask-fox.svg
       // canónico, polígono a polígono con su paleta oficial, en su viewBox
       // nativo de 318.6 — no una redibujada a 24px. Cada polígono lleva su
       // stroke del mismo color, como el asset original: a tamaños pequeños es
@@ -87,8 +85,8 @@ export default function WalletBrandIcon({
       );
     }
     case 'xaman':
-      // The Xaman X — two bold rounded strokes in the brand blue. Redrawn
-      // 2026-08-22 (founder: "los iconos están mal hechos"): the old sharp
+      // The Xaman X — two bold rounded strokes in the brand blue. Redrawn:
+      // the old sharp
       // double-shard read as a glitch at row size; rounded caps read as the
       // actual app icon.
       //

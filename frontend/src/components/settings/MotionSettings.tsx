@@ -1,25 +1,8 @@
 'use client';
 
 /**
- * MotionSettings — la fila «Movimiento» de Preferencias (fundador 2026-09-10:
- * «se me generan problemas de concentración con las animaciones de los
- * botones del Earn… que se pueda cambiar la configuración de complejidad de
- * las animaciones en Settings»; segunda pasada: «no quiero que el selector
+ * MotionSettings — la fila «Movimiento» de Preferencias (segunda pasada: «no quiero que el selector
  * tenga Sistema… quiero estilos nuevos y distintos»).
- *
- * Tres botones —Completo · Sereno · Mínimo— con el mismo formato que el
- * selector de Tema que tiene encima, una línea que dice CÓMO SE VE el nivel
- * elegido, y TRES PROBETAS debajo que lo enseñan en vivo: la puerta del Earn
- * (escena viva / emblema grabado / fila de lista), la ruta (carta que se
- * inclina / carta de estantería con su barra / fila con radio) y el punto de
- * estado (respira / halo / liso). Sin las probetas el ajuste es una palabra;
- * con ellas el usuario ve el estilo antes de salir de Settings.
- *
- * Las probetas no imitan nada: usan las MISMAS piezas y las mismas recetas
- * que la web —HarvestSunScene y SunSealEmblem de icons.tsx, la cara de la
- * mano y de la estantería, PulseDot— así que lo que se ve aquí es exactamente
- * lo que se verá allí. El nivel se lee del store (stores/motionStore.ts) como
- * en cualquier otra pantalla.
  */
 
 import { useRef } from 'react';

@@ -7,48 +7,6 @@
  * puede alterarlas — si cambia un byte, la verificación on-chain revierte. Solo
  * puede portar o dejar caer. Cero custodia: la autoridad es la firma, no el
  * remitente. El usuario nunca necesita FLR.
- *
- * QUIÉN CORRE EL RELAYER Y PAGA EL GAS (Z16): el PROVEEDOR DE INFRA. En el
- * modelo plug-and-play, ese es ASTRYUM — corre el executor para que el exchange
- * no monte nada, y lo cobra como software (licencia). `PASSKEY_RELAYER_PK` es la
- * key del que lo corre. El USUARIO jamás paga gas ni toca FLR (el punto de la
- * passkey contrafactual). Que Astryum lo corra NO viola «Astryum jamás manda»:
- * el relayer es TRANSPORTE, cero autoridad — la firma passkey compromete las
- * calls on-chain, así que solo puede portar o dejar caer, jamás alterar ni
- * decidir. Y es permissionless: si este relayer cae, cualquiera (el exchange, un
- * keeper) puede llamar `executeBatch` directo con la misma firma → comodidad, no
- * dependencia. La autoridad vive en la firma, nunca en quien la transporta.
- *
- * Gating (invariante #10): doble flag — `INSTITUTIONAL_POTES_ENABLED` +
- * `PASSKEY_RELAYER_PK` (solo env, invariante #2). Sin ambos → no-op.
- *
- * Anti-DoS: el relayer solo paga gas por calls cuyo `target` está en una
- * allowlist (FXRP + los potes + la propia cuenta). Sin esto, cualquiera podría
- * hacerle firmar-y-pagar basura hasta vaciar su saldo.
- *
- * Lazy-deploy: si la cuenta passkey aún no existe (contrafactual), el relayer
- * la despliega por el factory ANTES del `executeBatch`, en la misma petición.
- *
- * StaticCall antes de gastar (invariante #11): un lote condenado se descubre
- * sin quemar gas.
- *
- * productizer-it3 — EL GAS SE GASTABA ANTES DE MIRAR LA FIRMA. El preflight
- * `executeBatch.staticCall` es lo único que comprobaba la firma, y solo puede
- * correr sobre una cuenta con código: para una cuenta contrafactual el relayer
- * mandaba (y esperaba) `factory.create(x, y)` PRIMERO. Cualquier sesión SIWE
- * (gratis) con claves públicas inventadas y una firma basura hacía que el
- * relayer pagase un despliegue por petición — el saldo del relayer, vaciado a
- * 2000 req/15 min. Ahora, antes de CUALQUIER transacción:
- *   1. la clave pública es un punto de P-256 (si no, BAD_PUBKEY, sin red);
- *   2. el reto se recalcula EXACTAMENTE como PasskeyAccount.sol (chainid del
- *      nodo, cuenta predicha, nonce 0 si no desplegada o `nonce()` si lo está,
- *      calls) y la firma WebAuthn se verifica off-chain con node:crypto —
- *      byte-idéntico al P256VERIFY (RIP-7212) del contrato (BAD_SIG_OFFCHAIN);
- *   3. los despliegues están limitados por usuario SIWE (DEPLOY_LIMIT → 429).
- * La verificación off-chain NO sustituye a la on-chain (la autoridad sigue
- * siendo el contrato); solo impide que el relayer pague por lo que el contrato
- * iba a rechazar. Límite residual, dicho: quien genere SUS PROPIAS claves firma
- * válido — por eso existe el paso 3.
  */
 
 import { createHash, createPublicKey, verify as cryptoVerify, type KeyObject } from 'crypto';
@@ -137,18 +95,6 @@ export function relayTargetAllowlist(): Set<string> {
 /**
  * LOS POTES QUE ESTA PLATAFORMA YA CONOCE — la allowlist que nadie tiene que
  * escribir a mano.
- *
- * La lista de arriba es configuración, y con ella sola cada pote NUEVO nacía
- * con la salida de sus clientes cerrada hasta que alguien editara una variable
- * de entorno. Eso es una salida gateada por config, que es exactamente lo que
- * el invariante prohíbe («LA SALIDA JAMÁS SE GATEA»): el cliente no puede
- * redimir sus participaciones porque el relayer no reconoce SU pote.
- *
- * Así que el pote de cada exchange dado de alta aquí entra solo. No amplía la
- * superficie: son direcciones que la propia plataforma escribió al crear el
- * exchange, no algo que el firmante elija en la petición.
- *
- * Cachéado en memoria: esto se consulta una vez por salida, no por bloque.
  */
 const KNOWN_POTES_TTL_MS = 60_000;
 let knownPotesCache: { at: number; set: Set<string> } | null = null;
@@ -164,8 +110,8 @@ export async function knownPlatformPotes(): Promise<Set<string>> {
       if (p && EVM_ADDRESS_RE.test(p.trim())) set.add(p.trim().toLowerCase());
     }
   } catch {
-    // it. 22 (R2) — A FAILED READ IS NOT «THERE ARE NO POTES», AND CACHING IT
-    // CLOSES A WAY OUT FOR A MINUTE. `listRuns` throws now (it. 19 made it
+    // A FAILED READ IS NOT «THERE ARE NO POTES», AND CACHING IT
+    // CLOSES A WAY OUT FOR A MINUTE. `listRuns` throws now (made it
     // strict, so an outage stops looking like an empty table); this catch used
     // to fall through and then store the EMPTY set for the whole TTL, wiping the
     // last good one. With a configured RELAY_TARGET_ALLOWLIST that drops every
@@ -181,7 +127,7 @@ export async function knownPlatformPotes(): Promise<Set<string>> {
 }
 
 /**
- * it. 24 (R1 B6) — «NO PUDE LEER» CON FORMA DE «NO PERMITIDO» ERA UNA SALIDA
+ * «NO PUDE LEER» CON FORMA DE «NO PERMITIDO» ERA UNA SALIDA
  * CERRADA CON LA PALABRA EQUIVOCADA.
  *
  * `knownPlatformPotes` degrada a un conjunto vacío cuando falla la lectura y no
@@ -449,7 +395,7 @@ export async function relayPasskeyBatch(input: PasskeyRelayInput, userId: string
     // de un exchange recién creado no podía redimir sus participaciones.
     const known = await knownPlatformPotesRead();
     if (!known.readable) {
-      // it. 24 (R1 B6): sin esta lista no sabemos si el destino es un pote
+      // Sin esta lista no sabemos si el destino es un pote
       // nuestro, así que negarlo sería llamar «no permitido» a nuestro propio
       // fallo de lectura — sobre una redención. Se dice, y se reintenta.
       throw new PasskeyRelayError(

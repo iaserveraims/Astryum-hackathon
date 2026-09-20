@@ -2,25 +2,7 @@
 
 /**
  * DeskRequestQueue — lo que tus clientes PIDIERON, firmado por el omnibus con un
- * QR de Xaman (fundador 18-sep: «el autopilot hay que sacarlo no visible y que se
- * haga a través de QR»).
- *
- * El autopilot firmaba con una llave del backend que solo abría UN omnibus; el de
- * un exchange nuevo vive en la Xaman de su dueño. Aquí cada petición se sirve a
- * mano, con las MISMAS rutas que la mesa por estaciones (E5/E8), sin reescribirlas:
- *   1. la mesa TOMA la petición (`takeRequest` — la misma cesión que retirarla, nada
- *      firmado, el journal manda; queda escrita como TAKEN_BY_THE_DESK). Hace falta
- *      porque una petición pendiente reserva el saldo y el backend no deja que la
- *      mesa pague a la vez (PAYMENT_IN_FLIGHT: el cliente cobraría dos veces);
- *   2. compone el pago de la mesa por EL IMPORTE QUE PIDIÓ EL CLIENTE, a SU cliente:
- *      retirada → `withdrawPrepare`; meter en el vault → `reserveDeskPayment` +
- *      `preparePutToWork` (el 0xFE lo compone el SERVIDOR). La mesa no elige
- *      cliente ni importe (regla del 14-sep, DESK_PUT_TO_WORK_UI);
- *   3. el omnibus firma con su QR (`OmnibusSignDoor`, firmante fijado);
- *   4. se registra: el hash del payout (`reportDeskPaymentSigned`, el vigía lo
- *      liquida) o el mint (`recordPutToWork`, verificado contra el ledger).
- * Solo se ofrece servir lo que el servidor va a aceptar componer (`servability`):
- * si el paso 2 fallara, la petición ya no estaría en la cola — y se dice.
+ * QR de Xaman.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -153,7 +135,7 @@ export function DeskRequestQueue({ demo, run, onBlockedChange }: { demo: DemoRun
     const p = serving;
     setServing(null);
     if (!p) return;
-    // 18-sep (fundador: «estaría bien que ese mensaje no apareciera»). Lo que
+    // . Lo que
     // se firmó y validó NO es un error de nadie: el servidor lo concilia solo
     // contra el ledger (el vigía liquida el payout; el barrido del backend
     // registra por prueba el 0xFE de una reserva pasada su ventana). Así que

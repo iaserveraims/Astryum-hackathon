@@ -1,6 +1,6 @@
 /**
  * A slow public /verify cannot erase what happened to the run while it was
- * verifying (productizer cycle, iteration 4). It used to load the run, verify
+ * verifying. It used to load the run, verify
  * for seconds and save the WHOLE run back: a request created and minted in
  * between vanished, its balance came back, and a new request minted again.
  * Now verification runs on a snapshot and only its results are applied, by
@@ -58,7 +58,7 @@ const T0 = new Date(0).toISOString();
 function seedRun(): DemoRun {
   return {
     runId: 'run1',
-    // Desde el 20-sep un exchange es de quien lo creó, y sus lecturas de mesa también.
+    // Un exchange es de quien lo creó, y sus lecturas de mesa también.
     createdByUserId: 'owner1',
     seq: 1,
     label: 'Lock test',
@@ -92,7 +92,7 @@ beforeEach(async () => {
   await saveRun(seedRun());
 });
 
-describe('GET /omnibus is the owner’s and never holds the run lock across the chain read (it. 12, 2.6b)', () => {
+describe('GET /omnibus is the owner’s and never holds the run lock across the chain read (2.6b)', () => {
   it('a slow scan by the owner does not stall a writer of the run; concurrent readers share ONE scan; a repeat within the interval is served cached', async () => {
     let releaseScan: () => void = () => undefined;
     let scanStarted: () => void = () => undefined;
@@ -129,7 +129,7 @@ describe('GET /omnibus is the owner’s and never holds the run lock across the 
 
   it('an unknown run → 404; a failed scan → 502 without touching the run', async () => {
     expect((await request(app).get('/api/demo-exchange/runs/nope/omnibus').set('x-test-user', 'owner1')).status).toBe(404);
-    // 20-sep: sin sesión no hay lectura; y el exchange de otro contesta lo mismo que uno inventado.
+    // Sin sesión no hay lectura; y el exchange de otro contesta lo mismo que uno inventado.
     expect((await request(app).get('/api/demo-exchange/runs/run1/omnibus')).status).toBe(401);
     expect((await request(app).get('/api/demo-exchange/runs/run1/omnibus').set('x-test-user', 'stranger')).status).toBe(404);
     // Un cliente del exchange tampoco lee la conciliación: lleva los ingresos de todos.

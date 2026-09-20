@@ -2,8 +2,7 @@
 
 /**
  * SmartAccountBadge — the subtle Flare mark an owner wallet wears when its
- * Smart Account is visually folded inside it (paFold, founder 2026-08-17:
- * "un sutil pero que se entienda logo de Flare"). The tooltip carries the
+ * Smart Account is visually folded inside it (paFold). The tooltip carries the
  * absorbed PA's address, so the account never becomes invisible — only its
  * separate card does.
  */

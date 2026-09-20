@@ -1,21 +1,10 @@
 /**
- * productizer it. 21 (3.1) — EL LATIDO VERDE DE UN TICK QUE NO SIRVIÓ A NADIE.
+ * EL LATIDO VERDE DE UN TICK QUE NO SIRVIÓ A NADIE.
  *
  * Esta es una regresión de la iteración 19: al pasar `listRuns` a lectura
  * ESTRICTA (`kvListStrict`), una base de datos caída dejó de contestar «no hay
  * runs» y pasó a LANZAR. El `tick()` tenía `try { … } finally { … }` sin
  * `catch`, así que:
- *
- *   · `errors` se quedaba vacío y `markAgentTick(..., ok: errors.length === 0)`
- *     marcaba el latido **verde** — el panel decía que el agente estaba sano
- *     mientras no servía a ningún cliente;
- *   · `lastError` conservaba el valor viejo, así que tampoco ahí se veía;
- *   · el rechazo moría como `unhandledRejection` (el intervalo llama con un
- *     `void` pelado).
- *
- * Lo que se fija aquí: el fallo se captura, se cuenta en `lastError`, el latido
- * va en ROJO con su detalle, y el tick lo NOMBRA (`failed`) para que la ruta a
- * demanda pueda contestar 503 en vez de «0 runs, todo bien».
  */
 process.env.INSTITUTIONAL_POTES_ENABLED = 'true';
 
@@ -43,7 +32,7 @@ jest.mock('../DemoExchangeSigner', () => ({
   assessPayment: jest.fn(),
   readOmnibusAppointment: jest.fn(),
   recordSpend: jest.fn(),
-  // it. 23 (1.4): the spend is RESERVED before the blob leaves and given
+  // The spend is RESERVED before the blob leaves and given
   // back when the ledger proves the payment never entered.
   reserveSpend: async () => undefined,
   releaseSpend: async () => undefined,
@@ -51,13 +40,13 @@ jest.mock('../DemoExchangeSigner', () => ({
 }));
 jest.mock('../DemoRunVerifier', () => ({ flareProvider: () => null }));
 
-// El canal de ops es un efecto lateral de estas pruebas, no su objeto (it. 25).
+// El canal de ops es un efecto lateral de estas pruebas, no su objeto.
 jest.mock('../../OpsAlertService', () => ({ opsAlert: jest.fn(async () => undefined) }));
 
 import { DemoExchangeAutopilot } from '../DemoExchangeAutopilot';
 import { DemoRunStoreError } from '../DemoExchangeStore';
 
-describe('el tick dice la verdad cuando no pudo ni leer su lista (it. 21, 3.1)', () => {
+describe('El tick dice la verdad cuando no pudo ni leer su lista (3.1)', () => {
   beforeEach(() => {
     ticks.length = 0;
     listRunsImpl = async () => [];

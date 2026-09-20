@@ -52,7 +52,7 @@ describe('evaluateManagerCredential', () => {
 
   it('EL TÍTULO ES DEL SUJETO: el emisor no pasa su propio gate con credenciales EMITIDAS a otros', () => {
     // El directorio del emisor lleva las credenciales que emitió (issuer=él,
-    // subject=otros). Evaluando AL EMISOR, esas no cuentan (2026-09-13: el
+    // subject=otros). Evaluando AL EMISOR, esas no cuentan (el
     // ancla emisora aterrizó en el estante Manager por esto).
     const issued = cred({ issuer: ISSUER_OK, subject: 'rDcohNUmBApE8bSPP695GkUsSMfBeM5Czj' });
     const asIssuer = evaluateManagerCredential([issued], CFG, ISSUER_OK);

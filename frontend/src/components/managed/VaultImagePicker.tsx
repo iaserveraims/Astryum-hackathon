@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * VaultImagePicker — la imagen de TU bóveda (fundador 8-sep): un emblema de la
+ * VaultImagePicker — la imagen de TU bóveda: un emblema de la
  * casa («una imagen tonta», como las de las bóvedas de demostración), tu foto
  * de perfil, o ninguna — el interrogante. Lo que elijas es lo que verá el
  * cliente en la carta de Earn, y se enseña aquí mismo al tamaño de la carta.

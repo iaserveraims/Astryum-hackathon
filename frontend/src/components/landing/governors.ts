@@ -1,29 +1,9 @@
 /**
  * LOS CUATRO A LOS MANDOS.
  *
- * Fundador, 2026-09-19: «la respuesta a quién gobierna es autocustodia, empresa,
- * exchange y agente, porque estos son los que van a estar en los mandos. Una
- * familia, tú y otros y tu gestor es self custody con las subcuentas
- * personalizadas». Y sobre la forma: «el concepto de la landing actual por
+ * Y sobre la forma: «el concepto de la landing actual por
  * todas partes, pero por cada producto distinto debe cambiar la sobriedad y
  * algo más».
- *
- * Aquí vive ese «algo más», como DATO y en un solo sitio: la escena (el
- * instrumento con el que se mira el mismo cielo), el material (radio, trazo,
- * brillo), el token de color, el aviso honesto de estado y el vocabulario de
- * las láminas. Cada mundo de la landing lo lee de aquí; ninguno lo repite.
- *
- *   · self      — el sistema solar, a simple vista. Oro, expresivo.
- *   · business  — la carta estelar: el mismo cielo, medido. Bronce, línea fina.
- *   · exchange  — la estación en anillo: un muelle por cliente. Platino, denso.
- *   · agent     — la sonda con su corredor. Plata, trazo discontinuo.
- *
- * ── LO QUE NO ES DATO DE AQUÍ ────────────────────────────────────────────
- * Ni una cifra de rendimiento, ni una promesa, ni «recomendamos», ni «el agente
- * decide» (INVARIANTS #8 y #9). Las cifras de las consolas son maqueta y se
- * rotulan como tal. El agente se describe siempre como DESIGNADO y acotado:
- * la IA prepara, el dueño firma los límites una vez, el contrato los impone.
- * El test de al lado (`governors.test.ts`) lo vigila palabra a palabra.
  */
 
 import { WORLD_ROUTES } from '../../lib/nav/mandosLanding';

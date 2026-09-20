@@ -3,15 +3,6 @@
  *
  * Read-only EVM access to XDC Network (chainId 50) via the public erpc.xinfin.network endpoint.
  * No API key required. XDC is a fully EVM-compatible chain (XinFin fork of Ethereum).
- *
- * Endpoint: https://erpc.xinfin.network
- * Explorer: https://xdcscan.io
- * Native currency: XDC (18 decimals)
- *
- * Note: XDC uses the same eth_* methods as Ethereum. Addresses may appear with
- * "xdc" prefix in some wallets instead of "0x" — both forms are valid.
- *
- * BROADCAST_FORBIDDEN — Astryum never signs or broadcasts.
  */
 
 import type {

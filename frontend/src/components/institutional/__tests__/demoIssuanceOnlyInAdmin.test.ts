@@ -5,9 +5,7 @@ import { join, relative, sep } from 'path';
 /**
  * La emisión de credenciales de DEMO vive SOLO en la consola admin · tripwire.
  *
- * Fundador, 2026-09-20: «quitemos los botones de issue credential demo para que
- * la gente no pueda probarlo así como así … el producto se podrá probar solo si
- * tienes las credenciales», y «hay que reubicar los issuing de credentials demo
+ * Y «hay que reubicar los issuing de credentials demo
  * en la consola admin».
  *
  * El backend ya lo exige (`requireAdmin` en POST notary/issue-aifm-demo). Este
@@ -42,7 +40,7 @@ describe('emisión de demo · quién la puede llamar', () => {
       .sort();
     expect(callers).toEqual([
       'components/institutional/CredentialCeremonyModal.tsx',
-      // Desmontado el 20-sep; se queda en el repo, inerte (ver su cabecera).
+      // Desmontado; se queda en el repo, inerte (ver su cabecera).
       'components/managed/LicenseRegisterLink.tsx',
       'lib/xrpl/credentialsApi.ts',
     ]);

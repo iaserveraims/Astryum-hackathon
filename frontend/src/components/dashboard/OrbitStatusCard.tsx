@@ -2,9 +2,7 @@
 
 /**
  * OrbitStatusCard — "Astryum Orbit System": the platform's own light, in the
- * slot the network-fee telemetry used to occupy (founder 2026-07-25: fees
- * belong NEXT TO each operation before signing, not floating on the Summary —
- * NetworkStatusCard is preserved for that migration).
+ * slot the network-fee telemetry used to occupy.
  *
  * Collapsed: status dot + Online/Offline + the version chip. Clicking opens a
  * panel with the current status (including the founders' hand-written reason
@@ -42,8 +40,7 @@ export default function OrbitStatusCard() {
   const { lang } = useT();
   const es = lang === 'es';
   // The panel portals to <body>, ESCAPING the shell's [data-authority]
-  // subtree — in Legacy it kept resolving Personal's gold (founder
-  // 2026-07-26). Re-stamp the attribute on the portal root so the surface
+  // subtree — in Legacy it kept resolving Personal's gold. Re-stamp the attribute on the portal root so the surface
   // and accent vars follow the active product.
   const { activeGoverned } = useAuthorities();
   const [status, setStatus] = useState<PlatformStatus | null>(null);
@@ -106,8 +103,7 @@ export default function OrbitStatusCard() {
       setOpen(false);
     };
     const onScroll = (e: Event) => {
-      // Scrolling the ship log itself must NOT dismiss it (founder
-      // 2026-07-27) — only page/ancestor scrolls detach the fixed panel
+      // Scrolling the ship log itself must NOT dismiss it — only page/ancestor scrolls detach the fixed panel
       // from its button and warrant closing.
       if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
       setOpen(false);
@@ -122,8 +118,7 @@ export default function OrbitStatusCard() {
     };
   }, [open]);
 
-  // The wheel never leaves the panel (founder 2026-09-15: «se abre, pero no
-  // funciona el scroll»). When the log had nothing left to scroll — or the
+  // The wheel never leaves the panel. When the log had nothing left to scroll — or the
   // pointer sat over the status header — the browser chained the wheel to
   // the page, the page scrolled, and the listener above closed the panel
   // under the user's hand: "scroll doesn't work". The log scrolls natively
@@ -237,9 +232,8 @@ export default function OrbitStatusCard() {
             )}
           </div>
 
-          {/* the noticiero — newest first, como HISTORIA y no como letanía
-              (fundador 2026-08-26: «aglomera todos los behaviour juntos entre
-              cada improvement defi»). Los hitos DeFi conservan su línea
+          {/* the noticiero — newest first, como HISTORIA y no como letanía.
+              Los hitos DeFi conservan su línea
               completa con versión y fecha; lo genérico se aglomera en UNA fila
               por día de trabajo con contadores por tipo y el rango de
               versiones que resume (lib/platform/shipLog.ts). Es el log

@@ -9,15 +9,6 @@ import { describeServerRefusal } from '@/lib/errors/serverRefusal';
  * guard's 422 lands, and it is mounted by FOUR call sites (LegacyPanel,
  * CouncilOrderCard, CouncilVaultEntry, CageBirthCard). One component, four
  * families: the refusal has to read as prose in all of them.
- *
- * Two things are pinned here, and BOTH were broken before this change:
- *  1. the ceremony's catch blocks go through the ONE server-refusal reader, so
- *     `PRIOR_SEAT_UNRESOLVED` reaches the screen as the server's sentence,
- *  2. humanising that copy does not disarm the Xaman 1217 dead-end guard —
- *     which used to match the strings ON SCREEN and now matches the raw ones.
- *
- * The wiring itself (which state the render reads) is checked by evaluating the
- * shipped source's own expressions, never by asserting on substrings of it.
  */
 
 const SOURCE = readFileSync(join(__dirname, '..', 'CouncilMultisigFlow.tsx'), 'utf8');
@@ -59,7 +50,7 @@ describe('CouncilMultisigFlow — the 422 that stops a double payment', () => {
 });
 
 /**
- * productizer it.14 (R3 3.1 / 3.3) — UNA SALIDA NO SE CIERRA POR LA REGIÓN.
+ * UNA SALIDA NO SE CIERRA POR LA REGIÓN.
  *
  * `/multisign/prepare` está geofenced por defecto y una SALIDA la abre con su
  * pase (`exitToken`) o con la clasificación del servidor. Cuando ninguna de las

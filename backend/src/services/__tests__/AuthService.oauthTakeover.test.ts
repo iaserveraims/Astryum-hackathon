@@ -1,5 +1,5 @@
 /**
- * productizer it. 8 — PRE-ACCOUNT HIJACK.
+ * PRE-ACCOUNT HIJACK.
  *
  * `register` stores any address without verification. `oauthLogin` linked a
  * provider-verified identity onto that row by email and flipped
@@ -8,15 +8,6 @@
  * `emailVerified`. So a stranger who registered a founder's address with a
  * password became a verified founder the moment the real founder signed in
  * with Google/Apple/XRP Identity.
- *
- * productizer it. 11 — the takeover RACE and its residue: a refresh, a password
- * login or a passkey registration that passed its check before the takeover and
- * wrote after it; wallets and contacts left behind; resets that prove the
- * mailbox; logout on an unverified token.
- *
- * These run the REAL AuthService, SiweAuth and PasskeyService against an
- * in-memory prisma fake. Races are simulated by ordering: the takeover is run
- * inside a hook placed between the victim flow's check and its write.
  */
 jest.mock('../../database/prismaClient', () => {
   const db = {
@@ -28,8 +19,8 @@ jest.mock('../../database/prismaClient', () => {
     contacts: [] as any[],
     automationRules: [] as any[],
     auditLogs: [] as any[],
-    // it. 13/15 — the previous holder's residue, one array per model. It is
-    // REASSIGNED to the quarantine account now (it. 14, 4.3), never deleted.
+    // /15 — the previous holder's residue, one array per model. It is
+    // REASSIGNED to the quarantine account now (4.3), never deleted.
     residue: {} as Record<string, any[]>,
     seq: 0,
   };
@@ -393,7 +384,7 @@ describe('oauthLogin — rows with proof, or without a password, link as before'
   });
 });
 
-describe('it. 11/15 — takeover residue and the preferences.security contract', () => {
+describe('/15 — takeover residue and the preferences.security contract', () => {
   it('stamps takeoverAt + credentialsEpoch (other preference keys kept), deactivates bindings, REASSIGNS wallets and contacts, logs counts only', async () => {
     const squatter = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     const row = db.users.get(squatter.userId);
@@ -417,7 +408,7 @@ describe('it. 11/15 — takeover residue and the preferences.security contract',
 
     expect(db.bindings.find((b: any) => b.id === 'b1').isActive).toBe(false);
     expect(db.bindings.find((b: any) => b.id === 'b-other').isActive).toBe(true);
-    // Nothing is deleted: the rows move to the quarantine account (it. 14, 4.3 —
+    // Nothing is deleted: the rows move to the quarantine account (4.3 —
     // deleting a wallet cascaded into intents, executions and positions).
     const quarantine = quarantineRowFor(squatter.userId);
     expect(db.wallets.map((w: any) => w.id).sort()).toEqual(['w-other', 'w1']);
@@ -433,7 +424,7 @@ describe('it. 11/15 — takeover residue and the preferences.security contract',
   });
 });
 
-describe('it. 11 — credential epoch: nothing issued across the takeover survives it', () => {
+describe('Credential epoch: nothing issued across the takeover survives it', () => {
   it('refresh that passed its session check BEFORE the takeover and writes AFTER it → refused, no session born', async () => {
     const squatter = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     let owner: any;
@@ -499,7 +490,7 @@ describe('it. 11 — credential epoch: nothing issued across the takeover surviv
   });
 });
 
-describe('it. 11 — passkey registration cannot outlive the takeover', () => {
+describe('Passkey registration cannot outlive the takeover', () => {
   it('takeover commits DURING the WebAuthn verification → session_revoked, no passkey written', async () => {
     const squatter = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     const auth = await verifyToken(squatter.accessToken); // requireSiweAuth passed
@@ -542,7 +533,7 @@ describe('it. 11 — passkey registration cannot outlive the takeover', () => {
   });
 });
 
-describe('it. 11 — resetPassword', () => {
+describe('ResetPassword', () => {
   const withNodeEnv = async (value: string, fn: () => Promise<void>) => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = value;
@@ -578,7 +569,7 @@ describe('it. 11 — resetPassword', () => {
     }
   };
 
-  it('it. 13 — with the explicit dev opt-in the token is handed out, so the reset proves nothing: emailVerified stays false', async () => {
+  it('With the explicit dev opt-in the token is handed out, so the reset proves nothing: emailVerified stays false', async () => {
     const founder = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     const { resetToken } = await authService.forgotPassword(FOUNDER);
     await withExposeOptIn('true', () =>
@@ -587,14 +578,14 @@ describe('it. 11 — resetPassword', () => {
     expect(db.users.get(founder.userId).emailVerified).toBe(false);
   });
 
-  it('it. 13 — exposure needs BOTH non-production AND AUTH_EXPOSE_RESET_TOKEN=true; default is never', async () => {
+  it('Exposure needs BOTH non-production AND AUTH_EXPOSE_RESET_TOKEN=true; default is never', async () => {
     await withExposeOptIn(undefined, () => withNodeEnv('development', async () => expect(resetTokenExposureEnabled()).toBe(false)));
     await withExposeOptIn('1', () => withNodeEnv('development', async () => expect(resetTokenExposureEnabled()).toBe(false)));
     await withExposeOptIn('true', () => withNodeEnv('production', async () => expect(resetTokenExposureEnabled()).toBe(false)));
     await withExposeOptIn('true', () => withNodeEnv('development', async () => expect(resetTokenExposureEnabled()).toBe(true)));
   });
 
-  it('it. 13 — without the opt-in the token is neither logged nor exposed, so outside production the reset DOES prove the mailbox', async () => {
+  it('Without the opt-in the token is neither logged nor exposed, so outside production the reset DOES prove the mailbox', async () => {
     await withExposeOptIn(undefined, () =>
       withNodeEnv('development', async () => {
         const founder = await authService.register(FOUNDER, SQUATTER_PASSWORD);
@@ -617,7 +608,7 @@ describe('it. 11 — resetPassword', () => {
   });
 });
 
-describe('it. 11 — logout verifies the token before revoking', () => {
+describe('Logout verifies the token before revoking', () => {
   it('a forged token naming a live session id revokes nothing', async () => {
     const victim = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     const forged = jwt.sign({ sub: victim.userId, sid: victim.sessionId, addr: '' }, 'attacker-secret-attacker-secret-0000');
@@ -637,7 +628,7 @@ describe('it. 11 — logout verifies the token before revoking', () => {
   });
 });
 
-// ── it. 13 ────────────────────────────────────────────────────────────────────
+// ── ────────────────────────────────────────────────────────────────────
 
 function seedPasskey(userId: string, credentialId = 'cred-login', createdAt = new Date()) {
   const p = {
@@ -668,7 +659,7 @@ function passkeyLoginWith(challengeId: string, credentialId = 'cred-login') {
   return verifyAuthentication(challengeId, { id: credentialId }, (tx, userId) => issueSessionForUser(userId, null, {}, tx));
 }
 
-describe('it. 13 — passkey LOGIN issues its session inside the credential lock (5.1)', () => {
+describe('Passkey LOGIN issues its session inside the credential lock (5.1)', () => {
   it('happy path: session born, counter advanced, lastLogin stamped, token verifies', async () => {
     const userId = seedPasskeyOnlyUser();
     seedPasskey(userId);
@@ -787,7 +778,7 @@ describe('it. 13 — passkey LOGIN issues its session inside the credential lock
   });
 });
 
-describe('it. 15 — a passkey challenge is consumed atomically (menores)', () => {
+describe('A passkey challenge is consumed atomically (menores)', () => {
   it('two assertions racing on the SAME challenge: exactly one session, the other challenge_expired', async () => {
     const userId = seedPasskeyOnlyUser();
     seedPasskey(userId);
@@ -825,7 +816,7 @@ describe('it. 15 — a passkey challenge is consumed atomically (menores)', () =
   });
 });
 
-describe('it. 15 — the takeover QUARANTINES the residue instead of destroying it (4.3)', () => {
+describe('The takeover QUARANTINES the residue instead of destroying it (4.3)', () => {
   const BY_USER = [
     'agentDocument',
     'agentRule',
@@ -971,7 +962,7 @@ describe('it. 15 — the takeover QUARANTINES the residue instead of destroying 
   });
 });
 
-describe('it. 15 — the owner inherits no consent of the previous holder (4.1, 4.2)', () => {
+describe('The owner inherits no consent of the previous holder (4.1, 4.2)', () => {
   const TERMS = '2026-07-30';
 
   it('the legal signature and the register click-wrap move to quarantine, and the gate re-opens for the owner', async () => {
@@ -1019,8 +1010,8 @@ describe('it. 15 — the owner inherits no consent of the previous holder (4.1, 
   it('the cage acknowledgement of the previous holder does not open the gate for the owner', async () => {
     const squatter = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     // The previous holder reads the disclosure (and the positive is cached).
-    // The ack is written under THEIR live session — it. 19 made that mandatory
-    // (it. 18, 3.2), so an acknowledgement always belongs to a provable reader.
+    // The ack is written under THEIR live session — made that mandatory
+    // (3.2), so an acknowledgement always belongs to a provable reader.
     await recordCageAck({
       userId: squatter.userId,
       account: 'rCouncil',
@@ -1060,7 +1051,7 @@ describe('it. 15 — the owner inherits no consent of the previous holder (4.1, 
   });
 });
 
-describe('it. 13 — preferences writers can never drop or set `security` (5.2)', () => {
+describe('Preferences writers can never drop or set `security` (5.2)', () => {
   it('a write in flight across the takeover (auth passed before, write after) keeps security', async () => {
     const squatter = await authService.register(FOUNDER, SQUATTER_PASSWORD);
     const auth = await verifyToken(squatter.accessToken); // requireSiweAuth passed
@@ -1140,7 +1131,7 @@ describe('it. 13 — preferences writers can never drop or set `security` (5.2)'
   });
 
   /**
-   * productizer it. 22, 1.8 — A CORRUPT COLUMN IS NOT AN EMPTY ONE.
+   * 1.8 — A CORRUPT COLUMN IS NOT AN EMPTY ONE.
    *
    * `asObject(current) ?? {}` turned a `preferences` value that is not an object
    * into `{}`, so `hasOwnProperty('security')` was false and the next appearance

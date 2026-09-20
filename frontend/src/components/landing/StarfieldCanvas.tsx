@@ -6,29 +6,6 @@
  * A lightweight 2D-canvas depth layer behind the landing: parallaxed stars that
  * drift slowly, twinkle, lean toward the cursor by depth, link to the pointer
  * like a faint gravity well, and occasionally throw a shooting star.
- *
- * Cheap by design: particle count scales with viewport area and is capped,
- * one rAF loop, DPR-aware, pauses when the tab is hidden, and collapses to a
- * single static frame under prefers-reduced-motion.
- *
- * ─── Travel (founder 2026-08-22: "algún toque interesante") ─────────────────
- * The canvas is fixed, so for a whole page of scrollytelling the sky used to
- * hang perfectly still while the content flew past it — the visitor moved, the
- * universe did not. Three additions turn the field into something you travel
- * THROUGH, all driven by one number (the scroll delta) and all free:
- *
- *  · DEPTH DRIFT — every star shifts against the scroll in proportion to its
- *    own z, so the near ones sweep and the far ones barely move. Real parallax,
- *    no extra layer.
- *  · WARP STREAKS — scroll fast and the stars stretch into short trails along
- *    the direction of travel, then relax the instant you stop. Same primitive
- *    as a drawn dot (one stroked line, round caps), so the cost is unchanged.
- *  · DIFFRACTION FLARES — once in a while a near star throws a four-point
- *    spike and fades. Only stars with z > 0.78 are eligible and each waits
- *    9–25s, so at any moment it is a handful of extra strokes.
- *
- * Every one of them is skipped under prefers-reduced-motion, which still
- * renders the single static frame it always did.
  */
 
 import { useEffect, useRef } from 'react';
@@ -274,8 +251,7 @@ export default function StarfieldCanvas({ accent = '201,162,39' }: { accent?: st
         }
       }
 
-      // shooting stars — cadence raised 2026-07-25 (founder: "caen cada 5
-      // segundos más o menos, pon alguno más"): roughly one every 2.5–5.5s,
+      // shooting stars — cadence raised: roughly one every 2.5–5.5s,
       // up to 4 alive at once. Time-driven, so they never freeze mid-sky
       // while the visitor reads (unlike the scroll-bound transit comets,
       // removed the same day).

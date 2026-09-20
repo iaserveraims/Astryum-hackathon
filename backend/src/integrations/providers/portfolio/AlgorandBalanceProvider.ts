@@ -5,7 +5,7 @@
  * returns it as CanonicalPosition[]. ALGO priced via DeFiLlama (coingecko:algorand).
  * ASA (issued asset) valuation is left for a later pass.
  *
- * Read-only. Astryum never signs or broadcasts (CLAUDE.md §0).
+ * Read-only. Astryum never signs or broadcasts.
  */
 
 import type {

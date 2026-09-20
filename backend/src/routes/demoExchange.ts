@@ -1,26 +1,6 @@
 /**
  * /api/demo-exchange — the SIMULATED exchange system behind the Demo Exchange
- * surface (BuildSpec Demo Exchange v2, 2026-08-26).
- *
- * What lives here: runs (one recording = one council account + one pote),
- * clients with their deposit tags, the demo ledger ("XRP at the exchange"),
- * the omnibus watcher, the receipt book and its on-chain verification, and
- * the proof document. Everything that touches capital keeps going through the
- * EXISTING prepare routes (`/api/institutional/*`, `/api/xrpl-defi/*`,
- * `/api/flare-demo/*`) — this router only MIRRORS what happened and checks it
- * against the chain. Prepare-only where it composes anything (two unsigned
- * XRPL Payments: the client's deposit to the omnibus, the exchange's payout).
- *
- * Gates: reads + verify are public; the client self-serve mutations need a SIWE
- * session and ownership of the row; everything else is `requireAdmin` (404
- * unless the founder doors are configured). Plus the same
- * `INSTITUTIONAL_POTES_ENABLED` switch as the institutional module (#10, ships
- * OFF). Mounted WITHOUT the SIWE wrapper like admin-executor — this router
- * decides per route.
- *
- * Concurrency: every load → mutate → save of a run happens inside
- * `withRunLock(runId)` with a fresh load (single backend instance assumed —
- * see DemoExchangeStore.withRunLock).
+ * surface (BuildSpec Demo Exchange v2).
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
@@ -29,9 +9,9 @@ import { ethers } from 'ethers';
 import { requireAdmin } from './adminPanel';
 import { requireSiweAuth } from '../middleware/requireSiweAuth';
 import { safeErrorDetail } from '../utils/safeError';
-// it. 23 (1.2): the ONE payload window this deployment measures seats with.
+// The ONE payload window this deployment measures seats with.
 import { handoffPayloadExpiryMin } from '../services/flare/handoffAuthority';
-// NOTE (it. 16, R5 5.1): this router no longer asks `attributionForSigner`
+// NOTE (R5 5.1): this router no longer asks `attributionForSigner`
 // whether an omnibus is «operational» — the run declares it and the 0xFE seat
 // guard is told (operationalOmnibus). Attribution itself is unchanged: the desk
 // payout and the desk 0xFE pass 'operational' explicitly (our own scripted
@@ -67,8 +47,7 @@ import {
 } from '../services/demoExchange/DemoExchangeStore';
 import { deskReservationNothingSigned, dropsToXrpText, paymentsInFlight, reservedDrops, sweepDeskPayments, type Against, type AgainstKind, type InFlight } from '../services/demoExchange/availableBalance';
 import { checkClientCredential, clientCredentialGateEnabled, isCredentialRefusal } from '../services/demoExchange/clientCredentialGate';
-// EXCHANGE 2.0 — las estructuras cautivas que nacen bajo un tenant
-// (docs/context/Astryum_Exchange_2_Estructuras_Bajo_El_Omnibus_2026-09-18.md).
+
 import {
   assessStructureAuthority,
   canCloseStructureDoor,
@@ -117,24 +96,20 @@ import { readSignerConfig } from '../services/demoExchange/DemoExchangeSigner';
 
 const router = Router();
 
-// STARTUP (it. 16, R5 5.1): every run's declared omnibus becomes an account the
+// STARTUP (R5 5.1): every run's declared omnibus becomes an account the
 // 0xFE nonce-seat guard covers. `index-simple.ts` mounts this router eagerly at
 // boot, so importing it IS the startup hook — no environment list, and a run
 // created before this deploy is covered as soon as the store is read.
 void registerRunOmnibusOperationalResolver();
-// PUBLICADO (fundador, 13-sep: «todo visible sin flags para la ventana») — el
-// anillo VER del 9-sep: las LECTURAS son públicas (runs, chain, proof, y el
+// PUBLICADO — el
+// anillo VER: las LECTURAS son públicas (runs, chain, proof, y el
 // verify — que un juez pueda pulsar «verifícalo tú» ES el producto). Las
 // MUTACIONES de operador siguen tras requireAdmin: abrirlas dejaría a cualquiera
 // borrar un run o encender el autopilot (que firma con la llave del omnibus).
 /**
- * Las rutas que un CLIENTE necesita para ser cliente por sí mismo (fundador
- * 13-sep: «el user simplemente debe crearse una cuenta en el exchange, y esto
- * se hace solo»).
+ * Las rutas que un CLIENTE necesita para ser cliente por sí mismo.
  *
- * Iteración 4 del ciclo productizer: abiertas SIN identidad eran un camino al
- * dinero de otro (prueba de payout circular, reclamo de filas en estado cero,
- * cualquiera tocaba la ficha de cualquiera). Ahora:
+ * Ahora:
  *  · SESIÓN: cada una exige `requireSiweAuth` (401 sin ella). Un admin
  *    (`callerIsAdmin`) conserva todo el poder.
  *  · DUEÑO: la fila lleva `ownerUserId`. El alta self-serve la crea con dueño =
@@ -151,19 +126,19 @@ void registerRunOmnibusOperationalResolver();
  *    MISMO dueño). Reclamar sí, re-apuntar jamás.
  *  · recibos: evidencia de la toma — salvo los de MOVIMIENTO de dinero
  *    (U1/U4_XRP/E5/E8), que escribe el vigilante desde el ledger; tope de 500
- *    por run y `expect` acotado. Sin `clientId` solo el exchange (it. 12).
- *  · altas self-serve: tope de filas por dueño en cada run (it. 12).
+ *    por run y `expect` acotado. Sin `clientId` solo el exchange.
+ *  · altas self-serve: tope de filas por dueño en cada run.
  * Todo lo demás (borrar runs, autopilot, perfil del run) sigue tras admin.
  */
 const CLIENT_SELF_SERVE: Array<{ m: string; re: RegExp }> = [
   { m: 'POST', re: /^\/runs\/[^/]+\/clients$/ },
   { m: 'PATCH', re: /^\/runs\/[^/]+\/clients\/[^/]+$/ },
   { m: 'POST', re: /^\/runs\/[^/]+\/clients\/[^/]+\/(requests|deposit-instructions)$/ },
-  // it. 27: RETIRAR de la cola una petición propia que nadie ha firmado es un
+  // RETIRAR de la cola una petición propia que nadie ha firmado es un
   // acto del cliente, como pedirla. Si solo pudiera hacerlo el escritorio, la
   // puerta no existiría para quien la necesita.
   { m: 'DELETE', re: /^\/runs\/[^/]+\/clients\/[^/]+\/requests\/[^/]+$/ },
-  // it. 29: y soltar una RESERVA DE MESA de la que nunca se compuso nada. La
+  // Y soltar una RESERVA DE MESA de la que nunca se compuso nada. La
   // abre el escritorio, retiene el saldo de su dueño y su única puerta era un
   // DELETE de admin que además contesta 503 mientras el XRPL no se lea.
   { m: 'DELETE', re: /^\/runs\/[^/]+\/clients\/[^/]+\/desk-payments\/[^/]+$/ },
@@ -174,15 +149,14 @@ const CLIENT_SELF_SERVE: Array<{ m: string; re: RegExp }> = [
 const ADMIN_LOCAL = 'demoExchangeAdmin';
 
 /**
- * ¿Nace un exchange con el autopilot encendido? (18-sep: no — sale de la vista y
+ * ¿Nace un exchange con el autopilot encendido? (no — sale de la vista y
  * la mesa firma por QR.) Queda como constante de código, no como variable de
- * entorno: lo que decide qué se ve y cómo opera vive en código (CLAUDE.md, 14-sep).
+ * entorno: lo que decide qué se ve y cómo opera vive en código.
  */
 const AUTOPILOT_AT_BIRTH: boolean = false;
 
 router.use((req, res, next) => {
-  // LAS LECTURAS DEJAN DE SER PÚBLICAS (fundador 2026-09-20: «que los exchanges
-  // creados solo aparezcan en la cuenta de quien lo ha creado»). Hasta hoy todo
+  // LAS LECTURAS DEJAN DE SER PÚBLICAS. Hasta hoy todo
   // GET —y POST …/verify— pasaba sin sesión: con el id de un run cualquiera leía
   // la ficha de cada cliente de un exchange ajeno (etiqueta, tag, r-address,
   // cuenta de passkey, saldo, KYC), su cadena, sus credenciales y un dossier en
@@ -203,7 +177,7 @@ router.use((req, res, next) => {
 });
 // The module switch (#10) guards EVERY route — reads included — so a founder
 // cannot browse a ledger on an environment where the module is off. Before
-// this middleware only 4 of 16 routes checked it (review, 2026-08-26).
+// this middleware only 4 of 16 routes checked it (review).
 router.use((_req, res, next) => {
   if (process.env.INSTITUTIONAL_POTES_ENABLED !== 'true') {
     return void res.status(503).json({ error: 'INSTITUTIONAL_DISABLED', detail: 'Set INSTITUTIONAL_POTES_ENABLED=true on this environment (#10).' });
@@ -228,11 +202,11 @@ const MAX_EXPECT_KEY_CHARS = 64;
 function guarded(fn: (req: Request, res: Response) => Promise<void> | void) {
   return (req: Request, res: Response) => {
     Promise.resolve(fn(req, res)).catch((err) => {
-      // The run store could not PROVE a read or a save (productizer it. 10): the
+      // The run store could not PROVE a read or a save: the
       // request did not happen as far as the exchange ledger is concerned.
       if (err instanceof DemoRunStoreError) {
         console.error('[demo-exchange] run store refused:', err.message);
-        // it. 21 (3.2) — «I COULD NOT READ» IS RETRYABLE, AND IT SAYS SO. A read
+        // «I COULD NOT READ» IS RETRYABLE, AND IT SAYS SO. A read
         // that failed changed nothing, so the sentence must not claim a write was
         // attempted; and `retryable` is what turns this into a «Try again» button
         // on the client surface instead of a dead end (`refusalIsRetryable`).
@@ -254,9 +228,9 @@ function guarded(fn: (req: Request, res: Response) => Promise<void> | void) {
 }
 
 /**
- * it. 23 (1.5) — A SEAT WE COULD NOT READ IS NOT A SEAT THAT IS TAKEN.
+ * A SEAT WE COULD NOT READ IS NOT A SEAT THAT IS TAKEN.
  *
- * `SeatStateUnreadableError extends NonceSeatTakenError` (it. 21, agent A), so
+ * `SeatStateUnreadableError extends NonceSeatTakenError`, so
  * `e instanceof NonceSeatTakenError` matches BOTH — and this door mapped all of
  * them to a flat 409 «an earlier 0xFE is still in flight», which told the
  * operator a fact nobody had and offered no retry. The six institutional doors
@@ -264,9 +238,6 @@ function guarded(fn: (req: Request, res: Response) => Promise<void> | void) {
  * out of that sweep. Same helper, same body, same fields (`code`, `retryable`,
  * `secondsLeft`), so a deploy that starts sending a new seat code does not lose
  * its meaning here.
- *
- * The class carries its own mark (`unreadableSeatState`), read without importing
- * the module — these routes load it lazily on purpose.
  */
 function seatRefusalStatus(e: unknown): 409 | 503 {
   return (e as { unreadableSeatState?: boolean })?.unreadableSeatState === true ? 503 : 409;
@@ -378,7 +349,7 @@ function isAdminRequest(res: Response): boolean {
   return res.locals[ADMIN_LOCAL] === true;
 }
 
-/* ── de quién es un exchange, y qué puede leer de él cada cual (2026-09-20) ── */
+/* ── de quién es un exchange, y qué puede leer de él cada cual ── */
 
 /** Quién mira, tal y como lo dejó el primer anillo: una puerta de fundador, una sesión, o las dos. */
 type RunViewer = { admin: boolean; userId?: string };
@@ -388,7 +359,7 @@ async function viewerOf(req: Request, res: Response): Promise<RunViewer> {
 }
 
 /**
- * UN EXCHANGE ES DE QUIEN LO CREÓ. Los anteriores al 20-sep no llevan creador;
+ * UN EXCHANGE ES DE QUIEN LO CREÓ. Los anteriores al no llevan creador;
  * crear siempre fue de admin, así que siguen siendo de los fundadores — de los
  * dos, porque no hay a quién atribuirlos. Uno nuevo es SOLO de su creador,
  * también entre fundadores: el panel de operaciones los ve todos con `?all=1`.
@@ -478,7 +449,7 @@ async function optionalSessionUserId(req: Request): Promise<string | undefined> 
 }
 
 /**
- * it. 23 (3.3) — WHY THERE IS NO USER, NOT JUST THAT THERE IS NONE.
+ * WHY THERE IS NO USER, NOT JUST THAT THERE IS NONE.
  *
  * `requireAdmin` has FOUR doors, and two of them (`x-admin-session`, the static
  * `x-admin-key`) prove the DEPLOYMENT's operator without identifying any Astryum
@@ -487,13 +458,6 @@ async function optionalSessionUserId(req: Request): Promise<string | undefined> 
  * therefore reached `readOmnibusOwnership` with no user id, every owned address
  * read as `unattributable`, and the declaration died on a 409 that named no way
  * out. The narrower door decided what the wider one had already allowed.
- *
- * The refusal itself STAYS (declaring a third party's omnibus puts their account
- * behind this desk's 0xFE guard, and that is not undoable by an apology), but it
- * can say precisely what is missing and which of the two situations this is.
- * `admin` is also carried, because «you are the operator of this deployment» and
- * «you are the owner of this address» are different claims and only the second
- * one opens this gate.
  */
 type SessionIdentity = {
   userId?: string;
@@ -545,7 +509,7 @@ interface WalletProof {
  * on 'xrpl' with a stored signature. The plain `wallet` table is NOT proof.
  * Without DATABASE_URL only the session address counts.
  *
- * Takeover (it. 10): a binding linked BEFORE the user's login was taken over
+ * Takeover: a binding linked BEFORE the user's login was taken over
  * (`preferences.security.takeoverAt`) proves nothing about who holds the session
  * now — it is ignored. An unreadable user row is «unreadable», never «no takeover».
  */
@@ -581,7 +545,7 @@ async function proveXrplWallet(req: Request, address: string): Promise<WalletPro
   }
 }
 
-/* ── takeover of an owner's login (it. 10) ───────────────────────────────── */
+/* ── takeover of an owner's login ───────────────────────────────── */
 
 const RECLAIM_DETAIL =
   'this exchange account became yours before your login was recovered from a security takeover — the exchange has to re-open it for you (a new claim code) before it can be used from this session';
@@ -589,7 +553,7 @@ const RECLAIM_DETAIL =
 /** The session user's takeover instant, STRICT: 503 when it cannot be read (writes it). Admin → no takeover. */
 async function sessionTakeoverOr503(res: Response, userId: string | undefined, admin: boolean): Promise<{ at: Date | null } | null> {
   if (admin || !userId) return { at: null };
-  // it. 31 (cabo de D) — the WRITE doors used to answer with a `detail` that
+  // The WRITE doors used to answer with a `detail` that
   // truncated the error message at 80 chars («…so it cannot da») and carried no
   // `retryable`. Since the client now prefers the server's `detail` for this
   // code, that truncated fragment is what a person read on a withdrawal with
@@ -604,31 +568,8 @@ async function sessionTakeoverOr503(res: Response, userId: string | undefined, a
 }
 
 /**
- * productizer it. 31 (agente D, 4.2) — «NO PUDE LEER TU MARCA» NO ES «TU CUENTA
+ * «NO PUDE LEER TU MARCA» NO ES «TU CUENTA
  * CAMBIÓ DE DUEÑO».
- *
- * QUÉ FALLABA. `viewerTakeover` convertía CUALQUIER `TakeoverUnreadableError`
- * —marca ilegible o adelantada a nuestro reloj (it. 29)— en `new Date()`, es
- * decir, «la toma de posesión fue ahora mismo». Para el DISPLAY de `mine` eso
- * es el lado seguro (nada se enseña como suyo). Pero `GET /runs/for-account`
- * —el PORTAL del cliente— usaba esa misma fecha para decidir la propiedad:
- * `ownershipPredatesTakeover` daba `true` para toda fila, `own=[]`,
- * `staleOwn=true`, y la respuesta era `200 { found:false, heldElsewhere:{
- * reclaimRequired:true } }`. La pantalla decía «Your sign-in changed since you
- * opened it: the exchange has to confirm it is you again with a claim code» —
- * una acción de FUNDADOR, sin botón y sin reintento. Los 503
- * `OWNERSHIP_UNREADABLE` de retirada que la it. 29 arregló ni se alcanzaban: la
- * persona no pasaba del portal. R4 lo probó contra el router real: marca futura
- * → `reclaimRequired:true`; ilegible → idéntico; pasada → `found:true`.
- *
- * QUÉ HACE. El veredicto tiene tres respuestas, no dos: la marca (o ninguna),
- * o POR QUÉ no se pudo usar —`ahead-of-clock` (se cura sola cuando el reloj
- * pasa la marca; volver a enlazar no ayuda), `unreadable-mark` (la fila no
- * parsea; la repara un administrador) o `read-failed` (la base no contestó;
- * meteorología)—. `for-account` contesta 503 `OWNERSHIP_UNREADABLE` reintentable
- * con la frase de la causa, jamás `reclaimRequired`; el display (`viewerTakeover`)
- * sigue fallando cerrado a «ahora», porque no enseñar nada como suyo no le quita
- * a nadie una salida — el portal, sí.
  */
 type ViewerTakeoverVerdict =
   | { at: Date | null; unusable: null }
@@ -678,7 +619,7 @@ function ownershipUnreadableBody(unusable: { cause: 'ahead-of-clock' | 'unreadab
     error: 'OWNERSHIP_UNREADABLE',
     retryable: true,
     cause: unusable.cause,
-    // it. 29 wrote «dated later than our clock» so a person would read it; it
+    // Wrote «dated later than our clock» so a person would read it; it
     // has to survive to the body, and the client must not overwrite it.
     detail: OWNERSHIP_UNREADABLE_DETAIL[unusable.cause],
   };
@@ -686,7 +627,7 @@ function ownershipUnreadableBody(unusable: { cause: 'ahead-of-clock' | 'unreadab
 
 /**
  * The viewer's takeover instant for DISPLAY (`mine`): unusable → «now», so nothing shows as theirs.
- * it. 33: no route calls this any more — the two readers (`GET /runs/:id`, the
+ * no route calls this any more — the two readers (`GET /runs/:id`, the
  * self-serve alta) take the full verdict so the body can SAY the mark was
  * unusable. Kept, inert, for the next reader that only needs the instant.
  */
@@ -695,14 +636,14 @@ async function viewerTakeover(userId: string | undefined): Promise<Date | null> 
   return v.unusable ? new Date() : v.at;
 }
 
-/* ── does this XRPL account already belong to a person? (it. 19, 3.5) ────── */
+/* ── does this XRPL account already belong to a person? (3.5) ────── */
 
 type OmnibusOwnership =
   | { kind: 'free' }
   | { kind: 'caller' }
   | { kind: 'another-user'; via: 'account' | 'binding' }
   /**
-   * it. 21 (3.6) — THE ADDRESS HAS AN OWNER AND WE CANNOT SAY WHETHER IT IS THE
+   * THE ADDRESS HAS AN OWNER AND WE CANNOT SAY WHETHER IT IS THE
    * CALLER'S, because the caller brought no session. «Somebody's» is NOT «somebody
    * else's»: without a session every matching row read as a third party's and the
    * declaration died on a 409 nobody could act on — including the founder
@@ -785,7 +726,7 @@ export function publicClient(c: DemoClient, viewerUserId?: string, viewerTakeove
 export const OPERATOR_VIEW = { operator: true } as const;
 
 /**
- * What a non-operator never sees of an omnibus payment in flight (it. 14, R1 1.2):
+ * What a non-operator never sees of an omnibus payment in flight (R1 1.2):
  * the 0xFE memo and userOpHash of a composed hand-off. With the memo anyone could
  * report fake signatures against the omnibus nonce seat; an unsigned draft's bytes
  * are the exchange's business until they land (then the ledger shows them).
@@ -861,7 +802,7 @@ router.post('/runs', guarded(async (req, res) => {
   const { label, councilAddress, omnibusAddress, policy, registryAddress, poteAddress } = req.body ?? {};
   if (!XRPL_RE.test(String(councilAddress ?? ''))) return void bad(res, 'councilAddress must be an XRPL r-address (the exchange council)');
   if (!XRPL_RE.test(String(omnibusAddress ?? ''))) return void bad(res, 'omnibusAddress must be an XRPL r-address (the exchange omnibus)');
-  // it. 16 (R5 5.1) — THE RUN DECLARES ITS OMNIBUS; the declaration IS the
+  // THE RUN DECLARES ITS OMNIBUS; the declaration IS the
   // authorization. This route is admin-only, so an operator naming their own
   // omnibus here is exactly as authoritative as an environment variable, and it
   // is the only thing they can actually do from the setup wizard. The previous
@@ -884,7 +825,7 @@ router.post('/runs', guarded(async (req, res) => {
   if (registryAddress !== undefined && registryAddress !== '' && !EVM_RE.test(String(registryAddress))) return void bad(res, 'registryAddress must be a 0x address');
   if (poteAddress !== undefined && poteAddress !== '' && !EVM_RE.test(String(poteAddress))) return void bad(res, 'poteAddress must be a 0x address');
 
-  // it. 19 (3.5) — …NI LA CUENTA DE UNA PERSONA REAL. Las tres negativas de
+  // …NI LA CUENTA DE UNA PERSONA REAL. Las tres negativas de
   // arriba miran las runs; esta mira a los usuarios. Declarar aquí la r-address
   // de un tercero pondría su cuenta bajo la guarda del 0xFE de la mesa: sus
   // hand-offs pasarían a leerse como flujos nuestros y una salida suya sin
@@ -906,7 +847,7 @@ router.post('/runs', guarded(async (req, res) => {
       });
     }
     if (owned.kind === 'unattributable') {
-      // it. 23 (3.3) — THE FOUNDER IS NOT WALLED, THEY ARE TOLD WHAT IS MISSING.
+      // THE FOUNDER IS NOT WALLED, THEY ARE TOLD WHAT IS MISSING.
       // An admin session (or the static key) proves the operator of this
       // deployment, never WHICH Astryum user is asking, and only the second
       // claim can answer «is this address yours?». So the refusal names the
@@ -1021,9 +962,8 @@ router.post('/runs', guarded(async (req, res) => {
       });
     }
 
-    // El exchange iba SIEMPRE en autopilot (fundador 14-sep): nacía encendido si
-    // la llave de este backend abría SU omnibus. 18-sep (fundador: «el autopilot
-    // hay que sacarlo no visible y que se haga a través de QR»): nace APAGADO y
+    // El exchange iba SIEMPRE en autopilot: nacía encendido si
+    // la llave de este backend abría SU omnibus. Nace APAGADO y
     // la mesa firma cada movimiento desde el omnibus con un QR de Xaman. El
     // autopilot queda construido e inerte (AUTOPILOT_AT_BIRTH); una run que ya
     // lo tenía encendido lo conserva hasta que se apague.
@@ -1080,7 +1020,7 @@ router.get('/runs/for-account', guarded(async (req, res) => {
   const account = String(req.query.account ?? '').trim();
   if (!EVM_RE.test(account)) return void bad(res, 'account must be the client Flare account (0x…)');
   const viewer = await optionalSessionUserId(req);
-  // it. 31 (4.2) — THE PORTAL DECIDES OWNERSHIP, so «could not use the mark» is
+  // THE PORTAL DECIDES OWNERSHIP, so «could not use the mark» is
   // answered as what it is: a retryable 503 with the cause, never as «this row
   // predates a takeover» → `reclaimRequired: true` → a founder-only remedy with
   // no button. See `viewerTakeoverVerdict`.
@@ -1101,16 +1041,16 @@ router.get('/runs/for-account', guarded(async (req, res) => {
     staleOwn = matches.some((m) => m.client.ownerUserId === viewer && ownershipPredatesTakeover(m.client, viewerTakeoverAt));
     matches = own.length ? own : matches.filter((m) => !m.client.ownerUserId);
   }
-  // 18-sep — CLIENTE POR EXCHANGE: a qué exchanges abiertos puede esta llave
+  // CLIENTE POR EXCHANGE: a qué exchanges abiertos puede esta llave
   // PEDIR ACCESO todavía. Los que no tienen NINGUNA fila con esta llave, de
   // nadie: donde ya hay una (aunque sea de otra sesión) no se ofrece una segunda
-  // ficha para la misma llave — la razón del `heldElsewhere` de abajo (14-sep).
+  // ficha para la misma llave — la razón del `heldElsewhere` de abajo.
   const withThisKey = new Set(
     runs.filter((r) => r.clients.some((c) => c.passkeyAccount && c.passkeyAccount.toLowerCase() === account.toLowerCase())).map((r) => r.runId),
   );
   const joinable = runs.filter((r) => r.status === 'open' && !withThisKey.has(r.runId)).map(summary);
   if (!matches.length) {
-    // 14-sep (fundador: «no puedo acceder al exchange creado»): la llave YA tiene
+    // La llave YA tiene
     // ficha, pero no es de esta sesión. Sin esto el cliente caía en «abrir una
     // cuenta» y, con un solo exchange, a crear una SEGUNDA ficha para la misma
     // llave. Se dice DÓNDE está (lo mismo que ya ve una lectura anónima), jamás
@@ -1137,9 +1077,9 @@ router.get('/runs/:id', guarded(async (req, res) => {
   if (!got) return;
   const { run, access } = got;
   const viewer = got.viewer.userId;
-  // The desk (founder) reads the memo of the 0xFE it composed from here; nobody else does.
+  // The desk reads the memo of the 0xFE it composed from here; nobody else does.
   const view = got.viewer.admin ? OPERATOR_VIEW : undefined;
-  // it. 33 (agente C, 2) — «NO PUDE LEER TU MARCA» SE DICE, NO SOLO SE CALLA.
+  // «NO PUDE LEER TU MARCA» SE DICE, NO SOLO SE CALLA.
   // El display sigue fallando cerrado (nada se enseña como suyo: `mine:false`),
   // pero ese silencio tenía un consumidor: el libro del cliente se recarga cada
   // 20 s por esta ruta, `useExchangeClient` deriva «mi fila» de `mine`, y con la
@@ -1147,7 +1087,7 @@ router.get('/runs/:id', guarded(async (req, res) => {
   // dentro se convertía en «Open an account» — y si lo intentaba, 409
   // ACCOUNT_ALREADY_A_CLIENT. Un parpadeo del pooler bastaba. Ahora el cuerpo
   // lleva la causa (`viewerUnreadable`, el mismo veredicto y las mismas frases
-  // que el portal, it. 31), y el cliente pinta «could not read» con reintento.
+  // que el portal), y el cliente pinta «could not read» con reintento.
   const takeover = await viewerTakeoverVerdict(viewer);
   const viewerTakeoverAt = takeover.unusable ? new Date() : takeover.at;
   const shaped = publicRun(run, viewer, viewerTakeoverAt, view);
@@ -1163,7 +1103,7 @@ router.patch('/runs/:id', guarded(async (req, res) => {
     if (!run) return;
     const { label, status, poteAddress, registryAddress, bridgeAddress, autopilot, policy } = req.body ?? {};
     if (typeof label === 'string' && label.trim()) run.label = label.trim().slice(0, 60);
-    // it. 31 — CERRAR NO ES UN INTERRUPTOR SOBRE LO QUE YA ESTÁ EN VUELO.
+    // CERRAR NO ES UN INTERRUPTOR SOBRE LO QUE YA ESTÁ EN VUELO.
     // Cerraba sin mirar nada: una retirada pendiente se quedaba detrás de un
     // `status !== 'open'` para siempre. Ahora (a) el autopiloto sirve SALIDAS
     // también en una toma cerrada, y (b) cerrar con peticiones vivas o reservas
@@ -1171,7 +1111,7 @@ router.patch('/runs/:id', guarded(async (req, res) => {
     // (DELETE del dueño) o se prueben (DELETE de admin) primero. Los SALDOS no
     // impiden cerrar: su salida sigue abierta (a). Reabrir siempre se puede.
     if (status === 'closed' && run.status !== 'closed') {
-      // it. 33 (7) — UNA ENTRADA PENDIENTE QUE NADIE FIRMÓ NO IMPIDE CERRAR: es
+      // UNA ENTRADA PENDIENTE QUE NADIE FIRMÓ NO IMPIDE CERRAR: es
       // exactamente lo que el tick de una toma cerrada haría con ella
       // (`refuseClosedEntry` → RUN_CLOSED, final, con recibo), así que se hace
       // aquí, determinista y sin firmar nada. La prueba es la del tick: el
@@ -1209,7 +1149,7 @@ router.patch('/runs/:id', guarded(async (req, res) => {
     }
     if (status === 'open' || status === 'closed') run.status = status;
     // La política del run sigue al pote vivo: la jaula puede abrir un segundo
-    // pote con otra ventana de salida (13-sep: B → A para la toma).
+    // pote con otra ventana de salida (B → A para la toma).
     if (policy === 'A' || policy === 'B') run.policy = policy;
     if (typeof autopilot === 'boolean') {
       // The loop can only serve a run whose omnibus is the key it holds — say so
@@ -1250,14 +1190,14 @@ router.delete('/runs/:id', guarded(async (req, res) => {
   await withRunLock(String(req.params.id), async () => {
     const run = await requireRun(req, res);
     if (!run) return;
-    // it. 31 — BORRAR LA TOMA BORRA EL ESPEJO DE LO QUE SE DEBE A CADA CLIENTE.
+    // BORRAR LA TOMA BORRA EL ESPEJO DE LO QUE SE DEBE A CADA CLIENTE.
     // No miraba saldos ni peticiones vivas: con 50 XRP de un cliente en el
     // ómnibus bajo su tag, borrar dejaba ese dinero sin ficha y una retirada
     // pendiente sin nadie que la sirviera. Sin `force` se rechaza y se nombra lo
     // que hay; con `force=1` (decisión explícita del fundador) se borra y queda
     // dicho en ops qué se descartó, porque después ya no hay dónde escribirlo.
     const live = liveWorkOf(run, { includeSigned: true });
-    // it. 33 (agente C, 5) — LAS PARTICIPACIONES TAMBIÉN CUENTAN. `funded` miraba
+    // LAS PARTICIPACIONES TAMBIÉN CUENTAN. `funded` miraba
     // solo `xrpOnExchangeDrops > 0`: un cliente cuyo XRP ya está EN EL POTE (la
     // entrada se ejecutó, el espejo quedó a 0) no contaba, y la toma se borraba
     // sin `force` con su ficha y su tag — que es lo que necesita su salida a XRP
@@ -1305,7 +1245,7 @@ router.delete('/runs/:id', guarded(async (req, res) => {
       return void res.status(503).json({ error: 'RUN_MARKS_NOT_PERSISTED', detail: `the run sequence / tag range could not be recorded (${safeErrorDetail(e).slice(0, 200)}) — the run was not deleted; try again` });
     }
     await deleteRun(run.runId);
-    // it. 19 (3.5) — EL OLVIDO. El conjunto de cuentas operativas nunca retiraba
+    // EL OLVIDO. El conjunto de cuentas operativas nunca retiraba
     // una: el omnibus de una run borrada seguía bajo la guarda del 0xFE para
     // siempre, y una salida desde esa cuenta sin prueba recibía 403 sin que
     // existiera ya ninguna mesa detrás. Se vuelve a leer ahora (no dentro de 15
@@ -1318,7 +1258,7 @@ router.delete('/runs/:id', guarded(async (req, res) => {
 /* ── clients (the exchange's own accounts — simulated) ──────────────────── */
 
 /**
- * it. 31 — what is still in flight on a run: the facts a close/delete must name.
+ * What is still in flight on a run: the facts a close/delete must name.
  * `includeSigned`: a 'signed' put-to-work (0xFE on the ledger, mint pending) is
  * already debited and the exit-only tick keeps following it in a closed run, so
  * CLOSING does not wait for it (an executor that never mints would otherwise
@@ -1336,7 +1276,7 @@ function liveWorkOf(run: DemoRun, opts: { includeSigned?: boolean } = {}): { req
 }
 
 /**
- * it. 33 (5) — did this client's XRP go INTO the pote through this desk, with
+ * Did this client's XRP go INTO the pote through this desk, with
  * no exit of theirs recorded since? Store-only (no chain read: «could not read»
  * must not decide a delete, and `force=1` remains the founder's override).
  * Entries: an E5_PUT_TO_WORK receipt, a put-to-work request 'done'/'signed'
@@ -1367,7 +1307,7 @@ function walletTakenByOther(run: DemoRun, wallet: string, exceptClientId?: strin
 }
 
 /**
- * Self-serve rows one owner may open on one run (it. 12, 2.6c). Each row takes a
+ * Self-serve rows one owner may open on one run (2.6c). Each row takes a
  * destination tag of the run's range: without a cap one session emptied it (99
  * tags) and nobody else could become a client. `DEMO_EXCHANGE_MAX_CLIENTS_PER_OWNER`.
  */
@@ -1415,7 +1355,7 @@ router.post('/runs/:id/clients', guarded(async (req, res) => {
     }
     // One XRPL wallet, one client of this run: the watcher credits and debits by
     // wallet, and a second row with the same wallet absorbed the other's withdraw
-    // debit — the same balance could be paid out twice (productizer cycle, it. 3).
+    // debit — the same balance could be paid out twice.
     if (xrplAddress && walletTakenByOther(run, String(xrplAddress))) {
       return void res.status(409).json({ error: 'WALLET_ALREADY_A_CLIENT', detail: 'this XRPL wallet is already the wallet of another client of this exchange' });
     }
@@ -1425,9 +1365,7 @@ router.post('/runs/:id/clients', guarded(async (req, res) => {
     // (ACCOUNT_ALREADY_A_CLIENT). Solo cuentan las filas del mismo dueño; para
     // el desk (admin), las filas sin dueño.
     //
-    // POR EXCHANGE, NO GLOBAL (fundador 18-sep: «cuando crea una cuenta a un
-    // exchange es al que ha pedido acceso y le han dado la verificación, sino no
-    // está dentro de ese exchange»). Antes se miraban TODAS las runs: la passkey
+    // POR EXCHANGE, NO GLOBAL. Antes se miraban TODAS las runs: la passkey
     // que ya era cliente de un exchange no podía pedir acceso a otro. Ser
     // cliente es por exchange — su tag, su KYC-<tag> sobre SU omnibus, su pote —
     // y nada del dinero cruza: el put-to-work deposita desde la PA del omnibus
@@ -1477,7 +1415,7 @@ router.post('/runs/:id/clients', guarded(async (req, res) => {
     }
     run.clients.push(client);
     await saveRun(run);
-    // it. 33 (2): the row was just saved as this session's; if its mark cannot
+    // The row was just saved as this session's; if its mark cannot
     // be used right now, `mine` fails closed AND the body says why — otherwise
     // the fresh account rendered as «Open an account» again (then 409).
     const takeover = admin ? { at: null, unusable: null } : await viewerTakeoverVerdict(userId);
@@ -1540,7 +1478,7 @@ router.patch('/runs/:id/clients/:cid', guarded(async (req, res) => {
     // RECLAMAR sí, RE-APUNTAR jamás: una ficha sin passkey la fija su dueño; una
     // ya reclamada no se re-apunta a otra cuenta ni por error ni por ataque — el
     // put-to-work acuñaría las participaciones a un tercero. (El bloqueo
-    // CLIENT_HAS_ACTIVITY de la it. 3 sobra: quien llega aquí ya es el dueño
+    // CLIENT_HAS_ACTIVITY de la sobra: quien llega aquí ya es el dueño
     // probado de la fila, o un fundador.)
     if (typeof passkeyAccount === 'string' && EVM_RE.test(passkeyAccount)) {
       const next = ethers.getAddress(passkeyAccount);
@@ -1603,8 +1541,8 @@ router.patch('/runs/:id/clients/:cid', guarded(async (req, res) => {
     if (admin && issueClaimCode === true) {
       if (client.ownerUserId) {
         // Only a row whose owner's login was taken over AFTER it became theirs is
-        // re-opened: that ownership is not proof of the person any more (it. 10).
-        // it. 31 — same three causes and honest sentences as the portal; the
+        // re-opened: that ownership is not proof of the person any more.
+        // — same three causes and honest sentences as the portal; the
         // truncated `(${message.slice(0, 80)})` fragment is gone.
         const ownerVerdict = await viewerTakeoverVerdict(client.ownerUserId);
         if (ownerVerdict.unusable) return void res.status(503).json(ownershipUnreadableBody(ownerVerdict.unusable));
@@ -1612,7 +1550,7 @@ router.patch('/runs/:id/clients/:cid', guarded(async (req, res) => {
         if (!ownershipPredatesTakeover(client, ownerTakeoverAt)) {
           return void res.status(409).json({ error: 'CLIENT_ALREADY_OWNED', detail: 'this client already has an owner; a claim code would open nothing' });
         }
-        // it. 12 (2.2): the re-opened row must not inherit the MONEY DESTINATIONS of
+        // The re-opened row must not inherit the MONEY DESTINATIONS of
         // whoever held the login before it was recovered — its payout wallet (and
         // its proof), its Flare account (where shares are minted), the deposit
         // senders the watcher recorded as payout proof, its standing auto-invest.
@@ -1738,7 +1676,7 @@ router.post('/runs/:id/clients/:cid/requests', guarded(async (req, res) => {
     const client = run.clients.find((c) => c.id === req.params.cid);
     if (!client) return void res.status(404).json({ error: 'CLIENT_NOT_FOUND', detail: 'no client with this id on this exchange — the row may have been removed, or the link is stale; reload and try again' });
     if (!admin && refuseNotOwner(res, client, userId, takeover.at)) return;
-    // it. 31 — una toma cerrada no abre ENTRADAS; la SALIDA sigue (la sirve el
+    // Una toma cerrada no abre ENTRADAS; la SALIDA sigue (la sirve el
     // autopiloto también cerrada, o la mesa). Un interruptor nuestro jamás gatea
     // una retirada.
     if (kind === 'put-to-work' && run.status !== 'open') {
@@ -1754,13 +1692,13 @@ router.post('/runs/:id/clients/:cid/requests', guarded(async (req, res) => {
     // off the ledger must not be joined by a second request of the same kind.
     const already = requestsOf(run).find((r) => r.clientId === client.id && r.kind === kind && (r.status === 'pending' || r.status === 'submitting'));
     if (already) {
-      // it. 31 — LA PUERTA DEL DUEÑO, EN LA RUTA QUE USA EL DUEÑO. Una entrada
+      // LA PUERTA DEL DUEÑO, EN LA RUTA QUE USA EL DUEÑO. Una entrada
       // muerta (`NO_CLIENT_ACCOUNT`…) bloqueaba la siguiente con este 409 y no
-      // decía que existe `DELETE .../requests/:rid` (it. 27). Se nombra cuando
+      // decía que existe `DELETE .../requests/:rid`. Se nombra cuando
       // la que estorba no lleva hash: el DELETE vuelve a comprobar el journal y
       // solo cede si nada se firmó, así que nombrarla no promete nada.
-      // it. 33 (6) — Y EL JOURNAL SE CONSULTA, como ya hace `refuseInFlight` vía
-      // `againstFor`: `pending && !txHash` no es prueba de nada (it. 29 — un
+      // — Y EL JOURNAL SE CONSULTA, como ya hace `refuseInFlight` vía
+      // `againstFor`: `pending && !txHash` no es prueba de nada (un
       // guardado concurrente devuelve a 'pending' una petición YA firmada), y
       // aquí se nombraba como palanca una puerta que luego contestaba 409. Si el
       // journal no se puede leer no se nombra ninguna: «no pude leer» no promete.
@@ -1776,24 +1714,24 @@ router.post('/runs/:id/clients/:cid/requests', guarded(async (req, res) => {
     }
     // The mirror is debited only when an outcome is known: what is pending,
     // submitting or handed to Xaman by the desk is RESERVED, or «withdraw X» +
-    // «put X to work» with X deposited were both signed (productizer it. 6).
+    // «put X to work» with X deposited were both signed.
     const balance = BigInt(client.xrpOnExchangeDrops || '0');
-    // it. 27 — `kind` VIAJA, PORQUE LA ENTRADA Y LA SALIDA NO SE RETIENEN IGUAL.
+    // `kind` VIAJA, PORQUE LA ENTRADA Y LA SALIDA NO SE RETIENEN IGUAL.
     // Sin él, una put-to-work MUERTA (el autopiloto la deja `pending` a
     // propósito en `NO_CLIENT_ACCOUNT`, `NO_POTE`, `ABOVE_DAILY_CAP`...) reservaba
     // el saldo entero y esta misma puerta contestaba 409 a la RETIRADA de su
     // dueño: su dinero estaba «reservado por pagos en vuelo» sin que se hubiera
     // firmado nada nunca.
-    // it. 29 — y la exención la concede el JOURNAL, no el `status` de la fila:
+    // — y la exención la concede el JOURNAL, no el `status` de la fila:
     // un guardado concurrente del run devuelve a 'pending' una petición cuyo
     // pago ya está firmado y vivo (`againstFor`).
-    // it. 33 (1): y si el journal no se pudo leer, la entrada retiene y se SIGUE —
+    // y si el journal no se pudo leer, la entrada retiene y se SIGUE —
     // una lectura nuestra fallida no niega una salida que cabe.
     const { against, journalUnreadable } = await journalBackedAgainst(run, client.id, kind);
     const reserved = reservedDrops(run, client.id, undefined, {}, against);
     if (BigInt(drops) + reserved > balance) {
       const available = balance > reserved ? balance - reserved : BigInt(0);
-      // it. 31 — ESTE 409 ERA EL ÚNICO QUE UNA PERSONA REAL VEÍA, Y ERA EL ÚNICO
+      // ESTE 409 ERA EL ÚNICO QUE UNA PERSONA REAL VEÍA, Y ERA EL ÚNICO
       // SIN PALANCA: ni `inFlight`, ni ids, ni la puerta. `refuseInFlight` la
       // nombraba solo en las rutas de mesa. Misma pieza (`inFlightLever`) aquí.
       const inFlight = paymentsInFlight(run, client.id, {}, undefined, against);
@@ -1813,9 +1751,9 @@ router.post('/runs/:id/clients/:cid/requests', guarded(async (req, res) => {
     const now = new Date().toISOString();
     const request = { id: newId('rq'), kind, clientId: client.id, drops, status: 'pending' as const, createdAt: now, updatedAt: now };
     requestsOf(run).push(request);
-    // it. 31: el 201 dice la verdad también en una toma cerrada — el autopiloto
+    // El 201 dice la verdad también en una toma cerrada — el autopiloto
     // la sirve para SALIR (tick), y una entrada cerrada no llega hasta aquí.
-    // it. 33 (7): «the autopilot will fulfil it on its next tick» only if there IS
+    // «the autopilot will fulfil it on its next tick» only if there IS
     // a next tick — `run.autopilot` says the take is meant for the loop, not that
     // the loop is running (start() exits without a seed / the flags).
     const servedBy = run.autopilot && demoExchangeAutopilot.isRunning() ? 'autopilot' : 'desk';
@@ -1826,7 +1764,7 @@ router.post('/runs/:id/clients/:cid/requests', guarded(async (req, res) => {
 }));
 
 /**
- * it. 27 — LA PUERTA PARA RETIRAR UNA PETICIÓN QUE NADIE LLEGÓ A FIRMAR.
+ * LA PUERTA PARA RETIRAR UNA PETICIÓN QUE NADIE LLEGÓ A FIRMAR.
  *
  * No existía ninguna. Una petición `pending` se quedaba ahí para siempre: el
  * autopiloto la deja pendiente a propósito cuando cree que un tick posterior
@@ -1835,26 +1773,11 @@ router.post('/runs/:id/clients/:cid/requests', guarded(async (req, res) => {
  * estados que no se arreglan nunca. Esa petición bloqueaba luego cualquier otra
  * del mismo tipo (409 `REQUEST_PENDING`) y, hasta esta iteración, también la
  * salida de su dueño.
- *
- * Qué se cede: SOLO una petición 'pending' y solo si se puede PROBAR que no hay
- * bytes firmados suyos. La prueba es el journal durable de firmas
- * (`readSubmission`), que es lo único que sobrevive a un guardado concurrente
- * del run:
- *  - el journal tiene entrada que no sea 'expired' (`journalPlan !== 'fulfil'`:
- *    firmada, fallida o ASENTADA — it. 29) o la petición ya lleva hash -> 409,
- *    porque retirarla dejaría un pago firmado sin nadie que siguiera su suerte,
- *    y el siguiente tick podría firmar un SEGUNDO pago del mismo saldo;
- *  - el journal no se puede LEER -> 409 retryable. «No pude leer» no es permiso.
- *    Y aquí no se está gateando ninguna salida: el dinero de este cliente ya sale
- *    sin necesidad de esta puerta (una entrada pendiente no lo retiene), así que
- *    negarse en la duda no retiene a nadie.
- *
- * Retirar NO deshace nada: no hay hash, ni asiento, ni blob. Solo suelta la cola.
  */
 router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) => {
   const admin = isAdminRequest(res);
   const userId = req.siwe?.userId;
-  // it. 33 (agente C, 4) — LA PUERTA DE ADMIN PARA UN ENTRY MALFORMADO. Un entry
+  // LA PUERTA DE ADMIN PARA UN ENTRY MALFORMADO. Un entry
   // del journal en 'submitting' SIN hash o sin LastLedgerSequence no se puede
   // seguir en el ledger ni probar muerto (`replayJournal` lo deja `pending` con
   // JOURNAL_ENTRY_MALFORMED; `resolveSubmitting` no toca un 'submitting' sin
@@ -1875,7 +1798,7 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
     if (!admin && refuseNotOwner(res, client, userId, takeover.at)) return;
     const request = requestsOf(run).find((r) => r.id === req.params.rid && r.clientId === client.id);
     if (!request) return void res.status(404).json({ error: 'REQUEST_NOT_FOUND', detail: 'no such request for this client — it may already have been served, withdrawn or closed; reload to see its current state' });
-    // it. 33 (4): a 'submitting' with no hash is the run-side shape of the same
+    // A 'submitting' with no hash is the run-side shape of the same
     // unfollowable state — the operator's door takes it too; nobody else does.
     const unfollowableSubmitting = request.status === 'submitting' && !request.txHash;
     if (request.status !== 'pending' && !(closeMalformed && unfollowableSubmitting)) {
@@ -1900,7 +1823,7 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
         detail: `whether this request was already signed could not be read (${safeErrorDetail(e).slice(0, 200)}) — nothing was changed; try again. (A withdrawal of this client's money does not depend on this: a pending entry no longer holds it.)`,
       });
     }
-    // it. 29 — EL MISMO SUBCONJUNTO QUE EL AUTOPILOTO, NI UNO MÁS ESTRECHO.
+    // EL MISMO SUBCONJUNTO QUE EL AUTOPILOTO, NI UNO MÁS ESTRECHO.
     // Esto solo miraba 'submitting', pero `journalPlan` dice que TODO lo que no
     // sea 'expired' significa que la llave ya firmó. Un entry 'settled' —el pago
     // ENTRÓ en el ledger— con la petición clobbeada a 'pending' pasaba por aquí
@@ -1909,7 +1832,7 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
     // un 0xFE al Core Vault no lleva la wallet de nadie), así que se quedaba con
     // el dinero en el espejo Y en el pote. La misma pieza para las dos puertas.
     const plan = journalPlan(entry);
-    // it. 33 (4) — the malformed state, named once: the journal says «signed»
+    // The malformed state, named once: the journal says «signed»
     // (anything but fulfil) and records no hash or no window; or the run says
     // 'submitting' with no hash and the journal has nothing better.
     const entryMalformed = Boolean(entry) && plan !== 'fulfil' && (typeof entry!.txHash !== 'string' || !entry!.txHash || typeof entry!.lastLedgerSequence !== 'number');
@@ -1962,7 +1885,7 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
       console.error(`[demo-exchange] request ${request.id} (${request.kind} ${request.drops} drops) with a MALFORMED journal entry was closed by an operator`);
       return void res.json({ request, reconciled: 'malformed-closed-by-operator', run: publicRun(run, userId, takeover.at, OPERATOR_VIEW) });
     }
-    // it. 31 — `failed` ES UN RESULTADO VALIDADO DISTINTO DE tes: los drops nunca
+    // `failed` ES UN RESULTADO VALIDADO DISTINTO DE tes: los drops nunca
     // salieron. Se agrupaba con «lo firmado» y remitía a un tick que, con el
     // bucle apagado, no existe. Aquí la puerta del dueño CEDE haciendo la misma
     // reconciliación que haría el tick (journal, asiento, gasto, negativa final
@@ -1979,9 +1902,9 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
           : plan === 'finish-failed'
             ? `was signed and the ledger refused it (${entry.code ?? 'no code recorded'})`
             : 'was signed and its outcome is not read yet';
-      // it. 31: un entry malformado (sin hash) reventaba aquí en `.slice` → 500.
+      // Un entry malformado (sin hash) reventaba aquí en `.slice` → 500.
       const hash = typeof entry.txHash === 'string' && entry.txHash ? `${entry.txHash.slice(0, 12)}…` : 'no hash recorded';
-      // it. 33 (4): a malformed entry has NO tick that reconciles it — say which
+      // A malformed entry has NO tick that reconciles it — say which
       // door does (the operator's), instead of promising a next tick.
       const tail = entryMalformed
         ? admin
@@ -1996,8 +1919,7 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
       });
     }
     const now = new Date().toISOString();
-    // 18-sep (fundador: «el autopilot hay que sacarlo no visible y que se haga a
-    // través de QR»): la mesa TOMA la petición para firmarla ella desde el
+    // La mesa TOMA la petición para firmarla ella desde el
     // omnibus con un QR de Xaman. Es la misma cesión de arriba (nada firmado,
     // mismas comprobaciones del journal); lo que cambia es la verdad que queda
     // escrita: no se retiró, se sirve a mano — la reserva la hace a
@@ -2025,7 +1947,7 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
 }));
 
 /**
- * it. 29 — LA PUERTA DE UNA RESERVA DE MESA DE LA QUE NUNCA SE COMPUSO NADA.
+ * LA PUERTA DE UNA RESERVA DE MESA DE LA QUE NUNCA SE COMPUSO NADA.
  *
  * `POST /runs/:id/desk-payments` abre una reserva `prepared` de `put-to-work`
  * SIN memo y sin un solo byte firmado: es solo el escritorio diciendo «voy a
@@ -2034,17 +1956,6 @@ router.delete('/runs/:id/clients/:cid/requests/:rid', guarded(async (req, res) =
  * única puerta era `DELETE /runs/:id/desk-payments/:pid`, que es de admin y
  * contesta 503 mientras el XRPL no se pueda leer. La cárcel de la cola, mudada
  * de sitio por tercera vez.
- *
- * Esta puerta es del DUEÑO (o de un admin) y cede exactamente lo que la
- * asimetría ya exime de retener su salida, con la misma prueba y ni un byte más:
- * `put-to-work`, `prepared`, sin `memoHex` y sin `txHash`. El servidor escribe
- * el memo dentro del lock del run al componer el 0xFE (prepare-put-to-work) y la
- * puerta de la mesa rechaza memos traídos de fuera, así que sin memo no hay 0xFE
- * que pueda ejecutarse. Cualquier otra fila sigue por la puerta de admin, que
- * lee la cadena (`provePutToWorkRelease`) — soltar algo firmado sin prueba es
- * exactamente lo que la it. 8 cerró.
- *
- * Soltarla NO deshace nada y no mueve dinero: solo devuelve el saldo al cliente.
  */
 router.delete('/runs/:id/clients/:cid/desk-payments/:pid', guarded(async (req, res) => {
   const admin = isAdminRequest(res);
@@ -2065,12 +1976,12 @@ router.delete('/runs/:id/clients/:cid/desk-payments/:pid', guarded(async (req, r
     if (!deskReservationNothingSigned(p)) {
       return void res.status(409).json({
         error: 'DESK_PAYMENT_NOT_RELEASABLE_HERE',
-        // it. 31: decía «It does not hold your withdrawal», y es falso — una
+        // Decía «It does not hold your withdrawal», y es falso — una
         // reserva con memo SÍ retiene la salida (inFlight.test lo afirma): ahí
         // puede haber un 0xFE firmado en un teléfono. Lo que se dice ahora es lo
         // que pasa: retiene hasta que pase su ventana, y entonces el propio
-        // autopiloto la prueba y la suelta (paso 0, it. 31).
-        // it. 33 (3/7): «releases it on its own» is promised only while the loop
+        // autopiloto la prueba y la suelta (paso 0).
+        // «releases it on its own» is promised only while the loop
         // that does it is RUNNING (it now sweeps manual takes too); with the loop
         // down, what is true is that the desk closes it against the ledger.
         detail: `this reservation is a ${p.kind} in '${p.status}'${p.memoHex ? ' and carries a 0xFE memo' : ''}${p.txHash ? ` and a payment hash (${p.txHash.slice(0, 12)}…)` : ''} — only the desk can close it, and only against the ledger (DELETE /api/demo-exchange/runs/:id/desk-payments/${p.id}). While it is open it does hold that XRP, including against your withdrawal: something of it may be signed, and that is the one thing that stops the same XRP being paid twice.${typeof p.lastLedgerSequence === 'number' ? ` It can land until XRPL ledger ${p.lastLedgerSequence}; once that ledger is past, ${demoExchangeAutopilot.isRunning() ? 'the exchange proves it absent and releases it on its own' : 'the desk proves it absent against the ledger and releases it (the exchange backend loop is not running on this deployment, so it will not happen by itself)'}.` : ''}`,
@@ -2107,7 +2018,7 @@ router.post('/autopilot/tick', guarded(async (_req, res) => {
   if (!cfg.enabled) return void res.status(503).json({ error: 'AUTOPILOT_DISABLED', detail: 'DEMO_EXCHANGE_AUTOSIGN_ENABLED is not true' });
   const r = await demoExchangeAutopilot.tick();
   const status = await demoExchangeAutopilot.status();
-  // it. 21 (3.1): a pass that could not even read its list is not «0 runs, all
+  // A pass that could not even read its list is not «0 runs, all
   // good» — the tick keeps the process alive (no unhandled rejection) and names
   // the failure, and the route answers 503 so the operator sees it.
   if (r.failed) {
@@ -2174,8 +2085,8 @@ router.post('/runs/:id/clients/:cid/deposit-instructions', guarded(async (req, r
  * read of its window proves it absent (deskPaymentProof.proveDeskPayouts).
  */
 /**
- * `PUT_TO_WORK_LEDGER_WINDOW` (100) es la ventana que la mesa clavaba HASTA la
- * it. 19: se conserva y se re-exporta porque las filas compuestas antes de ese
+ * `PUT_TO_WORK_LEDGER_WINDOW` (100) es la ventana que la mesa clavaba HASTA la:
+ * se conserva y se re-exporta porque las filas compuestas antes de ese
  * cambio la llevan, y la prueba de liberación las lee. La mesa ya no la fija —
  * la ventana viva es la del constructor (`defaultLastLedgerWindow()`, 90).
  */
@@ -2184,23 +2095,12 @@ export { DESK_PAYOUT_LEDGER_WINDOW, PUT_TO_WORK_LEDGER_WINDOW };
 const MEMO_HEX_RE = /^[0-9a-fA-F]{2,512}$/;
 
 /**
- * it. 29 — LA PRUEBA DE QUE NADA ESTÁ FIRMADO, ANTES DE COMPONER NADA.
+ * LA PRUEBA DE QUE NADA ESTÁ FIRMADO, ANTES DE COMPONER NADA.
  *
  * `availableBalance` es pura, así que la exención asimétrica (una ENTRADA
  * pendiente no retiene la SALIDA de su dueño) entra por la puerta como prueba
  * leída del journal durable. Si el journal no se puede leer no se exime a nadie
  * —lo único que compra una reserva es no pagar dos veces.
- *
- * it. 33 (agente C, 1) — PERO «NO PUDE LEER» NO NIEGA LA SALIDA. Esto contestaba
- * 409 `SUBMISSION_JOURNAL_UNREADABLE` ANTES de comparar saldos: con 50 XRP en la
- * casilla, una entrada pendiente de 2 y una retirada de 10, la salida se negaba
- * por una lectura NUESTRA fallida aunque el saldo cubriera las dos cosas — la
- * única violación viva de «la salida jamás se gatea», y sin ningún doble pago
- * que evitar. Lo único que la lectura decide es la EXENCIÓN de la entrada; sin
- * poder leerla, la entrada retiene sus drops (`against` sin `provenUnsigned`) y
- * se sigue: el 409 llega solo si ENTONCES no cabe, y dice por qué se contó así.
- * Nunca responde: devuelve el `Against` (sin exenciones si el journal falló) y
- * la causa, para que el 409 de saldo la nombre y sea reintentable.
  */
 async function journalBackedAgainst(run: DemoRun, clientId: string, kind: AgainstKind): Promise<{ against: Against; journalUnreadable: string | null }> {
   try {
@@ -2211,7 +2111,7 @@ async function journalBackedAgainst(run: DemoRun, clientId: string, kind: Agains
 }
 
 /**
- * it. 33 (6) — is the owner's DELETE going to CEDE on this request? The same
+ * Is the owner's DELETE going to CEDE on this request? The same
  * rule `againstFor` applies to build `provenSigned`/`provenUnsigned` (and the
  * DELETE itself, `journalPlan`): only a 'pending' without hash whose journal
  * entry is absent, expired, or a validated failure. Unreadable journal → not
@@ -2228,7 +2128,7 @@ async function requestDoorByJournal(request: { id: string; status: string; txHas
 }
 
 /**
- * it. 33 — the fields a balance 409 carries when the journal could not be read:
+ * The fields a balance 409 carries when the journal could not be read:
  * the refusal is then «it does not fit while every pending entry of yours is
  * counted as reserved», which asking again can change; never «your money is held».
  */
@@ -2241,12 +2141,12 @@ function journalUnreadableTail(journalUnreadable: string | null): { sentence: st
 }
 
 /**
- * it. 27/29/31 — LA PALANCA, dicha una vez y usada en TODAS las puertas.
+ * /29/31 — LA PALANCA, dicha una vez y usada en TODAS las puertas.
  * Si lo que estorba es una petición que NADIE ha firmado, el 409 sigue siendo
  * correcto (evita pagar dos veces) pero no es un callejón sin salida: se nombra
  * la puerta que existe (el DELETE del dueño, que vuelve a comprobar el journal
  * y solo cede si nada se firmó). Lo mismo para una RESERVA DE MESA sin memo ni
- * hash, que tiene la suya. it. 31: también la usa `POST .../requests`, la única
+ * hash, que tiene la suya. También la usa `POST .../requests`, la única
  * ruta que una persona real toca, que hasta ahora respondía sin ids ni puerta.
  */
 export function inFlightLever(inFlight: InFlight[]): { sentence: string; ids: { withdrawableRequestIds?: string[]; releasableDeskPaymentIds?: string[] } } {
@@ -2327,20 +2227,11 @@ router.post('/runs/:id/withdraw/prepare', guarded(async (req, res) => {
     const proofs = await proveDeskPayouts(run, validatedLedgerIndex);
     const view = { validatedLedgerIndex, payoutsProvenAbsent: proofs.provenAbsent };
     sweepDeskPayments(run, view);
-    // `'withdraw'` (it. 27): esta puerta compone la SALIDA de un cliente, y una
+    // `'withdraw'`: esta puerta compone la SALIDA de un cliente, y una
     // entrada que nadie ha firmado no puede ser el motivo de su PAYMENT_IN_FLIGHT.
     // Lo que sí sigue estorbando -y debe- es todo lo que tiene bytes firmados o
     // está en manos de Xaman, mas una retirada pendiente del autopiloto: ahí el
     // 409 es lo único que separa a este cliente de cobrar dos veces.
-    //
-    // it. 29 — ESTA RUTA NO LEÍA EL JOURNAL JAMÁS, y era la que más falta le
-    // hacía: eximía a toda entrada 'pending' por su `status`, cuando el journal
-    // existe precisamente porque un guardado concurrente devuelve a 'pending'
-    // una petición YA firmada y todavía viva en su ventana. Con esa entrada en
-    // la cola, la mesa componía la salida de los mismos drops y el ómnibus
-    // pagaba 2×. `againstFor` lo lee; si no se puede leer, no se exime a nadie.
-    // it. 33 (1): con el journal ilegible no se exime a nadie y se SIGUE; el 409
-    // llega solo si entonces algo estorba, y dice por qué se contó así.
     const { against, journalUnreadable } = await journalBackedAgainst(run, client.id, 'withdraw');
     const inFlight = paymentsInFlight(run, client.id, view, undefined, against);
     if (inFlight.length) {
@@ -2381,7 +2272,7 @@ router.post('/runs/:id/withdraw/prepare', guarded(async (req, res) => {
     await saveRun(run);
     res.json({
       xrplTx,
-      // it. 23 (1.2): the payload's `expire` is the SERVER's number here too, so
+      // The payload's `expire` is the SERVER's number here too, so
       // the desk never mints a window this deployment did not choose. This payment
       // holds no 0xFE seat, but one number for every payload is the whole point.
       payloadExpiryMin: handoffPayloadExpiryMin(),
@@ -2404,7 +2295,7 @@ router.post('/runs/:id/withdraw/prepare', guarded(async (req, res) => {
 /**
  * E5 by hand, step 1: RESERVE the client's drops. Same PAYMENT_IN_FLIGHT rule as
  * the payout. Step 2 is desk-payments/:pid/prepare-put-to-work: the SERVER
- * composes the 0xFE for this reservation and stores its memo (it. 10 — the desk
+ * composes the 0xFE for this reservation and stores its memo (the desk
  * no longer composes it through the generic institutional prepare, and the memo
  * is never taken from the desk). The reservation closes only when the mint is
  * recorded (put-to-work/record, verified against the ledger) or a release PROVES
@@ -2435,7 +2326,7 @@ router.post('/runs/:id/desk-payments', guarded(async (req, res) => {
     // La mesa tampoco puede meter a trabajar el dinero de un cliente sin KYC.
     if (await refuseWithoutCredential(res, run, client)) return;
     // `'put-to-work'`: esto reserva una ENTRADA, y frente a otra entrada se
-    // retiene todo lo de siempre (it. 27) — dos entradas sí se pisarían el saldo.
+    // retiene todo lo de siempre — dos entradas sí se pisarían el saldo.
     // Por eso aquí no hay exención posible y `againstFor` no lee nada.
     const inFlight = paymentsInFlight(run, client.id, {}, undefined, { kind: 'put-to-work' });
     if (inFlight.length) return void refuseInFlight(res, inFlight);
@@ -2464,7 +2355,7 @@ router.post('/runs/:id/desk-payments', guarded(async (req, res) => {
  * put-to-work reservation. The proof matches only by memo, so a memo is accepted
  * only if the hand-off store proves it is this reservation's: built for the
  * omnibus, for exactly these drops, naming this client's Flare account, and no
- * other record of the run claims it (it. 10). Set once: a different value is a 409.
+ * other record of the run claims it. Set once: a different value is a 409.
  */
 router.patch('/runs/:id/desk-payments/:pid', guarded(async (req, res) => {
   const { memoHex, userOpHash } = req.body ?? {};
@@ -2509,13 +2400,13 @@ router.patch('/runs/:id/desk-payments/:pid', guarded(async (req, res) => {
     if (why) return void res.status(409).json({ error: 'DESK_PAYMENT_HANDOFF_UNVERIFIED', detail: `${why} — nothing was attached` });
     p.memoHex = memoN;
     p.userOpHash = uohN ?? (committedUoh ? '0x' + committedUoh : undefined);
-    // it. 16 (R1 1.2) — THE WINDOW COMES WITH THE MEMO. Attaching a hand-off
+    // THE WINDOW COMES WITH THE MEMO. Attaching a hand-off
     // composed elsewhere stored the memo but not its LastLedgerSequence, and
     // `putToWorkWindow` needs BOTH to answer `wait`: without it the release path
     // read the reservation as «can never land» and freed a 0xFE the row itself
     // declares signable — the twin of the omnibus. The window is the builder's,
     // read off the hand-off row, never re-stamped here; a row composed without
-    // one (unreadable ledger, pre-it15) keeps the old TTL rule.
+    // one (unreadable ledger, pre) keeps the old TTL rule.
     const handoffLls = handoff?.lastLedgerSequence;
     if (typeof handoffLls === 'number' && Number.isInteger(handoffLls) && handoffLls > 0) p.lastLedgerSequence = handoffLls;
     p.updatedAt = new Date().toISOString();
@@ -2546,17 +2437,6 @@ function preparableReservation(run: DemoRun, pid: string): { p: DeskPayment; cli
 /**
  * Frees the omnibus nonce seat of an UNSIGNED 0xFE hand-off (a signed one is
  * never touched). Best-effort.
- *
- * it. 20 (R1 B1) — I GOT THIS WRONG IN it. 19 AND THE COMMENT SAID SO OUT LOUD.
- * It claimed the desk's 0xFE «never left the backend», and it does: the route
- * returns `xrplPayment` and the desk signs it with the omnibus key IN XAMAN
- * (`OmnibusSignDoor`). Only the autopilot's dispatch is signed here with our own
- * seed. So `neverHandedOut` is not a property of this helper — it is a property
- * of the CALLER, and only two of the three callers have it: the two rollbacks
- * that run BEFORE the payment is ever put in the response. The third one runs
- * after the desk has had it in Xaman, and there the seat is freed on the same
- * proof everything else uses (the store reads the memo's window), not on our
- * word that nobody could have signed it.
  */
 async function releaseHandoffSeatQuietly(
   memoHex: string,
@@ -2573,7 +2453,7 @@ async function releaseHandoffSeatQuietly(
 const FLARE_RPC_DEFAULT = 'https://flare-api.flare.network/ext/C/rpc';
 
 /**
- * E5 by hand, step 2 (it. 10): compose the 0xFE of a put-to-work reservation
+ * E5 by hand, step 2: compose the 0xFE of a put-to-work reservation
  * SERVER-SIDE — the same composer and the same inputs the desk used to send to
  * the institutional /pote-fund-xrp/prepare (buildDirectMintHandoff from the
  * omnibus, [approve(asset → pote), pote.deposit(supplyUBA, receiver = the
@@ -2667,39 +2547,25 @@ router.post('/runs/:id/desk-payments/:pid/prepare-put-to-work', guarded(async (r
           grossXrpDrops: BigInt(drops),
           innerCalls,
           action: 'demo-exchange-desk',
-          // it. 14 (R1 1.1): the BUILDER stamps the LastLedgerSequence and the seat
+          // The BUILDER stamps the LastLedgerSequence and the seat
           // record keeps it, so the seat lives exactly as long as the payment can
           // land — never a seat TTL shorter than the window the desk hands to Xaman
           // (that gap let a twin be composed while the original was still signable).
-          //
-          // it. 19 (R1 1.6) — LA VENTANA LA FIJA EL PAYLOAD, NO UN NÚMERO REDONDO.
-          // Aquí se clavaban 100 ledgers (~6,7 min) mientras el payload de Xaman
-          // caduca a los 5: cada composición abandonada congelaba el asiento del
-          // omnibus — que comparten TODOS los clientes de la mesa — casi dos
-          // minutos después de que ya nadie pudiera firmarla. Ahora son 5 × 15 +
-          // 15 = **90 ledgers ≈ 6 min**: cubre entera la vida del payload (que es
-          // lo que impide el gemelo) más un minuto para que la firma del último
-          // segundo entre, y ni uno más. Es el mismo número que
-          // `defaultLastLedgerWindow()` del constructor, de la misma fórmula.
-          // (`PUT_TO_WORK_LEDGER_WINDOW` = 100 queda como referencia histórica de
-          // las filas compuestas antes de este cambio, que la prueba aún lee.)
           lastLedgerWindow: putToWorkLedgerWindow(),
-          //
           // The OMNIBUS signs this 0xFE, exactly like its payout (/withdraw/prepare):
-          // never the Make Waves project tag, whatever the operational list says (it. 12, 1.5).
+          // never the Make Waves project tag, whatever the operational list says (1.5).
           attribution: 'operational',
           // Who prepared it (the seat/supersede rules of the hand-off store); never supersedes.
           preparedByUserId: req.siwe?.userId ?? null,
-          // it. 19 (R1 1.1, REGRESIÓN) — ESTA FILA LA COMPUSO EL SERVIDOR.
-          // La mesa compone sin `preparedByProven` (el fundador no prueba el
-          // omnibus con su sesión: lo firma en Xaman), así que su fila quedaba
+          // ESTA FILA LA COMPUSO EL SERVIDOR.
+          // La mesa compone sin `preparedByProven`, así que su fila quedaba
           // marcada «de quien no prueba» y el autopilot —que SÍ es flujo servidor
           // de una cuenta operativa— la apartaba en silencio, sin 409 y sin
           // aviso. Resultado: dos Payments firmables en el MISMO nonce con el XRP
           // del cliente ya en el Core Vault. `serverComposed` dice lo que esa fila
           // es de verdad —una composición del propio servidor para una cuenta
           // operativa— y esas filas no las desplaza nadie automáticamente: el
-          // autopilot espera, como esperaba antes de la it. 17.
+          // autopilot espera, como esperaba antes de la.
           serverComposed: true,
         },
         { params },
@@ -2752,7 +2618,7 @@ router.post('/runs/:id/desk-payments/:pid/prepare-put-to-work', guarded(async (r
         account: run.omnibusAddress,
         pote: poteAddress,
         receiver,
-        // it. 19 (encargo de D, 3.4): ¿ENTREGA ESTE SERVIDOR la instrucción de
+        // ¿ENTREGA ESTE SERVIDOR la instrucción de
         // este 0xFE? La pantalla de firmas en curso solo puede acusar «entrega
         // parada» cuando el servidor lo dice; sin este campo tenía que adivinar,
         // y un aviso permanente que nadie puede desmentir es ruido. Misma forma
@@ -2760,7 +2626,7 @@ router.post('/runs/:id/desk-payments/:pid/prepare-put-to-work', guarded(async (r
         // (El payout de la mesa NO lo lleva: es un Payment XRP nativo, que no
         // entrega ningún executor — decirlo allí sería un aviso falso nuevo.)
         serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },
-        // it. 23 (1.2) — THE PAYLOAD'S WINDOW IS THE SERVER'S NUMBER, ALSO AT THE
+        // THE PAYLOAD'S WINDOW IS THE SERVER'S NUMBER, ALSO AT THE
         // DESK. The seat's life is measured from `HANDOFF_PAYLOAD_EXPIRY_MIN`
         // (`handoffPayloadExpiryMin()`, which the builder returns here), while the
         // desk minted its Xaman payload with a hand-written `expire: 5`. Lower the
@@ -2792,7 +2658,7 @@ router.post('/runs/:id/desk-payments/:pid/prepare-put-to-work', guarded(async (r
 }));
 
 /**
- * Mark an omnibus 0xFE as EXTERNAL (it. 10): signed outside Astryum, not a client
+ * Mark an omnibus 0xFE as EXTERNAL: signed outside Astryum, not a client
  * movement. Nothing is debited; it only stops blocking the release of memo-less
  * reservations. Verified on the ledger (a validated tesSUCCESS Payment of the
  * omnibus with an 0xFE memo) and refused when a record of the run already
@@ -2812,7 +2678,7 @@ router.post('/runs/:id/desk-payments/external-0xfe', guarded(async (req, res) =>
   } catch (e) {
     return void res.status(503).json({ error: 'EXTERNAL_0XFE_UNVERIFIABLE', detail: `the transaction could not be read (${safeErrorDetail(e).slice(0, 200)}) — nothing was marked; try again` });
   }
-  // it. 12 (2.5): who the 0xFE was built FOR — the hand-off store knows a client
+  // Who the 0xFE was built FOR — the hand-off store knows a client
   // mint the run's records do not (a legacy 0xFE, another run on this omnibus).
   const feMemo = tx.found ? String(tx.memoHex ?? '').toUpperCase() : '';
   let feHandoff: OmnibusHandoff | null = null;
@@ -2908,12 +2774,12 @@ router.post('/runs/:id/desk-payments/:pid/signed', guarded(async (req, res) => {
 
 /**
  * Release a desk payment that never reached the ledger. A 'signed' one only with
- * ?force=1. And never on the operator's word alone (productizer it. 8):
+ * ?force=1. And never on the operator's word alone:
  *  · put-to-work (0xFE): released only with the chain proof of
  *    deskPaymentProof.provePutToWorkRelease — found on the ledger → settled +
  *    debited, 409 DESK_PAYMENT_EXECUTED; an unaccounted 0xFE or a signed hand-off
  *    not on the ledger → 409; a server-composed 0xFE whose LastLedgerSequence is
- *    still ahead → 409 WAIT_FOR_LAST_LEDGER (it. 12); any read failure → 503.
+ *    still ahead → 409 WAIT_FOR_LAST_LEDGER; any read failure → 503.
  *  · withdraw: its window [creation ledger, min(validated, LLS)] is read in full;
  *    found → settled + debited, 409 DESK_PAYMENT_EXECUTED; unreadable → 503.
  */
@@ -2963,7 +2829,7 @@ router.delete('/runs/:id/desk-payments/:pid', guarded(async (req, res) => {
         return void res.status(409).json({ error: 'DESK_PAYMENT_SIGNED_NOT_ON_LEDGER', detail: `${verdict.detail} — the reservation stays until it lands or its hand-off is parked` });
       }
       if (verdict.kind === 'wait') {
-        // it. 12 (2.3): «it never reached Xaman» is the operator's word; the LLS is the ledger's.
+        // «it never reached Xaman» is the operator's word; the LLS is the ledger's.
         return void res.status(409).json({
           error: 'WAIT_FOR_LAST_LEDGER',
           detail: `${verdict.detail} — the reservation stays in flight`,
@@ -2989,7 +2855,7 @@ router.delete('/runs/:id/desk-payments/:pid', guarded(async (req, res) => {
     await saveRun(run);
     // A released server-composed 0xFE must not keep the omnibus nonce seat (unsigned
     // only). This dispatch WAS handed to Xaman, so no shortcut here: the store frees
-    // the seat only on its own reading of the memo's window (it. 20, R1 B1).
+    // the seat only on its own reading of the memo's window (R1 B1).
     if (p.kind === 'put-to-work' && p.memoHex) await releaseHandoffSeatQuietly(p.memoHex);
     res.json({ deskPayment: p, run: publicRun(run, undefined, undefined, OPERATOR_VIEW) });
   });
@@ -3018,7 +2884,7 @@ router.post('/runs/:id/receipts', guarded(async (req, res) => {
   if (!STEPS.includes(step)) return void bad(res, `step must be one of ${STEPS.join(', ')}`);
   // Receipts of MONEY MOVEMENTS the ledger mirror depends on are produced by the
   // watcher and the autopilot, never posted here: this route is open, and a
-  // forged U1_DEPOSIT once passed as payout proof (productizer cycle, it. 3).
+  // forged U1_DEPOSIT once passed as payout proof.
   // U4_EXIT_XRP on 'flare' is the client's OWN Face ID exit batch (ClientApp
   // posts it with the relay's hash); only its XRPL side — the tagged return
   // that credits the balance — is the watcher's.
@@ -3030,7 +2896,7 @@ router.post('/runs/:id/receipts', guarded(async (req, res) => {
   if (txHash !== undefined && txHash !== '' && !HEX64.test(String(txHash))) return void bad(res, 'txHash must be a 64-hex hash');
   const checkedExpect = validateExpect(expect);
   if (checkedExpect.error) return void bad(res, checkedExpect.error);
-  // it. 12 (2.6a): a receipt about no client is the exchange's own evidence. Open
+  // A receipt about no client is the exchange's own evidence. Open
   // to any session, one session filled the run's 500-receipt book for everyone.
   if (!admin && (clientId === undefined || clientId === '')) {
     return void res.status(403).json({
@@ -3068,7 +2934,7 @@ router.post('/runs/:id/receipts', guarded(async (req, res) => {
 
 /**
  * E5: the exchange put a client's XRP to work — mirror the debit and keep the
- * hash. VERIFIED (it. 10): the hash must be a validated tesSUCCESS Payment from
+ * hash. VERIFIED: the hash must be a validated tesSUCCESS Payment from
  * the omnibus to the FAssets Core Vault for these drops whose 0xFE memo is the
  * reservation's — or, without a reservation memo, the memo of a hand-off built
  * for this omnibus, these drops and this client's Flare account. Otherwise 409
@@ -3114,7 +2980,7 @@ router.post('/runs/:id/put-to-work/record', guarded(async (req, res) => {
     const verdict = judgePutToWorkRecord({ run, clientId: client.id, drops: dropsS, tx, coreVault, reservation: p, handoff });
     if ('reason' in verdict) {
       if (verdict.retryable) {
-        // it. 12 (1.4): a node behind the one Xaman used is «not yet», never «not yours».
+        // A node behind the one Xaman used is «not yet», never «not yours».
         return void res.status(503).json({
           error: 'RECORD_NOT_YET_VISIBLE',
           detail: `${hash.slice(0, 12)}…: ${verdict.reason} — it may be a few ledgers behind. Nothing was debited and the reservation is untouched; record it again in a few seconds`,
@@ -3151,7 +3017,7 @@ router.post('/runs/:id/put-to-work/record', guarded(async (req, res) => {
 
 /**
  * GET /runs/:id/omnibus is PUBLIC, and it used to hold the run lock across the
- * whole chain read (it. 12, 2.6b): an anonymous caller looping on it stalled
+ * whole chain read (2.6b): an anonymous caller looping on it stalled
  * every writer of the run — the autopilot included. Now:
  *  · the chain (validated ledger, the 2-page scan, the payout-window proofs) is
  *    read OUTSIDE the lock, on a snapshot; inside the lock only the PURE
@@ -3260,7 +3126,7 @@ router.get('/runs/:id/omnibus', guarded(async (req, res) => {
  * Public and slow (one chain read per receipt). The verification runs on a
  * SNAPSHOT outside the lock; only its results — checks + verifiedAt, by receipt
  * id — are applied to a fresh copy inside the lock. Saving the snapshot whole
- * erased what the autopilot minted meanwhile (productizer cycle, it. 4).
+ * erased what the autopilot minted meanwhile.
  */
 router.post('/runs/:id/verify', guarded(async (req, res) => {
   const got = await requireRunAccess(req, res);
@@ -3392,7 +3258,6 @@ router.get('/runs/:id/proof.md', guarded(async (req, res) => {
 
 /**
  * EXCHANGE 2.0 — «todo el producto de Astryum, dentro de un exchange».
- * Design: docs/context/Astryum_Exchange_2_Estructuras_Bajo_El_Omnibus_2026-09-18.md.
  *
  * A structure is a CAPTIVE XRPL account (a family/Legacy, a company) governed by
  * a quorum: born in its holder's own wallet, funded by the omnibus, constituted,

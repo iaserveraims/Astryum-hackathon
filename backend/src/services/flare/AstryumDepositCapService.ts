@@ -7,13 +7,7 @@
  * pero llega DESPUÉS de firmar: en el carril EVM tras aprobar el token, y en el
  * carril XRP tras gastar el XRP y pagar la ronda FDC (~20 FLR). Aquí se lee el
  * hueco que le queda a la cuenta y se rechaza antes (lección del direct a
- * Kinetic, 23-ago: no dejar firmar una orden condenada).
- *
- * El hueco se lee del pote, no se calcula aquí: `maxDeposit` ya descuenta la
- * posición actual al valor de hoy. Un pote v1 (sin tope) devuelve uint256.max.
- *
- * Es un límite de riesgo por CUENTA receptora, no un KYC: una persona con dos
- * cuentas tiene dos huecos. Se dice tal cual en el aviso.
+ * Kinetic: no dejar firmar una orden condenada).
  */
 
 import { ethers } from 'ethers';

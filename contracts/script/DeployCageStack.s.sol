@@ -61,7 +61,7 @@ contract DeployCageStack is Script {
         // futura podrá fijar 10000.
         uint16 maxPayeeBpsAllowed = uint16(vm.envUint("MAX_PAYEE_BPS_ALLOWED"));
         // Los primeros N potes de cada jaula solo cuestan el gas; del siguiente en
-        // adelante, CREATION_FEE_UBA a la tesorería (decisión 27-ago: 3).
+        // adelante, CREATION_FEE_UBA a la tesorería (decisión: 3).
         uint16 freePotesPerCage = uint16(vm.envUint("FREE_POTES_PER_CAGE"));
         // El ancla: la cuenta XRPL donde toda orden tiene que aterrizar. Su hash
         // (keccak256 de la r-address, sin lowercasing — spec FDC) queda inmutable en

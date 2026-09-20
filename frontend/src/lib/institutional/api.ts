@@ -15,7 +15,7 @@ import { notePayloadExpiryMin } from '../wallet/handoffRelease';
 const API_BASE = getApiBase();
 
 /**
- * Un `fetch` con TOPE (2026-09-11). El catálogo y el estado de pote pueden
+ * Un `fetch` con TOPE. El catálogo y el estado de pote pueden
  * quedarse colgados minutos si el backend está escaneando en frío o el RPC
  * público limita: sin tope, el cometa de Running giraba hasta que el proxy
  * cortaba. Con tope, la espera muerta se convierte en «no pude leer» a tiempo.
@@ -113,7 +113,7 @@ export interface Refusal {
   maturity?: number;
   remainingSeconds?: number;
   /**
-   * Seat refusals of a 0xFE prepare (it.14, R5 1.6): `true` ⇔ this session may
+   * Seat refusals of a 0xFE prepare (R5 1.6): `true` ⇔ this session may
    * free the seat by displacing the unsigned draft that holds it. Absent = the
    * server did not say, which is NOT permission (lib/xaman/seatRefusal).
    */
@@ -121,7 +121,7 @@ export interface Refusal {
   /** How long the draft holding the seat can still be signed. */
   secondsLeft?: number;
   /**
-   * it.16 (R5 5.4): the memo of the 0xFE that HOLDS the seat. The server sends
+   * The memo of the 0xFE that HOLDS the seat. The server sends
    * it ONLY to the session that prepared that payment or that proves the
    * account — it names a payment — and with it the screen can offer «Free the
    * seat» instead of a ~604 s wait (`lib/xaman/seatRefusal`).
@@ -138,7 +138,7 @@ export interface Refusal {
   /** /multisign/prepare: why the server could not classify the tx as an exit. */
   exitClassification?: string;
   /**
-   * it. 21 (it. 20 §3.5) — THE `Retry-After` NOBODY WAS READING.
+   * THE `Retry-After` NOBODY WAS READING.
    *
    * `ACCOUNT_BUSY` answers 503 WITH a `Retry-After` header, and
    * `PROOF_STORE_UNREADABLE` answers 503 promising «try again» — and the screens
@@ -148,7 +148,7 @@ export interface Refusal {
    */
   retryAfterSeconds?: number;
   /**
-   * it. 21 (it. 20 §2.7) — 409 `DUPLICATE_CHECK_UNREADABLE` names its own escape.
+   * 409 `DUPLICATE_CHECK_UNREADABLE` names its own escape.
    * `true` ⇔ the server will accept the same compose again with
    * `confirmAnotherOrder: true`. Rendered as a SEPARATE decision from the retry.
    */
@@ -167,18 +167,18 @@ async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
     body: JSON.stringify(body),
   });
   const resBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  // it. 21 (§3.9): the server owns the payload's expiry, and every prepare that
+  // The server owns the payload's expiry, and every prepare that
   // composes a 0xFE answers it. Learnt here so the next mint uses ITS number.
-  // it. 27 (§3): …AGAINST THE MEMO IT BELONGS TO. Without it the number was only
+  // …AGAINST THE MEMO IT BELONGS TO. Without it the number was only
   // ever learnt tab-wide, and a ceremony's 1440 is above the ordinary clamp — so
   // this door, which is precisely the one that composes a council pote's exit,
   // dropped the very value the sitting needs and the payload fell back to a
   // hand-written constant. The row's own answer carries the memo; it travels.
-  // it. 31 (§5): …and whether that window was READ or merely defaulted
+  // …and whether that window was READ or merely defaulted
   // (`signerListRead`), so a short window alone never passes for a verdict.
   notePayloadExpiryMin(resBody.payloadExpiryMin, resBody.memoHex, resBody.signerListRead);
   if (!res.ok) {
-    // it. 21 (§3.5): 503 + `Retry-After` is the server telling us WHEN. The
+    // 503 + `Retry-After` is the server telling us WHEN. The
     // header is the authority; a body field is the fallback.
     // Defensive: a hand-built response in a test (and an older polyfill) may
     // carry no `headers` at all, and a missing header is not a reason to throw
@@ -204,7 +204,7 @@ async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
         remainingSeconds: typeof resBody.remainingSeconds === 'number' ? resBody.remainingSeconds : undefined,
         retryable: typeof resBody.retryable === 'boolean' ? resBody.retryable : undefined,
         secondsLeft: typeof resBody.secondsLeft === 'number' ? resBody.secondsLeft : undefined,
-        // it.16 (R5 5.4): read defensively — absent on every route that has not
+        // Read defensively — absent on every route that has not
         // caught up, and absent on purpose for a session that does not own the seat.
         memoHex: typeof resBody.memoHex === 'string' ? resBody.memoHex : undefined,
         lastLedgerSequence: typeof resBody.lastLedgerSequence === 'number' ? resBody.lastLedgerSequence : undefined,
@@ -217,9 +217,9 @@ async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   }
   // A composed 0xFE: what the server said about the executor that carries it to
   // Flare, so the global banner promises a delivery only when somebody said the
-  // executor runs (it.14, R2 2.6). A body that is not a 0xFE is ignored in there.
+  // executor runs (R2 2.6). A body that is not a 0xFE is ignored in there.
   //
-  // it. 19 (R3 N4 / R5 R7) — READ DEFENSIVELY, AND SAY IT ONCE FOR BOTH SHAPES.
+  // READ DEFENSIVELY, AND SAY IT ONCE FOR BOTH SHAPES.
   // `serverDelivery.executorEnabled` first, a top-level `executorEnabled` after,
   // and NOTHING invented when neither travels: the registry keeps «nobody told
   // us» apart from «the executor is stopped», because only the second accuses
@@ -246,7 +246,7 @@ async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
  *
  * `unreadable` NO es «vacío» ni «roto»: es «ahora no se sabe». Se pinta igual,
  * marcado — esconderlo lo borraría del catálogo de su propio dueño sin decir
- * por qué, que es lo que pasó con la jaula sin registrar el 22-ago.
+ * por qué, que es lo que pasó con la jaula sin registrar.
  */
 export interface PoteCatalogEntry {
   pote: string;
@@ -282,7 +282,7 @@ export interface PoteCatalogEntry {
  * recomendar un producto.
  */
 export async function listPotes(withCredentials = false): Promise<PoteCatalogEntry[]> {
-  // La lista PELADA se comparte (2026-09-11): el shell, la estantería de
+  // La lista PELADA se comparte: el shell, la estantería de
   // Running, las wallets y la comunidad la piden en la misma carga — antes eran
   // cuatro descargas del catálogo entero y cuatro escaneos en el backend.
   // Con credenciales (la directory) va aparte: consulta el ledger XRPL por consejo.
@@ -498,7 +498,7 @@ export function saveManagerProfile(input: {
   return post('/manager-profile', input);
 }
 
-// ── la COMUNIDAD (fundador 8-sep): quién lleva bóvedas, con cara y con apoyos ─
+// ── la COMUNIDAD: quién lleva bóvedas, con cara y con apoyos ─
 
 export interface CommunityActor {
   account: string;
@@ -658,7 +658,7 @@ export interface XrpFundHandoff {
 /**
  * Meter XRP en el pote con UNA firma en Xaman.
  *
- * `receiver` es OPCIONAL desde el 24-ago. Sin él, las participaciones van a la
+ * `receiver` es OPCIONAL. Sin él, las participaciones van a la
  * Personal Account que le corresponde a esa cuenta XRPL — resuelta on-chain por
  * el backend, no tecleada aquí. Es el modo no-custodial: no hay nada que copiar
  * y por tanto nada que copiar mal.
@@ -735,7 +735,7 @@ export interface PoteExitHandoff {
     marginUBA: string;
     marginBps: number;
     /**
-     * GROSS — before the FAssets redemption fee (it.14, R3 3.2). It used to
+     * GROSS — before the FAssets redemption fee (R3 3.2). It used to
      * arrive already net while three screens subtracted the fee again: two
      * different «net» figures on the same card. The net one has its own field.
      */
@@ -796,7 +796,7 @@ export interface XrpExitPrepared {
 }
 
 /**
- * What the server took on for a composed council order (it.13). Only
+ * What the server took on for a composed council order. Only
  * `recorded && executorEnabled` means the relay watcher delivers it to Flare
  * without this screen; anything else — or the field absent (older backend) —
  * means the screen that signs it is the one that must see it delivered.
@@ -814,7 +814,7 @@ export interface CouncilOrderServerNotes {
   /** Exits only: another order of this account is already in flight. */
   inFlightWarning?: string;
   /**
-   * Exits only (it.14, K2): the SAME order (same action, same parameters) was
+   * Exits only (K2): the SAME order (same action, same parameters) was
    * launched for this council a moment ago. An exit is never refused, so it
    * travels as a warning beside `recoveryWarning` — the person checks the other
    * one before signing this, or the capital moves twice.
@@ -828,16 +828,16 @@ export interface CouncilOrderServerNotes {
 
 /** 409 of a non-exit prepare when the SAME order was launched for this council a moment ago. */
 export const SAME_ORDER_RECENTLY_LAUNCHED = 'SAME_ORDER_RECENTLY_LAUNCHED';
-/** The it.13 name of the same refusal (guard by TIME, not by content) — still answered by older deploys. */
+/** The name of the same refusal (guard by TIME, not by content) — still answered by older deploys. */
 export const COUNCIL_ORDER_IN_FLIGHT = 'COUNCIL_ORDER_IN_FLIGHT';
-/** 409 del nacimiento de la jaula: el 0xFE ya firmado sigue en vuelo (2026-09-15). */
+/** 409 del nacimiento de la jaula: el 0xFE ya firmado sigue en vuelo. */
 export const CAGE_BIRTH_IN_FLIGHT = 'CAGE_BIRTH_IN_FLIGHT';
 /** 429: this council's queue of live orders is full. */
 export const TOO_MANY_PENDING_ORDERS = 'TOO_MANY_PENDING_ORDERS';
 
 /**
  * Is this refusal «the same order already went out» — the one the person may
- * override with `confirmAnotherOrder`? Both names are read: it.14 replaced the
+ * override with `confirmAnotherOrder`? Both names are read: replaced the
  * time-based guard (`COUNCIL_ORDER_IN_FLIGHT`) with the content-based one, and a
  * frontend that only knew the new name would swallow the old deploy's 409 into
  * the generic refusal panel, with no way to confirm.
@@ -855,7 +855,7 @@ export function isTooManyPendingOrders(r: { status?: number; error?: string } | 
 export const DUPLICATE_CHECK_UNREADABLE = 'DUPLICATE_CHECK_UNREADABLE';
 
 /**
- * it. 21 (it. 20 §2.7) — is this «we could not check», as opposed to «we checked
+ * Is this «we could not check», as opposed to «we checked
  * and it is a repeat»? The two arrive at the same door and need OPPOSITE
  * sentences: one names a duplicate that exists, the other admits we never
  * looked. Conflating them would have the screen assert a fact nobody has.
@@ -970,7 +970,7 @@ export function parseCouncilOrderFateBody(memo: string, data: unknown): CouncilO
 
 /**
  * GET /institutional/council-order/fate?memo=<hex> — what became of a composed
- * council order (it.13): read after a stale verdict, BEFORE offering to prepare
+ * council order: read after a stale verdict, BEFORE offering to prepare
  * it again, because the pinned seat may have been spent by a sibling request of
  * the same order that is being delivered right now.
  */

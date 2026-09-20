@@ -1,5 +1,5 @@
 /**
- * FlareLpV2Adapter — la memoria de «qué pares tiene esta wallet» (18-sep):
+ * FlareLpV2Adapter — la memoria de «qué pares tiene esta wallet»:
  * el segundo barrido dentro del TTL solo relee los pares con saldo (o ninguno),
  * invalidateWallet vuelve al barrido entero, y la memoria se escribe solo desde
  * un barrido entero.

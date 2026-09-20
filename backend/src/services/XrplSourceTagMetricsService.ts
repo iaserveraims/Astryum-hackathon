@@ -1,36 +1,6 @@
 /**
  * XrplSourceTagMetricsService — el panel de métricas del SourceTag de Make
- * Waves (entregable §8 del T&C; plan del mes §2.5, construido 2026-08-16).
- *
- * Cuenta lo que el tag 2607090002 atribuye al proyecto, LEÍDO del ledger:
- *   · Active Users — la definición literal del T&C §6: «an XRPL address that
- *     has signed at least 1 transaction carrying your Source Tag». En una tx
- *     multisig los firmantes son los MIEMBROS (tx.Signers[]); en single-sig,
- *     la propia Account.
- *   · nº de transacciones con el tag (tesSUCCESS y validadas — nunca se
- *     cuenta un intento).
- *   · volumen XRP de los Payments con el tag (meta.delivered_amount cuando
- *     existe — lo ENTREGADO, no lo pedido; los Payments de IOUs cuentan como
- *     tx pero no suman volumen XRP).
- *
- * CÓMO se lee: XRPL no indexa por SourceTag, así que se pagina `account_tx`
- * de las cuentas que el sistema CONOCE (User.xrplAddress, wallets XRPL,
- * governed accounts, cuentas de consejo y firmantes de propuestas) y se
- * filtra por el tag. Honestidad del método:
- *   · dedupe por HASH — un Payment entre dos cuentas conocidas aparece en el
- *     account_tx de AMBAS; sin dedupe contaría doble.
- *   · las cuentas OPERATIVAS de Astryum (keeper de escrows, anchor de
- *     órdenes) se EXCLUYEN de firmantes y volumen: el carve-out del tag
- *     (xrplSourceTag.ts §7) dice que jamás lo llevan, y si apareciera sería
- *     un bug, no tracción.
- *   · páginas acotadas por cuenta: si el histórico no se alcanza entero, el
- *     snapshot lo dice (`truncated`) — un número parcial que se declara
- *     parcial, jamás un total fingido.
- *
- * Patrón Sentinel: snapshot en memoria + runPass() con guard de reentrada +
- * intervalo con .unref() + markAgentTick SIEMPRE (un agregador que solo late
- * cuando acierta es indistinguible de uno muerto). Solo LECTURAS: nada aquí
- * firma, escribe on-chain ni toca capital (invariantes #1/#8).
+ * Waves (entregable §8 del T&C; plan del mes §2.5, construido).
  */
 
 import { prisma } from '../database/prismaClient';

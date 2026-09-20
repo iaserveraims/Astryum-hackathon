@@ -5,26 +5,8 @@ import { join } from 'node:path';
 /**
  * LA FRONTERA DE PRESENCIA SOLO ACEPTA `motion.*` COMO HIJO DIRECTO.
  *
- * El fallo que este test impide volvió a aparecer el 2026-09-14 y costó una
- * reproducción en navegador (fundador: «cuando desaparece el popup se queda
- * la página sin poder usarse hasta que recargas»):
- *
- *   <AnimatePresence>{open && <LegalSignCeremony … />}</AnimatePresence>
- *
- * La ceremonia pinta un `fixed inset-0` y su animación de SALIDA corría —el
- * overlay llegaba a opacity 0— pero framer nunca lo desmontaba, porque quien
- * avisa de «ya he salido» es el hijo DIRECTO de la frontera, y un componente
- * normal no lo hace. El resultado: un overlay invisible con
- * pointer-events:auto comiéndose todos los clics hasta recargar. Un `key` NO
- * lo arregla (comprobado en navegador); lo que lo arregla es que el hijo sea
- * un `motion.*`, o no poner frontera y montar/desmontar a secas.
- *
- * Con `mode="wait"` el mismo defecto es aún más silencioso: el que entra
- * espera a que el anterior avise de que salió, y como no avisa nunca, la
- * pantalla se queda con el contenido viejo (el formulario de login no volvía).
- *
- * La regla ya estaba escrita en ui/ModalPortal.tsx desde hace meses. Escrita
- * no bastó — de ahí este test, que la comprueba.
+ * El fallo que este test impide volvió a aparecer y costó una
+ * reproducción en navegador:
  */
 
 const SRC = join(__dirname, '..', '..', '..');

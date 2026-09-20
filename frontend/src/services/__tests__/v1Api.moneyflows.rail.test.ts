@@ -1,8 +1,8 @@
 /**
  * G7 — the XRPL rail must be REACHABLE from the client.
  *
- * The silent failure these tests lock down (auditoría de los SILENCIOSOS,
- * 2026-08-17): `moneyflows.translate` hardcoded chainId 14, so the
+ * The silent failure these tests lock down (auditoría de los SILENCIOSOS,):
+ * `moneyflows.translate` hardcoded chainId 14, so the
  * `chainId === 1440002` branch of POST /api/moneyflows/translate had no caller
  * anywhere in the product. The CanonicalXrplTranslator — the ONLY producer of
  * PRICE_DROP_PCT (the M3 price protection), scheduledPayment and escrow rules —

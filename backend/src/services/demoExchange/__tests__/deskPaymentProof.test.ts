@@ -1,5 +1,5 @@
 /**
- * deskPaymentProof — a reservation closes by chain facts (productizer it. 8 / it. 10).
+ * deskPaymentProof — a reservation closes by chain facts.
  *  - proveDeskPayouts: a prepared payout past its LLS is read EXHAUSTIVELY over
  *    its window; >400 rows, found → settled + debited by the reservation's
  *    client; absent → proven; unreadable → kept;
@@ -117,7 +117,7 @@ describe('proveDeskPayouts', () => {
   });
 });
 
-describe('applyPayoutProofs — proofs read on a snapshot, applied to a fresh copy (it. 12, 2.6b)', () => {
+describe('ApplyPayoutProofs — proofs read on a snapshot, applied to a fresh copy (2.6b)', () => {
   it('landed → settled + debited once on the fresh copy; absent → proven with its closedBy', async () => {
     const snapshot = run({ deskPayments: [prepared(), prepared({ id: 'dp2', clientId: 'c2', destination: OTHER, lastLedgerSequence: 1090 })] });
     scanOmnibusWindow.mockImplementation(async (_o: string, opts: { ledgerIndexMax: number }) => (opts.ledgerIndexMax === 1100 ? [payout()] : []));
@@ -172,7 +172,7 @@ describe('judgePutToWork (pure)', () => {
     expect(v.kind).toBe('release');
   });
 
-  it('it. 12 (2.3): with memo + LLS and the window OPEN, a hand-off NOT reported signed is never released — wait for the LLS (the phone may still sign it)', () => {
+  it('With memo + LLS and the window OPEN, a hand-off NOT reported signed is never released — wait for the LLS (the phone may still sign it)', () => {
     const v = judgePutToWork({ run: run(), p: withMemo(), rows: [fe('FE' + '33'.repeat(20))], handoff: ho(), window: open });
     expect(v).toMatchObject({ kind: 'wait', lastLedgerSequence: 1100, ledgersLeft: 51, secondsLeft: 204 });
     expect((v as { detail: string }).detail).toMatch(/until XRPL ledger 1100 .*≈ 204 s/);
@@ -238,7 +238,7 @@ describe('judgePutToWorkRecord (pure)', () => {
   });
 
   /**
-   * 18-sep (fundador): the first 0xFE of Charles was never signed and its
+   * The first 0xFE of Charles was never signed and its
    * reservation was RELEASED on the ledger's proof; the second one, same client
    * and amount, carried the SAME memo (the omnibus PA nonce never advanced) and
    * its record was refused as «another record's» — 13 XRP left the omnibus and
@@ -268,7 +268,7 @@ describe('judgePutToWorkRecord (pure)', () => {
     expect(judge(over as Partial<Parameters<typeof judgePutToWorkRecord>[0]>).ok).toBe(false);
   });
 
-  it('it. 12 (1.4): not found / not validated on the backend node is RETRYABLE (a lagging node), a real mismatch is not', () => {
+  it('Not found / not validated on the backend node is RETRYABLE (a lagging node), a real mismatch is not', () => {
     expect(judge({ tx: { found: false } })).toMatchObject({ ok: false, retryable: true });
     expect(judge({ tx: tx({ validated: false }) })).toMatchObject({ ok: false, retryable: true });
     for (const over of [{ account: OTHER }, { destination: WALLET }, { drops: '1' }, { memoHex: 'FE' + '55'.repeat(20) }, { result: 'tecPATH_DRY' }]) {

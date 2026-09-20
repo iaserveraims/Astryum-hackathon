@@ -1,5 +1,5 @@
 /**
- * productizer it. 19 (R5, copy) — EL ALTA DE UN EXCHANGE NO ENSEÑA CÓDIGOS.
+ * EL ALTA DE UN EXCHANGE NO ENSEÑA CÓDIGOS.
  *
  * Las negativas de la declaración del omnibus (`OMNIBUS_IS_*`) y los «no pude
  * leerlo» (`OWNERSHIP_UNREADABLE`, `OMNIBUS_OWNERSHIP_UNREADABLE`) se pintaban
@@ -19,7 +19,7 @@ const t = (s: string) => s;
 const SERVER_PROSE = 'rXXXX is already on file as the personal XRPL wallet of a client of "Take 3" — declaring it as an omnibus would take over that person\'s account.';
 
 describe('las negativas del alta se dicen con nuestras palabras', () => {
-  // it. 31 (4.2): `OWNERSHIP_UNREADABLE` ya no está en esta lista — su frase fija
+  // `OWNERSHIP_UNREADABLE` ya no está en esta lista — su frase fija
   // es solo el fallback (ver el describe de abajo). El servidor manda ese código
   // por TRES causas y solo una es «could not be read just now».
   const CODES = [
@@ -79,15 +79,15 @@ describe('«no pude leerlo» lleva su reintento', () => {
 });
 
 /**
- * productizer it. 31 (agente D, 4.2) — EL `detail` DE `OWNERSHIP_UNREADABLE` NO
- * SE PISA. La it. 29 escribió «dated later than our clock» en el servidor para
+ * EL `detail` DE `OWNERSHIP_UNREADABLE` NO
+ * SE PISA. La escribió «dated later than our clock» en el servidor para
  * la marca de toma de posesión adelantada (una fila que SE LEYÓ, que ningún
  * re-enlace arregla y que se cura sola en un instante conocido), y nuestra frase
  * fija («could not be read just now … try again») la tapaba en los ~30 sitios
  * que pintan con `describeRefusal`: la persona nunca leía la causa real. Para
  * este código el servidor sabe cuál de tres cosas pasó y nosotros no.
  */
-describe('OWNERSHIP_UNREADABLE (it. 31): la frase del servidor llega a la persona', () => {
+describe('OWNERSHIP_UNREADABLE: la frase del servidor llega a la persona', () => {
   const AHEAD =
     "This sign-in's security record is dated later than our own clock, so the exchange cannot yet tell whether your account here was opened before or after it last changed hands. Nothing was changed and nothing is lost: this clears on its own once our clock passes that date — try again later.";
 
@@ -116,9 +116,9 @@ describe('OWNERSHIP_UNREADABLE (it. 31): la frase del servidor llega a la person
 });
 
 /**
- * productizer it. 21 (3.2 y 3.6) — LO QUE LA LECTURA ESTRICTA DEJÓ SIN FRASE.
+ * LO QUE LA LECTURA ESTRICTA DEJÓ SIN FRASE.
  *
- * 3.2: desde la it. 19 `listRuns` lee en estricto, así que cinco rutas pasaron a
+ * Desde la `listRuns` lee en estricto, así que cinco rutas pasaron a
  * contestar 500 donde antes degradaban a lista vacía. Ahora son 503 con
  * `retryable`, y el cliente tiene que leer «no se pudo leer, nada cambió», no
  * «tu exchange no existe».
@@ -127,7 +127,7 @@ describe('OWNERSHIP_UNREADABLE (it. 31): la frase del servidor llega a la person
  * dirección, y su negativa pide la sesión en vez de acusar a quien quizá sea su
  * dueño — así que tampoco es reintentable tal cual.
  */
-describe('los 503 de LECTURA de la lista de runs (it. 21, 3.2)', () => {
+describe('Los 503 de LECTURA de la lista de runs (3.2)', () => {
   it('RUN_UNREADABLE se dice, es repetible y NO insinúa que se escribiera nada', () => {
     const r = { status: 503, error: 'RUN_UNREADABLE' };
     expect(refusalIsRetryable(r)).toBe(true);
@@ -150,7 +150,7 @@ describe('los 503 de LECTURA de la lista de runs (it. 21, 3.2)', () => {
   });
 });
 
-describe('«tiene dueño y no puedo atribuirlo» (it. 21, 3.6)', () => {
+describe('«tiene dueño y no puedo atribuirlo» (3.6)', () => {
   it('pide la sesión, no acusa a nadie, y no ofrece un reintento que daría lo mismo', () => {
     const r = { status: 409, error: 'OMNIBUS_OWNER_UNKNOWN' };
     const text = describeRefusal(r, t);

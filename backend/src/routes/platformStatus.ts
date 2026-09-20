@@ -1,19 +1,9 @@
 /**
  * Platform status — the "Astryum Orbit System" light the dashboard's summary
- * card reads (founder 2026-07-25): online by default; the founders can flip it
+ * card reads: online by default; the founders can flip it
  * to offline from the admin panel with a hand-written reason (maintenance,
  * backend incident…) so users KNOW when we are working on the ship instead of
  * guessing why something stalls.
- *
- *   GET /api/platform/status   public — { state, reason, updatedAt }
- *   PUT /api/platform/status   founders only (adminPanel's requireAdmin: the
- *                              same static-key/session/allowlist doors) —
- *                              body { state: 'online'|'offline', reason? }
- *
- * Persistence: ONE row in the existing `configurations` KV table (key
- * `platform.status`) — no new model, no migration. A missing row or an
- * unreachable DB reads as online: the switch exists to ANNOUNCE work, not to
- * gate the app, so its failure mode must never invent an outage banner.
  */
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -73,53 +63,19 @@ router.put('/status', requireAdmin, asyncHandler(async (req: Request, res: Respo
   res.json({ state: value.state, reason: value.reason ?? null, updatedAt: row.updatedAt.toISOString() });
 }));
 
-// ── Live activity — the public proof-of-life feed (founder 2026-07-26) ───────
+// ── Live activity — the public proof-of-life feed ───────
 //
 // GET /api/platform/activity  public — { total, recent[], updatedAt }
-//
-// The counterweight to the sign-up risk disclaimer: anyone (no account, no
-// auth) can see that operations REALLY execute through Astryum, each one
-// verifiable on the public explorers. Source of truth: the 0xFE handoff rows
-// the executor marked 'completed' (DirectMintHandoffStore.markHandoffExecuted)
-// — real settled operations, never a mock.
-//
-// PRIVACY (aviso §3.2/§7): the payload row carries the user's xrplAddress and
-// personalAccount — they are deliberately NOT returned. And since 2026-08-01 the
-// redaction is not enough on its own: the LIST is closed by the public cupo
-// below (a tx hash resolves to its account on any explorer), so it keeps what
-// was already published and takes nothing new — not even ours. `total` stays
-// whole and live on purpose — an aggregate that names nobody.
-//
-// Cheap by construction: public endpoint → 30s in-process cache, capped list,
-// and a DB failure reads as an empty feed, never a 500 (same posture as
-// /status: this route announces, it must not invent outages).
 
 const ACTIVITY_CACHE_MS = 30_000;
 const ACTIVITY_LIMIT = 20;
 
 // ── El cupo público — qué operaciones puede publicar la landing ──────────────
 //
-// Founder 2026-08-01, antes de abrir la beta: "cerrar ya el cupo de
+// Founder, antes de abrir la beta: "cerrar ya el cupo de
 // transacciones visibles; dejamos las que hay, que son de cuentas nuestras de
 // prueba" — y, al repasarlo: "dejamos visible todo lo que hay hoy allí. no van a
 // entrar más". Corte seco: ni de usuarios ni nuestras.
-//
-// El motivo es de privacidad, no de estética: aunque estas rutas ya redactan
-// xrplAddress/personalAccount, un tx hash ES un identificador — quien lo abre en
-// el explorador ve la cuenta, el importe y todo su historial. Y el `userOpData`
-// del verificador lleva dentro el Personal Account del firmante. Publicar una
-// operación equivale a publicar la cuenta que la firmó (aviso §3.2).
-//
-// Regla, evaluada por operación: se publica si es anterior al corte. Punto. Una
-// fecha mal escrita cae al default, nunca a "pasa todo". Mover el corte hacia
-// delante es un acto deliberado (cambiar la env), no algo que ocurra solo.
-//
-//   PROOF_PUBLIC_CUTOFF_AT   ISO-8601. Default: el cierre del cupo.
-//
-// El CONTADOR de operaciones liquidadas queda fuera de esta regla a propósito
-// (founder 2026-08-01): es un agregado que no identifica a nadie y es la métrica
-// de tracción real. La landing lo dice explícitamente para no prometer que la
-// lista de abajo sea "todo lo que pasa".
 const PROOF_CUTOFF_DEFAULT = '2026-08-02T00:00:00Z';
 
 function proofCutoff(): Date {
@@ -180,33 +136,9 @@ router.get('/activity', async (_req: Request, res: Response) => {
   }
 });
 
-// ── Trust — who is who on the money's path (founder 2026-07-29) ──────────────
+// ── Trust — who is who on the money's path ──────────────
 //
 // GET /api/platform/trust  public — { path, sample, updatedAt }
-//
-// Feeds the landing's /proof page ("No te pedimos confianza. La da el código."):
-// the four pieces XRP travels through on a 0xFE operation, each resolved LIVE
-// from the chain/config so the page can never drift from production:
-//
-//   coreVaultXrpl            FAssets' XRPL address — the Payment Destination
-//   assetManagerFxrp         Flare's — mints FXRP into the Personal Account
-//   masterAccountController  Flare's — validates keccak256(_data) == memo hash
-//   executor                 OURS — delivers the signed order, pays gas. Only
-//                            piece Astryum controls; address derived from the
-//                            env key, the key itself never leaves the server.
-//
-// `sample` is the latest SETTLED 0xFE operation with its full bytes so the
-// visitor can recompute keccak256(userOpData) in their own browser and match
-// it against the hash committed in the signed memo.
-//
-// PRIVACY (aviso §3.2): same posture as /activity — the handoff row's
-// xrplAddress/personalAccount are deliberately NOT returned, AND the sample
-// obeys the public cupo: only operations already published before the cut are
-// served. That matters more here than in the feed, because userOpData is the
-// order's raw bytes — the signer's Personal Account travels inside them.
-//
-// Same failure posture as the rest of this file: unresolved pieces come back
-// null and the route never 500s — the page renders what it can prove.
 
 const TRUST_CACHE_MS = 5 * 60_000;
 
@@ -225,8 +157,7 @@ interface TrustSample {
   xrplTxHash: string | null;
   flareTxHash: string | null;
 }
-// The Legacy circuit — served for the /proof page's Legacy tab (founder
-// 2026-07-29: "un toggle con las pruebas, más o menos como el de personal").
+// The Legacy circuit — served for the /proof page's Legacy tab.
 // Addresses come from the deployed-stack env config; constitutionRef and the
 // executed-order count are read LIVE from the chain. The council's own XRPL
 // account is per-family and is deliberately NOT served (same posture as user

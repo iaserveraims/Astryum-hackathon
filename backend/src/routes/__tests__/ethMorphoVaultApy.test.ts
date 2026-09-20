@@ -16,7 +16,7 @@ import { parseVaultApy } from '../ethMorpho';
 
 const SOURCE = 'Morpho API (blue-api.morpho.org) — netApy includes incentives';
 
-/** Respuesta real de la API el 2026-08-21 para senRLUSDv2. */
+/** Respuesta real de la API para senRLUSDv2. */
 const LIVE = {
   data: {
     vaultV2ByAddress: {

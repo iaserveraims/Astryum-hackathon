@@ -1,24 +1,8 @@
 /**
- * it. 34 — EL COBRO INSTITUCIONAL NO COMPONE SOBRE UNA BARRIDA PARCIAL SIN DECIRLO.
+ * EL COBRO INSTITUCIONAL NO COMPONE SOBRE UNA BARRIDA PARCIAL SIN DECIRLO.
  *
  * `/pote-claim-redeem/prepare` (EVM) y `/pote-claim-exit/prepare` (0xFE) componen
  * `claimRedeem(ticket, venueClaims[])`. Dos lecturas deciden ese array:
- *
- *  · `balanceOf(pote)` — el colchón. Se leía con `.catch(() => 0n)`: un colchón
- *    ILEGIBLE valía «el pote no tiene nada», forzaba el escaneo de colas y podía
- *    meter un venueClaim de un periodo YA recogido — el revert del 10-sep.
- *  · `readPendingWithdrawals` — desde it. 31 ya no lanza por un periodo caído: lo
- *    marca en `unreadablePeriods`. Ninguna de las dos rutas lo miraba: el periodo
- *    no leído no entraba en `venueClaims`, y con el colchón corto `claimRedeem`
- *    revierte `UnwindShortfall` (AstryumVault.sol:449-466). La ruta EVM, que antes
- *    escribía «No se pudo escanear la cola» cuando el adapter lanzaba, ahora
- *    callaba; la 0xFE siempre calló.
- *
- * EL CONSUMIDOR BAJO PRUEBA: las rutas de verdad (supertest), el FirelightAdapter
- * de verdad (`readPendingWithdrawals` sin stub) sobre un nodo falso cuyo
- * `withdrawalsOf` contesta por periodo — o no contesta (429) —, y un `balanceOf`
- * del activo que contesta o no. Todo lo que se afirma es sobre payloads SIN
- * firmar; Astryum no firma nada.
  */
 import express from 'express';
 import request from 'supertest';
@@ -237,7 +221,7 @@ describe('/pote-claim-redeem/prepare — la barrida parcial de Firelight', () =>
     expect(res.body.notes.join(' ')).not.toMatch(/did not answer/);
   });
 
-  it('CONTROL — el colchón cubre el ticket: no se escanea ninguna cola y venueClaims queda vacío (guarda del 10-sep)', async () => {
+  it('CONTROL — el colchón cubre el ticket: no se escanea ninguna cola y venueClaims queda vacío (guarda)', async () => {
     NODE.cushion = TICKET_UBA;
     NODE.slots = { 223: DOWN }; // would be unread — but it must never be asked
     const res = await claimEvm();

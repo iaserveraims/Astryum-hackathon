@@ -1,5 +1,5 @@
 /**
- * productizer it. 25 — LA PUERTA LEGAL NO PUEDE SER UNA CÁRCEL.
+ * LA PUERTA LEGAL NO PUEDE SER UNA CÁRCEL.
  *
  * El decisor se prueba EJECUTÁNDOLO; el cable a la pantalla se prueba leyendo
  * el componente (mismo patrón que `deskDuplicateRetry`), porque este proyecto
@@ -102,7 +102,7 @@ describe('la frase — honesta, y jamás una acusación', () => {
 });
 
 /**
- * CADENA (productizer it. 27) — EL CLIENTE NO DESMIENTE AL SERVIDOR.
+ * CADENA — EL CLIENTE NO DESMIENTE AL SERVIDOR.
  *
  * `acceptLegal` hacía `legalGate: { ...fromServer, required: false }`, INCONDI-
  * CIONAL. El servidor contesta a POST /auth/legal-accept con el estado que él
@@ -111,10 +111,6 @@ describe('la frase — honesta, y jamás una acusación', () => {
  * no ganado» — y, peor, DISFRAZ: la puerta volvía en el siguiente /auth/me y el
  * fallo de debajo (una marca de toma de posesión adelantada, backend
  * config/legalAcceptance) parecía intermitente.
- *
- * El veredicto post-escritura lo da el MISMO decisor que pinta la pantalla:
- * `legalGateBlocks`. Un estado 'sign' después de firmar significa que la firma
- * no quedó registrada de forma utilizable; 'unreadable' y 'closed', no.
  */
 describe('la firma se da por registrada solo si el servidor no la contradice', () => {
   const STORE = readFileSync(join(__dirname, '..', '..', '..', 'stores', 'authStore.ts'), 'utf8');

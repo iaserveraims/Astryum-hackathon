@@ -2,16 +2,14 @@
 
 /**
  * GovernedMovementsModal — el modal de Movimientos de una cuenta gobernada,
- * EXTRAÍDO de LegacyPanel (fundador 2026-08-30: «cuando le doy a movements me
- * carga la pantalla legacy... quiero que se mantenga en la pantalla de
- * wallets»). Una sola pieza, dos montajes: LegacyPanel (la puerta de la card
+ * EXTRAÍDO de LegacyPanel. Una sola pieza, dos montajes: LegacyPanel (la puerta de la card
  * en My Legacies) y WalletManager (la puerta Movimientos de la tarjeta en
  * /app/wallets, que ya NO navega — el dashboard se queda debajo).
  *
  * El raíl no cambia: GovernedMovements compone SIN firmar, atado a la cuenta
  * del consejo, y deja la propuesta en la bandeja para el quórum — Astryum
  * jamás firma (#1). Patrón oro de modales (overlay que scrollea + my-auto) y
- * la disciplina de foco del 2026-08-04: entra al abrir, Tab envuelve dentro,
+ * la disciplina de foco: entra al abrir, Tab envuelve dentro,
  * y vuelve al botón que lo abrió al cerrar (el trap escucha en el propio
  * diálogo, así los overlays de Xaman portalados a <body> nunca pelean).
  */

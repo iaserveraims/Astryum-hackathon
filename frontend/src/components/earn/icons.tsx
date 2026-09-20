@@ -3,65 +3,6 @@
 /**
  * Astryum's own visual voice for the Earn surface — not icons in boxes but
  * SCENES that live inside their panels, drawn from the landing's world:
- *
- *   OrbitScene         — a miniature solar system (two live orbits, glowing
- *                        planets, a gold sun): the ready-made, audited
- *                        strategies — capital on proven trajectories.
- *   ConstellationScene — scattered stars over deep space; hovering the door
- *                        draws the line that joins them into one path: the
- *                        agent compiling your words into a strategy.
- *   CometMark          — a comet with a real tapered trail: the strategies
- *                        YOU created, your own trajectory through the app.
- *   MoonScene          — a waning moon behind its orbit ring: capital set
- *                        aside, resting in shadow until its unlock date
- *                        (the Savings door).
- *   FlowForgeScene     — a moneyflow diagram assembling itself node by node;
- *                        hovering the door draws the connecting rail: you
- *                        building a strategy with your own hands
- *                        (the Create Manually door).
- *   StewardScene       — a SOLID, unbroken ring with the capital and its
- *                        manager both inside it: someone else steers, nobody
- *                        crosses the wall (the Managed vaults door).
- *
- *   Rediseño de puertas v3 (fundador 2026-08-29, segunda pasada: «el nivel
- *   de la landing es god, pero estos se quedan cortos» — misma narrativa
- *   figurativa, factura de landing: campo de estrellas, halos con blur,
- *   capas en contrarrotación y dos o tres reacciones al hover por escena;
- *   la v1 de anillos abstractos de abajo sigue inerte, norma de la casa):
- *   HarvestSunScene    — motes of light FALL INTO a sun that brightens under
- *                        attention: earning is accumulation inward
- *                        (Make it earn, simply).
- *   CollateralScene    — the asset planet wears a visible padlock on its
- *                        ring; a beam of light leaves it and resolves into a
- *                        coin-star, with a dashed chain back: cash out, token
- *                        locked, still tethered (Get cash without selling).
- *   HelmWheelScene     — an astral ship's wheel, turning slowly around the
- *                        capital: someone steers, instantly readable
- *                        (Managed vaults). INERTE desde v5 (2026-08-29,
- *                        fundador: «parece un volante de un barco») — la
- *                        puerta monta ArmillaryScene.
- *   ArmillaryScene     — v5 managed: la muralla graduada sigue siendo la
- *                        frontera, y dentro una esfera armilar — dos anillos
- *                        inclinados precesando alrededor del capital — dice
- *                        «instrumento de navegación guiada», no timón.
- *
- *   Rediseño de puertas v1 (fundador 2026-08-28, INERTE desde el 29) —
- *   cada puerta cuenta SU mecanismo:
- *   AccretionScene     — a planet inside its accretion disk, gathering dust:
- *                        capital in orbit that gathers more, nothing pulls on
- *                        it (Make it earn, simply).
- *   TetherScene        — the asset held inside a closed ring while a stream
- *                        of light flows OUT to a bright star: liquidity leaves,
- *                        the token stays — and stays tethered (Get cash
- *                        without selling).
- *   HelmScene          — a solid walled ring with graduation ticks; inside,
- *                        a steward star runs a fixed inner track around the
- *                        capital: someone else steers, the wall and its marks
- *                        are the limits you signed (Managed vaults).
- *
- * All animation is CSS (globals.css `.escene-*`), constant-speed (changing
- * durations mid-flight makes phases jump), disabled under
- * prefers-reduced-motion.
  */
 
 export function OrbitScene({ size = 168 }: { size?: number }) {
@@ -269,24 +210,6 @@ export function CometMark({ size = 40 }: { size?: number }) {
 /**
  * StewardScene — the third Earn door: capital run by someone else, inside a
  * boundary they cannot cross.
- *
- * The drawing has to carry the ONE fact that makes this door safe to offer, so
- * the grammar is deliberate and differs from every other scene here:
- *
- *   · The ring is SOLID and unbroken. Every other scene in this file draws its
- *     orbits dashed — a dashed ring reads as a trajectory, something capital
- *     travels along and could leave. This one is a WALL: the manager moves
- *     things inside it and nothing crosses it. That is the cage, drawn.
- *   · The steward sits INSIDE the ring, not above it. It is not an authority
- *     over the vault; it is a participant with a lever, subject to the same
- *     boundary as the capital it steers.
- *   · Its signals reach the three bodies and STOP at the wall. No line exits
- *     the circle — there is no arrow pointing out, because there is no path
- *     out. A scene that let one leak would be drawing a lie.
- *
- * Violet, hardcoded like ConstellationScene's sky blues: it must NOT use the
- * volt/indigo tokens, because those flip with the product mode (gold = Astryum,
- * indigo = Legacy) and this door belongs to neither.
  */
 export function StewardScene({ width = 190, height = 150 }: { width?: number; height?: number }) {
   return (
@@ -770,8 +693,7 @@ export function HelmWheelScene({ width = 190, height = 150 }: { width?: number; 
 }
 
 /**
- * ArmillaryScene v5 — managed, sin volante (fundador 2026-08-29: «no me
- * gusta el artefacto del managed vaults, parece un volante de un barco»).
+ * ArmillaryScene v5 — managed, sin volante.
  * La muralla graduada con sus límites firmados SIGUE siendo la frontera —
  * eso no era el problema — pero dentro el timón de radios se sustituye por
  * una ESFERA ARMILAR: dos anillos inclinados que precesan alrededor del
@@ -871,20 +793,7 @@ export function ArmillaryScene({ width = 190, height = 150 }: { width?: number; 
 
 /* ────────────────────────────────────────────────────────────────────────────
    EMBLEMAS GRABADOS — el artefacto de las puertas del Earn en el nivel SERENO
-   (stores/motionStore.ts, fundador 2026-09-10: «no quiero solo que se
-   desactiven las animaciones, quiero estilos nuevos y distintos»).
-
-   Donde el nivel completo pone una escena viva, el sereno pone un GRABADO:
-   monolínea, currentColor, geométrico, sin una sola animación ni clase
-   `escene-*`. Cuentan el mismo mecanismo que sus escenas —el sol que junta
-   sin deuda, el activo retenido y atado, el timón con sus límites marcados—
-   pero como un sello estampado en la tarjeta, no como un sistema en marcha.
-   Sin `group-hover`: no reaccionan al cursor. TIENEN PULSO (fundador, tercera
-   pasada: «el modo calm lo has dejado sin animaciones, quiero que lo animes»):
-   el aro punteado da una vuelta cada dos minutos (`emblem-turn`) y el núcleo
-   respira en seis segundos (`emblem-breathe`, globals.css). Lento y pequeño —
-   eso es lo que los hace otro estilo y no la misma escena parada.
-   ──────────────────────────────────────────────────────────────────────────── */
+   (stores/motionStore.ts). */
 
 /** Sol sellado — «Make it earn, simply»: un aro fino, ocho rayos cortos y el
  *  núcleo. Nada tira de nada. */

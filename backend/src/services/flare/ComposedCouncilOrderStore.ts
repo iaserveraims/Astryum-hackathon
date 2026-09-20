@@ -1,62 +1,6 @@
 /**
  * ComposedCouncilOrderStore — the server-side memory of every council order
- * COMPOSED for a signature (2026-09-14; hardened in productizer it. 13).
- *
- * THE GAP. `/pote-council-order/prepare` and `/cage-order/prepare` compose an
- * order that one account signs in Xaman (`XamanSingleSign`); the Legacy door
- * `/xrpl-defi/council-order/prepare` composes one a quorum signs. The relay to
- * Flare (POST /xrpl-defi/council-order/relay) was launched ONLY by the parent's
- * `onSettled` in the browser. If that component unmounted or the page reloaded
- * while the ledger was confirming, the SIGNED order was never relayed — and after
- * 14 days the FDC can no longer attest it. Nothing on the server knew the order
- * existed.
- *
- * THE RULE NOW. Every composed order is recorded here BEFORE it is handed to the
- * user: its memo (the keccak256 commitment the ledger will carry), the exact
- * `orderData`, the council account, the Destination/Amount of the Payment, the
- * pinned Sequence / LastLedgerSequence and the validated ledger it was composed
- * on. The relay launcher's periodic sweep (`sweepComposedCouncilOrders`) reads the
- * council's `account_tx` from that ledger and, when a validated tesSUCCESS Payment
- * from the council carries the memo, launches the SAME idempotent relay POST relay
- * uses — no browser needed.
- *
- * it. 13 — what the sweep could not see, and now can:
- *  · ALL live records, oldest first, paginated straight from the table (it read
- *    only the newest 200, so 200 compositions pushed a legitimate order out);
- *  · a cap of `MAX_LIVE_ORDERS_PER_COUNCIL` live unlaunched compositions per
- *    council (composing needs no seat, so the table was unbounded) — an EXIT is
- *    never refused by it;
- *  · every write and every forget is a CAS on the record as read (`version` +
- *    `composedAt`): a re-composition during a scan is left for the next pass,
- *    never overwritten or deleted;
- *  · a scan that hits its page cap keeps the progress it fully read;
- *  · a terminal verdict leaves a short-lived FATE (`COMPOSED_ORDER_FATE_JOB`) so
- *    `GET /council-order/fate` can still answer after the record is gone.
- *
- * it. 15 — WHO composes counts, and against WHOM:
- *  · every record carries `preparedByUserId` and `preparedByProven` (the session
- *    controls the council: it proved the account, or a proven address of the
- *    session sits in the council's SignerList — `sessionProvesCouncil`);
- *  · the cap is TWO queues, never one: a proven session has
- *    `MAX_LIVE_ORDERS_PER_COUNCIL`; an unproven one has
- *    `MAX_LIVE_ORDERS_PER_UNPROVEN_PREPARER` counted against ITS OWN preparer id
- *    only. A stranger can no longer fill a council's queue: their records are
- *    invisible to the manager's count (finding 2.1);
- *  · an EXIT is recorded whenever the database works — the cap never gets a vote
- *    on it («LA SALIDA JAMÁS SE GATEA»);
- *  · every record carries a `contentKey` (council + action + canonical params) so
- *    the duplicate guard can ask «did THIS order already go out?» by content
- *    instead of by relay state (finding 2.2).
- *
- * STRICT WRITE. With a database configured, the record is written and READ BACK;
- * a failed or mismatched read-back throws `ComposedOrderUnrecordedError`. Without
- * DATABASE_URL (local dev) there is nothing to persist into and the order is
- * composed as before.
- *
- * The record is payload material, never a trigger: an order the council never
- * signs is inert, and expires when its LastLedgerSequence passes (or after the
- * FDC window). Prepare-only: this reads the ledger and remembers bytes. It never
- * signs, never submits, never holds a key.
+ * COMPOSED for a signature (hardened in).
  */
 
 import { createHash } from 'crypto';
@@ -83,7 +27,7 @@ export const COMPOSED_SCAN_MAX_PAGES = 20;
 export const MAX_LIVE_ORDERS_PER_COUNCIL = 50;
 
 /**
- * it. 15 (finding 2.1) — live compositions ONE UNPROVEN PREPARER may hold for one
+ * Live compositions ONE UNPROVEN PREPARER may hold for one
  * council. Counted per (council, preparer): a stranger fills only their own bucket,
  * and the manager who proves the account never sees it.
  */
@@ -119,19 +63,19 @@ export interface ComposedCouncilOrder extends Record<string, unknown> {
   destination?: string;
   /** Payment Amount as composed, canonical string. */
   amount?: string;
-  /** Monotonic write counter — the CAS token. Absent on rows older than it. 13. */
+  /** Monotonic write counter — the CAS token. Absent on rows older than. */
   version?: number;
-  /** it. 15: the Astryum user id of the session that composed it (null: none/CLI/older row). */
+  /** The Astryum user id of the session that composed it (null: none/CLI/older row). */
   preparedByUserId?: string | null;
-  /** it. 15: that session CONTROLS this council (proved the account, or holds a seat in its SignerList). */
+  /** That session CONTROLS this council (proved the account, or holds a seat in its SignerList). */
   preparedByProven?: boolean;
-  /** it. 15: council + action + canonical params — what makes two orders «the same order». */
+  /** Council + action + canonical params — what makes two orders «the same order». */
   contentKey?: string;
   /** Highest ledger a scan FULLY covered (from the start) without finding the memo. */
   scannedThroughLedger?: number;
   /**
    * The validated XRPL tx the sweep found for this order: its relay was launched,
-   * or (it. 15, relayer off) it waits, marked, for the relayer to be switched on.
+   * or (relayer off) it waits, marked, for the relayer to be switched on.
    */
   launchedXrplTxHash?: string;
   /** ISO time the sweep found it validated (and launched the relay, when it could). */
@@ -217,7 +161,7 @@ export function firstMemoHex(tx: unknown): string {
 }
 
 /**
- * it. 15 (finding 2.2) — WHAT MAKES TWO ORDERS «THE SAME ORDER».
+ * WHAT MAKES TWO ORDERS «THE SAME ORDER».
  *
  * Not the memo (it commits the bridge NONCE, so the re-composition that moves the
  * capital twice carries a different one) and not the relay state (an executed order
@@ -225,23 +169,6 @@ export function firstMemoHex(tx: unknown): string {
  * same action and the same parameters — the amount, the venue / bridge / pote, the
  * destination. `cage-create` then `set-user-gate`, or venue 0 then venue 1, are
  * different content and never collide.
- *
- * Values are normalized so `0` and `"0"`, `0xAB…` and `0xab…`, ` r… ` and `r…` are
- * the same parameter.
- *
- * it. 17 (finding 2.4) — TWO THINGS THAT LET THE SAME ORDER THROUGH TWICE:
- *   · ARRAYS KEPT THEIR ORDER. `venues: [1, 0]` and `venues: [0, 1]` ask the cage for
- *     exactly the same thing and hashed to two different keys, so the second one was
- *     not a duplicate of anything. Arrays are SORTED by their canonical form before
- *     hashing (object keys already were), so the key is the SET the person asked for.
- *     Deliberate: no council order's meaning depends on the order of a list — an
- *     action whose meaning ever does must carry its order in a named field, not in
- *     the position of an element.
- *   · THE KEY WAS TAKEN FROM `req.body.params`. Anything the server derives on the
- *     way to composing (a resolved `feePayer`) was outside it, and so was any extra
- *     field the caller added — one unused key and the order was «different». The
- *     key is now computed from the params the BUILDER actually used (see the
- *     `/cage-order` call site), which is the only thing that decides what moves.
  */
 export function councilOrderContentKey(input: { council: string; action: string; params?: unknown }): string {
   const norm = (v: unknown): unknown => {
@@ -321,7 +248,7 @@ export async function getComposedCouncilOrderStrict(memoHex: string): Promise<Co
 }
 
 /**
- * STRICT: the records of one council, NEWEST FIRST (it. 15, finding 2.5 — the cap
+ * STRICT: the records of one council, NEWEST FIRST (finding 2.5 — the cap
  * and the duplicate guard have to see what was just composed, and a council past
  * `COUNCIL_LIST_MAX_ROWS` used to answer with its oldest thousand only).
  * Deduplicated by memo. Throws on a database failure; [] without a database.
@@ -371,7 +298,7 @@ export function countLiveUnlaunchedOrders(
   records: ComposedCouncilOrder[],
   at: { now: number; sequence: number; validatedLedgerIndex: number },
   /**
-   * it. 15: which queue is being counted. `proven: true` counts only what sessions
+   * Which queue is being counted. `proven: true` counts only what sessions
    * that CONTROL the council composed; `proven: false` counts only what THIS
    * preparer composed without proving it (a row with no preparer id counts for the
    * anonymous bucket alone). Omitted: everything, as before.
@@ -392,26 +319,16 @@ export function countLiveUnlaunchedOrders(
 }
 
 /**
- * it. 17 (finding 2.5) — THE CAP, DECIDED BEFORE THE CHAIN READS ARE SPENT.
+ * THE CAP, DECIDED BEFORE THE CHAIN READS ARE SPENT.
  *
  * The 429 was raised inside `recordComposedCouncilOrder`, which runs LAST: by then
  * the door had already spent `isCageV2Council`, `readPoteState`, the cage resolution
  * and the Sequence pin. A caller with a full queue could therefore drive thousands
  * of RPC reads a minute without ever taking a place — the queue capped the RECORDS
  * and nothing capped the READS.
- *
- * This is the same count, asked with ONE database read and NO ledger read, so a door
- * can refuse before it spends anything. Because it cannot know the validated ledger
- * yet, it counts only the records that CANNOT have expired by ledger (no window at
- * all): a strict LOWER BOUND of the real queue. Under-counting is the only safe
- * direction — an early refusal built on it is one the real cap would raise too;
- * everything else still meets the authoritative cap at write time.
- *
- * Never throws: a store it cannot read answers «not full», because «I could not
- * read» must not become a refusal (the write-time cap will read it again anyway).
  */
 /**
- * it. 19 (finding 2.6): the slowest a ledger can plausibly close. Used ONLY to bound
+ * The slowest a ledger can plausibly close. Used ONLY to bound
  * from below how long a pinned window is certainly still open — never to declare one
  * closed. XRPL closes a ledger every ~3.5-4 s; 2.5 s is the conservative floor.
  */
@@ -425,27 +342,8 @@ export function countQueueWithoutLedger(
   now: number,
   scope?: { proven: boolean; preparedByUserId?: string | null },
 ): number {
-  // ── it. 19 (finding 2.6) — THE PRE-CHECK WAS DEAD ON EXACTLY THE COUNCILS THAT
+  // ── THE PRE-CHECK WAS DEAD ON EXACTLY THE COUNCILS THAT
   //    COMPOSE THE MOST ───────────────────────────────────────────────────────
-  //
-  // WHAT FAILED: counting only the records with NO window is counting only multisig
-  // (SignerList) orders — every single-sign order carries a `LastLedgerSequence`
-  // (`ORDER_LEDGER_WINDOW`). So for a single-sig council the lower bound was always
-  // zero, the pre-check never fired, and the door spent every chain read it exists to
-  // save before the authoritative cap refused at the end.
-  //
-  // A windowed row is counted while its window CANNOT yet have closed: fewer than
-  // (window in ledgers × the slowest a ledger closes) milliseconds have passed since
-  // it was composed. That keeps the estimate a strict lower bound of what the ledger
-  // would say about the WINDOW — it never counts a row whose window may have expired.
-  //
-  // THE ONE PLACE IT CAN OVER-COUNT, said out loud: a row whose Payment was signed
-  // and APPLIED inside its own window, and which the five-minute sweep has not yet
-  // marked `launchedXrplTxHash`. Its Sequence is spent, so the authoritative count
-  // (which reads the ledger) would drop it. The consequence is bounded and never
-  // touches a way out: an EXIT is never asked (`councilQueuePrecheck` returns early),
-  // and the worst case for an entry is a 429 that says «sign or let those expire»
-  // minutes before the real cap would have allowed one more.
   const withinCertainWindow = (r: ComposedCouncilOrder): boolean => {
     if (r.lastLedgerSequence === null) return true;
     const windowLedgers = Math.min(
@@ -497,22 +395,6 @@ export async function councilQueuePrecheck(input: {
 /**
  * Remember one composed order. Called by the prepare routes AFTER the Payment is
  * pinned and BEFORE it is returned.
- *
- *  · no DATABASE_URL → `{ recorded: false, reason: 'no-database' }` (dev: composed as before);
- *  · the memo of the pinned tx must be the keccak256 of `orderData` — a mismatch
- *    is a composer bug and throws (nothing is relayable from it);
- *  · a NEW memo whose own queue is full throws `TooManyPendingOrdersError` — the
- *    council's queue (`MAX_LIVE_ORDERS_PER_COUNCIL`) for a session that CONTROLS the
- *    council, this preparer's (`MAX_LIVE_ORDERS_PER_UNPROVEN_PREPARER`) for one that
- *    does not (it. 15: a stranger's records are counted only against the stranger);
- *  · `exit: true` is NEVER counted and never refused by the cap: an exit is recorded
- *    whenever the database works («LA SALIDA JAMÁS SE GATEA»);
- *  · a re-composition of the SAME order (same memo — the bridge nonce did not
- *    move) keeps the EARLIEST ledger to scan from, the launch already made, and
- *    drops the window if any composition had none; it is a CAS on the record as
- *    read, retried on a concurrent change;
- *  · the write is read back strictly; anything but the same bytes throws
- *    `ComposedOrderUnrecordedError`.
  */
 export async function recordComposedCouncilOrder(
   input: {
@@ -523,12 +405,12 @@ export async function recordComposedCouncilOrder(
     pinnedTx: Record<string, unknown>;
     order: { orderData: string; memoHex?: string; orderHash?: string };
     pin: { sequence: number; lastLedgerSequence: number | null; validatedLedgerIndex: number };
-    /** it. 15: the session that composed it, and whether it controls the council. */
+    /** The session that composed it, and whether it controls the council. */
     preparedByUserId?: string | null;
     preparedByProven?: boolean;
-    /** it. 15: `councilOrderContentKey({ council, action, params })` — the duplicate guard's key. */
+    /** `councilOrderContentKey({ council, action, params })` — the duplicate guard's key. */
     contentKey?: string;
-    /** it. 15: an exit is recorded whenever the database works — the cap never sees it. */
+    /** An exit is recorded whenever the database works — the cap never sees it. */
     exit?: boolean;
   },
   now: () => number = Date.now,
@@ -554,7 +436,7 @@ export async function recordComposedCouncilOrder(
     }
 
     const sameCouncil = existing && existing.council === input.council ? existing : null;
-    // THE CAP, BY WHOEVER IS COMPOSING (it. 15, finding 2.1). An exit is never
+    // THE CAP, BY WHOEVER IS COMPOSING (finding 2.1). An exit is never
     // counted or refused here; a re-composition of an order already in the queue
     // takes no new place; and the two queues never see each other, so 50
     // compositions by a stranger cannot stop the manager who proves the account.
@@ -733,7 +615,7 @@ export interface ComposedOrderFate extends Record<string, unknown> {
   xrplTxHash?: string;
   detail?: string;
   at: string;
-  /** it. 15: what the order WAS, so the duplicate guard still sees it after the record is gone. */
+  /** What the order WAS, so the duplicate guard still sees it after the record is gone. */
   action?: string;
   contentKey?: string;
   /** ISO time the sweep found it validated on XRPL (the duplicate window is measured from here). */
@@ -741,7 +623,7 @@ export interface ComposedOrderFate extends Record<string, unknown> {
 }
 
 /**
- * it. 15: the fates of one council, newest first — the duplicate guard reads them
+ * The fates of one council, newest first — the duplicate guard reads them
  * because the sweep FORGETS a record as soon as its relay is executed, which is
  * exactly when composing the same order again would move the capital twice.
  * Throws on a database failure; [] without a database.
@@ -846,7 +728,7 @@ export async function recordComposedOrderForDelivery(
 ): Promise<ComposedOrderDeliveryVerdict> {
   const executorEnabled = process.env.FLARE_EXECUTOR_ENABLED === 'true';
   try {
-    // The exit travels INTO the writer (it. 15): the cap is not consulted for it at
+    // The exit travels INTO the writer: the cap is not consulted for it at
     // all, so an exit is recorded whenever the database works — and the warning
     // below stays for the only case left, a database that cannot be written.
     const out = await (opts.record ?? recordComposedCouncilOrder)({ ...input, exit: opts.exit === true });
@@ -870,7 +752,7 @@ export async function recordComposedOrderForDelivery(
   }
 }
 
-/* ── Does this session CONTROL the council? (it. 15, finding 2.1) ─────────── */
+/* ── Does this session CONTROL the council? (finding 2.1) ─────────── */
 
 export interface CouncilAuthorityDeps {
   mayActOnAccount?: (req: Request, account: string) => Promise<boolean>;
@@ -882,21 +764,12 @@ export interface CouncilAuthorityDeps {
 const councilAuthorityByRequest = new WeakMap<object, Map<string, Promise<boolean>>>();
 
 /**
- * it. 17 (finding 2.5) — A DEAD NODE MUST NOT DEMOTE A REAL MANAGER.
+ * A DEAD NODE MUST NOT DEMOTE A REAL MANAGER.
  *
  * The SignerList read had no timeout and no memory: a 429 from the XRPL node made
  * `sessionProvesCouncil` answer false, and the manager who controls the council
  * silently dropped into the STRANGER queue (10 compositions per preparer instead of
  * the council's 50) — a node hiccup rationing a real family's own doors.
- *
- * So the read is bounded (like `councilProposals.ts` bounds its own signer-list
- * read) and a verdict that was PROVED for this exact (session, council) is
- * remembered for `PROVEN_MEMORY_MS`. On a failed read the memory answers instead of
- * `false`, and the fallback is LOGGED — never silent. This is a memory of a proof
- * that already happened, never a widening: nothing is remembered that was not read
- * off the validated ledger first, and it only ever decides WHICH QUEUE a
- * composition counts against (never whether an order may be composed, and never
- * anything about an exit, which the cap does not see at all).
  */
 export const COUNCIL_SIGNERLIST_TIMEOUT_MS = 4_000;
 export const COUNCIL_PROVEN_MEMORY_MS = 30 * 60_000;
@@ -959,7 +832,7 @@ export async function sessionProvesCouncil(req: Request, council: string, deps: 
   const hit = cached?.get(account);
   if (hit) return hit;
   const userId = req.siwe?.userId ?? null;
-  // it. 17 (2.5): a read that FAILED is not a verdict. When the node (or the
+  // A read that FAILED is not a verdict. When the node (or the
   // binding read) cannot answer, the last verdict PROVED for this exact session and
   // council stands — said out loud in the log, never silently.
   const fallback = (why: string): boolean => {
@@ -1020,37 +893,19 @@ export async function sessionProvesCouncil(req: Request, council: string, deps: 
   return run;
 }
 
-/* ── May this session be TOLD WHY? (productizer it. 21, finding 2.8) ───────── */
+/* ── May this session be TOLD WHY? (finding 2.8) ───────── */
 
 /**
- * productizer it. 21 (finding 2.8) — ONE FLOOR FOR «MAY THIS CALLER BE TOLD WHY».
+ * ONE FLOOR FOR «MAY THIS CALLER BE TOLD WHY».
  *
  * WHAT FAILED IN SILENCE: `POST /api/xrpl-defi/multisign/prepare` grew TWO floors ten
  * lines apart. To word a refusal it asked `sessionProvesCouncil` (a PROVEN address);
  * to name the row holding the seat it asked `sessionMayReadCouncil` (proven OR
- * registered — the floor it. 19 opened on purpose, because the bytes a cosignatory
- * signs come only from a read). So the cosignatory the it. 19 fix was written for —
+ * registered — the floor opened on purpose, because the bytes a cosignatory
+ * signs come only from a read). So the cosignatory the fix was written for —
  * on the SignerList of the validated ledger, known to this app only as a `wallet`
  * row — could READ the proposal and still got `GENERIC_PREPARE_REFUSAL`, an opaque
  * 409 with no next step, on their own family's exit.
- *
- * This is that same READ floor asked of an ACCOUNT instead of a stored row (the
- * ceremony has no row: it pins bytes handed to it in the body). Two grounds:
- *   · the session PROVES the council (`sessionProvesCouncil` — unchanged, and still
- *     the only thing that ever decides a WRITE, a queue or a lease); or
- *   · an address this session REGISTERED sits in the council's SignerList on the
- *     validated ledger.
- *
- * WHAT IT DECIDES, AND WHAT IT MUST NEVER DECIDE. Only whether a refusal carries its
- * REASON. Nothing here composes, records, leases, gates or un-gates anything — the
- * region gate, the seat guards and the lease keep their own (higher) floors. A
- * registered address is self-asserted, so it buys a sentence, never an authority.
- *
- * NO AMPLIFICATION: the registry is a single bounded database read keyed by this
- * session, and the ledger is only asked when that read came back with something to
- * look for. A caller with no wallet rows costs exactly one indexed query and no
- * ledger call at all. Every failed read answers false — «no pude leer» is not
- * authority — and the caller still gets the generic refusal, never a 500.
  */
 const councilReadFloorByRequest = new WeakMap<object, Map<string, Promise<boolean>>>();
 
@@ -1169,15 +1024,6 @@ const defaultRpc: AccountTxRpc = async (method, params) => {
  * FIRST (`forward: true`) and paginated until the marker is gone, on FRESH nodes
  * only. `searchedThroughLedger` is the highest ledger FULLY read from the start —
  * only up to there may «the memo is not on the ledger» be concluded.
- *
- *  · marker exhausted → `exhausted: true`, searched through the node's range
- *    (the lowest `ledger_index_max` any page reported);
- *  · page cap reached with a marker still set → `exhausted: false`, the matches
- *    read so far, and searched through the ledger BEFORE the last entry read (that
- *    ledger may continue on the next page). No entry ledger to anchor it, or no
- *    ledger fully read → throws NOT_EXHAUSTED (no progress is ever invented);
- *  · THROWS when a page fails, when the node searched a NARROWER start than asked
- *    (no history for the window), or does not say how far it searched.
  */
 export async function scanCouncilPayments(
   council: string,

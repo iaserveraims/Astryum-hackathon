@@ -1,5 +1,5 @@
 /**
- * ecosystem — ONE color identity per crypto ecosystem (founder 2026-07-30):
+ * ecosystem — ONE color identity per crypto ecosystem:
  * the color IS the arrow. Anywhere the user picks a direction for their
  * capital, XRPL reads BLUE (Xaman / XRP) and Flare reads ROSE (Flare's
  * brand coral), so the destination is understood before a single word is

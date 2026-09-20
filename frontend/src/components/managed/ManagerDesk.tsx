@@ -2,38 +2,7 @@
 
 /**
  * ManagerDesk — la mesa del gestor: UN sitio donde creas tu bóveda y luego la
- * gobiernas (fundador 2026-08-25: «lo haría todo en un mismo sitio, como lo de
- * create a council and govern; es lo mismo al final»).
- *
- * A MEDIDA, no la demo. `/app/institutional` es la demo del exchange y se queda
- * como está: allí Astryum hace de operador y la pantalla lo dice. Aquí el
- * operador es el usuario. Lo que se reutiliza es el RAÍL —las rutas
- * prepare-only y el catálogo on-chain—, nunca sus pantallas.
- *
- * ── DOS APARTADOS (fundador 2026-09-06) ─────────────────────────────────────
- * «La configuración de toda la cuenta para managed vaults tiene que ir en un
- * solo apartado… lo que sea post-verificación debe ir en otro.»
- *
- *   Configurar · el ALTA entera, al estilo Constitute del Legacy (estaciones):
- *                elegir la cuenta DEDICADA → primera verificación (KYC+AIFM) →
- *                constitución fácil (plantilla o documento; hash automático;
- *                cuenta auto-puesta) → jaula y primer vault. `ManagerSetupWizard`.
- *   Operar     · una GALERÍA de potes (como las cards de Earn): se elige uno con
- *                un clic y debajo aparece su gestión de capital (dirigir/
- *                recuperar por venue); el «+» abre el creador en modal. La
- *                renovación de credenciales, arriba y discreta.
- *                Desde el 13-sep (fundador, «el mismo rollo» que el catálogo:
- *                mejor repartido, el dinero delante, la imagen secundaria,
- *                no todo en horizontal) la sala es un MOSAICO de dos columnas:
- *                a la izquierda un recuadro VERTICAL —tus bóvedas apiladas,
- *                la elegida con sus cifras grandes (en la bóveda, desplegable,
- *                trabajando, suelo) y las tres puertas en columna—; a la
- *                derecha, en recuadros anchos, la pestaña elegida (el puente
- *                del capital y sus destinos, la constitución, la identidad).
- *
- * (La sala «Emisor» se retiró de la mesa el 6-sep: el gestor no la necesita —
- * la emisión de credenciales la lleva el robot notario; la ceremonia de demo,
- * si hace falta, vive en admin.)
+ * gobiernas.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -45,7 +14,7 @@ import { Card, MicroLabel, SegmentedControl } from '../ui/primitives';
 import { AstryumLoader } from '../ui/AstryumLoader';
 import { EASE_OUT, RevealGroup, RevealItem } from '../ui/motion';
 // El emblema de managed en toda la app (la puerta de Earn): la esfera armilar.
-// La mesa lo hereda — misma identidad, mismo instrumento (2026-09-05).
+// La mesa lo hereda — misma identidad, mismo instrumento.
 import { ArmillaryScene } from '../earn/icons';
 import { useT } from '../../i18n/LanguageProvider';
 import { getCageOf, getPoteState, type PoteState } from '../../lib/institutional/api';
@@ -94,15 +63,14 @@ function Row({ k, v }: { k: string; v: string }) {
 export function ManagerDesk() {
   const { t } = useT();
   const reduced = useReducedMotion() ?? false;
-  // LA MESA LEE DESDE LAS WALLETS DE LA CUENTA, NO SOLO DESDE LA SESIÓN VIVA
-  // (fundador 2026-09-14: «desde la wallet que marca como managed no puedo
-  // acceder»). La cuenta que gobierna es una de las XRPL ENLAZADAS a la
+  // LA MESA LEE DESDE LAS WALLETS DE LA CUENTA, NO SOLO DESDE LA SESIÓN VIVA.
+  // La cuenta que gobierna es una de las XRPL ENLAZADAS a la
   // cuenta; la sesión viva de Xaman es de ESTE navegador y se pierde al cambiar
   // de dominio o de sesión. Leer el ledger de una cuenta no exige que esté
   // conectada; firmar sí, y XamanSingleSign ya pide la firma A ESA cuenta (la
   // orden lleva su Account: Xaman exige esa cuenta). Prioridad: la elegida a
   // mano, luego la conectada, luego la primera enlazada. La regla vive en
-  // useManagerAccount, COMPARTIDA con la ceremonia del alta (15-sep: la
+  // useManagerAccount, COMPARTIDA con la ceremonia del alta (la
   // ventana miraba solo la sesión viva y «perdía» el proceso en otro navegador).
   const {
     address: xrplAddress,
@@ -128,10 +96,10 @@ export function ManagerDesk() {
   // The console's council-order signature can no longer be dropped: switching
   // pane, vault, room or account would unmount (or re-point) ManagerConsole,
   // and XamanSingleSign's unmount cancel is blind — a signature made in that
-  // gap is followed by nobody and the console re-offers it (productizer-it6).
+  // gap is followed by nobody and the console re-offers it.
   const [consoleBlocked, setConsoleBlocked] = useState(false);
   const signBlocked = consoleBlocked || creatorBlocked;
-  // El pote elegido en DOS paneles (8-sep): antes consola y constitución iban
+  // El pote elegido en DOS paneles: antes consola y constitución iban
   // apiladas — diez tarjetas de scroll por pote. Capital es lo diario;
   // la constitución se consulta.
   const [pane, setPane] = useState<Pane>('capital');
@@ -146,13 +114,13 @@ export function ManagerDesk() {
   // después manda el clic del usuario, jamás una recarga de datos.
   const roomChosen = useRef(false);
 
-  // Lectura DIRIGIDA (fundador 6-sep, arregla la lentitud): en vez del catálogo
+  // Lectura DIRIGIDA: en vez del catálogo
   // ENTERO (todos los gestores, dos generaciones), se resuelve SOLO la jaula de
   // esta cuenta (llamadas directas al contrato, sin escanear eventos) y el
   // estado de sus potes. Para un gestor con 1 jaula y 1-2 potes son 2-3
   // lecturas, no cientos.
   const loadSeq = useRef(0);
-  // UNA RELECTURA FALLIDA NO DESMONTA UNA FIRMA (productizer-it7). `failed` y
+  // UNA RELECTURA FALLIDA NO DESMONTA UNA FIRMA. `failed` y
   // `potes === null` sustituyen la mesa entera por un aviso — y con ella la
   // ManagerConsole o el VaultCreator con su firma de Xaman viva. Mientras una
   // firma bloquea, un Refresh/Retry que falla (o que ya no trae el pote elegido)
@@ -188,7 +156,7 @@ export function ManagerDesk() {
       const states = await Promise.all(addrs.map((a) => getPoteState(a).catch(() => null)));
       if (mine !== loadSeq.current) return;
       const ok = states.filter((s): s is PoteState => s !== null);
-      // «No pude leer» ≠ «no tienes» también POR POTE (revisión 10-sep): los
+      // «No pude leer» ≠ «no tienes» también POR POTE (revisión): los
       // ilegibles se cuentan y se dicen; si TODOS fallan, la lectura entera falló.
       if (addrs.length > 0 && ok.length === 0) { failRead(); return; }
       if (keepLastReading(ok)) { setRefreshFailed(true); return; }
@@ -214,7 +182,7 @@ export function ManagerDesk() {
   // Tus bóvedas: las de TU jaula (ya vienen filtradas por la lectura dirigida).
   const mine = useMemo(() => potes ?? [], [potes]);
   const selected = useMemo(() => mine.find((p) => p.pote === selectedPote) ?? null, [mine, selectedPote]);
-  // LAS CIFRAS del recuadro vertical (13-sep): hechos del contrato, con la
+  // LAS CIFRAS del recuadro vertical: hechos del contrato, con la
   // misma aritmética que la consola (suelo = total·bps/10000; desplegable =
   // libre − suelo; trabajando = suma de los destinos). Nada de rentabilidad.
   const money = useMemo(() => {
@@ -236,7 +204,7 @@ export function ManagerDesk() {
 
   // La sala se decide UNA vez, con una lectura REAL de ESTA cuenta — no con la
   // lista vacía que dejó la ausencia de cuenta (eso encerraba en «Configurar»
-  // a gestores con bóvedas, revisión 10-sep).
+  // a gestores con bóvedas, revisión).
   useEffect(() => {
     if (roomChosen.current || !xrplAddress || potes === null || loadedFor !== xrplAddress) return;
     roomChosen.current = true;
@@ -336,7 +304,7 @@ export function ManagerDesk() {
 
   if (potes === null && !failed) {
     // Espera de PANTALLA, no de fila: la marca dibujándose (AstryumLoader),
-    // no un spinner genérico (v-100%, fundador 2026-09-08).
+    // no un spinner genérico (v-100%, fundador).
     return (
       <Card className="p-8">
         <AstryumLoader size={56} label={t('Reading your vault from the chain…')} />
@@ -381,7 +349,7 @@ export function ManagerDesk() {
 
       {/* La tira de identidad: con qué cuenta estás. En TODAS las salas — es
           orientación, no contenido de una pestaña. El punto que late dice
-          «cuenta viva» sin una palabra (v-tema 2026-09-05). */}
+          «cuenta viva» sin una palabra (v-tema). */}
       <RevealItem>
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ink/[0.07] bg-ink/[0.02] px-4 py-2.5">
           <span
@@ -389,8 +357,7 @@ export function ManagerDesk() {
             aria-hidden
           />
           <MicroLabel>{t('XRPL account')}</MicroLabel>
-          {/* EL SWITCH (fundador 2026-09-13: «debe haber un botón para hacer
-              el switch a las que están conectadas para que el user escoja»):
+          {/* EL SWITCH:
               con más de una Xaman conectada, la tira es el selector de la
               casa — elegirla aquí ES elegir quién firma (setActiveWallet, el
               mismo primitivo que sigue useXrplWalletPartner). Con una sola,
@@ -428,7 +395,7 @@ export function ManagerDesk() {
           >
             <ExternalLink size={13} />
           </a>
-          {/* EN OPERAR, la tira es el puesto de mando entero (11-sep: «menos
+          {/* EN OPERAR, la tira es el puesto de mando entero («menos
               caos»): el título del gestor, Refrescar y Nueva bóveda viven aquí —
               una fila, no cuatro. */}
           {room === 'operate' ? (
@@ -448,7 +415,7 @@ export function ManagerDesk() {
         </div>
       </RevealItem>
 
-      {/* CADA SALA ENTRA COMO UNA SALA (v-tema 2026-09-05: «aplica el tema
+      {/* CADA SALA ENTRA COMO UNA SALA (v-tema: «aplica el tema
           general… añade animaciones»): al cambiar de sala, la saliente se
           despide hacia arriba y la nueva sube a escena — el patrón de
           transición de la casa, nunca un corte seco. La cabecera viaja DENTRO
@@ -465,7 +432,7 @@ export function ManagerDesk() {
       {/* ── APARTADO «CONFIGURAR»: el alta entera, en estaciones (el gemelo
           del Constitute del Legacy, con los colores de managed). Todo lo de la
           primera vez vive AQUÍ y solo aquí. ── */}
-      {/* Desde el 12-sep el alta vive UNA vez, en su ventana
+      {/* El alta vive UNA vez, en su ventana
           (ManagerSetupOperation, la plantilla del Legacy): aquí queda la
           puerta. Renovar el título desde Operar abre esa ventana en la
           estación Título. */}
@@ -512,11 +479,11 @@ export function ManagerDesk() {
             </p>
           ) : null}
 
-          {/* EL MOSAICO DE OPERAR (13-sep). Izquierda, un recuadro VERTICAL:
+          {/* EL MOSAICO DE OPERAR. Izquierda, un recuadro VERTICAL:
               tus bóvedas apiladas (si hay varias), la elegida con su dinero
               en grande y las tres puertas en columna. Derecha, recuadros
               ANCHOS: la pestaña elegida — el puente del capital con sus
-              destinos (11-sep, intacto), la constitución o la identidad.
+              destinos (intacto), la constitución o la identidad.
               En pantallas estrechas la columna cae encima. */}
           {selected && money ? (
             <div className="grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">

@@ -4,9 +4,7 @@ import { getApiBase } from '../lib/env';
 import { hasAnswer, readOnboarding, type OnboardingLang, type OnboardingRecord as ServerOnboarding } from '../lib/onboarding/record';
 
 /**
- * EL CUESTIONARIO VIAJA A LA CUENTA (fundador 2026-09-14: «una vez rellenado
- * ese popup, que se guarde y no vuelva a saltar; inicio sesión desde
- * navegadores distintos y me vuelve a pedir lo mismo»).
+ * EL CUESTIONARIO VIAJA A LA CUENTA.
  *
  * Este store sigue siendo el que contesta en el acto —antes de que /me hable,
  * y sin red— pero ya no es el dueño del dato: cada escritura se manda a
@@ -15,7 +13,7 @@ import { hasAnswer, readOnboarding, type OnboardingLang, type OnboardingRecord a
  * vuelve a salir en este navegador y el próximo /me lo reconcilia.
  */
 /**
- * POR QUÉ NO SE GUARDÓ — Y POR QUÉ ANTES NO LO SABÍA NADIE (productizer it. 27).
+ * POR QUÉ NO SE GUARDÓ — Y POR QUÉ ANTES NO LO SABÍA NADIE.
  *
  * `un rechazo con cuerpo RESUELVE`: un 409 no lanza, así que el `.catch()` que
  * había aquí no lo veía nunca. Con la columna `preferences` ilegible, el backend
@@ -24,10 +22,6 @@ import { hasAnswer, readOnboarding, type OnboardingLang, type OnboardingRecord a
  * No es una cárcel — hay «Omitir» y lo local sostiene ESTA sesión — pero es
  * fricción permanente que nadie podía diagnosticar: ni una traza en consola, ni
  * una frase para la persona.
- *
- *   · 'unreadable' — 409: esperar NO lo arregla, hay que reparar la fila;
- *   · 'server'     — cualquier otro rechazo del servidor;
- *   · 'network'    — la petición no llegó a ninguna parte.
  */
 export type OnboardingPersistRefusal = 'unreadable' | 'server' | 'network';
 
@@ -85,13 +79,13 @@ function isGoal(v: unknown): v is OnboardingGoal {
 
 /** The interactive coachmark tours (ProductTour). Kept deliberately few:
  *  Home is the first-run walk (fleet + sidebar doors — moved there from the
- *  Summary on 2026-08-16, when the Home hub became the meeting point); Earn
+ *  Summary, when the Home hub became the meeting point); Earn
  *  explains its doors. 'summary' stays in the union so persisted toursDone
  *  entries from older sessions keep typing. Anything more would be
- *  overwhelming (founder 2026-07-18). */
+ *  overwhelming. */
 export type TourId = 'home' | 'summary' | 'earn';
 
-/** What first-run remembers, PER ACCOUNT (2026-09-13) — y desde el 2026-09-14,
+/** What first-run remembers, PER ACCOUNT — y,
  *  también EN LA CUENTA (ver la cabecera de persistToAccount). */
 interface OnboardingRecord {
   completed: boolean;
@@ -112,7 +106,7 @@ interface OnboardingState extends OnboardingRecord {
    */
   persistRefusal: OnboardingPersistRefusal | null;
   /**
-   * ── POR CUENTA, NO POR NAVEGADOR (fundador 2026-09-13) ──────────────────
+   * ── POR CUENTA, NO POR NAVEGADOR ──────────────────
    * «Acabo de crear esta cuenta y no me ha saltado el mini tour inicial ni la
    * configuración básica». El asistente y los tours se guardaban una vez por
    * navegador: la segunda cuenta creada en el mismo Chrome nunca los veía.

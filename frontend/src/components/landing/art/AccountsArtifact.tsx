@@ -3,9 +3,7 @@
 /**
  * TUS CUENTAS — la lámina nueva del mundo Autocustodia.
  *
- * Fundador, 2026-09-19: «una sola wallet del cliente que puede tener
- * subwallets dentro, que son como cuentas bancarias, que sirven para compartir
- * con quórum o dividir o que tienen otras reglas en Flare». Y después: «una
+ * Y después: «una
  * familia, tú y otros y tu gestor es self custody con las subcuentas
  * personalizadas» — así que Legacy deja de ser un producto y pasa a ser una
  * cuenta compartida por quórum, aquí.

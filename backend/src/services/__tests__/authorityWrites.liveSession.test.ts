@@ -1,18 +1,6 @@
 /**
- * productizer it. 16 (4.1) — the last two authority writes that were still
+ * The last two authority writes that were still
  * outside `withLiveSession`.
- *
- *  · the Anthropic key (`UserAnthropicKey`): it decides WHOSE account receives
- *    the copilot's prompts — the owner's portfolio, their addresses, the text
- *    they type at it. `validateKey` is a network round-trip to Anthropic before
- *    the write, so the window a takeover has is wide.
- *  · the step-up lock matrix (`StepUpLockConfig`): it decides which of the
- *    owner's features demand a fresh wallet signature. An intruder's matrix
- *    either disarms their protections or arms `wallet_security:write` so they
- *    cannot put them back.
- *
- * Both now write inside a transaction that first proves the session is still
- * live, and both refuse with `session_revoked` and write nothing.
  */
 
 const keyUpsert = jest.fn();
@@ -101,7 +89,7 @@ describe('AgentKeyService.saveUserAPIKey', () => {
     expect(keyUpsert).not.toHaveBeenCalled();
   });
 
-  // ── it. 19 (it. 18, 3.2) — OPTIONAL IS NOT A GUARD ────────────────────────
+  // ── OPTIONAL IS NOT A GUARD ────────────────────────
   //
   // This test used to assert the opposite: «without a session reference the
   // write is unguarded (callers that have one must pass it)». That sentence
@@ -156,7 +144,7 @@ describe('StepUpLockService.setConfig', () => {
 });
 
 /**
- * productizer it. 18 (3.7) — THE REFUSAL MUST NOT BE THE PUNISHMENT.
+ * THE REFUSAL MUST NOT BE THE PUNISHMENT.
  *
  * `PUT /api/security/step-up/config` is called by a client that signs the user
  * out on ANY 401 (the client half is fixed separately). The backend's side of

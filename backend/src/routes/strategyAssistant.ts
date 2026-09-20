@@ -34,7 +34,7 @@ import { translateCmfToEvmRules } from '../canonical/moneyflow/CanonicalEvmTrans
 import type { CanonicalMoneyFlow } from '../canonical/moneyflow/CanonicalMoneyFlow';
 
 const router = Router();
-// Haiku by default (founder 2026-08-08 — maximum savings). The numbers the user
+// Haiku by default. The numbers the user
 // sees come from StrategyMetricsService (tested math), never from the LLM, so
 // the small model only carries the conversational layer; raise via env
 // (STRATEGY_ASSISTANT_MODEL) if the compose/transfer compilers ever need it.
@@ -43,7 +43,7 @@ const MODEL =
 const FLARE_CHAIN_ID = 14;
 const MANTISSA = 1e18;
 // Kinetic is a Benqi-style fork: rates are per SECOND (*RatePerTimestamp);
-// supplyRatePerBlock() does not exist (verified on-chain 2026-07-14).
+// supplyRatePerBlock() does not exist (verified on-chain).
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 function flareProvider(): ethers.JsonRpcProvider {
@@ -145,7 +145,7 @@ const BodySchema = z.object({
    * only ever composes a council order.
    */
   governed: z.boolean().optional(),
-  // El idioma del dashboard (2026-08-29): las NOTAS de la tabla de métricas
+  // El idioma del dashboard: las NOTAS de la tabla de métricas
   // llevan números interpolados — se componen aquí, así que necesitan saber
   // en qué idioma hablarle a la persona. El LLM no lo necesita (regla dura:
   // responde en el idioma del último mensaje).
@@ -248,7 +248,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         metrics = StrategyMetricsService.computeCarryOptions(amountXrp, rates, { targetUsd, lang });
         // A council cannot borrow (see `governed` above): drop the carry rows
         // and say why. La explicación va SOLO al contexto del modelo
-        // (revisión 2026-08-29: iba también en metrics.notes y el cliente la
+        // (revisión: iba también en metrics.notes y el cliente la
         // pintaba tal cual — en castellano fijo y con una instrucción al
         // modelo, «no la propongas», delante del usuario; la UI ya tiene su
         // propia nota localizada para esto).

@@ -49,8 +49,7 @@ export function InstrumentsSection({ lang }: { lang: Lang }) {
 
 function Card({ g, i, lang }: { g: Governor; i: number; lang: Lang }) {
   // LA TARJETA SIGUE AL RATÓN. Es la señal de «esto se pulsa» de toda la web
-  // —cada CTA es un Magnetic— y por eso no lleva un botón dentro (fundador
-  // 2026-09-20). Fuerza baja: la tarjeta es grande y basta con que ceda.
+  // —cada CTA es un Magnetic— y por eso no lleva un botón dentro. Fuerza baja: la tarjeta es grande y basta con que ceda.
   return (
     <Magnetic strength={0.12} className="flex">
     <motion.a

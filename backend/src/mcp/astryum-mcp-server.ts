@@ -5,7 +5,7 @@
  * Self-contained: no @modelcontextprotocol/sdk dependency. Implements:
  *   initialize, tools/list, tools/call
  *
- * Exposes V1 tools per CLAUDE.md §11 + V1 prompt B12. Tools that PREPARE
+ * Exposes V1 tools + V1 prompt B12. Tools that PREPARE
  * intents are exposed; tools that SIGN/SUBMIT are NOT (R6 — MCP cannot
  * broadcast).
  *

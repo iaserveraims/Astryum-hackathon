@@ -76,7 +76,7 @@ router.post('/', async (req: Request, res: Response) => {
   const { label, address, chainId, ens } = parsed.data;
 
   try {
-    // Written under a live-session check (it. 14, 4.4): a contact saved by a
+    // Written under a live-session check (4.4): a contact saved by a
     // previous account holder after a takeover would pre-fill a stranger's
     // address in the owner's send modal, labelled as their own.
     const entry = await withLiveSession(req.siwe!, (tx) =>
@@ -88,7 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (err: any) {
     if (isSessionRevoked(err)) return respondSessionRevoked(res);
     // Contention with the takeover's long transaction is a WAIT, not a fault:
-    // 503 «try again» (it. 18, 3.6), never a 500 that reads as «we broke».
+    // 503 «try again» (3.6), never a 500 that reads as «we broke».
     if (isTransactionBusy(err)) return respondBusyRetry(res);
     if (err?.code === 'P2002') {
       return res.status(409).json({

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /what-we-offer — "Qué ofrecemos" (founder 2026-07-25): the platform told
+ * /what-we-offer — "Qué ofrecemos": the platform told
  * longer and more technically than the journey allows, in the same astral
  * grammar (MaskLines, Reveal, SpotlightCard, the starfield via SubpageShell).
  *
@@ -38,7 +38,7 @@ const INSTRUMENTS = (lang: Lang) => [
   {
     num: '02',
     title: T('Acciones preparadas, nunca ejecutadas', 'Actions prepared, never executed', lang),
-    // GLOSSARY reconciliation 2026-07-29: "prepara" (never "compila"),
+    // GLOSSARY reconciliation: "prepara" (never "compila"),
     // "transacciones" (never "payloads"), "al completarse" (never "tras
     // liquidarse" — collides with position liquidation).
     body: T(
@@ -258,7 +258,7 @@ export default function WhatWeOfferPage() {
             </div>
           </section>
 
-          {/* LiveActivity UNMOUNTED here (founder 2026-07-29): the settled-
+          {/* LiveActivity UNMOUNTED here: the settled-
               operations feed now lives on /proof, where the whole trust story
               is told — this page goes back to being the technical pitch.
               Component intact in ./LiveActivity.tsx; re-import to restore. */}

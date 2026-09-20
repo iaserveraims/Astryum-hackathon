@@ -1,5 +1,5 @@
 /**
- * productizer-it13 §4.2 — POST /api/wallet-transfer/bridge/flare-to-xrpl/prepare
+ * POST /api/wallet-transfer/bridge/flare-to-xrpl/prepare
  * burns FXRP through AssetManagerFXRP.redeemAmount, so its disclosure carries the
  * FAssets redemption fee as a live figure (invariants #6/#9): bips, the estimated
  * FXRP on the amount redeemed, and a line — or null plus «could not be read — NOT
@@ -20,7 +20,7 @@ jest.mock('ethers', () => {
       return 5_000_000n;
     }
   }
-  // it. 34: the route now dry-runs the redeem (preflightEvmCalls) — a fake node
+  // The route now dry-runs the redeem (preflightEvmCalls) — a fake node
   // that answers `0x` keeps this suite off the network.
   class FakeRpcProvider {
     async call() {

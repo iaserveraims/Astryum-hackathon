@@ -5,7 +5,7 @@ import { releaseHandoffSeatResult, releaseRefusalDetail } from '../handoffReleas
 import { __resetLiveRequests, listLiveNotices, liveNoticeCountdown } from '../../xaman/liveRequests';
 
 /**
- * productizer it. 23 (it. 22 §3.1 y §3.7) — EL BANNER CONTRADECÍA A LA TARJETA.
+ * EL BANNER CONTRADECÍA A LA TARJETA.
  *
  * `releaseHandoffSeatResult` empujaba SIEMPRE la constante de cinco minutos,
  * también cuando el release contestó **503 `SEAT_STATE_UNREADABLE`** — una
@@ -15,10 +15,6 @@ import { __resetLiveRequests, listLiveNotices, liveNoticeCountdown } from '../..
  * pena preparar otra vez», justo al lado de la tarjeta donde
  * `mayPrepareAgainAfterRelease` se niega a ofrecer exactamente eso para este
  * caso. Inventar el hecho que todo este carril existe para no inventar.
- *
- * Y §3.7: la frase del aviso venía encabezada por el CÓDIGO CRUDO
- * («SEAT_STATE_UNREADABLE — …»), que es justo lo que `describeRetryableRefusal`
- * promete no hacer.
  */
 
 const MEMO = 'FE0A0A0A';
@@ -98,7 +94,7 @@ describe('el banner ofrece el reintento que la tarjeta niega poder ofrecer', () 
 });
 
 /**
- * productizer it. 31 (§3) — EL ASIENTO DE UNA CEREMONIA, LEÍDO EN SU PROPIO CAMPO.
+ * EL ASIENTO DE UNA CEREMONIA, LEÍDO EN SU PROPIO CAMPO.
  *
  * `/xrpl-defi/multisign/release` contesta DOS cosas: el arriendo de la Sequence
  * (`released`, arriba) y el asiento de nonce del 0xFE (`seat`, aparte). Hasta aquí

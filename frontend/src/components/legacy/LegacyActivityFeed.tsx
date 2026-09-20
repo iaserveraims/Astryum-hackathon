@@ -1,28 +1,9 @@
 'use client';
 
 /**
- * LegacyActivityFeed — the "Actividad" section of Governance (founder ask
- * 2026-07-19): ONE interactive feed that gives constancia of everything a
+ * LegacyActivityFeed — the "Actividad" section of Governance (ask):
+ * ONE interactive feed that gives constancia of everything a
  * Legacy has done and what still works.
- *
- * It AGGREGATES, read-first, from the sources that already exist — it never
- * invents entries, and it never moves the creation forms out of their sections
- * (proposals are created in Proposals, rules in MoneyFlows). Here you SEE:
- *   · council proposals (signed on XRPL / live / emitted / expired),
- *   · governed rules (active, nearing their 90-day TTL, expired),
- *   · programmed commitments (escrows) on the ledger,
- *   · constitution anchors/amendments.
- *
- * Every entry is clickable → on-chain detail — and where an action is honest
- * WITHOUT re-implementing the Xaman signing stack, it lives INSIDE the row:
- *   · a rule nearing/past its 90 days → renew (+90d) or pause/resume,
- *   · a live proposal → go sign it (jumps to the inbox) or withdraw,
- *   · a council order emitted → read its Flare execution status (FDC).
- * The heavy multisig signing itself stays in the Proposal inbox (single source
- * of the signing machinery — never duplicated here).
- *
- * Honest surface (invariant): nothing here signs, combines or broadcasts. The
- * feed shows only what the ledger / backend actually back.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -78,7 +59,7 @@ const RENEW_DAYS = 90;
 const TTL_WARN_DAYS = 14; // a rule this close to its 90-day expiry is "nearing"
 
 /**
- * G4-residuos (auditoria 2026-08-17 §G4) — the «watching» that watches nothing.
+ * G4-residuos (auditoria §G4) — the «watching» that watches nothing.
  *
  * WHAT WAS FAILING IN SILENCE HERE: this feed decided a governed rule's state
  * from the rule ROW alone (`enabled` + `expiresAt`) and never looked at what its
@@ -90,17 +71,6 @@ const TTL_WARN_DAYS = 14; // a rule this close to its 90-day expiry is "nearing"
  * With no counter and no push, a rule that failed EVERY SINGLE fire rendered
  * here as «watching · expires in 87d» under a green pill — and a family read
  * that as protection.
- *
- * The run history already existed: GET /rules/:id/runs (backend/src/routes/
- * rules.ts) returns status + notes, newest first. This feed now READS it — one
- * read per rule per mount/refresh, never a poll: run history only changes on an
- * engine tick, and a broken rule stays broken until someone repairs it. When the
- * read itself fails we SAY so; «not read» is never rendered as «healthy».
- *
- * G4-strategies (round 2): the reducer and the loader now live in ONE place,
- * lib/rules/runHealth.ts — the shared home this comment used to promise as a
- * follow-up. Same verdict here, in MoneyFlowsPanel and in DefiPositionsBoard:
- * the surfaces can no longer drift apart about the same rule.
  */
 
 function runAt(iso: string): string {
@@ -132,11 +102,6 @@ export function errText(e: unknown): string {
  * back `ledgerCheck` (backend/src/routes/councilProposals.ts · withEffectiveStatus).
  * `unused` is the ONLY verdict that clears a row — and the server already
  * archived that one as `expired`, so it barely travels.
- *
- * ProposalInbox learned this (its `trayOf`); this feed did not, and repainted
- * exactly what the inbox stopped saying: a green «active» pill, «0 days left»,
- * the subtitle «ready to emit» and a «Go to the inbox to sign» button pointing
- * at a tray that no longer offers a signature. Same predicate, one place.
  */
 export function seatUnresolvedOf(p: CouncilProposalRecord): boolean {
   const live = p.status === 'collecting' || p.status === 'ready';
@@ -148,7 +113,7 @@ export function seatUnresolvedOf(p: CouncilProposalRecord): boolean {
  * `unreadable`, silent otherwise — a healthy rule already speaks through its
  * fire count and its expiry.
  *
- * G4-pildoras (round 3) — `enabled` arrived because this note never looked at
+ * G4-pildoras — `enabled` arrived because this note never looked at
  * it: a PAUSED governed rule with an old failed run claimed «this rule is
  * armed» right beside its own Resume button. The failure still shows (it
  * happened); the tense follows the rule's actual state.
@@ -314,7 +279,7 @@ function FlareLeg({ txHash, account }: { txHash: string; account: string }) {
 }
 
 /**
- * G4-pildoras (round 3) — THE TIMELINE, AS A PURE FUNCTION.
+ * G4-pildoras — THE TIMELINE, AS A PURE FUNCTION.
  *
  * It used to be the body of a `useMemo` inside the component, which meant the
  * only net under it was a regex over this file's own source: the round-2 suite
@@ -383,8 +348,8 @@ export function buildFeedEntries(
     // could not read is stated instead of being smoothed into «watching».
     const health = lastRuns[r.id] ?? UNREAD;
     const failing = r.enabled && !expired && isFailing(health);
-    // G4-pildoras (round 3) — the chip used to be `failing ? danger : active
-    // ? success : …`, and `active` is `enabled && !expired`: a rule whose run
+    // G4-pildoras — the chip used to be `failing ? danger: active
+    // ? success: …`, and `active` is `enabled && !expired`: a rule whose run
     // history was still in flight, or whose read had just BROKEN, printed the
     // same green «active» as a rule we had read and found healthy. A failed
     // read is not a verdict of health. Same decision as the other five
@@ -475,9 +440,9 @@ export default function LegacyActivityFeed({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /**
-   * productizer it. 25 (1) — LAS FILAS QUE EL SERVIDOR NO PUDO DECIDIR.
+   * LAS FILAS QUE EL SERVIDOR NO PUDO DECIDIR.
    *
-   * Este feed leía `.then((r) => r.proposals)` y tiraba el `unreadable[]` que it. 23
+   * Este feed leía `.then((r) => r.proposals)` y tiraba el `unreadable[]` que
    * puso en el 200 precisamente para que una fila indecidible dejase de desaparecer.
    * Con el `.catch(() => [])` de al lado, una bandeja a medias se pintaba como un
    * historial completo — y este componente es el que la familia mira para saber qué
@@ -485,19 +450,8 @@ export default function LegacyActivityFeed({
    */
   const [unreadableRows, setUnreadableRows] = useState<UnreadableRowsNotice | null>(null);
   /**
-   * productizer it. 27 (1) — EL RECHAZO ENTERO DESAPARECÍA, Y EN LA PRIMERA CARGA
+   * EL RECHAZO ENTERO DESAPARECÍA, Y EN LA PRIMERA CARGA
    * NO QUEDABA NI UN AVISO ANTERIOR EN PIE.
-   *
-   * El `.catch(() => [])` de al lado se tragaba la lectura fallida entera: un 403
-   * `NOT_A_COUNCIL_MEMBER` o el 503 `PROPOSALS_READ_UNREADABLE` que la it. 25 acaba
-   * de crear se iban sin una palabra. El comentario decía que «un rechazo entero
-   * deja el aviso anterior EN PIE» — y es cierto salvo en el caso normal: en la
-   * PRIMERA carga no hay aviso anterior, hay silencio. La familia abría el historial
-   * de su Legacy, veía sus reglas y sus compromisos y ninguna propuesta, y leía un
-   * registro completo de una lectura que no ocurrió.
-   *
-   * Estado propio, separado de `unreadableRows` («la lectura llegó, pero N filas no
-   * se pudieron decidir») y de `error` (el que rompe TODAS las lecturas a la vez).
    */
   const [proposalsRefusal, setProposalsRefusal] = useState<ReadableRefusal | null>(null);
   // El lector no debe re-disparar `reload` cada vez que cambia la identidad del
@@ -530,15 +484,15 @@ export default function LegacyActivityFeed({
         councilProposalsApi
           .list([account])
           .then((r) => {
-            // it. 25 (1): el aviso se fija con la MISMA respuesta que trae las filas —
+            // El aviso se fija con la MISMA respuesta que trae las filas —
             // una lectura completa (sin `unreadable`) es la única que puede apagarlo.
             setUnreadableRows(describeUnreadableRows(r.unreadable, tRef.current));
-            // it. 27 (1): y una lectura que SÍ ocurrió es la única que puede apagar
+            // Y una lectura que SÍ ocurrió es la única que puede apagar
             // el aviso de la que no ocurrió.
             setProposalsRefusal(null);
             return r.proposals;
           })
-          // it. 27 (1): un rechazo entero se DICE. Las filas anteriores siguen en
+          // Un rechazo entero se DICE. Las filas anteriores siguen en
           // pie (no se re-leyó nada, así que nada de lo que decían ha dejado de ser
           // verdad), pero la pantalla ya no presenta el historial como completo.
           .catch((e) => {
@@ -681,7 +635,7 @@ export default function LegacyActivityFeed({
       </div>
 
       {error && <InlineNotice tone="warning">{error}</InlineNotice>}
-      {/* it. 27 (1) — LA LECTURA QUE NO OCURRIÓ, DICHA. Antes de esto el historial se
+      {/* LA LECTURA QUE NO OCURRIÓ, DICHA. Antes de esto el historial se
           pintaba igual con propuestas y sin ellas, y la única diferencia era que
           nadie lo sabía. Lleva las salidas que el servidor nombró y su puerta
           (`ServerRefusalBody`), porque el 403 de esta lectura es justo el que se come
@@ -704,14 +658,14 @@ export default function LegacyActivityFeed({
           </div>
         </InlineNotice>
       )}
-      {/* it. 25 (1): las filas que no se pudieron leer se cuentan y se dicen, con su
+      {/* Las filas que no se pudieron leer se cuentan y se dicen, con su
           código entre paréntesis y su reintento — jamás desaparecen en silencio de un
           historial que la familia lee como completo. */}
       {unreadableRows && (
         <InlineNotice tone="warning">
           <div className="space-y-1.5">
             <p>{unreadableRows.text}</p>
-            {/* it. 27 (5): los ids los calculaba el lector y no los pintaba nadie,
+            {/* Los ids los calculaba el lector y no los pintaba nadie,
                 mientras la prosa del servidor decía «open it on its own». Sin el id
                 no hay nada que abrir ni que nombrar al escribirnos. */}
             {unreadableRows.ids.length > 0 && (
@@ -728,7 +682,7 @@ export default function LegacyActivityFeed({
       {actionError && <InlineNotice tone="warning">{actionError}</InlineNotice>}
 
       {shown.length === 0 && !loading ? (
-        // it. 27 (1): «Nothing here yet» es un VEREDICTO sobre el historial, y no se
+        // «Nothing here yet» es un VEREDICTO sobre el historial, y no se
         // puede emitir cuando una de sus lecturas fue rechazada. El aviso de arriba
         // ya dice lo que pasó; aquí no se dice nada, que es lo honesto.
         proposalsRefusal ? null : (

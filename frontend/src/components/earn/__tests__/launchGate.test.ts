@@ -6,18 +6,13 @@ import { PRODUCTION_VAULT_KINDS, catalogForDeploy } from '../../../lib/earn/prod
 /**
  * La puerta de lanzamiento del Earn obedece a la lista blanca · tripwire.
  *
- * Fundador, 2026-09-19: «en producción no se pueden ver las dos cards de earn
- * de RLUSD». La lista blanca (lib/earn/productionVaults) ya filtraba el
+ * La lista blanca (lib/earn/productionVaults) ya filtraba el
  * catálogo que se pinta. Pero el Earn tiene UNA puerta más para abrir un vault
  * sin pasar por sus tarjetas —`launch`, la que usan `?launch=<kind>` desde
  * Estrategias, el agente y los borradores— y esa puerta validaba contra una
  * lista fija con `em-carry` y `em-lend` y abría desde DEMO_VAULTS entero. En
  * producción, `/app/asset-production?launch=em-lend` enseñaba el vault que la
  * portada no enseña.
- *
- * Este test lee el fuente para fijar la forma de la puerta (los mismos motivos
- * que ui/__tests__/previewOnly.test.ts): que resuelve contra el catálogo del
- * despliegue y que no vuelve a nacer una lista aparte con los kinds de RLUSD.
  */
 
 const SRC = readFileSync(join(__dirname, '..', 'FlareDemoEarn.tsx'), 'utf8');

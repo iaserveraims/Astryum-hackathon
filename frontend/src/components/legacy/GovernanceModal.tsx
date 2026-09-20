@@ -1,31 +1,11 @@
 'use client';
 
 /**
- * ⚠️ UNMOUNTED since 2026-08-22 (same day it was born): the founder tried
+ * ⚠️ UNMOUNTED (same day it was born): the founder tried
  * governance-as-a-dialog and sent it back to its own page — «está mal
  * gestionado, pásalo a página independiente». /app/legacy mounts LegacyPanel
  * again (workshop-only, no list); nothing renders this component. Preserved
  * with LegacyPanel's `embed` mode in case the dialog returns.
- *
- * GovernanceModal — governance as a LARGE DIALOG over /app/wallets (founder
- * 2026-08-22: «borrar del mapa la página de gestión de cuentas legacy — toda
- * esa configuración tiene que estar en la página de wallets», delivery mode
- * chosen: «ventana propia»). It hosts the full LegacyPanel in embedded mode:
- * constitution wizard, governance tabs, reinforce ceremony, proposal inbox.
- *
- * INDIGO INSIDE, GOLD OUTSIDE: `data-authority="governed"` on the overlay
- * root flips the whole token ladder for everything INSIDE the dialog — the
- * precedent is the landing's local stamp (LandingPage data-authority). The
- * shell around it stays gold: Legacy stopped being a mode, it is a surface.
- * (Nested overlays that portal to <body> — the Xaman signing doors, the
- * governed movements dialog — sit OUTSIDE this root and keep the shell's
- * gold. Known and accepted: their own chrome names the ceremony.)
- *
- * NO accidental dismissal: multisig ceremonies pin an XRPL Sequence — a
- * backdrop click or a stray Escape mid-signing is exactly how a council ends
- * up with a seat it cannot settle (the CouncilMultisigFlow prose). So the X
- * button is the only way out; the panel's own exits (← Wallets, the
- * ceremony's final button) call the same `onClose`.
  */
 
 import { X } from 'lucide-react';

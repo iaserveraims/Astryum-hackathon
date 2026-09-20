@@ -2,18 +2,6 @@
  * demoExchange/structureSteps — compose one step of a structure's birth
  * ceremony (UNSIGNED), and verify a hash the operator reports against the
  * ledger before it is believed.
- *
- * Every builder here already existed; this file only picks the right one for
- * the step and states who signs it. Nothing signs, nothing submits, no seed.
- *
- * WHY VERIFICATION IS NOT OPTIONAL. The registry's whole job is to gate the
- * irreversible step (the door) behind the ones before it. If a step could be
- * marked done by a POST saying so, the gate would be decoration: a typo, a
- * replayed hash or an optimistic operator would unlock
- * `AccountSet(asfDisableMaster)` over a quorum nobody ever convened, and that
- * account is gone for good. So `verifyStructureStep` re-reads the transaction
- * and checks four things — validated, succeeded, the right type, the right
- * account — and the route writes nothing when any of them fails.
  */
 import { buildDisableMaster, buildSignerListSet } from '../../connectors/protocols/xrpl/XrplCouncilService';
 import { buildEscrowCreate } from '../../connectors/protocols/xrpl/XrplEscrowService';
@@ -208,7 +196,7 @@ export interface StepVerdict {
  * A step is never believed because a POST said so.
  *
  * `UNREADABLE` is retryable and is NOT a verdict: a frozen rippled answers
- * `txnNotFound` for a transaction another node has (incident 2026-07-31), so
+ * `txnNotFound` for a transaction another node has (incident), so
  * "I could not read" must never be written down as "it did not happen".
  */
 export async function verifyStructureStep(

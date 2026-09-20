@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * productizer it. 34 (agente D) — LOS LECTORES QUE SEGUÍAN CON LA FRASE SOLA.
+ * LOS LECTORES QUE SEGUÍAN CON LA FRASE SOLA.
  *
  * `serverRefusalText` conserva la frase y tira `headline`, `ways[]` y la puerta
- * (it. 27 §3 las hizo viajar; `ServerRefusalBody` las pinta). Tres iteraciones
+ * (las hizo viajar; `ServerRefusalBody` las pinta). Tres iteraciones
  * seguidas se anotaron los mismos residuales: `CmfReviewModal`, `SidebarIntents`
  * y `GovernedMoneyFlows` seguían poniendo la cadena en pantalla — sobre el 403
  * NOT_A_COUNCIL_MEMBER cuya única cura («register the wallet that holds your
@@ -35,7 +35,7 @@ describe('los tres residuales pintan el rechazo entero', () => {
   it('SidebarIntents: la lectura ENTERA rechazada lleva el cuerpo; la parcial conserva su frase con su cuenta', () => {
     const src = read('intents/SidebarIntents.tsx');
     expect(src).toMatch(/setUnreadable\(\{ text: refusal\.text, partial: false, refusal \}\)/);
-    // `councilTrayUnreadable` (la parcial, it. 25) no cambia de firma: otro test la extrae por ella.
+    // `councilTrayUnreadable` (la parcial) no cambia de firma: otro test la extrae por ella.
     expect(src).toContain(
       'function councilTrayUnreadable(landed: { unreadable?: unknown } | null, t: (s: string) => string): CouncilUnreadableNotice | null {',
     );

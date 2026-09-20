@@ -3,20 +3,7 @@
 /**
  * StrategyAgent — the "Create with AI Agent" surface + the user's saved
  * strategies (drafts), shown in Estrategias · Guardadas (the registry) since
- * the 2026-07-12 UI reorg.
- *
- * The agent is a DETERMINISTIC compiler with a conversational skin: it parses
- * the user's words into strategy parameters, asks for the factors that are
- * missing (amount, protection…), and summarises what it understood. It has
- * ZERO discretion (invariant #8): it never invents parameters, never promises
- * yield, and never executes. When asked to execute a custom strategy it says
- * plainly that the beta can't run custom strategies yet and offers the two
- * audited ready-made packs as prompt cards — which open the SAME prepare→
- * review→sign modal the manual flow uses. Astryum never signs.
- *
- * Drafts persist device-locally per identity (lib/strategyDrafts) and surface
- * in Estrategias · Guardadas with edit (params + agent on the side), execute
- * and delete.
+ * the UI reorg.
  */
 
 import { useCallback, useEffect, useState } from 'react';

@@ -22,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <LegacyComingSoonModal />
         {/* Xaman requests whose screen went away: still signable, or signed
             with nobody reading the ledger — said here, plus a beforeunload
-            warning while any is open (productizer-it7) */}
+            warning while any is open */}
         <LiveXamanRequests />
         {/* Legal acceptance — blocks the dashboard until the current
             /demo-terms + /privacy versions are accepted and recorded */}

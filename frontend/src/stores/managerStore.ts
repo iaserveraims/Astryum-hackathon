@@ -12,31 +12,6 @@ import { getApiBase } from '../lib/env';
  * (una firma de la cuenta XRPL), y el circuito de certificación lo gobernará
  * el backend de KYC cuando exista — forjar este flag no abre nada que la
  * página no enseñe ya por URL.
- *
- * POR USUARIO, nunca plano (lección 2026-08-26, mezclado de cuentas): un flag
- * suelto en localStorage sigue al NAVEGADOR, no a la persona — el segundo
- * correo que inicie sesión heredaría la mesa del primero. Cada entrada va
- * bajo la clave del usuario autenticado.
- *
- * EL FLAG SIGUE A LA CUENTA, no al navegador (fundador 2026-08-30: «he
- * abierto en un perfil de Brave nuevo la misma cuenta y tenía el manager
- * mode desactivado»). La verdad vive en el servidor
- * (User.preferences.managerMode, el raíl de `legal`): `setManager` escribe
- * local al instante Y hace POST /auth/manager-mode; `refreshMe` (authStore)
- * adopta en cada arranque lo que diga GET /auth/me vía
- * `adoptServerManagerFlag` — el servidor GANA siempre que responde, porque
- * es lo único que todos los navegadores comparten. Lo local queda como
- * caché de arranque y como red sin sesión. Los apoyos siguen locales a
- * propósito (el recuento público espera su raíl).
- *
- * EL KYC YA NO VIVE AQUÍ (fundador 2026-08-30: «no podemos tener la creación
- * ni custodia de estos documentos»). La rebanada `kyc` que guardaba el
- * borrador (nombre legal, licencia, jurisdicción) murió ENTERA: incluso un
- * borrador local en localStorage era custodiar lo que no podemos custodiar.
- * El gestor se certifica directamente en la empresa certificadora
- * (ManagerCertificationCard, referral por env) y Astryum solo LEERÁ el
- * veredicto del ledger. La migración v1 de abajo purga los borradores que
- * cualquier navegador guardó antes de este cambio.
  */
 
 /**
@@ -50,7 +25,7 @@ import { getApiBase } from '../lib/env';
  * address al user) la clave es null ⇒ el bucket 'volatile': funciona en la
  * sesión pero NO SE PERSISTE (ver partialize) — mejor un flag que dura la
  * pestaña que un bucket compartido que el siguiente usuario del navegador
- * hereda, que es la lección del 26-ago.
+ * hereda, que es la lección.
  */
 const VOLATILE = 'volatile';
 function userKey(): string {
@@ -72,7 +47,7 @@ interface ManagerState {
   managers: Record<string, boolean>;
   /**
    * userKey → claves de gestor que ESTE usuario apoya (el voto de la
-   * comunidad, fundador 2026-08-29). LOCAL hasta que exista el raíl del
+   * comunidad, fundador). LOCAL hasta que exista el raíl del
    * recuento público: tu apoyo se recuerda aquí y viajará al recuento cuando
    * el backend lo tenga. El recuento global JAMÁS se inventa desde esto — un
    * número de comunidad fabricado en un navegador es la definición de fake.
@@ -140,7 +115,7 @@ export const useManagerStore = create<ManagerState>()(
         managers: omitVolatile(s.managers),
         endorsed: omitVolatile(s.endorsed),
       }),
-      // v1 (2026-08-30): PURGA de los borradores de KYC. La rebanada `kyc`
+      // V1: PURGA de los borradores de KYC. La rebanada `kyc`
       // guardaba PII (nombre legal, licencia, jurisdicción) y murió con el
       // giro a referral — ni creamos ni custodiamos documentos, tampoco en
       // el localStorage del usuario. migrate corre al hidratar y lo escrito

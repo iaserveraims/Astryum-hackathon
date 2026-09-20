@@ -14,9 +14,6 @@
 //                     y una viñeta. Ni estrellas, ni auras, ni grano — el
 //                     papel no tiene cielo, y un aura difusa es exactamente lo
 //                     que haría que la lámina volviera a parecer una nave.
-//
-// Las dos caras ocupan el mismo hueco y cuestan lo mismo: una capa fija detrás
-// de todo, sin eventos de ratón.
 
 import { useEngraved } from '../../stores/themeStore';
 import { GuillocheField } from './skin/marks';

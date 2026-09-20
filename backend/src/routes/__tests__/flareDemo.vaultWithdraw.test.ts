@@ -10,7 +10,7 @@
 import express from 'express';
 import request from 'supertest';
 
-// Verified mainnet constants (see .env.example, on-chain 2026-07-10).
+// Verified mainnet constants (see .env.example, on-chain).
 const FXRP = '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE';
 const STXRP = '0x4C18Ff3C89632c3Dd62E796c0aFA5c07c4c1B2b3';
 const EARNXRP_VAULT = '0x373D7d201C8134D4a2f7b5c63560da217e3dEA28';
@@ -33,8 +33,8 @@ const VAULT_STATE: Record<string, Record<string, unknown>> = {
     balanceOf: 100_000_000n, // stXRP is its own receipt token
     // Withdrawal-period queue (redeem burns now, claim releases later).
     currentPeriod: 224n,
-    currentPeriodEnd: 1_784_122_969n, // 2026-07-15T13:42:49Z
-    nextPeriodEnd: 1_784_209_369n, // 2026-07-16T13:42:49Z — where a fresh exit lands
+    currentPeriodEnd: 1_784_122_969n, // Z
+    nextPeriodEnd: 1_784_209_369n, // Z — where a fresh exit lands
     // withdrawalsOf returns ASSETS (FXRP) already, not shares — its body is
     // _convertToAssetsTotals(...) in the verified impl. FakeContract ignores
     // args → every probed period reports this much queued.
@@ -96,7 +96,7 @@ jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => {
   return {
     ...actual,
     buildDirectMintHandoff: (...args: unknown[]) => buildDirectMintHandoffMock(...(args as [])),
-    // it. 29 — `seatClaimOf` (it. 27) asks the account's SignerList before every
+    // `seatClaimOf` asks the account's SignerList before every
     // 0xFE composition. Unmocked, that is a LIVE `account_info` against a public
     // XRPL node: 4-5 s on a good day, and past jest's 5 s under load — the one
     // red test of the full run. A route suite must not depend on the network;
@@ -217,7 +217,7 @@ describe('POST /api/flare-demo/vault-withdraw/prepare — EVM-direct rail', () =
     expect(res.body.account).toBe(EVM_WALLET);
     expect(res.body.calls).toHaveLength(1);
     expect(res.body.calls[0].to).toBe(EARNXRP_VAULT);
-    // instantRedeem(uint256,address) — selector verified on-chain 2026-07-13.
+    // instantRedeem(uint256,address) — selector verified on-chain.
     expect(res.body.calls[0].data.startsWith('0x22928208')).toBe(true);
 
     const d = res.body.disclosure;
@@ -274,7 +274,7 @@ describe('Firelight queued exits — /vault-claims + /vault-claim/prepare', () =
   it('lists an exit queued INSIDE the running period (currentPeriod + 1)', async () => {
     // _requestWithdraw queues into currentPeriod()+1, so a withdrawal signed
     // right now lives in period 225 — scanning from 224 down made the money
-    // invisible until the period rolled over (founder, 2026-08-01).
+    // invisible until the period rolled over.
     const res = await request(app).get(`/api/flare-demo/vault-claims/${EVM_WALLET}`);
     const fresh = res.body.pending.find((p: { period: number }) => p.period === 225);
     expect(fresh).toBeDefined();

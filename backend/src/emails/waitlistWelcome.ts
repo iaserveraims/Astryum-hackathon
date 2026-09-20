@@ -5,14 +5,6 @@
  * bilingual ES/EN chosen by the `lang` the signup carried. Copy stays honest
  * (no yield promises, no "recommendations" — invariant #9): we confirm the
  * signal and say we'll write again when their wave opens.
- *
- * Sent once, on the FIRST signup only (see routes/waitlist.ts).
- *
- * Links:
- *  - CTA → the site (astryum.xyz)
- *  - secondary → Linktree hub (the one social door — matches the landing)
- *  - unsubscribe → mailto (we send over raw SMTP, no ESP merge tags); upgrade
- *    to a tokenized one-click endpoint if the list ever moves to an ESP.
  */
 
 export interface WelcomeEmailParams {

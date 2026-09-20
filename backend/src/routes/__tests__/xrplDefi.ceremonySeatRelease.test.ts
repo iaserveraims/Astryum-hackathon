@@ -1,5 +1,5 @@
 /**
- * productizer-it25 §4 — TERMINAR UNA CEREMONIA TAMBIÉN DEVUELVE EL ASIENTO DEL 0xFE.
+ * TERMINAR UNA CEREMONIA TAMBIÉN DEVUELVE EL ASIENTO DEL 0xFE.
  *
  * Desde la §2.1 el 0xFE de una cuenta que firma por quórum se compone con la vida
  * real de sus payloads (24 h): es lo único que hace que el consejo firme bytes que
@@ -7,12 +7,6 @@
  * mientras esos bytes puedan entrar — y si la ceremonia se abandona, la SEGUNDA
  * salida del mismo consejo chocaría con un 409 durante un día entero. Eso sería
  * tapiar una salida con código nuestro.
- *
- * `POST /xrpl-defi/multisign/release` ya es la puerta con la que el titular
- * devuelve el asiento de Sequence de su sitting. Aquí se prueba que también
- * devuelve —cuando puede— el asiento de nonce del 0xFE que esa ceremonia iba a
- * firmar, y sobre todo las tres cosas que NO hace: no lo abre a un extraño, no
- * abre el de otra cuenta, y no lo suelta cuando la regla del asiento dice que no.
  */
 import express from 'express';
 import request from 'supertest';
@@ -170,7 +164,7 @@ describe('la ceremonia termina y su asiento de nonce vuelve', () => {
   });
 
   /**
-   * it. 27 (§4) — EL CERROJO NUEVO, DICHO CON SU SIGUIENTE PASO.
+   * EL CERROJO NUEVO, DICHO CON SU SIGUIENTE PASO.
    *
    * Unos bytes de ceremonia que el coordinador multifirma NO pinó no pueden
    * soltar su asiento antes de tiempo: sin `Sequence` fijada, dos Payments de la
@@ -190,7 +184,7 @@ describe('la ceremonia termina y su asiento de nonce vuelve', () => {
 });
 
 /**
- * productizer it. 34 (E) — EL NOMBRE DEL SITTING ATRAVIESA LA RUTA ENTERA.
+ * EL NOMBRE DEL SITTING ATRAVIESA LA RUTA ENTERA.
  *
  * La cadena real está en `xrplDefi.ceremonySitting.test.ts`; aquí, con las dos
  * puertas fingidas, se prueba lo que la RUTA hace con el id: lo pasa al arriendo
@@ -198,7 +192,7 @@ describe('la ceremonia termina y su asiento de nonce vuelve', () => {
  * cuando el arriendo contesta `stale-sitting` PARA: la puerta del pin ni se llama,
  * porque ese sitting terminó y el asiento es del que lo sustituyó.
  */
-describe('it. 34 (E) — el `sittingId` del cuerpo', () => {
+describe('El `sittingId` del cuerpo', () => {
   it('viaja al arriendo y al pin, tal cual', async () => {
     const res = await request(app).post(URL).send({ account: COUNCIL, memoHex: MEMO, sittingId: 'sitting-7' });
     expect(res.status).toBe(200);

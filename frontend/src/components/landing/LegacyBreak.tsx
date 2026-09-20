@@ -7,88 +7,6 @@
  * Hasta hoy Personal y Legacy cerraban con la misma sección, `SignatureBreak`:
  * una ESTRELLA DORADA se acerca en la noche, fulgura, inunda la página de luz
  * crema, y sobre el crema hay una firma cursiva y una tarjeta de embarque.
- *
- * Fundador, 2026-09-19: «quita el destello de la estrella y pon un artefacto
- * que siga la línea de narrativa del legacy y tenga sentido para cubrir el
- * trozo de página que queda muerto».
- *
- * Tiene razón por partida triple, y ninguna es de gusto:
- *   1. El astro es DORADO, y el dorado es el color de Personal. En el mundo
- *      gobernado la página entera es índigo y el clímax llegaba en el color del
- *      producto de al lado.
- *   2. El recorrido acaba de pasar seis paradas hablando de PIEDRA —dovelas,
- *      lechos, cimbra, descimbrado, un puente—; cerrar con un astro y un billete
- *      de avión no resuelve nada de lo anterior, lo abandona.
- *   3. Medido en captura a 1,22 del recorrido: entre el botón y el pie de página
- *      quedaban trescientos setenta píxeles de degradado con NADA dentro.
- *
- * ── LA IDEA, Y POR QUÉ ES ESTA ───────────────────────────────────────────
- * La última cosa que el recorrido construye es un PUENTE. Todo puente de
- * fábrica lleva su cartela: una losa labrada en el pretil con los términos de
- * la obra. El cierre es esa losa, de cerca, y la mañana que ha iluminado el
- * viaje entero desde arriba a la derecha entrando por fin POR EL OJO DEL ARCO.
- *
- * Tres razones para ESTA y no otra:
- *
- *   1. RESUELVE EL RECORRIDO HACIA ATRÁS. La cuarta parada dice «lo escrito es
- *      lo que hace que las piezas se sostengan entre sí». El cierre natural no
- *      es un séptimo concepto: es ver lo escrito, escrito en la piedra del
- *      propio puente. Nada nuevo que aprender y todo lo anterior mejor
- *      entendido.
- *
- *   2. LA LUZ YA ESTABA DECLARADA, y esta es la única superficie donde importa.
- *      `LIGHT` (art/craft.ts) es una sola dirección obedecida por cada dovela
- *      del recorrido. Una inscripción INCISA solo se lee con luz rasante —la
- *      sombra dentro del surco ES la letra—, así que la misma luz que lleva seis
- *      paradas modelando el arco es, aquí, lo que hace legible el texto. No se
- *      añade ninguna fuente: se enseña para qué servía.
- *
- *   3. LA LUZ ES LUZ, NO UNA FORMA. La mañana entra rasante por arriba a la
- *      derecha y BARRE el muro: un frente de sombra larguísimo que se retira
- *      sobre el eje de `LIGHT` y va descubriendo la piedra. No se dibuja ningún
- *      astro, y tampoco ninguna silueta — ver «dos ejecuciones descartadas».
- *
- * ── DOS EJECUCIONES DESCARTADAS, Y LA REGLA QUE DEJAN ────────────────────
- * Esta escena ha tenido dos veces una MANCHA DE LUZ CON FORMA —la silueta del
- * hueco por el que entraba la luz, recortada en la sombra con la regla par-
- * impar— y las dos las rechazó el fundador a la primera mirada: «hay una forma
- * que cruza la pantalla y queda muy mal» (19-sep) y, sobre la segunda, «haz
- * bien el destello o directamente quítalo, no me parece que quede bien».
- *
- * La idea era buena sobre el papel —la prueba de que hay una fuente es que la
- * luz llega con la forma del agujero por el que pasa— y falla por una razón de
- * escala que ninguna de las dos ejecuciones podía salvar: para que se leyera
- * como proyección tenía que ser GRANDE, y una silueta grande con canto duro
- * sobre un paramento plano no se lee como luz, se lee como una pegatina. Y el
- * canto es innegociable: recortar una forma exige un borde, y suavizar ese
- * borde exige un `<filter>`, que en esta casa está prohibido.
- *
- * La regla que dejan, y que vale para cualquier luz de este repo: **si la
- * mancha tiene canto, es un objeto; si tiene rampa, es luz**. La rampa de este
- * barrido (1800 unidades) es más larga que la diagonal útil del muro, así que
- * NO EXISTE ningún fotograma con un borde de sombra dentro del cuadro. Lo que
- * cuenta que hay un sol no es su silueta: es que la piedra se enciende por el
- * lado por el que tiene que encenderse, que el filo de la albardilla devuelve
- * un especular antes que nada, que las sombras arrojadas se acortan a la vez y
- * que la inscripción incisa nace y muere con la luz rasante.
- *
- * ── Y POR QUÉ LA ÚLTIMA LÍNEA ESTÁ VACÍA ─────────────────────────────────
- * En la cartela de un puente va el nombre de quien responde por él. Aquí esa
- * línea está labrada, con su guía de puntos, y VACÍA. La ausencia es el
- * argumento y es el invariante de la casa dicho en piedra: Astryum no firma, no
- * custodia y no ejecuta, así que su nombre no puede estar entre las piezas que
- * sostienen esto. La firma cursiva de `SignatureBreak` —el objeto mejor
- * ejecutado del sitio— tampoco está aquí, y por el mismo motivo: un recorrido
- * que acaba de decir «nadie firma por ti» no puede terminar enseñando una firma
- * de Astryum escribiéndose sola.
- *
- * ── LO QUE NO SE TOCA ────────────────────────────────────────────────────
- * `SignatureBreak` queda INTACTO y la bifurcación va en el montaje, igual que
- * hizo el institucional. Personal no cambia porque no se le cambia una línea.
- * Y la rampa crema es la de `SignatureBreak` carácter por carácter: los tres
- * mundos comparten UN día; lo que cambia es por dónde entra la luz, no de qué
- * color es. Esos cuatro valores son el único color de este fichero que no sale
- * de un token, y salen de ahí a propósito.
  */
 
 import { useRef, type ReactNode } from 'react';
@@ -271,21 +189,11 @@ export default function LegacyBreak({ lang, cta }: { lang: Lang; cta: ReactNode 
   return (
     <section ref={ref} id="light-beat" className="relative">
       {/* ── EL DÍA, EN ÍNDIGO ───────────────────────────────────────────
-          Fundador, 2026-09-19: «quiero que lo pongamos del mismo color que el
-          legacy, sino queda raro».
-
+      { *
           Tiene razón. La rampa crema de `SignatureBreak` es el día de Personal
           —un mundo dorado— y el institucional la heredó porque su bronce vive
           en la misma familia cálida. Índigo sobre crema no: el lector acaba de
-          pasar seis paradas en azul y la página remataba en beige.
-
-          Así que el día de este mundo se construye con SUS tokens: `--volt-hi`
-          de base y las tres tintas de la familia encima con alfa. Sigue siendo
-          una mañana —clara, con la luz entrando por arriba a la derecha, y con
-          el mismo plumeado de cantos—, pero es la mañana de Legacy. Y sigue
-          siendo CLARA a propósito: la portada apaga el indicador de scroll
-          contra `#light-beat` dando por hecho que ahí abajo hay fondo claro, y
-          un cierre oscuro lo dejaría en tinta sobre tinta. */}
+          pasar seis paradas en azul y la página remataba en beige. */}
       {/* EL DÍA LLEGA CON LA LUZ, no antes. Pintado a plena opacidad el crema
           cubría los últimos treinta y cinco por ciento del recorrido y se comía
           la mitad de abajo del puente en el fotograma en que el lector todavía
@@ -336,28 +244,7 @@ export default function LegacyBreak({ lang, cta }: { lang: Lang; cta: ReactNode 
                 oscuro basta para que se lea como un objeto y no como el papel. */}
             {/* La piedra se construye con la familia índigo en ALFA sobre
                 `--volt-hi`, no con tonos inventados: así el material sigue el
-                tema y no hay ni un color fuera de los tokens de la casa.
-
-                EL PARAMENTO TIENE QUE SOSTENERSE SOLO. Mientras la sombra era
-                un paño que nunca se iba del todo, el muro tomaba prestado de
-                ella su cuerpo; ahora el frente se retira ENTERO, y medido en
-                captura a pleno sol el alzado se quedaba a un paso del fondo de
-                la página —piedra y papel al mismo valor, la cartela flotando—.
-                La cura no es dejar un velo puesto, que sería mentir sobre la
-                luz: es que la fábrica tenga su propio tono.
-
-                Y el tono lo tiene que dar `--volt-deep`, no `--volt`. En este
-                mundo `--volt` es un periwinkle CLARO (L 74 %) sobre un
-                `--volt-hi` casi blanco (L 94 %): por mucha alfa que se le eche
-                nunca baja del 74. La base del muro necesita la tinta oscura de
-                la familia (L 24 %), que es la que existe justamente para los
-                fondos de degradado. La rampa va de L≈87 arriba a L≈63 abajo:
-                la oclusión de una fábrica al pie del muro, no un tinte.
-
-                La albardilla al revés, y a propósito: es la cara VUELTA AL
-                CIELO, así que es más clara que el alzado que tiene debajo — que
-                es lo que la hace leerse como una losa de coronación y no como
-                una hilada más. */}
+                tema y no hay ni un color fuera de los tokens de la casa. */}
             <linearGradient id="lb-face" gradientUnits="userSpaceOnUse" x1="0" y1={COPE_Y} x2="0" y2={H}>
               <stop offset="0%" stopColor="hsl(var(--volt) / 0.34)" />
               <stop offset="42%" stopColor="hsl(var(--volt) / 0.82)" />
@@ -481,17 +368,7 @@ export default function LegacyBreak({ lang, cta }: { lang: Lang; cta: ReactNode 
             el LÍMITE DIFUSO entre lo que ya tiene sol y lo que todavía no, y es
             difuso a propósito: una mancha con canto se lee como un objeto, una
             con rampa se lee como luz. Ver el encabezado del fichero, «dos
-            ejecuciones descartadas».
-
-            Va ENCIMA y no dentro del SVG del muro porque la cartela es HTML —su
-            texto tiene que poder seleccionarse—, o sea que está por delante del
-            dibujo, y ahí abajo la sombra le pasaba por detrás: la única
-            superficie que importa no recibía nada.
-
-            Y lleva `mix-blend-mode: multiply`, que es lo que hace una sombra de
-            verdad: OSCURECE lo que hay debajo en vez de taparlo con un velo
-            pardo. Con dos capas de velo —la del muro y esta— el lado en sombra
-            se iba a barro. Hay UNA sombra y está aquí. */}
+            ejecuciones descartadas». */}
         {!still && (
           <svg
             aria-hidden

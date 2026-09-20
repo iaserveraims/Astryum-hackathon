@@ -4,14 +4,6 @@
  * Mismas puertas que el resto del panel (requireAdmin de adminPanel.ts: sesión
  * de panel / x-admin-key / SIWE+ADMIN_EMAILS) y router propio para que
  * adminPanel siga siendo read-only por construcción.
- *
- * Qué toca y qué no: los probes del Sentinel son LECTURAS (salud del executor,
- * frescura de nodos, filas de la DB). Nada aquí firma, escribe on-chain ni
- * mueve capital (invariantes #1/#8). Los dos POST son operativos:
- *   · /sentinel/run  — forzar una pasada ahora (lo que el vigía haría solo).
- *   · /sentinel/test — mandar UNA alerta de prueba por los canales reales,
- *     para que el primer crítico de verdad no sea también el primer intento
- *     de entrega. Rate-limitado: el canal del fundador no es un juguete.
  */
 import { Router, Request, Response } from 'express';
 import { requireAdmin } from './adminPanel';
@@ -109,7 +101,7 @@ router.post('/sourcetag/run', async (_req: Request, res: Response) => {
 /**
  * GET /cages — la flota de jaulas, para el panel (Sistema → «Jaulas · factory»).
  *
- * Nació con el carril self-service (2026-08-06, factory en mainnet): desde que
+ * Nació con el carril self-service (factory en mainnet): desde que
  * las jaulas las crean los users, «¿va bien el carril?» ya no se contesta
  * mirando un vault. Devuelve: la config del factory PROBADA contra la cadena
  * (una dirección con el checksum mal es el fallo silencioso — todo user vería
@@ -143,7 +135,7 @@ router.get('/cages', async (_req: Request, res: Response) => {
 /**
  * GET /whois?address=r… | 0x… — ¿de QUIÉN es esta dirección?
  *
- * Nació de una investigación real (2026-08-03): tres mints del carril 0xFE en
+ * Nació de una investigación real: tres mints del carril 0xFE en
  * un día con la beta cerrada, y ninguna forma de saber si venían de una cuenta
  * conocida sin abrir la base de datos a mano. Una dirección que gasta
  * presupuesto del executor tiene que poder rastrearse hasta su cuenta desde el
@@ -236,20 +228,10 @@ router.get('/whois', async (req: Request, res: Response) => {
 
 // GET /identity-probe — ¿nos da XRP Identity la wallet del usuario?
 //
-// La pregunta abierta del 17-ago: su perfil tiene una tarjeta «XRPL Wallet» que
+// La pregunta abierta: su perfil tiene una tarjeta «XRPL Wallet» que
 // se conecta firmando con Xaman, pero su id_token no la trae. Puede que el
 // scope `profile:read` (que nuestro client_id ya acepta) la exponga en
 // /userinfo — y si es así, no hay que pedirle nada al operador.
-//
-// Esto responde a esa pregunta con LOGINS REALES, no con conjeturas: enciende
-// XRPL_IDENTITY_PROFILE_SCOPE=true en Railway, entra una vez, y mira aquí qué
-// claims llegaron. Se guardan NOMBRES Y FORMAS, jamás valores: para saber si la
-// dirección viaja basta con `{name:'xrpl_address', kind:'string',
-// xrplAddress:true}`, sin quedarnos la wallet de nadie en memoria.
-//
-// Recordatorio de límite, por si alguien construye encima: una dirección que
-// llegue por aquí es de SEGUNDA MANO (su nonce, su verificación). Sirve como
-// puntero watch-only a datos públicos. Para ACTUAR, la firma nuestra. Siempre.
 router.get('/identity-probe', async (_req: Request, res: Response) => {
   try {
     const { recentIdentityProbes, xrplIdentityProfileScopeEnabled, xrplIdentityScopes } = await import(
@@ -267,7 +249,7 @@ router.get('/identity-probe', async (_req: Request, res: Response) => {
         probes.length === 0
           ? null
           : probes.some((p) => p.userinfo.ok && p.userinfo.claims.some((c) => c.xrplAddress)),
-      // La vía que el operador SÍ ofrece (Thomas, 19-ago): la Account API de
+      // La vía que el operador SÍ ofrece (Thomas): la Account API de
       // profile.xrpl.in, abierta con el mismo token de `profile:read`.
       walletViaAccountApi:
         probes.length === 0
@@ -283,14 +265,14 @@ router.get('/identity-probe', async (_req: Request, res: Response) => {
 /**
  * GET /signup-gate — ¿puede darse de alta alguien nuevo AHORA MISMO?
  *
- * Nació de una campaña a punto de salir (19-ago): con la puerta única de XRP
+ * Nació de una campaña a punto de salir: con la puerta única de XRP
  * Identity, un visitante nuevo entra por OIDC y su cuenta se CREA en ese primer
  * login. Si el alta está cerrada y su email no está aprobado, rebota con 403
  * not_invited — y eso, con tráfico traído por un KOL, es la primera impresión.
  * Hasta ahora la única forma de saberlo era abrir Railway; es la misma familia
  * del botón muerto de la beta, y por eso vive aquí y no en una consola.
  *
- * Ojo al sentido de la variable, que se invirtió el 16-ago: BETA_REGISTRATION_OPEN
+ * Ojo al sentido de la variable, que se invirtió: BETA_REGISTRATION_OPEN
  * es DEFAULT OPEN — solo el literal 'false' cierra. Sin definir ⇒ abierta.
  */
 router.get('/signup-gate', async (_req: Request, res: Response) => {
@@ -338,9 +320,6 @@ router.get('/signup-gate', async (_req: Request, res: Response) => {
  * ventana: `status()` no lo leía NADIE. Un gauge que nadie puede mirar no es un
  * gauge, y la regla de la casa es que estos viven en /app/admin y no en una
  * consola de Railway.
- *
- * El campo que importa es `divergent`: `enabled && !running`. Lo demas es
- * contexto para saber por que.
  */
 router.get('/keeper', async (_req: Request, res: Response) => {
   try {

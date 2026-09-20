@@ -7,11 +7,6 @@
  * polling with the ORIGINAL startedAt — the per-rail ceiling measures from
  * the signature, never from the remount (a 5-minute-old XRPL mint must show
  * "taking longer" honestly, not restart its clock).
- *
- * Framework-free on purpose (same posture as tracker.ts): the React hook is a
- * thin shell, so vitest drives this with a seeded localStorage and fake deps.
- * Resuming only READS (receipt / getCallsStatus / mint-status) — reanudar en
- * dos pestañas es idempotente y jamás inventa un verde.
  */
 
 import { loadAllPending, startPending, type PendingRef, type SettlementState } from './settlement';

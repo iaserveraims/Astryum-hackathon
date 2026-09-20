@@ -6,15 +6,6 @@
  * SIN RED. No es intesteable por naturaleza, lo es por vecindad — nadie monta
  * un árbol de React para comprobar que una sección vacía se explica en vez de
  * esconderse. Sacada a `lib/`, cuesta un test de tres líneas.
- *
- * Lo que decide este fichero, y que puede romperse en silencio:
- *
- *   · Qué rutas se ofrecen: SOLO las que tienen ruta construida y están vivas
- *     en el catálogo de runtime. Una acción sin `kind` no se enseña nunca.
- *   · Que las dos vistas cubran el MISMO catálogo entero. «Por riesgo» reagrupa,
- *     no filtra: si una ruta se cae al cambiar de vista, se ha escondido dinero.
- *   · Que una sección vacía diga POR QUÉ lo está y adónde ir — que es lo que
- *     convierte un hueco en información sobre la forma del catálogo.
  */
 
 import {
@@ -140,7 +131,7 @@ export function groupByVenue(rows: ProductAction[]): VenueGroup[] {
 }
 
 /**
- * ¿Se enseña el resumen o el detalle? (fundador, 23-ago).
+ * ¿Se enseña el resumen o el detalle?.
  *
  * Sin asset elegido, una card por venue y una puerta «ver todas»: la pantalla
  * abre con pocos sitios en vez de con todas las estrategias a la vez. En cuanto

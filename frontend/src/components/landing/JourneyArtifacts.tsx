@@ -10,13 +10,6 @@
  * components would drag recharts into the landing bundle. Decorative
  * (aria-hidden); the stop's copy carries the meaning. Loops run only while the
  * stop is active and die under prefers-reduced-motion.
- *
- * Every artifact accepts the journey's palette (`accent`/`soft`, gold by
- * default) so the Legacy product re-tints them indigo; the entity colors
- * (XRP cobalt, FLR pink) and the state greens are locked and never re-tint.
- *
- * Copy rules honored: no yield numbers, no promises. Rates are referenced only
- * as protocol data with a source; the user (or the council) always signs.
  */
 
 import type { CSSProperties, ReactNode } from 'react';
@@ -443,8 +436,7 @@ export function LegacyArtifact({ lang, active, accent = GOLD, soft = GOLD_SOFT, 
 }
 
 // ─── Núcleo — tu cuenta, y las cuentas que abres dentro ──────────────────────
-// La primera parada nueva del viaje (fundador 2026-09-20: «lo de las cuentas
-// bancarias del usuario de Astryum sea el astro, el core»). Cada cuenta con su
+// La primera parada nueva del viaje. Cada cuenta con su
 // regla, y la regla vive en el ledger. Cifras y nombres de MAQUETA.
 export function CoreArtifact({ lang, accent = GOLD, soft = GOLD_SOFT, rgb = '201,162,39' }: ArtifactProps) {
   const INDIGO = '#A5B1FD';

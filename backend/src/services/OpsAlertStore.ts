@@ -5,17 +5,9 @@
  * alertas de los agentes (executor 0xFE, vigía XRPL, provider-health, relay
  * Legacy). Antes solo dejaban rastro en logs + un webhook OPCIONAL: si el
  * webhook no estaba puesto, la alerta se evaporaba y el operador se enteraba
- * tarde o nunca (justo lo que dejó correr el incidente 0xFE). Este store hace
+ * tarde o nunca. Este store hace
  * que cada alerta quede SIEMPRE guardada y visible en /app/admin, sin depender
  * de ningún servicio externo.
- *
- * Se apoya en la tabla `background_jobs` con un `jobType` propio ('ops-alert',
- * status 'logged') — el MISMO patrón que las persistencias FDC (Legacy/0xFE):
- * evita una migración de esquema y es invisible a cualquier poller (que filtra
- * por 'queued'). Es un buffer circular: se conservan las MAX_ROWS más recientes.
- *
- * Best-effort como todo lo de esta línea: nunca lanza (una alerta caída no puede
- * tumbar el tick de un agente) y es no-op sin `DATABASE_URL`.
  */
 import type { Prisma } from '@prisma/client';
 

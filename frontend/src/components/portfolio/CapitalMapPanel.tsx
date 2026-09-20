@@ -127,7 +127,7 @@ export default function CapitalMapPanel({
   // Nickname per wallet address — a position row must read "Apodo", never the
   // raw address, matching every other dashboard surface. EVM addresses compare
   // case-insensitively; XRPL/Solana are case-sensitive and compared verbatim.
-  // LA regla canónica (2026-08-22): el resolver numerado — nunca la dirección
+  // LA regla canónica: el resolver numerado — nunca la dirección
   // como nombre de una fila propia; una ajena queda en corto.
   const walletLabel = useMemo(() => walletNameResolver(wallets), [wallets]);
 
@@ -364,7 +364,7 @@ export default function CapitalMapPanel({
             </div>
           )}
 
-          {/* Ola 0 (15-sep) — «No positions detected» only when every adapter
+          {/* «No positions detected» only when every adapter
               answered; an unread sweep says so (the embedding page paints the
               notice itself; self-loading paints it here). */}
           {selfLoading && unreadableOf(snap).length > 0 && (

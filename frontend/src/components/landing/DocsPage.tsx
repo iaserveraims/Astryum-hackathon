@@ -3,37 +3,6 @@
 /**
  * /docs — LA BIBLIOTECA, con la carcasa de las demás páginas.
  *
- * Fundador, 2026-09-19: «¿puedes darle un toque de vida a la página de
- * documentos? Nada loco, tiene que quedar sobria para la gente que entre a
- * verla, pero algún que otro selector para no tener abierto siempre un
- * documento y algo más, tal vez ponerle el fondo de estrellas, pero sencillo,
- * que no distraiga. Igual que las páginas de about us y proof».
- *
- * Tres cosas, y ninguna es un adorno:
- *
- *   1. LA MISMA CARCASA. La biblioteca nació como un HTML estático en
- *      `public/docs/` (release quirúrgico del 19-sep, un solo enlace para toda
- *      la documentación). Era otra tipografía, otro fondo, otra cabecera: al
- *      llegar desde la landing se notaba el salto de sitio. `SubpageShell` le
- *      da el mismo cielo, la misma cabecera flotante y el mismo pie que /about
- *      y /proof, y a partir de aquí las tres se mueven juntas.
- *
- *   2. UNA BIBLIOTECA ANTES QUE UN DOCUMENTO. La estática abría siempre con
- *      un deck desplegado y sus pestañas encima, así que nunca se veía la
- *      colección: entrabas DENTRO de algo sin haber elegido. Ahora la portada es
- *      la biblioteca —cuatro fichas con su portada, qué son, cuándo y cuánto—
- *      y el lector se abre al elegir una. El estado va en el hash (`#legacy`),
- *      así que un enlace a un deck concreto sigue llevando a ese deck, y volver
- *      atrás vuelve a la biblioteca.
- *
- *   3. SOBRIA. Es la página que abre un tercero que quiere leer. Las fichas se
- *      revelan una vez al entrar y nada más se mueve: sin barridos, sin
- *      brillos, sin cuenta atrás. El único gesto es el del cielo, que es el de
- *      toda la casa.
- *
- * Los ficheros no se tocan: diapositivas en `/docs/pages/<id>/pNN.jpg` y PDF en
- * `/docs/files/`, servidos tal cual. Y las reglas de copy de la casa mandan
- * también aquí: lo que enseña es documentación, no promesas.
  */
 
 import { useCallback, useEffect, useState } from 'react';

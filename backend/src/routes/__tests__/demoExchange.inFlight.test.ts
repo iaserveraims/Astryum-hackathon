@@ -1,6 +1,5 @@
 /**
- * What is in flight is reserved, at every door that composes an omnibus payment
- * (productizer cycle, it. 6):
+ * What is in flight is reserved, at every door that composes an omnibus payment:
  *  - the client requests route refuses what is already spoken for
  *    (INSUFFICIENT_AVAILABLE_BALANCE);
  *  - the desk payout (/withdraw/prepare) refuses PAYMENT_IN_FLIGHT, stamps a
@@ -10,12 +9,12 @@
  *    a scan) or by an explicit release, never by a guess;
  *  - a deleted run's seq is never handed out again (tag reuse);
  *  - /wallet-proof serves the server's own proof verdict.
- * It. 10: a put-to-work reservation is matched ONLY by the memo stored on it,
+ * a put-to-work reservation is matched ONLY by the memo stored on it,
  * over a bounded window; a memo-less one only if no unexplained 0xFE is there.
  */
 import express from 'express';
 import request from 'supertest';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange
 // se prueba en clientCredentialGate.test y demoExchange.credentialGate.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 import type { DemoRun, DeskPayment } from '../../services/demoExchange/DemoExchangeStore';
@@ -269,7 +268,7 @@ describe('desk payout: PAYMENT_IN_FLIGHT and the server-side hand-off', () => {
   });
 });
 
-/* ── productizer it. 8 / it. 10 ─────────────────────────────────────────── */
+/* ── / ─────────────────────────────────────────── */
 
 const W = () => jest.requireMock('../../services/demoExchange/OmnibusWatcher') as { scanOmnibusWindow: jest.Mock; scanOmnibusWindowUntil: jest.Mock };
 const R = () => jest.requireMock('../../services/demoExchange/deskPaymentReads') as { findHandoffByMemo: jest.Mock; readXrplTx: jest.Mock; mintExecutedOnFlare: jest.Mock };
@@ -306,7 +305,7 @@ describe('desk put-to-work reservation', () => {
     expect(res.status).toBe(201);
     const id = res.body.deskPayment.id;
     expect((await request(app).post('/api/demo-exchange/runs/run1/desk-payments').set(admin).send({ clientId: 'c1', kind: 'put-to-work', amountXrp: '1' })).body.error).toBe('PAYMENT_IN_FLIGHT');
-    // it. 29: a memo-less reservation has nothing signed, so it no longer holds
+    // A memo-less reservation has nothing signed, so it no longer holds
     // its owner's payout (the exit is never gated by a desk bookmark).
     expect((await prepare('1')).status).toBe(200);
 
@@ -324,14 +323,14 @@ describe('desk put-to-work reservation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('the desk never supplies the memo at reservation (it. 10) → 400, nothing reserved', async () => {
+  it('The desk never supplies the memo at reservation → 400, nothing reserved', async () => {
     const res = await request(app).post('/api/demo-exchange/runs/run1/desk-payments').set(admin).send({ clientId: 'c1', kind: 'put-to-work', amountXrp: '1', memoHex: MEMO });
     expect(res.status).toBe(400);
     expect((await loadRun('run1'))!.deskPayments ?? []).toHaveLength(0);
   });
 });
 
-describe('desk payout: past its LastLedgerSequence it closes only on an EXHAUSTIVE read (it. 8)', () => {
+describe('Desk payout: past its LastLedgerSequence it closes only on an EXHAUSTIVE read', () => {
   it('the window read fails → the reservation stays in flight, nothing is composed', async () => {
     expect((await prepare('1')).status).toBe(200);
     ledgerIndex = 1101;
@@ -380,7 +379,7 @@ describe('desk payout: past its LastLedgerSequence it closes only on an EXHAUSTI
   });
 });
 
-describe('desk put-to-work: «Release» needs chain proof the 0xFE did not and cannot execute (it. 8 / it. 10)', () => {
+describe('Desk put-to-work: «Release» needs chain proof the 0xFE did not and cannot execute', () => {
   it('the reservation stamps the validated ledger; an unreadable ledger reserves nothing (503)', async () => {
     const ok = await reserve();
     expect(ok.status).toBe(201);
@@ -452,7 +451,7 @@ describe('desk put-to-work: «Release» needs chain proof the 0xFE did not and c
     expect(res.body.deskPayment.status).toBe('released');
   });
 
-  it('it. 12 (2.3): «Release orphan» / «Back» with the window OPEN and the hand-off NOT reported signed → 409 WAIT_FOR_LAST_LEDGER with the ledgers and seconds left; released after the LLS', async () => {
+  it('«Release orphan» / «Back» with the window OPEN and the hand-off NOT reported signed → 409 WAIT_FOR_LAST_LEDGER with the ledgers and seconds left; released after the LLS', async () => {
     const { body } = await reserve('2');
     await stampPrepared(body.deskPayment.id);
     ledgerIndex = 1060;
@@ -494,7 +493,7 @@ describe('desk put-to-work: «Release» needs chain proof the 0xFE did not and c
   });
 
   /**
-   * productizer it. 16 (R1 1.2) — EL 0xFE ATADO A MANO TRAE SU VENTANA.
+   * EL 0xFE ATADO A MANO TRAE SU VENTANA.
    * PATCH guardaba memo y userOpHash pero no `lastLedgerSequence`, y
    * `putToWorkWindow` necesita LAS DOS cosas para responder `wait`: sin ella la
    * ruta de release leía la reserva como «ya no puede aterrizar» y liberaba un
@@ -519,7 +518,7 @@ describe('desk put-to-work: «Release» needs chain proof the 0xFE did not and c
     expect((await release(id)).status).toBe(200);
   });
 
-  it('a hand-off composed WITHOUT a window (unreadable ledger, a row older than it. 15) attaches without inventing one', async () => {
+  it('A hand-off composed WITHOUT a window (unreadable ledger, a row older than) attaches without inventing one', async () => {
     const { body } = await reserve('2');
     const id = body.deskPayment.id;
     mockHandoffByMemo[MEMO] = handoff({ lastLedgerSequence: null });
@@ -551,7 +550,7 @@ describe('desk put-to-work: «Release» needs chain proof the 0xFE did not and c
     expect(blocked.status).toBe(409);
     expect(blocked.body.error).toBe('DESK_PAYMENT_SIGNED_NOT_ON_LEDGER');
     mockWindowTxs = [feTx(MEMO, FE_HASH, 'tecPATH_DRY')]; // validated, moved no XRP, its Sequence is spent
-    // no longer «signed off ledger», but its window is still open: it waits for the LLS (it. 12)
+    // no longer «signed off ledger», but its window is still open: it waits for the LLS
     expect((await release(body.deskPayment.id)).body.error).toBe('WAIT_FOR_LAST_LEDGER');
     ledgerIndex = 1101;
     expect((await release(body.deskPayment.id)).status).toBe(200);
@@ -591,7 +590,7 @@ describe('desk put-to-work: «Release» needs chain proof the 0xFE did not and c
   });
 });
 
-describe('a payout wallet is never re-pointed with a payment in flight (it. 8)', () => {
+describe('A payout wallet is never re-pointed with a payment in flight', () => {
   const repoint = () => request(app).patch('/api/demo-exchange/runs/run1/clients/c1').set(admin).send({ xrplAddress: OTHER });
 
   it('pending withdraw request → 409 PAYMENT_IN_FLIGHT, wallet unchanged', async () => {
@@ -634,14 +633,14 @@ describe('tags: a deleted run never gives its seq to a new run', () => {
   it('deleting a run created before the mark existed raises the mark too', async () => {
     const legacy = { ...seedRun(), runId: 'run7', seq: 7 };
     await saveRun(legacy);
-    // it. 31: la ficha sembrada tiene 2 XRP de un cliente — borrar con dinero
+    // La ficha sembrada tiene 2 XRP de un cliente — borrar con dinero
     // dentro pide `force=1` (lo que se prueba aquí es la marca de seq).
     expect((await request(app).delete('/api/demo-exchange/runs/run7?force=1').set(admin)).status).toBe(200);
     expect((await create()).body.run.seq).toBe(8);
   });
 });
 
-describe('tag ranges: no range ever assigned is handed out again (it. 8)', () => {
+describe('Tag ranges: no range ever assigned is handed out again', () => {
   const createOn = (body: Record<string, unknown>) => request(app).post('/api/demo-exchange/runs').set(admin).send({ councilAddress: 'r1ypgoqtdQG71bMK7g2KdjReekZH1MuoG', omnibusAddress: OMNIBUS, ...body });
 
   it("a deleted run's DECLARED range stays its own on that omnibus; another omnibus may use it", async () => {
@@ -666,7 +665,7 @@ describe('tag ranges: no range ever assigned is handed out again (it. 8)', () =>
 
   it('a run created before ranges were recorded records its declared range when deleted', async () => {
     await saveRun({ ...seedRun(), runId: 'run9', seq: 9, tagBase: 7000, tagCount: 20 });
-    // it. 31: idem — la ficha sembrada lleva saldo de cliente; `force=1`.
+    // Idem — la ficha sembrada lleva saldo de cliente; `force=1`.
     expect((await request(app).delete('/api/demo-exchange/runs/run9?force=1').set(admin)).status).toBe(200);
     expect((await createOn({ tagBase: 7010 })).body.error).toBe('TAG_RANGE_OVERLAP');
   });
@@ -689,7 +688,7 @@ describe('/wallet-proof: the server verdict the client site shows', () => {
 });
 
 /**
- * it. 27 — UNA ENTRADA MUERTA NO PUEDE RETENER LA SALIDA DE SU DUEÑO.
+ * UNA ENTRADA MUERTA NO PUEDE RETENER LA SALIDA DE SU DUEÑO.
  *
  * El caso real, por las rutas de verdad: alguien deposita, el autopiloto le
  * fabrica una put-to-work que muere porque todavía no ha creado su cuenta Flare
@@ -699,12 +698,8 @@ describe('/wallet-proof: the server verdict the client site shows', () => {
  * retirada que llegaba detrás recibía 409 `INSUFFICIENT_AVAILABLE_BALANCE` y el
  * servidor le decía que su dinero estaba «reservado por pagos en vuelo» cuando no
  * se había firmado nada nunca.
- *
- * Lo que SÍ sigue reteniendo es lo que tiene bytes firmados: una petición
- * 'submitting' y un pago de mesa abierto. Ahí el 409 es lo único que separa a
- * este cliente de cobrar dos veces.
  */
-describe('it. 27: una entrada muerta no retiene la salida', () => {
+describe('Una entrada muerta no retiene la salida', () => {
   /** Una put-to-work que el autopiloto dejó pendiente y que no puede firmarse nunca. */
   async function deadEntry(drops = '2000000'): Promise<void> {
     const run = (await loadRun('run1'))!;
@@ -745,8 +740,8 @@ describe('it. 27: una entrada muerta no retiene la salida', () => {
   });
 });
 
-/** it. 27 — la puerta para RETIRAR de la cola lo que nadie ha firmado. */
-describe('it. 27: retirar una petición de la cola', () => {
+/** La puerta para RETIRAR de la cola lo que nadie ha firmado. */
+describe('Retirar una petición de la cola', () => {
   const cancel = (rid: string, headers: Record<string, string>) =>
     request(app).delete(`/api/demo-exchange/runs/run1/clients/c1/requests/${rid}`).set(headers);
 
@@ -798,15 +793,15 @@ describe('it. 27: retirar una petición de la cola', () => {
 });
 
 /**
- * it. 29 — LA ASIMETRÍA SE APOYA EN EL JOURNAL, NO EN `status`.
+ * LA ASIMETRÍA SE APOYA EN EL JOURNAL, NO EN `status`.
  *
- * La it. 27 eximió a toda entrada 'pending' de retener la salida de su dueño
+ * La eximió a toda entrada 'pending' de retener la salida de su dueño
  * porque «una pending no tiene hash, ni asiento, ni blob». El `submissionJournal`
  * existe porque eso es falso: un guardado concurrente devuelve a 'pending' una
  * petición YA firmada y viva en su ventana. Con esa entrada en la cola, la mesa
  * componía la salida de los mismos drops y el ómnibus pagaba 2×.
  */
-describe('it. 29: la exención la concede el journal', () => {
+describe('La exención la concede el journal', () => {
   /** El run dice 'pending'; el journal dice lo que diga `status`. */
   async function clobberedEntry(status: 'submitting' | 'settled' | 'failed' | 'expired'): Promise<void> {
     const run = (await loadRun('run1'))!;
@@ -849,14 +844,14 @@ describe('it. 29: la exención la concede el journal', () => {
 });
 
 /**
- * it. 29 — UNA RESERVA DE MESA DE LA QUE NUNCA SE COMPUSO NADA.
+ * UNA RESERVA DE MESA DE LA QUE NUNCA SE COMPUSO NADA.
  *
  * `POST /runs/:id/desk-payments` deja una reserva `prepared` de put-to-work sin
  * memo y sin un solo byte firmado. No caducaba nunca, retenía la salida de su
  * dueño, su única puerta era un DELETE de admin que contesta 503 sin XRPL, y el
  * 409 no nombraba ninguna palanca.
  */
-describe('it. 29: la reserva de mesa abandonada', () => {
+describe('La reserva de mesa abandonada', () => {
   const releaseOwn = (pid: string, headers: Record<string, string>) =>
     request(app).delete(`/api/demo-exchange/runs/run1/clients/c1/desk-payments/${pid}`).set(headers);
 
@@ -915,8 +910,8 @@ describe('it. 29: la reserva de mesa abandonada', () => {
   });
 });
 
-/** it. 29 — el DELETE mira el MISMO subconjunto del journal que el autopiloto (`journalPlan`). */
-describe('it. 29: el DELETE de una petición usa journalPlan', () => {
+/** El DELETE mira el MISMO subconjunto del journal que el autopiloto (`journalPlan`). */
+describe('El DELETE de una petición usa journalPlan', () => {
   const cancel = (rid: string, headers: Record<string, string>) =>
     request(app).delete(`/api/demo-exchange/runs/run1/clients/c1/requests/${rid}`).set(headers);
 
@@ -938,7 +933,7 @@ describe('it. 29: el DELETE de una petición usa journalPlan', () => {
     expect(live.receipts.some((r) => /No payment existed/.test(r.note ?? ''))).toBe(false);
   });
 
-  it('it. 31: uno FAILED (resultado validado ≠ tes, los drops nunca salieron) SÍ cede — reconciliado aquí mismo, sin esperar a un tick', async () => {
+  it('Uno FAILED (resultado validado ≠ tes, los drops nunca salieron) SÍ cede — reconciliado aquí mismo, sin esperar a un tick', async () => {
     const rid = await pendingWithJournal('failed');
     const res = await cancel(rid, admin);
     expect(res.status).toBe(200);
@@ -952,7 +947,7 @@ describe('it. 29: el DELETE de una petición usa journalPlan', () => {
     expect((await ask('put-to-work', '1')).status).toBe(201);
   });
 
-  it('it. 31: un entry MALFORMADO (sin hash) no revienta el DELETE en 500 — contesta 409 y lo dice', async () => {
+  it('Un entry MALFORMADO (sin hash) no revienta el DELETE en 500 — contesta 409 y lo dice', async () => {
     const asked = await ask('put-to-work', '1');
     const rid = asked.body.request.id as string;
     await writeSubmission({ requestId: rid, runId: 'run1', kind: 'put-to-work', clientId: 'c1', drops: '1000000', txHash: undefined as unknown as string, lastLedgerSequence: undefined as unknown as number, submittedAtLedger: 1000, status: 'submitting', updatedAt: T0 });
@@ -969,12 +964,11 @@ describe('it. 29: el DELETE de una petición usa journalPlan', () => {
 });
 
 /**
- * 18-sep — LA MESA TOMA LA PETICIÓN PARA FIRMARLA POR QR (fundador: «el
- * autopilot hay que sacarlo no visible y que se haga a través de QR»). Una
+ * LA MESA TOMA LA PETICIÓN PARA FIRMARLA POR QR. Una
  * retirada pendiente bloquea a propósito el pago a mano (PAYMENT_IN_FLIGHT): la
  * mesa la toma (misma cesión, nada firmado) y compone su pago del omnibus.
  */
-describe('18-sep: la mesa toma la petición para servirla por QR', () => {
+describe('La mesa toma la petición para servirla por QR', () => {
   const take = (rid: string, headers: Record<string, string>) =>
     request(app).delete(`/api/demo-exchange/runs/run1/clients/c1/requests/${rid}?takenByDesk=1`).set(headers);
 

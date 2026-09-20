@@ -6,19 +6,7 @@
  * El mismo cielo que el sistema solar de Autocustodia, pero MEDIDO: un
  * planisferio con su retícula, sus horas y su eclíptica, donde la entidad es el
  * centro y sus tres cuentas —tesorería, operativa, reserva— se trazan como una
- * constelación. Sin brillo, a línea fina, en el bronce del tema institucional:
- * esa es la sobriedad que el fundador pidió que cambiase por producto, y esto
- * es «el algo más»: el instrumento con el que se mira.
- *
- * Se lee con el scroll, tiempo a tiempo, y sus láminas (EmpresaArtifacts) se
- * atan a los MISMOS tiempos: la carta se dibuja mientras se lee la posición,
- * los asientos se marcan mientras se lee el órgano, los arcos de exposición
- * se cierran mientras se leen los límites y la eclíptica escribe sus asientos
- * mientras se lee el registro.
- *
- * Decorativa (`aria-hidden`): el significado lo lleva el texto de la parada.
- * Ni una cifra de rendimiento: las cantidades de los arcos son maqueta y se
- * rotulan como exposición contra un tope, nunca como resultado.
+ * constelación.
  */
 
 import { memo, useMemo } from 'react';
@@ -86,8 +74,7 @@ function StarChartSceneImpl({ progress, lang, level, still = false }: StarChartS
 
   // El cielo ya está antes de la carta: tenue, y sube a pleno cuando la
   // retícula empieza a dibujarse encima.
-  // EN REPOSO LA CARTA ESTÁ ENTERA (fundador 2026-09-20: «el artefacto no
-  // empieza en el sitio correcto»): como el sistema solar de la portada, el
+  // EN REPOSO LA CARTA ESTÁ ENTERA: como el sistema solar de la portada, el
   // dibujo base se ve al abrir y cada parada le AÑADE su capa. Nada arranca
   // desde cero; lo que arranca es el énfasis.
   const skyO = useTransform(src, [0, CHART_BEATS.chart[0]], [0.7, 1], { clamp: true });

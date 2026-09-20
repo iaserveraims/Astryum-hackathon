@@ -1,5 +1,5 @@
 /**
- * Ola 0 (15-sep) — THE BOARD PAINTS `results[].error` AND `results[].unreadable`.
+ * THE BOARD PAINTS `results[].error` AND `results[].unreadable`.
  *
  * THE FAILURE (two reviewers). `/api/positions/:wallet` answers HTTP 200 with
  * one block per adapter; a fallen adapter ships `{ protocolId, error,
@@ -8,12 +8,6 @@
  * probe → an empty Kinetic block with an `error` nobody painted → the carry
  * holder's supply, debt and «Repay» door were not on the board, and the board
  * said «No open DeFi positions yet».
- *
- * THE CONSUMER UNDER TEST: `reduceFlareScan` (the board's reduction of one
- * scan), fed the SHIPPING `flattenPositions` pulled out of
- * DefiPositionsBoard.tsx and executed, then `boardShowsEmpty` with the count
- * the board composes. The cable check at the end proves the board calls these
- * with that count — it is a supplement to the executed cases, never the proof.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -101,13 +95,12 @@ const rejected = (status: number | null): PromiseSettledResult<unknown> => ({
   reason: status == null ? new TypeError('Failed to fetch') : Object.assign(new Error(`HTTP ${status}`), { status }),
 });
 
-/** The it. 29 shape: Kinetic fell entirely — HTTP 200, `error`, no rows. */
+/** The shape: Kinetic fell entirely — HTTP 200, `error`, no rows. */
 const kineticFell = {
   results: [
     { protocolId: 'kinetic', error: 'KINETIC_POSITION_UNREADABLE: balanceOf on market 0x…aa did not answer (429)', positions: [] },
   ],
 };
-/** The ola 0 shape: the carry served, one market named. */
 const kineticPartial = {
   results: [
     {

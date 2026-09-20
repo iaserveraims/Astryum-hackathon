@@ -1,26 +1,6 @@
 /**
  * liveSession — re-check the session INSIDE the transaction that creates
- * authority (productizer it. 14, 4.4).
- *
- * WHAT FAILED. `requireSiweAuth` verifies the session BEFORE the handler runs.
- * An account takeover (AuthService._takeOverSquattedAccount) can commit while
- * the handler is still working — validating a signature, reading a ledger — and
- * the row the handler then writes is born AFTER the takeover, so every later
- * reader dates it to the owner: a wallet binding with `signatureProof` that
- * provenAddresses calls PROVEN, an address-book entry that pre-fills a
- * stranger's address in the send modal, an agent document that rides into the
- * owner's copilot prompt, a rule that fires on the owner's wallet.
- *
- * THE RULE. A write that creates authority takes the user row lock FIRST (the
- * conditional-UPDATE pattern of lockCredentialState / updateUserPreferences) and
- * only then re-reads the session and the credential epoch. The two serialise:
- *   · takeover committed first → our re-read sees the dead session (or the epoch
- *     past our session's birth) → `session_revoked`, nothing is written;
- *   · we lock first → the takeover waits for our commit and its own sweep sees
- *     the row we just wrote (bindings deactivated, residue quarantined).
- *
- * `withLiveSession` never decides WHAT to write: the caller's callback receives
- * the same transaction client and does its own work there.
+ * authority (4.4).
  */
 import type { Prisma } from '@prisma/client';
 import type { Response } from 'express';
@@ -41,7 +21,7 @@ export function isSessionRevoked(err: unknown): boolean {
   return (err as { code?: unknown } | null)?.code === 'session_revoked';
 }
 
-// ── «Busy», not «broken» (productizer it. 18, 3.6) ──────────────────────────
+// ── «Busy», not «broken» (3.6) ──────────────────────────
 //
 // The guarded write contends with the takeover's ~25-statement transaction. When
 // it loses that race it is NOT a server fault and must not read as one: nothing
@@ -75,16 +55,6 @@ export function transactionBusy(cause?: unknown): Error {
  * (P2028), its pool timeout (P2024), a serialisation or deadlock abort (P2034),
  * for the Postgres `lock_timeout` (55P03) the row lock below arms, and for
  * Postgres's own DEADLOCK (40P01).
- *
- * WHY 40P01 IS HERE (productizer it. 20, 3.8). Prisma only maps a deadlock to
- * P2034 when it recognises it; a raw `$queryRaw` row lock — which is exactly what
- * `takeUserRowLock` takes — surfaces the native SQLSTATE instead, and that fell
- * through to a 500. A deadlock is the most literal form of contention there is:
- * Postgres picked one of two waiting transactions, aborted it, WROTE NOTHING, and
- * the other one went through. That is a wait, not a failure, and the person is
- * owed the same 503 `ACCOUNT_BUSY` «try again» as every other contention case —
- * not a 500 that says something broke, on a screen with no retry.
- * 40001 (serialization_failure) is its twin and rides the same rule.
  */
 export function isTransactionBusy(err: unknown): boolean {
   const e = err as { code?: unknown; message?: unknown } | null;
@@ -128,7 +98,7 @@ export const SESSION_REVOKED_DETAIL =
  *
  * ALWAYS 401 and ALWAYS with `error: 'session_revoked'` — a route that lets the
  * thrown error fall into its generic catch turns a security refusal into a 500
- * with a raw chain in it (productizer it. 16, 5.6), which reads as "we broke"
+ * with a raw chain in it (5.6), which reads as "we broke"
  * instead of "your session is gone".
  *
  * `detail` overrides the default sentence for a caller that has something more
@@ -146,7 +116,7 @@ export function respondSessionRevoked(res: Response, detail?: string): Response 
  * The synthetic user `requireSiweAuth` invents under `ALLOW_NO_AUTH=1`. There is
  * no `User` row behind it and there never will be — by construction, not by
  * failure — so every reader that would otherwise report «the account record is
- * missing» has to recognise it first (it. 23, 2.5: that 409 is non-retryable,
+ * missing» has to recognise it first (2.5: that 409 is non-retryable,
  * and a non-retryable refusal invented by our own dev switch would sit on top of
  * every exit in local development).
  *
@@ -165,7 +135,7 @@ function isDevBypass(ref: LiveSessionRef): boolean {
 }
 
 /**
- * Take the user row lock without writing to it (productizer it. 18, 3.6).
+ * Take the user row lock without writing to it (3.6).
  *
  * WHY NOT `UPDATE users SET updatedAt = now()`. That is what this used to do,
  * and it is a heavier lock than the job needs: every guarded write produced a
@@ -174,19 +144,6 @@ function isDevBypass(ref: LiveSessionRef): boolean {
  * takeover's ~25-statement transaction (which holds the same row) that turned
  * every concurrent guarded write into a queue behind a long writer, and the wait
  * surfaced as P2028 → 500.
- *
- * `SELECT id FROM users WHERE id = $1 FOR UPDATE` takes THE SAME row lock and
- * the same serialisation against the takeover, writes nothing, and — with
- * `SET LOCAL lock_timeout` — gives up quickly and identifiably (55P03) instead
- * of burning the whole transaction budget waiting.
- *
- * WHY NOT LOCK THE SESSION ROW INSTEAD. It would be cheaper still and it would
- * be WRONG: the takeover serialises on the user row (it rewrites preferences,
- * the credential epoch, the bindings), so a lock on `sessions` orders us against
- * nothing. The whole point is to contend with the takeover, not to avoid it.
- *
- * Falls back to the old conditional UPDATE when the client has no `$queryRaw`
- * (the unit-test doubles, and any non-SQL client) — same guarantee, old cost.
  */
 async function takeUserRowLock(tx: Prisma.TransactionClient, userId: string): Promise<boolean> {
   const raw = (tx as unknown as { $queryRaw?: unknown; $executeRawUnsafe?: unknown });
@@ -263,7 +220,7 @@ export async function lockAndAssertLiveSession(
  * The callback MUST do its writes on the `tx` it receives — a write on the
  * global client would escape the lock and could land after a takeover.
  *
- * The transaction carries an EXPLICIT timeout and maxWait (it. 18, 3.6) so a
+ * The transaction carries an EXPLICIT timeout and maxWait (3.6) so a
  * loss against the takeover's long transaction is a recognisable P2028/P2024
  * rather than an anonymous fault, and comes back out of here as
  * `live_session_busy` — which routes answer 503 «try again», never 500.

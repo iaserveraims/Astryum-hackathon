@@ -1,10 +1,10 @@
 /**
- * productizer it. 29 (§5) — LA VENTANA DE UNA FILA SOBREVIVE A UNA RECARGA.
+ * LA VENTANA DE UNA FILA SOBREVIVE A UNA RECARGA.
  *
  * `perMemoExpiryMin` era un `Map` de módulo: tras un F5 `serverDeclaredCeremony(memo)`
  * volvía a `false`, la decisión caía en el RPC público y, cuando ese devolvía
  * `null`, `sendIntent` seguía por la firma simple con la `Sequence` autorrellenada —
- * el gemelo que it. 27 decía cerrar. Aquí «recargar» es tirar el módulo y volver a
+ * el gemelo que decía cerrar. Aquí «recargar» es tirar el módulo y volver a
  * importarlo sobre el MISMO almacén del navegador (fingido): lo que el servidor
  * dijo de una fila tiene que seguir ahí.
  */
@@ -52,7 +52,7 @@ describe('lo que el servidor dijo de una fila sobrevive a un F5', () => {
   });
 
   /**
-   * it. 31 (§5): a single signature is only «declared» when the server said it
+   * A single signature is only «declared» when the server said it
    * READ the SignerList (`signerListRead: 'single'`). The reading survives the
    * reload with the window it qualifies; a short window noted WITHOUT it is not a
    * verdict before the reload and must not become one after it.
@@ -105,7 +105,7 @@ describe('la nota escrita es acotada, caduca y no se fía de lo que encuentra', 
     expect(m.serverDeclaredCeremony(MEMO_CEREMONY)).toBe(false);
   });
 
-  it('una nota corrupta no rompe nada: el módulo se comporta como it. 27', async () => {
+  it('Una nota corrupta no rompe nada: el módulo se comporta como', async () => {
     storage.setItem(KEY, '{not json');
     const m = await freshModule();
     expect(m.serverDeclaredCeremony(MEMO_CEREMONY)).toBe(false);

@@ -1,6 +1,5 @@
 /**
- * El KYC del exchange, UNA CREDENCIAL POR CASILLA, en las RUTAS (fundador 14-sep,
- * «solo B»): la raíz del run emite `KYC-<tag>` con el omnibus como sujeto.
+ * El KYC del exchange, UNA CREDENCIAL POR CASILLA, en las RUTAS: la raíz del run emite `KYC-<tag>` con el omnibus como sujeto.
  *
  * Lo que se fija:
  *  - depositar y poner a trabajar piden la credencial de SU casilla, aceptada y
@@ -219,7 +218,7 @@ describe('fail-closed sin mentir, interruptor, y lectura por casilla', () => {
 
   it('GET /credentials dice, por casilla, qué credencial le toca y si la tiene — con UNA lectura del omnibus', async () => {
     credentials = [cred(101)];
-    // 20-sep: la lista por casilla es de la mesa (o del dueño del exchange).
+    // La lista por casilla es de la mesa (o del dueño del exchange).
     process.env.ADMIN_PANEL_KEY = 'founder-test-key';
     const res = await request(app).get('/api/demo-exchange/runs/run1/credentials').set({ 'x-admin-key': 'founder-test-key' });
     // Un cliente ve el KYC de SU casilla y de ninguna más; sin sesión, nada; un extraño, 404.

@@ -1,7 +1,7 @@
 /**
  * The classifier behind the Summary ring and the Portfolio table.
  *
- * Regression (founder, 2026-08-01): a queued Firelight exit — kind CLAIM —
+ * Regression: a queued Firelight exit — kind CLAIM —
  * fell through to "idle", so the ring read "Working $0.00 (0%)" while a
  * withdrawal was in flight, and money on its way home sat in the same slate
  * slice as coins doing nothing.

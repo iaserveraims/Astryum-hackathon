@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * `LandingPageProduction` está congelada por hash, pero importa
- * `./SolarJourney` — y un hash no congela lo que un fichero importa. El 20-sep
+ * `./SolarJourney` — y un hash no congela lo que un fichero importa.
  * el viaje ganó el núcleo y la quinta órbita y, sin esta puerta, habrían
  * salido a producción en la siguiente promoción sin que nadie lo decidiera.
  *

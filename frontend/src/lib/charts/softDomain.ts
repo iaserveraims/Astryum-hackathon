@@ -1,8 +1,5 @@
 /**
- * softDomain — el eje vertical de la curva del Portfolio, DINÁMICO
- * (fundador 2026-09-10: «parece que baja mucho por poco cambio que ha
- * habido, quiero que sea más sutil, pero no como antes que estaba literalmente
- * plano»).
+ * softDomain — el eje vertical de la curva del Portfolio, DINÁMICO.
  *
  * Los dos extremos que se descartan:
  *   · `['auto','auto']` (lo de ayer): el dominio se ciñe al mín/máx de los
@@ -10,15 +7,6 @@
  *     cartera tranquila parece un desplome.
  *   · `[0, max]` (lo de antes): el dominio arranca en cero, así que cualquier
  *     variación real es una raya plana sobre un rectángulo.
- *
- * La regla de aquí: el eje abarca AL MENOS un porcentaje del valor (el suelo,
- * `minSpanRatio`) y crece con la variación real cuando esta lo supera. Con el
- * suelo al 5 %, un vaivén del 1 % ocupa una quinta parte del alto —se ve, no
- * asusta— y una caída del 10 % llena el gráfico, porque eso sí es noticia. La
- * proporción entre lo que pasa y lo que se ve deja de depender de la ventana.
- *
- * `pad` deja aire por arriba y por abajo para que la línea no toque el marco
- * ni el punto vivo se recorte. Puro y sin dependencias: se testea a secas.
  */
 
 export function softDomain(

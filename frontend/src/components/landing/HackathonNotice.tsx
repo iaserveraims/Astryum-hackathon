@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * HackathonNotice — the public disclosure that Astryum is a hackathon build
- * (founder 2026-07-26: "es muy importante avisar a los visitors").
+ * HackathonNotice — the public disclosure that Astryum is a hackathon build.
  *
  * Two pieces, one source of truth (HACKATHONS):
  *  - HackathonBanner: a slim PERSISTENT strip fixed above the landing header.
@@ -10,12 +9,6 @@
  *    headers below it shift down by BANNER_H.
  *  - HackathonFooterNote: the same disclosure + logos for every landing footer.
  *    tone='dark' for star-field footers, tone='ink' for the Home's cream close.
- *
- * Logos live in /public/partners/ (official marks: Flare pink reads on both
- * tones; the XRPL Commons mark ships in white + ink variants). Links go to the
- * official program pages. Copy follows frontend/copy/GLOSSARY.md: sober, no
- * claims — it states a verifiable fact, the same one /about already makes
- * ("se construye a la vista").
  */
 
 import { T, type Lang } from './useLang';
@@ -34,7 +27,7 @@ const HACKATHONS = [
     url: 'https://dorahacks.io/hackathon/flaresummersignal/detail',
     logo: '/partners/flare.svg', // pink mark — reads on dark and on cream
     logoInk: '/partners/flare.svg',
-    // SECOND PLACE, 2026-08-24. A result, not a claim: it is the kind of fact
+    // SECOND PLACE. A result, not a claim: it is the kind of fact
     // GLOSSARY.md allows on this page — verifiable at the program link right
     // next to it, and it says nothing about what the product will do for
     // anyone. Kept as data on the one source of truth so the badge appears
@@ -121,7 +114,7 @@ export function HackathonBanner({ lang }: { lang: Lang }) {
       }}
     >
       <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">
-        {/* "Beta abierta", not "proyecto" — founder 2026-07-29, same voice as
+        {/* "Beta abierta", not "proyecto" — founder, same voice as
             the footer note below. */}
         {T('Beta abierta para los hackathons · en concurso:', 'Open hackathon beta · competing in:', lang)}
       </span>
@@ -141,8 +134,7 @@ export function HackathonBanner({ lang }: { lang: Lang }) {
 
 // ─── The footer COLUMN (SiteFooter) ───────────────────────────────────────────
 // Same disclosure, same two links, stacked — the landing's dark footer files
-// them under their own heading (founder 2026-08-22: "lo de los hackathones irá
-// abajo del todo"). One source of truth: HACKATHONS above.
+// them under their own heading. One source of truth: HACKATHONS above.
 export function HackathonFooterList({ lang, tone = 'dark' }: { lang: Lang; tone?: 'dark' | 'ink' }) {
   return (
     <div className="flex flex-col items-start gap-2.5 text-[13px]">
@@ -162,8 +154,8 @@ export function HackathonFooterNote({ lang, tone = 'dark' }: { lang: Lang; tone?
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px]">
       <span style={{ color: labelColor }}>
-        {/* "Beta abierta", not "producto creado" — founder 2026-07-29: the build
-            is live and usable, not a one-off hackathon artifact. */}
+        {/*
+        { */}
         {T('Beta abierta para los hackathons:', 'Open beta for the hackathons:', lang)}
       </span>
       <HackathonLink h={HACKATHONS[0]} tone={tone} lang={lang} size={13} />

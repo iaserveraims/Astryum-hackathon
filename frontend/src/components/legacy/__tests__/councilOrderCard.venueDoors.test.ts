@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { composeKindOf, staleLockBlocks, type StaleOrderFate } from '../../../lib/xrpl/singleSignVerdict';
 
 /**
- * G12 (auditoría 2026-08-17) — «cuatro acciones del cage sin puerta».
+ * G12 (auditorí) — «cuatro acciones del cage sin puerta».
  *
  * `move`, `propose-venue`, `retire-venue` and `set-max-venue-bps` were built
  * end to end — `VAULT_COUNCIL_ABI` (moveToVenue / proposeVenue / retireVenue /
@@ -13,13 +13,6 @@ import { composeKindOf, staleLockBlocks, type StaleOrderFate } from '../../../li
  * callables on LegacyVault — and `ACTION_FORMS` never listed them. The council
  * could not add or retire a venue from the product at all: the cage's venue set
  * was frozen at whatever it was deployed with, in silence.
- *
- * Why source-level and not a render test: the frontend vitest bootstrap is
- * `environment: 'node'` and the component's module graph is the whole Legacy
- * surface (v1Api, LanguageProvider, the settlement machine…). The catalog and
- * the guard are pulled OUT of the shipping source and evaluated, so the
- * assertions run on the code that ships, not on a copy that can drift.
- * (Same technique as councilVaultEntry.feeState.)
  */
 
 const COMPONENT = join(__dirname, '..', 'CouncilOrderCard.tsx');
@@ -176,12 +169,6 @@ describe('G12 — el guard que el backend NO tiene', () => {
  * emit '0' or '1', so `params.kind` was always 0 or 1 by the time the guard saw
  * it. Its sentence — the one that names WHY the vault refuses an ordinal it
  * does not know — could never render.
- *
- * The fix makes the branch reachable rather than deleting it, because the
- * reachable version is the better answer: a council that filled the address and
- * forgot the kind now reads what to do instead of a generic scolding. And the
- * coercion is what made deleting dangerous: `Number('')` is 0 — ERC-4626 — so
- * an unanswered select composed a kind nobody chose.
  */
 describe('G12-move — el guard del venue kind es alcanzable', () => {
   it('an empty venueKind falls through to the guard instead of the generic message', () => {
@@ -237,21 +224,8 @@ describe('G12 — el ordinal del enum se envía como número y se elige, no se t
  * grep: `expect(src).toMatch(...)`. That is exactly the hole that let the bug
  * below ship — the guard existed, the source matched, and the path that reaches
  * it composed the wrong order anyway.
- *
- * THE BUG (G12-final blocker #1): the `Venue #` inputs are free text. `prepare`
- * did `Number(v)` with no guard, so "x" became NaN; `JSON.stringify` writes NaN
- * as `null`; the server's `Number(null)` is 0. An `evacuate` with a mistyped
- * venue therefore composed the evacuation of venue #0 — the venue that exists
- * and holds the principal — and `councilOrderPreflight`, reading a REAL venue,
- * approved it. Unearned success, paid for with a full signing round and a paid
- * FDC round (~20 FLR).
- *
- * How this runs the real thing without a DOM: the body of `prepare` is sliced
- * out of the shipping .tsx, transpiled with the project's own TypeScript, and
- * executed with its free variables injected — including the SAME
- * `venueOrderIssue` extracted above. No copy of the logic lives in this file.
  */
-// it.13: prepare takes the explicit «compose another order anyway» confirm of a
+// Prepare takes the explicit «compose another order anyway» confirm of a
 // 409 COUNCIL_ORDER_IN_FLIGHT (never passed by the plain «Compose the order»).
 const PREPARE_PARAMS = '(opts?: { confirmAnotherOrder?: boolean })';
 const PREPARE_DECL = `const prepare = useCallback(async ${PREPARE_PARAMS} => {`;
@@ -284,9 +258,9 @@ async function runPrepare(o: {
   values?: Record<string, string>;
   payeeRows?: Array<{ account: string; pct: string }>;
   capitalizeAll?: boolean;
-  /** it.14: the card is paused after a stale order that may already have gone out. */
+  /** The card is paused after a stale order that may already have gone out. */
   staleLocked?: boolean;
-  /** it.16 (R2 2.3 / R5 5.5): the person's explicit «compose it again anyway». */
+  /** The person's explicit «compose it again anyway». */
   confirmAnotherOrder?: boolean;
 }): Promise<PrepareRun> {
   const form = byAction(o.action);
@@ -306,8 +280,8 @@ async function runPrepare(o: {
     },
     setHandoff: () => undefined,
     setInFlight: () => undefined,
-    // it.14: the card is PAUSED while a stale order of this council may already
-    // be on its way (R2 2.3). it.16 (R3 3.1): the lock is asked WHAT is being
+    // The card is PAUSED while a stale order of this council may already
+    // be on its way (R2 2.3). The lock is asked WHAT is being
     // composed — the real `staleLockBlocks`, not a stub of it — so an EXIT is
     // warned and never stopped, and «compose it again anyway» composes.
     staleLocked: o.staleLocked === true && composeKindOf(o.action) === 'other',
@@ -316,7 +290,7 @@ async function runPrepare(o: {
         staleLockBlocks(o.staleLocked === true ? ({ kind: 'already-out' } as StaleOrderFate) : null, kind, opts),
     },
     composeKindOf,
-    // it. 21 (it. 20 2.7): the door now also answers DUPLICATE_CHECK_UNREADABLE —
+    // The door now also answers DUPLICATE_CHECK_UNREADABLE —
     // «we could not check whether it went out», which is our read failing and
     // carries its own retry plus the server's explicit «compose another anyway».
     mayConfirmAnotherOrder: (b: { error?: string } | null | undefined) =>
@@ -461,7 +435,7 @@ describe('G12-final — las ramas que antes solo probaba el grep, ejecutadas', (
 });
 
 /**
- * productizer it.14 (R2 2.3) — EL PADRE TAMBIÉN SE PARA.
+ * EL PADRE TAMBIÉN SE PARA.
  *
  * La tarjeta de firma decía «otra petición de esta misma orden ya salió» y esta
  * tarjeta seguía componiendo otra en cuanto la anterior desaparecía: el mismo
@@ -483,7 +457,7 @@ describe('prepare() se niega mientras el candado del stale está puesto', () => 
   });
 
   /**
-   * it.16 (R3 3.1) — LA REGRESIÓN QUE ESTE MISMO TEST FIJABA.
+   * LA REGRESIÓN QUE ESTE MISMO TEST FIJABA.
    *
    * La versión anterior comprobaba que un `recall` con el candado puesto NO
    * componía. Eso es exactamente el fallo: un recall saca capital, y una salida

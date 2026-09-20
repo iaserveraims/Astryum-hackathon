@@ -18,29 +18,8 @@ import {
 import type { HandoffPostResult } from '@/lib/wallet/handoffRelease';
 
 /**
- * productizer it. 34 (agente D) — LA PANTALLA DEL 0xFE TIRABA `headline` Y `ways`
+ * LA PANTALLA DEL 0xFE TIRABA `headline` Y `ways`
  * Y VOLVÍA A DECIR «TRY AGAIN IN A MOMENT» SIN LA PUERTA DE LA WALLET.
- *
- * LA PERSONA REAL. Usuario de email cuya marca de toma de posesión está en 2099.
- * Pide «Convert to XRP» (`pa-unmint`). El servidor contesta 503
- * `PROOF_FLOOR_AHEAD_OF_CLOCK` con un `headline` y TRES `ways` («Try again later»,
- * «Sign in with the wallet that controls this address…», «write to us: an
- * administrator can check that date»). `describeRetryableRefusal` conservaba la
- * frase y le pegaba «Try again in a moment.»; `SeatRefusalNotice` lo clasificaba
- * en `TRANSIENT_CODE_HEAD` → `store-unreadable` con `mayTryAgain: true` y NADA
- * MÁS: ni `ways`, ni `headline`, ni `maySignInWithWallet` (la puerta
- * `/app/wallets` la recibían solo los dos 409 deterministas). Leía «re-linking
- * would not help. Try again in a moment.», pulsaba «Try again», 503, la misma
- * frase; las dos puertas que funcionan no aparecían.
- *
- * Un piso más: `/handoff/release` reenvía ese mismo refusal SIN `ways`
- * (`handoffOwnerRefusal`), y `readSeatRelease` lo aplanaba en «We could not read
- * the state of that seat… Try again in a moment» — falso por las dos mitades: la
- * fila SE LEYÓ, y la espera puede ser 2099.
- *
- * Aquí el cuerpo es EL DEL SERVIDOR, literal (`PROOF_REFUSALS.PROOF_FLOOR_AHEAD_OF_CLOCK`,
- * backend/src/services/identity/provenAddresses.ts), pineado contra su fuente para
- * que un cambio de copy allí rompa aquí.
  */
 
 const t = (s: string) => s;
@@ -105,7 +84,7 @@ describe('seatRefusalView · PROOF_FLOOR_AHEAD_OF_CLOCK deja de ser «transitori
   it('NO promete «in a moment»: el servidor no mandó segundos porque puede ser 2099', () => {
     expect(view.text).not.toMatch(/in a moment/i);
     expect(view.retryAfterSeconds).toBeUndefined();
-    // Las dos verdades de it. 29 sobreviven hasta la frase.
+    // Las dos verdades sobreviven hasta la frase.
     expect(view.text).toMatch(/re-linking the wallet would not help/i);
     expect(view.text).toMatch(/ahead of our clock/i);
     // Y ninguna de las dos falsedades de la frase vieja.

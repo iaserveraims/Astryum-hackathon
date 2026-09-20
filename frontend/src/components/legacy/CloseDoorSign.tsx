@@ -7,16 +7,6 @@
  * XRPL requires the account's own master key to sign asfDisableMaster (a
  * multi-signature is rejected with tecNEED_MASTER_KEY). So this is a plain
  * single signature by the Legacy account itself.
- *
- * It deliberately does NOT depend on which wallet is "connected" in Astryum: it
- * composes the Xaman payload for the exact unsigned tx (Account preserved, never
- * overwritten) and shows the QR. Whoever holds the Legacy account's master key
- * scans it; Xaman submits (submit:true) and returns the tx hash. Astryum never
- * signs, never holds a key, never broadcasts server-side.
- *
- * It uses the same /api/xaman/create-payload path the multisig coordinator uses
- * (proven to render a QR), NOT the sign-in / connect flow — so it does not
- * inherit that flow's connection requirements.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ExternalLink, KeyRound, Loader2 } from 'lucide-react';

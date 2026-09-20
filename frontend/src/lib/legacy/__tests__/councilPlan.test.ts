@@ -1,7 +1,7 @@
 /**
  * The rules that stand between a family and an account nobody can ever open.
  *
- * Since 2026-08-03 the council is created in the Xaman Multisign xApp (Xaman
+ * The council is created in the Xaman Multisign xApp (Xaman
  * refuses a `SignerListSet` composed by any app — 401 / code 1217), so Astryum
  * no longer holds the transaction: it holds the CHECK. These assertions are the
  * whole of that check. If one of them regresses, the panel cheerfully waves a

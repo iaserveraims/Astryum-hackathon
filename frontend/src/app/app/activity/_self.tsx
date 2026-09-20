@@ -77,9 +77,7 @@ function shortAddress(a: string): string {
 }
 
 /**
- * TypeFilterDropdown — el selector de tipos como UN desplegable animado
- * (fundador 2026-08-24: los trece chips sueltos eran «mucho ruido»; «un
- * desplegable más bonito animado, en la misma línea que el filter de fecha»).
+ * TypeFilterDropdown — el selector de tipos como UN desplegable animado.
  * Vacío = todos los tipos (el mismo contrato que ya hablaba el backend).
  */
 function TypeFilterDropdown({
@@ -219,8 +217,7 @@ export default function ActivityPage({
   );
   const walletsKey = scopedWallets.map((w) => w.address).join(',');
   const [events, setEvents] = useState<RailedEvent[]>([]);
-  // ── EL EXPORT ES LA PANTALLA (fundador 2026-09-07: «me lo exporta sin
-  // datos cuando en la pantalla sí veo operaciones»). Dos causas, las dos de
+  // ── EL EXPORT ES LA PANTALLA. Dos causas, las dos de
   // raíz. (1) El motor viejo pedía UN fichero por wallet con a.click() en
   // bucle, y el navegador solo concede una descarga por gesto: con «All
   // wallets» llegaba la primera —la EVM, a menudo vacía— y la de Xaman, donde
@@ -230,12 +227,6 @@ export default function ActivityPage({
   // se pinta, con todas sus divergencias. Ahora se exporta EXACTAMENTE la
   // lista renderizada — mismo ámbito, misma ventana, mismos tipos, un solo
   // fichero. Lo que ves es lo que te llevas, por construcción.
-  //
-  // La honestidad viaja dentro: si alguna wallet no contestó o Flare estaba
-  // ciego, el JSON lo declara (`partial`) y el nombre del fichero también —
-  // un fichero al que le faltan movimientos en silencio es peor que ninguno.
-  // El endpoint fiscal del backend (/activity/export) sigue existiendo para
-  // quien lo consuma por API; esta pantalla ya no depende de él.
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
   const [exportError, setExportError] = useState<string | null>(null);
@@ -440,8 +431,7 @@ export default function ActivityPage({
     }
   };
 
-  // Las fechas filtran TAMBIÉN la lista visible (fundador 2026-08-24: «tiene
-  // que haber un filter de fechas») — el mismo rango alimenta el export.
+  // Las fechas filtran TAMBIÉN la lista visible — el mismo rango alimenta el export.
   const filteredEvents = useMemo(() => {
     if (!exportFrom && !exportTo) return events;
     const from = exportFrom ? `${exportFrom}T00:00:00` : null;
@@ -501,8 +491,8 @@ export default function ActivityPage({
 
   return (
     <div className="space-y-6">
-      {/* Sin sermón (fundador 2026-08-24: «casi que no hace falta ni la
-          explicación») — el título, el refresco, y a la lista. */}
+      {/* Sin sermón — el título, el refresco, y a la lista.
+      { */}
       {embedded ? (
         <SectionTitle actions={refreshButton}>Activity</SectionTitle>
       ) : (
@@ -561,7 +551,7 @@ export default function ActivityPage({
         </Card>
       )}
 
-      {/* ── LA BARRA (fundador 2026-08-24): fechas + tipos + limpiar a la
+      {/* ── LA BARRA: fechas + tipos + limpiar a la
           izquierda, export a la derecha — una línea, sin cajas apiladas. El
           rango filtra la lista Y acota el export; el porqué fiscal del export
           viaja en su title, no en un párrafo. ── */}

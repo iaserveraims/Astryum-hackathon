@@ -132,13 +132,13 @@ describe('cage disclosure', () => {
     expect((await cageAckGate(undefined))?.status).toBe(409);
   });
 
-  // ── it. 27 — TRES LECTURAS DISTINTAS, TRES FRASES ─────────────────────────
+  // ── TRES LECTURAS DISTINTAS, TRES FRASES ─────────────────────────
   //
   // La puerta NO se mueve: guarda ENTRADAS (nacimiento de jaula, aporte a un
   // pote), capital que no vuelve a salir a una dirección, así que fallar cerrado
   // ahí es lo correcto. Lo que estaba mal era la FRASE: «no hay fila», «la marca
   // no parsea» y «la consulta reventó» salían las tres como «lee "How a cage
-  // works" y confírmalo» — la misma mentira que it. 25 acababa de quitar de la
+  // works" y confírmalo» — la misma mentira que acababa de quitar de la
   // puerta legal, viva en el otro lado de la casa. Y con la fila corrupta la
   // confirmación SÍ aterriza (va a auditLog, no a preferences), de modo que la
   // persona podía confirmar infinitas veces oyendo siempre que no lo ha leído.
@@ -178,7 +178,7 @@ describe('cage disclosure', () => {
     });
 
     /**
-     * it. 31 (4.3) — LA MARCA ADELANTADA YA NO ES «LA MISMA CAUSA». Hasta aquí se
+     * LA MARCA ADELANTADA YA NO ES «LA MISMA CAUSA». Hasta aquí se
      * plegaba en `unreadable_mark`, cuya frase afirma «cannot be read … we will
      * repair the record» sobre una fila que se lee bien y que nadie tiene que
      * reparar: se cura sola cuando el reloj pasa la marca. Sigue cerrada (es una
@@ -219,7 +219,7 @@ describe('cage disclosure', () => {
         expect(detail).not.toMatch(/you have not (read|understood)/i);
         expect(detail).toMatch(/no capital has moved/i);
       }
-      // Las cuatro son distintas: ese era el fallo entero (it. 27: tres; it. 31: la adelantada aparte).
+      // Las cuatro son distintas: ese era el fallo entero (tres; La adelantada aparte).
       expect(new Set(Object.values(CAGE_ACK_REFUSAL_DETAIL)).size).toBe(4);
       // Y solo UNA pide leer y confirmar — la única que eso arregla.
       const asksToRead = Object.entries(CAGE_ACK_REFUSAL_DETAIL).filter(([, d]) => /Read “How a cage works” and confirm/.test(d));
@@ -237,7 +237,7 @@ describe('cage disclosure', () => {
     });
   });
 
-  // ── it. 15 (4.1) — an ack belongs to the PERSON who read it ────────────────
+  // ── An ack belongs to the PERSON who read it ────────────────
   describe('an account takeover invalidates the acknowledgement on record', () => {
     const TAKEOVER = '2026-09-14T10:00:00.000Z';
     const ackAt = (iso: string) => [{ timestamp: new Date(iso), newValues: { version: CAGE_DISCLOSURE_VERSION } }];
@@ -277,7 +277,7 @@ describe('cage disclosure', () => {
     });
 
     /**
-     * productizer it. 16 (4.4) — deleting the entry is not enough. A read that
+     * Deleting the entry is not enough. A read that
      * STARTED before the takeover lands after it and calls `ackCache.set` with
      * the positive it computed on the pre-takeover row: the deletion is undone
      * and the owner funds a cage on a reading that was never theirs. The
@@ -352,7 +352,7 @@ describe('cage disclosure', () => {
     });
   });
 
-  // ── it. 19 (it. 18, 3.2) — the guard is not optional ───────────────────────
+  // ── The guard is not optional ───────────────────────
   it('refuses to record an ack with no live session — the reading would belong to nobody', async () => {
     create.mockResolvedValue({ timestamp: new Date('2026-08-06T12:00:00Z') });
     const { isSessionRevoked } = await import('../../identity/liveSession');

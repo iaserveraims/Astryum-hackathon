@@ -7,7 +7,7 @@ const mockBindingFindMany = jest.fn();
 const mockWalletFindMany = jest.fn();
 const mockUserFindUnique = jest.fn();
 // Present ONLY so a test can assert it is never called: reading proofs must not
-// repair, merge or write anything (it. 20, 2.4 — a «repair» of an unparseable
+// repair, merge or write anything (2.4 — a «repair» of an unparseable
 // `security` block is how a pre-takeover binding would come back to life).
 const mockUserUpdate = jest.fn();
 jest.mock('../../../database/prismaClient', () => ({
@@ -130,7 +130,7 @@ describe('provenAddressesOf', () => {
 });
 
 /**
- * productizer it. 16 (4.3) — this list decides who displaces a 0xFE seat and who
+ * This list decides who displaces a 0xFE seat and who
  * controls a council. A `security` block that does not parse used to come out as
  * «there was no takeover», i.e. «could not read» granting permission. It is now
  * read with the same strictness as the cage acknowledgement and the legal
@@ -194,7 +194,7 @@ describe('provenAddressesOf — «no pude leer» el suelo nunca es permiso', () 
 });
 
 /**
- * productizer it. 18 (3.1) — «no pude leer» is neither permission NOR punishment.
+ * «no pude leer» is neither permission NOR punishment.
  *
  * The list alone cannot tell «this session proved nothing» from «I could not
  * read», and treating the two alike is what closed EXITS: a transient database
@@ -264,7 +264,7 @@ describe('proveAddress — the verdict a route owes', () => {
  * The mitigation above only holds if the login claim survived being minted.
  * `issueSessionForUser` lowercased every address, which is right for EVM and
  * destroys a base58 r-address — so «the wallet you signed in with survives» was
- * false for every session it issued (it. 18, verified over SiweAuth:231 vs :515).
+ * false for every session it issued (verified over SiweAuth:231 vs :515).
  */
 describe('sessionAddressClaim — lowercasing an r-address destroys it', () => {
   it('EVM is lowercased (checksum casing is cosmetic)', () => {
@@ -287,7 +287,7 @@ describe('sessionAddressClaim — lowercasing an r-address destroys it', () => {
 
 
 /**
- * productizer it. 20, 2.4 — THE 503 THAT NEVER HEALS.
+ * 2.4 — THE 503 THAT NEVER HEALS.
  *
  * `PROOF_STORE_UNREADABLE` said «try again in a moment» for all three causes, and
  * two of them are properties of the stored row, not of the moment: a user row
@@ -341,7 +341,7 @@ describe('proveAddress — a deterministic failure never promises a retry', () =
   });
 
   /**
-   * it. 29: a SECOND code may honestly promise a retry — a mark dated ahead of
+   * A SECOND code may honestly promise a retry — a mark dated ahead of
    * our clock stops being ahead of it on its own, at a known instant, with
    * nothing written. The invariant is not «one code», it is: a retry is promised
    * exactly where waiting can work, and never on a verdict.
@@ -390,7 +390,7 @@ describe('proveAddress — a deterministic failure never promises a retry', () =
 });
 
 /**
- * productizer it. 20, 2.1/2.2 — the two shapes the rest of the iteration asks
+ * 2.1/2.2 — the two shapes the rest of the iteration asks
  * for. Both exist so a caller cannot ask the ambiguous question by accident.
  */
 describe('proveMembership — the council read that can say «I could not read»', () => {
@@ -489,7 +489,7 @@ describe('proofOutcome / seatProofFromVerdict — the seat contract', () => {
 
 
 /**
- * productizer it. 23, 2.5 — THE DETERMINISTIC 409s.
+ * 2.5 — THE DETERMINISTIC 409s.
  *
  * They are non-retryable, which makes a FALSE one worse than the 503 they
  * replaced: it tells a person with a live session that their account is gone and
@@ -564,29 +564,14 @@ describe('ACCOUNT_RECORD_MISSING is never invented', () => {
 });
 
 /**
- * it. 22, 2.5 — the two 409s reached screens with no reader and degraded to a
+ * 2.5 — the two 409s reached screens with no reader and degraded to a
  * generic refusal, throwing away the only prose that names a way forward. Every
  * refusal now carries what a reader needs, and the reader never has to know the
  * code to render something true.
  */
 /**
- * productizer it. 29 (1.1) — A MARK DATED IN THE FUTURE WAS TAPING AN EMAIL USER
+ * A MARK DATED IN THE FUTURE WAS TAPING AN EMAIL USER
  * OUT OF THEIR OWN CAPITAL, AND OFFERING THEM TWO REMEDIES THAT CANNOT WORK.
- *
- * It. 27 taught the future-mark rule to the legal gate and the cage
- * acknowledgement — the two doors that decide a MODAL — and to neither of the
- * two that decide MONEY. Here the result was worse than the loop it fixed:
- * `readTakeoverAtStrict` said «readable» (it IS readable), so `floorReadable`
- * was set to TRUE — a false statement: the floor was read and is unusable — and
- * the `linkedAt >= takeoverAt` filter then dropped every binding, always. So the
- * exit of a user whose ONLY proof is a binding (email/Google sign-up, no login
- * wallet) came out as 403 `ADDRESS_NOT_PROVEN`, `retryable: false`, under two
- * ways forward that are demonstrably false for that row: «sign in with that
- * wallet» (they have no wallet login) and «link it by signing the binding
- * challenge» (a fresh link is stamped `linkedAt = now`, still below the mark).
- *
- * Nothing about it heals by itself EXCEPT the one thing that does: the wall
- * clock passing the mark. That is what the answer now says.
  */
 describe('proveAddress — a takeover mark ahead of our clock', () => {
   const FUTURE = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
@@ -691,7 +676,7 @@ describe('every refusal carries what a screen needs', () => {
   });
 
   /**
-   * it. 29 — A `Retry-After` IS A NUMBER WE HAVE TO KNOW. Only the retryable
+   * A `Retry-After` IS A NUMBER WE HAVE TO KNOW. Only the retryable
    * refusals may offer waiting at all; among them, only the one whose cause is
    * weather carries a countdown. `PROOF_FLOOR_AHEAD_OF_CLOCK` knows the instant
    * the mark becomes usable but not whether it is three seconds of clock skew or

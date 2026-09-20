@@ -9,8 +9,8 @@ import {AstryumRegistry} from "./AstryumRegistry.sol";
 import {PoteParams} from "./PoteParams.sol";
 
 /// Upshift (August Digital) `TokenizedVault`, the surface the pote uses. ABI
-/// taken from the VERIFIED source of both mainnet implementations, read
-/// 2026-09-18: earnXRP 0xc689cc6441146f7c4986ed4f0e1eb6fc382859b2 and Monarq
+/// taken from the VERIFIED source of both mainnet implementations, read:
+/// earnXRP 0xc689cc6441146f7c4986ed4f0e1eb6fc382859b2 and Monarq
 /// 0x8aa89fad8489ce60628479ca191c3f3ba20ebd48 (TimelockedVault +
 /// OraclizedMultiAssetVault). What matters for the accounting:
 ///  - the shares are a SEPARATE ERC-20 (`lpTokenAddress()`), not the vault;
@@ -92,15 +92,15 @@ interface ICompoundUnderlying {
  * `publishNav()` hace a este pote un spoke desde el día uno: emite su NAV desde
  * su propio estado, atestiguable por FDC `EVMTransaction`. No tiene efectos.
  *
- * ── LA RAMA UPSHIFT (18-sep-2026) ──────────────────────────────────────────
+ * ── LA RAMA UPSHIFT ──────────────────────────────────────────
  *
  * `VenueKind.UpshiftQueued` mete en el pote los vaults de Upshift (earnXRP,
  * Monarq), que no son ERC-4626. Cinco decisiones, cada una forzada por el
  * código verificado del venue (ver `IUpshiftVault`):
  *
  *  1. **Solo en potes con cooldown, y cooldown ≥ `lagDuration()`**. La salida
- *     instantánea paga de la liquidez que el vault tiene en el contrato — medida
- *     el 18-sep: 0,18 % de earnXRP y 5,7 % de Monarq —, así que el pote NO la
+ *     instantánea paga de la liquidez que el vault tiene en el contrato — medida:
+ * 0,18 % de earnXRP y 5,7 % de Monarq, así que el pote NO la
  *     trata como síncrona. `_addVenue` lo comprueba contra el venue vivo.
  *  2. **La cola se valora leyendo al venue, jamás con un apunte propio.** Upshift
  *     paga al precio del día del cobro y cualquiera puede cobrar por el pote; un
@@ -110,7 +110,7 @@ interface ICompoundUnderlying {
  *     y el FXRP ya está en el colchón.
  *  3. **Margen del 1 % en el unwind del titular.** El precio puede moverse entre
  *     la solicitud y el cobro; el vault lo acota a `maxChangePercent` al día
- *     (18-sep: 20 pb en earnXRP con 1 día de espera, 10 pb en Monarq con 7). El
+ *     (20 pb en earnXRP con 1 día de espera, 10 pb en Monarq con 7). El
  *     margen cubre ese recorrido para que el ticket no se quede corto; lo que
  *     sobre llega al colchón, que es de los titulares. El recall del director
  *     no lleva margen: pide lo que pide.
@@ -362,7 +362,7 @@ contract AstryumVaultV2 is AstryumVault {
     }
 
     /// Upshift rechaza una salida cuyo bruto pase de `maxWithdrawalAmount`
-    /// (18-sep: 5M FXRP en earnXRP, 10M en Monarq), así que se trocea. Con
+    /// (5M FXRP en earnXRP, 10M en Monarq), así que se trocea. Con
     /// s ≤ ⌊max·supply/TA⌋ el bruto ⌊s·TA/supply⌋ nunca pasa de max.
     function _maxSharesPerCall(uint256 venueId, address target) internal view returns (uint256 perCall) {
         uint256 ta = IUpshiftVault(target).getTotalAssets();

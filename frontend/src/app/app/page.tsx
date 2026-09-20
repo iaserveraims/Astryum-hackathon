@@ -9,10 +9,9 @@ import { useReducedMotion } from '../../stores/motionStore';
 import { AsteroidMark, Card, HairlineGroup, HairlineCell, MicroLabel, Pill } from '@/components/ui/primitives';
 import { CountUp, RevealGroup, RevealItem, Spotlight } from '@/components/ui/motion';
 import { OrbitDial } from '@/components/ui/charts';
-// PerformanceCard is UNMOUNTED (founder 2026-07-25: "me gusta, pero no le veo
-// mucho el sentido" + the one-viewport contract below). Preserved whole at
+// PerformanceCard is UNMOUNTED (+ the one-viewport contract below). Preserved whole at
 // components/dashboard/PerformanceCard.tsx — its slot now hosts WalletsBand.
-// NetworkStatusCard is UNMOUNTED (founder 2026-07-25): network fees belong
+// NetworkStatusCard is UNMOUNTED: network fees belong
 // NEXT TO each operation before the user signs, not floating on the Summary.
 // Component preserved at components/dashboard/NetworkStatusCard.tsx for that
 // per-operation migration; its header slot now hosts OrbitStatusCard.
@@ -21,11 +20,10 @@ import ProductTour from '@/components/onboarding/ProductTour';
 import WalletManager from '@/components/wallet/WalletManager';
 import DemoCapUsageCard from '@/components/dashboard/DemoCapUsageCard';
 import { FirstWalletGuide } from '@/components/wallet/FirstWalletGuide';
-// ProductModeCard is UNMOUNTED (founder 2026-07-18): the product toggle moved
+// ProductModeCard is UNMOUNTED: the product toggle moved
 // to the sidebar (components/authority/ProductToggle.tsx). Card preserved at
 // components/dashboard/ProductModeCard.tsx.
-// LegacySummaryPanel (the standalone Legacy hero) is UNMOUNTED (founder
-// 2026-07-18): the Legacy is "una wallet más" — its data feeds the EXISTING
+// LegacySummaryPanel (the standalone Legacy hero) is UNMOUNTED: the Legacy is "una wallet más" — its data feeds the EXISTING
 // Net worth / Health organisms below instead of a parallel section. The
 // component is preserved at components/dashboard/LegacySummaryPanel.tsx.
 import { getLegacyNickname } from '@/components/legacy/legacyLocal';
@@ -107,10 +105,10 @@ function normaliseSnap(raw: PortfolioSnapshot | null | undefined): PortfolioSnap
   return snap;
 }
 
-// assetQuantities moved to components/dashboard/DonutCard (fusión 2026-08-22).
+// assetQuantities moved to components/dashboard/DonutCard (fusión).
 
 // Engine kind enums → words a person would use (same register as Portfolio).
-// PARKED 2026-07-30 (with prettyKinds/onlyEarningKinds below): the Assets
+// PARKED (with prettyKinds/onlyEarningKinds below): the Assets
 // Earning ring stopped charting kinds — it now splits the WHOLE capital by
 // asset + idle. Kept inert per repo rule; grep for callers before reviving.
 const KIND_WORD: Record<string, string> = {
@@ -155,9 +153,7 @@ export default function OverviewPage() {
   const es = lang === 'es';
   const user = useAuthStore((s) => s.user);
   const address = user?.address;
-  // EL HOME ENSEÑA SIEMPRE LA FLOTA ENTERA (fundador 2026-08-22, quinta
-  // pasada: «el summary siempre muestra el whole fleet, no pongas botón, hay
-  // que simplificar más las cosas»). La lente que se podía reencuadrar por
+  // EL HOME ENSEÑA SIEMPRE LA FLOTA ENTERA. La lente que se podía reencuadrar por
   // fila duró un día: un botón de más en la pantalla que debe leerse de un
   // vistazo. Para mirar una cuenta sola está Wallets, que es adonde lleva la
   // fila al pulsarla.
@@ -185,7 +181,7 @@ export default function OverviewPage() {
     // /alerts endpoint takes one address, so fan out per wallet and merge,
     // deduping by id and summing the real per-wallet counts (each capped
     // server-side at 100, not at the 4 rows we render).
-    // G2 (auditoría 17-ago) — este filtro EVM dejaba fuera TODA cuenta XRPL,
+    // G2 (auditorí) — este filtro EVM dejaba fuera TODA cuenta XRPL,
     // y con ella el único canal donde vive el «por qué no pasó nada» de una
     // regla gobernada: el motor escribe una Alert por cada disparo Y por cada
     // ERROR (consejo sin jaula, compose fallido, pago programado inválido) con
@@ -250,11 +246,11 @@ export default function OverviewPage() {
   // Wallet connected, snapshot loaded, nothing in it — the moment the
   // dashboard should nudge toward Earn instead of just showing empty charts.
   //
-  // Ola 0 (15-sep) — ONLY when every adapter answered. `positions.length === 0`
+  // ONLY when every adapter answered. `positions.length === 0`
   // alone said «nothing is working yet — Open your first strategy» over a live
   // carry whenever the forced refresh after a signature landed on a 429 and
   // the snapshot came back without Kinetic. `snapshot.unreadable` has been
-  // there since it. 31; this is its reader (lib/portfolioUnreadable).
+  // there; this is its reader (lib/portfolioUnreadable).
   const positionsVerdict = homePositionsVerdict(snap);
   const hasPositions = positionsVerdict === 'positions';
   const noPositionsYet = positionsVerdict === 'empty';
@@ -270,7 +266,7 @@ export default function OverviewPage() {
   // must still see the fleet).
   const hasCapitalSurface = !!address || fleet.rows.length > 0;
 
-  // Load-once, reveal-once (bug 2026-07-21: "carga una vez, no lo carga todo y
+  // Load-once, reveal-once (bug: "carga una vez, no lo carga todo y
   // luego vuelve a cargarlo todo"). For a user whose capital comes from
   // connected wallets (no SIWE address), myWallets is [] on the first paint, so
   // hasCapitalSurface was briefly false — the Welcome panel cascaded in, then a
@@ -287,9 +283,7 @@ export default function OverviewPage() {
   const showDashboard = hasCapitalSurface || surfaceUndecided;
   const showWelcome = !hasCapitalSurface && !surfaceUndecided;
 
-  // The two allocation rings, back on the Summary (founder 2026-08-22: the
-  // fusion had sent them to the Portfolio and took the page's balance with
-  // them). Same organisms the Portfolio renders — ONE component, in
+  // The two allocation rings, back on the Summary. Same organisms the Portfolio renders — ONE component, in
   // components/dashboard/DonutCard — reading whatever the lens selected.
   const ring = useMemo(
     () => earningRing(snap, es ? 'En camino' : 'On the way'),
@@ -310,7 +304,7 @@ export default function OverviewPage() {
         : hour < 12 ? 'Good morning' : hour < 20 ? 'Good afternoon' : 'Good evening';
   const pilotName = user?.username || (es ? 'Capitán' : 'Captain');
 
-  // El panel incrustado de Wallets MURIÓ (2026-08-22, quinta pasada): Wallets
+  // El panel incrustado de Wallets MURIÓ (quinta pasada): Wallets
   // volvió a ser un destino propio del menú, así que la superficie completa
   // vive en /app/wallets y no hace falta esconderla dentro del Home. Los
   // enlaces viejos siguen entrando: `?panel=wallets` se reenvía allí, con su
@@ -325,14 +319,12 @@ export default function OverviewPage() {
   }, [router]);
 
   return (
-    /* One-viewport contract (founder 2026-07-25: "que no tenga scroll, que se
-       vea todo en una carga"): on lg+ the column takes exactly the viewport
+    /* One-viewport contract: on lg+ the column takes exactly the viewport
        minus the shell's py-8 and every band is shrink-0 EXCEPT the donuts row,
        which flexes and lets its donuts scale down. No overflow-hidden — on a
        genuinely tiny window the page still scrolls rather than cutting
        content. Below lg the page stacks and scrolls naturally, as ever. */
-    // min-h, no h (fundador 2026-09-11: «es prioritario que se pueda hacer
-    // scroll a que se vean cortados los gráficos»): con sitio, la columna llena
+    // min-h, no h: con sitio, la columna llena
     // el viewport como siempre; sin sitio —pantalla baja— CRECE y la página
     // hace scroll, en vez de apretar la fila de anillos hasta recortarlos.
     <RevealGroup className="flex flex-col gap-4 lg:min-h-[calc(100dvh-4rem)]" stagger={0.045}>
@@ -351,14 +343,14 @@ export default function OverviewPage() {
             {greeting}, <span className="text-gold-sweep font-semibold">{pilotName}</span>
           </h1>
           <p className="text-ink/55 mt-2 text-sm">{t('Here is where your capital stands today.')}</p>
-          {/* The "Across all fleets" line of the fusion is GONE (2026-08-22,
+          {/* The "Across all fleets" line of the fusion is GONE (
               this pass): the hero figure below IS that total by default, and
               the band prints each half's subtotal — a third copy of the same
               number was furniture. */}
         </div>
-        {/* The product toggle left this header (founder 2026-07-18): it lives
+        {/* The product toggle left this header: it lives
             in the sidebar slot (ProductToggle). Only telemetry remains here. */}
-        {/* First-run tour — back from the retired Home (fusión 2026-08-22):
+        {/* First-run tour — back from the retired Home (fusión):
             the Summary is the meeting point again. Fresh id 'summary' so the
             fused layout replays even for pilots who saw the Home tour. */}
         <ProductTour
@@ -384,8 +376,7 @@ export default function OverviewPage() {
         )}
       </RevealItem>
 
-      {/* LegacyVaultCard is UNMOUNTED here (founder 2026-08-01: "Legacy debe
-          ser igual que Personal"). The cage's capital now enters the portfolio
+      {/* LegacyVaultCard is UNMOUNTED here. The cage's capital now enters the portfolio
           pipeline SERVER-SIDE (LegacyCagePositionsService → XrplBalanceProvider
           attributes the vault to the council account), so net worth, the
           earning ring and My Assets count it like any personal position — no
@@ -401,7 +392,7 @@ export default function OverviewPage() {
         <>
           {/* ONE hero organism: net worth and health share a single panel,
               separated by a hairline — the state of your capital reads as one
-              breath, not two competing boxes. Compacted 2026-07-25: the
+              breath, not two competing boxes. Compacted: the
               per-wallet rows moved OUT to WalletsBand below, so this panel is
               a short reading, not a tower. */}
           <RevealItem className="shrink-0">
@@ -410,7 +401,7 @@ export default function OverviewPage() {
             {/* La luz del cursor viaja por el héroe como en las tarjetas de la
                 landing — el panel se siente iluminado, no pintado. Y encima,
                 y el barrido lento que lo recorre solo. El relevo por los
-                cuatro paneles se retiró (fundador 2026-08-25): la luz se queda
+                cuatro paneles se retiró: la luz se queda
                 AQUÍ, en el primer recuadro, a la misma velocidad. */}
             <Spotlight className="rounded-2xl">
               <div className="relative rounded-2xl">
@@ -441,7 +432,7 @@ export default function OverviewPage() {
             </RevealItem>
           )}
 
-          {/* Ola 0 — lo que el barrido NO pudo leer se dice aquí, con
+          {/* Lo que el barrido NO pudo leer se dice aquí, con
               reintento que pide un snapshot fresco; nunca se disfraza de
               «nada trabajando». */}
           {snapUnreadable.length > 0 && (
@@ -450,8 +441,7 @@ export default function OverviewPage() {
             </RevealItem>
           )}
 
-          {/* LAS CUENTAS, una línea cada una (fundador 2026-08-22, quinta
-              pasada): el vistazo de siempre — lo que trabaja, cómo está, lo
+          {/* LAS CUENTAS, una línea cada una: el vistazo de siempre — lo que trabaja, cómo está, lo
               que vale — con los Legacy dentro de la misma lista. No se
               seleccionan: la fila lleva a Wallets, que es donde se gestionan y
               de donde cuelga la gobernanza de una cuenta del consejo. */}
@@ -459,16 +449,14 @@ export default function OverviewPage() {
             <FleetBand view={fleet} />
           </RevealItem>
 
-          {/* StructuresBand (the governed fleet) LEFT this page (founder
-              2026-08-19: "quita estructuras del summary") — it closes the
+          {/* StructuresBand (the governed fleet) LEFT this page — it closes the
               Portfolio now, under every lens. The Summary keeps one viewport:
               hero, wallets, destinations.
-
-              Destinations (founder 2026-07-25): My Assets → Portfolio;
+          { *
+              Destinations: My Assets → Portfolio;
               Assets Earning → the strategy registry inside Earn. Both read the
               LENS, so the rings answer "of what I just picked". */}
-          {/* El suelo de esta fila es lo que arregla los quesitos (fundador
-              2026-08-22: «sigue roto lo de los quesitos»). Con la banda alta,
+          {/* El suelo de esta fila es lo que arregla los quesitos. Con la banda alta,
               el `flex-1` dejaba a los anillos menos alto del que necesitan y
               el aro se desbordaba por encima del título de su propia tarjeta.
               Ahora la fila no baja de lo que el anillo pide: si el viewport no
@@ -517,7 +505,7 @@ export default function OverviewPage() {
 
 // ── Welcome (no wallet connected) ─────────────────────────────────────────────
 function WelcomePanel({ es, t, onConnect }: { es: boolean; t: (s: string) => string; onConnect?: () => void }) {
-  // First-wallet guide (founder 2026-08-08): users landing from an exchange
+  // First-wallet guide: users landing from an exchange
   // own tokens but no wallet — for them "Connect wallet" is a wall, so the
   // welcome panel carries its own door into the step-by-step guide. Mounted
   // WITHOUT connect handlers: its last step hands over to /app/wallets?add=1.
@@ -532,8 +520,8 @@ function WelcomePanel({ es, t, onConnect }: { es: boolean; t: (s: string) => str
         style={{ background: 'radial-gradient(circle, hsl(var(--volt) / 0.12), transparent 70%)' }}
         aria-hidden
       />
-      {/* The living beacon — the empty state wears a SCENE, not a void
-          (founder 2026-08-22: "cara de página terminada"). Hidden below lg
+      {/* The living beacon — the empty state wears a SCENE, not a void.
+          Hidden below lg
           where the copy needs the room. */}
       <div className="pointer-events-none absolute right-8 top-1/2 hidden -translate-y-1/2 lg:block opacity-90" aria-hidden>
         <motion.div
@@ -617,10 +605,9 @@ function NoPositionsCTA({ es, t }: { es: boolean; t: (s: string) => string }) {
 }
 
 // ── Net worth — the hero figure, bare on purpose ──────────────────────────────
-// The per-wallet rows moved to WalletsBand (2026-07-25); a "pulse" strip
+// The per-wallet rows moved to WalletsBand; a "pulse" strip
 // (trailing gains + working share) briefly filled the room they left and was
-// REMOVED the next day (founder 2026-07-26: "deja el net worth como antes,
-// sin nada") — the figure breathes alone, vertically centred.
+// REMOVED the next day — the figure breathes alone, vertically centred.
 function NetWorthCard({
   snap,
   es,
@@ -631,7 +618,7 @@ function NetWorthCard({
   es: boolean;
   t: (s: string) => string;
   /** Legacy product mode: the loaded governed account's identity — the same
-   *  card, one more wallet, with its governance stated (founder 2026-07-18).
+   *  card, one more wallet, with its governance stated.
    *  The council reading (total · rehearsed) sits small NEXT TO the balance. */
   legacy?: {
     nickname?: string;
@@ -688,7 +675,7 @@ function NetWorthCard({
         >
           {hidden ? <EyeOff className="w-4 h-4" strokeWidth={1.5} /> : <Eye className="w-4 h-4" strokeWidth={1.5} />}
         </button>
-        {/* Council reading, small, right beside the balance (founder ask). */}
+        {/* Council reading, small, right beside the balance (ask). */}
         {legacy && legacy.total != null && (
           <div className="ml-1 self-center text-[11px] leading-snug text-ink/45">
             <div className="font-medium text-ink/60">
@@ -707,8 +694,8 @@ function NetWorthCard({
           ? `${positions} ${positions === 1 ? t('position') : t('positions')}${chainLabel ? ` · ${chainLabel}` : ''}`
           : t('Loading…')}
       </div>
-      {/* «Aún leyendo tus wallets» — la cifra parcial se declara parcial
-          (fundador 2026-09-07: sin esta señal, un total a medias asusta). */}
+      {/* «Aún leyendo tus wallets» — la cifra parcial se declara parcial.
+      { */}
       <div className="mt-2.5">
         <PortfolioSyncBadge />
       </div>
@@ -716,7 +703,7 @@ function NetWorthCard({
   );
 }
 
-// PARKED 2026-08-01 (with signedMoney below): the Wallets band no longer draws
+// PARKED (with signedMoney below): the Wallets band no longer draws
 // a P&L range. Two reasons, in order. (1) It could not be read: a track with a
 // round knob and a figure on each side reads as a SLIDER you set, not as a
 // range you are shown, and the only explanation lived in a hover title.
@@ -727,15 +714,6 @@ function NetWorthCard({
 // performance is exactly what invariant #9 forbids. Reviving this needs REAL
 // deposit/withdrawal records from the backend, not a heuristic. Kept inert per
 // repo rule; grep for callers before reviving.
-//
-// Deposit-aware P&L range (founder 2026-07-26: "si el usuario mete de golpe
-// 1000 XRP que no suba al 200%"): without flow data, a single-step jump that
-// is BOTH >25% of the previous snapshot and >$50 is treated as money moved
-// in/out — a baseline shift, not performance — and excluded from the profit
-// curve. The all-time low/high are then the extremes of that adjusted curve
-// (P&L basis: 0 = the first snapshot). An approximation, honestly labelled:
-// real flow accounting needs deposit/withdrawal records the frontend doesn't
-// have yet.
 function pnlRange(points: HistoryPoint[]): { atl: number; ath: number; cur: number } | null {
   if (points.length < 2) return null;
   let adj = 0;
@@ -756,36 +734,16 @@ function signedMoney(v: number): string {
   return `${v < 0 ? '−' : '+'}${formatMoneyCompact(Math.abs(v))}`;
 }
 
-// ── The per-wallet reading MOVED OUT (2026-08-22, revisión de la fusión) ────
+// ── The per-wallet reading MOVED OUT (revisión de la fusión) ────
 // holdingsOf/holdingsLine, capitalMix, healthLine and the CapitalMeter now
 // live with the band that draws them, in components/dashboard/FleetBand.tsx —
 // one copy, not two. What must not be re-litigated there:
-//
-//  · The meter's denominator is the wallet's ASSETS; open debt stays out,
-//    exactly as positionKinds prescribes. Debt must NOT become a fourth
-//    segment: it would double-encode what the health reading beside it already
-//    says, and in the light theme the debt token (#BA1C1C) and the volt token
-//    (#977217) sit at CVD ΔE 5.9 (deutan) — a red/gold pair a deuteranope
-//    cannot separate. Checked with the dataviz validator, not by eye.
-//  · The value is ALWAYS carried by a direct label beside the bar, never by
-//    colour alone (the light theme's worst pair is protan ΔE 7.7, which the
-//    spec allows only WITH secondary encoding — hence the 2px gap, the label
-//    and the legend, all three present).
-//  · A health reading never renders alone: word first, score second, and the
-//    score only when the wallet actually carries debt (with no borrow the
-//    scale pins at 100 by definition, so "100/100" on four rows teaches
-//    nothing).
-//
-// The P&L range that lived in those rows until 2026-08-01 is parked above
-// (pnlRange): it read as a slider and, on small wallets, priced transfers as
-// performance.
 
 // ── Position health — simple, honest, one small ornament ────────────────────
 // History of this card, so nobody re-grows it: the "Capital in orbit" dial
-// left 2026-07-25 (repeated Assets Earning + blended score read as unreal
+// left (repeated Assets Earning + blended score read as unreal
 // risk); a data-dense v2 (open debt figure, per-wallet HF strip) left the
-// next day (founder 2026-07-26: "déjalo simple y con algún artefacto visual
-// sencillo"). What stays: the honest posture (no debt = nothing can be
+// next day. What stays: the honest posture (no debt = nothing can be
 // liquidated), the three readings, and ONE ornament — a dashed orbit whose
 // moonlet wears the REAL health tone. Decoration reflecting truth, no
 // invented number.
@@ -806,7 +764,7 @@ function HealthCard({
   es: boolean;
   t: (s: string) => string;
   /** Legacy product mode: gates the "you propose" line. The council reading
-   *  itself lives beside the balance in NetWorthCard (founder 2026-07-18). */
+   *  itself lives beside the balance in NetWorthCard. */
   legacy?: boolean;
 }) {
   const snapHf = typeof riskSnap?.healthFactor === 'number' ? riskSnap.healthFactor : null;
@@ -819,7 +777,7 @@ function HealthCard({
 
   const hfTone = hf == null ? 'text-ink' : hf < 1.2 ? 'text-tone-danger' : hf < 1.5 ? 'text-tone-warning' : 'text-tone-success';
 
-  // HF sobre 100 (founder 2026-07-26, "ejemplo 10/100"): la escala calibrada
+  // HF sobre 100: la escala calibrada
   // del repo (lib/healthScore — HF 1,1 → 10, liquidación → 0, 100 reservado a
   // cero deuda), el mismo cuello que ya puntúa las tiras por wallet.
   const hfScore = snap ? healthScoreFromHF(hf, hasDebt) : null;
@@ -850,8 +808,8 @@ function HealthCard({
         href="/app/portfolio#position-health"
         className="group/health flex h-full items-center justify-between gap-6 rounded-xl -m-2 p-2 transition-colors hover:bg-ink/[0.03]"
       >
-        {/* Founder 2026-07-26: sin titular de postura ni riskScore — el summary
-            son ESTAS dos lecturas, todo centrado en la card. */}
+        {/*
+        { */}
         <div className="min-w-0 self-center">
           <div className="mb-4">
             <MicroLabel>{es ? 'Salud de posiciones' : 'Position health'}</MicroLabel>
@@ -871,7 +829,7 @@ function HealthCard({
                 )}
                 {/* La cifra CUENTA al llegar (idioma de la casa: «figures
                     count up»). Antes el guion se sustituía por el número de
-                    golpe — el pop que el fundador señaló (2026-08-25). */}
+                    golpe — el pop que el fundador señaló. */}
                 <span className={`font-mono ${protections != null && protections > 0 ? 'text-tone-success' : 'text-ink'}`}>
                   {protections != null ? <CountUp value={protections} format={(v) => String(Math.round(v))} /> : '—'}
                 </span>
@@ -890,7 +848,7 @@ function HealthCard({
           )}
         </div>
 
-        {/* El dial de la derecha (founder 2026-07-26): LTV real — deuda sobre
+        {/* El dial de la derecha: LTV real — deuda sobre
             colateral — con el mismo trazo OrbitDial del Protection buffer.
             0 = sin deuda (planeta aparcado), más órbita = más apalancado.
             Dato del snapshot/risk engine, jamás inventado. */}
@@ -926,12 +884,12 @@ function Reading({
   );
 }
 
-// DonutFrame + DonutCard moved to components/dashboard/DonutCard (fusión
-// 2026-08-22) — the Portfolio's Overview renders them now.
+// DonutFrame + DonutCard moved to components/dashboard/DonutCard (fusión)
+// — the Portfolio's Overview renders them now.
 
 // ── Recent alerts (mobile surface — desktop reads the health card counter) ────
 /**
- * LA PUERTA DEL AVISO (25-ago-2026). El motor manda el deep-link de cada
+ * LA PUERTA DEL AVISO. El motor manda el deep-link de cada
  * disparo accionable —repago de la posición de Ethereum, propuesta del consejo,
  * pago programado, escrow— y hasta hoy ese enlace viajaba SOLO en el push. Aquí
  * la fila era texto muerto: «Ethereum repay ready to prepare» y a buscarte la

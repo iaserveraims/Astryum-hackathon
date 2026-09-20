@@ -11,9 +11,6 @@
  *  3. Passthrough: GET /stuck devuelve el snapshot del watcher + checkedAt;
  *     POST /unstick entrega (hash, op, reason) tal cual y devuelve el
  *     resultado del watcher sin adornarlo.
- *
- * El watcher real se stubbea: su comportamiento (park/retry/kick) tiene su
- * propia suite en services/flare/__tests__/DirectMintExecutorService.unstick.test.ts.
  */
 
 // requireAdmin vive en adminPanel.ts, que arrastra prisma + waitlist (mailer)

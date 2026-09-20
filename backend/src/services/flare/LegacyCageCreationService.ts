@@ -5,31 +5,6 @@
  * whose memo commits a userOp; the executor pays the FDC attestation; the
  * council's own Personal Account runs the committed batch). What is new is the
  * batch itself:
- *
- *   1. LegacyStackFactory.create(councilR, params)   ← msg.sender = the PA,
- *      which the factory verifies against MasterAccountController — only the
- *      council's own account can bring its cage into the world.
- *   2. FXRP.approve(predictedVault, supplyUBA)
- *   3. LegacyVault.deposit(supplyUBA)                ← the vault does not exist
- *      when the quorum signs; CREATE2 makes its address knowable anyway.
- *
- * One signature therefore creates the cage AND funds it — but does NOT direct
- * the capital into any venue: that separation stays deliberate (a signature
- * should not both lock family capital away and decide where it works).
- *
- * The ETERNAL params are assembled here, each from the authority that owns it:
- *   asset            — AssetManagerFXRP.fAsset(), read live (#invariant: never
- *                      from a doc or a chat).
- *   constitutionRef  — the SHA-256 the council ALREADY anchored on XRPL via
- *                      DIDSet. No anchor → no cage: the text precedes the code.
- *   protocolTreasury — LEGACY_PROTOCOL_TREASURY (install-level, D6).
- *   linajeFeeBps     — chosen by the quorum within the constructor's [10%,40%]
- *                      band (D5); default 3000.
- *   initialVenues    — the venues the product can actually compose orders for
- *                      (Kinetic kFXRP ISO, Firelight stXRP), from config.
- *
- * Prepare-only throughout: this module encodes bytes and reads public state.
- * It signs nothing, submits nothing, holds no key (invariants #1/#8).
  */
 
 import { ethers } from 'ethers';
@@ -65,7 +40,7 @@ export interface CageParams {
   initialVenues: CageVenue[];
 }
 
-/** D5: the founder's decision for the birth rate; the band is the contract's. */
+/** The band is the contract's. */
 export const LINAJE_DEFAULT_BPS = 3000;
 export const LINAJE_FLOOR_BPS = 1000;
 export const LINAJE_CEIL_BPS = 4000;
@@ -121,7 +96,7 @@ export function normalizeLinajeFeeBps(raw: unknown): number {
   return bps;
 }
 
-// ── The beta cap on caged capital (founder, 2026-08-06) ─────────────────────
+// ── The beta cap on caged capital ─────────────────────
 //
 // The cage is a ONE-WAY door for principal: it can work, come back idle, or
 // migrate — it can never be paid out to an address. During the beta, someone
@@ -131,9 +106,6 @@ export function normalizeLinajeFeeBps(raw: unknown): number {
 // mint/deposit that would push a cage's TOTAL above the cap. Someone calling
 // the contract by hand is outside the product and outside the cap — the cap
 // protects users of our rails, which is exactly its job.
-//
-// Exemptions reuse the demo-cap lists (DEMO_CAP_EXEMPT_EMAILS / _ADDRESSES):
-// one place to whitelist the founder's accounts, not two.
 
 /** Total principal a cage may hold via our rails, in UBA. Env-tunable
  *  (LEGACY_CAGE_MAX_TOTAL_XRP, default 5); '0' or 'off' disables. */

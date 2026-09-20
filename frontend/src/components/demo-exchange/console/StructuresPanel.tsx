@@ -3,32 +3,6 @@
 /**
  * StructuresPanel — sumar las wallets XRPL de una persona bajo su cuenta
  * personal: las CUENTAS COMANDADAS.
- *
- * La cuenta personal del titular se sienta en la lista de firmantes de las
- * demás — sola (quórum 1) o como una de varias — y eso es lo que las hace
- * «subwallets». El árbol de autoridad es del USUARIO, no del exchange: el
- * exchange solo pone la caja que patrocina la reserva.
- *
- * La cuenta nace en la wallet de su titular, se constituye con su lista de
- * firmantes, se ensaya en cadena y se cierra con `asfDisableMaster`. Después de
- * eso NADIE tiene llave de esa cuenta — ni el titular, ni el exchange, ni
- * Astryum: solo manda quien está sentado.
- *
- * Diseño y cuadro de asientos:
- * `docs/context/Astryum_Exchange_2_Estructuras_Bajo_El_Omnibus_2026-09-18.md`.
- *
- * FLUJO MECÁNICO, NO INSTRUCCIONES (doctrina del 21-ago). La ceremonia son
- * cinco pasos y esta pantalla los RECORRE: compone el paso, lo manda a firmar
- * por la puerta que le toca a ese firmante, y cuando el ledger lo valida lo
- * apunta con su hash. El siguiente paso no se ofrece hasta que el anterior está
- * en el ledger — y el servidor vuelve a comprobarlo, porque el candado de la
- * puerta no puede vivir en un componente de React.
- *
- * LO QUE ESTA PANTALLA NO DECIDE: quién puede mover el dinero. Lo dice la
- * aritmética de los asientos en el servidor; aquí solo se enseña la negativa con
- * su razón. Declarar «manda mi personal sola» con un quórum que no alcanza, o
- * dejar que un tercero lo alcance, no se puede por mucho que se rellene el
- * formulario.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -565,7 +539,7 @@ function SignStep({
   const title = `${stepLabel(prepared.step, t)} — ${signerLabel(prepared.signer, t)}`;
   // A quorum step goes through the council doors; a single-signature step goes
   // to its own wallet. Sending a quorum order down the single-sig door is how
-  // «not a council account» happened on 5-sep; each tool to its account.
+  // «not a council account» happened; each tool to its account.
   const byQuorum = prepared.signer === 'structure-quorum';
   const account = prepared.signer === 'funder' ? omnibusAddress : prepared.signer === 'root' ? rootAddress : structureAddress;
 

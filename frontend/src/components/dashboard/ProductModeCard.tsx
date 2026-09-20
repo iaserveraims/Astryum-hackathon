@@ -1,22 +1,12 @@
 'use client';
 
 /**
- * ProductModeCard — the product toggle (founder direction 2026-07-17).
+ * ProductModeCard — the product toggle.
  *
  * One dashboard, two products: Astryum (your normal wallets) and Legacy (the
  * council-governed product). This card sits in the Summary header next to the
  * network telemetry and is THE place you change product — a deliberate act
  * with its own ceremony, not a floating button.
- *
- * What flipping it does: loads the predefined Legacy wallet (last used, else
- * the first of Mis Legacies), swaps the Wallets tab for Legacy in the nav,
- * and re-tints the whole dashboard (data-authority → --volt in globals.css).
- * Everything else stays identical — same skeleton, two suits.
- *
- * Designed for its function (not a clone of the gas card): the two product
- * identities as a segmented control, and one status line saying what is
- * loaded. The active segment carries `volt`, which itself flips gold→indigo
- * with the mode, so the card always shows the product's own color.
  */
 
 import Link from 'next/link';

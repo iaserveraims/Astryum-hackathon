@@ -5,23 +5,10 @@
  *
  * Este fichero lo importan DOS portadas: `LandingPage` (donde se trabaja) y
  * `LandingPageProduction` (congelada por hash). Cuando el viaje ganó el núcleo
- * —tus cuentas— y la quinta órbita —Operar— (20-sep), el cambio entró por
+ * —tus cuentas— y la quinta órbita —Operar, el cambio entró por
  * aquí… y por aquí habría llegado a producción en la siguiente promoción, sin
  * que nadie lo decidiera: el hash congela la portada, no lo que la portada
  * importa.
- *
- * La regla del 14-sep: lo que decide si algo se VE en producción vive en
- * código, nunca en una variable ni en un efecto colateral. Así que:
- *
- *   · `SolarJourneyClassic`  — el viaje tal y como estaba antes del núcleo
- *     (768af3ec^): cuatro paradas, 920svh. Es lo que pinta producción.
- *   · `SolarJourneyMandos`   — el viaje nuevo: núcleo, quinta órbita, la voz
- *     «aplicado a ti» de /self-custody.
- *
- * Y una sola puerta, la misma que cierra las páginas nuevas:
- * `MANDOS_LANDING_OPEN`. Preview y local ven el nuevo; producción, el de
- * siempre, hasta que un commit publique `MANDOS_LANDING_PUBLISHED`. Ese día
- * el clásico se puede retirar.
  */
 
 import { MANDOS_LANDING_OPEN } from '../../lib/nav/mandosLanding';

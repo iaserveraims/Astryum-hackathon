@@ -6,7 +6,7 @@ console.log('[BOOT] node entry reached, pid=' + process.pid + ' node=' + process
 // Un error no capturado deja el proceso en estado indefinido: puede seguir
 // sirviendo peticiones a medias o morirse a la siguiente. Antes solo iba al log
 // de Railway, donde nadie mira a las 3 de la mañana. Ahora sale también por el
-// canal de avisos (2026-08-03) — best-effort y sin await: si el canal falla, o
+// canal de avisos — best-effort y sin await: si el canal falla, o
 // si el proceso muere antes de entregar, el interruptor de hombre muerto
 // (OPS_HEARTBEAT_URL) lo cazará igual.
 function reportCrash(kind: string, e: unknown): void {
@@ -142,7 +142,7 @@ app.use(cors({
   // blocked the request before it ever reached the backend, so the panel
   // failed even with ADMIN_PANEL_KEY correctly seeded.
   // x-admin-session: the 2h panel session token that replaced the raw key on
-  // every overview call (2026-07-23 hardening). Same preflight caveat.
+  // every overview call (hardening). Same preflight caveat.
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-admin-key', 'x-admin-session']
 }));
 
@@ -151,8 +151,8 @@ app.use(cors({
 // claims and portfolio pollers at ~60s, ledger reads, settlement bursts), so
 // a founder with a few tabs open — or two people behind one office IP —
 // drained the bucket and EVERY route answered 429: both assistants showed
-// "too many questions" at once and it read as Anthropic credits running out
-// (2026-08-08). 2000/15min ≈ 2.2 req/s sustained per IP: room for real use,
+// "too many questions" at once and it read as Anthropic credits running out.
+// 2000/15min ≈ 2.2 req/s sustained per IP: room for real use,
 // still a wall against abuse loops. Env-tunable without a deploy.
 app.use(rateLimit(Number(process.env.API_RATE_LIMIT_MAX || 2000), 15 * 60 * 1000));
 
@@ -178,7 +178,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Contador de 5xx (2026-08-03). Una petición que revienta quedaba solo en el
+// Contador de 5xx. Una petición que revienta quedaba solo en el
 // log: el usuario veía el error y nosotros no. No se alerta por error suelto —
 // se cuenta en una ventana y el probe `errores-http` del Sentinel mira la forma
 // del conjunto (una ráfaga en la misma ruta = despliegue roto o dependencia
@@ -273,7 +273,7 @@ try {
   stepUpGuard = require('./middleware/requireStepUp').stepUpGuard;
 } catch (err) {
   logger.error('CRITICAL: failed to load auth/chain middleware', { err });
-  // §1.3 (2026-08-02): FAIL-CLOSED. With the no-op fallbacks above, every
+  // §1.3: FAIL-CLOSED. With the no-op fallbacks above, every
   // router below would mount WITHOUT auth and the only trace would be one log
   // line. A backend that cannot authenticate must not serve — die loudly and
   // let the hosting restart (and the Sentinel report the restart).
@@ -340,7 +340,7 @@ mountRouter('/api/network', () => require('./routes/networkStatus').default);
 // Platform status light (Astryum Orbit System): GET is public; the PUT that
 // flips online/offline sits behind adminPanel's requireAdmin inside the router.
 mountRouter('/api/platform', () => require('./routes/platformStatus').default);
-// El espejo de cuentas producción → preview (2026-09-14), solo fundadores. El
+// El espejo de cuentas producción → preview, solo fundadores. El
 // servicio se niega solo en producción: aquí la ruta existe pero contesta 409.
 mountRouter('/api/account-mirror', () => require('./routes/accountMirror').default);
 // PUBLIC (no auth): early-access waitlist capture from the landing. Write-only
@@ -374,7 +374,7 @@ mountRouter('/api/xrpl-defi', () => require('./routes/xrplDefi').default, requir
 // route by INSTITUTIONAL_POTES_ENABLED (#10, ships OFF); the read-only
 // pote-state/credential-gate endpoints stay open (public chain state).
 mountRouter('/api/institutional', () => require('./routes/institutional').default, requireSiweAuth);
-// La bandeja de credenciales XLS-70 (27-ago): leer lo que el ledger dice de una
+// La bandeja de credenciales XLS-70: leer lo que el ledger dice de una
 // cuenta y componer, sin firmar, el CredentialAccept que firma el SUJETO. Sin
 // endpoint de emisión a propósito: Astryum no emite ni acepta por nadie.
 mountRouter('/api/xrpl-credentials', () => require('./routes/xrplCredentials').default, requireSiweAuth);
@@ -867,13 +867,13 @@ async function startServer() {
     console.log('[BOOT] about to listen on', HOST + ':' + PORT);
     server.listen(PORT, HOST, () => {
       console.log('[BOOT] server.listen callback fired — accepting requests');
-      // El catálogo de potes se calienta solo (12-sep): una lectura en segundo
+      // El catálogo de potes se calienta solo: una lectura en segundo
       // plano al arrancar y otra cada 20 min, para que nadie pague el frío al
       // abrir Earn → Managed vaults. Un fallo se anota y no tumba nada.
       import('./services/flare/PoteCatalogRead')
         .then((m) => m.startPoteCatalogWarmup())
         .catch((e) => logger.error('[BOOT] catalog warmup not started:', (e as Error).message));
-      // El espejo de cuentas producción → preview (2026-09-14): sin
+      // El espejo de cuentas producción → preview: sin
       // ACCOUNT_MIRROR_SOURCE_URL no hace nada; con la base propia en
       // producción se niega y lo dice. Ver services/accountMirror/plan.ts.
       import('./services/accountMirror/AccountMirrorService')
@@ -915,8 +915,7 @@ async function startServer() {
     }
 
     // Órdenes del consejo firmadas y aún no ejecutadas: reintento AUTOMÁTICO
-    // cada 5 min (founder 2026-08-03: "si es un botón para que el user lo
-    // arregle solo, no debe de ser así"). Una orden que el quórum firmó no
+    // cada 5 min. Una orden que el quórum firmó no
     // puede depender de que alguien vea un aviso y pulse algo — el vigía la
     // reintenta hasta que el puente la consuma, y solo pide ayuda humana
     // cuando el FDC ya no puede atestiguarla (14 días).
@@ -944,8 +943,7 @@ async function startServer() {
     // Sentinel — el vigía de los vigías. Cada N minutos pregunta por el estado
     // de cada carril (executor, nodos XRPL, RPC, DB, órdenes del consejo,
     // combustible…) y avisa SOLO en las transiciones, con el objeto afectado y
-    // la línea de arreglo. Cierra el hueco que dejó el incidente del 31-jul: lo
-    // que NO pasa (un tick que deja de correr) no emitía nada. Además pinga el
+    // la línea de arreglo. Además pinga el
     // interruptor de hombre muerto (OPS_HEARTBEAT_URL): si el proceso entero
     // muere, el aviso lo da alguien de fuera. OPS_SENTINEL_DISABLED=true apaga.
     try {
@@ -959,7 +957,7 @@ async function startServer() {
       logger.warn('Sentinel not started:', err);
     }
 
-    // Vigía XRPL agentizado (Ola 1 economía agéntica): amendments gated, flags
+    // Vigía XRPL agentizado: amendments gated, flags
     // de emisores, venues del sidechain, FAssets/FBTC — pasada diaria read-only,
     // push al operador solo cuando un gate se desbloquea. XRPL_WATCH_DISABLED=true apaga.
     try {
@@ -972,7 +970,7 @@ async function startServer() {
       logger.warn('XrplWatchScheduler not started:', err);
     }
 
-    // Keeper de escrows XRPL (Ola 3 economía agéntica — ejecutor permissionless):
+    // Keeper de escrows XRPL:
     // dispara EscrowFinish/EscrowCancel vencidos de las cuentas vigiladas con la
     // cuenta PROPIA del keeper (jamás claves de usuario; ver frontera MiCA en el
     // header del servicio). Apagado salvo XRPL_KEEPER_ENABLED=true + seed + cuentas.
@@ -1118,7 +1116,7 @@ async function startServer() {
     }
 
     // 0xFE executor — ejecuta los direct-mints que los usuarios YA firmaron en
-    // Xaman (decisión fundador 2026-07-12). Cero discreción: el contrato solo
+    // Xaman. Cero discreción: el contrato solo
     // acepta los bytes exactos comprometidos por la firma (invariante #8);
     // la clave del executor paga attestation FDC + gas, jamás toca claves de
     // usuario (#1/#2). Doble flag (#10): FLARE_EXECUTOR_ENABLED + la PK.

@@ -109,7 +109,7 @@ export function ClientInner({ demo, account }: { demo: DemoRunApi; account: stri
   // A signature that reached the wallet and whose ending we could not read:
   // the amber notice REPLACES the button that would sign it a second time.
   const [depositUnconfirmed, setDepositUnconfirmed] = useState<UnconfirmedSignature | null>(null);
-  // The deposit as a Xaman QR (fundador 14-sep): the same prepared tx, signed from
+  // The deposit as a Xaman QR: the same prepared tx, signed from
   // any Xaman by scanning — no connected wallet. While its QR is live it is a
   // signature: the other doors to the same deposit stay closed (no double pay).
   const [payByQr, setPayByQr] = useState(false);
@@ -335,7 +335,7 @@ export function ClientInner({ demo, account }: { demo: DemoRunApi; account: stri
         if (est <= BigInt(0)) throw new Error(t('Nothing to unmint'));
         const dest = effective === 'exchange' ? run.omnibusAddress : (me.xrplAddress ?? '');
         if (!XRPL_RE.test(dest)) throw new Error(t('Register your own XRPL wallet first (the exchange has it on file).'));
-        // XRPL-only (12-sep): el tag de la vuelta es MI tag del exchange — el
+        // XRPL-only: el tag de la vuelta es MI tag del exchange — el
         // que el watcher usa para acreditarme. Sin él, redeemAmount devolvería
         // el XRP al omnibus SIN etiqueta: dinero anónimo, ni crédito ni recibo.
         // (Si el pote llevara puerta on-chain, el backend lo pisa con tagOf —
@@ -438,7 +438,7 @@ export function ClientInner({ demo, account }: { demo: DemoRunApi; account: stri
   const exitToShown = pickExitTo(exitTo, exitOptions);
   const exitReasons = Array.from(new Set(exitOptions.filter((o) => !o.enabled && o.reason).map((o) => o.reason as string)));
 
-  // it. 33 (2): the same money rule as useExchangeClient — «could not read
+  // The same money rule as useExchangeClient — «could not read
   // whether this row is yours» is shown with the read again, never as the alta.
   const ownershipUnreadable = !me ? ownershipUnreadableFor(run, account) : null;
   if (!me && ownershipUnreadable) return <PortalRefusal refusal={ownershipUnreadable} onRetry={() => void demo.reload()} />;
@@ -521,7 +521,7 @@ export function ClientInner({ demo, account }: { demo: DemoRunApi; account: stri
         <div>
           <div className="text-[10px] uppercase tracking-wider text-ink/50">{t('Your on-chain account')}</div>
           <div className="text-xs font-mono break-all text-ink">{account}</div>
-          {/* XRPL-only (12-sep): sin registro en Flare, «KYC not on-chain yet»
+          {/* XRPL-only: sin registro en Flare, «KYC not on-chain yet»
               sugería un paso pendiente que no existe. La identidad vive en XRPL
               (XLS-70); aquí solo se enseña el tag del exchange. */}
           <div className="text-[11px] text-ink/50">{facts?.registryApproved ? <span className="text-tone-success">{t('KYC on-chain · tag')} {facts.registryTag}</span> : <>{t('Your tag at the exchange')}: <span className="font-mono text-ink/70">{me?.tag ?? '—'}</span></>}</div>
@@ -530,7 +530,7 @@ export function ClientInner({ demo, account }: { demo: DemoRunApi; account: stri
       </div>
 
       {/* La zona de credencial del EXCHANGE, para que el cliente decida si
-          confía (13-sep): la misma pieza del gestor, con rol exchange — la
+          confía: la misma pieza del gestor, con rol exchange — la
           licencia CASP con su link del registro, y el disclaimer «compruébalo
           tú». Descubrimiento, nunca una puerta. */}
       <details className="rounded-2xl border border-ink/10 bg-surface-1 p-4">

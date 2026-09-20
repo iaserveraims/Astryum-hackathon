@@ -3,20 +3,6 @@
  *
  * Answers, from PUBLIC read-only APIs, the three gate questions that decide
  * which XRPL phases are buildable and which stay parked:
- *
- *   1. Amendments — are `SmartEscrow` (XLS-100), `LendingProtocol` (XLS-66)
- *      and `SingleAssetVault` (XLS-65) live on mainnet? (XRPScan API)
- *   2. RLUSD escrow — does the RLUSD issuer have `lsfAllowTrustLineLocking`
- *      ON? While OFF, RLUSD is NOT escrowable and the savings-escrow flow is
- *      XRP-only. (XRPScan account API)
- *   3. Sidechain venue — does the XRPL EVM Sidechain have a real money
- *      market/yield venue? While it doesn't, the cross-chain leveraged flow
- *      stays venue-gated. (DefiLlama /v2/chains + /protocols)
- *
- * Run it at the start of every XRPL session (`npx ts-node src/scripts/xrpl-watch.ts`).
- * Read-only public GETs — no keys, no signing, no invariant surface.
- * Parametrisable so the amendment list / issuer / thresholds can evolve
- * without touching the logic.
  */
 
 // ── Config (values separated from logic — extractable) ───────────────────────
@@ -42,24 +28,22 @@ export interface XrplWatchConfig {
 export const DEFAULT_XRPL_WATCH_CONFIG: XrplWatchConfig = {
   xrpscanBase: 'https://api.xrpscan.com/api/v1',
   defillamaBase: 'https://api.llama.fi',
-  // Los tres primeros gatean fases aparcadas de Astryum; los cuatro siguientes
-  // son la pasada Legacy (Astryum_Legacy_Investigacion_Verificada_2026-07-13 §6):
-  // PermissionDelegation/Batch reportan la votación en vivo; DynamicMPT/Firewall
+  // Los tres primeros gatean fases aparcadas de Astryum; DynamicMPT/Firewall
   // saldrán como "NOT on mainnet" hasta que existan.
   watchedAmendments: [
     'SmartEscrow',
     'LendingProtocol',
     'SingleAssetVault',
     'PermissionDelegation',
-    // El gate real del roadmap (ADR-010 / switcher 2026-07-17) es la V1_1:
+    // El gate real del roadmap (ADR-010 / switcher) es la V1_1:
     // la V1 se desactivó en sep-2025 por bug de fees y jamás llegó a mainnet.
     'PermissionDelegationV1_1',
     'Batch',
     'DynamicMPT',
     'Firewall',
     // XLS-82 — MPTs negociables en el DEX/AMM nativo. Gatea la liquidez
-    // secundaria de las "tokenized credit shares" de XLS-65/66 (análisis
-    // 2026-07-18). No existe en mainnet aún → "NOT on mainnet" hasta entonces.
+    // secundaria de las "tokenized credit shares" de XLS-65/66 (análisis).
+    // No existe en mainnet aún → "NOT on mainnet" hasta entonces.
     'MPTokensV2',
   ],
   escrowGatedIssuers: [
@@ -68,7 +52,7 @@ export const DEFAULT_XRPL_WATCH_CONFIG: XrplWatchConfig = {
       address: process.env.RLUSD_XRPL_ISSUER ?? 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
     },
     {
-      // EURØP (Schuman) — verificado 2026-07-13 (doc Legacy §6): flag OFF hoy.
+      // EURØP (Schuman) — verificado: flag OFF hoy.
       label: 'EURØP',
       address: process.env.EUROP_XRPL_ISSUER ?? 'rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK',
     },

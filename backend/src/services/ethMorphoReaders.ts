@@ -7,15 +7,6 @@
  * (`scripts/dryrun-eth-morpho.ts`) tendría que copiarlos, y una copia que
  * diverge de producción es peor que no tener ensayo — verificaría un carril que
  * no es el que el usuario firma.
- *
- * Aquí no hay lógica de decisión: solo lecturas. Quién puede llamar (flag,
- * geofence, auth, KWYH) sigue siendo asunto de la ruta.
- *
- * NOTA VAULT V2 (leído de mainnet el 17-ago-2026): la bóveda de Sentora es
- * Morpho Vault V2, cuyos `max*` son STUBS que devuelven 0 siempre. Se exponen
- * igual —el servicio sabe ignorarlos— pero las lecturas que dicen la verdad son
- * `balanceOf` + `previewRedeem` (lo que vale tu posición) y el saldo del activo
- * en la bóveda (lo que puede pagarte hoy).
  */
 import { ethers, Interface } from 'ethers';
 import { makeEthersMorphoReader, type MorphoChainReader } from './EthMorphoMarketService';
@@ -88,7 +79,7 @@ export function makeSentoraReader(): SentoraVaultReader {
     // Lo que la bóveda puede pagar AHORA: su saldo líquido del activo. Es lo
     // que hace verdadera la promesa «against the vault's live liquidity».
     //
-    // Y es un techo DURO, no una cota conservadora: leído de mainnet el 17-ago,
+    // Y es un techo DURO, no una cota conservadora: leído de mainnet,
     // esta bóveda tiene `liquidityAdapter() == address(0)`, así que el camino
     // de `withdraw` NO puede desasignar de los mercados al vuelo — paga del
     // saldo propio y nada más (idle 17,5M sobre 319,8M totales ≈ 5,5%). Si
@@ -151,7 +142,7 @@ export function makeBridgeBackReader(): FxrpBridgeBackReader {
 }
 
 /**
- * El cotizador del swap-fill en Ethereum (2026-08-29).
+ * El cotizador del swap-fill en Ethereum.
  *
  * Vive aquí por la misma razón que los demás lectores: el ensayo en seco y la
  * ruta tienen que ejercitar EXACTAMENTE el mismo, o el ensayo verificaría un

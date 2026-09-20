@@ -71,7 +71,7 @@ export function useTrackerDeps(): TrackerDeps {
         // read-only. La traducción a veredicto vive en `verdictFromTxRead`,
         // que es pura y está testeada: aquí sólo se pide el dato.
         //
-        // Lo que esto arregla (22-ago-2026): antes bastaba `validated === true`
+        // Lo que esto arregla: antes bastaba `validated === true`
         // para pintar verde, sin mirar `TransactionResult`. Un `tec*` está
         // validado, ocupa ledger y cobra fee — y NO hizo el pago. Se anunciaba
         // como asentado.
@@ -111,7 +111,7 @@ export interface UseSettlement {
   /** Follow a handle returned by sendIntentCalls (or startPending for XRPL mints). */
   track: (handle: SettlementState, cbs?: TrackCallbacks, opts?: { opKey?: string }) => void;
   /** Adoptar un pendiente persistido (tras recargar): la ventana rehidratada
-   *  vuelve a seguir SU asiento donde lo dejó (fundador 2026-09-09). */
+   *  vuelve a seguir SU asiento donde lo dejó. */
   adopt: (pending: PendingRef, cbs?: TrackCallbacks) => void;
   reset: () => void;
 }

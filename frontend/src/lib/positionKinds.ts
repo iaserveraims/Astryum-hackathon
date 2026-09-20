@@ -4,24 +4,9 @@
  * The Summary ring and the Portfolio table used to each keep their own list of
  * "kinds that earn", and neither knew about CLAIM — the kind an adapter emits
  * for a queued vault exit (shares already redeemed, assets released later).
- * The result (founder, 2026-08-01): money on its way out of Firelight showed up
+ * The result: money on its way out of Firelight showed up
  * in the SAME slate slice as coins sitting idle in the wallet, and the ring read
  * "Working $0.00 (0%)" while a withdrawal was in flight.
- *
- * Four states, and money in flight is its own — never folded into idle:
- *   earning  — deployed and generating (supply, stake, LP, rewards)
- *   inflight — leaving a venue: redeemed/queued, arrives on a known date
- *   debt     — open borrow (neither held nor working; excluded from totals)
- *   idle     — sitting still (wallet balance, XRPL escrow)
- *
- * Whether a QUEUED exit still earns is protocol truth, not a guess, so it is
- * read from the adapter's own metadata (`stillEarning`) instead of assumed:
- *   · Firelight — `_requestWithdraw` fixes your FXRP at request time
- *     (`withdrawAssets[period] += previewRedeem(shares)`, verified on-chain
- *     2026-08-01) → it stops compounding the moment you sign.
- *   · Sceptre  — `_redeem` prices the request at `startedAt + cooldownPeriod`
- *     (same verification) → it KEEPS compounding through the 14.5-day cooldown.
- * Same shape, opposite answer: only the adapter can say which.
  */
 
 export type CapitalState = 'earning' | 'inflight' | 'debt' | 'idle';

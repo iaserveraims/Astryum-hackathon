@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Persistent landing language — extracted from LandingPage 2026-07-25 so the
+ * Persistent landing language — extracted from LandingPage so the
  * standalone marketing pages (/about, /what-we-offer) share the exact same
  * choice the landing persists: saved pick first, browser language as the
  * first-visit default. ONE storage key, one behaviour, three surfaces.

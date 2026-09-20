@@ -3,27 +3,6 @@
 /**
  * useMyManagedPositions — los potes gestionados donde el usuario tiene shares,
  * mirando TODAS sus direcciones linkeadas.
- *
- * El depósito por el carril XRP deja las participaciones en la PERSONAL ACCOUNT
- * (el Smart Account de la wallet XRPL), no en la MetaMask conectada. Mirar solo
- * la EVM activa las perdía (fundador 8-sep: «debería aparecer la posición… mira
- * todas las direcciones linkeadas»). Aquí el holder es el conjunto: cada wallet
- * EVM del usuario Y la PA de cada wallet XRPL suya, resuelta con el mismo
- * `MasterAccountController` determinista que usa todo lo demás.
- *
- * Solo LEE estado público de la cadena; Astryum no firma nada aquí.
- *
- * UN LECTOR PARA TODA LA APP (2026-09-11). Antes el shell (tickets pendientes)
- * y la estantería de Running (posiciones) hacían cada uno su pasada entera —
- * catálogo + un pote-state por pote y wallet — a la vez, y la ráfaga doble
- * contra el RPC público acababa en 429 y en «la cadena no se pudo leer».
- * Ahora la pasada es una, compartida en memoria: cada pote-state trae las
- * shares del holder Y los tickets del pote, así que posiciones y tickets
- * salen de las MISMAS lecturas. Las dos hooks son vistas de ese snapshot.
- *
- * «NO PUDE LEER» ≠ «NO TIENES», también por pote: las lecturas que fallan se
- * CUENTAN (`failed`) y la estantería lo dice, aunque la lista quede vacía.
- * Antes se tragaban una a una y una pantalla sin posiciones parecía verdad.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -74,7 +53,7 @@ export interface ManagedPosition {
   shareDecimals: number;
   /** Lo que esas shares valen HOY en el activo del pote, base units:
    *  shares × totalAssets ÷ totalSupply, con la proporción leída de la cadena
-   *  (13-sep, el mosaico del catálogo enseña «tuyo» en activo, no en
+   *  (el mosaico del catálogo enseña «tuyo» en activo, no en
    *  participaciones). null = el pote no dio supply legible — no se inventa. */
   assetsBase: string | null;
   assetDecimals: number;
@@ -265,8 +244,7 @@ function useManagedSnapshot(enabled: boolean): ManagedSnapshot {
     listeners.add(setState);
     setState(snap);
     // Primera vez, un fallo anterior, OTRA cuenta, o una pasada vieja: se
-    // (re)lee. Regla pura en managedReadState (fundador 17-sep: al cambiar de
-    // cuenta la estantería enseñaba la pasada de la cuenta anterior).
+    // (re)lee. Regla pura en managedReadState.
     if (
       shouldRefreshManagedSnapshot({
         loadedAt: snap.loadedAt,

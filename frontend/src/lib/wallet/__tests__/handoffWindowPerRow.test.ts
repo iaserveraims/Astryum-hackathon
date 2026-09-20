@@ -10,7 +10,7 @@ import {
 } from '../handoffRelease';
 
 /**
- * productizer it. 25 (§2 y §3) — LA VENTANA DE FIRMA VIAJA POR FILA, NO POR PESTAÑA.
+ * LA VENTANA DE FIRMA VIAJA POR FILA, NO POR PESTAÑA.
  *
  * EL FALLO. `payloadExpiryMin` guardaba UN número para todo el módulo, así que la
  * ÚLTIMA respuesta leída en la pestaña decidía el `expire` de cualquier payload
@@ -20,12 +20,6 @@ import {
  * cuenta ocupado otro tanto. Y al revés es el gemelo en persona: un 5 aprendido en
  * otra pantalla, aplicado a una ceremonia, suelta el asiento con el quórum todavía
  * firmando.
- *
- * LA REGLA. Una ventana más larga de lo que una firma simple puede ser es, por
- * construcción, de una fila que declaró CEREMONIA: se recuerda contra su memo y
- * solo se devuelve para ese memo. Una ventana corriente sigue actualizando el
- * valor de la pestaña, porque esa sí es una preferencia del despliegue
- * (`HANDOFF_PAYLOAD_EXPIRY_MIN`), que es para lo que se aprendía.
  */
 describe('la ventana de una CEREMONIA no se contagia al resto de la pestaña', () => {
   beforeEach(() => __resetPayloadExpiryMin());
@@ -73,10 +67,10 @@ describe('la ventana de una CEREMONIA no se contagia al resto de la pestaña', (
 });
 
 /**
- * it. 25 (§2 y §3) — Y LA FIRMA SIMPLE LO USA. Esto es lo que impide que el cable
+ * Y LA FIRMA SIMPLE LO USA. Esto es lo que impide que el cable
  * vuelva a desconectarse: `payloadExpiryMin()` sin memo era exactamente la llamada
  * que dejaba a la última respuesta de la pestaña decidir, y sellar «ahora + lo que
- * pedimos» era la conjetura que la mesa lleva corrigiendo desde la it. 23.
+ * pedimos» era la conjetura que la mesa lleva corrigiendo desde la.
  */
 describe('XamanSingleSign acuña con la ventana de SU fila y sella el instante REAL', () => {
   const SRC = readFileSync(join(__dirname, '..', '..', '..', 'components', 'xrpl', 'XamanSingleSign.tsx'), 'utf8');

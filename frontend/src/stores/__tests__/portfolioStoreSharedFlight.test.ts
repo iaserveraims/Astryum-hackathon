@@ -6,8 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * conjunto (usePortfolioEntries, lo lee la cifra del Home vía useFleet) —
  * piden en vista general la MISMA flota a la vez.
  *
- * Fundador 19-sep: «entro en Home, tarda mucho y no carga; voy a Portfolio,
- * vuelvo y aparece todo». Compartían el mapa de vuelos en curso: el segundo
+ * Compartían el mapa de vuelos en curso: el segundo
  * en llegar devolvía la promesa del primero SIN escribir su propio estado, y
  * su entrada se quedaba vacía hasta remontar la página. Cada holder tiene que
  * acabar con sus datos, llegue primero o segundo.

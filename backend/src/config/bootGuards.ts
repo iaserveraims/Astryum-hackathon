@@ -1,7 +1,7 @@
 /**
  * Boot guards — hard invariant enforcement at process startup.
  *
- * Invariant #1 (CLAUDE.md): "Ninguna clave privada del usuario toca el backend
+ * Invariant #1: "Ninguna clave privada del usuario toca el backend
  * ni el cliente. Astryum construye payloads SIN firmar; la firma es siempre de
  * la wallet del usuario." Astryum NEVER signs, NEVER custodies, NEVER executes.
  *
@@ -16,7 +16,7 @@
  *
  * This deliberately does NOT block Turnkey credentials. Turnkey is the embedded
  * passkey-only / treasury rail (keys live in Turnkey's TEE, never in our env)
- * and is explicitly allowed by CLAUDE.md §"Módulos aislados".
+ * and is explicitly allowed by §"Módulos aislados".
  */
 
 /** Env var names that, if set to a real private key, would let the backend sign. */
@@ -93,7 +93,7 @@ export function productionDatabaseMarker(
 /**
  * Refuse to BOOT when a DEV/LOCAL process is pointed at the PRODUCTION database.
  *
- * "Seguridad no ganada" (2026-07-22): a `localhost` backend booted with
+ * "Seguridad no ganada": a `localhost` backend booted with
  * `ALLOW_NO_AUTH=1` was found connected to the prod Supabase DB — the only thing
  * that kept it from touching real user data was that someone noticed and stuck to
  * GETs. That is discipline, not a guard. And the tests are NOT hermetic (the
@@ -101,12 +101,6 @@ export function productionDatabaseMarker(
  * seed, or a stray migration would hit prod. This is the same disease inverted —
  * an environment that is named "local", looks local, and is production: a signal
  * asserting safety it never verified.
- *
- * Un-bypassable: the prod DB is allowed ONLY when NODE_ENV=production (the genuine
- * deploy — backend/Dockerfile sets `ENV NODE_ENV=production`) or when
- * CONFIRM_PROD_DB=1 declares deliberate, eyes-open (read-only) intent. Likely
- * origin: the .env was refreshed with prod creds after the Supabase password
- * rotation (credential incident) and stayed.
  */
 export function assertNotProductionDatabase(
   env: NodeJS.ProcessEnv = process.env,

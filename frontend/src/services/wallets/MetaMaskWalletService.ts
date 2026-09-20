@@ -556,7 +556,7 @@ export class MetaMaskWalletService implements WalletService {
       if (Number(network.chainId) !== 14) return [];
 
       // Verified Flare Mainnet token addresses only.
-      // WFLR: Wrapped Flare native token — address confirmed in CLAUDE.md §10.
+      // WFLR: Wrapped Flare native token — address confirmed
       // Add USDC.e / USDT0 here once their Flare addresses are verified in Flarescan.
       const popularTokens = [
         {

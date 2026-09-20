@@ -2,24 +2,6 @@
  * assetDisclosure — the regulatory notice a strategy card must carry when its
  * composition touches an asset that Astryum's own EU rule keeps OUT of its
  * EU-facing strategies.
- *
- * INVARIANTS.md #9: «EU-facing strategies: EMTs only (USDC, EURC, RLUSD).
- * USDT is read-only.» The Kinetic carry (e1) borrows USDT0 — the omnichain
- * form of Tether's USDT — which is precisely the asset that rule keeps out.
- *
- * The entry is NOT withdrawn: the borrow happens in Kinetic's own market,
- * Astryum only prepares an unsigned payload and the user signs it in their own
- * wallet (invariant #1). What was missing is the other half of that honesty —
- * saying WHAT is being borrowed, in regulatory terms, BEFORE the signature and
- * not after (founder 2026-08-18). A card that shows a live borrow APR and a
- * Start button, and stays silent about the asset's standing under MiCA, is
- * telling the EU reader half the story.
- *
- * Pure on purpose. Buried inside FlareDemoEarn.tsx this would be untestable by
- * NEIGHBOURHOOD, not by nature: that file drags AppKit and the whole wallet
- * stack into anything that imports it. Here the map and its accessor are
- * asserted for real — and every surface that shows the notice IMPORTS this one,
- * never keeps a copy of the sentence.
  */
 
 import type { VaultKind } from './FlareDemoEarn';
@@ -28,8 +10,7 @@ export interface AssetNotice {
   /** The asset the notice is about — the notice's own tag. */
   asset: string;
   /**
-   * The line the CARD FACE wears, before anyone opens the route (founder
-   * 2026-09-17: «hay que poner un disclaimer en la card»). Until then the
+   * The line the CARD FACE wears, before anyone opens the route. Until then the
    * notice lived only in the detail, the sheet and the review step — a reader
    * comparing cards saw a live rate and a title, and nothing about MiCA. Two
    * facts in one breath: it is a real product, and it does not comply.

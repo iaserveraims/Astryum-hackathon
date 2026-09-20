@@ -3,19 +3,6 @@
  *
  * Read-only multichain portfolio balances from the CoinStats Open API
  * (openapiv1.coinstats.app — 120+ chains, EVM + Solana + Bitcoin in one schema).
- *
- * D2 (2026-06-15): the single broad portfolio API that REPLACES the now-disconnected
- * Zerion (see [[project_arquitectura_c_pivot]]). Non-EVM DeFi positions
- * (XRPL/Stellar/Flare) come from our own on-chain readers, not from here.
- * All balances are external indexer data → trustLevel 'indexer_verified',
- * intended confidence 'probable'.
- *
- * Key-gated (active only when COINSTATS_API_KEY is set), like every provider here.
- *
- * ⚠ VERIFY-WITH-KEY: endpoint shape from the docs
- * (https://coinstats.app/api-docs/openapi/get-wallet-balance/) — `connectionId`
- * iteration, the X-API-KEY header, and the response field mapping must be
- * confirmed against real responses once the key is configured. Marked TODO below.
  */
 import type {
   IProvider,

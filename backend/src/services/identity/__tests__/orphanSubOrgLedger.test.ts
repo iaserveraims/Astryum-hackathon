@@ -1,11 +1,11 @@
 /**
- * productizer it. 20, 3.8 — AN ORPHAN SUB-ORG THAT LIVES ONLY IN A ROTATED LOG
+ * 3.8 — AN ORPHAN SUB-ORG THAT LIVES ONLY IN A ROTATED LOG
  * IS NOT RECONCILIABLE.
  *
  * `POST /api/wallets/embedded/create` talks to Turnkey first and writes our row
  * second. When the second half fails, a sub-org exists at Turnkey holding a key
  * only the user's passkey can reach, and nothing in our database points at it.
- * It. 19 made that greppable; a log line on a platform that rotates logs is a
+ * Made that greppable; a log line on a platform that rotates logs is a
  * record for about a week. Here: it lands in a durable `background_jobs` row of
  * its own job type, the write is READ BACK (kvUpsert swallows its own failure),
  * and an admin sees it in the panel's alert inbox either way.
@@ -48,7 +48,7 @@ let kvStore: Record<string, unknown> | null = null;
 beforeEach(() => {
   jest.clearAllMocks();
   // The happy path is a store that REALLY wrote what it was given: the read-back
-  // now compares the PAYLOAD (it. 23, task 4), so a stub that echoed only the
+  // now compares the PAYLOAD (task 4), so a stub that echoed only the
   // key would be asserting the very bug this closes. A test that wants a lost
   // write overrides `mockKvGetStrict` directly, which replaces this.
   kvStore = null;

@@ -10,7 +10,7 @@ import { ethers } from 'ethers';
 import { FirelightAdapter } from '../FirelightAdapter';
 import { resetAddressCache } from '../../../../config/protocolAddresses';
 
-// Mainnet constants verified on-chain 2026-07-10: stXRP IS the ERC-4626 vault
+// Mainnet constants verified on-chain: stXRP IS the ERC-4626 vault
 // (name "Firelight stXRP", asset()==FXRP, 6 decimals). See .env.example.
 const FXRP = '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE';
 const STXRP = '0x4C18Ff3C89632c3Dd62E796c0aFA5c07c4c1B2b3';

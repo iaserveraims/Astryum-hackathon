@@ -7,19 +7,6 @@
  * splits it into `claimable[payee]`, and `claim()` pays the caller. Both are
  * permissionless. Nothing here loosens that; this module only builds the calls
  * and reads the numbers, because until now no surface did either.
- *
- * Two shapes, because two very different people call them:
- *
- *  - `harvest` is a plain unsigned EVM call. Anyone may send it — an heir, a
- *    keeper, a passer-by — and it moves nothing to the sender. It only converts
- *    "the venue is worth more than we put in" into "the payees are owed".
- *
- *  - `claim` pays `msg.sender`, so an heir whose payee address is their Flare
- *    Personal Account claims through the 0xFE rail: one XRPL Payment, and the
- *    batch runs `claim()` and then the EXISTING redeem call — so what lands is
- *    native XRP at their own r-address, not FXRP they would have to learn about.
- *
- * The principal is never referenced by any call built here.
  */
 
 import { ethers } from 'ethers';

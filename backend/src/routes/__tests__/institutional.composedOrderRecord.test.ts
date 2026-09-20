@@ -1,5 +1,5 @@
 /**
- * LA ORDEN FIRMADA SE ENTREGA SIN NAVEGADOR (2026-09-14).
+ * LA ORDEN FIRMADA SE ENTREGA SIN NAVEGADOR.
  *
  * `/pote-council-order/prepare` y `/cage-order/prepare` RECUERDAN la orden
  * compuesta (memo, bytes, cuenta, Sequence/LastLedgerSequence fijadas, ledger de
@@ -210,7 +210,7 @@ describe.each(ORDER_ROUTES)('%s — la orden compuesta queda recordada para su e
 });
 
 /**
- * LA SALIDA JAMÁS SE GATEA (productizer it. 11): el registro es una red de
+ * LA SALIDA JAMÁS SE GATEA: el registro es una red de
  * seguridad. Si no se puede escribir, un recall/evacuate se entrega IGUAL — con
  * `recoveryWarning` — en vez de dejar al holder sin salida por una BD caída.
  */
@@ -240,10 +240,10 @@ describe.each(EXIT_ROUTES)('%s — una SALIDA no se gatea por no poder recordarl
 });
 
 /**
- * productizer it. 13 — lo que la pantalla necesita saber para no prometer de más
+ * Lo que la pantalla necesita saber para no prometer de más
  * (`serverDelivery`) y para no componer la orden dos veces (`COUNCIL_ORDER_IN_FLIGHT`).
  */
-describe('it. 13/15 — serverDelivery, token de salida y la orden repetida', () => {
+describe('/15 — serverDelivery, token de salida y la orden repetida', () => {
   const RECALL = { council: COUNCIL, action: 'recall', venueId: 0, amount: '1000' };
   const END_CESSION = { council: COUNCIL, action: 'end-cession', params: {} };
   const IN_FLIGHT = {
@@ -314,7 +314,7 @@ describe('it. 13/15 — serverDelivery, token de salida y la orden repetida', ()
   });
 
   /**
-   * productizer it. 17 (hallazgo 2.4) — LA CLAVE SE CALCULA SOBRE LO QUE SE COMPONE.
+   * LA CLAVE SE CALCULA SOBRE LO QUE SE COMPONE.
    * `/cage-order` la sacaba de `req.body.params` CRUDO, antes de que el servidor
    * resolviera el `feePayer` de un `create-pote`: la orden que de verdad se firma
    * lleva ese campo, así que la clave guardada y la consultada eran distintas y la
@@ -339,7 +339,7 @@ describe('it. 13/15 — serverDelivery, token de salida y la orden repetida', ()
     expect(mockRecord.mock.calls[0][0]).toMatchObject({ contentKey: composedKey });
   });
 
-  it('lo recordado dice QUIÉN compuso y si controla el consejo (tope por preparador, it. 15)', async () => {
+  it('Lo recordado dice QUIÉN compuso y si controla el consejo (tope por preparador)', async () => {
     mockExistingCage = null;
     const res = await request(app).post('/api/institutional/pote-council-order/prepare').send(RECALL);
     expect(res.status).toBe(200);
@@ -375,7 +375,7 @@ describe('GET /council-order/fate', () => {
     expect(res.body.error).toBe('COUNCIL_ORDER_FATE_UNREADABLE');
   });
 
-  /* it. 15 (2.5): la lectura cuesta cadena — una sola por memo y 15 s, con tope por sesión. */
+  /* La lectura cuesta cadena — una sola por memo y 15 s, con tope por sesión. */
 
   it('el mismo memo dos veces seguidas se lee de la cadena UNA vez', async () => {
     mockFate.mockResolvedValue({ memo: MEMO, state: 'composed' });

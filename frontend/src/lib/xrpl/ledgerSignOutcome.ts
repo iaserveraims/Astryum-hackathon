@@ -7,19 +7,6 @@
  * orders, recurring payments, the Legacy ceremony, the acta anchor) either
  * painted that word as done or, when a read failed, printed the error next to
  * the sign button — a second escrow, a second order, a second payment.
- *
- * `XamanSingleSign` already answers this with `singleSignVerdict`. This module
- * gives the SAME verdicts to the `sendIntent` surfaces and turns them into the
- * `SignFailureAction` every sign catch already speaks:
- *
- *   · validated tesSUCCESS          → resolves. The only success.
- *   · validated with another result → 'form': it applied, its fee and sequence
- *                                     are spent — prepare again, never re-sign
- *                                     the same payload.
- *   · no hash / not validated in time → 'unconfirmed', with the hash to check.
- *
- * Anything that is not a ledger verdict goes to `signFailureAction` untouched,
- * so a cancelled Xaman request still keeps its sign button.
  */
 
 import { awaitValidation } from './councilSigning';
@@ -68,7 +55,7 @@ export function ledgerVerdictAction(
       };
     case 'stale':
       // A pinned tx that can never validate (tefPAST_SEQ / tefMAX_LEDGER): the
-      // same payload can only answer the same — prepare it again (it.11).
+      // same payload can only answer the same — prepare it again.
       return {
         view: 'form',
         message: `${t(STALE_TX_MESSAGE)} (${v.code})`,

@@ -1,5 +1,5 @@
 /**
- * The wait a desk reservation owes the LEDGER (productizer it. 14, R5 1.2).
+ * The wait a desk reservation owes the LEDGER (R5 1.2).
  *
  * «Back» on a composed put-to-work does not release it: the 0xFE can still be
  * signed and land until its LastLedgerSequence, so the server answers 409
@@ -68,7 +68,7 @@ export function msUntilRetry(wait: ReleaseWait, nowMs: number): number | null {
  * The line next to the reservation. `t` is the app translator; the numbers are
  * the ledger's, and a ledger we were not told is «—», never a guess.
  *
- * ONE RULE, SAID THE SAME WAY EVERYWHERE (it. 16, «Copy y SourceTag»): the seat
+ * ONE RULE, SAID THE SAME WAY EVERYWHERE («Copy y SourceTag»): the seat
  * frees when the Xaman payload can no longer be signed — not when the operator
  * believes it never reached a phone. This line, the «Release» button and its
  * confirmation all say that now; before, the line said «release it now» beside
@@ -92,22 +92,11 @@ export function releaseWaitText(wait: ReleaseWait, nowMs: number, t: (s: string)
     : t('Its window (XRPL ledger {lls}) is past — asking the server to free the seat…').replace('{lls}', lls);
 }
 
-/* ── the seat of a 0xFE that was cancelled in Xaman (it. 21, 3.3) ────────── */
+/* ── the seat of a 0xFE that was cancelled in Xaman (3.3) ────────── */
 
 /**
- * WHAT HAPPENS WHEN SOMEBODY TAPS «Reject» IN XAMAN — and, until it. 21, what
+ * WHAT HAPPENS WHEN SOMEBODY TAPS «Reject» IN XAMAN — and, until, what
  * nobody was told.
- *
- * Cancelling (or closing the tab) leaves the omnibus nonce seat taken by a
- * payload that is still alive: the next prepare met `NONCE_SEAT_TAKEN` with no
- * explanation and no way out, and the operator's reading was «it broke». The
- * wait is CORRECT — a payload that can still be signed must keep its seat, or
- * we build the twin — so the answer is not to free it sooner but to SAY it.
- *
- * The server measures the window and sends `secondsLeft` on its 409
- * (`WAIT_FOR_PAYLOAD_EXPIRY`); these two pure helpers turn that into a line that
- * actually counts down and a moment when asking again can work. No network, no
- * React: the door renders and fires.
  */
 export interface SeatWait {
   /** When the seat is expected to free itself (epoch ms), as the SERVER measured it. */
@@ -137,7 +126,7 @@ export function seatSecondsLeft(wait: SeatWait, nowMs: number): number {
 
 /**
  * The line under a cancelled signature. It never promises the seat is free: it
- * says what the server said and when asking again can work (it. 20, 3.9 — «the
+ * says what the server said and when asking again can work (3.9 — «the
  * seat was freed» asserted a future in a race).
  */
 export function seatWaitText(wait: SeatWait, nowMs: number, t: (s: string) => string): string {

@@ -1,5 +1,4 @@
 /**
- * productizer 13-sep, H2b — el fetch del notario era un oráculo de red interna.
  *
  * El `Domain` lo escribe cualquier dueño de cuenta y el endpoint es público:
  * `https://${domain}/.well-known/xrp-ledger.toml` iba a 169.254.169.254 o a

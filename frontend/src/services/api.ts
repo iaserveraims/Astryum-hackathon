@@ -41,7 +41,7 @@ class ApiService {
   }
 
   /**
-   * A 401 THAT IS NOT «YOUR SESSION ENDED» (productizer it. 19, R5 R6).
+   * A 401 THAT IS NOT «YOUR SESSION ENDED» (R5 R6).
    *
    * `withLiveSession` refuses an authority WRITE whose session predates an
    * account takeover and answers 401 `session_revoked`. That is a verdict about
@@ -49,11 +49,6 @@ class ApiService {
    * read the status alone, with the body still unread: token wiped, straight to
    * /login, the step-up matrix the person was editing gone. A security fix that
    * throws the user out of the app is a security fix nobody survives.
-   *
-   * So the body is read FIRST (see `handleResponse`) and handed here; a
-   * `session_revoked` clears nothing and navigates nowhere — the caller receives
-   * the refusal (status + code) and says it in place. Same verdict as
-   * `services/v1Api`, so the two clients cannot drift apart.
    */
   private handleUnauthorized(body?: unknown): void {
     if (typeof window === 'undefined') return;
@@ -81,7 +76,7 @@ class ApiService {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      // it. 19 (R5 R6) — READ THE BODY BEFORE DECIDING TO LOG ANYONE OUT. The
+      // READ THE BODY BEFORE DECIDING TO LOG ANYONE OUT. The
       // 401 used to be acted on with the answer still unread, so the one 401
       // that must NOT end the session (`session_revoked`) ended it.
       const errorData = await response.json().catch(() => ({}));
@@ -96,7 +91,7 @@ class ApiService {
       const error: ApiError = {
         message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
         status: response.status,
-        // it. 19 (R5 R6): several routes name the code `error`, not `code`. A
+        // Several routes name the code `error`, not `code`. A
         // caller that has to tell `session_revoked` from a plain expiry cannot
         // do it from the status, so the code travels — the SENTENCE is still the
         // caller's to write (the server's `detail` is Spanish on these routes

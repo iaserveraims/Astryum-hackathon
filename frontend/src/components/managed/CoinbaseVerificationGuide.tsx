@@ -2,10 +2,7 @@
 
 /**
  * CoinbaseVerificationGuide — cómo verificarte con Coinbase, pantalla a
- * pantalla, para que la credencial KYC de tu cuenta de gestor llegue sola
- * (fundador 10-sep: «que sea igual que en el Legacy: si el usuario se ve
- * confundido, que sea fácil de abrir la pantalla con la configuración
- * necesaria en Coinbase»).
+ * pantalla, para que la credencial KYC de tu cuenta de gestor llegue sola.
  *
  * El gemelo del tutorial de Multisign de CouncilInXaman: un paso por
  * pantalla con su captura o vídeo (StepShot; los ficheros viven en

@@ -3,7 +3,7 @@
 /**
  * ManagerDeclaration — «soy gestor de bóvedas», la puerta de la mesa para
  * quien aún no se declaró. Una pieza, dos montajes: la página /app/manager y
- * la ventana anclable que se abre desde Managed vaults (10-sep). El flag
+ * la ventana anclable que se abre desde Managed vaults. El flag
  * viaja a la CUENTA (POST /auth/manager-mode); si falla, revierte y se dice.
  */
 

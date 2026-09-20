@@ -3,7 +3,7 @@
 /**
  * VenueRegistryCard — el gobierno del SCANNER de Astryum (AstryumRegistry).
  *
- * X1 de la revisión 2-sep: el registro es la whitelist on-chain que todo pote
+ * X1 de la revisión: el registro es la whitelist on-chain que todo pote
  * v2 consulta en `_addVenue` — con el registro vacío, todo pote nace con CERO
  * destinos. Esta card lo lee entero y COMPONE las escrituras del governor:
  * proponer (entra tras el timelock), activar (cualquiera, cuando madura) y

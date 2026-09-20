@@ -16,7 +16,7 @@ import {
 } from '../singleSignVerdict';
 
 /**
- * productizer it.13 (R2 3.1) — the double order after 'stale'.
+ * The double order after 'stale'.
  *
  * Payload A of an order stays live in the banner; the person prepares B (same
  * pinned Sequence, same memo). A is signed and relayed; B answers tefPAST_SEQ and
@@ -87,7 +87,7 @@ describe('staleOrderFate — what a stale council order may offer', () => {
 });
 
 /**
- * productizer it.14 (R2 2.3) — «no la prepares otra vez» ERA SOLO TEXTO.
+ * «no la prepares otra vez» ERA SOLO TEXTO.
  *
  * `staleOffersPrepareAgain` no se usaba en producción y 'stale' no bloquea al
  * padre (a propósito: el padre es quien prepara). Resultado: la tarjeta decía

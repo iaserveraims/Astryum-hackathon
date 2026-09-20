@@ -1,18 +1,6 @@
 /**
  * Platform log — the "noticiero" behind the Summary's Orbit System card.
- * RULES (v2, founder 2026-07-26: "no quiero que dé tanto detalle"):
- *
- *   - Append a new entry (TOP of the array) with every user-visible release,
- *     bumping the version — PLATFORM_VERSION is DERIVED from the newest entry,
- *     so the card's chip bumps with it automatically.
- *   - DETAIL ONLY FOR DEFI: items of kind 'defi' (new capabilities or DeFi
- *     improvements — what the platform can now DO with the user's capital)
- *     carry their own es/en line. Everything else — performance, behaviour,
- *     visual, security — is listed WITHOUT text: the card renders one generic
- *     line per kind ("Mejoras de rendimiento", …). The user only needs to
- *     know the ship improved; the specifics live in git, not in their face.
- *   - Real, shipped features only — never roadmap, never promises, never
- *     yields (copy invariant §9). Write both languages on defi items.
+ * RULES (v2):
  */
 
 export type ChangeKind = 'defi' | 'performance' | 'behavior' | 'visual' | 'security';
@@ -41,7 +29,7 @@ export const KIND_LABEL: Record<Exclude<ChangeKind, 'defi'>, { es: string; en: s
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    // Fundador 2026-09-20, revisión de lo publicado: la mesa del partner de KYC
+    // Fundador, revisión de lo publicado: la mesa del partner de KYC
     // (/app/partner) respondía por URL a cualquier sesión. No es un paso del
     // alta del gestor ni de la del exchange: es la herramienta de quien
     // administra un registro KYC y aprueba clientes. Queda para los fundadores
@@ -52,39 +40,18 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'security' }],
   },
   {
-    // Fundador 2026-09-19: «haz bien el destello de la última página o
-    // directamente quítalo» y «cuando se entra en el legacy, el personal tiene
+    // Y «cuando se entra en el legacy, el personal tiene
     // animado el texto y artefactos como aparición pero el legacy no».
-    //
-    // El destello se quita como FORMA y se queda como LUZ. La mancha con
-    // silueta —el hueco del arco recortado en la sombra— se rechazó dos veces en
-    // dos ejecuciones distintas, y falla por escala: para leerse como proyección
-    // tiene que ser grande, y una silueta grande con canto duro sobre un
-    // paramento plano se lee como una pegatina. En su sitio, un frente de sombra
-    // con una rampa MÁS LARGA QUE EL MURO, así que no existe ningún fotograma
-    // con un borde de sombra dentro del cuadro: la piedra se enciende por arriba
-    // a la derecha y ya está. Regla que deja: si la mancha tiene canto es un
-    // objeto, si tiene rampa es luz. Y como el frente ahora se retira ENTERO, el
-    // paramento pasa a tener su propio tono con `--volt-deep` —`--volt` es un
-    // periwinkle claro en este mundo y no puede hacer de sombra—.
-    //
-    // La entrada: el mundo Legacy montaba de golpe, con todo puesto en el
-    // fotograma uno, mientras Personal entra escalonado. Ahora el distintivo, el
-    // titular, la entradilla y la escena entran con los mismos tiempos que
-    // `HeroContent`. Sin `scale` a propósito: la cámara de la escena mide el SVG
-    // con `getBoundingClientRect` y un ancestro escalado le daría un ancho falso
-    // que el ResizeObserver no corrige nunca.
     version: '0.9.232',
     date: '2026-09-19',
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-19: «el puente cruza recto por debajo, no sube por
-    // encima» y «que los puntos que representan el quórum sean lo que sustenta
+    // Y «que los puntos que representan el quórum sean lo que sustenta
     // el puente». El puente de lomo de asno se cae: ahora es de TABLERO
     // INFERIOR. El arco queda entero y libre por encima, con su ojo abierto; el
     // paso cruza RECTO a la cota de los dos labios; y lo que lo sostiene son
-    // cinco péndolas colgadas del intradós —los cinco asientos del consejo—,
+    // cinco péndolas colgadas del intradós —los cinco asientos del consejo,
     // que se tienden en el MISMO fotograma en que se encienden las cinco celdas
     // de la lámina del quórum. El cierre, además, amanece en índigo en vez de en
     // crema (el crema es el día de Personal) y su hueco de luz pasa a ser un
@@ -94,8 +61,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-19: «el rombo que cruza el puente tiene que pasar por el
-    // puente no por el arco, no se entiende sino» y «quita el destello de la
+    // Y «quita el destello de la
     // estrella y pon un artefacto que siga la línea de narrativa del legacy».
     // No había puente: había una línea de un punto siguiendo el trasdós, o sea
     // que la vasija iba por el lomo del arco. Ahora hay relleno de tímpano con
@@ -110,8 +76,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-19: «quiero que lleves el recorrido de Legacy a nivel
-    // profesional». Medido en captura antes de esta pasada: el arco ocupaba el
+    // Medido en captura antes de esta pasada: el arco ocupaba el
     // 28 % del cuadro abajo a la derecha, el tajo era un rectángulo del ancho
     // del arco con un panel claro y cinco rayas dentro (una puerta de garaje),
     // la cimbra era un abanico de pelos y las dovelas colocadas flotaban.
@@ -126,7 +91,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-18, con el QR del omnibus delante y otra cuenta
+    // Fundador, con el QR del omnibus delante y otra cuenta
     // conectada en Xaman: «crea el payload… QR». El pago ya lleva el omnibus
     // fijado; ahora la puerta crea el QR para esa cuenta sin pedir que se
     // cambie la cuenta conectada.
@@ -135,8 +100,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-18: «el autopilot hay que sacarlo no visible y que se
-    // haga a través de QR». El autopilot firmaba con una llave del servidor que
+    // El autopilot firmaba con una llave del servidor que
     // solo abría UN omnibus, y el de un exchange nuevo vive en la Xaman de su
     // dueño. Ahora la consola enseña «Peticiones de tus clientes»: cada una la
     // firma el omnibus con un QR, por el importe que pidió el cliente; el KYC
@@ -147,9 +111,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-18: «no me aparece el modal de crear una cuenta dentro de
-    // un exchange… cuando crea una cuenta a un exchange es al que ha pedido
-    // acceso y le han dado la verificación». Su passkey ya era cliente de otro
+    // Su passkey ya era cliente de otro
     // exchange y «Crear una cuenta de cliente» lo metía en esa cuenta sin decir
     // nada. Ahora ser cliente es por exchange: la misma passkey pide acceso a
     // cada uno (su tag, su KYC), «Crear» enseña los exchanges a los que aún
@@ -159,7 +121,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-18, captura de la estación 7 del alta del exchange: una
+    // Fundador, captura de la estación 7 del alta del exchange: una
     // raíz fundada ese mismo día decía «ya tiene historia de otra vida — elige
     // una cuenta NUEVA», y crear la mesa enseñaba «NOT_AN_ADMIN» a secas. La
     // jaula nace en la estación 4 y la mesa en la 7, y la regla era «jaula sin
@@ -171,9 +133,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-17: «no me deja cerrar un lend en Upshift… me dice que
-    // conecte mi XRPL wallet cuando ya está conectada. No quiero dejar más
-    // huecos». La wallet estaba ENLAZADA, no conectada en ese navegador, y
+    // La wallet estaba ENLAZADA, no conectada en ese navegador, y
     // diez pantallas exigían la sesión aunque el pago ya llevara la cuenta
     // firmante dentro. Ahora cualquier pago con su cuenta fijada firma sin
     // sesión —el QR del servidor pide esa cuenta en Xaman— en retiradas,
@@ -184,9 +144,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-17: «he puesto tokens en el vault de un gestor, el
-    // gestor los ha puesto a trabajar, me he vuelto a cambiar de cuenta y no me
-    // aparecen en En marcha». Estaban en la cadena y se podían sacar; la
+    // Estaban en la cadena y se podían sacar; la
     // estantería enseñaba la lectura de la cuenta ANTERIOR: la instantánea de
     // posiciones gestionadas vivía en el navegador y solo se releía si nunca
     // se había leído. Ahora es de la cuenta en sesión, se olvida al salir o
@@ -196,7 +154,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-17, en el pote gestionado: «me pone la wallet de
+    // Fundador, en el pote gestionado: «me pone la wallet de
     // MetaMask por defecto», «no aparece la barrita para elegir la cantidad» y
     // «me hace escanear un QR para conectar Xaman cuando ya está en la
     // cuenta». Xaman manda por defecto si está enlazada; la cantidad se
@@ -207,8 +165,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15: «tengo un vault que trabaja con FXRP y no me permite
-    // poner FXRP» — XRPL_WALLET_PARTNER_NOT_CONNECTED. La ventana de entrada
+    // XRPL_WALLET_PARTNER_NOT_CONNECTED. La ventana de entrada
     // preparaba el pago (ocupando el asiento de nonce cinco minutos) y luego
     // fallaba porque la cuenta elegida, enlazada a la cuenta, no tenía sesión
     // de Xaman en ese navegador. Ahora, sin sesión, no se prepara nada: se
@@ -218,9 +175,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15: «me chirría que te deje firmar dos veces el mismo
-    // tema… si el usuario ya ha firmado una vez, que no pueda volver a
-    // hacerlo». El nacimiento de la jaula: tras firmar, la estación volvía a
+    // El nacimiento de la jaula: tras firmar, la estación volvía a
     // ofrecer el botón mientras la red probaba la jaula. Ahora el servidor
     // recuerda el nacimiento firmado en vuelo, se niega a componer otro, y la
     // estación lo dice —«una firma es un nacimiento, no se cobra nada más»—
@@ -231,8 +186,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15: «no entiendo por qué no me acepta el KYC… he
-    // conectado las dos wallets de MetaMask que tengo a Astryum». La estación
+    // La estación
     // Título solo miraba la sesión viva de MetaMask, que se guarda por
     // dominio: en el preview decía «sin wallet EVM» con las dos enlazadas. La
     // atestación de Coinbase se busca por dirección, así que ahora vale una
@@ -243,7 +197,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15, grabando el recorrido entero (wallets → cuenta →
+    // Fundador, grabando el recorrido entero (wallets → cuenta →
     // managed vault) con una cuenta corriente: al pegar el link en la estación
     // Título salía «NOT_AN_ADMIN». La licencia de DEMO del notario solo la podía
     // pedir un fundador; el jurado se quedaba en esa estación sin llegar al
@@ -255,9 +209,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15: «cuando se abre la configuración, se abre primero
-    // en formato popup… en pequeñito… el popup no cambia demasiado de tamaño,
-    // pero sí el fondo». Todas las operaciones flotaban en la misma caja de
+    // Todas las operaciones flotaban en la misma caja de
     // 42×44 rem. Las ceremonias (Legacy, gestor, exchange, la mesa) tienen
     // ahora una caja propia que crece con la pantalla —hasta 84 rem de ancho
     // y 72 rem de alto— y el raíl de estaciones se pone al lado en cuanto
@@ -267,8 +219,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Fundador 2026-09-15: «los popups que aparecen para informar que una
-    // acción ya está configurada/terminada… molestan bastante». Era un modal
+    // Era un modal
     // con fondo oscuro para un dato que no pide nada, y en un Legacy ya
     // constituido saltaba en todas las estaciones. El hecho (esta estación
     // está hecha, esto se leyó) vive ahora en una franja dentro de la
@@ -281,8 +232,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15: «el proceso de configuración de una account como
-    // manager se ha perdido». La ventana del alta miraba solo la sesión viva
+    // La ventana del alta miraba solo la sesión viva
     // de Xaman de ESTE navegador; con la cuenta gestora enlazada pero sin
     // sesión, enseñaba «créala en Xaman» en vez de las seis estaciones ya
     // hechas — y no dejaba elegir otra. La ceremonia sigue ahora la misma
@@ -293,8 +243,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-15: «el log de updates que hay en el home… se abre y
-    // demás, pero no funciona el scroll». Desde la 0.9.176 ninguna versión
+    // Desde la 0.9.176 ninguna versión
     // llevaba un hito DeFi, y la regla de aglomerar «entre hitos» plegó 38
     // versiones en UNA fila: nada que leer, nada que desplazar — y la rueda,
     // sin nada que mover dentro, movía la página y cerraba el panel bajo la
@@ -306,8 +255,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Founder 2026-09-14: «desde la wallet que marca como managed no puedo
-    // acceder» a la mesa del gestor. La mesa solo miraba la sesión viva de
+    // A la mesa del gestor. La mesa solo miraba la sesión viva de
     // Xaman de ESTE navegador; ahora gobierna desde las XRPL enlazadas a la
     // cuenta, y Xaman pide esa cuenta al firmar. Y reconectar una Xaman ya
     // enlazada dice «conectada de nuevo», no «nada cambió».
@@ -316,8 +264,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Founder 2026-09-14: «en el preview tengo una wallet legacy conectada y
-    // en production no me aparece ninguna» — misma base de datos, distinto
+    // Misma base de datos, distinto
     // navegador. La marca local de «quitado» del sábado escondía también los
     // Legacies que el servidor tenía activos. Ahora frena solo lo automático;
     // lo que el registro tiene, se enseña, y se quita quitándolo.
@@ -326,7 +273,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Signing in stops repeating itself (founder 2026-09-14): the setup
+    // Signing in stops repeating itself: the setup
     // questionnaire — language, goal, tours — now rides the ACCOUNT, so a
     // second browser no longer asks again; and the page no longer freezes
     // after signing, a ghost overlay that never unmounted. The legal
@@ -337,7 +284,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'security' }],
   },
   {
-    // Fundador 2026-09-14, segunda vuelta del tema: «al cambiar de tema se
+    // Fundador, segunda vuelta del tema: «al cambiar de tema se
     // queda la página en gris bugeada… haz alguna especie de barrido para
     // cuando se cambia el tema… en el tema normal todo carga súper rápido».
     // Reproducido y medido en un navegador sin cabeza: al cambiar de material
@@ -353,7 +300,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Founder 2026-09-14, al ver «Lend your RLUSD» en producción: «este no está
+    // Founder, al ver «Lend your RLUSD» en producción: «este no está
     // probado, así que no hay que meterlo en producción hasta que esté
     // probado». Nadie lo publicó: una variable de entorno clonada se hizo
     // efectiva con el primer deploy del backend que construyó. Desde hoy lo
@@ -363,9 +310,6 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'security' }, { kind: 'behavior' }],
   },
   {
-    // Fundador 2026-09-14: «con el nuevo estilo gráfico institucional no
-    // tiene animación de inicio el portfolio, aparecen todos los cuadros sin
-    // más… el tema me gusta mucho, pero quiero que se infiltre todavía más».
     // La lámina gana su propia entrada (los bloques se imprimen, los filetes
     // se trazan), los gráficos su material (paleta de tinta, tramado en vez
     // de resplandor, calibre graduado en vez de planeta) y las páginas sus
@@ -376,10 +320,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Founder 2026-09-13: «estoy haciendo un Legacy y a cada paso que hago me
-    // aparece el popup del paso hecho; el popup viene bien para cuando estás
-    // en un proceso en el que ya hay pasos hechos, no cuando estoy haciendo
-    // cada paso». El aviso se disparaba en la TRANSICIÓN a «hecha», así que
+    // El aviso se disparaba en la TRANSICIÓN a «hecha», así que
     // felicitaba por lo que acababas de firmar.
     version: '0.9.207',
     date: '2026-09-13',
@@ -393,7 +334,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Founder 2026-09-13, segunda vuelta: «la firma y demás funciona, pero no
+    // Founder, segunda vuelta: «la firma y demás funciona, pero no
     // se borra la wallet, no desaparece de la account». Se borraba la fila Y la
     // entrada del registro, y la cuenta volvía igual: cada carga del registro
     // VUELCA los punteros locales del navegador y la daba de alta otra vez. El
@@ -411,9 +352,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Founder 2026-09-13: «tengo una wallet legacy que no puedo eliminar de la
-    // cuenta; en Manage no aparece el botón de remove, ni la papelera, ni
-    // cuando entro en Govern aparece ninguna opción». Dos fallos encadenados:
+    // Dos fallos encadenados:
     // el bloque de borrado entero vivía dentro de un `{!council && …}`, y
     // aunque se hubiera pintado, borrar sólo la fila dejaba vivos el puntero
     // del registro y la sesión conectada, así que la cuenta volvía.
@@ -456,8 +395,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // El TEMA deja de ser un interruptor de color (fundador 2026-09-13: «algo
-    // disruptivo y que se note, no un simple cambio de colores y ya»). Ahora
+    // El TEMA deja de ser un interruptor de color. Ahora
     // hay dos temas: Astryum, que es todo lo de siempre sin mover un pixel, e
     // Institucional, que cambia el material entero — bronce en vez de oro,
     // esquinas cuadradas, titulares en serif, filetes en vez de sombras, el
@@ -471,8 +409,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Founder 2026-09-13: «voy a añadir una wallet y la página no entiende y
-    // se queda tonta». Adding a wallet could end in three different places
+    // Adding a wallet could end in three different places
     // without saying which — already in your list, or an account governed by
     // a council (which production's list FILTERS OUT, so the row was really
     // written server-side and then vanished from the screen). Now the add
@@ -490,9 +427,9 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // The Xaman cube is back in every Xaman wallet's chip, and its colours
-    // now dress the card (founder 2026-09-13): the account's public avatar,
+    // now dress the card: the account's public avatar,
     // fetched through our own server and declared in the privacy notice
-    // (revision 2026-09-13, re-presented once), with its dominant colour as
+    // (revision, re-presented once), with its dominant colour as
     // the card's default — «Follow the Xaman avatar» in Manage, on by
     // default; pick a swatch to choose your own.
     version: '0.9.200',
@@ -500,7 +437,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }, { kind: 'security' }],
   },
   {
-    // Founder 2026-09-13, «arréglalo todo»: a second account created in the
+    // Founder, «arréglalo todo»: a second account created in the
     // same browser inherited the first one's wallets, Legacy, photo and
     // skipped the first-run wizard — because entering/creating an account
     // only released MetaMask while signing out cleared everything, and the
@@ -528,9 +465,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Managed vaults look like every other Earn menu again (founder
-    // 2026-09-13, second pass: «se ven achatados y pequeñitos… deberían verse
-    // como todas las estrategias del Earn»): the same hand / shelf / list as
+    // Managed vaults look like every other Earn menu again: the same hand / shelf / list as
     // the other two menus, with what yesterday's pass asked for kept inside
     // the card — the money first (in the vault, yours) and the manager's
     // image small.
@@ -539,9 +474,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Founder 2026-09-13: creating an account must make you READ and SIGN the
-    // two legal documents — the text in front of you, scrolled to the end,
-    // and the signature as a Xaman-style slide. The two checkboxes with two
+    // The two checkboxes with two
     // links nobody opened are gone, on both doors (sign-up and the first
     // dashboard entry). One ceremony, one copy of each text.
     version: '0.9.198',
@@ -560,8 +493,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // CAPITAL NEVER GOES MUTE (founder 2026-09-13: opened a Legacy's Capital
-    // room and saw an empty screen — «¿por qué me aparece vacío entonces?»).
+    // CAPITAL NEVER GOES MUTE.
     // Two holes, both silent by construction: LegacyVaultCard returned bare
     // `null` when the cage state was missing AND when the account is a
     // reinforced personal quorum, so the room rendered nothing at all and a
@@ -583,7 +515,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Founder 2026-09-13, on the manager desk's Operate room, after the
+    // Founder, on the manager desk's Operate room, after the
     // bridge redesign of the same day: «sigue sin gustarme — el mismo rollo»
     // (the same as the catalogue: better distributed, money leading, image
     // secondary, not everything horizontal). The room is now a two-column
@@ -601,8 +533,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The manager's Operate room becomes a BRIDGE (founder 2026-09-11: «sigue
-    // un pelín complicado y caótico… algo con lo que flipar»): one command
+    // The manager's Operate room becomes a BRIDGE: one command
     // strip (account, title, refresh, new vault), one header per vault, and
     // the capital as ONE animated bar — what works at each destination, what
     // is deployable today, the untouchable floor — with named destinations,
@@ -613,7 +544,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Founder 2026-09-13, two asks in one afternoon. Managed vaults: the
+    // Founder, two asks in one afternoon. Managed vaults: the
     // catalogue was one horizontal hand of look-alike cards with the
     // manager's picture presiding; now a mosaic (tall, square and wide
     // boxes) where the money leads — what the vault holds and what is
@@ -641,7 +572,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Two marks at once when stepping into Legacy (founder 2026-09-13): the
+    // Two marks at once when stepping into Legacy: the
     // page loader's comet and the crossing's comet. Now there is ONE: the
     // page loader, which takes the colour of the authority you are entering
     // — indigo for Legacy, gold coming home. The crossing keeps only a soft
@@ -657,8 +588,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Removing a wallet took one click (founder 2026-09-13, a Legacy gone
-    // by accident). Now it takes two: the first arms and says exactly what
+    // Removing a wallet took one click. Now it takes two: the first arms and says exactly what
     // happens — only tracking stops; the account and its capital stay on
     // the ledger, nothing is signed — and the second, on the red button,
     // removes. A Legacy also asks you to tick that you understand it stays
@@ -674,15 +604,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The Personal↔Legacy crossing comet is now small and short (founder
-    // 2026-09-12: «más chiquitita y sutil… más cortita»): 56 px, one second,
+    // The Personal↔Legacy crossing comet is now small and short: 56 px, one second,
     // a touch translucent — a signal of passage, not a wait.
     version: '0.9.191',
     date: '2026-09-12',
     items: [{ kind: 'visual' }],
   },
   {
-    // Legacy has a home again (founder 2026-09-12, with the hackathon hub):
+    // Legacy has a home again:
     // /app/legacy without a destination shows your constituted Legacies as
     // cards, «Constitute a new Legacy», and — with nothing constituted — the
     // empty state that leads into the assistant; «back» from the workshop
@@ -693,9 +622,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Wallet cards react to the mouse again (founder 2026-09-12: «antes
-    // reaccionaban a la ubicación del ratón en tiempo real… sin desactivar
-    // nada de lo nuevo»): a 3D tilt toward the cursor and a light in the
+    // Wallet cards react to the mouse again: a 3D tilt toward the cursor and a light in the
     // card's own tint that follows it across the face, on top of the flip
     // invite and the flight shadow. Calm keeps the cursor effects everywhere
     // but with a lag — the card spotlight included; Minimal stays still.
@@ -704,7 +631,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // One template for every setup ceremony (founder 2026-09-12): the
+    // One template for every setup ceremony: the
     // window Constitute a Legacy already had — pinnable, minimizable, the
     // stations beside the content — now hosts the manager setup and the
     // exchange setup too, each living exactly once. The desks open them
@@ -722,8 +649,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The hackathon hub (founder 2026-09-12: «que cuando un juez se conecte no
-    // tenga que pelearse con la página»): a separate «Hackathon exclusives»
+    // The hackathon hub: a separate «Hackathon exclusives»
     // group at the end of the sidebar — Legacy, Manager desk and (for
     // founders, while its page stays in preview) Exchange — with its own
     // header, its XRPL tag, its icons in the collapsed rail and its own group
@@ -733,7 +659,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Wallets by function, at a glance (founder 2026-09-12): the three
+    // Wallets by function, at a glance: the three
     // shelves — personal, manager and Legacy — share one inline head (icon
     // in its ring, the name in its colour, the count, the rule in one line,
     // a door to the desk where it belongs) over a colour rail down the
@@ -749,7 +675,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // «Reading catalogue from chain» for ever (founder 2026-09-12): the
+    // «Reading catalogue from chain» for ever: the
     // council sweep, the slow part, still ran INSIDE the catalogue read, so
     // under the node's rate limit the read took tens of minutes and every
     // request kept answering «warming». Now the catalogue is served in
@@ -767,8 +693,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Still «The catalogue could not be read» (founder 2026-09-12, after a
-    // hard refresh). Measured against the catalogue's RPC: 45 of 48 event
+    // Still «The catalogue could not be read». Measured against the catalogue's RPC: 45 of 48 event
     // windows came back 429 «call rate limit exhausted, retry in 10s». The
     // scanner treated a persistent 429 as «no events» — councils lost in
     // silence, a sweep to the last block on failed windows, minutes per
@@ -790,7 +715,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // Managed vaults kept loading for too long and ended in «The catalogue
-    // could not be read right now» (founder 2026-09-12). The council cache
+    // could not be read right now». The council cache
     // the catalogue depends on lived in the server's memory, and every
     // deploy — every push to the branch — emptied it, so the first reader
     // after a deploy paid a full event scan. Now that cache persists in the
@@ -808,7 +733,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Two fixes from the founder (2026-09-12). The exchange desk gets the
+    // Two fixes from the founder. The exchange desk gets the
     // rail on the side, as if docked: one left column holds the station
     // rail and, under it, the guided tour, both pinned while you scroll;
     // the desk sits on the right. And closing an operation: the first click
@@ -832,9 +757,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The station rail now follows the BOX, not the screen (founder
-    // 2026-09-12: in the dockable window «the usable field on the right gets
-    // too small»). In a floating window or a narrow dock the strip sits on
+    // The station rail now follows the BOX, not the screen. In a floating window or a narrow dock the strip sits on
     // top of the content; widen the dock — its limit grows from 720 to
     // 1120px, as far as the screen allows — and the rail returns to the
     // side. Same piece, same names, nothing at the bottom.
@@ -849,9 +772,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The station bar moves to the SIDE and changes shape (founder
-    // 2026-09-12: «not at the bottom — it forces the eye down; change where
-    // it lives, and its form and interaction»). On wide screens the manager
+    // The station bar moves to the SIDE and changes shape. On wide screens the manager
     // setup and the exchange setup carry a vertical rail beside the content,
     // pinned while you scroll: every station with its NAME in view, the
     // current one lit, the done ones with a check, a click to jump, Back and
@@ -870,9 +791,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The station bar becomes THE FOOT (founder 2026-09-12: «change where the
-    // progress bar lives and how it is handled, in every menu that has
-    // one»): one piece pinned to the bottom edge while you scroll — Back,
+    // The station bar becomes THE FOOT: one piece pinned to the bottom edge while you scroll — Back,
     // the track, Next — in the Legacy constitution, the manager setup, the
     // vault creator, the exchange setup and the exchange desk. And when you
     // enter a station that is already done, a notice says why: the ledger
@@ -889,9 +808,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // A root with a history (founder 2026-09-12, screenshot: the manager's
-    // account picked as exchange root, so constitution, cage and pote showed
-    // green — true for that account, wrong for an exchange). One council
+    // A root with a history. One council
     // governs one cage, for ever: a root that already governs a cage without
     // a desk profile of this exchange is another life. The setup now says
     // so, keeps station 1 pending and refuses to advance on that account.
@@ -906,8 +823,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The operator's setup bar turned stations green without merit (founder
-    // 2026-09-12): with the ledger gate off, the gate answered ok without any
+    // The operator's setup bar turned stations green without merit: with the ledger gate off, the gate answered ok without any
     // credential, and "Meet the authority" was green just because a take
     // existed. Now Credentials is green only when both legs are in force in
     // the ledger, E0 is green once the chain facts have been read, and every
@@ -923,7 +839,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Two sites, one per person (founder 2026-09-11): the CLIENT site in the
+    // Two sites, one per person: the CLIENT site in the
     // menu — warm, in the house's own look, where a user signs up with Face
     // ID, picks their exchange once and gets their tag (their slice of the
     // exchange's omnibus), and where they can create, pick or connect the
@@ -944,7 +860,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The exchange desk gets its own row in the menu (founder 2026-09-11):
+    // The exchange desk gets its own row in the menu:
     // the whole custodial-exchange interface in one place, founders only.
     // Three rooms — Set up (become a tenant, station by station: root
     // account, credentials, constitution, KYC registry, cage, pote, gate,
@@ -966,8 +882,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The community paints at once (founder 2026-09-11: «llevo dos minutos
-    // esperando»): it no longer waits for the on-chain catalogue with
+    // The community paints at once: it no longer waits for the on-chain catalogue with
     // per-council credential reads — profiles and support show first, vault
     // counts arrive from the shared cached list, and «Verified» refines last.
     // And a manager's public card tells a self-issued credential from a
@@ -977,8 +892,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'performance' }, { kind: 'behavior' }],
   },
   {
-    // One progress bar on screen (founder 2026-09-11: «se ven dos progress
-    // bar»): inside the account setup the vault creator no longer draws its
+    // One progress bar on screen: inside the account setup the vault creator no longer draws its
     // own bar under the six-station one — its step reads as a line; the
     // creator's bar only appears when it opens on its own from Operate.
     version: '0.9.174',
@@ -986,8 +900,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Chain reads served from cache (founder 2026-09-11, after the manager
-    // desk felt slow and Running showed «the chain could not be read»). The
+    // Chain reads served from cache. The
     // catalogue, each vault's state and a council's cage were re-read from
     // Flare in full on every request, and every screen asked twice (the shell
     // and the shelf at once; the desk, its console and its governance three
@@ -1016,8 +929,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // From a colleague's screenshot on a smaller screen (founder
-    // 2026-09-11). Home: the dashboard column was pinned to the viewport
+    // From a colleague's screenshot on a smaller screen. Home: the dashboard column was pinned to the viewport
     // height, so on short screens the donut rings were clipped instead of
     // scrolling — now the column grows and the page scrolls. The Home
     // wallets band no longer lists Flare Smart Accounts (their value still
@@ -1042,7 +954,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Home reads positions without the wait (founder 2026-09-11). Two
+    // Home reads positions without the wait. Two
     // causes. On the server, a wallet whose cache had expired — or whose last
     // scan had lost a slow adapter — made every reader sit through the full
     // protocol sweep again (up to the 15s deadline of the slowest adapter);
@@ -1064,8 +976,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The sidebar's «To sign» becomes a notification zone (founder
-    // 2026-09-11: «no quiero que te lo avise cuando no hay nada pendiente»):
+    // The sidebar's «To sign» becomes a notification zone:
     // at rest, one muted line that marks where things will appear; when a
     // signature, claim or proposal needs you, the card pops into that spot
     // with a breathing dot next to its title; while an operation settles,
@@ -1077,9 +988,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     // Each destination of a managed vault now shows the rate its protocol
     // publishes right now — with source and hour, the same live read Earn's
-    // cards use — and the sheet says why a managed vault has no single APY
-    // (founder 2026-09-11: «quiero que el usuario sepa dónde está metiendo el
-    // dinero»). No figure when the protocol gives none; a link to check it.
+    // cards use — and the sheet says why a managed vault has no single APY.
+    // No figure when the protocol gives none; a link to check it.
     version: '0.9.169',
     date: '2026-09-11',
     items: [
@@ -1091,8 +1001,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // A managed vault now says what happens to your tokens (founder
-    // 2026-09-11: «que se sepa qué te da dejar los tokens en ese vault»):
+    // A managed vault now says what happens to your tokens:
     // not a loan, no collateral — you deposit, get shares, the manager can
     // only move the pool into the listed destinations, what they produce
     // stays pro-rata, the fee touches only that, and each destination says
@@ -1110,8 +1019,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // One face for every wait (founder 2026-09-11: «si está algo cargando
-    // tiene que aparecer el logo… homogéneo en todas las páginas»): every
+    // One face for every wait: every
     // section that is still reading its data shows the Astryum comet with
     // its line — positions, timeline, intents, capital map, rules, tabs.
     // Skeletons stay where the shape is already known, spinners stay for
@@ -1121,8 +1029,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // A vault you just signed for now shows up by itself (founder
-    // 2026-09-11: «parece que no se guarda el vault»): after the relay the
+    // A vault you just signed for now shows up by itself: after the relay the
     // creator checks the cage every 15 s until the new vault exists (up to
     // ten minutes, with the clock visible) instead of one blind reload at
     // 30 s; the form is a draft that survives changing station, folding the
@@ -1133,16 +1040,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // The share symbol is no longer typed (founder 2026-09-10: «nada de
-    // texto»): it derives from the vault name, with the asset behind it, and
+    // The share symbol is no longer typed: it derives from the vault name, with the asset behind it, and
     // the manager picks one of the variants as a chip.
     version: '0.9.165',
     date: '2026-09-10',
     items: [{ kind: 'behavior' }],
   },
   {
-    // Robustness pass over the whole manager flow (founder 2026-09-10: «todo
-    // está medio bug»), after a multi-angle review: after every signature the
+    // Robustness pass over the whole manager flow, after a multi-angle review: after every signature the
     // ledger is re-read until the station flips (no more double anchoring);
     // a Xaman request that fails can be retried in place; a relay that
     // refuses is reported, never announced as sent; the desk says which
@@ -1165,8 +1070,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // An operation window that fails after a reload closes itself instead of
-    // wedging the dashboard on every refresh (founder 2026-09-10: «he
-    // refrescado con un QR en pantalla y se ha quedado como pillado»); a
+    // wedging the dashboard on every refresh; a
     // persisted window of a kind this build does not know is dropped.
     version: '0.9.163',
     date: '2026-09-10',
@@ -1174,16 +1078,14 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // The cage station says BEFORE you press that the ledger will refuse the
-    // birth while the Title station is incomplete, and takes you there
-    // (founder 2026-09-10: pressed «Compose the birth» and got
-    // MANAGER_CREDENTIAL_REQUIRED for a self-issued AIFM).
+    // birth while the Title station is incomplete, and takes you there.
     version: '0.9.162',
     date: '2026-09-10',
     items: [{ kind: 'behavior' }],
   },
   {
-    // The constitution template of a managed vault is now a full document
-    // (founder 2026-09-10: «una constitución como Dios manda»): preamble
+    // The constitution template of a managed vault is now a full document:
+    // preamble
     // and twelve articles — object, the manager, limits of the mandate,
     // depositors' rights, fees, transparency, conflicts, delegation,
     // amendments, wind-down, applicable law, anchoring — with blanks the
@@ -1196,16 +1098,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     // A valid credential from an issuer the gate does not accept (e.g.
     // self-issued) now says exactly that on its row, names the accepted
     // issuers and marks each tray row as counting or not; the notary's
-    // legs already in force read neutral instead of as warnings (founder
-    // 2026-09-10: «tengo válido el AIFM y el KYC pero el botón me sigue
-    // dando error»).
+    // legs already in force read neutral instead of as warnings.
     version: '0.9.160',
     date: '2026-09-10',
     items: [{ kind: 'behavior' }],
   },
   {
-    // The Manager desk is in plain sight for the XRPL hackathon (founder
-    // 2026-09-10: «se tiene que poder acceder fácilmente por ahora»): a
+    // The Manager desk is in plain sight for the XRPL hackathon: a
     // sidebar row and ⌘K entry for everyone, and the named button in Earn →
     // Managed vaults for everyone too. One env switch
     // (NEXT_PUBLIC_MANAGER_DESK_OPEN=false) puts it back behind the manager
@@ -1215,8 +1114,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Wallet cards, second pass (founder 2026-09-10: «cuando giran se queda
-    // la sombra en color iluminada por detrás, no me acaba»). The tinted aura
+    // Wallet cards, second pass. The tinted aura
     // was a hover state, so it stayed lit behind the flipped card. It is now
     // the shadow of the FLIGHT: full only while the card turns, a hint under
     // the cursor, off at rest — and it follows the real angle, narrowing when
@@ -1226,9 +1124,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Wallet cards learn to invite the turn (founder 2026-09-10: «que no sea
-    // un simple botón que aparece, algo más complejo… que se vea generalmente
-    // mejor cada card, y seguir diferenciando la normal de la legacy»). On
+    // Wallet cards learn to invite the turn. On
     // hover the card BEGINS its flip — a few degrees toward where it will go —
     // while a tab unfolds from circle to pill (arc traces, icon half-turns,
     // the word appears), the watermark drifts against the tilt and a tinted
@@ -1243,8 +1139,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Portfolio curve (founder 2026-09-10: «parece que baja mucho por poco
-    // cambio… más sutil, pero no plano»): the y-axis is now dynamic — it
+    // Portfolio curve: the y-axis is now dynamic — it
     // spans at least 5% of the value and grows with the real variation, so a
     // small move looks small and a big one fills the chart. And the header no
     // longer shifts the page when scrubbing: every row keeps its height.
@@ -1253,8 +1148,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Motion level, third pass (founder 2026-09-10: «el modo calm lo has
-    // dejado sin animaciones, quiero que lo animes» + «en minimal los
+    // Motion level, third pass (+ «en minimal los
     // interrogantes no funcionan»). Calm gains its own slow pulse: emblems
     // that turn and breathe, shelf cards that settle in and lift a touch,
     // a halo that breathes, tabs that glide without bounce, ambient scenes
@@ -1265,8 +1159,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Manager desk fields follow the theme (founder 2026-09-10: a text entry
-    // «looked dark» — they used a fixed white-5% ground; now ink tokens),
+    // Manager desk fields follow the theme,
     // and the Title station gains «Step by step: set up Coinbase» — eight
     // screens with our own captures/videos and Coinbase's official links,
     // the Legacy Multisign tutorial pattern.
@@ -1275,7 +1168,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // The sidebar is yours even with something pinned (founder 2026-09-10).
+    // The sidebar is yours even with something pinned.
     // Pinning an operation still folds the menu into the icon rail by
     // default, but on a wide screen the full menu fits beside it — so both
     // the rail and the full sidebar now carry a toggle, and the choice is
@@ -1295,8 +1188,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Motion level, second pass (founder 2026-09-10: «no quiero solo que se
-    // desactiven las animaciones, quiero estilos nuevos y distintos» — and no
+    // Motion level, second pass (and no
     // «System» option). Calm and Minimal are now two visual languages of
     // their own: engraved emblems on the Earn doors and a flat shelf of route
     // cards (Calm); doors and routes as lists, outline primary button,
@@ -1308,8 +1200,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // Motion level (founder 2026-09-10: «se me generan problemas de
-    // concentración con las animaciones de los botones del Earn»): Settings
+    // Motion level: Settings
     // gains a Motion row — Full / Calm / Minimal, or follow the device — that
     // every screen obeys (stores/motionStore.ts). Calm stops everything that
     // moves on its own (the Earn doors' scenes, the hand's tilt and spread,
@@ -1320,7 +1211,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The manager desk leaves the sidebar (founder 2026-09-10): it opens from
+    // The manager desk leaves the sidebar: it opens from
     // Earn → Managed vaults as an operation window — floating, pinnable to the
     // right, minimisable, surviving a reload — the same shell Govern uses.
     // The Title station is rebuilt top-down: what it is and how many you hold,
@@ -1331,9 +1222,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The Title station puts the signature first (founder 2026-09-09: «no me
-    // gusta que aparezca abajo… que se pueda ver mejor la petición de
-    // firmar»): credentials waiting for your acceptance render at the top of
+    // The Title station puts the signature first: credentials waiting for your acceptance render at the top of
     // the tray as a highlighted card, the Xaman QR opens right there and
     // scrolls into view, the notary's two legs (KYC / AIFM) each show their
     // own verdict and colour, and gate and tray refresh each other — issue →
@@ -1343,8 +1232,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The «MetaMask connected» strip on Wallets stops overstaying (founder
-    // 2026-09-09). It was never a message that expires: it was a status strip
+    // The «MetaMask connected» strip on Wallets stops overstaying. It was never a message that expires: it was a status strip
     // tied to the extension's session — alive as long as MetaMask stayed
     // connected, i.e. always. Its job is to offer «add this wallet»; once
     // the wallet is in the list, the header's «Add Wallet» already covers
@@ -1355,9 +1243,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Operation windows survive a page refresh (founder 2026-09-09: pinned or
-    // open, a refresh wiped the «in progress» window while the operation was
-    // still settling). The list of open operations, which one is unfolded
+    // Operation windows survive a page refresh. The list of open operations, which one is unfolded
     // and whether it was pinned now persist per account in this browser and
     // come back on reload, until you close them. And a window that had
     // signed something readopts its own settlement — the pending record now
@@ -1375,9 +1261,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // A settled operation now reaches the Home and the Portfolio on its own
-    // (founder 2026-09-09: an earnXRP vault deposit showed up nowhere and the
-    // earning ring did not move). Two root causes, both fixed. Nothing
+    // A settled operation now reaches the Home and the Portfolio on its own.
+    // Two root causes, both fixed. Nothing
     // refreshed after settlement: the backend snapshot lives 5 minutes in
     // cache and the client aggregate a minute more, so the new position did
     // not exist for Home or the ring until a reload much later — now settling
@@ -1398,8 +1283,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Manager KYC without pasting anything (founder 2026-09-09: «siempre que
-    // se pueda reducir el proceso, hacerlo»). The notary now finds the
+    // Manager KYC without pasting anything. The notary now finds the
     // Coinbase «Verified Account» attestation of the EVM wallet you have
     // connected (EAS indexer as a hint, the Base chain as the truth), you sign
     // one challenge with that wallet and the credential lands in your Xaman
@@ -1411,8 +1295,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // The logo in code IS the logo now (founder 2026-09-09: "sigue fallando
-    // algo de la forma… se nota"): hand-tracing is out — Logo.tsx v3 is a
+    // The logo in code IS the logo now: hand-tracing is out — Logo.tsx v3 is a
     // pixel-faithful trace of the original asteroid PNG (marching squares
     // per colour layer + RDP, deterministic script kept at
     // frontend/scripts/trace-logo.mjs). The loader animates the authentic
@@ -1426,8 +1309,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // Managed vault cards show the manager's real photo at card size and the
-    // token they use with its logo and symbol (founder 2026-09-08: «que se
-    // vean bien las imágenes de los perfiles y el token»); the Community
+    // token they use with its logo and symbol; the Community
     // door is now a visible button on the Managed vaults page, the Manager
     // desk header and the Settings profile card.
     version: '0.9.143',
@@ -1435,8 +1317,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The settled loader reads clean at small sizes (founder 2026-09-08,
-    // third pass: "se ve un poco raro… tal vez los boquetes o el color"):
+    // The settled loader reads clean at small sizes:
     // the halo tinted the rock↔ring gap brown (opacity halved, blur wider),
     // the ring glow eased, the two dot-craters — noise below 120px — are
     // pruned from the loader (the mark keeps all seven), and the dark rim
@@ -1446,8 +1327,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The loader now animates the REAL logo (founder 2026-09-08, second
-    // pass: "no has respetado para nada la imagen original"). Logo.tsx v2 is
+    // The loader now animates the REAL logo. Logo.tsx v2 is
     // a calibrated vectorization of the actual asteroid PNG — overlay-checked
     // against it over four rounds — and AstryumLoader animates exactly those
     // pieces: the five speed lines streak in, the ROCK FALLS along their
@@ -1460,7 +1340,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The community of managed vaults (founder 2026-09-08). Every vault card
+    // The community of managed vaults. Every vault card
     // can carry an image chosen by its manager — a house emblem, the
     // manager's profile photo, or none (the question mark) — and never looks
     // empty. Manager profiles now say whether the account is run by a person
@@ -1484,8 +1364,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The boot animation plays WHOLE (founder 2026-09-08: "quiero que la
-    // animación se vea fluida y entera"): access verification is near-
+    // The boot animation plays WHOLE: access verification is near-
     // instant, so the asteroid's birth was getting beheaded mid-stroke. The
     // boot veil now holds until the act completes (~1.9s) and lifts with a
     // fade — and the dashboard MOUNTS UNDERNEATH it meanwhile, so portfolio
@@ -1497,8 +1376,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Loading gets a face (founder 2026-09-08: "animación como tal no hay…
-    // una animación currada, sencilla pero compleja, con el logo"). The
+    // Loading gets a face. The
     // audit found plain text on black at boot and 292 generic spinners.
     // AstryumLoader animates the actual brand mark in two acts: the BIRTH
     // runs once (comet trail streaks in, the asteroid draws itself, craters
@@ -1519,8 +1397,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Station ceremonies read as ONE progress bar (founder 2026-09-08: «a
-    // row of numbers is not progress»): Constitute/Reinforce a Legacy and the
+    // Station ceremonies read as ONE progress bar: Constitute/Reinforce a Legacy and the
     // manager's account setup share components/ui/StationProgress — a slim
     // bar pinned to the top while you scroll, one clickable segment per
     // station to jump back or forward, and «3/6 · station · 2 done» in one
@@ -1531,8 +1408,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // The manager desk stops repeating itself (founder 2026-09-08: «the
-    // process is tedious and repetitive»). Setup resumes at the first pending
+    // The manager desk stops repeating itself. Setup resumes at the first pending
     // station the ledger reports instead of always starting at «Account»; the
     // vault creator is stitched into the setup rail (one navigation footer,
     // not two nested wizards); each station says whether the ledger requires
@@ -1544,8 +1420,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The Activity export is the screen now (founder 2026-09-07: the JSON came
-    // out empty while the page showed operations). Two root causes: the old
+    // The Activity export is the screen now. Two root causes: the old
     // engine downloaded one file PER wallet in a loop, and a browser grants a
     // single download per gesture — with «All wallets» only the first file
     // landed (the EVM one, often empty) while the Xaman one, holding the
@@ -1567,8 +1442,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The "?" dots become visible (founder 2026-09-07, with screenshot: "no
-    // se ven… se tienen que mostrar en el botón"): v1 baked `relative` into
+    // The "?" dots become visible: v1 baked `relative` into
     // HelpDot's own classes, so the door's `absolute` lost the CSS cascade
     // and the dot ended up half-guillotined at each card's left edge — the
     // mystery "(" arcs. HelpDot is now two layers (outer = consumer's
@@ -1580,8 +1454,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The Portfolio chart grows up (founder 2026-09-07: it looked a bit
-    // cheap). Taller, a glow under the curve, a dotted baseline at the
+    // The Portfolio chart grows up. Taller, a glow under the curve, a dotted baseline at the
     // window's start so the shape reads as «better or worse than when this
     // window began», a live pulsing dot on the latest reading, a proper
     // tooltip with the difference, a sparse compact axis — and SCRUB: run the
@@ -1602,8 +1475,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Structures stop teleporting you (founder 2026-09-07: clicking one on
-    // the Portfolio threw you onto the Wallets screen). A structure is now a
+    // Structures stop teleporting you. A structure is now a
     // SCOPE like any wallet: touching its row filters the page to it and you
     // stay reading what you came to read, with a Govern door that opens the
     // ceremony over the page instead of navigating. They also read as
@@ -1626,8 +1498,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The Earn hub sheds its weight (founder 2026-09-07: "los botones se ven
-    // sobrecargados… reduce el texto de manera importante"): each door keeps
+    // The Earn hub sheds its weight: each door keeps
     // ONE short line, and the full explanation moves into a small "?" dot —
     // always visible, never repeating itself — that opens on hover (and on
     // keyboard focus). The agent bar joins in: its rule now lives in the
@@ -1638,8 +1509,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The Portfolio's scope collapses into two labelled selectors (founder
-    // 2026-09-07). The open chip row grew with every wallet you linked and
+    // The Portfolio's scope collapses into two labelled selectors. The open chip row grew with every wallet you linked and
     // ate a whole line on every lens; now «Wallet: …» and «Network: …» sit
     // beside the tabs, open on hover AND on click (pinned once clicked, so
     // picking never depends on not moving the mouse), and each wallet wears
@@ -1659,9 +1529,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // A partial total now SAYS it is partial (founder 2026-09-07: "me
-    // aparecía muy poco dinero y absolutamente nada cargando… puede
-    // asustar"). The cold load always painted wallet by wallet, but no
+    // A partial total now SAYS it is partial. The cold load always painted wallet by wallet, but no
     // surface looked at `loading` once there was a figure to show. One
     // shared badge — pulsing, with a read/total count — sits beside the
     // money on Home's net worth, Portfolio's total and the Wallets list
@@ -1677,8 +1545,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The Legacy card's second crown fitting (founder 2026-09-05: "puede
-    // mejorar bastante"): the first cut read washed-out — now the crown is
+    // The Legacy card's second crown fitting: the first cut read washed-out — now the crown is
     // taller with full-ink seal and word, the quorum anchors right after it
     // (lit dots + M/N) instead of floating, the body turns decisively indigo
     // (38% wash — 26% still read grey), the flight shadow becomes an indigo
@@ -1688,7 +1555,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Three founder asks of 2026-09-05 in one visual pass: the Manager desk
+    // Three asks of in one visual pass: the Manager desk
     // joins the house theme (staggered entrances, rooms that hand over with
     // the app's transition instead of a hard cut, the armillary emblem
     // presiding the empty desk and reacting to the cursor, a live-beat dot
@@ -1709,9 +1576,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // GOVERN IN FIVE ROOMS (founder 2026-08-30, second pass: "sigue estando
-    // bastante complicado... añade más menús para tener menor contenido en
-    // cada pantalla"). "Info" was carrying FIVE heavy blocks at once —
+    // GOVERN IN FIVE ROOMS. "Info" was carrying FIVE heavy blocks at once —
     // identity, capital, yield, activity and the whole council with its
     // emergencies and amendments — while "Proposals" carried three. Now each
     // tab answers ONE question and holds one or two blocks: Capital (what is
@@ -1738,7 +1603,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Wallet pickers wear the wallets' own faces (founder 2026-08-30). Every
+    // Wallet pickers wear the wallets' own faces. Every
     // selector in the app was a native <select>, and an <option> cannot be
     // styled — so the identity you set in Wallets (your colour, your glyph,
     // your nickname) vanished exactly where it matters most: choosing which
@@ -1759,7 +1624,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // GOVERNING A LEGACY IS AN OPERATION TOO (founder 2026-08-30). Three
+    // GOVERNING A LEGACY IS AN OPERATION TOO. Three
     // moves in one pass: (1) the Legacy card's Movements door opens its
     // modal RIGHT ON /app/wallets — no more loading the Legacy screen to
     // show a floating dialog (GovernedMovementsModal, extracted, one piece
@@ -1782,8 +1647,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Card numbers line up across neighbours (founder 2026-08-29: "no están
-    // a la misma altura ambos hash"): the token-logo rail above the money now
+    // Card numbers line up across neighbours: the token-logo rail above the money now
     // always reserves its height, so a wallet with no holdings no longer
     // pulls its number lower than the card next to it.
     version: '0.9.127',
@@ -1791,8 +1655,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Wallet cards go MATTE (founder 2026-08-29: "no me gusta el toque
-    // brillante… como antes pero mejor"): the specular band dies the day it
+    // Wallet cards go MATTE: the specular band dies the day it
     // was born; instead the chip gains its engraved contact pads and the
     // card sits on the house's double shadow (contact + flight) — better
     // through craft, not shine.
@@ -1801,8 +1664,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The history clock finds its true home (founder 2026-08-30: it floated
-    // at the hero card's top-right, over the artwork, far from everything).
+    // The history clock finds its true home.
     // It now lives INSIDE the command bar, next to the send arrow — chrome
     // of the agent, not of the card — as a quiet ghost icon; the hero card
     // dropped its overflow clipping so the panel can hang freely below.
@@ -1811,8 +1673,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // THE VAULT CREATOR AS AN EXPERIENCE (founder 2026-08-30: «muy
-    // interactivo y dinámico», plus a founder tunnel to reach it). Creating
+    // THE VAULT CREATOR AS AN EXPERIENCE (plus a founder tunnel to reach it). Creating
     // a vault stops being a console micro-form: five stations (identity →
     // the two immutable promises → rules → destinations → review & open)
     // beside a LIVE catalog card — the exact CardFace clients will see in
@@ -1838,7 +1699,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Wallet cards, fifth cut (founder 2026-08-29): each address strip on
+    // Wallet cards, fifth cut: each address strip on
     // the back now wears its account's EMBLEM — the personal glyph or the
     // provider's mark for the wallet, Flare's logo for the Smart Account —
     // so the two codes tell apart at a glance; the holder's name is
@@ -1849,7 +1710,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Two founder notes (2026-08-30). The Portfolio's Tokens lens shows the
+    // The Portfolio's Tokens lens shows the
     // full picture again — chain, wallet, quantity and price returned to the
     // row (they left with the Overview box in the facelift), the wide table
     // scrolling in its own rail; price stays unmasked on purpose: it is
@@ -1870,9 +1731,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // CERTIFICATION IS A REFERRAL, NOT A FORM (founder 2026-08-30, after
-    // regulatory research: «no podemos tener la creación ni custodia de
-    // estos documentos»). The manager KYC form died whole — fields, document
+    // CERTIFICATION IS A REFERRAL, NOT A FORM. The manager KYC form died whole — fields, document
     // attach, and even the LOCAL draft slice in managerStore (a PII draft in
     // localStorage is still custody), purged by a store migration in every
     // browser that saved one. In its place, one card in both mounts
@@ -1892,9 +1751,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The copilot concentrates on the Earn hub (founder 2026-08-29, fifth
-    // pass: three placements inside the strategy menus all got in the way —
-    // that screen is for COMPARING cards). The agent now opens the hub as a
+    // The copilot concentrates on the Earn hub. The agent now opens the hub as a
     // full-width hero: its constellation, its invitation, the command line
     // and the prompt ideas always in view; the first-visit tour starts
     // there. The menus are clean again — no bar, no bubble — and the door
@@ -1913,8 +1770,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // MANAGER MODE FOLLOWS THE ACCOUNT (founder 2026-08-30: same account in
-    // a fresh Brave profile arrived with the desk switched off). The
+    // MANAGER MODE FOLLOWS THE ACCOUNT. The
     // declaration now persists server-side on the user record
     // (User.preferences.managerMode — the `legal` rail): the toggle POSTs
     // /auth/manager-mode and every browser adopts GET /auth/me's verdict on
@@ -1934,9 +1790,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The agent bubble inside the strategy menus is FIXED for real now
-    // (founder 2026-08-29, fourth pass: it kept sliding to the very bottom
-    // when a strategy sheet opened). v3's sticky died against the shell's
+    // The agent bubble inside the strategy menus is FIXED for real now.
+    // v3's sticky died against the shell's
     // transformed wrappers, leaving the bubble at its flow position; it now
     // portals to <body> — the house rule for everything fixed — raised off
     // the edge and aligned to where the content starts (rail or sidebar),
@@ -1969,11 +1824,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // THE VAULT CATALOGUE IS A STRATEGY MENU (founder 2026-08-29: "tiene que
-    // estar igual que los otros dos menús con estrategias, pero hay que darle
-    // a cada estrategia un toque distintivo"). Managed vaults now deal the
+    // THE VAULT CATALOGUE IS A STRATEGY MENU. Managed vaults now deal the
     // same overlapping HAND as Earn's two menus, with the detail unfolding as
-    // a column beside it — the 27-ago grid is gone. The distinctive touch is
+    // a column beside it — the grid is gone. The distinctive touch is
     // the MANAGER: every card wears their avatar (deterministic from their
     // XRPL account — no invented aliases) and their name, and their profile
     // opens from the card's detail: the vaults they run, the capital inside,
@@ -1996,7 +1849,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Two founder notes (2026-08-29, late). Inside a strategy menu the agent
+    // Inside a strategy menu the agent
     // stops sliding away: opening a strategy pushed the input bar to the very
     // bottom of a long page, so it becomes a small BUBBLE pinned to the
     // bottom edge — folded it covers nothing, and hovering or tapping it
@@ -2011,7 +1864,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Scene reactions, calmed (founder 2026-08-29: "too much... más lenta",
+    // Scene reactions, calmed (
     // and the mouse-out reset "es molesto"): boost layers now exist paused
     // and only PLAY under the cursor, so leaving freezes them in place — no
     // snap back to 0°; every hover tempo roughly halves. And the managed
@@ -2025,7 +1878,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // PROFILE FOLLOWS THE ACCOUNT (2026-08-29): the avatar/name card in
+    // PROFILE FOLLOWS THE ACCOUNT: the avatar/name card in
     // Settings froze whatever it saw at mount, so on a fresh browser it
     // showed initials while the account photo was arriving — and its Save
     // always sent BOTH fields, so saving a name there wiped the account
@@ -2038,7 +1891,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // MANAGED VAULTS BY PERSONA (founder 2026-08-29): Earn keeps only the
+    // MANAGED VAULTS BY PERSONA: Earn keeps only the
     // client's side — the vault catalogue, chosen like any other strategy
     // (the "strategy" of a managed vault belongs to its manager). The
     // manager's desk moved to /app/manager with a sidebar entry that only
@@ -2064,8 +1917,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The door scenes, fourth cut (founder 2026-08-29: "simples líneas no me
-    // gusta"): SYSTEM reactions, not drawing lines. Orbits, rims and the helm
+    // The door scenes, fourth cut: SYSTEM reactions, not drawing lines. Orbits, rims and the helm
     // carry additive boost layers that spin up under the cursor (from 0°, no
     // phase jump); grains actually TRAVEL the infall, the beam and the chain
     // (native animateMotion, lit when watched); the sun, capital and padlock
@@ -2076,8 +1928,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The agent closes in one click (founder 2026-08-29: the two-step
-    // confirm guards operations mid-signature — a conversation is not one),
+    // The agent closes in one click,
     // and it remembers: a LOCAL history, 30 days in this browser and then
     // self-deleted, never on a server. The clock in the chat header lists
     // past conversations (restore, delete, start fresh); only the text is
@@ -2095,7 +1946,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Agent polish, second round (founder 2026-08-29). The bar now answers
+    // Agent polish, second round. The bar now answers
     // the mouse: the spark wakes, the frame glows, and prompt ideas unfold
     // beneath it — tuned per surface, one tap sends them. The options card
     // beneath a reply speaks the dashboard's language at last (its labels
@@ -2118,8 +1969,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The Legacy card's back also carries its Smart Account (founder
-    // 2026-08-29: "la wallet de legacy también tiene smart account"). The
+    // The Legacy card's back also carries its Smart Account. The
     // council's Flare leg is folded as a row, so the compact card now reads
     // it from the same resolver the Legacy tab uses (useSmartAccountsOf) —
     // both labelled addresses, both copyable, personal and governed alike.
@@ -2128,7 +1978,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Wallet cards, fourth cut (founder 2026-08-29): bigger (~300px floor),
+    // Wallet cards, fourth cut: bigger (~300px floor),
     // opaque faces with a gradient body instead of the translucent wash,
     // Movements pinned on the FRONT corner (no flip needed for the everyday
     // action), and the back now carries TWO labelled copyable addresses —
@@ -2146,8 +1996,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The Earn door scenes, third cut (founder 2026-08-29: "the landing is
-    // god-level and these fall short"). Same figurative story, landing-grade
+    // The Earn door scenes, third cut. Same figurative story, landing-grade
     // craft: a star-field backdrop, real blurred halos, layers in counter-
     // rotation, and every scene now answers the mouse two or three ways —
     // the harvest sun flares and its corona wakes while the infall spiral
@@ -2161,9 +2010,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // The wallet-card grid re-counts its columns only once the panel's width
-    // SETTLES (founder 2026-08-29: widening the docked strategy made the
-    // cards "hacer dos redimensiones... a mitad de ensanchar se reinicia el
-    // tamaño"). Live container queries switched columns the exact frame the
+    // SETTLES. Live container queries switched columns the exact frame the
     // dock's animation crossed a threshold; now cards compress fluidly during
     // the gesture and reflow once, on the layout springs they already carry.
     version: '0.9.105',
@@ -2171,8 +2018,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The hand of strategy cards no longer gets guillotined by its own row
-    // (founder 2026-08-29: "las cards siguen saliendo del límite"). The row is
+    // The hand of strategy cards no longer gets guillotined by its own row.
+    // The row is
     // a scroll container and clipped at its edge: the chosen card's scale left
     // it amputated against the left rim, and hovering pushed the first card
     // 16px into the cut. Classic bleed pattern — padding for the theatrics,
@@ -2182,7 +2029,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The agent grows into a real window (founder 2026-08-29): talking to the
+    // The agent grows into a real window: talking to the
     // bar opens it PINNED to the right like any strategy — minimizable to its
     // pill, surviving navigation — and it does NOT count toward the three-
     // operation cap (three strategies plus the agent). Its replies render as
@@ -2203,9 +2050,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The agent becomes a LAYER, not a place (founder 2026-08-29: the open
-    // chat inside each menu was too blunt; command bar chosen over four
-    // doors). One calm line — the spark, a surface-tuned invitation, the
+    // The agent becomes a LAYER, not a place. One calm line — the spark, a surface-tuned invitation, the
     // arrow — on the hub and inside both menus; sending unfolds the
     // conversation in place, seeded with your phrase, and it folds back.
     // Same compiler, same rule printed on the bar itself: it compiles — you
@@ -2225,7 +2070,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Earn splits into TWO menus (founder 2026-08-28): one for putting tokens
+    // Earn splits into TWO menus: one for putting tokens
     // to work (no debt) and one for borrowing against them — each door opens
     // only its own strategies, on both the hand and the phone accordion, and
     // the sister-route jump crosses menus instead of dead-ending. The agent
@@ -2248,8 +2093,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The wallet cards stop crowding when an operation is docked (founder
-    // 2026-08-28). The grid counted its columns by VIEWPORT width — and the
+    // The wallet cards stop crowding when an operation is docked. The grid counted its columns by VIEWPORT width — and the
     // viewport cannot see that the docked panel ate 800px of it, so three
     // columns fought over the space of one. The grid now measures ITS OWN
     // panel (container queries, the same cure the rings and the operation
@@ -2263,9 +2107,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The strategy hand fits its box, ALWAYS (founder 2026-08-28: cards were
-    // colliding with the frame edge and getting sliced when the detail sheet
-    // narrowed the column). The overlap stops being fixed: the hand now
+    // The strategy hand fits its box, ALWAYS. The overlap stops being fixed: the hand now
     // measures its row and deals the visible face per card between honest
     // caps (max = the usual breathing room, min = icon + title start), with
     // slack reserved for the hover fan-out. The horizontal scroll survives
@@ -2275,7 +2117,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The wallet card's touch, corrected on founder review (2026-08-27,
+    // The wallet card's touch, corrected on founder review (
     // evening). The WHOLE card flips now — press anywhere, front or back —
     // with a rotate hint appearing top-right on hover; the only exceptions
     // are the surfaces with a job of their own: the card number copies, and
@@ -2291,7 +2133,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Legacy inputs turn legible (founder 2026-08-28): every text box in the
+    // Legacy inputs turn legible: every text box in the
     // Legacy family styled itself without a text colour — and <input> does
     // not inherit, so the UA painted the typed address BLACK on the dark
     // surface. The whole family (inputCls ×5, Movements ×6, CageBirth,
@@ -2302,7 +2144,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Toasts become legible (founder 2026-08-28): the Toaster was styling
+    // Toasts become legible: the Toaster was styling
     // itself with raw HSL-triplet tokens (`var(--background)`) — invalid CSS,
     // so every toast rendered TRANSPARENT and drowned behind whatever card
     // was open. Now on the house elevation ladder (surface-2 + ink + shadow)
@@ -2313,7 +2155,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The wallet cards become REAL cards (founder 2026-08-27, second pass) —
+    // The wallet cards become REAL cards —
     // smaller, with the money they hold on the face, the address set like a
     // card number with one-tap copy, and a FLIP: the back carries the
     // magnetic stripe, the full address on the signature strip, and the three
@@ -2336,7 +2178,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Reinforce leaves the Legacy costume behind (founder 2026-08-27): the
+    // Reinforce leaves the Legacy costume behind: the
     // ceremony now opens as an OPERATION — popup/pinnable/pill, counting as
     // one of the three — in the personal GOLD, with its own artwork (beacon
     // and signature scenes, no pantheon, no council stars) because a
@@ -2355,7 +2197,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Multi-op (founder 2026-08-27): up to THREE operations live at once —
+    // Multi-op: up to THREE operations live at once —
     // one unfolded (window or pinned), the rest waiting as pills in a row at
     // the bottom edge, browser-taskbar style; every one keeps its full state
     // (amounts, review, ceremony) while folded, and constituting a Legacy
@@ -2374,7 +2216,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Three founder asks (2026-08-27, afternoon). The Portfolio's four rings
+    // Three asks (afternoon). The Portfolio's four rings
     // line up again: only Assets Earning carried the working/idle split line,
     // which pushed its ring two lines below its neighbours — the slot is now
     // reserved on every card, empty when there is nothing to say. The strategy
@@ -2398,7 +2240,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Three founder asks in one pass (2026-08-27). The grey button explains
+    // Three asks in one pass. The grey button explains
     // itself: when an operation's continue button is disabled — no amount,
     // wrong wallet, balance short, a dry-run that proved a revert — hovering
     // it now says exactly what is blocking, in the same words the form
@@ -2412,7 +2254,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Founder pass 2026-08-26 (night): (1) FIX — the Constitute-a-Legacy
+    // Founder pass (night): (1) FIX — the Constitute-a-Legacy
     // operation died when switching sidebar tabs: it was mounted inside the
     // Wallets page (the same original sin strategy and positions already
     // paid for). It now lives in the global operation host — pin it,
@@ -2426,7 +2268,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The ship log tells a story now (founder 2026-08-26): DeFi milestones
+    // The ship log tells a story now: DeFi milestones
     // keep their full line, and everything generic BETWEEN milestones folds
     // into one counted row — «12 behaviour · 7 visual» with its version and
     // date span — instead of a wall of identical «Behaviour improvements»
@@ -2437,8 +2279,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The Legacy form joins the operation system (founder 2026-08-26: «el
-    // form del legacy no se mantiene anclado»). The council-order composer —
+    // The Legacy form joins the operation system. The council-order composer —
     // both its doors: the governed strategy entry in Earn and the cage
     // modal in the strategies hub — now lives on the same dual surface as
     // every operation: pin it, minimize it, and browse the dashboard with it
@@ -2448,7 +2289,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // FIX (founder 2026-08-26): navigating from the collapsed rail closed a
+    // FIX: navigating from the collapsed rail closed a
     // PINNED position operation. Same root cause as the strategy modal two
     // days ago — it lived inside its page, and navigation unmounts pages.
     // The position close/repay/withdraw now lives in the global operation
@@ -2461,8 +2302,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // The open strategy sheet stops leaving dead space (founder 2026-08-26,
-    // same afternoon, three corrections in one): the columns swap roles — the
+    // The open strategy sheet stops leaving dead space: the columns swap roles — the
     // compressed hand takes the width it actually needs and the SHEET is what
     // grows to fill the rest; the cards stop over-collapsing (same card width,
     // deeper overlap, ~80px of each face visible so every route stays
@@ -2474,8 +2314,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // CONSTITUTE AS AN OPERATION (founder 2026-08-26: «que cuente como otra
-    // operación normal... formato popup... anclable a la derecha»). The
+    // CONSTITUTE AS AN OPERATION. The
     // Constitute-a-Legacy door on Wallets no longer swaps the whole shell to
     // the governed theme — it opens the SAME six-station ceremony inside the
     // house operation surface: a short window you can pin to the right (or
@@ -2494,7 +2333,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // MINIMIZE the operation (founder idea, 2026-08-26): besides pinning, an
+    // MINIMIZE the operation: besides pinning, an
     // in-flight operation can now fold into a small pill at the bottom-right
     // — like a browser window minimized to the page's edge. The operation
     // stays ALIVE underneath (amounts, review, everything as you left it);
@@ -2514,8 +2353,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The landing comes alive on phones (founder 2026-08-26: "se ve sin
-    // ningún tipo de animación en el móvil"). The stacked journey — what every
+    // The landing comes alive on phones. The stacked journey — what every
     // phone renders instead of the pinned scrollytelling — was born honest but
     // dead: plain divs, every artifact switched off. Now the hero, each stop
     // and the closing principle reveal on scroll with the landing's own
@@ -2528,7 +2366,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // One signature, one ceremony (founder 2026-08-26). Signing in Xaman used
+    // One signature, one ceremony. Signing in Xaman used
     // to play the autograph twice — once over the spent QR, once again in the
     // settlement view the moment the QR closed. The QR now only ticks off its
     // spent code with a quiet check, and the ceremony plays exactly once,
@@ -2541,7 +2379,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // FIX (founder 2026-08-26): hovering a pinned operation made it flicker
+    // FIX: hovering a pinned operation made it flicker
     // into the middle of the screen. The pinned panel lived inside the card
     // that opened it — and that card's hover lift (translate) turns the
     // ancestor into the containing block of any `fixed` child, so the panel
@@ -2554,7 +2392,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Dock polish, founder-directed (2026-08-26). (1) The pinned operation is
+    // Dock polish, founder-directed. (1) The pinned operation is
     // RESIZABLE: drag its left edge (360–720px, remembered between sessions);
     // the dashboard's margin follows live, with the slide transition parked
     // while you drag so the handle feels like a handle, not a rubber band.
@@ -2567,7 +2405,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Opening a strategy stops covering the rest (founder 2026-08-26). The
+    // Opening a strategy stops covering the rest. The
     // detail used to open as a fixed panel dead-centre — on top of exactly the
     // cards you were comparing it with. It now settles into the RIGHT column,
     // in the page's own flow (nothing pinned), and the hand of cards tightens
@@ -2578,8 +2416,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // The docked operation SURVIVES navigation (founder 2026-08-25: «que el
-    // usuario pueda moverse por la web con la estrategia abierta»). The
+    // The docked operation SURVIVES navigation. The
     // strategy modal used to live inside the Earn page — clicking any sidebar
     // destination unmounted the page and took the pinned operation with it.
     // It now lives in a global host above the routes (operationStore +
@@ -2592,7 +2429,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Founder pass 2026-08-25 (night): (1) the strategy entry modal joins the
+    // Founder pass (night): (1) the strategy entry modal joins the
     // DOCK — the pin button the founder missed on the Kinetic entry is there
     // now, same recipe as the positions pilot; (2) the entry amount gains the
     // 0→max SLIDER (same component as the close flow — its top is the same
@@ -2605,8 +2442,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Second pass on the pop (founder 2026-08-25: "se sigue viendo todo
-    // popear: los números, las posiciones, las wallets"). The first pass fixed
+    // Second pass on the pop. The first pass fixed
     // the ROUTE entrance — but the pop lives in the other layer: async data
     // landing into an already-visible page with no transition at all. A new
     // shared primitive (Arrive) plays exactly there — where a skeleton or an
@@ -2619,7 +2455,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Two founder ideas land (2026-08-25). (1) DOCK THE OPERATION: the
+    // Two founder ideas land. (1) DOCK THE OPERATION: the
     // in-flight operation can pin to the right edge — the whole dashboard
     // slides left, the sidebar folds to an icon rail, and the page stays LIVE
     // under your hands while the signature is being prepared (no more
@@ -2642,8 +2478,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Pages stop flashing on arrival (founder 2026-08-25: every card appeared
-    // at once, "aggressive, ugly, intrusive"). The cause was a double opacity
+    // Pages stop flashing on arrival. The cause was a double opacity
     // ramp — the shell already fades the whole page, and every card faded from
     // zero on top of it — plus a revisit stagger of 20ms, which is simultaneous
     // in practice. Cards now start already visible and arrive IN ORDER, so the
@@ -2656,8 +2491,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Crossing v3.1 (founder 2026-08-25, second pass: «no destello — el
-    // cambio del centro y el color de la página cambiando lentamente»). The
+    // Crossing v3.1. The
     // overlay's radial colour flash is gone; instead the PAGE ITSELF crosses
     // colour slowly: for ~1s around every product flip the whole token tree
     // (gold↔indigo surfaces, borders, text) transitions instead of jumping
@@ -2669,7 +2503,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Founder pass 2026-08-25, four pieces. (1) FIX: clicking a structure on
+    // Founder pass, four pieces. (1) FIX: clicking a structure on
     // the Portfolio chained TWO crossings (indigo, then gold) just to land on
     // Wallets — it routed through the retired /app/legacy landing; it goes
     // straight to Wallets now, structure preselected. (2) The crossing itself
@@ -2685,8 +2519,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // The Portfolio's big chart now actually answers the date filter (founder
-    // 2026-08-25). Picking a short range used to make the whole chart VANISH
+    // The Portfolio's big chart now actually answers the date filter. Picking a short range used to make the whole chart VANISH
     // and claim there was no history — there was, just outside the window; the
     // line now carries the last known reading into the window and says plainly
     // when the window itself is empty. The time axis follows the filter too:
@@ -2710,9 +2543,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Step 3 of the guided close stops fighting physics (founder 2026-08-25:
-    // MAX after the repay left a crumb of debt → the node always refuses a
-    // 100% collateral withdraw → a raw «Something went wrong»). The step now
+    // Step 3 of the guided close stops fighting physics. The step now
     // SAYS what it is («this WITHDRAWS your collateral — you are not
     // depositing anything» — the founder himself misread it as topping up),
     // warns about the retained backing while any debt remains, MAX already
@@ -2724,8 +2555,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // The ring cards learned to measure THEMSELVES (founder 2026-08-25: the
-    // legends spilled out of the four-up Portfolio strip). The donut+legend
+    // The ring cards learned to measure THEMSELVES. The donut+legend
     // row used a viewport breakpoint to go side-by-side — but in a 4-up grid
     // the CARD is narrow while the window is wide, so the fixed-size ring ate
     // the row and the legend died past the edge. Native container queries
@@ -2736,8 +2566,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The Home's light goes back to the version that felt right (founder
-    // 2026-08-24) — the original slow diagonal sweep — now relayed across all
+    // The Home's light goes back to the version that felt right — the original slow diagonal sweep — now relayed across all
     // four panels with no overlap and no dead time: each takes a quarter of the
     // cycle, so one leaves as the next arrives. Two defects an adversarial pass
     // caught before it shipped: without animation-fill-mode the light sat
@@ -2749,7 +2578,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Second founder pass on the carry card (2026-08-24): (1) FIX — the
+    // Second founder pass on the carry card: (1) FIX — the
     // step-by-step's auto-skip could freeze on «Moving on…»: the skipped-mark
     // was set when SCHEDULING the jump, so a dependency flicker (the legs
     // refresh) inside the half-second window killed the timer and the re-run
@@ -2771,8 +2600,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The signing flows calmed down (founder 2026-08-24: «los menús que opera
-    // el usuario son un caos»). ONE strategy = ONE card: the lend and borrow
+    // The signing flows calmed down. ONE strategy = ONE card: the lend and borrow
     // legs of a carry (Kinetic ISO / the Ethereum market) merge into a single
     // card with both legs on its face, one close door, and a plain-words «two
     // legs, one close» explainer — no more guessing which of two cards to
@@ -2794,7 +2622,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Right correction, wrong knob last time (founder 2026-08-24): "slower"
+    // Right correction, wrong knob last time: "slower"
     // meant the light moving slower ACROSS each card, not taking longer to
     // reach the next one. The spacing between cards goes back to what it was
     // (4.25s), and the crossing itself is now as slow as that spacing allows —
@@ -2804,7 +2632,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // My strategies gets its own pass (founder 2026-08-24). MoneyFlows, the
+    // My strategies gets its own pass. MoneyFlows, the
     // Running/Saved toggle and the recurring-payment card are hidden — the
     // engines stay wired, only their shop windows go. The health reading is
     // rebuilt around its verdict, and the door that matters now sits right
@@ -2825,8 +2653,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The Home's travelling light slows down (founder 2026-08-24: "reduce la
-    // velocidad, para dar un toque más relajante"): the sweep now takes ~5.5s
+    // The Home's travelling light slows down: the sweep now takes ~5.5s
     // instead of ~3, the full round of the column 26s instead of 17, and it
     // eases in and out instead of crossing at machine speed. The rhythm also
     // stops being four hand-written delays: each panel just says its place in
@@ -2837,9 +2664,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The Home's light becomes a RELAY (founder 2026-08-24: "cuando la
-    // animación termine en el cuadro de net worth que empiece en el card de
-    // abajo y así sucesivamente"). One light now travels the whole column —
+    // The Home's light becomes a RELAY. One light now travels the whole column —
     // hero, then the accounts band, then each ring — instead of four panels
     // glinting on their own clock. They share the cycle and differ only in
     // their offset, so the relay stays in phase forever with nobody
@@ -2849,7 +2674,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Two asks, one afternoon (founder 2026-08-24). The Home gets a pulse of
+    // Two asks, one afternoon. The Home gets a pulse of
     // its own: a very slow light crosses the hero the way light crosses a
     // metal plate, the rows warm to gold under the pointer and their glyph
     // lifts, and the protections reading breathes — but only when something
@@ -2863,7 +2688,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Portfolio facelift, founder-directed (2026-08-24). OVERVIEW: the value
+    // Portfolio facelift, founder-directed. OVERVIEW: the value
     // chart takes the full operative width; below it a strip of FOUR rings —
     // what you hold, what earns, where it works, how it sits (the old bar
     // breakdown row retired into them); the positions table left for its own
@@ -2876,7 +2701,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Founder's third pass (2026-08-23): (1) FIX — Govern/Movements on a
+    // Founder's third pass: (1) FIX — Govern/Movements on a
     // Legacy card bounced back to Wallets: the workshop's no-destination
     // redirect raced the page's param reader (child effects run before the
     // parent's) and always won; it now stands down when the URL carries an
@@ -2891,7 +2716,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Founder's second pass on the Wallets redesign (2026-08-22): (1) the
+    // Founder's second pass on the Wallets redesign: (1) the
     // card's Manage panel opens as a DIALOG above the grid — the inline
     // expansion stretched every card in its row (grid rows share a height by
     // construction); (2) Legacy governance moved back to its own PAGE
@@ -2904,7 +2729,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The wallet-identity batch (founder 2026-08-22): a wallet's name is
+    // The wallet-identity batch: a wallet's name is
     // NEVER its address again — the login wallet learns which app signed it
     // (the fox, not a bare 0x…), unnamed wallets read «MetaMask» /
     // «MetaMask 2», and every box a wallet appears in wears its personal
@@ -2927,9 +2752,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The access ritual is back (founder 2026-08-23: "al quitar el login
-    // convencional y solo dejar el xrp identity se ha perdido la magia del
-    // ritual de login"). It was never deleted — it lost its moment: the single
+    // The access ritual is back. It was never deleted — it lost its moment: the single
     // door leaves Astryum with a full-page redirect, so the card was gone from
     // the browser the instant you clicked. The ceremony now plays where the
     // credentials are actually verified — on the way BACK from the provider,
@@ -2943,7 +2766,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'behavior' }],
   },
   {
-    // The Home is a glance again (founder 2026-08-22, fifth pass). It always
+    // The Home is a glance again. It always
     // shows the whole fleet — the per-row lens and its button are gone — and
     // the account list is back to one compact line each: what is working, how
     // it stands, what it is worth. Clicking a row goes to Wallets, which is a
@@ -2958,7 +2781,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Choosing a strategy stops being a wall of cards (founder 2026-08-22).
+    // Choosing a strategy stops being a wall of cards.
     // The catalogue now opens with an interactive path that is really a
     // FILTER: pick what you want to happen (earn simply · get cash without
     // selling · back the network) and then the asset, and the list narrows
@@ -2983,9 +2806,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // Legacy stops being a separate product and becomes what it always was:
-    // one more account (founder 2026-08-22, "el legacy simplemente sea una
-    // wallet más… no que sea seleccionable como producto distinto, porque no
-    // lo es"). Council-governed accounts now sit in the SAME single list as
+    // one more account. Council-governed accounts now sit in the SAME single list as
     // every other wallet — in the Summary band and on the Wallets screen —
     // and their capital counts in the fleet total by default instead of
     // hiding behind a switch. The indigo theme and its crossing survive where
@@ -2998,7 +2819,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // Entering Astryum from a fresh browser no longer opens with a wallet
-    // dialog (founder 2026-08-22). Signing in with a wallet used to force the
+    // dialog. Signing in with a wallet used to force the
     // network to Flare BEFORE the signature — so a first-time visitor, whose
     // MetaMask sits on Ethereum by default, met a "switch network" popup as
     // their first interaction. It protected nothing: the server signs identity
@@ -3011,8 +2832,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // The Summary is itself again (founder 2026-08-22, fourth pass: "ponlo
-    // como estaba antes, pero dividiendo a la mitad el apartado de wallets").
+    // The Summary is itself again.
     // The hero, the wallet band and the two allocation rings share one
     // viewport again; the band is now split — Personal on the left, Legacy on
     // the right — and picking a row, a half or "the whole fleet" re-reads the
@@ -3023,7 +2843,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }, { kind: 'performance' }],
   },
   {
-    // The fleet cards get their meters back (founder 2026-08-22, third pass):
+    // The fleet cards get their meters back:
     // each wallet row inside the Personal and Legacy boxes wears the old
     // band's anatomy — the working-capital bar, its % label, the health word
     // — and each structure reads its two legs as ONE bar. Verified
@@ -3048,7 +2868,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // The great fusion (founder 2026-08-22): the Summary absorbed the Home —
+    // The great fusion: the Summary absorbed the Home —
     // it now reads the capital of EVERY fleet with an in-place scope toggle
     // (all fleets · personal · legacy) that never navigates away, replays a
     // welcome choreography on every re-scope, grew the wallet band into the
@@ -3070,7 +2890,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // The landing breathes (founder 2026-08-20, after studying morpho.org):
+    // The landing breathes:
     // a living nebula — FBM clouds, halftone dots and grain in ONE WebGL
     // fragment shader at quarter resolution — replaces the two giant blurred
     // aurora layers that were the page's heaviest steady compositing cost,
@@ -3081,7 +2901,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }, { kind: 'performance' }],
   },
   {
-    // Founder batch 2026-08-19 (2/2): (1) Wallets drops the added-by-you /
+    // Founder batch (2/2): (1) Wallets drops the added-by-you /
     // from-the-platform filter and shelves — origin stopped carrying
     // information once Legacy legs and empty orphan PAs left the list; the
     // TYPE labels still explain each row. (2) Portfolio face wash: the boxed
@@ -3097,14 +2917,14 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     // The Structures band (the governed fleet) moved from the Summary to the
-    // Portfolio's close (founder 2026-08-19) — the Summary keeps one calm
+    // Portfolio's close — the Summary keeps one calm
     // viewport; the structures read next to the capital they hold.
     version: '0.9.43',
     date: '2026-08-19',
     items: [{ kind: 'behavior' }],
   },
   {
-    // Founder batch 2026-08-19: (1) the Earn routes are ONE overlapping hand
+    // Founder batch: (1) the Earn routes are ONE overlapping hand
     // — bigger cards laid across the table, the hand opens around the cursor
     // and the chosen route steps in front while the rest blur behind it;
     // (2) empty ORPHAN Smart Accounts (old deployments' leftovers the fold
@@ -3117,8 +2937,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '2026-08-19',
     items: [
       {
-        // The fold turned FUNCTIONAL (founder: "cuando se necesite usar la
-        // FSA se tendrá que pasar por la main wallet"): Receive on an XRPL
+        // The fold turned FUNCTIONAL: Receive on an XRPL
         // wallet with a Smart Account asks WHICH asset and routes it — XRP
         // shows the r… address, FXRP shows the Smart Account's Flare address.
         kind: 'defi',
@@ -3130,7 +2949,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Founder batch 2026-08-12 (2/2): the FXRP a strategy exit leaves on the
+    // Founder batch (2/2): the FXRP a strategy exit leaves on the
     // Smart Account stops being a dead end. (1) An "Unmint to XRP" button on
     // the Smart Account card/row opens the existing FAssets redemption flow
     // NAMED as what it is (it hid inside Movements → Send → r-address);
@@ -3149,7 +2968,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Founder batch 2026-08-12: (1) wallet rows/cards show EVERY readable
+    // Founder batch: (1) wallet rows/cards show EVERY readable
     // token with its money in plain sight (qty when priced + USD on the
     // chip) — a wallet holding ~10 FXRP no longer reads «0 FLR» and nothing
     // else; (2) clicking a wallet on Home lands Portfolio on Overview with
@@ -3202,8 +3021,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // The signature ceremony moved INSIDE each operation (founder: the
-    // full-screen blur takeover felt bolted-on): SignedMark — the same
+    // The signature ceremony moved INSIDE each operation: SignedMark — the same
     // stroke + seal, compact — now plays once in the operation's own
     // progress view (SettlementIndicator on every EVM/Flare flow, the QR
     // cover in Xaman signatures) and rests there as the signed emblem while
@@ -3224,7 +3042,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Sidebar slimmed (founder): the search row is gone — questions go to the
+    // Sidebar slimmed: the search row is gone — questions go to the
     // Co-pilot (⌘K survives as a keyboard-only shortcut) — and the ES/EN
     // toggle moved into Settings › Preferences, next to the theme.
     version: '0.9.33',
@@ -3232,7 +3050,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // Founder batch 2026-08-08: (1) the floating bottom-right settlement
+    // Founder batch: (1) the floating bottom-right settlement
     // cards moved into the sidebar under "To sign" as a minimised "In
     // progress" card that also picks up ops signed mid-session; (2) a
     // signature ceremony (login-manifest vocabulary: self-drawing stroke +
@@ -3248,7 +3066,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
   },
   {
-    // Full i18n pass (founder: "hay textos que no se traducen"): 352 t() keys
+    // Full i18n pass: 352 t() keys
     // that fell back to English in ES got their Spanish (Legacy vault/cage
     // surfaces, founders panel, position modals, governed movements…), and 12
     // components whose copy was HARDCODED (security settings, chain matrix,
@@ -3273,8 +3091,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     // (Xaman·XRPL / MetaMask·Flare — install, guard the secret, withdraw from
     // the exchange, connect) opened from the Summary's welcome panel and from
     // Add Wallet's "I don't have a wallet yet" row; /app/wallets?add=1 lands
-    // with the connect door already open. Plus the brand third pass (founder
-    // review): marks re-cropped square and TEXT-FREE (the gold one carried a
+    // with the connect door already open. Plus the brand third pass: marks re-cropped square and TEXT-FREE (the gold one carried a
     // sliver of the wordmark's "A" — visible in the copilot avatar, footer
     // and crossing), the crossing choreography re-aired for the bigger marks,
     // and the Legacy sun re-composed to the gold hero's exact geometry so
@@ -3291,7 +3108,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    // Brand pass, round two (founder review): the crossing marks are BIGGER
+    // Brand pass, round two: the crossing marks are BIGGER
     // (tight crops — the huge transparent canvases read tiny), the abstract
     // homeward comet is gone (the gold mark IS the centre), the landing's
     // solar-system sun follows the product (blue asteroid in Legacy), the
@@ -3338,12 +3155,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'behavior' }],
   },
   {
-    // The Council station, rebuilt from the founder's own run: the council is
-    // created in Xaman, so the page is now the illustrated tutorial (real
-    // Xaman captures at the steps they belong to), each block in its own
-    // card — no more one giant rectangle with the scene floating in reserved
-    // emptiness — and the "enter the wallets" plan form is folded as the
-    // optional scratchpad it always was.
+
     version: '0.9.23',
     date: '2026-08-05',
     items: [{ kind: 'behavior' }, { kind: 'visual' }],
@@ -3433,7 +3245,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [{ kind: 'visual' }],
   },
   {
-    // Home page REMOVED (founder): the Summary already welcomes a wallet-less
+    // Home page REMOVED: the Summary already welcomes a wallet-less
     // account with its connect panel — two front doors confused more than
     // they calmed. Nav/login/copilot/tour all point back at /app.
     version: '0.9.13',

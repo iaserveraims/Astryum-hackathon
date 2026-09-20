@@ -4,7 +4,7 @@
  * WorkingStrategies — the live on-chain footprint of every strategy currently
  * working, grouped by protocol.
  *
- * Moved OUT of FlareDemoEarn (UI reorg 2026-07-12): the "Live on-chain" card
+ * Moved OUT of FlareDemoEarn (UI reorg): the "Live on-chain" card
  * now belongs to Estrategias (Funcionando · Online), not Earn. Same data path
  * as before — the merged snapshot the Portfolio reads, wallet balances
  * excluded (free capital is not a strategy).
@@ -199,7 +199,7 @@ export default function WorkingStrategiesPanel({
   const { t } = useT();
   const groups = useStrategyGroups(reloadKey);
   const { wallets: myWallets } = useMyWallets();
-  // LA regla canónica (2026-08-22): la copia local label??dirección llamaba a
+  // LA regla canónica: la copia local label??dirección llamaba a
   // una wallet sin apodo por su código. El resolver numera y solo deja la
   // dirección corta para direcciones que NO son filas nuestras.
   const walletNameOf = useMemo(() => walletNameResolver(myWallets, t), [myWallets, t]);

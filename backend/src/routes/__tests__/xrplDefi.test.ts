@@ -215,7 +215,7 @@ describe('GET /api/xrpl-defi/escrows — the Savings surface read (open, monitor
           owner: GOOD_XRPL,
           destination: GOOD_XRPL,
           isOutgoing: true,
-          finishAfter: 100, // ripple epoch 2000-01-01T00:01:40Z → long past
+          finishAfter: 100, // ripple epoch Z → long past
           previousTxnID: 'B'.repeat(64),
           hasCondition: false,
         },

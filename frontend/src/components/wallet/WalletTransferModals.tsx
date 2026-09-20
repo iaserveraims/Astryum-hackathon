@@ -3,21 +3,6 @@
 /**
  * WalletTransferModals — "Send" and "Receive", reusable from any surface
  * (Wallets page, the Movimientos door in Earn, the strategy agent).
- *
- *   WalletReceiveModal — shows the wallet address as a QR (plus copy) so the
- *     user can receive assets into it. Display-only, zero on-chain activity.
- *     `wallet` is optional: without it, the user picks among `wallets`.
- *
- *   WalletSendModal — prepares a native transfer (FLR on Flare, XRP on XRPL)
- *     to another linked wallet or an external address, then hands the UNSIGNED
- *     payload to the user's own wallet partner (MetaMask et al. / Xaman).
- *     `wallet` (the source) is optional — without it the modal offers a source
- *     picker over the user's transferable wallets. `initial` prefills the
- *     form (agent-compiled params); every field stays editable before prepare.
- *
- * REGULATORY BOUNDARY (CLAUDE.md invariant #1): prepare-only. The backend
- * returns an unsigned payload + disclosure; the user reviews and signs in
- * their own wallet. Astryum never signs, never custodies, never broadcasts.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -72,7 +57,7 @@ import { SeatRefusalNotice, describeStaleSignature, seatRefusalSentence } from '
 import { refusalHeadline, serverDetailIfEnglish } from '../../lib/xaman/seatRefusal';
 
 /**
- * it. 22 (Q3 3.7) — LO QUE SE PUEDE ENSEÑAR DE UNA NEGATIVA QUE NO ES DE ASIENTO.
+ * LO QUE SE PUEDE ENSEÑAR DE UNA NEGATIVA QUE NO ES DE ASIENTO.
  *
  * El asiento ya tiene su lector y corre antes que esto; lo que quedaba después
  * era `body.detail || body.error`, es decir el párrafo en castellano del
@@ -138,7 +123,7 @@ function fmtAmt(v: number, digits = 6): string {
   return fmtQtyActive(Number(v), digits); // app-locale aware (Fase 3)
 }
 
-// El APODO con la regla canónica de nombres (fundador 2026-08-22): apodo →
+// El APODO con la regla canónica de nombres: apodo →
 // marca propia → dirección corta. El walletType crudo ('metamask',
 // 'xrp_identity') jamás llega a la pantalla como nombre.
 function walletLabel(w: BackendWallet, t: (s: string) => string = (s) => s): string {
@@ -181,16 +166,16 @@ export function WalletReceiveModal({
   const wallet = fixedWallet ?? wallets?.find((w) => w.id === selectedId) ?? null;
   const rail = wallet ? transferRailOf(wallet) : null;
 
-  // The FUNCTIONAL fold (founder 2026-08-19): an XRPL wallet's Smart Account
+  // The FUNCTIONAL fold: an XRPL wallet's Smart Account
   // is reached THROUGH its owner — "Receive" on the Xaman wallet asks WHICH
   // asset and routes it: XRP shows the r… address, FXRP shows the Smart
   // Account's Flare address (XRPL cannot hold FXRP; its FSA can). One more
   // FAsset someday = one more target in this list, same logic.
-  // FLR nativo (fundador 2026-08-28) entra por la MISMA puerta que el FXRP: la
+  // FLR nativo entra por la MISMA puerta que el FXRP: la
   // dirección de Flare de la Smart Account. Es un destino más de esta lista, no
   // una pantalla aparte — cada Xaman y su FSA son UNA cuenta.
   // Todas las Xaman del picker, no solo la elegida: el fold también nombra
-  // cada Smart Account con su dueña (fundador 2026-08-22).
+  // cada Smart Account con su dueña.
   const receiveXrpls = useMemo(
     () =>
       [...(wallets ?? []), ...(wallet ? [wallet] : [])]
@@ -263,7 +248,7 @@ export function WalletReceiveModal({
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 flex flex-col items-center gap-4">
           {!fixedWallet && wallets && wallets.length > 0 && (
-            /* Con la cara de cada wallet (fundador 2026-08-30) — misma
+            /* Con la cara de cada wallet — misma
                identidad que en la pantalla de Wallets. */
             <WalletSelect
               value={selectedId ?? ''}
@@ -424,7 +409,7 @@ export function WalletSendModal({
   onClose: () => void;
   /** optional prefill (agent-compiled or deep-linked) — always editable before prepare */
   initial?: SendPrefill;
-  /** Unmint door (founder 2026-08-12): same machinery, but the modal opens
+  /** Unmint door: same machinery, but the modal opens
    *  NAMED as what it does — convert FXRP back to native XRP. Locks the
    *  asset to FXRP and puts XRPL destinations first, so the redeem path is
    *  the obvious one instead of a Send secret. */
@@ -465,7 +450,7 @@ export function WalletSendModal({
 
   // Is the EVM source actually a Smart Account (PA)? Then NO EVM key exists
   // for it — the founder hit the "switch to an account that cannot exist"
-  // wall live (2026-07-30). A PA source signs in Xaman (its OWNING XRPL) via
+  // wall live. A PA source signs in Xaman (its OWNING XRPL) via
   // the 0xFE dispatch: redeem routes to /pa-unmint, the rest gates honestly.
   const xrplCandidates = useMemo(
     () => wallets.map((w) => w.address).filter((a) => /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(a)),
@@ -476,17 +461,13 @@ export function WalletSendModal({
     xrplCandidates,
   );
   const sourceIsPa = !!sourceOwningXrpl;
-  // Carrier auto (founder 2026-08-17): live fees + margin from the backend
+  // Carrier auto: live fees + margin from the backend
   // — no user knob; can never block the operation (lib/flare/carrier).
   const xrpForMint = useCarrierXrp();
   // 0xFE nonce seat of an unsigned prepared order — released when abandoned
   // (re-prepare or close) so the user is never walled by NONCE_SEAT_TAKEN.
   const [paMemoHex, setPaMemoHex] = useState<string | undefined>(undefined);
-  // El candado del incidente 2026-08-21 (gemelo con nonce 19): en cuanto este
-  // memo SE ENTREGA a Xaman, liberar su asiento queda prohibido AQUÍ también —
-  // un error de red después del broadcast deja `paMemoHex` puesto y el estado
-  // local creyendo que era un borrador, y liberar «ese borrador» es lo que
-  // permitió firmar el duplicado condenado. El backend ya lo rechaza
+  // El backend ya lo rechaza
   // (signedAt); este ref cierra la ventana en la que el aviso aún viaja.
   const paHandedToXaman = useRef(false);
   const close = () => {
@@ -551,18 +532,17 @@ export function WalletSendModal({
   const [evmAsset, setEvmAsset] = useState<'FLR' | 'FXRP'>(initial?.asset ?? (unmint ? 'FXRP' : 'FLR'));
 
   // What an XRPL (Xaman) source sends: XRP — o el FXRP que su Smart Account ya
-  // tiene minteado (fundador 2026-08-21: el mismo par XRP/FXRP de Earn, aquí).
+  // tiene minteado.
   // XRPL no puede sostener FXRP; su FSA sí, y quien firma sigue siendo Xaman
   // (dispatch 0xFE): a un destino Flare va por pa-transfer, a un destino XRPL
   // por pa-unmint (redención a XRP nativo).
-  // FLR se suma al par (fundador 2026-08-28): la FSA puede tener saldo nativo
+  // FLR se suma al par: la FSA puede tener saldo nativo
   // — de FTSO, de un envío externo, de un unwrap — y hasta hoy no había puerta
   // para sacarlo. Sale por el MISMO dispatch 0xFE que el FXRP.
   const [xrplAsset, setXrplAsset] = useState<'XRP' | 'FXRP' | 'FLR'>('XRP');
   useEffect(() => setXrplAsset('XRP'), [wallet?.id]);
   // El fold cubre TODAS las Xaman enlazadas, no solo la fuente: hace falta
-  // para nombrar cada Smart Account con su dueña al lado (fundador 2026-08-22:
-  // con varias FSA «no se sabe cuál es cuál») en los selectores de origen y
+  // para nombrar cada Smart Account con su dueña al lado en los selectores de origen y
   // destino, además de para el saldo FXRP de la fuente.
   const sendFold = usePaFold(xrplCandidates);
   const sourceFsa =
@@ -575,7 +555,7 @@ export function WalletSendModal({
   };
   // Saldos FXRP y FLR NATIVO de la Smart Account de la fuente — mismo endpoint
   // público que cualquier dirección de Flare (`kind=fxrp` / `kind=evm`).
-  // «No pude leer» NO es cero (14-sep): antes un fallo era null → 0 → el
+  // «No pude leer» NO es cero: antes un fallo era null → 0 → el
   // selector «Pay with» desaparecía y un efecto forzaba XRP sin decir nada.
   const [fsaFxrpRead, setFsaFxrpRead] = useState<BalanceRead>({ status: 'idle' });
   const [fsaFlrRead, setFsaFlrRead] = useState<BalanceRead>({ status: 'idle' });
@@ -699,8 +679,7 @@ export function WalletSendModal({
     : EVM_ADDRESS_RE.test(destAddress)
       ? 'evm'
       : null;
-  // EL ACTIVO QUE ELIGES ES EL QUE LLEGA (fundador 2026-08-22, tras enviar
-  // FXRP Xaman→Xaman y recibir un unmint que no pidió): el Send JAMÁS cambia
+  // EL ACTIVO QUE ELIGES ES EL QUE LLEGA: el Send JAMÁS cambia
   // el activo. FXRP hacia una r-address entrega FXRP en la cuenta Astryum
   // (lado Flare) de ese XRPL — cada Xaman y su Smart Account son UNA cuenta,
   // así que el destino natural del FXRP «de una Xaman» es su PA. La redención
@@ -767,8 +746,7 @@ export function WalletSendModal({
   const paSigner = sourceIsPa ? sourceOwningXrpl : wallet?.address ?? null;
 
   /**
-   * ¿La cuenta que firma en XRPL está REFORZADA? (fundador, 22-ago-2026:
-   * «solo me aparece un qr, me deben aparecer los 3 del multisig»).
+   * ¿La cuenta que firma en XRPL está REFORZADA?.
    *
    * EL HUECO QUE CIERRA. La cuenta personal reforzada se quedó en Wallets —
    * que es su promesa — pero su camino de FIRMA no se tocó: seguía siendo el
@@ -778,10 +756,6 @@ export function WalletSendModal({
    * misma trampa que LegacyPanel evita desde julio con `canSignDirect` («una
    * cuenta con consejo NUNCA se ofrece single-sig») — y esta pantalla no la
    * tenía porque hasta ahora ninguna wallet personal podía tener quórum.
-   *
-   * Lo dice el LEDGER (`hardenedQuorum` sólo existe tras leer una SignerList),
-   * nunca la marca del dueño: creer una marca aquí sería mandar a la ceremonia
-   * a una cuenta que todavía firma sola.
    */
   const { authorities: allAuthorities } = useAuthorities();
   const quorumSigner = useMemo(() => {
@@ -911,7 +885,7 @@ export function WalletSendModal({
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          // EL ASIENTO DE NONCE, EN INGLÉS (it. 17, R5 5.4): el backend manda
+          // EL ASIENTO DE NONCE, EN INGLÉS (R5 5.4): el backend manda
           // el código crudo y un párrafo en castellano con hashes; ninguno de
           // los dos llega a la pantalla, y el borrador que esta misma pantalla
           // dejó puede liberarse desde el aviso.
@@ -920,7 +894,7 @@ export function WalletSendModal({
             setSeatRefusal(body);
             throw new Error(seat);
           }
-          // it. 22 (Q3 3.7): el `detail` en castellano del servidor y su slug
+          // El `detail` en castellano del servidor y su slug
           // crudo tampoco se pintan por esta puerta — el titular del lector
           // compartido lo dice en una frase, y el `detail` solo acompaña si
           // está en el idioma de la pantalla.
@@ -928,7 +902,7 @@ export function WalletSendModal({
         }
         setPaMemoHex(body.memoHex as string | undefined);
         paHandedToXaman.current = false; // memo nuevo: aún es un borrador liberable
-        // it. 19 (R5 R7) — LA PALABRA DE LA ENTREGA, REGISTRADA. This prepare
+        // LA PALABRA DE LA ENTREGA, REGISTRADA. This prepare
         // talks to the backend with raw `fetch`, so nothing ever fed the live
         // banner the server's word about the executor that carries this 0xFE: it
         // fell back to the prudent sentence over a legitimate exit, every time.
@@ -1058,7 +1032,7 @@ export function WalletSendModal({
         }
         throw new Error(refusalText(body, res.status, t));
       }
-      // it. 19 (R5 R7): the same word, on the other prepare of this file.
+      // The same word, on the other prepare of this file.
       noteFlareInstructionDelivery(
         (body as { xrplPayment?: unknown }).xrplPayment,
         (body as { serverDelivery?: { executorEnabled?: unknown } }).serverDelivery,
@@ -1089,7 +1063,7 @@ export function WalletSendModal({
         if (!xrpl.isConnected && !pinnedXrplSigner(prepared.xrplPayment)) throw new Error(t('Connect your XRPL wallet (Xaman) to continue'));
         // A partir de aquí el memo puede estar comprometido aunque esta llamada
         // ERRE: Xaman emite en cuanto el usuario firma en el móvil. El asiento
-        // deja de ser liberable YA, no al resolver (incidente 2026-08-21).
+        // deja de ser liberable YA, no al resolver.
         if (paMemoHex) paHandedToXaman.current = true;
         handedToPartner = true;
         const { txHash: hash } = await xrpl.sendIntent({ tx: prepared.xrplPayment as never });
@@ -1118,7 +1092,7 @@ export function WalletSendModal({
       //   form        → 'error' + prepared dropped (the chain refused it)
       //   review      → 'error' (provably nothing left — the form, as before)
       //
-      // Antes que todo eso: una firma que llegó TARDE (it. 17, R5 5.2). Un
+      // Antes que todo eso: una firma que llegó TARDE (R5 5.2). Un
       // tefMAX_LEDGER / tefPAST_SEQ es un veredicto leído — ese payload no
       // valida nunca — así que se dice «prepáralo otra vez» y su asiento se
       // puede liberar, en vez de «no pude confirmarlo, recarga».
@@ -1170,8 +1144,7 @@ export function WalletSendModal({
   const FLR_GAS_HEADROOM = 0.01;
   /** The XRPL wallet is the STEERING WHEEL of the user's Astryum account:
    *  every 0xFE order needs ~1 XRP of carrier payment. Draining it to zero
-   *  strands the Smart Account until the user refunds from outside (founder
-   *  hit this live, 2026-07-30) — MAX keeps this back, and the warning below
+   *  strands the Smart Account until the user refunds from outside — MAX keeps this back, and the warning below
    *  fires whenever a typed amount would leave less. */
   const XRPL_STEERING_RESERVE = 2;
   const maxSendable: string | null = (() => {
@@ -1288,7 +1261,7 @@ export function WalletSendModal({
               )}
 
               {/* Asset — una fuente Xaman paga XRP, o lo que su Smart Account ya
-                  tiene: el FXRP minteado y (desde 2026-08-28) el FLR nativo. La
+                  tiene: el FXRP minteado y el FLR nativo. La
                   lista la decide el SALDO, no el catálogo: un activo que esa
                   cuenta no tiene no se ofrece, porque ofrecerlo sería prometer
                   una firma que reventaría en el preflight. */}
@@ -1490,7 +1463,7 @@ export function WalletSendModal({
                       : t('The FXRP leaves your Astryum account to the Flare destination — one atomic order you sign in Xaman.')}
                   </p>
                 )}
-                {/* El activo que eliges es el que llega (2026-08-22): FXRP a una
+                {/* El activo que eliges es el que llega: FXRP a una
                     r-address entra en la cuenta Astryum de ESE XRPL — misma
                     dueña, lado Flare. Nada se redime sin pedirlo. */}
                 {deliversToDestPa && (
@@ -1573,7 +1546,7 @@ export function WalletSendModal({
                     {t('XRPL keeps a 1 XRP base reserve locked in the sending account.')}
                   </p>
                 )}
-                {/* The trap the founder hit live (2026-07-30): minting ALL the
+                {/* The trap the founder hit live: minting ALL the
                     XRP strands the Smart Account — no carrier payment, no way
                     to withdraw or convert until refunded from outside. */}
                 {drainsXrplSteering && (
@@ -1803,8 +1776,7 @@ export function WalletSendModal({
 
               {/* Redeem (FXRP → XRPL from an EVM wallet): the FAssets redemption
                   fee with its figure — or «could not be read — it is not zero» —
-                  and the net the destination gets, before signing (invariant #6,
-                  productizer 4.2). pa-unmint (rail xrpl) has its own row above. */}
+                  and the net the destination gets, before signing. pa-unmint (rail xrpl) has its own row above. */}
               {prepared.rail === 'evm' && prepared.disclosure.action === 'bridge-redeem-fxrp' && (
                 <RedemptionFeeNotice
                   response={prepared}
@@ -1976,7 +1948,7 @@ export function WalletSendModal({
 
           {/* Un asiento tomado no es un fallo rojo: es un 0xFE anterior de esta
               cuenta en el nonce. Se cuenta en inglés y, si el borrador es el
-              que esta pantalla dejó, con la salida (it. 17, R5 5.4 · R1 1.5). */}
+              que esta pantalla dejó, con la salida (R5 5.4 · R1 1.5). */}
           {seatRefusal && phase === 'error' ? (
             <SeatRefusalNotice
               refusal={seatRefusal}

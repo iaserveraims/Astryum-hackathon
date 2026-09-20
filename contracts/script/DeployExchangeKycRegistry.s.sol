@@ -5,8 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 import {ExchangeKycRegistry} from "../src/ExchangeKycRegistry.sol";
 
 /**
- * Despliega el ExchangeKycRegistry de UN partner/exchange (X2 de la revisión
- * 2-sep). El admin es SUYO: aprueba/revoca receivers y ata sus destination
+ * Despliega el ExchangeKycRegistry de UN partner/exchange (X2 de la revisión).
+ * El admin es SUYO: aprueba/revoca receivers y ata sus destination
  * tags; Astryum ni firma ni administra. Un gestor apunta su pote a este
  * registro con la orden `set-user-gate` — desde entonces el propio pote
  * rechaza depósitos de receivers no aprobados. Las salidas jamás se bloquean.

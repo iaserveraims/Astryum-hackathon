@@ -4,16 +4,6 @@
  * rippled (Credentials.cpp `authorized`) busca `keylet::depositPreauth(dst,
  * sortedSet)`: el conjunto {emisor, tipo} que lleva el Payment tiene que ser
  * EXACTAMENTE uno de los DepositPreauth del destino. Lo que se fija aquí:
- *
- *  1. La config de la puerta del gestor (grupos OR) se expande a un objeto por
- *     combinación — no a un objeto con todos los pares (eso sería «AND»).
- *  2. La orden ELIGE el conjunto que el ancla admite: el caso real de rNyre…
- *     (17-sep-2026), que sostiene AIFM+KYC del notario Y un AIFM+KYC que se
- *     emitió a sí misma. Llevarse las 4 era tecNO_PERMISSION; ahora van las 2.
- *  3. La negativa solo existe con la puerta ENCENDIDA y sin conjunto que cubra;
- *     con la puerta apagada, nunca se rehúsa (el ledger no exige nada).
- *  4. El plan de armado: reserva base + 0,2 × objetos, con los números reales
- *     del ancla rLcoFM… el 17-sep (4,000025 XRP, 0 objetos).
  */
 import {
   AnchorGateError,
@@ -43,7 +33,7 @@ function held(subject: string, issuer: string, type: string, ledgerIndex: string
   return { subject, issuer, credentialTypeHex: hex(type), ledgerIndex, state };
 }
 
-/** Lo que el ledger decía de rNyre el 17-sep-2026: dos del notario, dos autoemitidas. */
+/** Lo que el ledger decía de rNyre: dos del notario, dos autoemitidas. */
 const RNYRE_HELD: HeldCredential[] = [
   held(RNYRE, NOTARY, 'AIFM', id('1')),
   held(RNYRE, RNYRE, 'KYC', id('2')),
@@ -217,7 +207,7 @@ describe('5. gateDrift y planAnchorGateArm — config vs ledger, y la reserva', 
     expect(d.extra).toHaveLength(0);
   });
 
-  it('el ancla rLcoFM el 17-sep (4,000025 XRP, 0 objetos): 4 objetos + flag, reserva 1,8, sin déficit', () => {
+  it('El ancla rLcoFM (4,000025 XRP, 0 objetos): 4 objetos + flag, reserva 1,8, sin déficit', () => {
     const plan = planAnchorGateArm({ state: empty, configSets: CONFIG_SETS, balanceXrp: 4.000025, ownerCount: 0, baseReserveXrp: 1, ownerReserveXrp: 0.2 });
     expect(plan.toAuthorize).toHaveLength(4);
     expect(plan.setFlag).toBe(true);

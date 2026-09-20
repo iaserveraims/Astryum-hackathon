@@ -1,20 +1,11 @@
 /**
- * XrplDidService — the Legacy constitution anchor (vía (b), doc Legacy §5b).
+ * XrplDidService — the Legacy constitution anchor.
  *
  * A Legacy's governance document ("la constitución") is anchored on the ledger
- * as a DID object (XLS-40, live on mainnet since 2024-10-30) owned by the
+ * as a DID object (XLS-40, live on mainnet) owned by the
  * Legacy account: `Data` carries the document's SHA-256 hash, `URI` points at
  * where the document lives. The document itself NEVER goes on-chain (DID
  * fields are ≤256 bytes) — the ledger holds the fingerprint, not the text.
- *
- * Because the Legacy account is a multisig with the master key disabled, every
- * DIDSet is signed by the council's quorum → the account's DIDSet history IS
- * the council's consensus history, version by version.
- *
- * Copy rule (doc Legacy §0): this is a governance REGISTRY — "protegido por el
- * consejo". A DID compels nothing by itself; never present it as enforcement.
- *
- * Unsigned txjson → the council's wallet(s). Astryum signs nothing. SourceTag always.
  */
 
 import { convertHexToString, convertStringToHex, isValidClassicAddress, validate } from 'xrpl';

@@ -1,5 +1,5 @@
 /**
- * Takeover coordination (productizer it. 10): a User taken over through OAuth
+ * Takeover coordination: a User taken over through OAuth
  * carries `preferences.security.takeoverAt`. Nothing trusted on that user id
  * before it is proof of the person holding the session now:
  *  - a WalletBinding linked before it is not wallet proof;
@@ -9,7 +9,7 @@
  */
 import express from 'express';
 import request from 'supertest';
-// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange (14-sep)
+// Esta suite prueba OTRAS reglas y no tiene ledger: el KYC del exchange
 // se prueba en clientCredentialGate.test y demoExchange.credentialGate.test.
 process.env.DEMO_EXCHANGE_REQUIRE_CLIENT_CREDENTIAL = 'false';
 import type { DemoRun } from '../../services/demoExchange/DemoExchangeStore';
@@ -126,7 +126,7 @@ afterEach(() => _resetKeyFailuresForTests());
 
 describe('takeover preference (pure)', () => {
   /**
-   * productizer it. 16 (R4 4.3): ABSENT is «no takeover»; UNREADABLE is not.
+   * ABSENT is «no takeover»; UNREADABLE is not.
    * The lax reader turned a malformed mark into null — «there was no takeover» —
    * exactly where it is decided whether the previous holder of a login still
    * owns an exchange account. It now throws, like the database failure this file
@@ -202,7 +202,7 @@ describe('client rows owned since before the takeover need a re-claim', () => {
   });
 
   /**
-   * it. 16 (R4 4.3): a MALFORMED mark is the same refusal as a database that is
+   * A MALFORMED mark is the same refusal as a database that is
    * down. Read leniently it came back as «no takeover», so the stale row went on
    * answering to the login the owner had recovered — «no pude leer» as permission
    * in the place that decides whose account this is.
@@ -216,7 +216,7 @@ describe('client rows owned since before the takeover need a re-claim', () => {
     // …and the stale row is not served as theirs either (display fails closed).
     const view = await request(app).get('/api/demo-exchange/runs/run1').set(as('victim'));
     expect(view.body.run.clients.filter((c: { mine: boolean }) => c.mine)).toEqual([]);
-    // it. 33 (2): …and the body SAYS the mark could not be used — its own cause,
+    // …and the body SAYS the mark could not be used — its own cause,
     // retryable — instead of letting `mine:false` read as «not your account».
     expect(view.body.viewerUnreadable).toMatchObject({ error: 'OWNERSHIP_UNREADABLE', retryable: true, cause: 'unreadable-mark' });
     expect(view.body.viewerUnreadable.detail).toMatch(/administrator can repair/i);
@@ -235,13 +235,13 @@ describe('client rows owned since before the takeover need a re-claim', () => {
   });
 
   /**
-   * it. 33 (agente C, 2) — THE CONSUMER OF `mine:false` IS A PERSON'S ACCOUNT.
+   * THE CONSUMER OF `mine:false` IS A PERSON'S ACCOUNT.
    * The client book reloads through GET /runs/:id every 20 s; a database blink
    * while reading the mark used to answer the owner's row as `owned:true,
    * mine:false` with nothing else, and `useExchangeClient` turned that into
    * «Open an account». The display still fails closed; the body now says why.
    */
-  it('it. 33: a database that does not answer while reading the mark → `mine:[]` AND `viewerUnreadable` (read-failed, retryable) on the body', async () => {
+  it('A database that does not answer while reading the mark → `mine:[]` AND `viewerUnreadable` (read-failed, retryable) on the body', async () => {
     mockState.userReadFails = true;
     const view = await request(app).get('/api/demo-exchange/runs/run1').set(as('victim'));
     expect(view.status).toBe(200);
@@ -254,7 +254,7 @@ describe('client rows owned since before the takeover need a re-claim', () => {
     expect(anon.body.viewerUnreadable).toBeUndefined();
   });
 
-  it('it. 33: the self-serve alta answers `viewerUnreadable` too when the mark cannot be used — the fresh row must not read as somebody else’s', async () => {
+  it('The self-serve alta answers `viewerUnreadable` too when the mark cannot be used — the fresh row must not read as somebody else’s', async () => {
     mockState.userReadFails = true;
     const PASSKEY2 = '0x1111111111111111111111111111111111111111';
     const res = await request(app).post('/api/demo-exchange/runs/run1/clients').set(as('newcomer')).send({ label: 'Nuria', passkeyAccount: PASSKEY2 });
@@ -286,23 +286,10 @@ describe('client rows owned since before the takeover need a re-claim', () => {
 });
 
 /**
- * productizer it. 29 (1.2) — UNA MARCA DE TOMA DE POSESIÓN ADELANTADA TAPIABA AL
+ * UNA MARCA DE TOMA DE POSESIÓN ADELANTADA TAPIABA AL
  * DUEÑO FUERA DE SU PROPIA CASILLA.
- *
- * `ownershipPredatesTakeover` compara `ownedSince` contra la marca, así que una
- * marca en el FUTURO gana esa comparación contra TODAS las filas: ninguna fecha
- * es posterior a un instante que aún no ha ocurrido. El dueño recibía 403
- * `CLIENT_RECLAIM_REQUIRED` en `POST …/requests` — RETIRADA INCLUIDA —, en el
- * `PATCH` de su fila y en el `DELETE` de su propia petición muerta. No podía
- * sacar su dinero, ni soltar la petición que lo retenía, ni arreglar nada: solo
- * un fundador reabre una fila. Nadie decidió ese cierre.
- *
- * Leerla como «no hubo toma de posesión» sería el error contrario (it. 16). La
- * respuesta es la que este fichero ya tenía para una base de datos que no
- * contesta: 503 «no se cambió nada; inténtalo otra vez» — y aquí es verdad, que
- * el reloj de pared pasa la marca solo.
  */
-describe('it. 29: a takeover mark dated AHEAD of our clock is not a floor', () => {
+describe('A takeover mark dated AHEAD of our clock is not a floor', () => {
   const FUTURE = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
   const ask = (cid: string, user: string, kind: 'put-to-work' | 'withdraw') =>
     request(app).post(`/api/demo-exchange/runs/run1/clients/${cid}/requests`).set(as(user)).send({ kind, amountXrp: '1' });
@@ -325,7 +312,7 @@ describe('it. 29: a takeover mark dated AHEAD of our clock is not a floor', () =
     expect(res.status).toBe(503);
     expect(res.body.error).toBe('OWNERSHIP_UNREADABLE');
     expect(res.body.error).not.toBe('CLIENT_RECLAIM_REQUIRED');
-    // it. 31 (cabo de D): the write doors used to serve the error message
+    // The write doors used to serve the error message
     // TRUNCATED at 80 chars inside the detail. Now it is the same honest body
     // as the portal — cause, `retryable`, and the sentence that says what
     // works (waiting) and what does not (re-linking, a claim code).
@@ -355,18 +342,18 @@ describe('it. 29: a takeover mark dated AHEAD of our clock is not a floor', () =
     expect(proof.body.wallets[0]).toEqual({ address: WALLET, proof: null, unreadable: true });
   });
 
-  it('the display fails closed too: nothing is served as theirs while the floor is unusable — and the body says so (it. 33)', async () => {
+  it('The display fails closed too: nothing is served as theirs while the floor is unusable — and the body says so', async () => {
     const view = await request(app).get('/api/demo-exchange/runs/run1').set(as('victim'));
     expect(view.body.run.clients.filter((c: { mine: boolean }) => c.mine)).toEqual([]);
-    // it. 33 (2): `mine:[]` alone let the client screen say «Open an account» to
-    // the owner of a funded row. The cause travels, with the it. 29 sentence.
+    // `mine:[]` alone let the client screen say «Open an account» to
+    // the owner of a funded row. The cause travels, with the sentence.
     expect(view.body.viewerUnreadable).toMatchObject({ error: 'OWNERSHIP_UNREADABLE', retryable: true, cause: 'ahead-of-clock' });
     expect(view.body.viewerUnreadable.detail).toMatch(/dated later than our own clock/i);
     expect(view.body.viewerUnreadable.detail).toMatch(/no claim code is needed/i);
   });
 
   /**
-   * productizer it. 31 (agente D, 4.2) — …PERO EL PORTAL NO ES EL DISPLAY, Y LA
+   * …PERO EL PORTAL NO ES EL DISPLAY, Y LA
    * PRUEBA DE ARRIBA CONSAGRABA EL SILENCIO.
    *
    * `GET /runs/for-account` es la PRIMERA llamada del cliente (ExchangeClientApp
@@ -389,7 +376,7 @@ describe('it. 29: a takeover mark dated AHEAD of our clock is not a floor', () =
       store.clients.find((c) => c.id === 'fresh')!.passkeyAccount = PASSKEY;
     });
 
-    it('a mark AHEAD of our clock → 503 OWNERSHIP_UNREADABLE, retryable, with the it. 29 sentence — not reclaimRequired', async () => {
+    it('A mark AHEAD of our clock → 503 OWNERSHIP_UNREADABLE, retryable, with the sentence — not reclaimRequired', async () => {
       const res = await forAccount('victim');
       expect(res.status).toBe(503);
       expect(res.body).toMatchObject({ error: 'OWNERSHIP_UNREADABLE', retryable: true, cause: 'ahead-of-clock' });
@@ -442,7 +429,7 @@ describe('it. 29: a takeover mark dated AHEAD of our clock is not a floor', () =
       expect(res.body).toMatchObject({ found: false, heldElsewhere: { reclaimRequired: true } });
     });
 
-    it('there is no anonymous reader any more: the portal asks for a session (20-sep)', async () => {
+    it('There is no anonymous reader any more: the portal asks for a session', async () => {
       const res = await forAccount();
       expect(res.status).toBe(401);
     });
@@ -461,7 +448,7 @@ describe('it. 29: a takeover mark dated AHEAD of our clock is not a floor', () =
   });
 });
 
-describe('it. 12 (2.2): re-opening a row DETACHES the destinations set before the takeover', () => {
+describe('Re-opening a row DETACHES the destinations set before the takeover', () => {
   const SQUATTER_WALLET = 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh';
   const SQUATTER_PASSKEY = '0x9999999999999999999999999999999999999999';
   const OWNER_PASSKEY = '0x4011015268644de37061D6C9b734b1738A8933C8';

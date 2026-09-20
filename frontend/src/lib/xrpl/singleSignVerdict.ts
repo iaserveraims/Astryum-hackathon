@@ -8,25 +8,6 @@
  * complete). Calling it on «signed» alone was the unearned-success family: a
  * tx the network refused, or one that validated as `tec*`, was relayed and
  * painted as done.
- *
- * The rule, in two steps and without React so it can be tested:
- *
- *  1. `decideAfterSigned` — with what Xaman returned (txid + its preliminary
- *     `dispatched_result`):
- *       · no txid              → unconfirmed. Something was signed and we cannot
- *                                follow it; NEVER offer the signature again.
- *       · tem / tef / tel      → refused. The transaction never entered a ledger
- *                                and nothing moved: a fresh request is safe.
- *       · anything else        → ask the ledger (`awaitValidation`). A
- *                                preliminary tesSUCCESS can still validate as
- *                                tec*, and ter* may still get in.
- *
- *  2. `decideAfterValidation` — with what the ledger answered:
- *       · validated tesSUCCESS → settled. The ONLY verdict that calls onSettled.
- *       · validated, other     → failed on-chain. It applied, burned its fee and
- *                                its sequence: re-signing the same payload is
- *                                wrong, the caller must prepare it again.
- *       · not validated        → unconfirmed, with the hash to check. No retry.
  */
 
 import { classifyXrplResult } from './txResult';
@@ -62,7 +43,7 @@ const STALE_CODES: ReadonlySet<string> = new Set(['tefPAST_SEQ', 'tefMAX_LEDGER'
 export const STALE_TX_MESSAGE =
   'This prepared transaction can no longer be used (its ledger window or sequence passed) — prepare it again';
 
-/* ── A stale COUNCIL ORDER: ask what happened to the order first (it.13) ──── */
+/* ── A stale COUNCIL ORDER: ask what happened to the order first ──── */
 
 /**
  * The 32-byte commitment memo of a council order (uppercase hex, no 0x), or
@@ -88,20 +69,6 @@ export function councilOrderMemoOf(tx: unknown): string | null {
 /**
  * What a 'stale' council order may offer, once the server said what became of
  * the ORDER (not of this one payload).
- *
- * WHAT FAILED (R2 3.1). The same order lives in two payloads (the banner kept A,
- * the person prepared B with the same pinned Sequence). A is signed and relayed;
- * B then answers tefPAST_SEQ, and «prepare it again» composed a NEW order —
- * capital moved twice. The seat was spent by the sibling, and nobody checked.
- *
- *   · validated / relaying / executed → 'already-out': another request of this
- *     same order went out and is being delivered. Never «prepare it again».
- *   · composed / unknown              → 'prepare-again': nothing of this order
- *     reached the ledger through a sibling; the parent's prepare is the way.
- *   · failed                          → 'out-failed': a sibling went out and did
- *     not complete. Check it before composing anything.
- *   · unreadable (503, any non-OK, malformed) → 'unchecked': we do not know, so
- *     no silent «prepare it again» — check first.
  */
 export type StaleOrderFate =
   | { kind: 'checking' }
@@ -176,24 +143,12 @@ export function isStaleDispatch(code: string | null | undefined): boolean {
 }
 
 /**
- * productizer it.14 (R2 2.3) — 'STALE' MUST REACH THE PARENT.
+ * 'STALE' MUST REACH THE PARENT.
  *
  * `staleOffersPrepareAgain` existed and nothing in production read it: the
  * signing component said «another request of this same order already went out»
  * and its PARENT stayed free to compose the order again — the second movement
  * of the same capital, one level up, exactly the hole the sentence describes.
- *
- * So the fate travels out (`onStaleFate`) and the parent keeps a LOCK that
- * outlives the signing component (the person may close it, press «Back», or the
- * order may be dropped): composing is paused until the person says, explicitly,
- * that they checked. This reducer is the whole rule:
- *
- *   · a fate that still allows preparing again ('prepare-again') only CLEARS a
- *     lock that was still checking — it never lifts a lock a verdict set;
- *   · 'checking' never DOWNGRADES a verdict already held (a second stale of the
- *     same screen would otherwise reopen the door while it re-reads);
- *   · anything else (already-out, out-failed, unchecked) locks, and only the
- *     person's confirmation (`release`) clears it.
  */
 export function nextStaleOrderLock(
   current: StaleOrderFate | null,
@@ -208,25 +163,16 @@ export function nextStaleOrderLock(
   return reported;
 }
 
-/* ── WHAT IS BEING COMPOSED — an exit is warned, never stopped (it.16 R3 3.1) ─ */
+/* ── WHAT IS BEING COMPOSED — an exit is warned, never stopped ─ */
 
 /**
- * productizer it.16 (R3 3.1) — OUR OWN REGRESSION: THE LOCK WAS GATING EXITS.
+ * OUR OWN REGRESSION: THE LOCK WAS GATING EXITS.
  *
- * The lock of it.14 paused EVERYTHING a console composes. That contradicts the
+ * The lock paused EVERYTHING a console composes. That contradicts the
  * rule the same commit wrote into the backend and into INVARIANTS: **an exit is
  * warned, never stopped** — not by a record, not by a database, not by a region,
  * not by a stranger and not by a screen of ours. A council whose stale order may
  * have a sibling in flight still has to be able to pull its capital out.
- *
- * So the lock now asks WHAT is being composed:
- *   · 'exit'  → never blocked. The note still shows (the warning is the point).
- *   · 'other' → blocked, unless the verdict is one we could not check.
- *
- * And 'unchecked' («could not check whether this order already went out») never
- * blocks either: the server refused to read, and asking the person to assert
- * what we could not read is the «no pude leer = permiso» family upside down —
- * here it costs a closed console, so it warns and lets them through.
  */
 export type ComposeKind = 'exit' | 'other';
 
@@ -301,10 +247,10 @@ export function staleLockHeadline(pausing: boolean): string {
   return pausing ? STALE_LOCK_HEADLINE : STALE_LOCK_WARNING_HEADLINE;
 }
 
-/* ── The lock survives F5 (it.16 R5 5.5) ─────────────────────────────────── */
+/* ── The lock survives F5 ─────────────────────────────────── */
 
 /**
- * productizer it.16 (R5 5.5) — A RELOAD USED TO DROP THE LOCK IN SILENCE.
+ * A RELOAD USED TO DROP THE LOCK IN SILENCE.
  *
  * The lock lived in React state only, so F5 (or opening the console in a second
  * tab of the same session) forgot that a sibling of this order may be on its way
@@ -427,7 +373,7 @@ export function decideAfterSigned(input: {
   // hand the signature back. Wrong in this direction costs a closed panel.
   if (!txid) return { kind: 'unconfirmed', reason: 'no-hash' };
   const dispatched = (input.dispatched ?? '').trim();
-  // The orders are PINNED (Sequence + LastLedgerSequence, it.9): these two say
+  // The orders are PINNED (Sequence + LastLedgerSequence): these two say
   // THIS transaction can never validate. «Try again» would recreate the same
   // payload and get the same answer forever — the parent prepares a new one.
   if (STALE_CODES.has(dispatched)) return { kind: 'stale', code: dispatched, txid };
@@ -490,29 +436,6 @@ export type SingleSignPhase =
  * that threw the prepared order away — and preparing it again gave a fresh
  * payload to sign: the double order the component had just closed, one level
  * up. So the parent is told when retreating is no longer honest:
- *
- *   · waiting     → the QR / push is LIVE: the user can sign it on the phone
- *                   right now, and dropping the order here never cancelled it
- *                   at Xaman (it stayed signable for its 5 minutes). Prepare
- *                   again = a second signable order beside it; sign both = two
- *                   council orders. Blocked — the way out is the component's
- *                   own «Cancel this request», which asks Xaman first.
- *                   (13-sep: it used to be free, and a signature made in the
- *                   ≤2.5 s poll gap still had the parent's Cancel offered.)
- *   · confirming  → the ledger has it (or is about to): blocked.
- *   · settled     → validated tesSUCCESS and `onSettled` already fired: the
- *                   story is over, nothing is pending — free. (It used to stay
- *                   'confirming' after a settle and blocked until unmount.)
- *   · unconfirmed → signed, outcome unknown: blocked.
- *   · error without retry (validated tec*: fee and sequence spent) → blocked;
- *     the account must be checked before anything is prepared again.
- *   · creating    → no payload exists yet, nothing can be signed; one that
- *                   lands after the parent left is cancelled on arrival: free.
- *   · cancelled / a retryable error (expired, declined, refused tem/tef/tel,
- *     payload never created) → nothing entered a ledger: free.
- *   · stale (tefPAST_SEQ / tefMAX_LEDGER on a pinned order) → THIS tx can never
- *     validate and nothing moved through it: free — preparing again is the only
- *     way forward, so the parent must be allowed to do it. No «Try again».
  */
 export function blocksRetreat(phase: SingleSignPhase, retryable: boolean): boolean {
   if (phase === 'waiting' || phase === 'confirming' || phase === 'unconfirmed') return true;
@@ -524,24 +447,6 @@ export function blocksRetreat(phase: SingleSignPhase, retryable: boolean): boole
 /**
  * What `XamanSingleSign` does with Xaman's answer to its own «Cancel this
  * request» — the ONLY honest way out of a live request.
- *
- * The answer is already decided by `payloadBus.cancelPayloadAndDecide` (the
- * same round trip CloseDoorSign and the council inbox use); this maps its
- * action onto the component, without inventing a second reading of it:
- *
- *   · close         → Xaman confirmed the kill (or it had already expired /
- *                     been cancelled): nothing signable is left and nothing was
- *                     signed. The request closes and the parent may drop its
- *                     order (`onCancelled`).
- *   · warn-resolved → ALREADY_RESOLVED: the user answered it on the phone
- *                     before we asked — very possibly SIGNED, and with
- *                     `submit: true` already broadcast. Follow it: read the
- *                     status now and go on into confirming. NEVER a new payload.
- *   · warn-alive    → Xaman refused the kill: it is still signable. Stay, keep
- *                     watching, and say so.
- *   · warn-unknown  → no usable answer: we cannot claim it is dead. Stay, keep
- *                     watching, and say so.
- *   · ignore        → the answer is about a request no longer on screen.
  */
 export type RetreatDecision =
   | { kind: 'closed' }
@@ -577,23 +482,6 @@ export function cancelsOnLeave(input: { uuid?: string | null; decided: boolean }
 /**
  * Which transaction `XamanSingleSign` is working on when its parent hands it a
  * DIFFERENT `txjson` while mounted.
- *
- * The payload is created once per active transaction. A parent that swaps the
- * prop (a second «Review and sign» in ManagerConsole did) used to leave the
- * PREVIOUS payload's QR on screen while its own `onSettled` closure already
- * spoke for the new order — the new order relayed against the old hash. So:
- *
- *   · same key          → nothing changes.
- *   · different, free   → adopt it: a fresh payload for the new transaction
- *                         (the old one never reached a ledger, or already
- *                         settled).
- *   · different, blocked → HOLD the active one. Its signature is confirming,
- *                         unconfirmed or spent on-chain; dropping it would
- *                         abort the only watch on real money and offer a
- *                         second signature beside it.
- *
- * Keys are the serialized transactions, so a parent that rebuilds an equal
- * object on every render is a no-op, never a new payload.
  */
 export function nextActiveTxKey(input: {
   activeKey: string;

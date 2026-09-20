@@ -1,11 +1,11 @@
 /**
- * readTakeoverFloorStrict — productizer it. 29 (1.1/1.2).
+ * readTakeoverFloorStrict.
  *
  * A takeover mark is only ever used ONE way: as a FLOOR that some `now`-ish
  * instant has to clear (a binding's `linkedAt`, a click-wrap's `acceptedAt`, a
  * desk row's `ownedSince`). So «can I read it?» was never the whole question —
  * a mark dated in the FUTURE parses perfectly and loses every one of those
- * comparisons, for ever, for every row. It. 27 taught that to the legal gate and
+ * comparisons, for ever, for every row. Taught that to the legal gate and
  * to the cage acknowledgement, and to neither of the two readers that decide
  * money. This is the one function all of them share now.
  *
@@ -30,7 +30,7 @@ describe('markIsAheadOfClock', () => {
   });
 
   /**
-   * NO TOLERANCE WINDOW, ON PURPOSE (it. 27, restated here because this is now
+   * NO TOLERANCE WINDOW, ON PURPOSE (restated here because this is now
    * the shared rule): a window would buy an interval in which a signature from
    * BEFORE a real takeover counts, to spare a case that heals on its own.
    */
@@ -63,7 +63,7 @@ describe('readTakeoverFloorStrict — the two ways a mark is not a floor', () =>
   });
 
   /**
-   * THE HOLE IT. 27 LEFT. `readTakeoverAtStrict` still says «readable» about
+   * THE HOLE LEFT. `readTakeoverAtStrict` still says «readable» about
    * this row — it IS readable — which is exactly how every consumer that only
    * asked about legibility went on using an unusable floor.
    */

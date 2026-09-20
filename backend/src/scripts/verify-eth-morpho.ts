@@ -4,34 +4,8 @@
  *
  * El plan del mes (§13.5, riesgo 3) exige re-correr B0 antes del ensayo E2E:
  * el mercado FXRP/RLUSD navegaba al ~90% de utilización y «la liquidez del
- * mercado se mueve». Hasta hoy esa verificación era manual (15-ago) — es
+ * mercado se mueve». Hasta hoy esa verificación era manual — es
  * decir, no repetible, que en la práctica significa que no se repite.
- *
- * Este script no inventa nada: llama a las MISMAS lecturas que la ruta usa
- * antes de dejar firmar (EthMorphoMarketService), de modo que lo que imprime
- * aquí es exactamente lo que el usuario tendrá delante — o el mismo NO.
- *
- * Uso:
- *   ETHEREUM_RPC_URL=https://… npm run verify:eth-morpho
- *   ETHEREUM_RPC_URL=https://… npx ts-node src/scripts/verify-eth-morpho.ts --borrow 1000
- *
- * Qué comprueba:
- *   1. El RPC responde y es Ethereum mainnet (chainId 1) — un RPC de testnet
- *      dando números verdes sería el peor de los fallos silenciosos.
- *   2. El singleton de Morpho TIENE código en esa cadena.
- *   3. DRIFT-CHECK de los params del mercado contra los fijados en el
- *      adapter (verifyMarketParams): si el mercado cambió de oráculo, IRM o
- *      LLTV, aquí se para — esos params son parte de lo que el usuario firma.
- *   4. Estado vivo: supply, borrow, LIQUIDEZ DISPONIBLE y utilización.
- *   5. El oráculo responde `price()` (un oráculo mudo mata el carril entero).
- *   6. Decimales LEÍDOS de cada token (la asimetría 6/18 es la trampa F4).
- *   7. La bóveda Sentora: `asset()` es RLUSD de verdad y cuánto sostiene.
- *   8. Con `--borrow N`: pasa el pre-flight REAL de liquidez con N RLUSD.
- *
- * Códigos de salida (para poder encadenarlo en un runbook):
- *   0 = venue verificado · 1 = falta RPC · 2 = cadena equivocada
- *   3 = singleton sin código · 4 = DRIFT de params · 5 = lectura fallida
- *   6 = el borrow pedido NO cabe en la liquidez disponible
  */
 
 import { ethers } from 'ethers';

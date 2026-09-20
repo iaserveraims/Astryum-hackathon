@@ -32,7 +32,7 @@ interface IUserGate {
     function isApproved(address user) external view returns (bool);
 }
 
-/// Queued ERC-4626 venue (Firelight stXRP, verified on-chain 2026-08-20 via
+/// Queued ERC-4626 venue (Firelight stXRP, verified on-chain via
 /// verify-firelight: redeem burns shares NOW, fixes assets at request price and
 /// queues them into currentPeriod()+1; NO assets move in the redeem tx;
 /// claimWithdraw(period) releases them once that period ends (~24h periods).
@@ -51,14 +51,14 @@ interface IQueuedVenue {
 /**
  * @title AstryumVault — the institutional pote (one policy, one exit speed)
  *
- * @notice The thesis (Astryum Institutional, canonical doc 2026-08-18): the
+ * @notice The thesis (Astryum Institutional): the
  * manager may WORK the capital; it can never decide whether you may leave.
  * Clients hold ERC-4626 shares of the pote directly (one layer, never a claim
  * against the operator). The director moves capital ONLY between allowlisted,
  * typed venues. Redemption belongs to the holder alone and unwinds venue
  * positions BY ITSELF — no director cooperation, ever.
  *
- * WHAT DOES NOT EXIST IN THIS CODE (Z-decisions, doc 2026-08-20):
+ * WHAT DOES NOT EXIST IN THIS CODE (Z-decisions):
  *  - No function pays principal to an arbitrary address (I1).
  *  - No successor/migrate (Z5): with third-party holders, a council-driven
  *    relocation would be custody reintroduced. Wind-down = retire venues +
@@ -287,7 +287,7 @@ contract AstryumVault is ERC4626, ReentrancyGuard {
         return 3;
     }
 
-    /// @dev The user gate (I3-bis / Z-decision 22-ago): if this pote points at
+    /// @dev The user gate (I3-bis / Z-decision): if this pote points at
     /// an exchange registry, the RECEIVER of the shares must be one of that
     /// exchange's KYC'd clients. Covers both entry modes — the client depositing
     /// (mode A) and the operator depositing for the client (mode B) — because
@@ -572,7 +572,7 @@ contract AstryumVault is ERC4626, ReentrancyGuard {
         // to be paid from the shared buffer while the yield stays in the venue
         // — that both charges the common principal and (because live does not
         // fall) lets the NEXT harvest re-charge the rebated basis as phantom
-        // yield (fuzzer counterexample, invariant P2, 2026-08-22). The honest
+        // yield (fuzzer counterexample, invariant P2). The honest
         // rule: the operator's cut on a queued venue realizes only when the
         // capital is liquid again (recall → claim → a synchronous venue or the
         // buffer). No-op here, and it favors the holders. Same rule for every

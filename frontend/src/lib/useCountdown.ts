@@ -2,7 +2,7 @@
 
 /**
  * useCountdown — the one countdown of the app, extracted from XamanQRModal
- * (regla «lógica pura enterrada = lógica sin red», 2026-08-21): the Xaman QR
+ * (regla «lógica pura enterrada = lógica sin red»): the Xaman QR
  * keeps its m:ss behaviour by IMPORTING this, and the institutional exit clock
  * (F3) gets the day-scale formatter without growing a second setInterval idiom.
  *

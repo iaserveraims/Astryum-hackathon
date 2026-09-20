@@ -1,5 +1,5 @@
 /**
- * La puerta de la llave del omnibus para ACEPTAR el KYC de una casilla (14-sep).
+ * La puerta de la llave del omnibus para ACEPTAR el KYC de una casilla.
  * Pura: lo que se prueba es qué deja firmar, no el ledger.
  */
 import { assessCredentialAccept } from '../DemoExchangeSigner';

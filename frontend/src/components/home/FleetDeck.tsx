@@ -1,26 +1,11 @@
 'use client';
 
 /**
- * ⚠️ UNMOUNTED since 2026-08-22 (founder, fourth pass: "ponlo como estaba
- * antes, pero dividiendo a la mitad el apartado de wallets"). The Summary went
+ * ⚠️ UNMOUNTED. The Summary went
  * back to its own composition — hero · band · two rings in one viewport — and
  * the band that lists the fleet is now components/dashboard/FleetBand.tsx:
  * same enriched rows and the same doors, split Personal | Legacy, where
  * picking re-scopes the figures instead of flipping the product.
- *
- * Preserved whole (house rule, like PerformanceCard and HomeHub) — no route
- * renders it. If it ever comes back, note that FleetBand is now the ONE fleet
- * list: two live copies is how the names and the meters drifted apart before.
- *
- * FleetDeck — the two product shelves (Personal · Legacy), EXTRACTED from the
- * retired HomeHub (founder 2026-08-22: "quiero que se muestren las dos
- * cuadrículas debajo con las wallets de personal y las de legacy, no un
- * toggle pequeño"). Lifted verbatim from the hub — same cards, same
- * selection-is-the-theme model (clicking a wallet/Legacy activates the
- * authority and the shell crosses; the store the old toggle wrote) — with
- * ONE deliberate change: entering a Legacy no longer navigates. The Summary
- * hosts this deck; the add/manage doors open the host's hidden Wallets
- * surface (?panel=wallets) through onOpenWallets.
  */
 
 import { useMemo, useRef } from 'react';
@@ -153,7 +138,7 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
 
   // The fleet — same shared sources as the Summary band, never a new truth.
   const { wallets: myWallets } = useMyWallets();
-  // The visual fold (paFold, 2026-08-17): a Smart Account whose owning XRPL
+  // The visual fold (paFold): a Smart Account whose owning XRPL
   // wallet is in the list disappears as a row — its value/tokens already
   // ride the owner's aggregated entry — and the owner wears the Flare badge.
   const paFold = usePaFold(myWallets.map((w) => w.address));
@@ -166,7 +151,7 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
   // La cartera agregada NO tiene adapter para morpho-blue: la deuda de
   // Ethereum nunca entra en snap.debtUSD. Sin esta lectura la fila decía
   // «Sana — sin deuda abierta» sobre un carry apalancado VIVO (la regresión
-  // que el band retirado ya había pagado — verificador 2026-08-22).
+  // que el band retirado ya había pagado — verificador).
   const emAddrs = useMemo(
     () => [...new Set(fleet.addresses.filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a ?? '')))],
     [fleet.addresses],
@@ -189,8 +174,7 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
     }
     return m;
   }, [aggregated]);
-  // RETENTION (founder 2026-08-16: "cada vez que se cambia de wallet los dos
-  // rectángulos se reposicionan porque el número desaparece"). Picking a
+  // RETENTION. Picking a
   // wallet re-scopes the aggregated store, which empties for a beat while it
   // reloads — the numbers vanished and the two cards jumped. The hub keeps
   // the last known reading per wallet (merging fresh rows over it) and the
@@ -206,11 +190,10 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
   const visibleWallets = myWallets.filter((w) => {
     const owner = paFold.ownerByPa.get(foldKey(w.address));
     if (owner && listedKeys.has(foldKey(owner))) return false; // absorbed into its owner
-    // Founder 2026-09-10: una FSA/Smart Account NUNCA se muestra suelta en el
-    // quick view — es la MISMA cuenta que su XRPL. Si su dueña está en la lista
+    // Si su dueña está en la lista
     // su valor ya se plegó arriba; si es huérfana (dueña fuera de la lista, p. ej.
     // la cuenta del gestor), tampoco se enseña como wallet aparte. Revoca la
-    // regla previa de «una huérfana con valor se queda» (2026-08-19).
+    // regla previa de «una huérfana con valor se queda».
     return !isSmartAccountType(w.walletType);
   });
 
@@ -246,8 +229,7 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
   const enterLegacy = (id: string) => {
     setProductMode('legacy'); // indigo — gate popups live inside
     if (isDemoMode() || !useAuthStore.getState().legacyAccess) return;
-    // NO router.push (founder 2026-08-22, "no quiero que togglear las
-    // cuentas te saquen del summary"): selecting a Legacy crosses the theme
+    // NO router.push: selecting a Legacy crosses the theme
     // and scopes the dashboard IN PLACE; the Legacy hub stays one nav away.
     setActive(id);
   };
@@ -300,12 +282,12 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
                 const glyph = walletIcon(w);
                 const info = perWalletByKey.get(addressKey(w.address));
                 const isSel = activePersonalKey === addressKey(w.address);
-                // The reinforce door (founder 2026-08-21) — every XRPL account
+                // The reinforce door — every XRPL account
                 // can be given a quorum of its owner's own keys. The row is a
                 // <button>, so the door CANNOT nest inside it: the two live
                 // side by side in a flex wrapper instead.
                 //
-                // NOT gated by legacyAccess (founder 2026-08-21, second pass):
+                // NOT gated by legacyAccess:
                 // reinforcing your own wallet is a PERSONAL feature that only
                 // borrows the Legacy ceremony's screens. Gating it behind the
                 // Legacy product flag hid it from exactly the people it is for
@@ -359,10 +341,8 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
                             </span>
                           )}
                         </span>
-                        {/* The band's meter, back where the founder wants it
-                            (2026-08-22): the bar of money WORKING, its direct
-                            % label, and the health dot with its word in the
-                            tooltip — same classifier as everywhere. */}
+                        {/*
+                        { */}
                         {info && (() => {
                           const mix = capitalMix(info.snap);
                           const snapHf = typeof info.risk?.healthFactor === 'number' ? info.risk.healthFactor : null;
@@ -427,7 +407,7 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
                         </button>
                       ) : (
                         <button
-                          // Reforzar abre como OPERACIÓN en oro (fundador 2026-08-27)
+                          // Reforzar abre como OPERACIÓN en oro
                           // — nada de viajar a la superficie Legacy en índigo.
                           onClick={() => openReinforceOp(w.address)}
                           aria-label={`${t('Reinforce it')} · ${walletDisplayName(w, t)}`}
@@ -525,9 +505,9 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
                             {t('To sign')} · {l.pendingSignatures}
                           </Pill>
                         )}
-                        {/* it. 34 (agente D) — «NO PUDE LEER» NO ES «NO TE TOCA FIRMAR
+                        {/* «NO PUDE LEER» NO ES «NO TE TOCA FIRMAR
                             NADA». El hook deja el recuento en `undefined` cuando la
-                            lectura se rechazó o vino a medias y lo MARCA (it. 27 §6),
+                            lectura se rechazó o vino a medias y lo MARCA,
                             pero solo StructuresBand pintaba la marca: esta estantería
                             —donde se pregunta «¿tengo algo que firmar?»— enseñaba un
                             Legacy con firmas pendientes que nadie pudo leer igual que
@@ -543,7 +523,7 @@ export default function FleetDeck({ onOpenWallets }: { onOpenWallets: () => void
                           programmed releases — read live, "could not read" when
                           the read dies, never a fabricated figure. */}
                       <StructureFacts structure={l} className="mt-0.5" />
-                      {/* The structure's meter (2026-08-22): its two legs —
+                      {/* The structure's meter: its two legs —
                           council + Smart Account — read as ONE bar of money
                           working, from the all-fleets aggregate. Only when a
                           leg has been read; never a fabricated figure. */}

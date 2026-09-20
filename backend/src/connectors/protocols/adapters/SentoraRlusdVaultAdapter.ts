@@ -2,18 +2,6 @@
  * SentoraRlusdVaultAdapter — pure calldata builder for the lend-only leg of W3
  * (plan §13: la card «lend-only» de Earn): RLUSD into the Sentora RLUSD Main
  * vault (`senRLUSDv2`, Morpho Vault V2) on Ethereum mainnet.
- *
- * Verified ON-CHAIN 2026-08-15: vault 0x6dC5…E6bf, asset() == RLUSD,
- * totalAssets ≈ 318M RLUSD. ERC-4626 surface (deposit/withdraw), 18 decimals
- * on both asset and shares side of what the user touches here.
- *
- * Risk framing is NOT optional copy (barrido 3-ago §2.3.3, binding): lending
- * here is exposure to the AGGREGATE of Sentora's curated allocations — not to
- * the FXRP market specifically. The prepare disclosure carries those words.
- *
- * House rules: approve FINITO (exact amount, never MaxUint) · prepare-only ·
- * the route re-verifies `asset()` on-chain before building (VAULT_ASSET_MISMATCH
- * refusal — invariant #3, resolved on-chain, never assumed).
  */
 import { Interface } from 'ethers';
 import { RLUSD_ETH, EvmLeg } from './MorphoBlueEthAdapter';

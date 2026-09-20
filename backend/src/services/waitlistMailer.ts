@@ -8,15 +8,6 @@
  *     returns "Connection timeout" on 25/465/587).
  *  2. SMTP (nodemailer) — fallback when only WAITLIST_SMTP_* are set. Works
  *     locally / on hosts that allow outbound SMTP.
- *
- * Env:
- *   RESEND_API_KEY        Resend API key → enables the HTTP transport
- *   WAITLIST_FROM         From header, default "Astryum <astryum@astryum.xyz>"
- *                         (the domain must be verified in Resend to send)
- *   WAITLIST_SMTP_USER/PASS/HOST/PORT   SMTP fallback (Zoho: smtp.zoho.eu:465)
- *
- * Fail-open: unconfigured → disabled (signups still stored); a send failure is
- * logged but never surfaces to the signup response.
  */
 import nodemailer, { Transporter } from 'nodemailer';
 import { renderWaitlistWelcome, WelcomeEmailParams, RenderedEmail } from '../emails/waitlistWelcome';
@@ -116,7 +107,7 @@ async function deliver(to: string, rendered: RenderedEmail): Promise<{ ok: boole
 
 /**
  * Un correo que no sale es una promesa incumplida a una persona concreta, y
- * hasta hoy solo lo sabía el log (2026-08-03). El aviso va al canal en `warn`
+ * hasta hoy solo lo sabía el log. El aviso va al canal en `warn`
  * y deduplicado por transporte + causa: si el proveedor está caído, es UNA
  * noticia, no una por cada persona que se apunta.
  */

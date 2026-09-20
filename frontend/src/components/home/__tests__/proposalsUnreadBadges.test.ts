@@ -3,23 +3,18 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * productizer it. 34 (agente D) — `proposalsUnread` SOLO SE PINTABA EN StructuresBand.
+ * `proposalsUnread` SOLO SE PINTABA EN StructuresBand.
  *
- * it. 27 (§6) hizo que `useAuthorities` MARCARA la cuenta cuya lectura de
+ * Hizo que `useAuthorities` MARCARA la cuenta cuya lectura de
  * propuestas se intentó y falló (`proposalsUnread: true`, recuentos en
  * `undefined`), porque una insignia que solo sale con un número positivo
  * convierte «no lo pude leer» en «no te toca firmar nada». La marca llegó a la
  * banda de estructuras y a NADIE MÁS: la estantería de Home (`HomeHub`,
- * `FleetDeck`) —donde se pregunta «¿tengo algo que firmar?»—, la barra de
+ * `FleetDeck`) —donde se pregunta «¿tengo algo que firmar?», la barra de
  * gobierno (`GoverningBar`) y el selector de autoridad (`AuthoritySwitcher`)
  * seguían con `typeof x === 'number' && x > 0`, así que un Legacy con dos
  * firmas pendientes que nadie consiguió leer se veía EXACTAMENTE igual que uno
  * sin nada pendiente, justo en las cuatro superficies que un firmante mira.
- *
- * Sin DOM en esta suite (vitest en node): se fija POR FUENTE que cada consumidor
- * pinta la marca con la misma regla que la banda — solo cuando se INTENTÓ y
- * falló (`proposalsUnread`) y no hay número (`typeof … !== 'number'`) — y que la
- * palabra es «could not read», nunca un número inventado ni el silencio.
  */
 
 const COMPONENTS = join(__dirname, '..', '..');
@@ -49,7 +44,7 @@ describe('«¿tengo algo que firmar?» — la lectura fallida se ve en las cuatr
     });
   }
 
-  it('la regla es la misma que la de StructuresBand (it. 27 §6): una sola gramática', () => {
+  it('La regla es la misma que la de StructuresBand: una sola gramática', () => {
     const band = read('legacy/StructuresBand.tsx');
     expect(band).toMatch(/structure\.proposalsUnread && typeof structure\.pendingSignatures !== 'number'/);
     expect(band).toMatch(/\{t\('To sign'\)\} · \{t\('could not read'\)\}/);

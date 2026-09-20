@@ -3,22 +3,13 @@
 /**
  * VenueContact — la otra mitad de declarar el riesgo heredado: una dirección.
  *
- * EL HUECO (fundador, 28-ago-2026). Astryum ya dice de quién hereda el riesgo
+ * EL HUECO. Astryum ya dice de quién hereda el riesgo
  * de cada ruta — quién decide, si te pueden liquidar, si la estrategia es
  * verificable. Lo que nunca dijo es a QUIÉN se escribe cuando el problema es
  * del sitio y no nuestro: una bóveda pausada, una tasa que se movió, una cola
  * de salida que no avanza. Sin esa línea, la persona escribe al Discord de
  * Astryum, donde nadie puede hacer nada, porque no construimos la cosa que se
  * rompió.
- *
- * NO ES UN DESCARGO. La responsabilidad de haber puesto esa ruta en el
- * catálogo sigue siendo nuestra y el usuario ya la ve declarada arriba. Esto
- * solo evita que la declaración sea un callejón sin salida.
- *
- * LOS ENLACES SON DATO, NO PROSA (`lib/earn/protocols`), leídos de la web del
- * propio sitio. Un venue que no publica canal sale con esa frase — la misma
- * disciplina que `audit: null` → «no publicada»: un enlace muerto sería peor
- * que ninguno (#9).
  */
 
 import { ExternalLink } from 'lucide-react';

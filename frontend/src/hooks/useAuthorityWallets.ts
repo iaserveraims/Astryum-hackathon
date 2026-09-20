@@ -4,21 +4,6 @@
  * The authority-scoped wallet list — what every monetary surface reads once
  * the switcher exists. Same contract as useMyWallets (it wraps it), narrowed
  * to the ACTIVE AUTHORITY:
- *
- *   overview → TODAS las cuentas del usuario, consejos incluidos (fundador
- *              2026-08-22: «el legacy simplemente sea una wallet más»). Antes
- *              esto excluía toda cuenta con consejo confirmado Y su Smart
- *              Account: media flota desaparecía de la suma salvo que
- *              descubrieras un interruptor de producto. Una cuenta gobernada
- *              por un quórum sigue siendo dinero del usuario y se cuenta como
- *              tal; lo que cambia es QUIÉN firma, y eso lo dice la fila.
- *   single   → exactly that wallet
- *   governed → the council-governed account itself PLUS its Flare Smart
- *              Account (the PA), resolved via /flare-demo/personal-account —
- *              the Legacy's capital is XRPL rules + Flare production
- *
- * Surfaces that must ALWAYS see everything (the Wallets manager) keep reading
- * useWalletLinking/useMyWallets directly — this hook is the monetary scope.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -65,20 +50,9 @@ export function useAuthorityWallets(): {
   const pa = usePersonalAccount(active.kind === 'governed' ? active.address : null);
 
   // Qué direcciones tienen consejo confirmado. Ya NO sirve para excluirlas
-  // (2026-08-22: un Legacy es una wallet más) — sirve para dos cosas: añadir
+  // (un Legacy es una wallet más) — sirve para dos cosas: añadir
   // como fila las que viven sólo en el registro de cuentas gobernadas, y
   // resolver su Smart Account, que es su segunda pata en Flare.
-  //
-  // Una SignerList NO convierte una cuenta en Legacy (fundador 22-ago-2026: la
-  // cuenta personal reforzada «no aparece en Summary, ni en todas las wallets
-  // ni escogiéndola sola»). Este filtro sacaba del alcance MONETARIO a toda
-  // dirección con consejo, así que el capital de una cuenta reforzada
-  // desaparecía de la suma: la posición se veía en Estrategias —esa la pinta
-  // otro lector— pero el saldo no estaba en ninguna parte.
-  //
-  // Es el mismo fallo que WalletManager ya tenía y el mismo arreglo, con la
-  // regla compartida en vez de copiada: el ledger dice si hay quórum, el dueño
-  // dice de qué lado vive.
   const reinforcedKeys = useMemo(() => reinforcedPersonalKeys(authorities), [authorities]);
   const confirmedCouncils = useMemo(
     () =>
@@ -95,16 +69,6 @@ export function useAuthorityWallets(): {
   // de cada consejo para sacarla de lo personal. La PA de una wallet PERSONAL
   // no se incluía nunca — entraba en la suma sólo si por casualidad estaba
   // registrada como wallet en `/api/wallets/mine`.
-  //
-  // Y ese «por casualidad» es el fallo (fundador 22-ago-2026: la posición de
-  // Kinetic no aparece en Summary). El capital de una cuenta XRPL trabaja en
-  // Flare a través de su Smart Account: `rP49LE…` tiene 7,69 FXRP suministrados
-  // en Kinetic desde `0xBD5709ff…`, y esa PA NO estaba registrada, así que para
-  // el Summary no existía. Estrategias sí la veía porque lee la PA directamente.
-  //
-  // El mapeo XRPL→PA es DETERMINISTA (`MasterAccountController`), así que no
-  // hace falta que nadie la haya dado de alta: se resuelve y se cuenta. El
-  // registro pasa a ser una comodidad, no un requisito para ver tu propio dinero.
   const personalXrplAddresses = useMemo(() => {
     const councilSet = new Set(confirmedCouncils.map((a) => addressKey(a)));
     return allWallets
@@ -159,7 +123,7 @@ export function useAuthorityWallets(): {
     // gobernadas, no en la tabla de wallets) se AÑADEN como fila sintética,
     // porque si no el dinero de un Legacy no estaría en ninguna suma.
     const present = new Set(allWallets.map((w) => addressKey(w.address)));
-    // CON SU IDENTIDAD (2026-09-07): la fila sintética salía pelada —sin
+    // CON SU IDENTIDAD: la fila sintética salía pelada —sin
     // walletType ni label— y en cualquier selector se leía «XRPL wallet»,
     // redonda y gris, mientras la MISMA cuenta en Wallets es una placa índigo
     // con su nombre. Los dos campos que faltaban son los que gobiernan color

@@ -1,29 +1,7 @@
 /**
- * Legacy product gate (founder 2026-07-26; hardened same day: "el Legacy debe
- * estar desactivado para todos — solo entran las cuentas escritas").
+ * Legacy product gate.
  *
  * Two envs, evaluated in order:
- *
- *   · LEGACY_ENABLED — the global true/false switch. 'true' (case-insensitive)
- *     ⇒ the Personal↔Legacy toggle is visible to every account and the
- *     allowlist is irrelevant. Anything else — 'false', unset, a typo —
- *     ⇒ Legacy is OFF for everyone…
- *   · …except LEGACY_ACCESS_EMAILS: with the switch off, ONLY the listed
- *     account emails keep the toggle. Off + empty list ⇒ nobody sees it.
- *
- * FAIL-CLOSED on purpose (founder order): a missing/malformed switch reads as
- * OFF, so deploying this code hides Legacy until the founders either list
- * themselves in Railway or flip LEGACY_ENABLED=true.
- *
- * Deliberately its OWN allowlist (same rule as DEMO_CAP_EXEMPT_EMAILS vs
- * ADMIN_EMAILS): the admin panel and the Legacy product are different powers,
- * and adding someone to one list must never silently open the other.
- *
- * CLIENT hint only, like isAdmin on /auth/me: it decides whether the toggle
- * really switches or opens the in-development popup (the toggle itself stays
- * visible to everyone in the beta). It does not (and must not) guard any
- * capital operation — every governed-account read/write keeps its own
- * server-side auth.
  */
 
 /** The global switch: only the literal 'true' opens Legacy for everyone. */

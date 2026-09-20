@@ -3,45 +3,12 @@
 /**
  * AstryumLoader — LA animación de carga de la casa, sobre el logo REAL.
  *
- * v3 (2026-09-09): Logo.tsx es ahora el trazado PIXEL-FIEL del PNG original
- * (fundador: «sigue fallando algo de la forma… se nota») y este loader anima
+ * V3: Logo.tsx es ahora el trazado PIXEL-FIEL del PNG original
+ * y este loader anima
  * exactamente esos lazos — las 4 estelas del arte, la base oscura con su
  * sombra, la cara blanca, los 7 cráteres y los 2 brillos, y el anillo
  * RELLENO del original, que al ser banda (no trazo) se revela con una
  * MÁSCARA de barrido: un arco que se dibuja destapa la banda auténtica.
- *
- * DOS ACTOS (CSS en globals.css `astry-load-*`, cero dependencias):
- *  1. La caída (una vez, ~1.4s): estelas en ráfaga por su diagonal, la ROCA
- *     CAE por la misma trayectoria y asienta con rebote, el anillo se barre
- *     alrededor y los cráteres aterrizan como esquirlas.
- *  2. La órbita (bucle calmo): halo que respira, estelas que relucen y una
- *     mota en órbita inclinada. Nada se reinicia — respira.
- *
- * Reduced motion: el logo terminado, quieto (la máscara del anillo queda
- * destapada por CSS).
- *
- * ── LA REGLA DE LAS ESPERAS (fundador 2026-09-11: «si está algo cargando
- * tiene que aparecer el logo… homogéneo en todas las páginas — ¿o se saturará
- * de asteroides?»). Tres esperas, tres caras, y no se mezclan:
- *
- *   1. SECCIÓN VACÍA QUE ESPERA DATO → el cometa (este componente), UNO por
- *      sección, tamaño 40–56 con su línea en mono; 72 solo a página completa
- *      (app/loading.tsx, AccessGate). Es el que va en EmptyState
- *      variant="loading", en las pestañas (PanelLoading) y en cualquier caja
- *      que aún no tiene nada que enseñar. Aquí antes convivían texto suelto
- *      («Loading positions…»), spinners centrados y el cometa: eso es lo que
- *      se ha unificado.
- *   2. FORMA CONOCIDA → esqueleto (barras animate-pulse). Cuando ya se sabe
- *      qué forma tendrá el dato (una cabecera, una fila), se dibuja la forma
- *      y se calla: un esqueleto no compite con el cometa de la sección de al
- *      lado, y por eso NO se saturan — el cometa solo sale donde no hay forma.
- *   3. ACCIÓN EN CURSO → spinner (Loader2). Preparar un payload, firmar,
- *      refrescar, un botón trabajando, una tasa que llega en una fila: eso no
- *      es «leer», es «hacer», y el spinner pequeño junto a su texto es su
- *      lenguaje. El cometa NUNCA sustituye a un spinner de acción.
- *
- * Con esto, en una pantalla hay como mucho un cometa por sección que espera,
- * y ninguno donde ya hay forma o donde el usuario acaba de pulsar algo.
  */
 
 import { useId } from 'react';
@@ -70,8 +37,7 @@ export function AstryumLoader({
   /** Línea opcional bajo la marca («Verifying access…»). */
   label?: string;
   className?: string;
-  /** EL TONO (fundador 2026-09-12: «la misma animación que tiene la página
-   *  pero cambiando al color índigo del Legacy»): `gold` es la marca de
+  /** EL TONO: `gold` es la marca de
    *  siempre; `legacy` viste halo, estelas, anillo y mota con el índigo del
    *  producto (--product-legacy), sin tocar la roca. Lo usa la travesía
    *  Personal→Legacy (AuthorityCrossing). */
@@ -80,8 +46,7 @@ export function AstryumLoader({
   const maskId = useId();
   const origin = `${LOGO_CENTER.x}px ${LOGO_CENTER.y}px`;
   const legacy = tone === 'legacy';
-  // 'auto' (fundador 2026-09-13: «cuando sea para entrar al Legacy que cambie
-  // de color simplemente»): el cometa viste --volt, que la shell ya voltea a
+  // 'auto': el cometa viste --volt, que la shell ya voltea a
   // índigo bajo data-authority='governed' — UN loader, dos colores, sin un
   // segundo logo encima.
   const auto = tone === 'auto';

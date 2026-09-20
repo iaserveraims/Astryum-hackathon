@@ -1,7 +1,7 @@
 /**
  * Client helpers for the pre-launch access gate.
  *
- * 2026-07-23 — the hardcoded ACCESS_CREDENTIALS + sessionStorage flag are
+ * The hardcoded ACCESS_CREDENTIALS + sessionStorage flag are
  * GONE (they shipped the shared password inside the public JS bundle; bots
  * read it). The gate is now server-side: /api/access-gate verifies the code
  * (captcha + throttle) and answers with an httpOnly signed cookie that

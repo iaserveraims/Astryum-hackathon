@@ -1,19 +1,8 @@
 /**
- * Sondeo de frescura del barrido 0xFE (incidente 2026-07-31): s1/s2 de Ripple
+ * Sondeo de frescura del barrido 0xFE: s1/s2 de Ripple
  * se congelaron respondiendo `success` con una ventana ~4h vieja — account_tx
  * omitía los Payments nuevos y la rotación por error jamás saltaba, dejando al
  * watcher ciego mientras el XRP de los usuarios esperaba en el Core Vault.
- *
- * Qué se prueba y por qué:
- *  1. Un endpoint con ledger validado reciente es fresco — el barrido puede
- *     fiarse de su account_tx.
- *  2. Un endpoint congelado (close_time viejo) NO es fresco aunque responda
- *     `success` — es exactamente la mentira-por-omisión del incidente.
- *  3. Transporte caído / HTTP no-ok / respuesta sin ledger → no fresco: ante
- *     la duda, rotar.
- *  4. El memo por endpoint evita re-sondear dentro del mismo barrido (varias
- *     páginas por tick) y expira pasado el TTL — un nodo que se recupera no
- *     queda vetado para siempre.
  */
 import { xrplEndpointFresh } from '../DirectMintExecutorService';
 
@@ -49,7 +38,7 @@ describe('xrplEndpointFresh — el barrido no se fía de un nodo congelado', () 
     await expect(xrplEndpointFresh(url(), now)).resolves.toBe(true);
   });
 
-  it('ledger validado de hace horas → NO fresco aunque responda success (el incidente)', async () => {
+  it('Ledger validado de hace horas → NO fresco aunque responda success', async () => {
     const now = Date.now();
     fetchMock.mockResolvedValue(ledgerResponse(closeTimeAgo(now, 4 * 3600)));
     await expect(xrplEndpointFresh(url(), now)).resolves.toBe(false);

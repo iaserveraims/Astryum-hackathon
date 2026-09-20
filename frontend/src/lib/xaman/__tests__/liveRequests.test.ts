@@ -30,13 +30,13 @@ import {
 import { cancelPayloadAndDecide } from '../payloadBus';
 
 /**
- * productizer-it7 — a Xaman request outlives the component that showed it.
+ * A Xaman request outlives the component that showed it.
  *
  * `XamanSingleSign` used to fire a blind DELETE on unmount; an ALREADY_OPENED
  * answer (open on the phone, still signable) was read by nobody. These cover the
  * registry that replaces it: register → hand-off on an undecided unmount (NO
  * cancel) → watched until Xaman decides → signed is FOLLOWED on the ledger
- * (it.11) until its validated result is read — never «done» on Xaman's word.
+ * until its validated result is read — never «done» on Xaman's word.
  */
 
 const REQ = { uuid: 'u-1', title: 'Open the pote — the root signs', txKey: '{"TransactionType":"Payment"}' };
@@ -98,7 +98,7 @@ describe('leaveAction — what an unmount does with its payload', () => {
   it('a decided payload belongs to its verdict', () => {
     expect(leaveAction({ uuid: 'u-1', decided: true })).toBe('none');
   });
-  it('a signed payload whose ledger result is still being read is handed off (it.11)', () => {
+  it('A signed payload whose ledger result is still being read is handed off', () => {
     expect(leaveAction({ uuid: 'u-1', decided: true, confirming: true })).toBe('hand-off');
   });
   it('no payload yet: nothing to hand off', () => {
@@ -140,7 +140,7 @@ describe('deliversToFlareAutomatically — which banners may say «Astryum deliv
     JSON.stringify({ TransactionType: type, Account: 'rA', ...(memo !== undefined ? { Memos: [{ Memo: { MemoData: memo } }] } : {}) });
 
   /**
-   * CHANGED ON PURPOSE (it.13, R5 1.3 / R2 3.2). The syntax alone promised a
+   * CHANGED ON PURPOSE (R5 1.3 / R2 3.2). The syntax alone promised a
    * delivery the server may not have taken on. A council order is delivered by
    * the relay watcher only when its prepare said recorded + executor running —
    * covered in liveRequests.delivery.test.ts.
@@ -149,7 +149,7 @@ describe('deliversToFlareAutomatically — which banners may say «Astryum deliv
     expect(deliversToFlareAutomatically(pay('ab'.repeat(32)))).toBe(false);
   });
   /**
-   * CHANGED ON PURPOSE (it.14, R2 2.6). A 0xFE was promised on its syntax too —
+   * CHANGED ON PURPOSE (R2 2.6). A 0xFE was promised on its syntax too —
    * «the handoff is persisted and the executor sweeps the Core Vault» — so with
    * the executor STOPPED the banner announced a delivery nobody was going to
    * make. It now needs the same word as an order (noteFlareInstructionDelivery),
@@ -313,7 +313,7 @@ describe('registry — register → unmount hand-off → resolution', () => {
   });
 });
 
-describe("the 'confirming' phase — signed, the component reading the ledger (it.11)", () => {
+describe("The 'confirming' phase — signed, the component reading the ledger", () => {
   it('is open (beforeunload guards it) but not in the banner: the component shows it', () => {
     registerLiveRequest(REQ);
     confirmLiveRequest({ ...REQ, txid: HASH });

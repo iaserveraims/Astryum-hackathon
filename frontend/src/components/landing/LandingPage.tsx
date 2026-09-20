@@ -5,34 +5,6 @@
  *
  * Brand: warm gold (#C9A227) on deep space. Asteroid logo, navigation metaphor.
  * Tagline: "Tu capital. Tu control. Tu firma." / "Your capital. Your control. Your signature."
- *
- * V2 raises the motion floor to a sui.io register: a mouse-reactive 3D hero over a
- * living star field, a kinetic mask-reveal headline, scroll-parallaxed sections, an
- * animated stats band, a scrollytelling narrative with a morphing instrument panel,
- * an interactive Flare console rack, and a scroll-linked light "signature break".
- * Every effect degrades cleanly under prefers-reduced-motion and uses motion values
- * (never React state) for continuous pointer/scroll input.
- *
- * V2.1 is the clarity pass: the scroll-scrubbed manifesto became a plain-words
- * "how it works" trio (connect → observe → sign), the visible act breaks went from
- * three to one, and the walkthrough tightened from six chapters to five (Flight
- * Rules folded into Flight Plan). Every section states in concrete terms what
- * Astryum does; the register stays.
- *
- * V3 is the Solar Journey (SHOW_JOURNEY, ./SolarJourney.tsx): the hero's solar
- * system becomes a scroll-driven tour through the four dashboard sections
- * (Summary · Earn · Portfolio · Wallets), replacing HowItWorks/Pillars/Narrative
- * and trimming the intermediate CTAs down to hero + header + one closing door.
- *
- * Non-custodial invariant lives in the copy: Astryum never signs, never custodies,
- * never executes with discretion. The user always signs.
- *
- * The six gold CTAs open the beta itself (/login) since 2026-08-05. That door is
- * ALSO the one the server-side access gate guards (middleware.ts): with
- * ACCESS_GATE_OPEN unset the gate is 'enforced' and every visitor without the
- * signed cookie is turned away — GateNotice below is what tells them so. The
- * hidden admin door (5 clicks on the logo within 1.5s, or Ctrl+Shift+L) opens
- * the access-code modal that mints that cookie.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -61,7 +33,7 @@ import InstitutionalBreak from './InstitutionalBreak';
 import LegacyBreak from './LegacyBreak';
 import { ProductSwitch } from './ProductSwitch';
 import { isLandingProduct, visibleProducts, type LandingProduct } from './products';
-// LOS CUATRO A LOS MANDOS (fundador 2026-09-19): una portada con el selector
+// LOS CUATRO A LOS MANDOS: una portada con el selector
 // de quién gobierna y un mundo por gobernador, cada uno con los mismos efectos
 // que esta landing — el campo de estrellas, el viaje por scroll, el cierre
 // con luz y el pase. Cerrado en producción hasta que un commit lo publique
@@ -91,14 +63,12 @@ const GOLD_SOFT = 'hsl(var(--volt-soft, 45 75% 62%))';
 // The boarding desk: email capture (POST /api/waitlist) + mission socials.
 // Replaces the provisional mailto — the mailto survives inside /early-access
 // as the fallback when the relay (backend) is down.
-// INERT since 2026-08-07 (founder: "NO URL ASTRYUM EARLY ACCESS"): nothing on
+// INERT: nothing on
 // the beta path may divert to the seat list. Kept — the page still reaches
 // /early-access through DEMO_URL below, which is the demo waitlist, not the
 // beta door.
 export const EARLY_ACCESS_URL = '/early-access';
-// The gold CTAs open the BETA itself (founder 2026-08-04: registration is
-// open — BETA_REGISTRATION_OPEN=true — so the door is /login, not the
-// waitlist).
+// The gold CTAs open the BETA itself.
 const BETA_URL = '/login';
 // The demo door also boards through the manifest (?intent=demo adapts the copy).
 // Judges enter the real app through the hidden admin door (logo ×5 / Ctrl+Shift+L).
@@ -107,8 +77,7 @@ const DEMO_URL = '/early-access?intent=demo';
 // X and the server itself point back here, so a changed link must change everywhere.
 const DISCORD_URL = 'https://discord.gg/veXZr7a3hJ';
 // Feature flag — the XRPL governance act (rack + FAssets bridge + two-layer frame
-// copy in nav/hero/stats/boarding-pass). Founder call 2026-07-14: keep it HIDDEN
-// until the Legacy flows are further developed. Flip to true to bring the whole
+// copy in nav/hero/stats/boarding-pass). Flip to true to bring the whole
 // act back in one move; false renders the exact pre-act landing.
 const SHOW_XRPL_ACT: boolean = false;
 // Feature flag — the Solar Journey (./SolarJourney.tsx): the hero's solar system
@@ -117,8 +86,7 @@ const SHOW_XRPL_ACT: boolean = false;
 // the exact pre-journey landing in one move.
 const SHOW_JOURNEY: boolean = true;
 // The proof band (StatsBand + ActBreak + FlareFeatures) between the journey
-// and the light close. Cut 2026-07-22 (founder: the page still read long, and
-// the journey already tells the product story) — flip to true to bring the
+// and the light close. Flip to true to bring the
 // three sections back in one move. Ignored when SHOW_JOURNEY is off.
 const SHOW_PROOF_SECTIONS: boolean = false;
 const DOCS_BASE = 'https://astryum.gitbook.io/astryum'; // DocsSection links here — 404s until the GitBook space is published
@@ -173,7 +141,7 @@ function SpaceBackdrop({ legacy, institutional = false, accent }: { legacy: bool
       <div className="absolute inset-x-0 top-0 h-[60vh] lp-horizon-governed lp-fade-layer" style={{ opacity: legacy ? 1 : 0 }} />
       {/* NO NEBULA. The morpho.org shader cloud lived here for two days
           (NebulaCanvas, 36fe3d3 → 4b6b254) and came out on the founder's
-          verdict, 2026-08-22: "molesta más que suma". Cleaning it up did not
+          verdict: "molesta más que suma". Cleaning it up did not
           save it — a slow-breathing haze over a page you scroll for a full
           tour is movement competing with the content, and the sky already has
           movement that earns its keep (the stars below). The gradients above
@@ -447,8 +415,7 @@ function AccessCTA({
       ? '0 10px 34px hsl(var(--volt) / 0.36)'
       : '0 8px 30px hsl(var(--volt) / 0.28)';
   return (
-    // No trailing arrow (founder 2026-08-03: arrows left every landing
-    // button — the ONLY arrow on the page is the scroll cue's).
+    // No trailing arrow.
     <Magnetic strength={0.4} className="inline-block">
       <a
         href={href}
@@ -465,7 +432,7 @@ function AccessCTA({
 // The nav stays minimal (three anchors). DocsSection renders on the page but isn't
 // linked here; the partner-logo marquee was removed from the page.
 // Entries with `id` scroll to an in-page anchor; entries with `href` are real
-// routes (the standalone pages, founder 2026-07-25).
+// routes (the standalone pages, founder).
 const NAV: Array<{ id?: string; href?: string; es: string; en: string }> = [
   // With the journey on, the walkthrough anchors collapse into one: the tour
   // itself (its first stop). Off, the classic how/pillars pair returns.
@@ -491,7 +458,7 @@ const NAV: Array<{ id?: string; href?: string; es: string; en: string }> = [
 ];
 // La navegación de la landing «a los mandos»: los cuatro gobernadores, la
 // prueba y la documentación. Sin anclas de recorrido: cada mundo es su ruta.
-// UNA SOLA ENTRADA, «Productos» (fundador 2026-09-20): baja al puente de la
+// UNA SOLA ENTRADA, «Productos»: baja al puente de la
 // portada —«el mismo sistema, a los mandos de quien tú decidas»— y desde ahí
 // las cuatro tarjetas llevan a cada página. Desde una página de producto, la
 // misma entrada vuelve a la portada, a ese mismo punto. El menú se queda en
@@ -521,8 +488,8 @@ function Header({
   lang: Lang;
   setLang: (l: Lang) => void;
   onSecretLogin: () => void;
-  /** The landing's product toggle re-tints the page — the brand follows
-   *  (founder 2026-08-08): blue lockup while Legacy is on stage. */
+  /** The landing's product toggle re-tints the page — the brand follows:
+   * blue lockup while Legacy is on stage. */
   product?: 'personal' | 'legacy';
   /** La landing «a los mandos» trae su propia navegación (NAV_MANDOS). */
   navItems?: typeof NAV;
@@ -645,7 +612,7 @@ function Header({
 
           <div className="flex items-center gap-2 md:gap-2.5 shrink-0">
             <LangToggle lang={lang} setLang={setLang} />
-            {/* Launch App (founder 2026-08-16): the dashboard door earns its
+            {/* Launch App: the dashboard door earns its
                 own name and a soft beacon breath — more present, same gold,
                 never past the loudness line (reduced-motion turns it off). */}
             <Magnetic strength={0.35} className="hidden sm:inline-block">
@@ -738,7 +705,7 @@ function HeroContent({ lang, variant = 'brand' }: { lang: Lang; variant?: 'brand
       >
         <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
         <span className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: GOLD_SOFT }}>
-          {/* Doctrine pruning (founder 2026-07-29): the badge carries the status
+          {/* Doctrine pruning: the badge carries the status
               fact only — the H1 right below already closes on "Tu firma." */}
           {SHOW_XRPL_ACT
             ? es
@@ -756,8 +723,7 @@ function HeroContent({ lang, variant = 'brand' }: { lang: Lang; variant?: 'brand
       <h1 className="font-bold text-white" style={{ fontSize: 'clamp(2.1rem, 6.4vw, 5rem)', lineHeight: 1.04, letterSpacing: '-0.035em' }}>
         {/* Each sentence is an unbreakable unit: on narrow columns the line
             wraps BETWEEN "Tu capital." and "Tu control.", never mid-sentence
-            ("Tu capital. Tu / control." — founder 2026-07-25: "pierde
-            completamente el flow"). Wide screens keep the single line. */}
+            ("Tu capital. Tu / control."). Wide screens keep the single line. */}
         <MaskLines
           lines={
             mandos
@@ -794,7 +760,7 @@ function HeroContent({ lang, variant = 'brand' }: { lang: Lang; variant?: 'brand
         className="mt-6 text-white/55 leading-relaxed max-w-xl"
         style={{ fontSize: 'clamp(15px, 1.4vw, 18px)' }}
       >
-        {/* Rewritten 2026-07-29 (founder pick, option 1): plants the money-in-
+        {/* Rewritten: plants the money-in-
             motion principle the journey's finale closes on — the page ends
             where it began. Also retires the GLOSSARY-banned "tu XRP finance". */}
         {mandos
@@ -1417,9 +1383,7 @@ function FlareFeatures({ lang }: { lang: Lang }) {
 // (FAssets mint → FXRP, verified by the Flare Data Connector), in plain words, as an
 // animated route: three stations with a gold mote that glides between them; the
 // active station's sentence crossfades in below. Click a station to jump; hovering
-// pauses the auto-advance; static under reduced motion.
-// DELIBERATE: no Astryum rail internals here (no SourceTag, no memo/hash scheme, no
-// executor talk) — the founder ruled those backend details out of public copy. The
+// pauses the auto-advance; static under reduced motion. The
 // block credits Flare's public infrastructure and stays truthful: the rail is live
 // on mainnet.
 const BRIDGE_CADENCE = 3.6; // seconds per station at rest
@@ -2340,10 +2304,10 @@ function DocsSection({ lang }: { lang: Lang }) {
 // hand-drawn signature draws itself under the promise. Static under reduced motion.
 // The section itself is TRANSPARENT: before the light arrives you keep seeing the
 // page's own star field, never a dead black slab.
-// ─── The Astryum principle — the V2 manifesto's closing thought, restored ────────────
-// (founder 2026-07-22: "el toque profundo"). One compact beat between the journey
+// ─── The Astryum principle — the V2 manifesto's closing thought, restored ────────────.
+// One compact beat between the journey
 // and the light close: the quote reveals word by word as you scroll through it.
-// Exported for preservation (unmounted 2026-07-25 — the quote lives in the
+// Exported for preservation (unmounted — the quote lives in the
 // journey finale now; see the mount comment near SignatureBreak).
 export function PrincipleBreak({ lang }: { lang: Lang }) {
   const es = lang === 'es';
@@ -2413,52 +2377,14 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
 
   // ONE DIAL for the whole beat: 0 is night, 1 is full daylight, and it runs up
-  // on the way in and back down on the way out. That is the founder's ask of
-  // 2026-08-22 — "que el fondo blanco desaparezca según bajas… exactamente la
+  // on the way in and back down on the way out. That is the ask of
+  // — "que el fondo blanco desaparezca según bajas… exactamente la
   // misma animación que cuando entra, pero de salida" — and driving everything
   // from a single symmetric curve is what makes the mirror exact instead of
   // hand-matched. It also retires the opaque dawn ramp: the light no longer
   // needs an edge to hide behind, because it is gone by the time the footer
   // arrives.
-  // A STAR PASSES CLOSE (founder 2026-08-22 — "en vez del recuadro blanco, que
-  // se ilumine la pagina de forma natural y organica gracias a una estrella que
-  // queda cerca").
-  //
-  // Every earlier version of this beat lit the page with a RECTANGLE, and a
-  // rectangle has edges — which is why three passes were spent fighting the
-  // seam where cream met night. The edges came from the shape, not the tuning.
-  // Light from a point source has no edges: it falls off, and falloff is the
-  // one boundary an eye never reads as a cut.
-  //
-  // THE ORDER IS THE WHOLE TRICK. A first attempt raised the star and its glow
-  // on the same dial, and the star was invisible: it only ever existed on top
-  // of the cream it had just created, where a pure-white core is barely 6%
-  // brighter than the ground — a source cannot out-shine what it lights when
-  // its ceiling is that close. So the star ARRIVES FIRST. It climbs into a
-  // still-dark page, where it reads as unmistakably a star, and only then does
-  // it flare and flood the page. By the time it is sitting on cream the eye
-  // already knows what it is looking at, and needs no contrast to keep it.
-  //
-  //   0.02-0.12  the star rises into the night, growing
-  //   0.12-0.30  it flares, and the bloom opens fast underneath it
-  //   0.30-0.50  full light, the star blown out at the top of the frame
-  //   0.50-0.80  the bloom closes and the star goes with it
-  // ONE DAMPED CLOCK FOR THE WHOLE BEAT (founder 2026-08-24: "si se hace scroll
-  // muy rapido parece una flashbang").
-  //
-  // The founder asked whether to bring back page-wide smooth scrolling. No —
-  // that was removed on purpose in July ("el navegador es el unico dueno de la
-  // rueda"), every part of the scrollytelling reads native scrollY, and putting
-  // it back is an enormous regression surface for a problem that lives in one
-  // section. And it would not even fix this: a fast flick still crosses the
-  // same range of progress, just eased.
-  //
-  // The fix is the same idea, scoped. Everything in this beat reads `eased`
-  // instead of raw progress, so the light is driven by a spring and CANNOT rise
-  // faster than the spring allows. Slam the wheel and the page still takes its
-  // ~700ms to come up — the flash is rate-limited by physics, not by hoping the
-  // visitor scrolls politely. It costs one motion value and touches nothing
-  // outside this component.
+  // A STAR PASSES CLOSE.
   const eased = useSpring(scrollYProgress, { stiffness: 42, damping: 26, mass: 0.8 });
 
   // …and a PAUSE before the flood. The star finishes arriving at 0.11 and
@@ -2518,20 +2444,7 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
   // The signature is sequenced like a real hand: the name writes itself, the
   // paraph loops over and sweeps back underneath, then the pen lifts to cross
   // the t and finally dots off.
-  // THE SIGNATURE RUNS ON ITS OWN CLOCK (founder 2026-08-24: "la firma se tiene
-  // que animar independiente al scroll… a la que salte el flashbang inicia la
-  // animacion").
-  //
-  // It used to be scrubbed by scroll, which worked only while the light arrived
-  // at the same speed you did. Now that the flood is damped and lands lower, a
-  // quick scroll blew straight past the range the strokes lived in and the hand
-  // never got to write. A signature is a GESTURE, not a scrub: it needs its own
-  // seconds.
-  //
-  // So the flash arms it and it plays out in real time. The hysteresis is
-  // deliberate — armed at 0.55 of the beat, disarmed below 0.2 — so coming back
-  // up the page and down again writes it again instead of finding it already
-  // done. Wide enough apart that no jitter can flicker it.
+  // THE SIGNATURE RUNS ON ITS OWN CLOCK.
   const [signing, setSigning] = useState(false);
   useMotionValueEvent(beat, 'change', (v) => {
     if (v > 0.55) setSigning(true);
@@ -2547,20 +2460,17 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
 
   // With the journey on, the boarding desk lives INSIDE this light beat: one
   // cream fold, one signature, one door — the standalone FinalCta is gone and
-  // "you always sign" is said exactly once (founder 2026-07-22). The id is the
+  // "you always sign" is said exactly once. The id is the
   // JourneyTimeline's parking sensor: the flight-plan HUD hides before this
-  // light field enters the viewport (founder 2026-07-25).
+  // light field enters the viewport.
   return (
     // NO overflow-hidden. It used to clip the star's corona dead flat against
-    // the section's top edge (founder 2026-08-22: "queda cortada la estrella").
+    // the section's top edge.
     // Nothing in here overflows sideways — the lit field is inset-0 — and the
     // glow reaching UP into the night above is not a leak, it is the point:
     // light from a body this close does not stop at a section boundary.
     <section ref={ref} id="light-beat" className="relative">
-      {/* THE LIT FIELD REACHES ABOVE THE SECTION. Its box used to be exactly the
-          section's, and that is what drew the line the founder spotted: the
-          bloom is round, its container is not, so the feather on the box's top
-          edge sliced the dome off flat. Nothing was wrong with the glow — it
+      {/* THE LIT FIELD REACHES ABOVE THE SECTION. Nothing was wrong with the glow — it
           was hitting a ceiling.
           Extending the box upward moves that ceiling out of frame entirely and
           the falloff gets to finish in open air. It can overflow now that the
@@ -2568,8 +2478,7 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
           a leak: it is what a source this close to a page actually does. */}
       {/* pointer-events-none: the box reaches FIELD_ROOF svh ABOVE the section,
           and at opacity 0 it still caught the pointer — every card of the doors
-          section above was unclickable (founder 2026-09-20: «no funcionan los
-          botones»). Light is looked at, never clicked. */}
+          section above was unclickable. Light is looked at, never clicked. */}
       <motion.div
         className="absolute inset-x-0 bottom-0 pointer-events-none"
         aria-hidden
@@ -2580,21 +2489,7 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
           // cooling with distance, so the illumination has a source.
           background:
               // Warmed toward a low sun, then warmed again and taken down a
-            // couple of points of white (founder 2026-08-25: "algo mas
-            // amarillento, que no pegue tanto efecto de flashbang").
-            //
-            // The glare was never the size of the bloom, it was its HUE: the
-            // hot end of every layer sat on pure #FFFFFF, and white at full
-            // strength is what an eye reads as a flash. Nothing here is white
-            // any more — the core tops out at #FFF7D6 and the corona at
-            // #FFF6CE, so the same amount of light arrives as yellow instead of
-            // as a camera flash. The ground comes down with them, which is what
-            // keeps the star's small edge over what it lights (measured before:
-            // the gap is only a few points, and the star reads by ARRIVING
-            // FIRST, not by out-shining anything).
-            // Sized in viewport units, not in percentages of the box: the box
-            // is half again as tall now, and percentages would have stretched
-            // the whole falloff along with it.
+            // couple of points of white.
             `radial-gradient(130vw 156svh at ${STAR_X}% ${STAR_Y_REST}%, #FDF4DA 0%, #F8E9C0 34%, #EFDCA6 66%, #DDC189 100%)`,
           ...(reduce
             ? {}
@@ -2619,8 +2514,7 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
           }}
           aria-hidden
         />
-        {/* The opaque dawn ramp that used to close this field is gone (founder
-            2026-08-22: it did not convince). The light does not need an edge to
+        {/* The opaque dawn ramp that used to close this field is gone. The light does not need an edge to
             hide behind now — it recedes the same way it arrived, so by the time
             the footer is on screen there is no cream left to hand over. */}
       </motion.div>
@@ -2782,7 +2676,7 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
               : 'We never custody. We never execute for you. Astryum prepares the action — and hands it to your wallet.'}
           </p>
           {/* the door to /proof — the claim above is verifiable, and this is
-              where the page says so (founder 2026-07-29) */}
+              where the page says so */}
           <a
             href="/proof"
             // py-2 -my-2: touch-sized hit area (this is the only route link on
@@ -2810,12 +2704,12 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
             the promise, the signature, the door — and everything that used to
             be folded under it (the two exploring doors, the hackathon
             disclosure, the brand line, the legal links) moved down into
-            SiteFooter, on the dark (founder 2026-08-22). The user-test need
-            from 2026-08-03 — a first-timer with no way into
+            SiteFooter, on the dark. The user-test need
+            from — a first-timer with no way into
             what-we-offer/about at the close — is still met: those doors are
             now the footer's first column, one screen further down. */}
       </div>
-      {/* A SHORT runway, not the old 80svh one (founder: "es demasiado largo").
+      {/* A SHORT runway, not the old 80svh one.
           It only has to cover the moment the section's bottom edge crosses into
           view — and since the dark now climbs from below, that edge is already
           dark by then, so a fifth of a screen is plenty. Under reduced motion
@@ -2829,8 +2723,7 @@ function SignatureBreak({ lang, governor, venue = false }: { lang: Lang; governo
 // actually sells: your wallet → the two layers (XRPL governs, Flare produces),
 // custody stays yours, and the stub waits for exactly one thing — your signature
 // (it draws itself in, on loop).
-// PAPER, NOT SLATE (founder 2026-08-24: "creo que quedaria mejor con un tono
-// claro, me choca un poco con el fondo claro"). Agreed, and the reason is in
+// PAPER, NOT SLATE. Agreed, and the reason is in
 // the object itself: a boarding pass IS paper. A near-black card made sense
 // while it sat on a dark page; once the star lights the field, a slab of night
 // in the middle of a lit scene reads as a hole in it. Same ticket, printed
@@ -2843,7 +2736,7 @@ function BoardingPass({ lang, signing = false, pass }: { lang: Lang; signing?: b
   // Continuous (no `once`) — the sole surviving loop in the Final CTA pauses
   // itself once scrolled out of view instead of running off-screen forever.
   const routeInView = useInView(routeRef, { margin: '-10% 0px -10% 0px' });
-  // EL MISMO OBJETO, RENOMBRADO POR RÉGIMEN (2026-09-19): tarjeta de embarque
+  // EL MISMO OBJETO, RENOMBRADO POR RÉGIMEN: tarjeta de embarque
   // para quien se autocustodia, hoja de ruta para la entidad, manifiesto de
   // atraque para el exchange, plan de vuelo para el agente. Los campos salen
   // de governors.ts (y el certificado de destino para el venue); sin pase se
@@ -2853,7 +2746,7 @@ function BoardingPass({ lang, signing = false, pass }: { lang: Lang; signing?: b
     : [
         { k: es ? 'Custodia' : 'Custody', v: es ? 'Tuya' : 'Yours' },
         { k: es ? 'Comisiones' : 'Fees', v: es ? 'Visibles antes' : 'Shown first' },
-        // "Claves · Nunca salen" retired (2026-07-29): the light beat two screens
+        // "Claves · Nunca salen" retired: the light beat two screens
         // up just said it — simulation is the fact the Home never states.
         { k: es ? 'Simulación' : 'Simulation', v: es ? 'Siempre previa' : 'Always first' },
       ];
@@ -2862,22 +2755,12 @@ function BoardingPass({ lang, signing = false, pass }: { lang: Lang; signing?: b
     <div
       className="relative mx-auto max-w-[620px] rounded-2xl overflow-hidden text-left"
       style={{
-        // SMOKED GLASS, not a slab (founder 2026-08-25: oscuro otra vez, "pero
-        // mas translucido"). The first dark version was ~62% flat black and
+        // SMOKED GLASS, not a slab. The first dark version was ~62% flat black and
         // that is what clashed: on a lit field it read as a hole punched in the
         // scene.
         // 34% was the other ditch — on the render the light type lost its
         // contrast entirely over the bright side of the field, and 54% was
-        // still short of it. 64% is where both hold.
-        //
-        // Which lands within a whisker of the old slab's 62%, and that is the
-        // point worth writing down: the number was never what made it a slab.
-        // What makes this glass is everything AROUND the number — a real
-        // backdrop blur, so the star's gradient still arrives visibly brighter
-        // on its side of the pane; a field of specks behind it; a warm limb
-        // where the light strikes; and an inner top highlight. The old one had
-        // none of that, which is why the same opacity read as a hole cut in the
-        // scene instead of a window held against it.
+        // still short % is where both hold.
         border: '1px solid hsl(var(--volt) / 0.32)',
         background: 'rgba(12,9,6,0.64)',
         backdropFilter: 'blur(14px) saturate(1.15)',
@@ -2923,8 +2806,7 @@ function BoardingPass({ lang, signing = false, pass }: { lang: Lang; signing?: b
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/55">{es ? 'Origen' : 'From'}</div>
               <div className="mt-1 text-sm font-semibold text-white whitespace-nowrap truncate">{pass ? T(pass.origin.es, pass.origin.en, lang) : es ? 'Tu wallet' : 'Your wallet'}</div>
             </div>
-            {/* A TRANSFER ORBIT, not a dashed line (founder 2026-08-25: "algo
-                mas de narrativa espacial"). The page's whole metaphor is a
+            {/* A TRANSFER ORBIT, not a dashed line. The page's whole metaphor is a
                 journey between two bodies, and a straight line between them is
                 the one shape that trip never takes: you leave one orbit, coast,
                 and arrive at another. The departure is a filled body, the
@@ -3104,7 +2986,7 @@ function FinalCta({ lang }: { lang: Lang }) {
                 <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                   {/* the halo's gone; the button carries a touch more static shadow instead */}
                   <AccessCTA label={es ? 'Entra en la beta' : 'Enter the beta'} size="lg" strong />
-                  {/* Journey on: one door at the close (founder call 2026-07-21). */}
+                  {/* Journey on: one door at the close. */}
                   {!SHOW_JOURNEY && (
                     <Magnetic strength={0.3} className="inline-block">
                       <a
@@ -3140,8 +3022,7 @@ function FinalCta({ lang }: { lang: Lang }) {
 }
 
 // ─── The wordmark — the page's last word, at page scale ──────────────────────────────
-// (founder 2026-08-22, pointing at morpho.org's close: "el nombre de Astryum en
-// grande".) Drawn as SVG text with textLength=viewBox width and
+// Drawn as SVG text with textLength=viewBox width and
 // lengthAdjust='spacing', which is the whole trick: the word measures EXACTLY
 // the container on every screen, and it does so by opening the letter gaps —
 // the glyphs themselves are never stretched. A vw font-size would have to guess
@@ -3162,8 +3043,7 @@ function AstryumWordmark() {
     el.style.setProperty('--mx', `${e.clientX - r.left}px`);
     el.style.setProperty('--my', `${e.clientY - r.top}px`);
   };
-  // The bottom cut is BACK (founder 2026-08-22, second look: "me gustaba más
-  // cuando quedaba cortado al final de la página"). Read that against the
+  // The bottom cut is BACK. Read that against the
   // earlier note in this file and it looks like a reversal; it is not. What was
   // wrong before was the SIZE — the name was penned inside the 72rem column, so
   // a cut name also looked like a small one. Full-bleed, the cut is the effect
@@ -3200,10 +3080,7 @@ function AstryumWordmark() {
       onMouseMove={reduce ? undefined : onMove}
       className="lp-wordmark relative mt-14 md:mt-20 select-none"
       aria-hidden
-      // The entrance had to grow teeth. At 9% ink an opacity fade is literally
-      // invisible — the founder's "no lo has hecho" was fair — so the motion
-      // does the talking: the word rises 70px and settles out of a slight
-      // overscale. once:false, so it plays again every time you come back up
+      // The entrance had to grow teeth. once:false, so it plays again every time you come back up
       // instead of being spent on the first pass.
       initial={reduce ? false : { opacity: 0, y: 70, scale: 1.03 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
@@ -3221,7 +3098,7 @@ function AstryumWordmark() {
 }
 
 // ─── Footer ─────────────────────────────────────────────────────────────────────────
-// The dark band that closes the page (founder 2026-08-22). The cream signature
+// The dark band that closes the page. The cream signature
 // beat above keeps ONE job — the promise and its door — and everything else
 // the page owes the visitor lives down here on the night side: the doors, the
 // community, the hackathon disclosure, the legal pages, and the name.
@@ -3327,9 +3204,7 @@ function SiteFooter({
         </div>
 
         {/* ── EL FONDO DE LA PÁGINA: volver arriba y los otros mundos ─────
-            Fundador, 2026-09-19: «poner abajo del todo un sitio para volver
-            arriba del todo y unos atajos para ver los demás modos».
-
+        { *
             Quien llega aquí ha bajado siete pantallas de recorrido y no tiene
             ninguna manera de volver: el conmutador de mundos vive en el
             fotograma de entrada y se apaga con él, así que a fondo de página no
@@ -3347,7 +3222,7 @@ function SiteFooter({
             style={{ border: `1px solid ${BORDER}`, color: 'hsl(var(--volt-soft) / 0.9)' }}
           >
             {/* La única flecha de la página es la del indicador de scroll
-                (regla del 2026-08-03), así que esto es un galón y no una
+                (regla), así que esto es un galón y no una
                 flecha: dos trazos, el mismo glifo del indicador del revés. */}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden className="transition-transform group-hover:-translate-y-0.5">
               <path d="M5 17L12 10.6L19 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={0.4} />
@@ -3372,24 +3247,6 @@ function SiteFooter({
                   onClick={() => {
                     // INSTANTÁNEO, y es lo contrario que «volver arriba».
                     //
-                    // Fundador, 2026-09-19: «cuando le das a un link de otro
-                    // producto te cambia de página y te deshace al revés todo el
-                    // tour; lo de back to top y que se muestre la animación al
-                    // revés me gusta así, porque solo te muestra el revés del
-                    // flow que acabas de ver».
-                    //
-                    // Los dos botones bajan al mismo sitio y por eso parecían el
-                    // mismo gesto, pero no lo son. «Volver arriba» rebobina TU
-                    // recorrido: siete pantallas del mundo que acabas de mirar,
-                    // al revés, y eso es un remate. Cambiar de mundo rebobina el
-                    // recorrido de un mundo que estás ABANDONANDO para llevarte
-                    // a otro que no has visto — es una despedida larga de algo
-                    // que ya no viene al caso.
-                    //
-                    // Se coloca arriba ANTES de cambiar, no después: así el
-                    // mundo nuevo monta ya en su fotograma de entrada y le toca
-                    // jugar su aparición entera, que es lo primero que tiene que
-                    // enseñar.
                     window.scrollTo({ top: 0, behavior: 'auto' });
                     onProduct(o.id);
                   }}
@@ -3414,12 +3271,12 @@ function SiteFooter({
       </div>
       {/* The name lives OUTSIDE the 72rem reading column: penned into it, at
           1152px on a 1440 screen, it read as a caption of the footer instead
-          of as the page's last word (founder 2026-08-22: "queda pequeño").
+          of as the page's last word.
           Full-bleed with only the page gutter, it spans ~95% of the viewport
           — Morpho's proportion. textLength does the rest: whatever the width
           ends up being, the word measures it exactly. */}
-      {/* No bottom padding: the name is meant to sit ON the page's edge
-          (founder: "pégalo más al fondo"), the way Morpho's does. */}
+      {/* No bottom padding: the name is meant to sit ON the page's edge,
+          the way Morpho's does. */}
       <div className="px-5 md:px-8">
         <AstryumWordmark />
       </div>
@@ -3428,11 +3285,10 @@ function SiteFooter({
 }
 
 // ─── Landing crossing — the dashboard's AuthorityCrossing, verbatim ─────────────────
-// (founder 2026-07-23: the custom landing scenes read as broken — use the SAME
-// animation as the app.) The component reads its colors from the authority
+// The component reads its colors from the authority
 // vars, which the landing root's data-authority already flipped by the time it
 // mounts — the exact cascade AppShell gives it — and it manages its own ~1.5s
-// window (300ms under reduced motion); we just relay onDone. Since the 2026-07-24
+// window (300ms under reduced motion); we just relay onDone. Since the
 // redesign the crossing no longer curtains the page — frosted glass only — so
 // the progressive re-color underneath (lp-theming + backdrop crossfade) is
 // VISIBLE through it, which is the point. No quorum numbers here: the landing's
@@ -3454,9 +3310,8 @@ function LandingCrossing({ to, onDone }: { to: LandingProduct; onDone: () => voi
 }
 
 // ─── Journey timeline — the flight plan, a vertical rail on the right edge ───────────
-// Rebuilt 2026-07-24 (founder: "no los puntitos"); moved to the right edge the
-// same day — the top strip collided with the header on scroll-up (founder
-// picked the vertical rail over a bottom dock). Each leg carries its stop's
+// Rebuilt; moved to the right edge the
+// same day — the top strip collided with the header on scroll-up. Each leg carries its stop's
 // name plus its OWN spine segment that fills top→bottom as you traverse that
 // stop (passed legs stay lit, upcoming ones sit dim), and any leg is clickable
 // to jump. Vertically centered: it can never meet the header. The whole HUD is
@@ -3546,7 +3401,7 @@ function JourneyTimeline({
   marksRef.current = marks;
   const [active, setActive] = useState(-1);
 
-  // Visible ONLY while the screen is moving (founder 2026-07-24) — every
+  // Visible ONLY while the screen is moving — every
   // scroll tick re-arms a short fuse; hovering the HUD holds it open so the
   // legs stay clickable mid-read.
   const [visible, setVisible] = useState(false);
@@ -3554,8 +3409,7 @@ function JourneyTimeline({
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Parking threshold (doc-scroll fraction): the moment the light CTA field
   // (#light-beat) is about to enter the viewport, the HUD hides for good —
-  // gold instrumentation over the cream field read as debris (founder
-  // 2026-07-25: "antes de entrar allí, se esconda") — and re-arms only when
+  // gold instrumentation over the cream field read as debris — and re-arms only when
   // the visitor sails back up into the dark.
   const hideBeyond = useRef(Infinity);
   const poke = useCallback(() => {
@@ -3695,7 +3549,7 @@ function JourneyTimeline({
 // of bouncing in silence — this reads the marker, says what happened and points
 // at the only door that IS open (the seat list). Without it the tap simply
 // reloaded the landing: on the founder's desktop the gate cookie made the CTA
-// work, on every phone and iPad it read as a broken button (2026-08-07).
+// work, on every phone and iPad it read as a broken button.
 // The param is stripped on mount so a refresh doesn't replay the notice.
 function GateNotice({ lang }: { lang: Lang }) {
   const reduce = useReducedMotion();
@@ -3742,8 +3596,7 @@ function GateNotice({ lang }: { lang: Lang }) {
               <div className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: GOLD_SOFT }}>
                 {es ? 'El acceso está cerrado ahora mismo' : 'Access is closed right now'}
               </div>
-              {/* No waitlist door here (founder 2026-08-07: "NO URL ASTRYUM
-                  EARLY ACCESS"). The gold CTA promises the beta, so diverting a
+              {/* No waitlist door here. The gold CTA promises the beta, so diverting a
                   refused visitor to the seat list would answer a question they
                   did not ask. This states the fact and stops. */}
               <p className="mt-2 text-[13px] leading-relaxed text-white/65">
@@ -3769,7 +3622,7 @@ function GateNotice({ lang }: { lang: Lang }) {
 }
 
 // ─── Persistent scroll cue ──────────────────────────────────────────────────────────
-// User test 2026-08-03: a first-time visitor's eye went straight to the gold
+// User test: a first-time visitor's eye went straight to the gold
 // CTAs and never found the old hero cue (a 10px label + 1px hairline that died
 // at 5% of the track and only existed ≥md) — they didn't know the tour was
 // BELOW. This cue replaces it at PAGE level: bigger, capsule-backed for
@@ -3780,7 +3633,7 @@ function GateNotice({ lang }: { lang: Lang }) {
 // viewport of page remains, because then the cue would lie.
 function PersistentScrollCue({ lang }: { lang: Lang }) {
   const reduced = useReducedMotion();
-  // 'top' is new (founder 2026-08-22): at the very top of the page the cue is a
+  // 'top' is new: at the very top of the page the cue is a
   // labelled pill, because that is the one moment a visitor has no idea there
   // IS a tour below. Once they are moving it collapses to the symbol — bigger
   // than before, but still just a symbol.
@@ -3818,18 +3671,11 @@ function PersistentScrollCue({ lang }: { lang: Lang }) {
   }, []);
 
   // The cue lands on the tour's next STOP, not on an arbitrary 85% of the
-  // viewport (founder 2026-08-22: "que vaya bajando a cada punto del tour").
+  // viewport.
   // SolarJourney already plants an invisible anchor per stop — `stop-<id>` on
   // the pinned desktop track, `m-stop-<id>` on the static twin below lg — and
   // the JourneyTimeline's legs jump the exact same way, so this is one
   // behaviour with two triggers rather than a second scrolling model.
-  //
-  // Which anchors are LIVE matters: both variants are always in the DOM and
-  // one of them is display:none, so an anchor is only a candidate if it
-  // actually boxes (getClientRects). The light beat closes the list — after
-  // the last stop the next thing worth landing on is the page's close — and
-  // if nothing qualifies (no journey, or already past everything) the old
-  // viewport-hop is still the floor.
   const jumpToNextStop = useCallback(() => {
     const y = window.scrollY;
     const tops = Array.from(
@@ -3848,7 +3694,7 @@ function PersistentScrollCue({ lang }: { lang: Lang }) {
   const light = mode === 'light';
   const atTop = mode === 'top';
   // ONE chevron, drawn once at 30px, and the pill just shows it smaller. The
-  // 2026-08-03 rule holds: this is the only arrow on the page.
+  // rule holds: this is the only arrow on the page.
   const chevrons = (
     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M5 7L12 13.4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={0.4} />
@@ -3899,17 +3745,15 @@ function PersistentScrollCue({ lang }: { lang: Lang }) {
       }
       transition={{ duration: 0.5, ease: EASE }}
     >
-      {/* THE AURA — back in BOTH states (founder 2026-08-22: "no queria que te
-          cargaras la animacion de respiracion y el aura… el boton es util y se
-          tiene que ver"). I had restricted it to the circle, which was the
+      {/* THE AURA — back in BOTH states. I had restricted it to the circle, which was the
           wrong call: what was broken was never the aura, it was two specific
           things about how it was drawn.
           1. It POPPED. The cycle ran 0.55 → 0 opacity, so every loop re-entered
-             by appearing out of nowhere at its start position. First and last
-             keyframe now match at zero, and the seam has nowhere to happen.
-          2. It DETACHED around the pill. A uniform scale on a 160×56 shape
+          by appearing out of nowhere at its start position. First and last
+          keyframe now match at zero, and the seam has nowhere to happen.
+             2. It DETACHED around the pill. A uniform scale on a 160×56 shape
              pushes the ring ~26px out sideways and only ~9px vertically, so it
-             stopped being parallel to the button and read as a stray outline.
+          stopped being parallel to the button and read as a stray outline.
              box-shadow spread grows the SAME number of pixels on every side and
              follows the border-radius exactly, so one aura now fits a pill and
              a circle without knowing which it is wrapped around. */}
@@ -3971,7 +3815,7 @@ function PersistentScrollCue({ lang }: { lang: Lang }) {
 export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld } = {}) {
   const [lang, setLang] = useLang();
   const [loginOpen, setLoginOpen] = useState(false);
-  // EL MUNDO (2026-09-19). `mandos` es la portada nueva —la que pinta
+  // EL MUNDO. `mandos` es la portada nueva —la que pinta
   // `app/page.tsx` fuera de producción— y los otros cuatro son las páginas de
   // cada gobernador; en todos ellos el conmutador desaparece y el tema lo fija
   // el gobernador, no el estado guardado en localStorage. `home` es la portada
@@ -4032,7 +3876,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
 
-  // Scroll NATURAL (fundador 2026-07-24): fuera Lenis y fuera el imán del
+  // Scroll NATURAL: fuera Lenis y fuera el imán del
   // journey — el navegador es el único dueño de la rueda. Todo el scrollytelling
   // (scrub, veil, fases, timeline) lee scrollY nativo, así que funciona igual;
   // lo único que cambia es que el ritmo lo pone la mano del visitante.
@@ -4075,7 +3919,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
            en línea, y la landing tiene veinticinco. Aquí solo se cambian
            los tokens de acento, que es lo que el mundo necesita. */
         .lp-root[data-product='institutional'] { background: #0d0f12; --volt: 36 36% 58%; --volt-soft: 38 30% 70%; --volt-hi: 40 45% 86%; --volt-deep: 34 30% 20%; }
-        /* LOS DOS MUNDOS NUEVOS (2026-09-19), por el mismo camino que el bronce:
+        /* LOS DOS MUNDOS NUEVOS, por el mismo camino que el bronce:
            solo cambian los tokens de acento. Platino frío para la estación del
            exchange; plata apagada para la sonda del agente. */
         .lp-root[data-product='exchange'] { background: #080a0e; --volt: 216 41% 73%; --volt-soft: 214 45% 84%; --volt-hi: 214 60% 93%; --volt-deep: 216 30% 24%; }
@@ -4128,8 +3972,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
       <PersistentScrollCue lang={lang} />
       {/* the access gate's answer, when it turned a gold CTA away */}
       <GateNotice lang={lang} />
-      {/* En los mundos «a los mandos» TODO es cielo (fundador 2026-09-19: «debe
-          ser temática Astryum del espacio»): el campo de estrellas se queda
+      {/* En los mundos «a los mandos» TODO es cielo: el campo de estrellas se queda
           también en Empresa, con las estrellas del color de cada instrumento. */}
       <SpaceBackdrop legacy={!mandos && product === 'legacy'} institutional={!mandos && product === 'institutional'} accent={worldStars} />
       {crossing && <LandingCrossing key={crossing.n} to={crossing.to} onDone={() => setCrossing(null)} />}
@@ -4150,7 +3993,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
               Agente traen su instrumento y sus láminas. El cierre con luz y el
               pase son los mismos para todos, renombrados por régimen. */}
           {world === 'mandos' ? (
-            /* LA PORTADA EXPLICA EL PRODUCTO UNA SOLA VEZ (fundador 2026-09-20):
+            /* LA PORTADA EXPLICA EL PRODUCTO UNA SOLA VEZ:
                el viaje solar de siempre, con el núcleo (tus cuentas) y la
                quinta órbita (Operar) dentro; después, el puente —«el mismo
                sistema, a los mandos de…»— y las cuatro puertas. */
@@ -4184,7 +4027,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
             /* La quinta página, desde el otro lado: para quien opera un protocolo. */
             <VenueJourney lang={lang} finaleCta={<AccessCTA label={lang === 'es' ? 'Solicitar la verificación' : 'Request verification'} href={VENUE_MAILTO} size="lg" strong />} />
           ) : SHOW_JOURNEY ? (
-            // CADA PRODUCTO, SU MUNDO (fundador 2026-09-18). El conmutador lo
+            // CADA PRODUCTO, SU MUNDO. El conmutador lo
             // monta la página y se le pasa a cada viaje: con tres narrativas el
             // botón no puede vivir dentro de una de ellas.
             product === 'institutional' ? (
@@ -4241,7 +4084,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
               />
               <FlareFeatures lang={lang} />
               {/* The XRPL governance act — gated behind SHOW_XRPL_ACT until the
-                  Legacy flows are further developed (founder call 2026-07-14). */}
+                  Legacy flows are further developed. */}
               {SHOW_XRPL_ACT && (
                 <>
                   <BridgeProof lang={lang} />
@@ -4257,18 +4100,16 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
               )}
             </>
           )}
-          {/* PrincipleBreak UNMOUNTED (founder 2026-07-25): the principle moved
+          {/* PrincipleBreak UNMOUNTED: the principle moved
               INTO the journey's finale (SolarJourney FinaleBlock + static twin),
               replacing the repeated hero headline there. Component preserved
               above for re-mount. The page ends on the light beat — signature,
               boarding desk, one door and the footer folded into the cream. */}
-          {/* EL CIERRE, UNO POR MUNDO (fundador 2026-09-19: «el destello de
-              estrella final no cuadra con la explicación ni el tour del
-              institucional»). Tenía razón y la contradicción estaba escrita
+          {/* EL CIERRE, UNO POR MUNDO. Tenía razón y la contradicción estaba escrita
               arriba, en SpaceBackdrop: este mundo suprime el campo de estrellas
               a propósito y luego cerraba con un astro, un asteroide y un billete
               de avión. El institucional cierra en la mesa del grabador.
-
+          { *
               Se bifurca AQUÍ y no dentro de `SignatureBreak`: esa sección lleva
               seiscientas líneas de ajuste ganado a pulso (el muelle contra el
               flashbang, la caída sin bordes, la simetría de salida) y Personal y
@@ -4280,8 +4121,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
               cta={<AccessCTA label={lang === 'es' ? 'Hablemos' : 'Talk to us'} size="lg" strong />}
             />
           ) : !mandos && product === 'legacy' ? (
-            /* Fundador 2026-09-19: «quita el destello de la estrella y pon un
-               artefacto que siga la línea de narrativa del legacy». El astro era
+            /* El astro era
                DORADO —el color de Personal— y llegaba después de seis paradas de
                piedra. Legacy cierra en la cartela de su propio puente. */
             <LegacyBreak
@@ -4296,8 +4136,7 @@ export default function LandingPage({ world = 'mandos' }: { world?: LandingWorld
           {/* DocsSection hidden until the GitBook space is published (its links 404) — restore post-E1. */}
           {!SHOW_JOURNEY && <FinalCta lang={lang} />}
         </main>
-        {/* The dark band that closes the page, journey or not (founder
-            2026-08-22): the light beat hands the page back to the night and
+        {/* The dark band that closes the page, journey or not: the light beat hands the page back to the night and
             the footer catches it. */}
         <SiteFooter lang={lang} product={product} onProduct={setProduct} mandos={mandos} />
       </div>

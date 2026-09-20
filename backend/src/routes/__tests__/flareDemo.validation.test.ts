@@ -246,7 +246,7 @@ describe('POST /api/flare-demo/pa-withdraw-transfer/prepare — validation', () 
     expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
   });
 
-  // Unmint variant: FXRP → native XRP, no EVM wallet needed (2026-07-26).
+  // Unmint variant: FXRP → native XRP, no EVM wallet needed.
   it('rejects unmintToXrpl on a non-FXRP asset (only FXRP redeems to XRP)', async () => {
     const res = await request(app)
       .post('/api/flare-demo/pa-withdraw-transfer/prepare')
@@ -263,7 +263,7 @@ describe('POST /api/flare-demo/pa-withdraw-transfer/prepare — validation', () 
     expect(res.body.error).toBe('FLARE_DEFI_DISABLED');
   });
 
-  // Keep-in-PA variant (founder 2026-07-30): withdraw from the ISO market and
+  // Keep-in-PA variant: withdraw from the ISO market and
   // leave the asset as free PA balance — explicit flag, no evmWallet needed.
   it('keepInPa needs NO evmWallet — passes validation, stops at the gate', async () => {
     const res = await request(app)
@@ -285,7 +285,7 @@ describe('POST /api/flare-demo/pa-withdraw-transfer/prepare — validation', () 
 describe('POST /api/flare-demo/pa-transfer/prepare — validation', () => {
   // La puerta mueve el saldo LIBRE de la Personal Account. Sin `asset` es el
   // cuerpo de siempre (FXRP); con `asset: 'FLR'` es el saldo NATIVO de esa
-  // cuenta saliendo hacia Flare (fundador 2026-08-28).
+  // cuenta saliendo hacia Flare.
   const validFxrp = {
     xrplAddress: GOOD_XRPL,
     evmWallet: GOOD_EVM,

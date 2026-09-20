@@ -1,22 +1,8 @@
 'use client';
 
 /**
- * /app/manager — la MESA DEL GESTOR (fundador 2026-08-29): crear y gobernar
+ * /app/manager — la MESA DEL GESTOR: crear y gobernar
  * tus bóvedas, y tu certificación, en un sitio propio.
- *
- * Antes esto vivía como lente «Run a vault» dentro de la puerta Managed vaults
- * de Earn. Se mudó aquí porque Earn es el menú del CLIENTE: allí se elige una
- * bóveda, igual que se elige una estrategia — y la persona-gestor es otra
- * persona, con otra frecuencia de uso. La entrada del sidebar solo la ve quien
- * se declaró gestor (onboarding o Settings) — mismo mecanismo que la entrada
- * Admin: descubrimiento, no permiso. La página por URL responde a todos:
- * quien llegue sin declararse encuentra la declaración, no un muro.
- *
- * ORDEN DE LA PÁGINA: primero la certificación si aún no está (fundador: «si
- * no ha rellenado el kyc previamente lo puede hacer desde ese mismo menú»),
- * después la mesa entera (ManagerDesk: jaula, potes, consolas, credencial).
- * La mesa NO se bloquea por el KYC: la chain aún no lo exige y fingir un
- * requisito sería mentir en la otra dirección.
  */
 
 import { useEffect, useState } from 'react';
@@ -38,8 +24,7 @@ function ManagerRoom() {
   const isManager = useIsManager();
 
   /**
-   * EL TÚNEL (fundador 2026-08-30: «no se puede acceder porque no hay cuentas
-   * verificadas... hazme un túnel para llegar y ver el creador de vaults»).
+   * EL TÚNEL.
    * /app/manager?tunnel=1 monta el creador entero SIN flag, SIN wallet y SIN
    * chain — interactivo de punta a punta, con la firma desactivada. Envuelto
    * en <PreviewOnly> (isAdmin de /auth/me, fail-closed): para cualquiera que
@@ -86,8 +71,7 @@ function ManagerRoom() {
         <ManagerDeclaration />
       ) : (
         <div className="space-y-5">
-          {/* La mesa completa, EN SALAS (fundador 2026-09-03: el patrón del
-              Legacy — una pregunta por pantalla). La certificación vive ahora
+          {/* La mesa completa, EN SALAS. La certificación vive ahora
               dentro de su sala «Título», junto a la puerta y la bandeja. */}
           <ManagerDesk />
         </div>
@@ -97,7 +81,7 @@ function ManagerRoom() {
 }
 
 /**
- * LA PUERTA DE LA PÁGINA (fundador, 2026-09-20). `MANAGER_DESK_OPEN` solo
+ * LA PUERTA DE LA PÁGINA. `MANAGER_DESK_OPEN` solo
  * escondía la FILA del menú: quien tecleaba /app/manager entraba igual, se
  * declaraba gestor con un clic y abría la mesa. Ahora decide también la página,
  * con la misma regla —abierta fuera de producción, cerrada dentro— y, donde

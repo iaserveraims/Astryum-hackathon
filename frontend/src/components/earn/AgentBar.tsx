@@ -1,25 +1,9 @@
 'use client';
 
 /**
- * AgentBar — el agente como CAPA, no como lugar (fundador 2026-08-29: elegida
- * la barra de mando sobre cuatro puertas). Una sola línea tranquila — la
+ * AgentBar — el agente como CAPA, no como lugar. Una sola línea tranquila — la
  * chispa, un placeholder afinado a su superficie, la flecha — presente en el
  * hub y dentro de cada menú.
- *
- * v2 (mismo día): enviar ya no despliega el chat aquí — abre el AGENTE COMO
- * OPERACIÓN, anclado a la derecha («como si fuera una estrategia»), sembrado
- * con la frase. La conversación vive en el host global: sobrevive a la
- * navegación, se minimiza a píldora y NO cuenta para el tope de tres. Una
- * frase nueva con el agente ya vivo es un mensaje más en la misma
- * conversación (identidad singleton + seedKey).
- *
- * v3 (fundador, tercera pasada del día: «a la que se abre una estrategia se
- * va abajo del todo el textbox... quiero que esté fijo, una burbuja que no
- * moleste»): variant='bubble' para DENTRO de los menús — una burbuja chica
- * que el padre deja pegada al borde inferior (sticky), y que al pasar el
- * ratón o tocarla se despliega en la barra completa con sus ideas ENCIMA
- * (está en el fondo del viewport: hacia abajo no hay sitio). Plegada, no
- * tapa nada. El hub conserva la barra en flujo (variant='bar').
  */
 
 import { useState } from 'react';
@@ -39,20 +23,18 @@ export function AgentBar({
 }: {
   /** La frase de invitación, afinada a la superficie que la monta. */
   placeholder: string;
-  /** Ideas de prompt YA traducidas (fundador 2026-08-29: «reactivo al paso
-   *  del ratón y muestre opciones básicas») — se despliegan junto a la barra
+  /** Ideas de prompt YA traducidas — se despliegan junto a la barra
    *  al pasar el ratón o enfocar; tocar una la envía tal cual. */
   suggestions?: string[];
-  /** 'bar': la línea en flujo (el hub). 'bubble': la burbuja fija — INERTE
-   *  desde el 2026-08-29 (cuarta pasada del fundador: el agente sale de las
-   *  pantallas de estrategias; el hub concentra su presencia). Se conserva
+  /** 'bar': la línea en flujo (el hub). 'bubble': la burbuja fija — INERTE.
+   * Se conserva
    *  sin montar, norma de la casa. */
   variant?: 'bar' | 'bubble';
   /** El héroe del hub: las ideas de prompt SIEMPRE a la vista, sin esperar
    *  al ratón — presencia, no descubrimiento. */
   chipsAlways?: boolean;
-  /** Cromo extra DENTRO de la barra, junto a la flecha (fundador 2026-08-30:
-   *  el relojito del historial vive aquí, no flotando sobre la tarjeta). */
+  /** Cromo extra DENTRO de la barra, junto a la flecha.
+   */
   trailing?: React.ReactNode;
 }) {
   const { t } = useT();
@@ -155,9 +137,7 @@ export function AgentBar({
         autoFocus={variant === 'bubble' && opened}
         className="min-w-0 flex-1 bg-transparent text-[13px] text-ink caret-ink placeholder:text-ink/35 focus:outline-none"
       />
-      {/* La regla se muda al interrogante (fundador 2026-09-07: «reduce el
-          texto… un simbolito de interrogación en cada botón, incluido el
-          agente»): la barra queda limpia y la explicación entera — qué hace
+      {/* La regla se muda al interrogante: la barra queda limpia y la explicación entera — qué hace
           el agente y qué NO hace jamás — sale al pasar el ratón. */}
       <HelpDot
         text={t('Describe what you want in your own words and the agent compiles it into a strategy for you to review. You always sign — it never signs or moves funds on its own.')}

@@ -1,5 +1,5 @@
 /**
- * batch-evm (2026-08-20) — «the batch failed» is NOT «nothing was applied».
+ * batch-evm — «the batch failed» is NOT «nothing was applied».
  *
  * `evaluate5792` names the FIRST call whose receipt is not a success, and the
  * machine's own §1.1 says in writing that a bundle can be CONFIRMED with an
@@ -10,9 +10,6 @@
  * that re-sends `prereqs + txData` (useIntentSigning → SidebarIntents →
  * intentPresentation). Two sentences that mean "go again", over money that
  * already moved.
- *
- * These tests run the real emitter (`evaluate5792`) into the real renderer
- * (`settlementReasonText`), so the two halves cannot drift apart.
  */
 import { describe, expect, it } from 'vitest';
 import { settlementReasonText } from '../reasonText';
@@ -85,8 +82,8 @@ describe('the other reasons are untouched', () => {
   });
 });
 
-// ── it. 34 — the receipt SAYS «mined without effect», with the code ───────────
-describe('it. 34 — MINED_NO_EFFECT reads as a sentence, never as a code', () => {
+// ── The receipt SAYS «mined without effect», with the code ───────────
+describe('MINED_NO_EFFECT reads as a sentence, never as a code', () => {
   it('single call: fee spent, nothing moved, the Kinetic code by name, re-read before signing again', () => {
     const said = settlementReasonText('MINED_NO_EFFECT:COMPOUND:9:45:0', en)!;
     expect(said).toMatch(/was mined and the network fee was spent/);

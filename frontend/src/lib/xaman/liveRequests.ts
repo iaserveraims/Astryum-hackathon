@@ -1,54 +1,6 @@
 /**
  * liveRequests — the Xaman requests that are still signable, wherever their
- * screen went (productizer-it7, 14-sep).
- *
- * WHAT FAILED IN SILENCE. `XamanSingleSign` fired a blind `cancelXamanPayload`
- * when it unmounted with a live payload. Nobody read the answer. When Xaman
- * answered ALREADY_OPENED (the person has the request OPEN on the phone — still
- * signable), the request lived on for its five minutes with nothing on screen,
- * and any ancestor could cause that unmount: a sidebar link, a failed reload, a
- * lens switch, the X of an operation window, a station rail.
- *
- * THE RULE NOW. A request outlives its component, not the SPA:
- *   · the component REGISTERS the payload the moment Xaman creates it, and
- *     RESOLVES it when a poll (or its own «Cancel this request») decides it;
- *   · unmounting WITHOUT a verdict HANDS IT OFF here — no cancel is fired — and
- *     this module keeps reading `/api/xaman/status` until Xaman says signed,
- *     cancelled, expired or declined;
- *   · SIGNED IS NOT THE END (it.11, 14-sep). A signed request stays listed until
- *     its VALIDATED result is read: while the component follows the ledger the
- *     entry is 'confirming' (guarded by `beforeunload`); if the component leaves
- *     then, it is handed off as 'validating' and this module reads the ledger
- *     itself (`awaitValidation`). The banner then says what the ledger said —
- *     validated, failed, refused, or «could not confirm — check the hash».
- *   · A COUNCIL ORDER is delivered to Flare by the server once validated ONLY
- *     when the server said so at prepare time (it.13): the order was recorded
- *     AND the executor runs (`noteCouncilOrderDelivery`). Before, the banner
- *     promised delivery from the tx syntax alone — exactly when the server could
- *     not deliver it. A council order without that word keeps «do NOT sign it
- *     again» plus «keep this screen open or relay it by hash». A 0xFE
- *     instruction needs the same word (it.14, R2 2.6): its handoff is persisted
- *     at prepare, but only a RUNNING executor sweeps the Core Vault, so without
- *     `noteFlareInstructionDelivery` saying so the prudent sentence speaks.
- *   · A STALE council order (tefPAST_SEQ / tefMAX_LEDGER) asks the server what
- *     became of the ORDER before the banner says «prepare it again»: a sibling
- *     request may have spent the seat and be on its way (`followStaleFate`).
- *   · NOTICES: short-lived messages that belong to no payload — today, a 0xFE
- *     seat the server refused to release (`pushLiveNotice`, lib/wallet/handoffRelease).
- *
- * The global banner (`components/xrpl/LiveXamanRequests`) renders what this
- * module holds, and its «Cancel it here» goes through the same
- * `cancelPayloadAndDecide` round trip as every other surface, obeying the
- * answer (`retreatDecision`): confirmed kill → gone; ALREADY_OPENED or no answer
- * → it stays, with the sentence; ALREADY_RESOLVED → read it now.
- *
- * Module-level state on purpose: it has to survive every React unmount inside
- * the SPA. A full page unload is the one thing it cannot survive — the banner
- * adds a `beforeunload` warning for that.
- *
- * REGULATORY BOUNDARY (CLAUDE.md §0): this only READS the status of payloads the
- * user signs in their own Xaman and the public ledger, and asks Xaman to kill one
- * when the user asks. Astryum never holds keys, never signs, never broadcasts.
+ * screen went.
  */
 
 import { cancelPayloadAndDecide, type XamanCancelAction, type XamanCancelUi } from './payloadBus';
@@ -170,7 +122,7 @@ export function noteCouncilOrderDelivery(
 
 /**
  * What the server said, at PREPARE time, about the executor that carries each
- * 0xFE instruction to Flare (it.14, R2 2.6), keyed by its `FE…` memo.
+ * 0xFE instruction to Flare (R2 2.6), keyed by its `FE…` memo.
  *
  * WHAT FAILED: a 0xFE was assumed delivered «automatically» from its SYNTAX
  * alone — the handoff is persisted and the executor sweeps the Core Vault — so
@@ -216,7 +168,7 @@ export function noteFlareInstructionDelivery(
     if (oldest === undefined) break;
     executorByInstructionMemo.delete(oldest);
   }
-  // it.16 (R3 3.2): remember SEPARATELY whether anybody actually told us. The
+  // Remember SEPARATELY whether anybody actually told us. The
   // banner must be able to tell «the server said the executor is stopped» from
   // «no route sends the field», because only the first is an accusation.
   if (serverDelivery && typeof serverDelivery.executorEnabled === 'boolean') {
@@ -235,20 +187,12 @@ export function noteFlareInstructionDelivery(
 const instructionDeliveryHeard = new Set<string>();
 
 /**
- * productizer it.16 (R3 3.2) — WHAT WE ACTUALLY KNOW ABOUT THIS 0xFE's CARRIER.
+ * WHAT WE ACTUALLY KNOW ABOUT THIS 0xFE's CARRIER.
  *
- * The prudent sentence of it.14 («nothing confirmed here that the executor is
- * running») went out on EVERY institutional exit, because NO 0xFE route sends
+ * The prudent sentence went out on EVERY institutional exit, because NO 0xFE route sends
  * `serverDelivery` — only council-order prepares do. A permanent, unfalsifiable
  * warning over a legitimate withdrawal is not prudence: it is noise the person
  * cannot act on, and the server does know the answer.
- *
- *   · 'delivers' → the prepare said the executor runs: the banner may promise it.
- *   · 'stopped'  → the prepare said it does NOT run: the prudent sentence, which
- *                  is now an actual statement about this deployment.
- *   · 'unknown'  → nobody said (no field on this route): neutral wording that
- *                  does not accuse anyone of not delivering. It still says «do
- *                  NOT sign it again» — that part never depended on the field.
  */
 export type InstructionDeliveryWord = 'delivers' | 'stopped' | 'unknown';
 
@@ -278,7 +222,7 @@ export function isFlareInstructionTx(txKey: string): boolean {
  *   · a 0xFE Smart Account instruction: ONLY if its prepare said the executor
  *     runs (`noteFlareInstructionDelivery`). The persisted handoff is half the
  *     chain; with the executor stopped nothing sweeps the Core Vault, and the
- *     banner used to promise delivery from the syntax alone (it.14, R2 2.6).
+ *     banner used to promise delivery from the syntax alone (R2 2.6).
  * Anything else (credentials, trust lines, plain payments) is not.
  */
 export function deliversToFlareAutomatically(txKey: string): boolean {
@@ -329,8 +273,8 @@ export interface LiveXamanRequest {
   /** What Xaman answered to «Cancel it here» (payloadBus vocabulary). */
   cancelUi: XamanCancelUi;
   /**
-   * A 'failed' + 'stale' COUNCIL ORDER: what the server said became of the order
-   * (it.13). Absent for anything that is not a council order.
+   * A 'failed' + 'stale' COUNCIL ORDER: what the server said became of the order.
+   * Absent for anything that is not a council order.
    */
   fate?: StaleOrderFate;
 }
@@ -674,7 +618,7 @@ export interface LiveNotice {
   /** How long until the seat frees itself (the backend's HANDOFF_SEAT_TTL_MIN default). */
   freesInMinutes?: number;
   /**
-   * it. 19 (R5 R4): the SAME wait, as the SERVER measured it (`secondsLeft` of a
+   * The SAME wait, as the SERVER measured it (`secondsLeft` of a
    * 409 `WAIT_FOR_PAYLOAD_EXPIRY`). When it is here it wins over the constant
    * above: a client-side «about 5 minutes» printed over a window the server put
    * at 6 is a promise the person watches break, and the constant only ever
@@ -683,7 +627,7 @@ export interface LiveNotice {
   freesInSeconds?: number;
   createdAt: number;
   /**
-   * it. 21 (it. 20 §3.4) — THE INSTANT THE COUNTDOWN COUNTS TO.
+   * THE INSTANT THE COUNTDOWN COUNTS TO.
    *
    * `freesInSeconds` is a measurement taken WHEN THE NOTICE WAS PUSHED, and the
    * banner printed it verbatim for as long as the notice lived: «it frees itself
@@ -696,7 +640,7 @@ export interface LiveNotice {
    */
   freesAt?: number;
   /**
-   * it. 23 (it. 22 §3.1) — «I COULD NOT CHECK» IS NOT A WINDOW.
+   * «I COULD NOT CHECK» IS NOT A WINDOW.
    *
    * The release answered 503 (`SEAT_STATE_UNREADABLE` and friends): NOTHING was
    * measured, so the notice carries no window at all and the banner must say
@@ -733,7 +677,7 @@ export function pushLiveNotice(input: Omit<LiveNotice, 'id' | 'createdAt'>): Liv
   }
   noticeSeq += 1;
   const createdAt = deps.now();
-  // it. 21 (§3.4): the measurement becomes an INSTANT here, once. The caller may
+  // The measurement becomes an INSTANT here, once. The caller may
   // also hand us one directly (it already knows the deadline); either way the
   // banner reads the clock from now on, never a frozen number.
   const measuredSeconds =
@@ -742,7 +686,7 @@ export function pushLiveNotice(input: Omit<LiveNotice, 'id' | 'createdAt'>): Liv
       : input.freesInMinutes !== undefined && Number.isFinite(input.freesInMinutes) && input.freesInMinutes > 0
         ? Math.round(input.freesInMinutes) * 60
         : undefined;
-  // it. 23 (§3.1): a notice that says «we could not read the seat» NEVER gets a
+  // A notice that says «we could not read the seat» NEVER gets a
   // deadline, whatever a caller passed — the countdown is the claim, and there
   // is nothing here to claim. Enforced once, so no future emitter can undo it.
   const freesAt = input.unreadable
@@ -781,14 +725,14 @@ export function listLiveNotices(): LiveNotice[] {
 }
 
 /**
- * it. 21 (it. 20 §3.4) — WHAT THE BANNER SHOULD SAY *NOW*.
+ * WHAT THE BANNER SHOULD SAY *NOW*.
  *
  * Pure, so the countdown is tested without a browser and without a clock:
  *   · `secondsLeft` counts down from the instant the notice carries;
  *   · `expired` is true once that instant has passed — the banner then flips to
  *     «the window has passed, prepare it again» instead of printing 0, and
  *     instead of promising that preparing it again WINS (it is a race, not a
- *     reservation: it. 20 §3.9);
+ *     reservation);
  *   · both are null/false when nothing ever measured a window, which is not the
  *     same as a window of zero.
  */

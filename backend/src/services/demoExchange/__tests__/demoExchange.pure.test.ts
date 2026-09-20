@@ -95,7 +95,7 @@ describe('ledger math', () => {
     expect(r.clients[0].xrpOnExchangeDrops).toBe('0');
     expect(r.appliedTxHashes).toEqual(['in:AAA', 'out:BBB', 'out:CCC']);
   });
-  test('a payment first read as return and later as deposit is credited ONCE (review bug 26-ago)', () => {
+  test('A payment first read as return and later as deposit is credited ONCE (review bug)', () => {
     const r = run({ clients: [client({ xrplAddress: undefined })] });
     applyMovements(r, [{ kind: 'return', clientId: 'c1', drops: '3000000', txHash: 'DDD' }]);
     // the client registers their wallet → the same tx now classifies as a deposit

@@ -1,18 +1,6 @@
 /**
- * productizer it. 34 (agente D) — EL `fuelGate` DE xrpl-defi SERVÍA
+ * EL `fuelGate` DE xrpl-defi SERVÍA
  * `EXECUTOR_FUEL_EXHAUSTED` EN CASTELLANO.
- *
- * Las tres rutas que mintean en este router (`vault-yield/claim`, `vault-fund`,
- * `cage-create`) rechazan ANTES de la firma cuando el executor no tiene
- * presupuesto para atestiguar otra operación — correcto, y la verdad del dinero
- * («tu XRP no se ha movido y no quedará aparcado») estaba bien dicha. Pero se
- * decía en castellano, y todos los lectores del frontend que pintan `detail`
- * (`serverRefusal`: «la prosa del servidor manda») la ponían tal cual en una
- * pantalla en inglés. Las cadenas de usuario van en inglés.
- *
- * Hermético: la ruta consulta el gate justo después del flag y antes de leer el
- * cuerpo, así que un cuerpo vacío basta. El presupuesto se agota por entorno
- * (tope 1 FLR, reserva 1 FLR ⇒ efectivo 0), sin tocar la cadena.
  */
 import express from 'express';
 import request from 'supertest';

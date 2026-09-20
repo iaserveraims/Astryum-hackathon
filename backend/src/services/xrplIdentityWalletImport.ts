@@ -1,31 +1,6 @@
 /**
  * Import the XRPL wallet the user connected in their XRP Identity profile.
  *
- * Founder decision 2026-08-19: if the address is there, bring it in — so a new
- * user's Capital Map is populated before they type anything.
- *
- * WHAT IT IS WORTH, because everything below follows from it. The operator
- * (Thomas Hussenet, 2026-08-19) states their backend stores whatever the wallet
- * connector returned and does NOT independently verify or persist cryptographic
- * proof of ownership. So this address is a **user-associated hint** — not proof
- * of control, not a binding, not something that may ever authorize a movement.
- * It lands as `purpose: 'watch'`: the Capital Map, and nothing else.
- *
- * The three rules that keep an existing account safe, in force order:
- *
- *  1. **Never touch a row that already exists.** Not to upgrade it, not to
- *     "refresh" it. A wallet the user connected by SIGNING outranks this one,
- *     and silently rewriting its type or purpose would degrade a strong claim
- *     with a weak one.
- *  2. **Never resurrect a deleted wallet.** Deleting leaves a soft-removed row
- *     (`permissions.unlinkedAt`), and rule 1 already covers it: a user who
- *     removed this address must not find it back after every login.
- *  3. **Never become primary.** The primary wallet is the default signer and
- *     bridge recipient for its ecosystem. A hint does not get to be that.
- *
- * And it never writes a WalletBinding: that model requires a `signatureProof`,
- * which is exactly the thing we do not have. The schema enforces the invariant
- * on its own — this file just declines to argue with it.
  */
 import { prisma } from '../database/prismaClient';
 

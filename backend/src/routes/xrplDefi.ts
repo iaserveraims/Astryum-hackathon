@@ -4,17 +4,6 @@
  * Every POST returns an UNSIGNED txjson (SourceTag stamped) + a full
  * disclosure (#6); the frontend hands the txjson to Xaman and the USER signs
  * (submit:false rail). Astryum signs nothing, submits nothing (#1).
- *
- * Invariant frontier (same shape as flareDemo):
- *   - XRPL_DEFI_ENABLED flag (#10 — nothing plugs in without its flag) gates
- *     every PREPARE endpoint, and
- *   - jurisdiction geofence (#5 — execution module is region-gateable) gates
- *     every ENTRY prepare. EXITS (escrow-finish, escrow-cancel, offer-cancel,
- *     amm-withdraw, vault-yield/claim) and the delivery of an ALREADY-SIGNED
- *     council order (council-order/relay) are flag-only: THE EXIT IS NEVER GATED
- *     (see gateXrplDefiExit / prepareExit).
- *   Read-only endpoints (ecosystem watch, amm-info) stay open: monitoring is
- *   always available (#5).
  */
 
 import { handoffPayloadExpiryMin, forwardedProofRefusalBody, forwardedProofRefusalStatus } from '../services/flare/handoffAuthority';
@@ -51,7 +40,7 @@ import {
 import { COUNCIL_ORDER_EXIT_ACTIONS as SHARED_COUNCIL_ORDER_EXIT_ACTIONS } from '../services/councilExitToken';
 
 /**
- * it. 23 (it. 22 §1.2) — THE SIGNING WINDOW TRAVELS WITH THE 0xFE.
+ * THE SIGNING WINDOW TRAVELS WITH THE 0xFE.
  *
  * The seat's life is measured from the Xaman payload's expiry, and the client
  * used to invent that number (a hardcoded 5). One deployment changing the
@@ -65,7 +54,7 @@ function zeroFeSigningWindow(h: {
   signerListRead?: string | null;
 }): { payloadExpiryMin: number; payloadExpiresAt?: string; signerListRead?: 'single' | 'quorum' | 'unknown' } {
   const min = typeof h?.payloadExpiryMin === 'number' && h.payloadExpiryMin > 0 ? h.payloadExpiryMin : handoffPayloadExpiryMin();
-  // it. 31 (§5): whether that window is a READ or a default travels beside it.
+  // Whether that window is a READ or a default travels beside it.
   // The browser only skips its own SignerList read on `'single'` — a window
   // alone never says why it is short.
   const read = h?.signerListRead;
@@ -77,7 +66,7 @@ function zeroFeSigningWindow(h: {
 }
 
 /**
- * it. 25 (§2.1) — ¿LA FIRMA ESTE 0xFE UN QUÓRUM? Un Legacy es una cuenta XRPL con
+ * ¿LA FIRMA ESTE 0xFE UN QUÓRUM? Un Legacy es una cuenta XRPL con
  * SignerList: sus herederos SON el quórum, y sus payloads de Xaman se crean con
  * `expire: 1440` (`lib/xrpl/councilSigning.ts`). Componer ese 0xFE con la ventana
  * de una firma simple dejaba su `LastLedgerSequence` atrás a los seis minutos, así
@@ -91,7 +80,7 @@ async function ceremonyWindowFor(
 ): Promise<{ signingCeremony?: true; signerListRead?: 'single' | 'quorum' | 'unknown' }> {
   try {
     const { signingCeremonyFor } = await import('../connectors/protocols/flare/FlareDirectMintService');
-    // it. 31 (§5): `signerListRead` rides along — the builder stamps it on the
+    // `signerListRead` rides along — the builder stamps it on the
     // handoff and `zeroFeSigningWindow` answers it, so the browser can tell a
     // window that was READ from one that is merely the default.
     return await signingCeremonyFor(account);
@@ -108,7 +97,7 @@ const router = Router();
  * A mint has two legs: the user signs an XRPL Payment, and the executor pays a
  * ~20 FLR FDC attestation to make leg 2 happen on Flare. If the budget is
  * exhausted, the XRP leaves and PARKS with no reclaim — the "unearned success"
- * shape at its most expensive. flareDemo has guarded this since 2026-07-25;
+ * shape at its most expensive. flareDemo has guarded this;
  * these three (vault-fund, vault-yield/claim, bridge/xrpl-to-flare) never did.
  *
  * Refuse BEFORE the signature, and say the money has not moved.
@@ -121,7 +110,7 @@ function fuelGate(): { status: number; body: { error: string; detail: string } }
     status: 429,
     body: {
       error: 'EXECUTOR_FUEL_EXHAUSTED',
-      // it. 34 (agent D): user-facing strings are English — this one reached the
+      // User-facing strings are English — this one reached the
       // screen in Spanish through every reader that prints `detail`. Same truth,
       // no promise: the daily budget refills, and nothing here says when.
       detail:
@@ -133,7 +122,7 @@ function fuelGate(): { status: number; body: { error: string; detail: string } }
 }
 
 /**
- * productizer it. 15 (R1 1.5) — THE 0xFE SEAT REFUSALS, SAID AS THEMSELVES.
+ * THE 0xFE SEAT REFUSALS, SAID AS THEMSELVES.
  *
  * `buildDirectMintHandoff` refuses in two ways that are NOT a bad request: the nonce
  * seat of that Personal Account is taken (a draft that may still land, 409, with its
@@ -148,12 +137,12 @@ function handoffErrorResponse(e: unknown): { status: number; body: Record<string
     return { status: 403, body: { error: 'OPERATIONAL_ACCOUNT_HANDOFF_REFUSED', detail: safeErrorDetail(e) } };
   }
   if (name === 'NonceSeatTakenError') {
-    // it. 31 (4.1): la puerta del asiento reenvía el refusal de la tienda de
+    // La puerta del asiento reenvía el refusal de la tienda de
     // pruebas ENTERO (código, headline, ways, retryAfterSeconds, detail, y su
     // status) — jamás un `PROOF_STORE_UNREADABLE` reconstruido del mensaje.
     const forwarded = forwardedProofRefusalBody(e);
     if (forwarded) return { status: forwardedProofRefusalStatus(e) ?? 503, body: forwarded };
-    // productizer it. 17 — THE WHOLE BODY, not a bare code. The builder also says
+    // THE WHOLE BODY, not a bare code. The builder also says
     // WHEN the seat frees itself (`secondsLeft`, the blocking row's
     // `lastLedgerSequence`), any warning it attached, and — only for a session that
     // may touch that row (it prepared it, or it proves the account) — the `memoHex`
@@ -170,7 +159,7 @@ function handoffErrorResponse(e: unknown): { status: number; body: Record<string
     };
     return {
       /**
-       * it. 21 (P2): 503 cuando NO PUDIMOS LEER el estado del asiento
+       * 503 cuando NO PUDIMOS LEER el estado del asiento
        * (`SeatStateUnreadableError` conserva el `name` del padre a propósito, así que
        * el nombre no basta para distinguirlos: la clase trae su propia marca). El 409
        * queda para el asiento que de verdad está ocupado — sobre una salida, «no pude
@@ -192,24 +181,10 @@ function handoffErrorResponse(e: unknown): { status: number; body: Record<string
 }
 
 /**
- * productizer it. 23 (hallazgo 1.1, CUATRO revisores) — LAS DOS MITADES DEL ASIENTO,
+ * LAS DOS MITADES DEL ASIENTO,
  * POR UNA SOLA PUERTA. Gemelo exacto de `seatProofFieldsFor` en `institutional.ts` y
- * de `seatClaimOf` en `flareDemo.ts`; la pieza compartida es `seatProofFromVerdict`
- * (contrato del agente E), así que las tres no pueden separarse.
- *
- * QUÉ FALLABA EN SILENCIO: las tres puertas de 0xFE de este router preguntaban con
- * `sessionMayActOnXrplAccount(req, addr)` — forma BOOLEANA y propósito por defecto
- * `'entry'`. Sobre `/vault-yield/claim/prepare`, que es una SALIDA (`legacy-yield-claim`
- * está en `HANDOFF_EXIT_ACTIONS`), eso significaba dos cosas a la vez: la tienda de
- * pruebas caída fallaba CERRADA, y el 503 reintentable que el módulo de identidad
- * devuelve para una salida se descartaba. La fila nacía entonces
- * `preparedByProven:false` **sin** `preparedByProofUnreadable` — la clase «borrador de
- * quien no prueba», que el propio dueño desplaza en su siguiente prepare mientras el
- * Payment anterior todavía puede firmarse en Xaman. El gemelo.
- *
- * Solo el refusal REINTENTABLE se convierte en 503: `no-user-row` y `unreadable-floor`
- * son deterministas y esperar no los cura, así que la salida se compone igual y el
- * constructor decide — una salida jamás se gatea por una lectura nuestra.
+ * de `seatClaimOf` en `flareDemo.ts`; la pieza compartida es `seatProofFromVerdict`,
+ * así que las tres no pueden separarse.
  */
 interface SeatProofFields {
   preparedByProven: boolean;
@@ -235,9 +210,9 @@ async function seatProofFieldsFor(
     },
     { supersede: opts.supersede === true },
   );
-  // productizer it. 31 (agente D, 4.1) — EL REFUSAL VIAJA ENTERO. Esta rama
+  // EL REFUSAL VIAJA ENTERO. Esta rama
   // reescribía cualquier refusal reintentable como un `PROOF_STORE_UNREADABLE`
-  // de frase fija («could not read … try again in a moment»). Desde it. 29
+  // de frase fija («could not read … try again in a moment»).
   // también entra por aquí `PROOF_FLOOR_AHEAD_OF_CLOCK` (la marca de toma de
   // posesión adelantada a nuestro reloj), para el que esa frase es falsa por
   // las dos mitades: la fila SE LEYÓ y el instante puede ser 2099. Se perdían el
@@ -270,7 +245,7 @@ function gateXrplDefi(region: string | null): { status: number; error: string } 
 }
 
 /**
- * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13).
+ * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA»).
  *
  * The gate for EXITS: flag-only (#10), NO geofence. The geofence (#5) exists to
  * stop OPENING DeFi exposure from a blocked region; it must never hold capital the
@@ -278,8 +253,7 @@ function gateXrplDefi(region: string | null): { status: number; error: string } 
  * after CancelAfter (cancel — the promise the EscrowCreate disclosure makes),
  * cancelling one's own resting order, and withdrawing one's own AMM liquidity all
  * bring the holder's capital back — a 451 there turns a jurisdiction switch into a
- * lock on their money. The flag stays: it is the module's kill-switch, and whether
- * it should cover exits is a pending founder decision.
+ * lock on their money.
  */
 function gateXrplDefiExit(): { status: number; error: string } | null {
   if (process.env.XRPL_DEFI_ENABLED !== 'true') {
@@ -576,15 +550,15 @@ const multisignPrepareSchema = z.object({
 });
 
 /**
- * productizer it. 19 (finding 2.2) — WHAT ACTUALLY HAPPENS TO BOTH TRANSACTIONS.
+ * WHAT ACTUALLY HAPPENS TO BOTH TRANSACTIONS.
  *
- * Pure, and deliberately unpromising. it.17 told a family «the exit takes the seat»;
+ * Pure, and deliberately unpromising. Told a family «the exit takes the seat»;
  * XRPL does not work that way — the account has ONE Sequence seat, it is burnt
  * exactly once, and the winner is whoever REACHES THE LEDGER first. All a prepare
  * can do is pin this payload to the same number on purpose, and say so.
  */
 /**
- * productizer it. 21 (finding 2.5) — THE SCREEN STOPPED INVENTING A RIVAL.
+ * THE SCREEN STOPPED INVENTING A RIVAL.
  *
  * WHAT FAILED IN SILENCE: `/multisign/prepare` pushed THREE different sentences into
  * one `seatContestWarning` string — «I could not confirm this is an exit», «I could
@@ -594,46 +568,10 @@ const multisignPrepareSchema = z.object({
  * settle a proposal that, in two of the three cases, DOES NOT EXIST. The one sentence
  * that mattered («we could not confirm this is an exit — check your inbox») had no
  * reader at all: it was swallowed by a headline about a rival.
- *
- * So the warnings travel TYPED, and the screen renders the kind it is given:
- *   · `rival-seat`        — a real row of THIS account is holding the Sequence. It
- *                           carries `proposalId`, `txType` and the seat's number.
- *                           This is the ONLY kind that may say «settle that one».
- *   · `unclassified-exit` — the server could not tell whether these bytes are an
- *                           exit, and is composing them AS ONE (a failed read of ours
- *                           must never hold capital in). No rival is implied.
- *   · `inbox-unreadable`  — we could not read the account's proposal inbox, so we
- *                           cannot say whether anything is holding the seat. No rival
- *                           is implied, and nothing was refused.
- *
- * `detail` is server prose that NEVER contains another family's free text (no row
- * title, no comment) — it. 19 (2.7) — so a screen may print it verbatim.
  */
 /**
- * productizer it. 23 (finding 2.1) — `rival-seat` WAS BEING SAID ABOUT A SEAT THIS
+ * `rival-seat` WAS BEING SAID ABOUT A SEAT THIS
  * PAYLOAD NEVER TOOK.
- *
- * WHAT FAILED IN SILENCE: it. 21 split `exitForSeat` (skip the ceremony guards) from
- * `mayPinContestedSeat` (actually ask for the rival's Sequence) — correctly — but the
- * NOTICE kept being emitted on `exitForSeat`. So an UNCLASSIFIED payload, which by
- * that very split takes the NEXT FREE Sequence, was announced as `rival-seat`
- * carrying the RIVAL's number; and so was a payload whose requested seat the ledger
- * had already consumed (`requestedSeatConsumed`), where there is nothing left to
- * contest at all. The single sentence the only reader prints — «settle that one in
- * the inbox» — was therefore being told to a family whose other payment may have
- * ALREADY LANDED. Re-settling it is how a council pays twice.
- *
- * `rival-seat` is now emitted ONLY when the coordinator actually pinned these bytes to
- * the contested Sequence (`sequence.source === 'contested-seat'`, i.e. the requested
- * seat WAS the ledger's next unused one). The other two outcomes get their own kind,
- * which says what happened instead of implying a race that does not exist:
- *   · `seat-already-spent` — the Sequence that row holds is BEHIND the ledger.
- *     Something consumed it; this payload carries the next free one and applies on
- *     its own. Check an explorer BEFORE touching that row: it may already have gone
- *     through.
- *   · `seat-not-pinned`    — a row of this account holds a Sequence and these bytes
- *     were NOT pinned to it (we could not classify them as an exit, or the seat was
- *     ahead of the ledger). The two may or may not collide; nothing here says they do.
  */
 export type SeatNoticeKind =
   | 'rival-seat'
@@ -650,7 +588,7 @@ export interface SeatNotice {
   txType?: string;
   /**
    * `rival-seat` ONLY: the Sequence BOTH payloads now hold. It is a fact about THESE
-   * bytes, so it is never populated for a seat this payload did not take (it. 23, 2.1).
+   * bytes, so it is never populated for a seat this payload did not take (2.1).
    */
   pinnedSequence?: number;
   /** `seat-already-spent` / `seat-not-pinned`: the Sequence the OTHER row holds, when known. */
@@ -658,7 +596,7 @@ export interface SeatNotice {
   /** `seat-already-spent` / `seat-not-pinned`: the Sequence THESE bytes carry, when known. */
   ourSequence?: number;
   /**
-   * it. 23 (2.2) — WHICH SENTENCE IS THE HEADLINE. Several situations can be true at
+   * WHICH SENTENCE IS THE HEADLINE. Several situations can be true at
    * once (an unreadable inbox AND an unclassified payload, say), and the screen was
    * painting them side by side with no order. Lower = closer to the real state of the
    * seat; the list arrives SORTED by it, so `seatNotices[0]` is the one to show first
@@ -670,7 +608,7 @@ export interface SeatNotice {
 }
 
 /**
- * it. 23 (2.2): the order the screen must read them in. A real contest outranks
+ * The order the screen must read them in. A real contest outranks
  * everything (it is the only one that asks the family to do something); then what
  * happened to the seat; then our own failed reads, which say nothing about anybody.
  */
@@ -702,7 +640,7 @@ export function seatContestPhysics(
       '(its signatures simply stop being usable). Pinning the same number is ALL the ledger allows: it does not make ' +
       'this exit win the race, and we will not tell you it does. ' +
       /**
-       * it. 25 (3) — «LIQUIDA ESA FILA» SIN MIRAR EL EXPLORADOR PRIMERO.
+       * «LIQUIDA ESA FILA» SIN MIRAR EL EXPLORADOR PRIMERO.
        *
        * Esta frase decía «Settle the other payload in the inbox» a secas. El asiento
        * en disputa puede venir de una fila VENCIDA cuyo ledgerCheck es `unverified`
@@ -732,53 +670,16 @@ export function seatContestPhysics(
   );
 }
 router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res: Response) => {
-  // GEOFENCED BY DEFAULT, deliberately (reviewed 2026-09-14 against «LA SALIDA JAMÁS
+  // GEOFENCED BY DEFAULT, deliberately (reviewed against «LA SALIDA JAMÁS
   // SE GATEA»). This door is content-agnostic: it pins ANY `xrplTx` from the body —
   // a cage birth, a vault fund, a direct-to order as much as a recall — and nothing
   // in the bytes can tell which (a council order's memo is only a hash). Making it
   // flag-only would ungate every multisig ENTRY.
-  //
-  // productizer-it9 — THE EXIT CLASSIFICATION NOW TRAVELS WITH THE TX. The compose
-  // door that DOES know (`/council-order/prepare`, recall|evacuate) hands back an
-  // `exitToken`: a server MAC over {account, canonical hash of the exact composed
-  // tx, action, exp 15 min} (services/councilExitToken.ts). Only when that token
-  // verifies for THIS account and THESE bytes does this door take the flag-only
-  // gate. No token, a tampered or expired one, or one minted for other bytes → the
-  // full gate, exactly as before.
-  //
-  // productizer it. 13 (4.1) — THE SERVER ALSO CLASSIFIES BY WHAT IT COMPOSED. The
-  // institutional recall (ExchangeDesk, OperatorConsole) and the creator exit reach
-  // this door with no token, and under an allowlist with no region got 451
-  // everywhere. When the geofence would refuse and no valid token came, the single
-  // memo of the tx is looked up in what the server composed: a council order of THIS
-  // account (bytes that still hash to the memo, an exit action, the composed
-  // Destination/Amount) or a queued 0xFE handoff of THIS account with an exit label
-  // (the composed Amount, the Core Vault Destination) → flag-only. Anything else — or
-  // a store we could not read — keeps the full gate (classifyCouncilExitByMemo).
-  //
-  // productizer it. 17 (finding 3.3) — THE TRUTH IS NOT CONDITIONED ON THE REGION.
-  // The classification used to run ONLY when the geofence was about to answer 451,
-  // which made the most useful thing it knows — «the 0xFE this payment carries is no
-  // longer signable» — a privilege of the blocked countries. A council in an allowed
-  // region signed the corpse, spent the carrier and moved nothing. It now runs for
-  // EVERY prepare; the gate logic it feeds is unchanged, and only the 409 below is
-  // new outside the geofence.
-  //
-  // productizer it. 19 (findings 2.4 / 2.7) — TWO MORE THINGS THIS DOOR GOT WRONG,
-  // both about a transaction it could not classify:
-  //   · «I could not read what this is» fell through to the CEREMONY guards, which
-  //     judge an unclassified payload as an ENTRY: a recall was refused 422 by
-  //     somebody else's proposal because a store of ours was down. It now takes the
-  //     EXIT path and says, in the warning, that the server could NOT confirm it is
-  //     an exit (`exitClassification: 'unreadable'` travels in the body too).
-  //   · the distinguishable REASONS are an oracle over other people's memos, so they
-  //     are served only to a caller who proves this account; everyone else gets the
-  //     one generic sentence (`GENERIC_PREPARE_REFUSAL`).
   const { verifyCouncilExitToken, classifyCouncilExitByMemo, GENERIC_PREPARE_REFUSAL } =
     await import('../services/councilExitToken');
   const body = (req.body ?? {}) as { exitToken?: unknown; account?: unknown; xrplTx?: unknown };
   const exitVerdict = verifyCouncilExitToken(body.exitToken, { account: body.account, xrplTx: body.xrplTx });
-  // The FLAG closes the module for everything, exit included (founder decision #10),
+  // The FLAG closes the module for everything, exit included,
   // and it is decided before any lookup: with the module off nothing is composed, so
   // there is nothing to classify and no read worth spending.
   const flagGate = gateXrplDefiExit();
@@ -792,7 +693,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
   /** Did the SERVER classify these exact bytes as an exit — by its token or by its memo? */
   const isExit = exitVerdict.ok === true || serverExit.ok === true;
   /**
-   * it. 19 (finding 2.4): we could not READ what this is. Not a verdict about the
+   * We could not READ what this is. Not a verdict about the
    * transaction and never a permission: it decides only that the SEAT guards below
    * treat it as an exit (compose + warning) instead of as an entry (422). The region
    * gate is deliberately NOT relaxed by it — a failed read of ours must not become a
@@ -801,25 +702,10 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
   const unclassified = serverExit.ok === false && serverExit.reason === 'unreadable';
   const gate = isExit ? null : gateXrplDefi(regionOf(req));
   /**
-   * it. 19 (2.7): may this caller be TOLD WHY? Asked lazily and ONLY to word a
+   * May this caller be TOLD WHY? Asked lazily and ONLY to word a
    * refusal — never to decide whether something is composed, and never on the way to
    * a 200. Memoised per request; a session with nothing proven and nothing registered
    * answers false with no ledger read at all, so a prober cannot amplify reads.
-   *
-   * ── productizer it. 21 (finding 2.8) — ONE FLOOR, NOT TWO ────────────────────
-   *
-   * WHAT FAILED IN SILENCE: this asked for PROOF (`sessionProvesCouncil`) while
-   * `mayReadRow`, ten lines below, accepted proven OR registered — the READ floor
-   * it. 19 opened on purpose, because the pinned bytes and the blobs a cosignatory
-   * signs come only from a read. So the very person that fix was written for — on
-   * the SignerList of the validated ledger, known to this app only as a `wallet` row
-   * — could open the proposal in the inbox and still got `GENERIC_PREPARE_REFUSAL`
-   * here: an opaque 409, with no next step, on their own family's exit.
-   *
-   * The two floors are now ONE, and it is the read floor
-   * (`sessionMayReadCouncilAccount`). What it buys is a SENTENCE, never an
-   * authority: the region gate, the seat guards, the ceremony lease and every
-   * compose queue keep their own (higher, proof-based) floors, untouched.
    */
   let knowsCouncil: Promise<boolean> | null = null;
   const callerKnowsCouncil = (): Promise<boolean> => {
@@ -833,7 +719,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     }
     return knowsCouncil;
   };
-  // Said in EVERY region (it. 17): this payment can no longer reach the ledger as an
+  // Said in EVERY region: this payment can no longer reach the ledger as an
   // exit, so signing it spends the carrier for nothing. Not a refusal of the exit —
   // the exit is composed again, from the same screen, in one click.
   if (serverExit.ok === false && serverExit.reason === 'handoff-not-signable') {
@@ -848,13 +734,13 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     });
   }
   if (gate) {
-    // productizer it. 15 (finding 3.3) — THE REFUSAL HAS TO BE TRUE. The other answer
+    // THE REFUSAL HAS TO BE TRUE. The other answer
     // the classification gives is not about the region either, and dressing it as
     // GEOFENCE_BLOCKED told the council «your country» when the truth was «I could
     // not read». (Outside the gate an unreadable classification refuses NOTHING: it
     // is our failure, and a prepare composes unsigned bytes.)
     if (unclassified) {
-      // it. 19 (2.7): a caller who does not prove the account learns nothing about
+      // A caller who does not prove the account learns nothing about
       // what the server did or did not compose — same sentence, same status, for
       // every reason (`GENERIC_PREPARE_REFUSAL`).
       if (!(await callerKnowsCouncil())) {
@@ -894,7 +780,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
       .json({ error: 'INVALID_BODY', detail: parsed.error.issues.map((i) => i.message) });
   }
   try {
-    // ── puertas-y-permiso (round 3) — THE THIRD COMPOSE DOOR ─────────────────
+    // ── puertas-y-permiso — THE THIRD COMPOSE DOOR ─────────────────
     //
     // WHAT FAILED IN SILENCE: two doors pin a new Sequence for a council and
     // BOTH ask the ledger about the stale ones first — `POST /api/council/
@@ -905,11 +791,6 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     // so with an unresolved row sitting in the inbox the family could compose
     // the same payment here, gather the quorum in ONE sitting and broadcast:
     // the council pays twice, on the surface the money enters the cage by.
-    //
-    // Same guard as the other two doors, IMPORTED rather than restated — a
-    // second copy of "is the previous seat settled?" is how the halves drift
-    // apart. Dynamic so this router does not pull the proposal router into its
-    // module graph, exactly like CouncilProposalService does it.
     const { findLiveProposal, findUnresolvedSeat, recordCeremonySeat, sessionIsCouncilMember } =
       await import('./councilProposals');
 
@@ -926,75 +807,14 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     // the deadline withdrawing costs no read and raises no verdict — `POST /`
     // finds nothing stale, and the council composes the same payment over a
     // fresh Sequence. IT PAYS TWICE.
-    //
-    // NOT narrowed to "a DIFFERENT proposal", deliberately: no ceremony ever
-    // executes a stored one. `CouncilMultisigFlow` is handed a builder's
-    // `xrplTx` at all four call sites and ProposalInbox pointedly does not
-    // mount it ("the two are deliberately not mixed") — the inbox re-signs the
-    // txjson it already pinned and never comes through here. So a live row is
-    // ALWAYS a second payload; identical bytes make it worse, not safer, since
-    // the ceremony then pays exactly what the corpse still asks the family for.
-    //
-    // 422 with the same body shape as the seat refusal below: one refusal shape
-    // for one refusal, and `detail` carries the three real exits.
-    //
-    // ── productizer it. 17 (findings 2.1 / 2.2) — AND NEITHER OF THEM CLOSES AN
-    //    EXIT ────────────────────────────────────────────────────────────────────
-    //
-    // WHAT FAILED: both guards refused with 422 whatever the transaction was, so a
-    // RECALL — capital coming back out of a venue — was stopped by somebody else's
-    // proposal sitting in the inbox, and (until it.17 closed membership-by-proof)
-    // that somebody could be a stranger who had merely typed the council's public
-    // signer address. A stranger closing a family's exit for seven days is the exact
-    // shape the doctrine forbids: «LA SALIDA JAMÁS SE GATEA» — not by a registry,
-    // not by a queue, not by a rival proposal, not by our own database.
-    //
-    // The physics is not in dispute: XRPL gives the account ONE Sequence seat, and
-    // whichever transaction reaches the ledger first burns it. What was wrong was
-    // WHO LOSES IT. From here the exit takes the seat and the entry is the one that
-    // dies — so an exit PROCEEDS, carrying `seatContestWarning`, a plain sentence
-    // saying that another payload holds the same Sequence and that signing this one
-    // means that other one can no longer apply. An entry keeps the 422 it has today.
-    //
-    // The reads are in their OWN try/catch (finding 2.2): a database that cannot be
-    // read used to fall into the outer catch and come back as 400 PREPARE_FAILED —
-    // an opaque «your request was bad» for an outage of ours, on an exit. Now it is
-    // 503 and retryable for an entry, and for an exit it is one more warning.
-    //
-    // ── productizer it. 19 (finding 2.4) — AND NEITHER DOES A CLASSIFICATION WE
-    //    COULD NOT MAKE ─────────────────────────────────────────────────────────
-    //
-    // WHAT FAILED: the guards act on `isExit`, and a transaction the server could not
-    // CLASSIFY (a store down, a timeout) is not an exit by that test — so it landed
-    // here as an ENTRY and was refused 422 by somebody else's proposal. «No pude
-    // leer» became a refusal of a way out, which is the exact shape the doctrine
-    // forbids twice over: a failed read of ours is never permission AND never
-    // punishment. From here an unclassified payload takes the EXIT path — composed,
-    // with a warning that says plainly that the server could NOT confirm it is an
-    // exit and that the council must check the inbox before gathering a quorum.
     const exitForSeat = isExit || unclassified;
     /**
-     * ── productizer it. 21 (finding 2.6) — COMPOSING IS NOT THE SAME AS TAKING THE
+     * ── COMPOSING IS NOT THE SAME AS TAKING THE
      *    SEAT ──────────────────────────────────────────────────────────────────
-     *
-     * WHAT FAILED IN SILENCE: `exitForSeat` governed TWO decisions at once — skipping
-     * the ceremony guards AND `pinSequence`. Treating a payload we could not classify
-     * as an exit is right, and deliberately so: a failed read of ours must never hold
-     * capital in. Handing it somebody else's SEAT is not. With a store of ours down,
-     * an ENTRY was composed onto the live proposal's Sequence — the two now collide
-     * BY CONSTRUCTION instead of by luck, one of them dies tefPAST_SEQ, and the guard
-     * that exists to stop a council paying twice was the thing that arranged it.
-     *
-     * The two are split. `unclassified` still composes (and still carries its own
-     * typed notice saying we could not confirm it is an exit); only a CLASSIFIED exit
-     * — a valid exit token, or a memo the server itself composed as one — may pin the
-     * contested seat. An unclassified payload takes the next free Sequence, so the
-     * worst case is the world before the pin existed: two payloads that may or may
-     * not share a number, and a family told exactly that.
      */
     const mayPinContestedSeat = isExit;
     /**
-     * it. 19 (2.7): the title and the ledger verdict of a row belong to ITS council.
+     * The title and the ledger verdict of a row belong to ITS council.
      * Decided on the row's OWN stored signer list — no extra ledger read — with the
      * same floor the inbox READS use (proven or registered: `sessionMayReadCouncil`).
      * A caller outside it still gets the refusal and the proposal id; what it does not
@@ -1055,13 +875,13 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
       });
     }
     if (live && !exitForSeat) {
-      // it. 19 (2.7): the row's title is free text from an inbox. Served only to a
+      // The row's title is free text from an inbox. Served only to a
       // caller who sits on THAT council; everybody else reads the same refusal with
       // the transaction type instead of the name the family gave it.
       const named = (await mayReadRow(live)) ? (live.title ?? live.txType) : live.txType;
       return void res.status(422).json({
         error: 'LIVE_PROPOSAL_EXISTS',
-        // g1-ceremonia (round 4) — WHERE THIS SENTENCE SENT PEOPLE. It said
+        // g1-ceremonia — WHERE THIS SENTENCE SENT PEOPLE. It said
         // "withdraw it or let it expire", and both are the wrong door. Inside
         // its deadline `POST /:id/withdraw` reads no ledger and issues no
         // verdict (`withEffectiveStatus` returns early), so filing it there
@@ -1099,9 +919,9 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
         ledgerCheck: unresolved.ledgerCheck,
       });
     }
-    // ── productizer it. 19 (finding 2.2) — THE EXIT TAKES THE SEAT, ON PURPOSE ──
+    // ── THE EXIT TAKES THE SEAT, ON PURPOSE ──
     //
-    // WHAT it.17 PROMISED AND DID NOT DO: the warning said «the exit takes the seat
+    // WHAT PROMISED AND DID NOT DO: the warning said «the exit takes the seat
     // and the entry is the one that dies» while the coordinator pinned whatever
     // `account_info` answered. That is the rival's number only by luck of timing, and
     // XRPL decides the race by WHOEVER BROADCASTS FIRST — nothing in a prepare can
@@ -1112,10 +932,6 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     //     an exit that is tefPAST_SEQ from birth;
     //   · the warning says what happens to BOTH transactions, and says out loud that
     //     pinning the same number is all XRPL allows.
-    //
-    // The contested seat comes from the row that holds it: a live proposal, or an
-    // unresolved one whose seat the ledger has not consumed. Its id and tx type
-    // travel in `seatContest` for the screen; its title never does (2.7).
     const contestedSeat =
       live !== null
         ? { proposalId: live.id, txType: live.txType, pinnedSequence: live.pinnedSequence ?? null }
@@ -1127,7 +943,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
       xrplTx: parsed.data.xrplTx as Record<string, unknown>,
       // Only an exit ever asks for a seat somebody else is holding; an entry that
       // reaches this line has no rival (the guards above refused it).
-      // it. 21 (2.6): ONLY a classified exit may ask for a seat somebody else is
+      // ONLY a classified exit may ask for a seat somebody else is
       // holding. An entry that reaches this line has no rival (the guards above
       // refused it); a payload we could not CLASSIFY reaches it too, and it takes
       // the next free Sequence instead of arranging the collision itself.
@@ -1135,13 +951,13 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     });
     const pin = result.sequence ?? null;
     /**
-     * it. 21 (2.5 / 2.6): the sentence for a REAL rival. When the payload was not
+     * The sentence for a REAL rival. When the payload was not
      * allowed to pin (an unclassified one), `seatContestPhysics` would otherwise open
      * with «we could not pin this exit to that payload's seat», which reads as a
      * failure of ours — it was a decision. Said as the decision it is.
      */
     /**
-     * ── productizer it. 27 (2) — LA FÍSICA SE IMPRIMÍA CONTRA SÍ MISMA ───────────
+     * ── LA FÍSICA SE IMPRIMÍA CONTRA SÍ MISMA ───────────
      *
      * QUÉ SE VEÍA. Esta frase leía el asiento del rival del `contestedSeat` de fuera
      * y, sobre todo, imprimía LOS DOS NÚMEROS sin mirarlos: como las dos mitades
@@ -1149,12 +965,6 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
      * ledger acaba de darnos SEA el número que esa fila retiene. El resultado era
      * «This payload was NOT pinned to that seat (it carries Sequence 11, that one
      * holds 11)»: la afirmación y su negación en la misma línea, al lado de un QR.
-     *
-     * Ahora la fila la pasa quien llama (`theirs`), y hay una frase por física:
-     * coinciden (chocan igual, y se dice), no coinciden (son dos asientos, y este
-     * aplica solo), o no pudimos leer la suya (y entonces no se afirma ninguna de
-     * las dos). Ninguna de las tres promete nada sobre esa otra fila: de eso habla
-     * su propio `ledgerCheck`, y el paso correcto sigue siendo el explorador.
      */
     const contestPhysics = (theirs: number | null): string => {
       if (mayPinContestedSeat) return seatContestPhysics(pin, theirs);
@@ -1187,7 +997,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
       );
     };
     /**
-     * it. 23 (2.1) — WAS THIS TRANSACTION ACTUALLY PINNED TO THE CONTESTED SEAT?
+     * WAS THIS TRANSACTION ACTUALLY PINNED TO THE CONTESTED SEAT?
      *
      * The coordinator answers it and only it: `source === 'contested-seat'` is set
      * exactly when the requested Sequence WAS the ledger's next unused one, i.e. when
@@ -1198,12 +1008,12 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     const pinnedToContestedSeat = pin !== null && pin.source === 'contested-seat';
     const seatAlreadySpent = pin !== null && pin.requestedSeatConsumed === true;
     /**
-     * it. 23 (2.1): one notice per rival ROW, and its KIND says what happened to the
+     * One notice per rival ROW, and its KIND says what happened to the
      * seat — never a headline that sends a family to settle a payment that may
      * already have landed.
      */
     /**
-     * it. 25 (3) — EL AVISO SE CONTRADECÍA A SÍ MISMO EN SU PRIMERA FRASE.
+     * EL AVISO SE CONTRADECÍA A SÍ MISMO EN SU PRIMERA FRASE.
      *
      * QUÉ SE VEÍA EN PANTALLA: el titular del cliente decía «That Sequence has
      * already been used» y el cuerpo —la prosa del servidor, que es la que se pinta—
@@ -1211,14 +1021,9 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
      * account’s only Sequence». Las dos cosas no pueden ser verdad: si el asiento ya
      * se gastó, esa fila NO lo retiene. La familia leía un aviso que se desmiente en
      * dos renglones, al lado de un QR.
-     *
-     * La causa es que había UN solo `lead` para tres físicas distintas. Ahora la
-     * entrada trae dos: la que puede afirmar que la fila retiene el asiento (solo
-     * cuando de verdad lo retiene) y la NEUTRA, que nombra la fila sin afirmar nada
-     * sobre el asiento — la única que puede ir delante de «ese asiento ya se gastó».
      */
     /**
-     * productizer it. 27 (2) — Y LA it. 25 SOLO ARREGLÓ UNA DE LAS DOS RAMAS.
+     * Y LA SOLO ARREGLÓ UNA DE LAS DOS RAMAS.
      *
      * El `lead` se partió en `{ holdsSeat, neutral }` y el neutro se usó SOLO en
      * `seat-already-spent`. `seat-not-pinned` siguió cogiendo `holdsSeat` — «…is
@@ -1226,13 +1031,6 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
      * Sequence» — y detrás le pegaba una física que dice lo contrario o que admite
      * que no pudo mirarlo: o bien «this payload was NOT pinned to that seat… we
      * could not confirm it is an exit», o bien «…that one we could not read».
-     *
-     * En NINGUNA rama de `seat-not-pinned` sabemos que esa fila retenga la única
-     * Sequence de la cuenta: o no pudimos leer la suya, o el ledger ya va por otro
-     * número. Así que ahí nunca se afirma. Y cuando no pudimos CLASIFICAR el
-     * payload, el lead tampoco puede llamarlo «the exit»: eso es exactamente lo
-     * que su propia física acaba de decir que no consiguió confirmar. Tres físicas,
-     * tres frases; ninguna contiene su propia negación.
      */
     const pushSeatNotice = (
       row: { proposalId: string; txType: string; theirSequence: number | null },
@@ -1261,7 +1059,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
           ...(theirs !== null ? { theirSequence: theirs } : {}),
           ...(ours !== null ? { ourSequence: ours } : {}),
           detail:
-            // it. 25 (3): la frase NEUTRA — nunca la que dice que esa fila «retiene la
+            // La frase NEUTRA — nunca la que dice que esa fila «retiene la
             // única Sequence», porque el titular de este mismo aviso dice lo contrario.
             `${leads.neutral} That seat has already been spent on the ledger, so there is nothing left to contest: this one ` +
             `carries the next free Sequence${ours !== null ? ` (${ours})` : ''} and applies on its own. DO NOT ` +
@@ -1278,7 +1076,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
         txType: row.txType,
         ...(theirs !== null ? { theirSequence: theirs } : {}),
         ...(ours !== null ? { ourSequence: ours } : {}),
-        // it. 27 (2): JAMÁS `leads.holdsSeat` aquí — lo contrario de lo que dice la
+        // JAMÁS `leads.holdsSeat` aquí — lo contrario de lo que dice la
         // física de debajo. Y si no pudimos clasificar el payload, tampoco «the exit».
         detail: `${mayPinContestedSeat ? leads.neutral : leads.neutralUnconfirmed} ${contestPhysics(theirs)}`,
       });
@@ -1294,7 +1092,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
           neutral:
             `A proposal on this account (${live.txType}, id ${live.id}) is collecting signatures in the inbox. We are ` +
             'composing the exit anyway — capital coming back out is never held behind somebody else’s payload.',
-          // it. 27 (2): sin clasificar, esto no puede llamarse «the exit» — la física
+          // Sin clasificar, esto no puede llamarse «the exit» — la física
           // que va justo detrás dice que no conseguimos confirmarlo.
           neutralUnconfirmed:
             `A proposal on this account (${live.txType}, id ${live.id}) is collecting signatures in the inbox. We are ` +
@@ -1317,7 +1115,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
         {
           holdsSeat: priorLead,
           neutral: priorLead,
-          // it. 27 (2): igual que arriba — lo único que cambia es que aquí tampoco
+          // Igual que arriba — lo único que cambia es que aquí tampoco
           // podemos llamarlo «this exit».
           neutralUnconfirmed:
             `A previous proposal on this account (${unresolved.txType}, id ${unresolved.proposalId}) is not settled: ` +
@@ -1326,13 +1124,13 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
         },
       );
     }
-    // it. 23 (2.2): SORTED before anything reads them, so the screen never has to
+    // SORTED before anything reads them, so the screen never has to
     // choose between two sentences that contradict each other — the first one is the
     // real state of the seat and the rest are the detail beneath it. Ordered by the
     // exported pure helper, so a test and the route cannot disagree about the order.
     seatNotices.splice(0, seatNotices.length, ...sortSeatNotices(seatNotices));
     /**
-     * it. 21 (2.5): kept, and kept POPULATED, for the clients that only know this
+     * Kept, and kept POPULATED, for the clients that only know this
      * field — never deleted. It is the same prose, joined; every new screen reads
      * `seatNotices` instead, where a warning that has no rival can no longer be
      * painted as one.
@@ -1347,53 +1145,9 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     // Sequence was already spoken for — and the family's own repair for a
     // stalled QR is to press the button next to it. Same chain as the
     // live-proposal guard above, tempos inverted.
-    //
-    // The lease is written AFTER the pin succeeds (nothing is held for a
-    // prepare that threw), it carries the Sequence that was actually pinned,
-    // and it releases itself three ways — see the block in councilProposals.ts.
-    // Best-effort: a lease that cannot be stored leaves the other doors as
-    // blind as they are today, whereas refusing the prepare would stop a real
-    // sitting over a cache row.
-    //
-    // ── arriendo-ceremonia (round 5) — WHO IS ALLOWED TO TAKE THE SEAT ──────
-    //
-    // WHAT FAILED IN SILENCE: round 4 closed the READS of the proposal router
-    // with `sessionIsCouncilMember` and left the WRITE it had just invented
-    // with no floor at all. `requireLegacyAccess` with LEGACY_ENABLED means
-    // "any authenticated session", so ANY session could POST this route with
-    // ANY r-address that has a SignerList and put a 30-minute lease on that
-    // family's Sequence — over and over. `POST /api/council/proposals` and the
-    // MoneyFlow rule engine of that council then answer 422 CEREMONY_IN_FLIGHT
-    // and burn their cooldown. Before the lease existed, calling prepare on
-    // somebody else's council left NO persistent effect whatsoever: this was a
-    // brand-new cross-family denial of service on an automated money path.
-    //
-    // The floor is on the LEASE, not on the compose, and that asymmetry is the
-    // point. `prepareCouncilMultisig` reads public ledger state and returns
-    // unsigned bytes — it writes nothing, so leaving it open changes nothing
-    // about anybody's money. The registry answer, on the other hand, is known
-    // to be NARROWER than reality: a councillor whose Xaman is connected but
-    // never registered as a Wallet row is a member on the ledger and a stranger
-    // to `prisma.wallet` (ProposalInbox says so in as many words). Refusing
-    // their ceremony would be a fail-closed dead end on the flagship money path
-    // — the audit's own pattern of moving the failure to a sister surface —
-    // whereas not leasing for them is exactly the world of round 3, blind but
-    // never blocking. So: only a session that demonstrably holds one of THIS
-    // council's seats may take the seat, and only that session can give it back
-    // (`releaseCeremonySeatFor`).
-    //
-    // Same predicate, same `where`, asked with the signer list the coordinator
-    // just read off the ledger — never a second copy of "is this my council?".
-    //
-    // it. 17 (finding 2.1): the predicate is the same one, and what changed inside it
-    // is that a seat now has to be PROVEN (a signed login or a signed binding), not
-    // merely registered. For this door that only narrows WHO LEASES: a session whose
-    // membership is not proven composes exactly as before and simply leaves the other
-    // doors as blind as they were — never a refusal, and never anything to do with an
-    // exit.
     const userId = req.siwe?.userId ?? null;
     const pinnedSequence = Number((result.multisigTx as { Sequence?: unknown }).Sequence);
-    // ── it. 27 (§4) — Y LA MARCA SOBRE LOS BYTES, NO SOLO SOBRE LA CUENTA ─────
+    // ── Y LA MARCA SOBRE LOS BYTES, NO SOLO SOBRE LA CUENTA ─────
     //
     // El arriendo de abajo dice «este consejo está reunido»; esto dice «ESTOS
     // bytes los piné yo». Son cosas distintas y la puerta de liberación necesita
@@ -1403,14 +1157,8 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     // dos). Un 0xFE de ceremonia firmado por el camino normal de Xaman —Sequence
     // autorrellenada— no tiene esa protección, así que sin esta marca no se
     // suelta: su asiento se libera solo, por su ventana.
-    //
-    // Va FUERA del `if (holdsASeat)` a propósito: quién arrienda es una cuestión
-    // de sesiones registradas (deliberadamente estrecha, ver abajo); qué bytes se
-    // pinaron es un hecho de este prepare, y lo cierto no depende de que quien
-    // compone esté además en `prisma.wallet`. Best-effort: si no se puede
-    // escribir, la puerta queda tan cerrada como antes de it25 §4.
     const pinnedMemo = zeroFeMemoOf(parsed.data.xrplTx);
-    // ── it. 34 (E) — EL NOMBRE DEL SITTING, GENERADO AQUÍ Y SOLO AQUÍ ────────
+    // ── EL NOMBRE DEL SITTING, GENERADO AQUÍ Y SOLO AQUÍ ────────
     //
     // WHAT FAILED IN SILENCE. Dos sittings de la MISMA sesión sobre los MISMOS
     // bytes eran, para el servidor, el mismo sitting: el arriendo se upsertaba
@@ -1421,12 +1169,6 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     // «su» arriendo y «su» pin, y soltaba el asiento de nonce bajo la ceremonia
     // viva. La familia seguía firmando sobre un nonce que el servidor daba por
     // libre.
-    //
-    // El id nace en el servidor (nunca del cuerpo), viaja en el arriendo y en el
-    // pin, vuelve al cliente en la respuesta, y `/multisign/release` exige el
-    // mismo: otro id es un no-op (`stale-sitting`). Se genera SIEMPRE, aunque no
-    // se pueda ni pinar ni arrendar: el cliente devuelve el que tenga, y el
-    // servidor decide con lo que consta.
     const sittingId = randomUUID();
     if (pinnedMemo && Number.isInteger(pinnedSequence) && pinnedSequence > 0) {
       // El `catch` es la mitad que hace best-effort a esto de verdad: sin él, un
@@ -1459,13 +1201,13 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
     }
     return void res.json({
       ...result,
-      // it. 34 (E): the name of THIS sitting. The browser sends it back with every
+      // The name of THIS sitting. The browser sends it back with every
       // release of this sitting (unmount cleanup, «Cancel», the late prepare);
       // a release naming another sitting is a no-op server-side.
       sittingId,
       ...(seatContestWarning ? { seatContestWarning } : {}),
       /**
-       * it. 21 (2.5) — THE FIELD THE SCREEN READS. A typed list the UI can tell
+       * THE FIELD THE SCREEN READS. A typed list the UI can tell
        * apart: `rival-seat` (a real row is holding the Sequence — settle it),
        * `unclassified-exit` (we could not confirm this is an exit, and it was NOT
        * pinned to anybody's seat) and `inbox-unreadable` (we could not look). No
@@ -1473,14 +1215,14 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
        * two there is no rival to settle.
        */
       ...(seatNotices.length > 0 ? { seatNotices } : {}),
-      // it. 19 (2.2 / 2.7) — the structured half the screen renders next to the
+      // The structured half the screen renders next to the
       // sentence: the id to settle, WHAT kind of transaction is holding the seat and
       // the Sequence this payload was pinned to. Never the other row's title, never
       // any free text of its inbox.
-      // it. 21 (2.6): emitted only when a REAL rival row exists AND this payload was
+      // emitted only when a REAL rival row exists AND this payload was
       // allowed to take its seat — an unclassified payload no longer reports a seat
       // it deliberately did not take.
-      // it. 23 (2.1): and only when the coordinator ACTUALLY pinned these bytes to it.
+      // and only when the coordinator ACTUALLY pinned these bytes to it.
       // «Allowed to ask» is not «got it»: with the seat already spent, or the request
       // refused, this object was still describing a shared Sequence the server had
       // just declined to take. The typed notice carries the other cases.
@@ -1504,7 +1246,7 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
 });
 
 /**
- * it. 27 (§4) — EL MEMO DEL 0xFE QUE LLEVA UN Payment, LEÍDO TAL CUAL.
+ * EL MEMO DEL 0xFE QUE LLEVA UN Payment, LEÍDO TAL CUAL.
  *
  * `singleMemoHex` (councilExitToken) exige EXACTAMENTE 64 hex porque una ORDEN de
  * consejo es un keccak de 32 bytes. El memo de un 0xFE no tiene esa forma: es la
@@ -1518,15 +1260,15 @@ router.post('/multisign/prepare', requireLegacyAccess, async (req: Request, res:
  * mismo que acepta el esquema de `/multisign/release`.
  */
 export function zeroFeMemoOf(tx: unknown): string | null {
-  // it. 29 (§2): the reader lives with the seat now (`zeroFeMemoOfTx`,
+  // The reader lives with the seat now (`zeroFeMemoOfTx`,
   // DirectMintHandoffStore) because the async coordinator — `POST
   // /council-proposals` — needs the same one and a router must not import a
-  // router. Kept here by name: this is where the house has looked it up since it. 27.
+  // router. Kept here by name: this is where the house has looked it up.
   return zeroFeMemoOfTx(tx);
 }
 
 /**
- * it. 25 (§4) — SOLTAR EL ASIENTO DE NONCE DE UNA CEREMONIA QUE SE TERMINA.
+ * SOLTAR EL ASIENTO DE NONCE DE UNA CEREMONIA QUE SE TERMINA.
  *
  * QUÉ ABRE ESTO. Desde la §2.1 el 0xFE de una cuenta que firma por quórum se
  * compone con la vida REAL de sus payloads (24 h), porque la `LastLedgerSequence`
@@ -1534,22 +1276,6 @@ export function zeroFeMemoOf(tx: unknown): string | null {
  * honesto es que su asiento de nonce queda ocupado mientras esos bytes puedan
  * entrar. Sin una puerta, la segunda salida del mismo consejo chocaría con un 409
  * durante un día — y eso es tapiar una salida con código nuestro.
- *
- * QUIÉN PUEDE. O tenía el arriendo de la ceremonia que acaba de terminar (la
- * sesión que la abrió: `releaseCeremonySeatFor` ya lo comprobó y dijo
- * `'released'`), o PRUEBA la cuenta ante el servidor. Nunca una afirmación del
- * cuerpo, y nunca un barrido automático: nadie puede adivinar si un consejo sigue
- * juntando firmas, y una ceremonia de tres días es normal.
- *
- * QUÉ NO DEBILITA. La regla del asiento queda entera: `releaseAbandonedCeremonySeat`
- * exige que la fila sea de una CEREMONIA, que sea de ESTA cuenta, que la ventana
- * del memo se lea ENTERA y diga que aquel Payment nunca entró — y, desde it. 27
- * §4, que esos bytes los PINARA el coordinador multifirma (`stampCeremonyPin`,
- * arriba en esta misma ruta). Una ventana ilegible, una firma marcada o un informe
- * pendiente siguen reteniendo el asiento.
- *
- * Nunca lanza y nunca cambia el veredicto de la ceremonia: informa de lo que pasó
- * con el asiento, en su propio campo.
  */
 async function endedCeremonySeat(
   req: Request,
@@ -1558,7 +1284,7 @@ async function endedCeremonySeat(
   opts: {
     heldTheLease: boolean;
     /**
-     * it. 34 (E): el id del sitting que pide, tal cual llegó en el cuerpo
+     * El id del sitting que pide, tal cual llegó en el cuerpo
      * (`undefined` = cliente anterior; `null` = sitting sin id). El pin lleva el
      * suyo y la puerta compara: otro id, no-op. Se pasa TAMBIÉN cuando
      * `heldTheLease` es true — el arriendo prueba «soy el último de la sesión»,
@@ -1590,14 +1316,14 @@ async function endedCeremonySeat(
       };
     }
     const { releaseAbandonedCeremonySeat, seatReleaseAnswer } = await import('../services/flare/DirectMintHandoffStore');
-    // it. 34 (E): the third argument only when the client named a sitting (or
+    // The third argument only when the client named a sitting (or
     // said it has none) — an older client's call is exactly the call it was.
     const outcome =
       opts.sittingId === undefined
         ? await releaseAbandonedCeremonySeat(memo, account)
         : await releaseAbandonedCeremonySeat(memo, account, { sittingId: opts.sittingId });
-    // it. 29 (§3) — ONE GRAMMAR FOR THE SEAT, shared with the async door
-    // (`POST /council-proposals/:id/withdraw`). The it. 27 sentence for
+    // ONE GRAMMAR FOR THE SEAT, shared with the async door
+    // (`POST /council-proposals/:id/withdraw`). The sentence for
     // `not-pinned-by-us` asserted, in the indicative, a fact this route never
     // checked («was not pinned by this app's coordinator») — a failed write of
     // the mark reads the same from the row. The shaper says only what is known,
@@ -1611,22 +1337,15 @@ async function endedCeremonySeat(
   }
 }
 
-// ── arriendo-ceremonia (round 5) — PUTTING THE SEAT DOWN ────────────────────
+// ── arriendo-ceremonia — PUTTING THE SEAT DOWN ────────────────────
 //
 // The other half of `/multisign/prepare`, and the half round 4 shipped without.
 // «Cancel this ceremony» killed the Xaman payloads and told the family the seat
 // was handed back; server-side nothing happened, so the async door beside it
 // answered 422 CEREMONY_IN_FLIGHT — "Finish or abandon that sitting" — to a
 // family that had just abandoned it, with no way to obey for up to 30 minutes.
-//
-// The lease and its ownership rule live with the seat (councilProposals.ts);
-// this is only the door, next to the one that takes it. Deliberately NOT behind
-// `gateXrplDefi`: it composes nothing, moves nothing and pins nothing — it only
-// ever REMOVES one of our own refusals, so a flag or a geofence could do
-// nothing here but keep a council blocked (the same reasoning `/simulate`
-// carries below). The floor that matters is ownership, and it is inside.
 /**
- * it. 25 (§4) — …Y EL ASIENTO DE NONCE DEL 0xFE QUE ESA CEREMONIA IBA A FIRMAR.
+ * …Y EL ASIENTO DE NONCE DEL 0xFE QUE ESA CEREMONIA IBA A FIRMAR.
  *
  * `memoHex` es OPCIONAL y es el memo del 0xFE que el consejo estaba a punto de
  * firmar. Desde la §2.1 ese dispatch se compone con la vida real de sus payloads
@@ -1638,7 +1357,7 @@ async function endedCeremonySeat(
  * que aquel Payment nunca entró). Un memo ajeno no abre el asiento de nadie.
  */
 /**
- * it. 34 (E) — …Y EL NOMBRE DEL SITTING QUE PIDE. `sittingId` es el que devolvió
+ * …Y EL NOMBRE DEL SITTING QUE PIDE. `sittingId` es el que devolvió
  * `/multisign/prepare` a ESTE sitting. Tres formas, tres significados:
  *   · ausente — un cliente anterior a este campo: la regla de siempre (no se rompe
  *     la compatibilidad de golpe; un navegador sin recargar conserva su puerta);
@@ -1674,7 +1393,7 @@ router.post('/multisign/release', requireLegacyAccess, async (req: Request, res:
         ...(await endedCeremonySeat(req, parsed.data.account, parsed.data.memoHex, { heldTheLease: true, sittingId })),
       });
     case 'stale-sitting': {
-      // it. 34 (E): the lease belongs to a NEWER sitting of this same session.
+      // The lease belongs to a NEWER sitting of this same session.
       // Nothing is touched — not the lease, not the pin, not the row: the pin is
       // not even asked, because this sitting has ended and the seat is that
       // other sitting's story now. An answer, not a refusal (200).
@@ -1691,7 +1410,7 @@ router.post('/multisign/release', requireLegacyAccess, async (req: Request, res:
       // is an answer, not a refusal — a ceremony that ends without ever having
       // leased (a seat this session does not hold in the registry, a lease that
       // already expired) is ordinary, and the family must not be alarmed by it.
-      // it. 25 (§4): la sesión no tenía (o ya perdió) el arriendo de la Sequence,
+      // la sesión no tenía (o ya perdió) el arriendo de la Sequence,
       // pero su 0xFE puede seguir ocupando el asiento de nonce. Se intenta igual:
       // la puerta de abajo NO se fía de este camino — pide que la sesión PRUEBE la
       // cuenta antes de soltar nada. Terminar una ceremonia no es una salida que
@@ -1766,18 +1485,7 @@ const councilOrderSchema = z.object({
 });
 /**
  * THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA») — per ACTION on
- * the council-order door (2026-09-14).
- *
- * `recall` brings capital out of a venue back into the vault's buffer and
- * `evacuate` brings EVERYTHING recoverable out of a venue: both only REDUCE
- * exposure. The geofence (#5) exists to stop OPENING exposure from a blocked
- * region; applied to a recall it holds the family's capital in a venue against
- * their own council. So these two are flag-only (`gateXrplDefiExit`) — the same
- * classification `/cage-order` and `/pote-council-order` already apply
- * (institutional.ts `CAGE_EXIT_ACTIONS`). Every other action (direct-to, move,
- * venue doors, setters, cede…) keeps the full gate. An action NOT in this set —
- * including an unknown one — falls to the STRICT gate before validation: a door
- * never opens by a typo. `requireLegacyAccess` stays (founder decision).
+ * the council-order door.
  */
 const COUNCIL_ORDER_EXIT_ACTIONS: ReadonlySet<string> = SHARED_COUNCIL_ORDER_EXIT_ACTIONS; // one set: services/councilExitToken.ts
 
@@ -1796,7 +1504,7 @@ router.post('/council-order/prepare', requireLegacyAccess, async (req: Request, 
       .status(400)
       .json({ error: 'INVALID_BODY', detail: parsed.error.issues.map((i) => i.message) });
   }
-  // productizer it. 15 (finding 2.2) — THE SAME ORDER, AGAIN, WITHIN 30 MINUTES.
+  // THE SAME ORDER, AGAIN, WITHIN 30 MINUTES.
   // By CONTENT (this council, this action, these params), in any relay state: a
   // non-exit is refused 409 unless the caller confirms it wants a second one; an
   // exit always goes out, with a warning. Unreadable store → no verdict, never a
@@ -1813,14 +1521,14 @@ router.post('/council-order/prepare', requireLegacyAccess, async (req: Request, 
   // a seat in this council's SignerList (or proved the account) has the council's
   // own queue; anyone else has their own small one and blocks nobody.
   const preparedByProven = await sessionProvesCouncil(req, parsed.data.account);
-  // it. 17 (finding 2.5): THE CAP BEFORE THE READS. The authoritative 429 is raised
+  // THE CAP BEFORE THE READS. The authoritative 429 is raised
   // at record time, after the cage resolution, the pre-flight and the Sequence pin
   // have all been spent; a caller whose queue is already full could therefore drive
   // those reads without ever taking a place. This is the same count with one
   // database read and no ledger read (a lower bound — it never refuses a
   // composition the real cap would allow), and an exit is never asked.
   //
-  // it. 19 (finding 2.6): it runs BEFORE the duplicate guard now, in all three doors.
+  // It runs BEFORE the duplicate guard now, in all three doors.
   // The duplicate guard spends LEDGER reads (`ledgerDuplicateCheck`, up to three
   // memos), so asking it first let a caller whose queue is already full pull chain
   // reads on every attempt — the very amplification the pre-check exists to stop.
@@ -1844,7 +1552,7 @@ router.post('/council-order/prepare', requireLegacyAccess, async (req: Request, 
     action: parsed.data.action,
     confirmAnotherOrder: (req.body as { confirmAnotherOrder?: unknown } | undefined)?.confirmAnotherOrder === true,
     find: recentSameCouncilOrder,
-    // it. 17 (2.3): the sweep runs every 5 min, so before concluding «no duplicate»
+    // The sweep runs every 5 min, so before concluding «no duplicate»
     // the ledger is asked about what it has not marked — on the fate read's own
     // cache and per-session budget.
     sessionKey: req.siwe?.userId ?? req.ip ?? 'anonymous',
@@ -1878,15 +1586,7 @@ router.post('/council-order/prepare', requireLegacyAccess, async (req: Request, 
     // The SAME read serves two purposes: the pre-flight and the units the
     // summary speaks in. A quorum was being asked to sign "Direct 100000 base
     // units of principal into venue #0" — the contract's integers, in the one
-    // line a person actually reads (2026-08-03).
-    //
-    // G12-move: this block used to be a COPY of the rule path's, and the copies
-    // had already drifted — `move`, `evacuate`, the venue doors and the bps
-    // setters were judged by neither. The shared definition now lives in
-    // CouncilProposalService.councilOrderPreflight (its docstring always said
-    // "exported so the route can adopt it and delete its copy"); adopting it is
-    // what makes "hooked into BOTH doors" true by construction instead of by
-    // discipline. Behaviour is unchanged for direct-to / recall / set-payees.
+    // line a person actually reads.
     const { councilOrderPreflight } = await import('../services/CouncilProposalService');
     const preflight = await councilOrderPreflight(cage, parsed.data.action, parsed.data.params);
     if (preflight.blocked) {
@@ -1904,7 +1604,7 @@ router.post('/council-order/prepare', requireLegacyAccess, async (req: Request, 
       cage,
       ...(summaryCtx ? { summaryCtx } : {}),
     });
-    // productizer it. 13 (3.5) — THE LEGACY ORDER IS REMEMBERED TOO. This door did
+    // THE LEGACY ORDER IS REMEMBERED TOO. This door did
     // not record what it composed, so a reload between broadcast and `onSettled`
     // left a quorum-signed order with no relay. Same rule as the institutional
     // doors (ComposedCouncilOrderStore.recordComposedOrderForDelivery): an exit
@@ -1979,7 +1679,7 @@ router.post('/council-order/prepare', requireLegacyAccess, async (req: Request, 
       vault: handoff.order.vault,
       council: parsed.data.account,
     });
-    // productizer-it9 — THE EXIT CLASSIFICATION TRAVELS WITH THE TX. The council
+    // THE EXIT CLASSIFICATION TRAVELS WITH THE TX. The council
     // signs this through `/multisign/prepare`, which cannot tell a recall from an
     // entry by the bytes; the token (a server MAC over this account + this exact
     // tx + the action, 15 min) lets it take the flag-only gate for THIS tx only.
@@ -2013,7 +1713,7 @@ const relaySchema = z.object({
   xrplTxHash: z.string().regex(/^[0-9A-Fa-f]{64}$/),
   orderData: z.string().regex(/^0x[0-9a-fA-F]+$/).optional(),
 });
-// THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA», 2026-09-13).
+// THE EXIT IS NEVER GATED (doctrine «LA SALIDA JAMÁS SE GATEA»).
 //
 // The relay composes nothing and decides nothing: it carries an order the council
 // ALREADY signed and the XRPL ALREADY validated across the FDC to the bridge, which
@@ -2023,10 +1723,6 @@ const relaySchema = z.object({
 // watcher never recovered it. When that order is a recall or an evacuation, that is
 // capital held in a venue against its own council's signature. So: flag-only
 // (XRPL_DEFI_ENABLED → 503 stays, the module kill-switch), never the geofence.
-//
-// `requireLegacyAccess` stays in front of it: an ACCESS gate on the Legacy surface,
-// not an exit policy. Whether it should also let a signed exit through is a PENDING
-// FOUNDER DECISION — until then, note that it can block delivering an exit order.
 router.post('/council-order/relay', requireLegacyAccess, async (req: Request, res: Response) => {
   const gate = gateXrplDefiExit();
   if (gate) return void res.status(gate.status).json({ error: gate.error });
@@ -2053,7 +1749,7 @@ router.get('/council-order/status', async (req: Request, res: Response) => {
   const txHash = String(req.query.txId ?? '');
   // `account` = the Legacy whose bridge holds the settlement truth. Optional
   // for back-compat: without it the read falls back to the env stack, which is
-  // only correct for the founding council (per-Legacy cages, 2026-08-05).
+  // only correct for the founding council (per-Legacy cages).
   const account = String(req.query.account ?? '').trim();
   if (!/^[0-9A-Fa-f]{64}$/.test(txHash)) {
     return void res.status(400).json({ error: 'INVALID_TXID' });
@@ -2285,18 +1981,6 @@ router.get('/vault-council', async (req: Request, res: Response) => {
  *
  * The cage, read out loud: its asset (with decimals), how much principal is
  * idle vs working, and the REGISTERED venues with their basis and live value.
- *
- * Without this, composing a council order meant typing a venue NUMBER and an
- * amount in BASE UNITS blind — and an order aimed at a venue that does not
- * exist still costs the quorum's signatures and the FDC round before reverting
- * on the far side. Read-only and always available (#5: monitoring never sits
- * behind the execution gate); it changes nothing about how the cage decides.
- *
- * `account` is the LEGACY this is being read FOR: the cage is resolved from it,
- * so a Legacy without one gets an honest 409 instead of another council's
- * balance shown as its own (2026-08-05). `address` still reads any vault
- * directly — everything here is public on-chain state, and the /proof surface
- * and the deploy checklist both inspect a vault by address on purpose.
  */
 router.get('/vault-state', async (req: Request, res: Response) => {
   const address = String(req.query.address ?? '').trim();
@@ -2336,14 +2020,6 @@ router.get('/vault-state', async (req: Request, res: Response) => {
  * that is already inside the vault, and nothing in the product ever called
  * `deposit()` — so a freshly deployed cage stayed at zero and every entry order
  * failed on InsufficientIdlePrincipal.
- *
- * `deposit()` is permissionless (no council modifier), so this composes plain
- * UNSIGNED EVM calls — approve, then deposit — for whoever holds the asset to
- * sign in their own wallet. Astryum signs nothing (#1).
- *
- * `amount` is HUMAN units; the asset's real decimals are read on-chain. This is
- * deliberate: FXRP on Flare has SIX decimals, and hand-written base units are
- * exactly how someone over-funds by a factor of a trillion.
  */
 /**
  * GET /api/xrpl-defi/vault-yield?account=r…
@@ -2453,19 +2129,6 @@ router.post('/vault-yield/harvest/prepare', requireLegacyAccess, async (req: Req
 /**
  * POST /api/xrpl-defi/vault-yield/claim/prepare
  *   { council: "r…", xrplAddress: "r…", amountXrpForMint: "1", xrplDest?: "r…" }
- *
- * The heir's one signature: claim the yield owed to their Personal Account and
- * send it home as native XRP, through the redeem rail that already exists.
- *
- * Two different accounts, and they are not interchangeable: `council` is the
- * LEGACY (whose cage owes), `xrplAddress` is the HEIR who signs. The heir is
- * not the council — that is the whole point of a payee — so the cage is
- * resolved from `council` and the heir's right to anything is what
- * `claimable(pa)` says, exactly as before.
- *
- * Only yield moves. `claim()` pays `claimable[msg.sender]`, which only a
- * harvest ever credits and only from realized gain — the principal is not
- * reachable from here, and no call in this batch could reach it.
  */
 router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Request, res: Response) => {
   // THE EXIT IS NEVER GATED: a payee claiming yield already owed to them is an exit,
@@ -2558,11 +2221,11 @@ router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Reque
     const redeemCall = await buildRedeemToXrplCall(provider, { amountUBA: redeemUBA, xrplDestination: dest });
     const innerCalls = buildYieldClaimBatch({ vault: state.vault, redeemCall });
 
-    // it. 15 (finding 3.4): whether this session CONTROLS the XRPL account is read
+    // Whether this session CONTROLS the XRPL account is read
     // server-side, once, and travels with the handoff — it is what lets an
     // operational account's own exit through the 0xFE guard (and what authorizes a
     // supersede on the doors that offer one; this one does not).
-    // it. 23 (1.1): y se pregunta con `'exit'` — `legacy-yield-claim` ES una salida
+    // y se pregunta con `'exit'` — `legacy-yield-claim` ES una salida
     // (`HANDOFF_EXIT_ACTIONS`). Una tienda de pruebas caída sale ahora como 503
     // REINTENTABLE (`handoffErrorResponse`) en vez de componer una fila desplazable.
     const seatProof = await seatProofFieldsFor(req, xrplAddr, { purpose: 'exit' });
@@ -2575,7 +2238,7 @@ router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Reque
         action: 'legacy-yield-claim',
         preparedByUserId: req.siwe?.userId ?? null,
         ...seatProof,
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList: un Legacy lo
+        // Y si esa cuenta firma por QUÓRUM (SignerList: un Legacy lo
         // es), este 0xFE se compone con la ventana de su ceremonia — la que cubre el
         // payload de 24 h que van a firmar sus miembros; si no, con la de siempre.
         ...(await ceremonyWindowFor(xrplAddr)),
@@ -2584,7 +2247,7 @@ router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Reque
       { params },
     );
 
-    // productizer it. 13 (4.2) — the FAssets redemption fee on what is ACTUALLY
+    // The FAssets redemption fee on what is ACTUALLY
     // redeemed (redeemUBA), as a live protocol figure. Unreadable → null plus a line
     // that says so: never a 0 (invariants #6/#9).
     const redemptionFee = estimateRedemptionFee(redeemUBA, await readRedemptionFeeBips(provider).catch(() => null));
@@ -2601,7 +2264,7 @@ router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Reque
         ? `When the FAssets agent pays the redemption, about ${formatBaseUnits(netUBA, 6)} XRP net of that fee arrive at ${dest} (${formatBaseUnits(redeemUBA, 6)} FXRP redeemed).`
         : `When the FAssets agent pays the redemption, ${formatBaseUnits(redeemUBA, 6)} FXRP redeemed arrive at ${dest} as XRP, minus the redemption fee.`;
 
-    // it. 15 (finding 3.1) — EVERY exit prepare hands back its exit token. A payee's
+    // EVERY exit prepare hands back its exit token. A payee's
     // claim signed by a council quorum reaches `/multisign/prepare`, which cannot
     // tell an exit from an entry by the bytes; without the token it depended on the
     // memo classification alone. An issuance failure never breaks the claim.
@@ -2626,7 +2289,7 @@ router.post('/vault-yield/claim/prepare', requireLegacyAccess, async (req: Reque
       memoHex: handoff.memoHex,
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
-      // it. 17 (it. 16 §3.2): ¿está encendido el vigía que entrega este 0xFE? El
+      // ¿está encendido el vigía que entrega este 0xFE? El
       // banner del frontend se quedaba en su frase prudente sobre TODA salida
       // legítima porque ninguna ruta 0xFE lo decía — y el servidor sí lo sabe.
       serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },
@@ -2713,20 +2376,6 @@ router.get('/vault-fund/quote', async (req: Request, res: Response) => {
 
     // A multisig pays base fee x (1 + signers). Read the council to size it
     // instead of guessing, then keep it back from MAX so the tx can be paid.
-    //
-    // G13 — a failed READ must never become the number 0. This used to be
-    // `getSignerCouncil(account).catch(() => null)` followed by `?? 0`, which
-    // collapsed two different answers into one indistinguishable zero:
-    //   · the read worked and the account has no signer list → 0 is the truth,
-    //     the fee really is one signature;
-    //   · XRPL did not answer → 0 is a fabrication.
-    // The fabrication was silent and it travelled the whole way: the fee came
-    // out as base x 1, MAX offered spendable-minus-ONE-signature, and the
-    // surface printed the literal words "a quorum of 0 signs". The quorum then
-    // signed a payment its own account could not fund and the ledger answered
-    // with a cryptic tec. `signerCount: null` says "not read"; the fee and the
-    // ceiling go null with it, because a fee we could not size is not a number
-    // anyone may put on screen or under a MAX button.
     let signerCount: number | null;
     try {
       const council = await xrplProvider.getSignerCouncil(account);
@@ -2791,23 +2440,6 @@ router.get('/vault-fund/quote', async (req: Request, res: Response) => {
  * POST /api/xrpl-defi/vault-fund/prepare  { account: "r…", amountXrp: "10" }
  *
  * FUNDING THE CAGE, GOVERNED — the leg that did not exist.
- *
- * `/vault-deposit/prepare` composes bare EVM calls, which a council can never
- * sign: a multisig XRPL account has no EVM key. This routes the same intent
- * through the rail a council DOES control — the 0xFE direct mint. One XRPL
- * Payment, signed once by the quorum, carries a memo committing a userOp; the
- * executor mints FXRP into the council's own Personal Account and then runs the
- * committed batch: approve + LegacyVault.deposit(uint256).
- *
- * The XRP never touches Astryum and the FXRP never touches the executor — the
- * mint delivers to the council's PA, and the batch moves it on in the same
- * operation. Astryum composes; the quorum signs; the executor relays bytes it
- * cannot alter (#1/#8).
- *
- * Deliberately does NOT also direct the capital into a venue. Funding and
- * directing are two separate quorum decisions, and collapsing them would let
- * one signature both move family capital into a one-way cage AND choose where
- * it works. The UI says so plainly.
  */
 router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res: Response) => {
   const gate = gateXrplDefi(regionOf(req));
@@ -2847,7 +2479,7 @@ router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res
     const { buildDirectMintHandoff, readDirectMintParams, computeNetMint, mintFeeDisclosure } =
       await import('../connectors/protocols/flare/FlareDirectMintService');
 
-    // THE check this route existed without (founder, 2026-08-05). The cage came
+    // THE check this route existed without. The cage came
     // from env, so this composed a mint that deposits a second council's XRP
     // into the FIRST council's vault — and the vault has no function that pays
     // principal to an address. The quorum would have signed away its capital
@@ -2882,7 +2514,7 @@ router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res
     const params = await readDirectMintParams(provider);
     const net = computeNetMint(grossXrpDrops, params, undefined);
 
-    // Beta cap (founder 2026-08-06): the cap covers the cage's TOTAL, so a
+    // Beta cap: the cap covers the cage's TOTAL, so a
     // second funding cannot sneak past what the first one respected. Same
     // exemption lists as every demo cap.
     {
@@ -2917,11 +2549,11 @@ router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res
         innerCalls,
         action: 'legacy-vault-fund',
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): una ENTRADA sigue fallando cerrada si no se puede leer la
+        // Una ENTRADA sigue fallando cerrada si no se puede leer la
         // prueba, pero la fila se marca `preparedByProofUnreadable` igual — así
         // ninguna regla de asiento la aparta por un `false` que era «no pude leer».
         ...(await seatProofFieldsFor(req, account, { purpose: 'entry' })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList: un Legacy lo
+        // Y si esa cuenta firma por QUÓRUM (SignerList: un Legacy lo
         // es), este 0xFE se compone con la ventana de su ceremonia — la que cubre el
         // payload de 24 h que van a firmar sus miembros; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
@@ -2938,7 +2570,7 @@ router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res
       memoHex: handoff.memoHex,
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
-      // it. 17 (it. 16 §3.2): ¿está encendido el vigía que entrega este 0xFE? El
+      // ¿está encendido el vigía que entrega este 0xFE? El
       // banner del frontend se quedaba en su frase prudente sobre TODA salida
       // legítima porque ninguna ruta 0xFE lo decía — y el servidor sí lo sabe.
       serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },
@@ -2984,18 +2616,7 @@ router.post('/vault-fund/prepare', requireLegacyAccess, async (req: Request, res
  * POST /api/xrpl-defi/cage-create/prepare  { account: "r…", amountXrp: "5", linajeFeeBps?: 3000 }
  *
  * A Legacy's cage is BORN from one quorum signature — the leg that made
- * per-Legacy cages self-service instead of a founder ritual (2026-08-05).
- *
- * ONE XRPL Payment carries it all: the memo commits [factory.create → approve →
- * deposit]; the executor pays the FDC attestation; the council's own Personal
- * Account runs the batch. The factory refuses any caller that is not that PA,
- * so nobody can squat or parameterize another Legacy's cage — and the vault's
- * address is known BEFORE it exists (CREATE2), which is what lets the same
- * signature deposit into it.
- *
- * What this deliberately does NOT do: direct the capital into a venue. That is
- * a second, separate order of the quorum — one signature must not both lock
- * family capital away and decide where it works.
+ * per-Legacy cages self-service instead of a founder ritual.
  */
 /**
  * The cage disclosure — the text, and whether THIS user has accepted it.
@@ -3030,7 +2651,7 @@ router.post('/cage-disclosure/ack', requireLegacyAccess, async (req: Request, re
   if (!userId) {
     return void res.status(401).json({ error: 'missing_siwe_session' });
   }
-  // it. 15 (K3): the acknowledgement is written under the live-session check, so a
+  // The acknowledgement is written under the live-session check, so a
   // request already in flight when an account is taken over cannot leave the new
   // owner holding a disclosure THEY never read (LegacyCageAckService).
   const sessionId = (req as Request & { siwe?: { sessionId?: string } }).siwe?.sessionId;
@@ -3063,8 +2684,8 @@ router.post('/cage-disclosure/ack', requireLegacyAccess, async (req: Request, re
     });
     return void res.json(status);
   } catch (e) {
-    // productizer it. 17 (it. 16 §5.6) — A REVOKED SESSION IS NOT A SERVER FAILURE.
-    // The live-session check (it. 15 K3) throws when the session is no longer the
+    // A REVOKED SESSION IS NOT A SERVER FAILURE.
+    // The live-session check (K3) throws when the session is no longer the
     // account's, and this catch dressed it as 500 CAGE_ACK_NOT_RECORDED with the raw
     // chain in the modal: the user read «something broke» when the truth is «sign in
     // again». 401 with the code the rest of the surface already knows.
@@ -3097,7 +2718,7 @@ router.post('/cage-create/prepare', requireLegacyAccess, async (req: Request, re
     meter('EXECUTOR_FUEL_EXHAUSTED');
     return void res.status(fuel.status).json(fuel.body);
   }
-  // The disclosure gate (founder 2026-08-06). Birth is the moment capital first
+  // The disclosure gate. Birth is the moment capital first
   // becomes irreversible, so it is the moment the acknowledgement has to exist —
   // enforced here and not only in the modal, or it would be a UI gate.
   {
@@ -3183,7 +2804,7 @@ router.post('/cage-create/prepare', requireLegacyAccess, async (req: Request, re
     const grossXrpDrops = parseBaseUnits(amountXrp, 6);
     const net = computeNetMint(grossXrpDrops, params, undefined);
 
-    // Beta cap (founder 2026-08-06): caged principal never comes back out to an
+    // Beta cap: caged principal never comes back out to an
     // address, so nobody cages more than the cap through our rails. Exemptions
     // reuse the demo-cap lists (account first, address as fallback).
     const { checkCageCap } = await import('../services/flare/LegacyCageCreationService');
@@ -3225,9 +2846,9 @@ router.post('/cage-create/prepare', requireLegacyAccess, async (req: Request, re
         innerCalls,
         action: 'legacy-cage-create',
         preparedByUserId: req.siwe?.userId ?? null,
-        // it. 23 (1.1): ENTRADA — mismo par de campos, mismo sitio único.
+        // ENTRADA — mismo par de campos, mismo sitio único.
         ...(await seatProofFieldsFor(req, account, { purpose: 'entry' })),
-        // it. 25 (§2.1): y si esa cuenta firma por QUÓRUM (SignerList: un Legacy lo
+        // Y si esa cuenta firma por QUÓRUM (SignerList: un Legacy lo
         // es), este 0xFE se compone con la ventana de su ceremonia — la que cubre el
         // payload de 24 h que van a firmar sus miembros; si no, con la de siempre.
         ...(await ceremonyWindowFor(account)),
@@ -3245,7 +2866,7 @@ router.post('/cage-create/prepare', requireLegacyAccess, async (req: Request, re
       memoHex: handoff.memoHex,
       ...zeroFeSigningWindow(handoff),
       userOpData: handoff.userOpData,
-      // it. 17 (it. 16 §3.2): ¿está encendido el vigía que entrega este 0xFE? El
+      // ¿está encendido el vigía que entrega este 0xFE? El
       // banner del frontend se quedaba en su frase prudente sobre TODA salida
       // legítima porque ninguna ruta 0xFE lo decía — y el servidor sí lo sabe.
       serverDelivery: { executorEnabled: process.env.FLARE_EXECUTOR_ENABLED === 'true' },

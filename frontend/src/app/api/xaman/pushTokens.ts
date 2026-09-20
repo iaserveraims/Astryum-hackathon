@@ -6,20 +6,6 @@
  * With it, the next sign request arrives as a PUSH on their phone; without it,
  * the only way in is a QR someone has to send them — which is what a family
  * quorum spread over days was doing until now.
- *
- * These helpers run server-side only (Next.js route handlers). The token never
- * reaches a browser from here: it is read and put straight into the Xaman
- * payload. It can neither sign nor move anything — but it can ring a phone, so
- * the backend decides who may use it (productizer 13-sep, H2b):
- *
- *  - storing sends only the payload UUID; the backend reads that payload from
- *    Xaman itself and files the token for the account that really signed it;
- *  - looking up sends the payload's `txjson.Account` too, and the backend only
- *    answers for the session's own proven address or, on a multisign request,
- *    for a co-signer of that account's SignerList.
- *
- * Every failure is silent by design: no token, a dead backend or an expired row
- * just means the sign request falls back to its QR, which is always rendered.
  */
 
 function apiBase(): string {

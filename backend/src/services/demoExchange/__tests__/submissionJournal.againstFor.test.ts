@@ -1,5 +1,5 @@
 /**
- * productizer it. 29 — LA PRUEBA QUE LA ASIMETRÍA NECESITA, LEÍDA DEL JOURNAL.
+ * LA PRUEBA QUE LA ASIMETRÍA NECESITA, LEÍDA DEL JOURNAL.
  *
  * `againstFor` construye el `Against` que `availableBalance` (pura) no puede
  * leer por sí misma: qué entradas pendientes del cliente declara el journal
@@ -95,7 +95,7 @@ describe('againstFor', () => {
 
     const a = await againstFor(r, 'c1', 'withdraw');
     expect(a.kind).toBe('withdraw');
-    // it. 31: `failed` es un resultado VALIDADO ≠ tes — los drops nunca salieron
+    // `failed` es un resultado VALIDADO ≠ tes — los drops nunca salieron
     // y el blob consumió su Sequence: no retiene la salida de su dueño.
     expect([...a.provenUnsigned!].sort()).toEqual(['expired', 'failed', 'none']);
     expect([...a.provenSigned!].sort()).toEqual(['settled', 'submitting']);

@@ -22,7 +22,7 @@ const POTE_ABI = [
   'function totalAssets() view returns (uint256)',
   // readClientFacts lo llama para leer el FXRP libre del cliente; sin él, ethers
   // lanza `pote.asset is not a function` SÍNCRONO (el .catch no lo ve) y cada
-  // cliente volvía con error — el panel anti-susto nunca aparecía (bug 12-sep).
+  // cliente volvía con error — el panel anti-susto nunca aparecía (bug).
   'function asset() view returns (address)',
 ];
 const REGISTRY_ABI = [
@@ -315,7 +315,7 @@ export async function verifyReceipt(run: DemoRun, receipt: Receipt, provider: et
         else {
           // El recibo XRPL de U4 es la VUELTA: el pago del agente FAssets al
           // omnibus con el tag del cliente. NO es un 0xFE — pedirle al MAC
-          // `isTransactionIdUsed` dejaba un ❌ eterno en el proof (12-sep). Se
+          // `isTransactionIdUsed` dejaba un ❌ eterno en el proof. Se
           // prueba lo que ES: aterrizó en el omnibus, etiquetado para el cliente.
           const { facts, checks: c } = await xrplValidatedChecks(receipt.txHash, 'Payment');
           checks.push(...c);
@@ -378,7 +378,7 @@ export interface ClientChainFacts {
   sharesHuman?: string;
   /** FXRP sitting FREE in the client account (redeemed but not sent out). A
    *  surface that only shows pote shares tells someone who just exited that
-   *  they hold nothing — the "you hold 0 FXRP" scare of the 23-ago rehearsal. */
+   *  they hold nothing — the "you hold 0 FXRP" scare of the rehearsal. */
   fxrpFree?: string;
   fxrpFreeHuman?: string;
   registryApproved?: boolean;

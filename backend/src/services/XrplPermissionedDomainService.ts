@@ -1,23 +1,6 @@
 /**
  * XrplPermissionedDomainService — composición SIN FIRMAR de las transacciones
  * XLS-80 (Permissioned Domains) del perímetro regulado del exchange.
- *
- * La idea (para XRPL Commons + cumplimiento real): un Permissioned Domain es el
- * conjunto ON-LEDGER de «quién es cliente regulado de este exchange», gateado por
- * la CREDENCIAL KYC (XLS-70) que ya emitimos. Junta las tres primitivas de
- * identidad de XRPL — DID (identidad/constitución) + Credentials (KYC) +
- * Permissioned Domains (el perímetro) — en un caso de compliance real.
- *
- * La línea que respeta a rajatabla, igual que la ceremonia de credencial:
- * **Astryum JAMÁS crea ni borra el dominio.** Aquí solo se componen los txjson;
- * el `PermissionedDomainSet`/`Delete` lo firma el DUEÑO del dominio (el exchange)
- * en su Xaman. El dominio acepta la credencial que el propio exchange emite, así
- * que «ser miembro» = «tener KYC de este exchange», demostrable en el ledger.
- *
- * Nada de datos personales on-ledger: el dominio solo referencia {emisor, tipo};
- * el resultado del KYC vive en el emisor (guardarraíl §6.2, I-privacy).
- *
- * Lógica pura — testeable sin red, sin Xaman.
  */
 
 import { encodeCredentialType, CredentialCeremonyError } from './XrplCredentialCeremony';

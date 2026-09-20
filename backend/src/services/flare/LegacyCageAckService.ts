@@ -1,24 +1,6 @@
 /**
  * LegacyCageAckService — the record that a person read the cage disclosure
  * before their capital could enter one, and the gate that enforces it.
- *
- * WHY THIS IS SERVER-SIDE (founder, 2026-08-06). The first shape of this was
- * going to be a localStorage flag. localStorage dies with the cache, does not
- * travel between devices, and proves nothing to anyone — which is the whole
- * point of an acknowledgement. So the ack is an AuditLog row: who, which
- * council, which version of the text, and the SHA-256 of the text itself. The
- * repo is a due-diligence document (invariant #12); this is the evidence that
- * the disclosure existed at the instant the capital moved.
- *
- * WHY IT GATES THE PREPARE, NOT JUST THE BUTTON. A modal the frontend can skip
- * is a UI gate, and this codebase already has one of those on the open-findings
- * list. The routes that compose an irreversible entry (cage-create, vault-fund)
- * ask this service first and refuse with CAGE_ACK_REQUIRED, so a stale client,
- * a direct API call, or a reopened tab all land in the same place: read it, then
- * sign. The frontend turns that refusal back into the modal.
- *
- * The hash is written from the SERVER's copy of the text, never from the request
- * body — a client that could name its own hash could name a hash of anything.
  */
 
 import { CAGE_ACK_IDS, CAGE_DISCLOSURE_VERSION, cageDisclosureHash } from '../../config/cageDisclosure';
@@ -56,17 +38,7 @@ const ackCache = new Map<string, AckCacheEntry>();
  * `forgetCageAck`, i.e. by the account takeover after it commits. It outlives
  * the cache entry on purpose: a read that started before the takeover can only
  * land after it, and without the tombstone that late `set` would re-seed the
- * intruder's positive over the deletion (productizer it. 16, 4.4).
- *
- * Never pruned, and it does not need to be: one entry per account a verified
- * owner has taken back, in this process's lifetime. A healthy install has none.
- *
- * RESIDUAL, stated plainly: this map is PER PROCESS. A second replica that never
- * saw `forgetCageAck` can still serve its own cached positive for up to
- * CACHE_TTL_MS after the handover. That window is bounded by the TTL (30 s) and
- * closed after it by the strict database read, which applies the real
- * `takeoverAt` floor. A shared cache — or a version column on the user row —
- * would close it entirely.
+ * intruder's positive over the deletion (4.4).
  */
 const ackTombstones = new Map<string, number>();
 
@@ -79,7 +51,7 @@ export function __resetCageAckCacheForTests(): void {
  * Drop this user's cached ack AND plant a tombstone. Called by the account
  * takeover after it commits: the acknowledgement on record belongs to the
  * PREVIOUS holder, and a cached "accepted" would let the owner fund a cage on a
- * reading that was never theirs (productizer it. 14, 4.1). The stored rows are
+ * reading that was never theirs (4.1). The stored rows are
  * never touched — they are the proof that the previous holder read it
  * (invariant #11).
  *
@@ -106,43 +78,14 @@ function entryOutlivesTombstone(userId: string, takeoverAt: number | null): bool
 }
 
 /**
- * WHY THE ACK IS MISSING — THREE READINGS, NOT ONE (productizer it. 27).
+ * WHY THE ACK IS MISSING — THREE READINGS, NOT ONE.
  *
  * The gate itself does not move: it guards ENTRIES (cage birth, vault funding),
  * capital that does not come back out to an address, so «I could not read» must
  * keep failing closed there. What was wrong is what the person was TOLD. All
  * three of these came out as the same sentence — «Read "How a cage works" and
- * confirm you understand it» — which is the very lie it. 25 had just removed
+ * confirm you understand it» — which is the very lie had just removed
  * from the legal gate, alive on the other side of the house:
- *
- *   · 'no_record'      — the database answered and there is no acknowledgement
- *                        on file for the current version. The sentence is TRUE
- *                        here, and only here: reading and confirming fixes it.
- *   · 'unreadable_mark'— the account row is gone, or its takeover mark does not
- *                        parse. The confirmation WRITE lands — it goes to
- *                        `auditLog`, not to `preferences` — so the person can
- *                        confirm for ever and be told for ever that they have
- *                        not read it. Telling them to read it again names an
- *                        action that cannot work; the only real way out is
- *                        repairing the row.
- *   · 'ahead_of_clock' — the mark parses and is dated AHEAD of this server's
- *                        clock (productizer it. 31, 4.3). Until it. 31 this was
- *                        folded into 'unreadable_mark', whose sentence says
- *                        «cannot be read … we will repair the record» about a
- *                        row that reads fine and that nobody has to repair: the
- *                        wall clock passing the mark makes it usable again with
- *                        nothing written. Confirming again does not help here
- *                        either (the reading is stamped `now`, still below the
- *                        mark) — but the way forward is «later», not «write to us».
- *   · 'read_failed'    — the query threw. We know nothing about this person, and
- *                        saying «you have not read it» states as a fact about
- *                        THEM what is a fact about OUR database.
- *
- * Only 'no_record' is cleared by reading and confirming. The two screens that
- * meet this gate (CageBirthCard, CouncilVaultEntry) read `cause` and open the
- * disclosure modal for that one alone; for the other three they show the
- * sentence — re-opening the modal over a cause confirming cannot clear was the
- * loop this file's history is made of.
  */
 export type CageAckMissingCause = 'no_record' | 'unreadable_mark' | 'ahead_of_clock' | 'read_failed';
 
@@ -159,7 +102,7 @@ export interface CageAckStatus {
  * Has this user accepted the CURRENT version? A previous version's ack does not
  * count — that is what bumping the version is for — and neither does one written
  * BEFORE an account takeover: the person who read the disclosure then is not the
- * person holding the account now (productizer it. 14, 4.1). The takeover instant
+ * person holding the account now (4.1). The takeover instant
  * is read strictly: a `security` block we cannot parse is treated as "not
  * acknowledged", because «no pude leer» is never consent.
  */
@@ -197,19 +140,19 @@ export async function readCageAck(userId: string | undefined): Promise<CageAckSt
     // own cause, because the sentence the gate owes here is not «read it» —
     // see `CageAckMissingCause`.
     if (!account) return { ...base, acceptedAt: null, cause: 'unreadable_mark' as const };
-    // A MARK AHEAD OF OUR OWN CLOCK IS NOT A FLOOR EITHER (it. 27) — the same
+    // A MARK AHEAD OF OUR OWN CLOCK IS NOT A FLOOR EITHER — the same
     // door the legal gate was still open through. Here it cannot cage anybody:
     // this gate guards an ENTRY, and an entry that fails closed leaves the
     // person exactly where they were. But it CAN refuse for ever while telling
     // them to do the one thing that will not help, so it gets the honest cause.
     //
-    // it. 29: the two questions are asked ONCE, by the shared floor reader
+    // The two questions are asked ONCE, by the shared floor reader
     // (`readTakeoverFloorStrict`), because the doors that decide money had the
     // legibility half and not this one. The long argument — why the third state
     // and not `min(takeoverAt, now)`, and why no tolerance window — travelled
     // with it to services/identity/credentialsEpoch.
     const takeover = readTakeoverFloorStrict(account.preferences);
-    // it. 31 (4.3): the two unusable floors are two causes — the reader already
+    // The two unusable floors are two causes — the reader already
     // tells them apart; folding them back together here was what made the gate
     // say «we will repair the record» about a row that heals on its own.
     if (!takeover.readable) {
@@ -232,7 +175,7 @@ export async function readCageAck(userId: string | undefined): Promise<CageAckSt
   } catch {
     // FAIL-CLOSED, like the Legacy access gate: an ack we cannot read is not an
     // ack — against a capital movement that has no way back. The refusal stands;
-    // what changes (it. 27) is that it is reported as what it is, our database
+    // what changes is that it is reported as what it is, our database
     // not answering, and not as a statement about what this person has read.
     return { ...base, acceptedAt: null, cause: 'read_failed' as const };
   }
@@ -243,7 +186,7 @@ export async function readCageAck(userId: string | undefined): Promise<CageAckSt
   // construction, since acks are never revoked — only outdated by a version bump
   // or by a takeover, and THAT is what the tombstone check below is for: a read
   // that started before the handover must not re-seed the intruder's positive
-  // over the deletion `forgetCageAck` just did (it. 16, 4.4).
+  // over the deletion `forgetCageAck` just did (4.4).
   if (acceptedAt && entryOutlivesTombstone(userId, readFloor)) {
     ackCache.set(userId, { at: Date.now(), acceptedAt, takeoverAt: readFloor });
   }
@@ -254,19 +197,6 @@ export async function readCageAck(userId: string | undefined): Promise<CageAckSt
  * Write the acknowledgement. `account` is the council the person was looking at
  * (context, not scope — the ack is per user and per version, so a second cage
  * does not re-ask). Returns the stored status.
- *
- * `session` is MANDATORY (productizer it. 18, 3.2): the row is written inside a
- * transaction that first proves that session is still live (identity/liveSession).
- * An ack clicked by a previous holder whose request lands AFTER the takeover
- * would otherwise be dated after it, and count as the owner's reading — the
- * owner holding a disclosure THEY never read is exactly what this record exists
- * to prevent. It used to be optional with an unguarded fallback; a caller with
- * no session now gets a refusal instead of an unattributable acknowledgement.
- * Reading a disclosure is an ENTRY, so fail-closed is the right answer here.
- *
- * The stamp is the APP clock, the same clock that writes `takeoverAt`; the
- * column default is the database's, and a skew between the two would compare
- * two different clocks when deciding whether this reading predates a handover.
  */
 export async function recordCageAck(input: {
   userId: string;
@@ -319,7 +249,7 @@ export function acknowledgementsComplete(ids: unknown): ids is string[] {
 }
 
 /**
- * THE SENTENCE, ONE PER CAUSE (it. 27). Same rules as the legal gate's third
+ * THE SENTENCE, ONE PER CAUSE. Same rules as the legal gate's third
  * state: say what happened, never claim as a fact about the person something
  * that is a fact about our row, and NAME THE ACTION THAT ACTUALLY WORKS — a
  * refusal that asks for the impossible is the shape of every loop in this file's
@@ -340,7 +270,7 @@ export const CAGE_ACK_REFUSAL_DETAIL: Record<CageAckMissingCause, string> = {
     'cannot be read — a fault in what we stored, not in anything you did. Confirming again will not clear this: ' +
     'write to us and we will repair the record. Nothing has been composed, no capital has moved, and everything ' +
     'else on your account keeps working.',
-  // it. 31 (4.3): the row reads fine and is dated in the future. Confirming
+  // The row reads fine and is dated in the future. Confirming
   // again does not help (the reading is stamped now, still below the mark), but
   // nothing has to be repaired either: the clock passing the mark is the fix.
   // Neither «cannot be read» nor «we will repair the record» is true here.

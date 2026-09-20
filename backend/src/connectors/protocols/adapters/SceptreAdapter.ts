@@ -18,13 +18,6 @@ import type {
  * file `deployed-production.json`):
  *   sFLR proxy:    0x12e605bc104e93B45e1aD99F9e555f659051c2BB
  *   underlying:    WNAT 0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d (same as WFLR)
- *
- * Flow:
- *   stake     → submit() payable           : msg.value = amount (FLR), receive sFLR
- *   unstake   → redeem()                   : initiates cooldown for full sFLR balance
- *   withdraw  → redeem(uint unlockIndex)   : claims an already-unlocked tranche
- *
- * Trust tier: experimental until golden path produces a confirmed tx on Flarescan.
  */
 const SFLR_ADDRESS = '0x12e605bc104e93B45e1aD99F9e555f659051c2BB';
 
@@ -37,7 +30,7 @@ const SFLR_ABI = [
 ];
 
 /**
- * The unlock queue — read surface added 2026-08-01, ABI + semantics verified
+ * The unlock queue — read surface, ABI + semantics verified
  * against the verified implementation source (proxy 0x12e605bc… → impl
  * 0xca0fEE77…, Flarescan/Routescan) and probed live on Flare mainnet.
  *
@@ -150,7 +143,7 @@ export class SceptreAdapter extends BaseAdapter {
             expiresAt: q.expiresAt,
             // OPPOSITE of Firelight, and it is protocol truth either way:
             // `_redeem` prices the request with the exchange rate at
-            // `startedAt + cooldownPeriod` (verified impl source 2026-08-01),
+            // `startedAt + cooldownPeriod` (verified impl source),
             // so the stake KEEPS compounding all through the cooldown and
             // stops the moment it becomes claimable.
             stillEarning: !q.claimable && !q.expired,

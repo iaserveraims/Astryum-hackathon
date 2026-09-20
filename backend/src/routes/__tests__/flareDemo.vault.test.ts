@@ -12,7 +12,7 @@
 import express from 'express';
 import request from 'supertest';
 
-// Verified mainnet constants (see .env.example, on-chain 2026-07-10).
+// Verified mainnet constants (see .env.example, on-chain).
 const FXRP = '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE';
 const STXRP = '0x4C18Ff3C89632c3Dd62E796c0aFA5c07c4c1B2b3';
 const EARNXRP_VAULT = '0x373D7d201C8134D4a2f7b5c63560da217e3dEA28';
@@ -23,7 +23,7 @@ const PA = '0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d';
 const XRPL_ADDR = 'rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH';
 
 // Live-read fixture the FakeContract serves, keyed by lowercase address.
-// earnXRP figures mirror the 2026-07-10 on-chain reads.
+// earnXRP figures mirror the on-chain reads.
 const VAULT_STATE: Record<string, Record<string, unknown>> = {
   [EARNXRP_VAULT.toLowerCase()]: {
     depositsPaused: false,
@@ -83,7 +83,7 @@ const buildVaultEntryHandoffMock = jest.fn(async () => ({
 jest.mock('../../connectors/protocols/flare/FlareDirectMintService', () => {
   const actual = jest.requireActual('../../connectors/protocols/flare/FlareDirectMintService');
   return { ...actual,
-    // it. 29 — `seatClaimOf` asks the SignerList before every 0xFE composition;
+    // `seatClaimOf` asks the SignerList before every 0xFE composition;
     // unmocked that is a LIVE account_info against a public XRPL node. A route
     // suite must not depend on the network. `{}` = ordinary single-sig account.
     signingCeremonyFor: jest.fn(async () => ({})), buildVaultEntryHandoff: (...args: unknown[]) => buildVaultEntryHandoffMock(...(args as [])) };

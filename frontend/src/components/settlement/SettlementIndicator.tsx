@@ -52,8 +52,7 @@ export function SettlementIndicator({
       </div>
     ) : (
       // pending AND stalled share this ONE slot on purpose: the ceremony
-      // (SignedMark plays once on mount, then rests as the drawn autograph —
-      // founder 2026-08-08: the full-screen overlay version is retired) must
+      // must
       // NOT replay when a pending op merely turns stalled. The "still
       // watching" affordance moves to the tiny spinner beside the headline.
       <SignedMark className="my-1" />

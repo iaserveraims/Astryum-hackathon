@@ -2,20 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { describeStaleHandoff, signFailureAction, signOutcome, staleEngineResult } from '../signOutcome';
 
 /**
- * productizer it.16 (R5 5.2) — FIRMAR PASADA LA VENTANA NO LLEVABA A NINGÚN
+ * FIRMAR PASADA LA VENTANA NO LLEVABA A NINGÚN
  * SITIO.
- *
- * La ruta 'stale' vivía solo en `XamanSingleSign`, que NINGÚN 0xFE usa. En todas
- * las demás superficies el `tefMAX_LEDGER` llegaba como un mensaje que
- * `signOutcome` no conocía, así que se clasificaba «no se pudo confirmar…
- * recarga» — la frase más cara del repo dicha sobre la única cosa que sí
- * sabemos: que esa transacción JAMÁS va a validar y que no movió nada.
- *
- * El texto real que llega es el que envuelve `XamanWalletService`:
- *   «Transaction submission failed: The network refused this transaction
- *    (tefMAX_LEDGER). It never entered the ledger and it cost nothing.»
- * — el catch exterior construye un Error NUEVO con el mensaje, así que el campo
- * `xrplResult` ya no existe cuando alguien clasifica. Se leen las tres formas.
  */
 
 const t = (s: string) => s;

@@ -40,7 +40,7 @@ export interface PortfolioSnapshot {
   breakdown: PortfolioBreakdown;
   takenAt: Date;
   /**
-   * it. 31 — the protocols this sweep could NOT read (adapter threw or timed
+   * The protocols this sweep could NOT read (adapter threw or timed
    * out), each with the reason. A snapshot missing a protocol is not «nothing
    * held there»: it is «we could not look», and the person is owed that
    * sentence, not only the server log. Absent/empty when every adapter
@@ -56,7 +56,7 @@ export interface PortfolioUnreadableProtocol {
   /** The adapter's error message, trimmed — «FIRELIGHT_QUEUE_UNREADABLE: …», «adapter kinetic timed out…». */
   reason: string;
   /**
-   * Ola 0 (15-sep) — `true` when the adapter answered for SOME markets and
+   * `true` when the adapter answered for SOME markets and
    * not others: its rows ARE in `positions` (a lower bound) and `reads` names
    * what could not be read. Absent/false = the whole adapter fell (no rows).
    */

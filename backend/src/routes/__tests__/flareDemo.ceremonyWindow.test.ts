@@ -1,25 +1,6 @@
 /**
- * productizer it. 27 (§2) — LAS COMPOSICIONES DE 0xFE DE `flareDemo` PREGUNTAN LO
+ * LAS COMPOSICIONES DE 0xFE DE `flareDemo` PREGUNTAN LO
  * MISMO QUE LAS OTRAS DIEZ.
- *
- * EL FALLO QUE ESTO CIERRA. it. 25 §2.1 enseñó al servidor a componer el 0xFE de
- * una cuenta que firma por quórum con la vida REAL de sus payloads (24 h), porque
- * la `LastLedgerSequence` va DENTRO de los bytes firmados y no hay forma de
- * alargarla después. `routes/institutional.ts` lo pregunta en siete puertas y
- * `routes/xrplDefi.ts` en tres; `routes/flareDemo.ts` no lo preguntaba en NINGUNA
- * (`grep ceremonyWindowFor` → 0). Y el desvío del navegador sí mira el SignerList
- * (`lib/wallet/useXrplWalletPartner.ts` manda toda cuenta con quórum a la
- * ceremonia), así que el servidor componía con ~6 min lo que un quórum tarda una
- * hora en firmar: `tefMAX_LEDGER`, y esa salida no puede aterrizar nunca.
- *
- * LA CADENA, NO LA PIEZA. No se comprueba que exista un helper: se pide un prepare
- * REAL de este router y se mira (a) que la declaración llegó al builder y (b) que
- * la ventana que esa declaración produce CUBRE la vida del payload que el
- * navegador va a acuñar. Con la lectura del SignerList fingida en su único seam
- * (`readXrplSignerQuorum`), que es el hecho del ledger que nadie puede adivinar.
- *
- * Y las dos reglas que no se tocan: «no pude leer» jamás estira nada, y una cuenta
- * que Astryum OPERA tampoco.
  */
 import express from 'express';
 import request from 'supertest';
@@ -141,7 +122,7 @@ function declaredPayloadMin(): number {
   return declaredCeremony() ? handoffCeremonyExpiryMin() : handoffPayloadExpiryMin();
 }
 
-/** it. 31 (§5): lo que la ruta dijo al builder sobre si LEYÓ el SignerList. */
+/** Lo que la ruta dijo al builder sobre si LEYÓ el SignerList. */
 function declaredRead(): unknown {
   return mockBuild.mock.calls[0][1].signerListRead;
 }
@@ -154,14 +135,14 @@ describe('un 0xFE compuesto para una cuenta con quórum nace con la ventana del 
     expect(res.status).toBe(200);
     expect(mockQuorum).toHaveBeenCalledWith(COUNCIL);
     expect(mockBuild.mock.calls[0][1]).toMatchObject({ xrplAddress: COUNCIL, signingCeremony: true });
-    // it. 31 (§5): …y le dice que lo LEYÓ. `seatClaimOf` no declara este campo en
+    // …y le dice que lo LEYÓ. `seatClaimOf` no declara este campo en
     // su tipo (otro frente lo posee), así que la cadena se prueba en tiempo de
     // ejecución: el spread lo lleva hasta el builder.
     expect(declaredRead()).toBe('quorum');
   });
 
   /**
-   * it. 31 (§5): la respuesta del prepare devuelve lo que el builder estampó, para
+   * La respuesta del prepare devuelve lo que el builder estampó, para
    * que el navegador distinga una ventana LEÍDA de una por defecto.
    */
   it('la respuesta del prepare contesta `signerListRead` tal y como lo estampó el builder', async () => {
@@ -181,7 +162,7 @@ describe('un 0xFE compuesto para una cuenta con quórum nace con la ventana del 
   /**
    * LA CADENA, Y LO QUE DE VERDAD SE ROMPÍA. El navegador acuña las peticiones de
    * los miembros con la vida que el servidor declaró para ESTA fila
-   * (`ceremonyPayloadExpiryMin`, front it27 §3). Si la ventana de ledger que sale
+   * (`ceremonyPayloadExpiryMin`, front). Si la ventana de ledger que sale
    * de esa misma declaración no cubre esos minutos, el quórum firma bytes que ya
    * no pueden entrar: `tefMAX_LEDGER`, y la salida no aterriza jamás.
    */
@@ -210,7 +191,7 @@ describe('las dos reglas que esta puerta no puede romper', () => {
 
     expect(declaredCeremony()).toBe(false);
     expect(declaredPayloadMin()).toBe(handoffPayloadExpiryMin());
-    // it. 31 (§5): la ventana corta viene de una LECTURA — y se dice.
+    // La ventana corta viene de una LECTURA — y se dice.
     expect(declaredRead()).toBe('single');
   });
 
@@ -223,7 +204,7 @@ describe('las dos reglas que esta puerta no puede romper', () => {
     mockQuorum.mockResolvedValue('unknown');
     await unmint(COUNCIL);
     expect(declaredCeremony()).toBe(false);
-    // it. 31 (§5): la MISMA ventana corta, pero declarada como NO leída — jamás
+    // La MISMA ventana corta, pero declarada como NO leída — jamás
     // como «firma sola». Es la distinción que le faltaba al navegador.
     expect(declaredRead()).toBe('unknown');
 
@@ -246,14 +227,14 @@ describe('las dos reglas que esta puerta no puede romper', () => {
     await unmint(COUNCIL);
 
     expect(declaredCeremony()).toBe(false);
-    // it. 31 (§5): no se estira Y no se lee — nadie miró, y no se dice «firma sola».
+    // No se estira Y no se lee — nadie miró, y no se dice «firma sola».
     expect(declaredRead()).toBe('unknown');
   });
 });
 
 describe('ninguna composición de este router puede volver a quedarse fuera', () => {
   /**
-   * El fallo de it. 25 fue exactamente este: el arreglo existía y NADIE lo
+   * El fallo fue exactamente este: el arreglo existía y NADIE lo
    * llamaba. La pregunta vive dentro de `seatClaimOf`, que es el único objeto que
    * las catorce composiciones de este fichero extienden — así que se comprueba
    * que siguen siendo catorce y que todas lo extienden.

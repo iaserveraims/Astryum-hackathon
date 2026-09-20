@@ -1,17 +1,6 @@
 /**
  * clientExitPlan — what the exchange client's «take out» may OFFER and PROMISE,
  * decided by the pote's policy and by what the backend composed.
- *
- * WHAT WAS WRONG (productizer, 14-sep). ClientApp went prepareRedeem →
- * preparePoteExitXrp → Face ID with nothing on screen but an estimate: neither
- * the redeem disclosure (with Astryum's fee tranche) nor the unmint disclosure
- * was shown before signing (invariant #6). And on a pote with an exit window
- * (`mode: 'request'`) the chosen destination was silently ignored — shares burn,
- * the amount is fixed in FXRP and is claimed at maturity into the Face ID
- * account — while the UI offered «to my own XRPL wallet» and the site promised
- * «one Face ID takes everything out… to your own wallet».
- *
- * Strings are English sources for `t()`; `{placeholders}` are filled by the caller.
  */
 
 import type { Disclosure } from '../institutional/api';
@@ -228,7 +217,7 @@ export function fillParams(s: string, params: Record<string, string>): string {
  * The site's promise (ExchangeClientSite hero): true for BOTH policies — the
  * immediate pote and the one with an exit window.
  *
- * WHAT WAS WRONG (productizer, 14-sep): it said «the money comes back in that
+ * WHAT WAS WRONG: it said «the money comes back in that
  * signature» and «Every fee is shown before you sign». The signature burns the
  * FXRP; the XRP is paid later by the FAssets agent (minutes to hours), and the
  * redemption fee is only a number when the prepare could read it.
@@ -239,7 +228,7 @@ export const EXCHANGE_EXIT_PROMISE =
 /* ── UserVaultPanel: the same prepare → review → Face ID, for four verbs ──── */
 
 /**
- * WHAT WAS WRONG (productizer, 14-sep). UserVaultPanel (/app/earn-passkey,
+ * WHAT WAS WRONG. UserVaultPanel (/app/earn-passkey,
  * GuidedDemo, InstitutionalV1Room) went compose → Face ID directly: the redeem's
  * disclosure and Astryum fee tranche, and the unmint's disclosure, were dropped
  * before signing — the bug ClientApp's exit already fixed.

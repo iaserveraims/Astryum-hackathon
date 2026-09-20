@@ -1,10 +1,7 @@
 'use client';
 
 /**
- * SetupOperationShell — LA PLANTILLA de toda ceremonia de configuración
- * (fundador 2026-09-12: «unificar todas las configuraciones tal y como está
- * el Legacy planteado, con su pantalla flotante y los pasos… la misma
- * plantilla para managed vaults y exchange»).
+ * SetupOperationShell — LA PLANTILLA de toda ceremonia de configuración.
  *
  * Lo que ya tenía Constituir un Legacy, sacado a una pieza: ventana corta o
  * panel anclado (OperationSurface), cabecera con el icono en su baldosa, el
@@ -12,19 +9,6 @@
  * anclar/soltar, cerrar en dos pasos — y un cuerpo con scroll propio en el
  * que vive la ceremonia por estaciones (StationRailLayout: raíl al lado si
  * la caja es ancha, tira encima si es estrecha).
- *
- * Constituir, Reforzar, la mesa del gestor, el alta del gestor y el alta del
- * exchange la montan tal cual: un gesto, aprendido una vez.
- *
- * SIN cierre por backdrop ni Escape: las ceremonias fijan Sequences de XRPL —
- * la X (confirmada) es la única salida (regla GovernanceModal).
- *
- * LA X RESPETA UNA FIRMA ABIERTA (productizer-it7, 14-sep). Cerrar la ventana
- * desmonta la ceremonia entera, y con ella la firma de Xaman de la estación
- * activa (QR vivo, confirmando, sin confirmar): la X de la cabecera y la de la
- * píldora se retiran mientras cualquier `XamanSingleSign` de dentro bloquea
- * (`XamanSignBlockScope`), igual que el raíl de estaciones del wizard. Minimizar
- * sigue libre: la ventana plegada no se desmonta.
  */
 
 import { useState, type ReactNode } from 'react';

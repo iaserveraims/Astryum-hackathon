@@ -2,21 +2,6 @@
  * LiFiProvider — P14
  *
  * Wraps the Li.Fi v1 API for cross-chain swaps and bridges across 60+ EVM chains.
- *
- * Revenue model:
- *   - LIFI_FEE_BPS (default 15 = 0.15%) passed as `fee` (decimal) in every request.
- *   - Li.Fi routes the fee to ASTRYUM_FEE_WALLET via the `integrator` mechanism.
- *   - disclosedToUser: true — always disclosed before user signs.
- *
- * Regulatory invariants (never remove):
- *   authorization.astryumRelays: false
- *   referralAttribution.disclosedToUser: true
- *   Astryum never calls sendTransaction / broadcastTransaction
- *
- * Supported chains: Ethereum(1), BSC(56), Polygon(137), Optimism(10), Arbitrum(42161),
- *   Base(8453), Avalanche(43114), Fantom(250), Gnosis(100), Linea(59144), Scroll(534352).
- * NOT Flare (14) — use internal protocol adapters for Flare DeFi.
- * NOT Solana — use JupiterSwapProvider for Solana swaps.
  */
 
 import { randomUUID } from 'crypto';

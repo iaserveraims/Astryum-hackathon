@@ -10,41 +10,6 @@
  * El gestor no tiene ninguno — él solo mueve capital entre sitios que ya
  * existen. Esta pantalla es donde ve qué le ata, y qué tiene que pedirle al
  * quórum si quiere que cambie.
- *
- * ── LA MECHA DE 30 DÍAS ES AVISO, NO IMPOSIBILIDAD ─────────────────
- * `VENUE_DELAY = 30 days`, y el contrato lleva escrito el porqué en su propio
- * comentario: «adding a venue IS the power to extract».
- *
- * CORREGIDO EL 26-AGO, y la corrección importa. Este texto decía que la espera
- * «es toda la seguridad», dando a entender que impide el robo. NO LO IMPIDE: en
- * el pote v1 —el que está vivo hoy— quien gobierna puede proponer un vault
- * FALSO, esperar 31 días y mandarle capital. Está reproducido en
- * `AstryumCage.t.sol::test_v1_the_robbery_that_WAS_possible`, y el propio test
- * lo llama por su nombre: «el único freno de la v1: la espera». La jaula v2 sí
- * lo cierra — un registro on-chain al que el pote pregunta él mismo — pero v2
- * no está en mainnet todavía.
- *
- * Y en Bóvedas con gestor esto no es teórico: el gestor ES el consejo (su cuenta
- * XRPL gobierna su propio pote), así que ese poder es SUYO.
- *
- * Por eso la pantalla vende los 30 días como lo que son: el mes que tienes para
- * salir. Sigue pintándose como CUENTA ATRÁS, y ahora avisa cuando ese mes no da
- * de sí — la ventana de salida (`COOLDOWN`, tope 30 d) puede igualar al propio
- * aviso y dejar margen CERO.
- *
- * ── DOS COSAS QUE NO CAMBIAN NUNCA ──────────────────────────────────────────
- * `COOLDOWN` y `BUFFER_FLOOR_BPS` son `immutable`: se fijan al nacer y no los
- * mueve ni el consejo. Se enseñan aparte y dichos así, porque son la única
- * promesa de esta pantalla que no depende de que nadie se porte bien.
- *
- * ── EL REPARTO ES DE RENDIMIENTO, NUNCA DE PRINCIPAL ────────────────────────
- * Los payees cobran un corte del rendimiento REALIZADO por encima de la marca
- * de cada venue, con techo duro fijado AL NACER el pote (`MAX_PAYEE_BPS` en la
- * generación v2; 20% para un pote abierto a terceros). No se dice «20% para
- * siempre» a secas porque un pote privado nace con otro techo — lo que sí es
- * universal es que el techo es inmutable y que el corte es de yield. Decir
- * solo «se lleva un X%» dejaría creer que el corte sale del dinero que metiste.
- * No hay ninguna función que pague principal a una dirección arbitraria.
  */
 
 import { useCallback, useEffect, useState } from 'react';

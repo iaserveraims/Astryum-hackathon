@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * LiveActivity — the public proof-of-life feed (founder 2026-07-26).
+ * LiveActivity — the public proof-of-life feed.
  *
  * The counterweight to the sign-up risk disclaimer: the disclaimer says
  * "this is experimental, it can fail" — this section shows, live and
@@ -9,20 +9,6 @@
  * links to the public explorers (XRPL + Flare), so nobody has to believe
  * us: the chain is the receipt. Same doctrine as /about ("No pedimos
  * confianza. La demostramos.").
- *
- * Data: GET /api/platform/activity (public, no auth) — real settled 0xFE
- * operations from the executor's audit rows. No mock data, ever: an empty
- * feed renders as an honest "no operations in this window", because a
- * transparency section that fakes activity would defeat its own purpose.
- *
- * The public cupo (founder 2026-08-01, before the beta opens): the LIST is
- * closed — it keeps the operations already published (ours, from testing) and
- * nothing new enters, not even ours. A tx hash is an identifier: whoever opens
- * it on the explorer sees the account behind it, its amount and its whole
- * history (aviso §3.2). The COUNTER stays live and whole: an aggregate that
- * names nobody. The copy below states both, because a section that showed a
- * frozen list while promising "every operation, live" would be lying to prove
- * honesty.
  */
 
 import { useEffect, useState } from 'react';
@@ -116,7 +102,7 @@ export default function LiveActivity({ lang }: { lang: Lang }) {
             className="mx-auto mt-4 max-w-2xl text-center font-bold text-white text-balance"
             style={{ fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', lineHeight: 1.12, letterSpacing: '-0.03em' }}
           >
-            {/* Retitled 2026-07-29 (founder OK): on /proof this section lives
+            {/* Retitled: on /proof this section lives
                 under a hero that already says "we don't ask for trust" — the
                 headline now adds information instead of repeating the claim. */}
             {T('Operaciones reales, comprobantes públicos.', 'Real operations, public receipts.', lang)}

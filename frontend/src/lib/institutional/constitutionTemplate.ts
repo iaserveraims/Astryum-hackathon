@@ -1,7 +1,6 @@
 /**
  * constitutionTemplate — la constitución de un vehículo agrupado gestionado,
- * COMPLETA (fundador 10-sep: «¿me puedes hacer una constitución como Dios
- * manda?»). Antes eran cuatro líneas; esto son doce artículos que el gestor
+ * COMPLETA. Antes eran cuatro líneas; esto son doce artículos que el gestor
  * edita antes de anclar su huella (SHA-256 → DID XLS-40 de su cuenta).
  *
  * Lo que este texto puede prometer es SOLO lo que el contrato hace cumplir o

@@ -8,18 +8,6 @@
  * argumentos) y simula por `eth_call` la primera pata de cada acción — la única
  * que se puede simular honestamente, porque las siguientes dependen del estado
  * que crea la anterior.
- *
- * Usa los MISMOS lectores que la ruta (`services/ethMorphoReaders`), no una
- * copia: un ensayo sobre lectores duplicados verificaría un carril que el
- * usuario no firma.
- *
- * Astryum sigue sin firmar y sin emitir nada: aquí solo hay `eth_call`.
- *
- * Uso:
- *   npm run dryrun:eth-morpho -- --user 0xTuWallet
- *   npm run dryrun:eth-morpho -- --user 0x… --fxrp 10 --rlusd 5 --deposit 100
- *
- * Salidas: 0 todo compone · 1 error de uso/RPC · 7 alguna pata revierte HOY.
  */
 import { ethers, Interface } from 'ethers';
 import {

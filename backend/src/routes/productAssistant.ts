@@ -4,34 +4,6 @@
  * A conversational manual + GPS of the Astryum app for non-crypto users. It ONLY
  * knows the app (concepts, navigation, strategies) and, for anonymous callers,
  * sees NOTHING of the user.
- *
- * Design (build spec C3 + F29a), still the INVERSE of the personal agents in
- * agent.ts / aiChat.ts (no tools, no execution) but now with an OPTIONAL
- * read-only lens onto the caller's own account:
- *   - PUBLIC: no requireSiweAuth. It needs no login because it never REQUIRES
- *     user data — auth is optional, additive only.
- *   - OPTIONAL user context (F29a): if a valid `Authorization: Bearer <jwt>`
- *     arrives, we resolve userId (same `verifyToken` requireSiweAuth uses) and
- *     append a small READ-ONLY snapshot of the user's own account (net worth,
- *     health factor, positions, active rules) to the system prompt — built from
- *     the SAME server-side engines /api/portfolio and /api/risk already use
- *     (PortfolioEngine + RiskEngine), never a new data path. No token, or an
- *     invalid/expired one, or ANY failure while reading ⇒ behaves exactly like
- *     before (anonymous cage, no context). This never blocks or slows down the
- *     chat into an error — best-effort only.
- *   - NO tools, ever: the LLM is called with system + messages only, with or
- *     without user context, so it structurally cannot build payloads or reach
- *     the signing path (invariants #1 / #7 hold). With user data, the system
- *     prompt explicitly restates that it may only DESCRIBE, never recommend or
- *     act — the cage does not relax just because real numbers are in context.
- *   - STATELESS: reuses ONLY the SSE streaming mechanics of agent.ts — no DB
- *     persistence, no conversation storage. Multi-turn is client-driven via
- *     `history`. The optional userId is resolved per-request, never stored.
- *   - RATE-LIMITED: the endpoint is public and spends Astryum's own Anthropic
- *     key, so a small in-process limiter caps per-IP and global daily usage,
- *     unchanged by the auth addition.
- *   - KEY: always Astryum's env key (invariant #2, server-side), logged-in or
- *     not. The "user brings their own key" future only applies elsewhere.
  */
 
 import { Router, Request, Response } from 'express';
@@ -46,8 +18,7 @@ import { RiskEngine } from '../engines/risk/RiskEngine';
 
 const router = Router();
 
-// Model: Haiku by default (founder 2026-08-08 — maximum savings on the public
-// help chat; the cage has no tools, so the small model explains just as safely).
+// Model: Haiku by default.
 // A deployment can raise the tier via env (PRODUCT_ASSISTANT_MODEL) if answer
 // quality ever needs it.
 const MODEL = process.env.PRODUCT_ASSISTANT_MODEL || 'claude-haiku-4-5';

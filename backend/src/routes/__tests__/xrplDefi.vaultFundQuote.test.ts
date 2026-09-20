@@ -8,16 +8,6 @@
  * travelled: fee = base x 1, MAX = spendable minus ONE signature, and the
  * funding surface printed the literal words "a quorum of 0 signs" — after
  * which the quorum's own payment failed underfunded with a cryptic tec.
- *
- * These tests pin the distinction at the HTTP boundary, which is where the
- * number leaves the building: a failed read answers `null` on the three fields
- * that depend on it, a successful read of a real council answers its real
- * count, and a successful read of a signer-less account still answers 0 —
- * because there 0 IS the read.
- *
- * Hermetic: everything that touches a network (the cage resolver, the Flare
- * reads, the XRPL reads) is stubbed; the arithmetic under test is the route's
- * own.
  */
 import express from 'express';
 import request from 'supertest';

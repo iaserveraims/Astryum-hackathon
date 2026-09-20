@@ -1,22 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * operationStore — las reglas que el fundador dictó a mano (2026-08-27 y
- * 2026-08-29) y que hasta ahora no vigilaba nadie:
  *
  *   «que se puedan abrir varias estrategias a la vez, concretamente tres,
  *    para no romper nada... recuerda que el legacy también cuenta como card»
  *   «si se minimiza no cuenta para el límite de tres estrategias, es decir
  *    que se podrían tener 4 estrategias minimizadas más el agente»
- *
- * Son invariantes de PRODUCTO, no detalles: el tope protege el rendimiento y
- * la cabeza del usuario, y la excepción del agente es una decisión explícita.
- * Un refactor que se lleve por delante cualquiera de las dos rompe algo que
- * se pidió por escrito — de ahí este fichero.
- *
- * La regla más delicada es la ÚLTIMA: al llegar al tope, la cuarta se
- * RECHAZA y la lista queda intacta. Jamás se cierra sola una operación con
- * estado dentro (importes escritos, una ceremonia a medias).
  */
 
 // El aviso del tope sale del propio store (no hay React donde vivir): se

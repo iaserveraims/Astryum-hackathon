@@ -1,23 +1,6 @@
 /**
  * vaultClaimsTick — the one tick of the "money in flight" watcher
  * (hooks/useVaultClaimsWatcher), pulled out of React so it can be RUN.
- *
- * WHY THIS FILE EXISTS (it. 31). it. 29 taught `/vault-claims` to answer 502
- * VAULT_CLAIMS_UNREADABLE instead of 200 with an empty queue. The hook that
- * consumes it did `if (!res.ok) return null` and then `setEntries(next)`: a
- * refused read contributed no rows and the new list REPLACED the old one. The
- * queued exit — shares already burned, FXRP waiting — vanished from the tray
- * exactly as before, one floor up; the tray, seeing no rows and no notice,
- * went quiet: «nothing waiting for you».
- *
- * The rule, in code a test can hold:
- *   · a read that FAILED keeps the owner's LAST GOOD rows and is named in
- *     `unreadable` — «no pude leer» is not an empty queue;
- *   · a PARTIAL sweep (200, `queueRead: 'partial'`) takes the rows that
- *     answered and keeps the last good rows of the periods that did not;
- *   · only a LIVE read replaces an owner's rows outright.
- *
- * Read only. Nothing here signs, custodies or broadcasts.
  */
 
 export interface VaultClaimEntry {
@@ -36,7 +19,7 @@ export interface VaultClaimEntry {
   claimable: boolean;
   /** ISO end of the still-running period (null once claimable). */
   claimableAt: string | null;
-  /** it. 31 — this row is the LAST GOOD read of a period the latest tick could
+  /** This row is the LAST GOOD read of a period the latest tick could
    *  not re-read. It is kept, never invented: the server refused or skipped
    *  that period, so the money it describes is «still queued as far as we
    *  last saw», not «confirmed just now». */
@@ -91,7 +74,7 @@ function isPendingRow(v: unknown): v is PendingRow {
 /**
  * Read ONE owner's queue. Every failure — HTTP refusal, network, a body that
  * is not a queue — is an `unreadable` read, never an empty one. A 200 without
- * a `pending` array is not a read either (the it. 29 lesson: a 200 that
+ * a `pending` array is not a read either (the lesson: a 200 that
  * carries nothing is the shape every proxy and error envelope produces).
  */
 export async function readOwnerQueue(

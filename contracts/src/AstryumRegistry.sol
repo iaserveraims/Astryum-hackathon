@@ -68,7 +68,7 @@ contract AstryumRegistry {
     }
 
     /// @dev La whitelist ENUMERABLE: lo que un gestor ve al elegir dónde puede
-    ///      trabajar su pote (decisión 27-ago: elige dentro de la lista de Astryum
+    ///      trabajar su pote (decisión: elige dentro de la lista de Astryum
     ///      desde el pote). Solo crece; el estado vivo de cada entrada (activa,
     ///      retirada, pendiente) está en `_venues`, y el catálogo filtra por él.
     VenueRef[] private _venueList;

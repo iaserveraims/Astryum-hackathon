@@ -4,43 +4,8 @@
  * marks.tsx — LOS DIBUJOS DEL TEMA INSTITUCIONAL.
  *
  * El fundador no pidió otra paleta: pidió que cambien «los colores, dibujos y
- * layouts» (2026-09-13). Esta es la parte de los DIBUJOS, y es la que hace que
+ * layouts». Esta es la parte de los DIBUJOS, y es la que hace que
  * el tema no sea un filtro de color sobre el de siempre.
- *
- * ── DE QUÉ MUNDO SALEN ───────────────────────────────────────────────────
- * Astryum dibuja ESPACIO: soles, órbitas, asteroides, estelas, estrellas que
- * respiran (components/ui/scenes.tsx y components/earn/icons.tsx). Es un mundo
- * que promete viaje. Una institución no promete viaje: promete REGISTRO. Así
- * que estos dibujos salen del otro sitio donde el dinero lleva siglos
- * dibujándose — el grabado de los títulos valor, los billetes y las escrituras:
- *
- *   · GuillocheRosette — la roseta de guilloché, el hipotrocoide que imprime
- *                        una máquina de torno geométrico. Es LA marca de un
- *                        documento que no se puede falsificar a mano, y por eso
- *                        es la pieza central del tema.
- *   · BalanceMark      — la balanza: lo pignorado y lo obtenido, en fiel.
- *   · ColonnadeMark    — el pórtico: la institución que custodia y gestiona.
- *   · RegisterMark     — el registro reglado con su sello: lo que quedó escrito.
- *   · GuillocheField   — el fondo de la aplicación entera (BackgroundFx), el
- *                        rayado de seguridad que sustituye al campo de estrellas.
- *
- * ── CÓMO ESTÁN HECHOS ────────────────────────────────────────────────────
- * MONOLÍNEA y a `currentColor`: una sola anchura de trazo, sin rellenos, sin
- * degradados y sin halo — un grabado es tinta, no luz. El svg raíz lleva
- * `text-volt`, así que los cuatro se re-tintan solos con el bronce del tema, el
- * acero de Legacy y las versiones oscurecidas de la lámina clara, sin una
- * línea de color escrita a mano.
- *
- * Las curvas se calculan UNA VEZ a nivel de módulo (no por render): son
- * deterministas y no dependen de props, así que pagarlas en cada pintado sería
- * regalar CPU en pantallas que ya montan decenas de tarjetas.
- *
- * ── MOVIMIENTO ───────────────────────────────────────────────────────────
- * El nivel de movimiento manda sobre el tema, siempre (stores/motionStore.ts).
- * Estos grabados heredan el PULSO lento del nivel sereno —`emblem-turn` y
- * `emblem-breathe`, las mismas clases que ya usan los emblemas del Earn— y se
- * quedan quietos en Mínimo por las reglas de globals.css. Nunca persiguen al
- * cursor: un sello no reacciona, está impreso.
  */
 
 import { useId } from 'react';
@@ -48,35 +13,7 @@ import { useId } from 'react';
 /* ── La geometría del guilloché ─────────────────────────────────────────────
    Un hipotrocoide: el trazo que deja un punto de una rueda que gira DENTRO de
    otra. Es literalmente cómo funciona el torno geométrico que grababa los
-   billetes, y por eso el dibujo sale «a moneda» y no «a decoración».
-
-     x = (R−r)·cos t + d·cos((R−r)/r · t)
-     y = (R−r)·sin t − d·sin((R−r)/r · t)
-
-   TRES REGLAS PARA ELEGIR UN TRIPLE (R, r, d). Las tres están fijadas en
-   __tests__/skinMarks.test.ts, porque un comentario no impide que el próximo
-   triple vuelva a ser una raya — y aquí ya pasó:
-
-   1. **R NUNCA puede ser 2r.** Es la trampa, y es silenciosa. Con R = 2r sale
-      (R−r)/r = 1 y la fórmula COLAPSA a x = (r+d)·cos t, y = (r−d)·sin t, que
-      es la ecuación de una elipse: el par de Tusi. La primera versión de este
-      fichero (commit 9712f43d) llevaba 46/23 y 38/19 — las dos son R = 2r —,
-      así que el sello del tema se pintó dos días como una roseta de cuatro
-      lóbulos atravesada por dos RAYAS planas de 80x12 y 60x16. Lo cazó la
-      sesión paralela astryum-27 ejecutando la fórmula, no mirando el dibujo.
-      Pide (R−r)/r ≥ 2.
-
-   2. **El radio máximo es (R−r)+d**, y tiene que caber en el viewBox contando
-      desde el centro. 52/13/22 daba 61 sobre un centro en 60: se salía.
-
-   3. **El número de lóbulos es R/gcd(R,r)** — es lo que decide si la roseta se
-      lee como filigrana (muchos) o como flor (pocos).
-
-   Y el PERIODO se calcula, no se supone. Con (R−r)/r entero la curva cierra en
-   2π·r/gcd(R,r), no en 2π·r: recorrer de más repinta la misma vuelta varias
-   veces y reparte los pasos entre todas. Con 49/7 eran siete vueltas idénticas
-   y segmentos de 6,9 px — las facetas se veían en las cúspides. Calculándolo,
-   el segmento más largo baja a 0,99 px. */
+   billetes, y por eso el dibujo sale «a moneda» y no «a decoración». */
 /**
  * Una vuelta de guilloché, con TODO lo que hace falta para comprobarla.
  * `cx`/`cy`/`box` viajan en el dato —idea de astryum-27— para que la prueba
@@ -151,28 +88,7 @@ const FIELD_ROSETTE = FIELD_SPECS.map((p) => hypotrochoid(p));
 /* ── EL TRAZO SE MIDE EN PÍXELES, NO EN UNIDADES DEL viewBox ────────────────
    Un grabado monolínea se apoya en un trazo fino, y un trazo fino tiene un
    suelo: por debajo de medio píxel de CSS el antialias lo reparte entre dos
-   columnas de píxeles y lo que llega al ojo es una neblina, no una línea.
-
-   El grosor REAL en pantalla es `base · size / 120`. Con el 0.6 del sello eso
-   da 0.62 px a size=124 (la puerta del Earn: correcto, es lo que se afinó) y
-   0.23 px a size=46 — la probeta con la que se ELIGE el tema en Ajustes y en
-   el alta, donde el sello se veía como una mancha oscura. Verificado
-   rasterizando el SVG a sus dos tamaños de montaje reales, no a ojo.
-
-   Así que el grosor y la tinta compensan el tamaño de pintado. La regla NO
-   toca los montajes grandes (a partir de ~100px devuelve el valor tal cual),
-   así que el dibujo afinado para la puerta del Earn no se mueve ni un pelo:
-   solo deja de disolverse cuando alguien lo monta pequeño. El tope de 2.2×
-   evita que un mark diminuto acabe dibujado con morcillas.
-
-   DÓNDE ESTÁ EL LÍMITE, Y QUÉ SIGNIFICA. Por debajo de ~28px el tope muerde
-   antes de llegar al suelo, así que el trazo vuelve a quedar por debajo del
-   píxel: con base 0.6 a 26px se queda en 0.29 px. Eso NO es un fallo de esta
-   función — es la señal de que el dibujo está montado más pequeño de lo que
-   admite. La balanza tiene fuste, brazo, tirantes, dos platillos y una base;
-   a 26px no hay grosor que la haga legible, así que la respuesta correcta es
-   no montarla ahí, y por eso la probeta dejó de hacerlo. Engordar el trazo de
-   un dibujo demasiado denso no lo salva: lo convierte en una mancha. */
+   columnas de píxeles y lo que llega al ojo es una neblina, no una línea. */
 export const MIN_CSS_PX = 0.5;
 const BOX = 120;
 
@@ -320,35 +236,12 @@ export function RegisterMark({ size = 120 }: { size?: number }) {
   );
 }
 
-/* ── LOS GRABADOS DE LAS PÁGINAS (2026-09-14) ───────────────────────────────
-   Fundador: «el tema me gusta mucho, pero quiero que se infiltre todavía
-   más». Hasta hoy solo las tres puertas del Earn cambiaban de dibujo; el
+/* ── LOS GRABADOS DE LAS PÁGINAS ───────────────────────────────
+   Hasta hoy solo las tres puertas del Earn cambiaban de dibujo; el
    resto del panel —Portfolio, Home, Wallets, Ajustes, Estrategias, Legacy—
    seguía montando las escenas de ESPACIO (ui/scenes.tsx: el faro de satélites,
    el campo de planetas, los diales de la consola) con el bronce encima. Un
-   filtro de color, que es justo lo que este tema no debía ser.
-
-   Dos grabados nuevos cubren las dos escenas que más se repiten:
-
-     · MeridianMark — el GLOBO de meridianos y paralelos, el mapa de capital
-                      de un atlas grabado. Sustituye a CapitalField (los
-                      planetas del Portfolio).
-     · SignetMark   — el SELLO con sus firmas: los signatarios como anillos
-                      alrededor del sello, cada uno con su rúbrica hacia el
-                      centro. Sustituye a SignalBeacon (los satélites de
-                      Wallets, Home y Posiciones) y a CouncilScene (los
-                      firmantes del consejo): las dos cosas son lo mismo
-                      visto desde un registro — cuentas que firman.
-
-   El pórtico ya cubría al templo de Legacy y el registro a la consola de
-   Ajustes y al libro del Legacy; la firma que se escribe sola (SignatureScene)
-   se queda: en bronce y sin halo es exactamente la rúbrica de un documento.
-
-   Geometría calculada, no dibujada a mano: las elipses del globo salen de la
-   proyección real de una esfera (rx = R·sin λ para un meridiano a longitud λ,
-   rx = R·cos φ para un paralelo a latitud φ) y los anillos del sello de un
-   reparto regular. Sus parámetros se exportan para que skinMarks.test.ts los
-   compruebe como al hipotrocoide: que quepan y que no colapsen. */
+   filtro de color, que es justo lo que este tema no debía ser. */
 
 /** El globo: radio del disco y las longitudes de sus meridianos (grados).
  *  ±90° NO está: sería el propio contorno y pintaría el filete dos veces. */

@@ -3,19 +3,6 @@
  * amends) a council. This is "create the governed wallet from zero" (ADR-008
  * guardrail #1 / ADR-009 Capa 0): Astryum composes the txjson, the account signs
  * it in its own wallet, the ledger executes. We never sign, never hold a key.
- *
- * WHO SIGNS THIS (the correctness point): a SignerListSet on an account that has
- * no council yet is signed by the account's OWN master key — single-sig — because
- * there is no quorum to sign with. So this hand-off flows through the DIRECT sign
- * path (the account owner signs in Xaman), NOT the multisig coordinator. Once the
- * list exists, FURTHER SignerListSet amendments are signed by the current quorum
- * (and then flow through the coordinator). The two paths are correct as-is:
- * canSignDirect is true precisely when the account is the connected wallet and has
- * no council yet.
- *
- * The reason this is prepare-only and NOT "being a wallet" (ADR-006 revisited by
- * ADR-008): it composes calldata for the user's OWN account; the user's wallet
- * signs. Link-out to external multisign tools stays only as a fallback.
  */
 import { AccountSetAsfFlags, convertStringToHex, isValidClassicAddress, validate } from 'xrpl';
 import { withSourceTag } from '../../../config/xrplSourceTag';
@@ -151,24 +138,6 @@ export function buildSignerListSet(input: BuildSignerListSetInput): XrplTxHandof
  * buildDisableMaster — "close the door" (ADR-008): compose the UNSIGNED
  * AccountSet(asfDisableMaster) that hands the account's authority entirely to
  * the council.
- *
- * WHO SIGNS THIS (the correctness point — learned from tecNEED_MASTER_KEY on
- * mainnet): disabling the master key is the ONE operation the quorum CANNOT do.
- * XRPL requires the transaction to be signed by the account's MASTER KEY itself —
- * a multi-signature or a regular key is rejected with `tecNEED_MASTER_KEY`
- * (https://xrpl.org/accountset — "you cannot use a regular key pair or a
- * multi-signature" to enable asfDisableMaster). So this flows through the DIRECT
- * sign path (the account owner signs single-sig in their own wallet), NOT the
- * multisig coordinator. It is the master key's final act: after it, only the
- * council quorum can act.
- *
- * This replaces the LegacyPanel's link-out-to-xApp hand-off for closing the door
- * (ADR-008 supersedes it; link-out stays only as a fallback).
- *
- * SAFETY (ADR-008 guardrail #1): disabling the master key over a council that
- * cannot reach quorum bricks the account forever. This builder only composes the
- * bytes; the load-bearing gate — never offer this before the on-chain rehearsal
- * has passed — lives in the panel (`health.canCloseDoor`).
  */
 export function buildDisableMaster(input: BuildDisableMasterInput): XrplTxHandoff<DisableMasterTx> {
   if (!isValidClassicAddress(input.account)) {

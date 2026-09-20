@@ -1,9 +1,7 @@
 /**
- * productizer it. 23 (3.2 y 3.3) — LO QUE EL SERVIDOR NO SUPO, SE DICE.
+ * LO QUE EL SERVIDOR NO SUPO, SE DICE.
  *
- * 3.2: `spentTodayXrp` es `number | null` en el backend desde la it. 21 (el
- * libro de gasto se lee ESTRICTO, y «no pude leerlo» jamás puede pasar por «0
- * gastado hoy» en el número que acota una llave que firma). El frontend seguía
+ * `spentTodayXrp` es `number | null` en el backend desde la. El frontend seguía
  * tipándolo `number`, así que la consola imprimía la palabra «null» y la mesa
  * dejaba un hueco — que al lado de «/ 200 XRP today» se lee como cero.
  *

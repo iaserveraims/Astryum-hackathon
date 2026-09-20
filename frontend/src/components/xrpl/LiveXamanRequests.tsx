@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * LiveXamanRequests — the Xaman requests whose screen went away (productizer-it7).
+ * LiveXamanRequests — the Xaman requests whose screen went away.
  *
  * Mounted ONCE in the authenticated app layout. It renders what
  * `lib/xaman/liveRequests` holds and no mounted component is showing:
@@ -9,32 +9,10 @@
  *     «sign or cancel it in Xaman», and «Cancel it here» through the same
  *     `cancelPayloadAndDecide` round trip as every other surface — a refusal
  *     (ALREADY_OPENED) or no answer keeps it listed WITH the sentence;
- *   · one SIGNED whose ledger result is being read (it.11): it stays until the
+ *   · one SIGNED whose ledger result is being read: it stays until the
  *     ledger answers, and then says what it said — validated, failed, refused /
  *     stale, or «could not confirm — check the hash». Never «done» on Xaman's word;
  *   · one whose outcome could not be read before the watch gave up.
- *
- * «Astryum delivers the order to Flare automatically» is said ONLY when the server
- * took that on (it.13): a council order whose prepare answered `serverDelivery`
- * recorded + executor running — `deliversToFlareAutomatically`. A council order
- * WITHOUT that word says «do NOT sign it again — keep this screen open until it
- * reaches Flare, or relay it by hash». A 0xFE needs the same word (it.14, R2
- * 2.6): the promise used to come from the transaction's syntax, so a stopped
- * executor still read as «delivered»; unconfirmed, it says so. Every other
- * payload keeps «do NOT sign it again».
- *
- * A STALE council order says what became of the ORDER (the fate read) before any
- * «prepare it again»: a sibling request may already be on its way to Flare.
- *
- * NOTICES that belong to no payload (a 0xFE seat the server refused to release)
- * are listed here too, dismissable.
- *
- * And while any request is still signable OR its signature is still being
- * confirmed, leaving the page asks first (`beforeunload`): a full unload is the
- * one thing the registry cannot survive.
- *
- * Astryum only reads the status and the public ledger and relays the user's own
- * cancel; the signature is always the user's, in their Xaman.
  */
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -67,19 +45,13 @@ const EMPTY: LiveXamanRequest[] = [];
 const NO_NOTICES: LiveNotice[] = [];
 
 /**
- * it. 21 (it. 20 §3.4) — THE COUNTDOWN THAT DID NOT COUNT.
+ * THE COUNTDOWN THAT DID NOT COUNT.
  *
  * The banner printed the server's `secondsLeft` VERBATIM and the notice never
  * expired, so «it frees itself in about 287 seconds» was still on screen five
  * minutes after the seat had freed itself. A number that does not move is worse
  * than no number: it is a promise the person watches rot, and it sends them to
  * wait for something that already happened.
- *
- * One tick a second while a notice has a deadline, derived from the instant the
- * notice carries (`liveNoticeCountdown`, pure). At zero it does not print 0 and
- * it does not vanish silently — it FLIPS to «the window has passed», which is
- * what actually changed, and it says out loud that preparing again is a race it
- * cannot promise (it. 20 §3.9).
  */
 function NoticeRow({ n }: { n: LiveNotice }) {
   const { t } = useT();
@@ -96,7 +68,7 @@ function NoticeRow({ n }: { n: LiveNotice }) {
   // second one is an estimate and says so, and neither is frozen any more.
   const measured = n.freesInSeconds !== undefined;
   /**
-   * it. 23 (it. 22 §3.1) — WHAT AN UNMEASURED REFUSAL MAY SAY.
+   * WHAT AN UNMEASURED REFUSAL MAY SAY.
    *
    * With a 503 nothing was read: not that the seat is held, not that it is free,
    * not how long anything has. So there is no countdown and, above all, no
@@ -203,16 +175,16 @@ function Notice({
 function RequestRow({ r }: { r: LiveXamanRequest }) {
   const { t } = useT();
   const stray = strayStateOf(r.cancelUi);
-  // Only what the server TOOK ON (it.13) — never the tx syntax alone.
+  // Only what the server TOOK ON — never the tx syntax alone.
   const order = deliversToFlareAutomatically(r.txKey);
   // A council order the server did not take on delivering: nobody relays it once
   // its screen is gone, so the banner says exactly that.
   const undeliveredOrder = !order && isCouncilOrderTx(r.txKey);
-  // The same prudence for a 0xFE (it.14, R2 2.6): its handoff is persisted, but
+  // The same prudence for a 0xFE (R2 2.6): its handoff is persisted, but
   // only a RUNNING executor sweeps the Core Vault, and the banner used to promise
   // delivery from the transaction's syntax alone — exactly when nobody delivers.
   const undeliveredInstruction = !order && isFlareInstructionTx(r.txKey);
-  // it.16 (R3 3.2): the prudent sentence is an ACCUSATION («nothing confirmed it
+  // The prudent sentence is an ACCUSATION («nothing confirmed it
   // is running»), and it was printed over every institutional exit only because
   // no 0xFE route sends `executorEnabled` at all. It now speaks only when the
   // server actually said the executor is stopped; when nobody said, the wording
@@ -262,7 +234,7 @@ function RequestRow({ r }: { r: LiveXamanRequest }) {
   if (r.state === 'failed') {
     const sentence =
       r.failure === 'stale'
-        ? // A council order says what became of the ORDER first (it.13): a
+        ? // A council order says what became of the ORDER first: a
           // sibling request may already be on its way — never a blind «prepare again».
           t(staleSentence(r.fate))
         : r.failure === 'refused'

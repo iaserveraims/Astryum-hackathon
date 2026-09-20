@@ -260,16 +260,16 @@ describe('serverRefusal — the new permission floor reaches the family as prose
 });
 
 /**
- * productizer it. 25 (1) — LA FILA QUE NO PUDIMOS LEER TENÍA QUE LLEGAR A LA PANTALLA.
+ * LA FILA QUE NO PUDIMOS LEER TENÍA QUE LLEGAR A LA PANTALLA.
  *
- * it. 23 dejó de tirarla en el servidor: `GET /council/proposals` contesta 200 con
+ * Dejó de tirarla en el servidor: `GET /council/proposals` contesta 200 con
  * las legibles en `proposals` y las indecidibles NOMBRADAS en `unreadable[]`, con el
  * mismo cuerpo (`error`/`retryable`/`detail`) que llevaría la respuesta entera si no
  * hubiese nada legible. Pero el cliente no declaraba el campo y los consumidores
  * desestructuraban solo `proposals`: la fila volvía a desaparecer. Este es el lector
  * único que la convierte en una frase — y el que prueba que NO desaparece.
  */
-describe('it. 25 (1) — describeUnreadableRows: las filas ilegibles se cuentan y se dicen', () => {
+describe('DescribeUnreadableRows: las filas ilegibles se cuentan y se dicen', () => {
   const row = (over: Record<string, unknown> = {}) => ({
     id: 'p2',
     account: 'rsmvJMhhjn6L3oCf29UZE2mtw9kcsKDmrf',
@@ -325,7 +325,7 @@ describe('it. 25 (1) — describeUnreadableRows: las filas ilegibles se cuentan 
 });
 
 /**
- * productizer it. 25 (3) — «LIQUIDA ESA FILA» ANTES DE MIRAR EL EXPLORADOR.
+ * «LIQUIDA ESA FILA» ANTES DE MIRAR EL EXPLORADOR.
  *
  * La reserva de `PRIOR_SEAT_UNRESOLVED` —la que habla cuando el `detail` no llega—
  * mandaba a registrar el hash o a archivar la propuesta sin decir el primer paso. La
@@ -333,7 +333,7 @@ describe('it. 25 (1) — describeUnreadableRows: las filas ilegibles se cuentan 
  * llegó a ejecutarse: archivar o re-difundir algo que pudo aterrizar es el pago doble
  * en persona.
  */
-describe('it. 25 (3) — el asiento sin resolver manda al explorador ANTES que a la bandeja', () => {
+describe('El asiento sin resolver manda al explorador ANTES que a la bandeja', () => {
   it('nombra el explorador, y lo nombra primero', () => {
     const text = serverRefusalText(jpostError(422, { error: 'PRIOR_SEAT_UNRESOLVED' }), t);
     expect(text).toContain('explorer');
@@ -345,7 +345,7 @@ describe('it. 25 (3) — el asiento sin resolver manda al explorador ANTES que a
 });
 
 /**
- * productizer it. 27 (3) — EL LECTOR COMPARTIDO TIRABA `headline`, `ways[]` Y
+ * EL LECTOR COMPARTIDO TIRABA `headline`, `ways[]` Y
  * `retryAfterSeconds`.
  *
  * QUÉ SE VEÍA. `backend/src/services/identity/provenAddresses.ts` construye cada
@@ -358,7 +358,7 @@ describe('it. 25 (3) — el asiento sin resolver manda al explorador ANTES que a
  * del consejo, leía «Sign in with the wallet that controls this address» y no tenía
  * NADA QUE PULSAR. Tres iteraciones seguidas rescatado con prosa a secas.
  */
-describe('it. 27 (3) — el sobre entero llega, y con él un camino que se puede pulsar', () => {
+describe('El sobre entero llega, y con él un camino que se puede pulsar', () => {
   /** El cuerpo exacto de `PROOF_REFUSALS.PROOF_STORE_UNREADABLE` (503, verbatim). */
   const STORE_UNREADABLE = {
     error: 'PROOF_STORE_UNREADABLE',

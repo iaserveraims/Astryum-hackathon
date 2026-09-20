@@ -8,49 +8,7 @@
  * human clicks: the client deposits with a tag, the exchange backend mints
  * FXRP into the pote naming the client account as receiver, and pays clients
  * out to their own wallets. A real exchange has exactly this hot key; here it
- * is ours because we play the exchange (decision of the founder, 2026-08-26).
- *
- *   · It is NEVER a user key (invariant #1 intact): no client of the demo
- *     ever hands a seed to this backend. Clients sign with their own Xaman
- *     (deposits) or their passkey (exits); their shares live in THEIR account.
- *   · It is NOT Astryum's product key either: the product (prepare-only,
- *     `/api/institutional/*`) keeps signing nothing. This key exists only
- *     behind `DEMO_EXCHANGE_AUTOSIGN_ENABLED` for the demo surface, like the
- *     keeper's seed (`XrplEscrowKeeper`) or the executor's gas key on Flare.
- *   · MICA_BOUNDARIES §2: this is the simulated counterparty's own operation,
- *     not "execution of orders on behalf of clients" by Astryum.
- *
- * ── What the key refuses, by construction ──────────────────────────────────
- *   · to sign from any account other than its own, or for a run whose omnibus
- *     is not that account;
- *   · to pay anywhere but the FAssets Core Vault (0xFE mint + deposit) or the
- *     registered own wallet of a client of the run (payout);
- *   · to mint shares to any address that is not the account of a CLIENT OF
- *     THIS RUN. KYC is the exchange's own business (a real exchange verified
- *     its client long before this point and does not publish it on-chain —
- *     founder, 2026-08-26), so what this key enforces is the binding it does
- *     own: tag ↔ client ↔ account, in the exchange's books. If the pote does
- *     carry an on-chain gate (`userGate`) or the run names a registry, that
- *     gate must ALSO approve — otherwise the deposit would revert after the
- *     XRP is already spent;
- *   · a mint payment carrying a DestinationTag (FAssets would misroute it);
- *   · above DEMO_EXCHANGE_MAX_TX_XRP per payment, or past
- *     DEMO_EXCHANGE_DAILY_CAP_XRP per UTC day (spend ledger persisted) — ON AN
- *     ENTRY OR ANY OWN OPERATION. Those two caps protect THIS KEY; they are
- *     never a gate on anybody's exit, so a client's payout does not meet them
- *     (it. 25, `capApplies`).
- * Every refusal is a receipt with its reason. The seed never appears in a log.
- *
- * Config (staging):
- *   DEMO_EXCHANGE_AUTOSIGN_ENABLED=true
- *   DEMO_EXCHANGE_OMNIBUS_SEED=s… | Xaman secret numbers   (the demo exchange omnibus)
- *   DEMO_EXCHANGE_MAX_TX_XRP=50           DEMO_EXCHANGE_DAILY_CAP_XRP=200
- *   (the Make Waves SourceTag is ALWAYS stripped from what this key signs — see
- *     omnibusTxForSigning; the old DEMO_EXCHANGE_SOURCE_TAG_ATTRIBUTION switch is
- *     no longer read)
- *   XRPL_WS_URL (submit endpoint; default wss://s1.ripple.com — NOT xrplcluster.com,
- *     which answers the WebSocket upgrade with 402 Payment Required to datacenter
- *     IPs: on Railway every submission died as «Unexpected server response: 402»)
+ * is ours because we play the exchange (decision of the founder).
  */
 
 import { kvCompareAndSet, kvGetStrict } from '../persistence/backgroundJobKv';
@@ -75,7 +33,7 @@ export interface SignerConfig {
    */
   allowUngatedPote: boolean;
   /**
-   * La DESIGNACIÓN (Enmienda §10, 12-sep): con esto encendido, la llave solo
+   * La DESIGNACIÓN (Enmienda §10): con esto encendido, la llave solo
    * firma si el CONSEJO del run la ha NOMBRADO en el ledger — una XLS-70 de
    * tipo `OMNIBUS` emitida por esa raíz a esta cuenta, aceptada y vigente.
    * Verificación RELACIONAL (issuer == el consejo del run), jamás allowlist.
@@ -159,31 +117,17 @@ export interface PaymentAssessment {
 }
 
 /**
- * it. 25 (B.1) — ¿A QUIÉN ACOTA EL TOPE? EL TOPE DIARIO Y EL TOPE POR
+ * ¿A QUIÉN ACOTA EL TOPE? EL TOPE DIARIO Y EL TOPE POR
  * TRANSACCIÓN SON PROTECCIONES DE LA LLAVE OPERATIVA DE ASTRYUM, ES DECIR
  * APLICAN A ENTRADAS Y OPERATIVA PROPIA; EL PAYOUT DEL CLIENTE ES SU DINERO Y
  * SALE.
- *
- * La it. 23 movió la LECTURA del tope debajo de la bifurcación por propósito
- * para que un parpadeo de base de datos no matara una retirada — pero dejó la
- * APLICACIÓN arriba, común a los dos caminos. `ABOVE_DAILY_CAP`, `ABOVE_MAX_TX`
- * y `SPEND_LEDGER_NOT_PERSISTED` seguían cayendo sobre el payout: un cliente que
- * retiraba por encima del tope MEDIDO quedaba `refused` y su dinero retenido
- * hasta la medianoche UTC. El mensaje de aquel commit afirmaba lo contrario de
- * lo que hacía el código.
- *
- * Un número nuestro jamás es motivo para quedarnos con el dinero de nadie. Si la
- * caja no tiene saldo para pagar, eso lo dice el ledger (`tecUNFUNDED_PAYMENT`),
- * no una regla de esta casa; y si la caja está gastando de más, eso se corta
- * donde se gasta —las ENTRADAS y la operativa propia—, nunca en la puerta de
- * salida de un cliente.
  */
 export function capApplies(purpose: Purpose): boolean {
   return purpose !== 'payout';
 }
 
 /*
- * it. 27 — Y EL CONTADOR TAMPOCO. Esto decía la verdad sobre la APLICACIÓN del
+ * Y EL CONTADOR TAMPOCO. Esto decía la verdad sobre la APLICACIÓN del
  * tope, pero el payout seguía sumando al total del día (`reserveSpend` →
  * `spentDrops` → `spentToday()`), que es el número con el que esta misma función
  * mide las ENTRADAS. La cárcel se había mudado un piso más abajo: la salida no
@@ -192,29 +136,13 @@ export function capApplies(purpose: Purpose): boolean {
  */
 
 /**
- * LA DESIGNACIÓN TAMPOCO SE COBRA SOBRE EL CLIENTE (productizer it. 25, cabo).
+ * LA DESIGNACIÓN TAMPOCO SE COBRA SOBRE EL CLIENTE (cabo).
  *
  * The council's OMNIBUS appointment is what says this desk may OPERATE that
  * account: take money in, put it to work, spend the ledger's reserve. It is
  * ours, it is off-chain policy read from a credential, and the key can still
  * sign without it — so refusing on its absence is a decision of this house,
  * not physics.
- *
- * The comment that used to sit on that check claimed client payouts «van por
- * passkey y no pasan por aquí». They do: a payout is signed by this very key,
- * with `purpose: 'payout'`, and the pinned test asserted the refusal covered
- * it. Comment and test contradicted each other, and the test was winning: a
- * council that let its appointment lapse froze every client's withdrawal —
- * people who did nothing, punished for OUR paperwork.
- *
- * Nothing is bought by that refusal. A payout's Destination is already pinned
- * to `client.xrplAddress`, the registered own wallet of a client of this run:
- * the only thing this key can do on the exit leg is hand a person their own
- * money back. An unappointed desk should stop TAKING money in — and it does,
- * because entries still fail closed here — never stop giving it back.
- *
- * Same shape as `capApplies`, and the same rule: what protects the house is
- * enforced where the house spends, never at somebody's way out.
  */
 export function appointmentApplies(purpose: Purpose): boolean {
   return purpose !== 'payout';
@@ -274,7 +202,7 @@ export function assessPayment(input: {
   // La jerarquía hecha ledger (Enmienda §10): la caja solo opera NOMBRADA por
   // su raíz. Revocarla congela la OPERATIVA —entradas, puesta a trabajar, gasto
   // propio— y jamás la salida de un cliente, que va a su propia wallet
-  // registrada y solo le devuelve lo suyo (it. 25, ver `appointmentApplies`).
+  // registrada y solo le devuelve lo suyo (ver `appointmentApplies`).
   if (appointmentApplies(purpose) && input.appointment?.required) {
     if (input.appointment.readFailed) {
       return { ok: false, code: 'APPOINTMENT_UNREADABLE', reason: 'the omnibus appointment could not be read from the ledger — not being able to prove the appointment is not an appointment' };
@@ -325,7 +253,7 @@ export function assessPayment(input: {
   // ── Los TOPES. Debajo de esta línea no se decide nada sobre la salida de un
   // cliente: el tope diario y el tope por transacción son protecciones de la
   // llave operativa de Astryum, es decir aplican a ENTRADAS y operativa propia;
-  // el payout del cliente es su dinero y sale (it. 25, B.1 — ver `capApplies`).
+  // el payout del cliente es su dinero y sale (B.1 — ver `capApplies`).
   if (capApplies(purpose)) {
     // Un tope que se borra al reiniciar no es un tope.
     if (input.spendLedgerPersisted === false) {
@@ -365,7 +293,7 @@ export interface CredentialAcceptAssessment {
 const CREDENTIAL_ACCEPT_FIELDS = new Set(['TransactionType', 'Account', 'Issuer', 'CredentialType']);
 
 /**
- * El KYC por casilla (diseño B, 14-sep) son DOS firmas del exchange: la raíz
+ * El KYC por casilla (diseño B) son DOS firmas del exchange: la raíz
  * EMITE `KYC-<tag>` sobre el omnibus y el omnibus la ACEPTA. La raíz nunca vive
  * en caliente, así que su firma sigue siendo humana (Xaman). La aceptación, en
  * cambio, es un acto de la propia caja — y la llave de la caja ya la tiene este
@@ -448,7 +376,7 @@ interface SpendEntry {
   drops: string;
   txHash: string;
   purpose: Purpose;
-  /** Absent on rows written before it. 23: read as 'settled' (they were). */
+  /** Absent on rows written before: read as 'settled' (they were). */
   phase?: SpendPhase;
 }
 
@@ -484,7 +412,7 @@ async function readSpendDay(day: string): Promise<SpendDay | null> {
 }
 
 /**
- * it. 25 (B.4) — LA MEDIANOCHE UTC DESCUADRABA LA CONTABILIDAD.
+ * LA MEDIANOCHE UTC DESCUADRABA LA CONTABILIDAD.
  *
  * `reserveSpend` escribe en el día de la RESERVA, pero `recordSpend` y
  * `releaseSpend` volvían a evaluar `todayKey(now)` cuando el ledger hablaba. Una
@@ -492,11 +420,6 @@ async function readSpendDay(day: string): Promise<SpendDay | null> {
  * importe se contaba DOS veces (reservado en D, asentado otra vez en D+1) y la
  * reserva de D quedaba huérfana comiéndose el tope de aquel día; y `releaseSpend`
  * no encontraba nada que devolver, así que un pago muerto seguía gastado.
- *
- * La liquidación y la devolución buscan el hash en el día en que se RESERVÓ.
- * Dos días de ventana bastan de sobra: un pago de este bucle vive ~80 s
- * (LastLedgerSequence + 20 ledgers), y lo que no aparece ahí lo barre
- * `sweepStaleReservations`.
  */
 const SPEND_LOOKBACK_DAYS = 2;
 
@@ -521,27 +444,8 @@ async function dayOfEntry(txHash: string, now: Date): Promise<string | null> {
 }
 
 /**
- * it. 21 (it. 20, agent B's note) — «I COULD NOT READ» WAS READING AS «NOTHING
+ * «I COULD NOT READ» WAS READING AS «NOTHING
  * SPENT YET», AND THAT REOPENS A CAP ON A KEY THAT SIGNS.
- *
- * This is the daily ceiling of the omnibus seed: the one number that bounds how
- * much Astryum's own key can move in a day. It was read with the soft `kvGet`,
- * which turns a database error into `null`, and the fallback is the in-process
- * memory — empty after every restart. A blink of Postgres therefore answered
- * «0 spent today» and handed the signer its whole cap again, silently.
- *
- * Read strictly and LET THE CALLER DECIDE.
- *
- * it. 23 (1.7) — THE COMMENT THAT USED TO SIT HERE SAID «NOBODY'S WAY OUT
- * DEPENDS ON THIS». IT WAS WRONG, AND IT STOPPED A CLIENT'S WITHDRAWAL.
- * The autopilot read this ONCE, before it knew whether the request in its hand
- * was a put-to-work (an entry: our key spending) or a PAYOUT (a client's money
- * going home). A blink therefore threw on the way OUT too, the exception died in
- * the tick's `errors.push`, and the withdrawal sat pending with no refusal and no
- * sentence — dragging every other client of that run with it. The cap protects
- * OUR key; it is not a gate on anybody's exit. The caller now branches BEFORE it
- * needs this number: the entry fails closed, the exit proceeds and the fact that
- * we could not read our own ledger is recorded (`DemoExchangeAutopilot.fulfil`).
  */
 export async function spentToday(now = new Date()): Promise<bigint> {
   const day = todayKey(now);
@@ -554,23 +458,13 @@ export async function spentToday(now = new Date()): Promise<bigint> {
 const SPEND_CAS_ATTEMPTS = 4;
 
 /**
- * it. 23 (1.4) — THE OTHER HALF OF THE CAP: THE WRITE.
+ * THE OTHER HALF OF THE CAP: THE WRITE.
  *
  * `kvUpsert` SWALLOWS a failed write (best-effort by design), and the spend was
  * written AFTER the blob had been submitted. So a key at 150 of 200 that loses
  * the write of its 150 is read as 150 by nobody: the next tick reads the OLD
  * total and hands the whole cap back — 230 XRP signed under a cap of 200, with
  * nothing in any log.
- *
- * Every mutation of the day record now goes through here: STRICT read, mutate,
- * `kvCompareAndSet` (one atomic conditional UPDATE under an advisory lock), and
- * a failure THROWS. The CAS also closes the older hole this had — two ticks (or
- * two instances during an overlapping deploy) read-modify-writing the same row
- * and one erasing the other's payment.
- *
- * Without `DATABASE_URL` there is no ledger to write: the in-process map is all
- * there is, and `assessPayment` already refuses to sign against it
- * (`SPEND_LEDGER_NOT_PERSISTED`).
  */
 async function mutateSpendDay(day: string, mutate: (current: SpendDay) => SpendDay | null): Promise<SpendDay> {
   if (!process.env.DATABASE_URL) {
@@ -604,33 +498,18 @@ async function mutateSpendDay(day: string, mutate: (current: SpendDay) => SpendD
 }
 
 /**
- * it. 27 — EL TOTAL DEL DÍA SOLO CUENTA LO QUE EL TOPE ACOTA.
+ * EL TOTAL DEL DÍA SOLO CUENTA LO QUE EL TOPE ACOTA.
  *
- * `capApplies` dice desde la it. 25 que el tope diario no se aplica a la salida
+ * `capApplies` dice desde la que el tope diario no se aplica a la salida
  * de un cliente… pero el payout SEGUÍA SUMANDO a `spentDrops`, que es
  * exactamente el número que `spentToday()` devuelve y que la política compara
  * con el tope en las ENTRADAS. Una retirada de 120 XRP con el tope por defecto
  * de 200 dejaba a TODOS los clientes de TODAS las tomas sin poder entrar hasta
  * la medianoche UTC: el dinero de un cliente volviendo a su casa estrangulaba la
  * operativa de la casa, cuando no es gasto nuestro en ningún sentido.
- *
- * El apunte se escribe igual —con su hash, su importe, su propósito y su fase—
- * porque la auditoría del ómnibus necesita ver TODO lo que esta llave PAGÓ. Lo
- * que no hace es engordar el contador que acota a los demás.
- *
- * it. 29 — Y EL CONTADOR SE LLAMA POR SU NOMBRE. Decía que `spentDrops` es «lo
- * gastado por la casa hoy», y no lo es: lo que esta llave firma sin pagar a
- * nadie no pasa por aquí (un `CredentialAccept` consume reserva de propietario y
- * comisión, y no deja apunte — ver `acceptIssuedSlotCredentials`). `spentDrops`
- * es «lo que esta llave ha PAGADO hoy y el tope acota»: ni todo lo que ha salido
- * de la cuenta, ni todo lo que le ha costado a la casa.
- *
- * Toda mutación del total pasa por aquí: reservar, asentar, devolver y barrer
- * usan la MISMA regla, o el contador se descuadraría al devolver algo que nunca
- * sumó.
  */
 function countsAgainstCap(purpose: Purpose | undefined): boolean {
-  // `undefined` = apunte de un build anterior a la it. 23, que sí sumó: se
+  // `undefined` = apunte de un build anterior a la, que sí sumó: se
   // devuelve igual que se contó.
   return purpose === undefined || capApplies(purpose);
 }
@@ -641,7 +520,7 @@ function countsAgainstCap(purpose: Purpose | undefined): boolean {
  * decides what that means for the payment in its hand (an entry does not go; an
  * exit does, and says so).
  *
- * Un payout deja su apunte pero NO suma al total (it. 27, `countsAgainstCap`).
+ * Un payout deja su apunte pero NO suma al total (`countsAgainstCap`).
  */
 export async function reserveSpend(drops: bigint, txHash: string, purpose: Purpose, now = new Date()): Promise<void> {
   await mutateSpendDay(todayKey(now), (record) => {
@@ -662,7 +541,7 @@ export async function reserveSpend(drops: bigint, txHash: string, purpose: Purpo
  * per hash, so a replay never counts its XRP twice.
  */
 export async function recordSpend(drops: bigint, txHash: string, purpose: Purpose, now = new Date()): Promise<void> {
-  // El día de la RESERVA, no el de ahora (it. 25, B.4): una reserva de las
+  // El día de la RESERVA, no el de ahora (B.4): una reserva de las
   // 23:59 que asienta a las 00:00 se marca donde está, y así no se cuenta dos
   // veces. Sin reserva previa (un replay del journal de otro build) se cuenta
   // hoy — una vez por hash, como siempre.
@@ -694,7 +573,7 @@ export async function recordSpend(drops: bigint, txHash: string, purpose: Purpos
  */
 export async function releaseSpend(txHash: string, now = new Date()): Promise<void> {
   if (!txHash) return;
-  // El día de la RESERVA (it. 25, B.4). Buscándolo en `todayKey(now)`, una
+  // El día de la RESERVA (B.4). Buscándolo en `todayKey(now)`, una
   // reserva de ayer no se devolvía nunca: el pago estaba muerto y su importe
   // seguía gastado.
   const day = await dayOfEntry(txHash, now);
@@ -706,7 +585,7 @@ export async function releaseSpend(txHash: string, now = new Date()): Promise<vo
     if ((entry.phase ?? 'settled') === 'settled') return null;
     const entries = record.entries.slice();
     entries.splice(idx, 1);
-    // Se devuelve lo que se contó, no lo que se movió (it. 27): un payout nunca
+    // Se devuelve lo que se contó, no lo que se movió: un payout nunca
     // sumó al total, así que devolverlo lo dejaría por debajo de lo gastado.
     const back = countsAgainstCap(entry.purpose) ? BigInt(entry.drops) : BigInt(0);
     const total = BigInt(record.spentDrops);
@@ -736,7 +615,7 @@ export interface SweptReservation {
 }
 
 /**
- * it. 25 (B.4) — BARRIDO DE RESERVAS HUÉRFANAS.
+ * BARRIDO DE RESERVAS HUÉRFANAS.
  *
  * Una reserva que no se liquidó ni se devolvió (el proceso murió entre
  * `reserveSpend` y el veredicto del ledger, y con él la petición que lo iba a
@@ -744,13 +623,6 @@ export interface SweptReservation {
  * propia arranca estrangulada por un pago que nunca existió. Este barrido se la
  * devuelve y dice cuál era, para que un humano reconcilie contra el historial
  * del ómnibus.
- *
- * SOLO PUEDE ABRIR, JAMÁS CERRAR: devuelve importe al tope, y el tope solo
- * acota ENTRADAS y operativa propia (`capApplies`). Ninguna salida de ningún
- * cliente depende de esto, ni puede ser negada por esto.
- *
- * Devuelve lo barrido (vacío = nada que barrer) para que el caller lo avise por
- * el canal de ops: un barrido es siempre la huella de un vuelo interrumpido.
  */
 export async function sweepStaleReservations(now = new Date()): Promise<SweptReservation[]> {
   const ttl = reservationTtlMs();
@@ -766,7 +638,7 @@ export async function sweepStaleReservations(now = new Date()): Promise<SweptRes
       // ledger puede haber hablado, y un asentado jamás se des-gasta.
       const give = current.entries.filter((e) => staleHashes.has(e.txHash) && isStale(e));
       if (!give.length) return null;
-      // Igual que `releaseSpend`: solo vuelve lo que llegó a contar (it. 27).
+      // Igual que `releaseSpend`: solo vuelve lo que llegó a contar.
       const back = give.reduce((acc, e) => acc + (countsAgainstCap(e.purpose) ? BigInt(e.drops) : BigInt(0)), BigInt(0));
       const total = BigInt(current.spentDrops);
       return {
@@ -817,7 +689,7 @@ export interface SignedSubmission {
 
 function omnibusClient(Client: typeof import('xrpl').Client) {
   // s1, no xrplcluster: xrplcluster devuelve 402 al upgrade del WebSocket desde IPs
-  // de datacenter (Railway), y el autopilot moría en «SIGN_FAILED: … 402» (14-sep).
+  // de datacenter (Railway), y el autopilot moría en «SIGN_FAILED: … 402».
   return new Client(process.env.XRPL_WS_URL || 'wss://s1.ripple.com', { connectionTimeout: 10_000 });
 }
 
@@ -841,7 +713,7 @@ export async function signForSubmission(txjson: Record<string, unknown>): Promis
     const submittedAtLedger = await client.getLedgerIndex();
     // A caller that already carries a LastLedgerSequence (a 0xFE whose nonce seat
     // RECORDED that window) has its window honoured, never re-stamped: the seat
-    // and the payment must bound the same ledgers (it. 14, R1 1.1).
+    // and the payment must bound the same ledgers (R1 1.1).
     const pinned = typeof tx.LastLedgerSequence === 'number' ? (tx.LastLedgerSequence as number) : null;
     if (pinned !== null && submittedAtLedger >= pinned) {
       throw new Error(`LastLedgerSequence ${pinned} is already past (validated ledger ${submittedAtLedger}): this payment can never enter a ledger — compose it again`);

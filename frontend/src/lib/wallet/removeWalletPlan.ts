@@ -1,39 +1,6 @@
 /**
  * QUITAR UNA CUENTA DE LA LISTA — QUÉ HAY QUE BORRAR, EXACTAMENTE.
  *
- * Fundador 2026-09-13: «tengo una wallet legacy que no puedo eliminar de la
- * cuenta; en Manage no aparece el botón de remove, ni la papelera, ni cuando
- * entro en Govern aparece ninguna opción».
- *
- * Eran DOS fallos encadenados, y el segundo es el que importa:
- *
- *  1. El botón no se pintaba. El bloque de borrado entero vivía dentro de un
- *     `{!council && (…)}` en ManageWalletModal, así que en una cuenta con
- *     consejo no se enseñaba nunca — pese a que el texto de dentro ya tenía
- *     su variante para Legacy, escrita y muerta.
- *  2. Aunque se hubiera pintado, `onRemove(wallet.id)` habría fallado o no
- *     habría servido de nada. Una cuenta gobernada llega a esa lista por
- *     hasta TRES caminos a la vez, y borrar uno deja vivos los otros:
- *
- *       · una fila real de `/wallets/mine` (id de verdad);
- *       · un puntero del registro de cuentas gobernadas (`registryId`);
- *       · la wallet XRPL CONECTADA en esta sesión, que es candidata por el
- *         hecho de estar conectada;
- *       · y el puntero local del navegador (`legacyLocal`).
- *
- *     Una fila sintetizada lleva id `legacy:<address>`, que no existe en el
- *     servidor: pedir su borrado es un 404. Y una fila real borrada vuelve a
- *     aparecer en la siguiente lectura si su puntero del registro sigue ahí.
- *     Ese es el patrón que este repo ya pagó antes: «se re-creaba en cada
- *     carga después de borrarla».
- *
- * Este módulo contesta a una sola pregunta —qué hay que borrar para que la
- * cuenta no vuelva— y la contesta sin tocar nada, para poder probarla.
- *
- * REGLA QUE NO SE NEGOCIA: quitar de la lista **no toca el ledger**. No se
- * firma, no se disuelve un consejo, no se mueve capital. La cuenta y su
- * consejo siguen en XRPL exactamente igual. Lo único que se borra son los
- * punteros de Astryum.
  */
 
 import { addressKey } from '../authority';

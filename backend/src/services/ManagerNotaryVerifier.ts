@@ -1,29 +1,9 @@
 /**
- * ManagerNotaryVerifier — los CHECKS REPRODUCIBLES del bot-notario (spec
- * `Astryum_Issuer_Bridge_Multisig_Credencial_Gestor_2026-08-29.md` §7-§8).
  *
  * La tesis: el emisor de la credencial AIFM no ejerce juicio — atesta hechos
  * públicos que CUALQUIERA puede re-comprobar. Este módulo ES esa
  * re-comprobación, expuesta como endpoint público, para que cada emisión sea
  * auditable por terceros:
- *
- *   1. `domain-set` — la r-address del gestor declara un dominio (`Domain`).
- *   2. `toml-binding` — ese dominio devuelve la declaración: sirve
- *      `/.well-known/xrp-ledger.toml` con la r-address bajo `[[ACCOUNTS]]`.
- *      Solo el vínculo EN LAS DOS DIRECCIONES vale (cualquiera puede hostear
- *      un toml que reclame cuentas ajenas — xrpl.org lo avisa).
- *   3. `register-entry` — el dominio pertenece a una firma del registro de
- *      AIFMs configurado. Hoy la lista es config (`MANAGER_REGISTER_FIRMS`,
- *      mantenida a mano contra el registro público); el adaptador a la API
- *      oficial (ESMA A2A / FCA register) es el siguiente paso y NO cambia
- *      este contrato.
- *
- * Reglas duras:
- *  - «No pude leer» JAMÁS es «no» — un toml inaccesible se dice como fallo de
- *    lectura, nunca como «la firma no controla la wallet».
- *  - Este módulo NO emite nada: comprueba. La emisión sigue siendo la
- *    ceremonia (XrplCredentialCeremony), firmada por el emisor en su Xaman.
- *  - Todo lo evaluable es PURO (fetch y ledger inyectables): testeable en seco.
  */
 
 import { BlockList, isIP } from 'net';
@@ -223,7 +203,7 @@ export function evaluateNotary(input: {
   };
 }
 
-// ── La frontera de red (productizer 13-sep, H2b: SSRF) ──────────────────────
+// ── La frontera de red ──────────────────────
 //
 // El `Domain` lo escribe el DUEÑO de la cuenta — cualquiera — y el endpoint
 // del notario es público. Sin frontera, `https://${domain}/…` era un oráculo

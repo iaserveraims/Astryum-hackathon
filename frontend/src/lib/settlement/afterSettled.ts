@@ -1,8 +1,5 @@
 /**
- * afterSettled — lo que la app hace SOLA cuando una operación asienta
- * (fundador 2026-09-09: «he realizado una operación de earn XRP vault y no se
- * muestran las operaciones en el home, los assets earning no se han
- * actualizado»).
+ * afterSettled — lo que la app hace SOLA cuando una operación asienta.
  *
  * EL HUECO. Firmar y asentar cambiaba el capital de verdad, pero nadie se lo
  * decía al Portfolio: el snapshot del backend vive 5 min en caché por wallet
@@ -10,14 +7,6 @@
  * earning» leen ESE snapshot — así que la posición nueva no existía para
  * ellos hasta cinco minutos y una recarga después. El Portfolio tenía un
  * botón manual de refresco; el Home ni eso.
- *
- * LA REGLA. Al asentar, se fuerza un snapshot fresco (POST /portfolio/snapshot,
- * que salta la caché y persiste) de cada wallet del usuario y se invalida el
- * agregado del cliente: todas las superficies recargan solas. Una vez por
- * referencia, aunque dos trackers (el del modal y el del shell) vean el mismo
- * asiento. Las wallets se leen de la lista viva, no de un prop: la Smart
- * Account donde aterrizan las shares de una bóveda es una fila más de esa
- * lista.
  */
 
 import { listMyWallets } from '../../services/walletLinkService';

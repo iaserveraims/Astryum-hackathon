@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * VaultCreator — el creador de vaults como EXPERIENCIA (fundador 2026-08-30:
- * «tiene que ser muy interactivo y dinámico»), no como formulario de consola.
+ * VaultCreator — el creador de vaults como EXPERIENCIA, no como formulario de consola.
  *
  * CINCO ESTACIONES y una CARD VIVA. A la izquierda, cada paso decide una cosa
  * (identidad → las dos promesas inmutables → reglas → destinos → revisar y
@@ -11,25 +10,6 @@
  * imitación) se va montando en vivo con cada tecla, y debajo la HOJA DE
  * PROMESAS crece línea a línea según decides. Diseñar mirando exactamente lo
  * que el cliente verá es la parte «dinámica» que un formulario no da.
- *
- * MISMOS RAÍLES, CERO BIFURCACIÓN. Esto no inventa rutas: compone con
- * `prepareCageCreate` (nacimiento, una firma 0xFE) y `prepareCageOrder`
- * (`create-pote`) — exactamente las llamadas de CageConsole, que sigue montada
- * debajo como consola avanzada (dirigir, recuperar, director, dry-run, lista
- * eterna). El backend compone, la wallet firma, la jaula acota (prepare-only).
- *
- * EL TÚNEL (fundador 2026-08-30: «no se puede acceder porque no hay cuentas
- * verificadas... hazme un túnel»): con `account === null` el creador es
- * PLENAMENTE interactivo pero SIN firma — cada control vivo, la card y las
- * promesas también, y el paso final dice en ámbar que el túnel no firma. Lo
- * monta /app/manager?tunnel=1 dentro de <PreviewOnly> (isAdmin del servidor,
- * fail-closed): los fundadores iteran el diseño sin flag, sin wallet y sin
- * chain; nadie más ve nada.
- *
- * LOS DOS INMUTABLES conservan el copy de VaultBirthPlanner palabra por
- * palabra (mismas claves del diccionario): ese texto ya decía lo difícil —
- * qué implica cada valor y que son promesas a clientes que aún no tienes.
- * El planner queda INERTE (absorbido aquí).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ElementType } from 'react';
@@ -101,8 +81,7 @@ const ASSET_SYMBOL = 'FXRP';
 const EXAMPLE = 100000;
 
 /**
- * EL SÍMBOLO SE DERIVA DEL NOMBRE, no se teclea (fundador 10-sep: «nada de
- * texto»). Tres variantes honestas a partir de las palabras del nombre, con
+ * EL SÍMBOLO SE DERIVA DEL NOMBRE, no se teclea. Tres variantes honestas a partir de las palabras del nombre, con
  * el activo detrás para que se lea qué hay dentro (WT + FXRP = WTFXRP), y se
  * eligen como fichas. Siempre A–Z0–9, de 2 a 8 caracteres — lo que admite el
  * token de participaciones.
@@ -122,8 +101,7 @@ function deriveShareSymbols(name: string, asset: string): string[] {
 }
 
 /**
- * EL BORRADOR (fundador 11-sep: «parece que no se guarda el vault que estoy
- * creando»): el creador vive dentro de una estación que se desmonta al
+ * EL BORRADOR: el creador vive dentro de una estación que se desmonta al
  * cambiar de estación, plegar la ventana o recargar — y con él se iba todo
  * lo tecleado. El borrador se guarda por cuenta en localStorage a cada
  * cambio y se restaura al volver; se borra cuando la orden queda firmada.
@@ -206,8 +184,7 @@ function Slider({
  * Cuando el creador vive DENTRO de otro raíl (la estación «Primer vault» del
  * alta), sus bordes se cosen al raíl anfitrión: el «Atrás» del primer paso va a
  * la estación anterior y el último paso ofrece la siguiente. Así hay UN pie de
- * navegación en pantalla, no dos (fundador 8-sep: «el proceso es tedioso y
- * repetitivo» — dos wizards anidados, cada uno con su fila de botones, eran la
+ * navegación en pantalla, no dos (dos wizards anidados, cada uno con su fila de botones, eran la
  * mitad de esa sensación).
  */
 export interface VaultCreatorEdgeNav {
@@ -261,8 +238,7 @@ export function VaultCreator({
   const [payeeCapBps, setPayeeCapBps] = useState(draft.payeeCapBps ?? MAX_PAYEE_BPS);
   // 4 · destinos
   const [include, setInclude] = useState<Record<string, boolean>>(draft.include ?? {});
-  // 1b · LA IMAGEN de la carta (fundador 10-sep: «el panel tiene que ser mucho
-  // más personalizable»): emblema de la casa, tu foto, o el interrogante. Se
+  // 1b · LA IMAGEN de la carta: emblema de la casa, tu foto, o el interrogante. Se
   // enseña en la card viva ya, y se aplica al pote en cuanto exista (la mesa
   // la recoge de pendingVaultImage: la dirección no se conoce al elegir).
   const [imageKind, setImageKind] = useState<VaultImageKind>(draft.imageKind ?? 'profile');
@@ -293,18 +269,18 @@ export function VaultCreator({
 
   // 5 · abrir — los MISMOS handoffs que la consola.
   const [busy, setBusy] = useState(false);
-  // it. 21 (§3.5): the refusal keeps the fields a WAIT needs — its code and the
+  // The refusal keeps the fields a WAIT needs — its code and the
   // seconds the server asked for — so «try again» can say when, and be a button.
   const [refusal, setRefusal] = useState<{ error: string; detail?: string; code?: string; retryAfterSeconds?: number } | null>(null);
   const [notice, setNotice] = useState('');
   const [amountXrp, setAmountXrp] = useState('2');
   const [birth, setBirth] = useState<CageBirthHandoff | null>(null);
   const [order, setOrder] = useState<CageOrderPrepared | null>(null);
-  // 409 COUNCIL_ORDER_IN_FLIGHT (it.13): componer al lado de una orden en vuelo
+  // 409 COUNCIL_ORDER_IN_FLIGHT: componer al lado de una orden en vuelo
   // es una confirmación explícita, jamás un reintento mudo.
   const [inFlight, setInFlight] = useState<{ detail?: string; code?: string; minutesAgo?: number | null; retryAfterSeconds?: number | null } | null>(null);
   /**
-   * it.14 (R2 2.3): la orden de create-pote quedó 'stale' y su destino dice que
+   * La orden de create-pote quedó 'stale' y su destino dice que
    * una hermana ya salió (o no se pudo comprobar). «Prepare the order» se
    * apaga hasta que la persona confirma — decirlo dentro de la tarjeta de firma
    * no impedía que este creador compusiera la segunda bóveda.
@@ -313,7 +289,7 @@ export function VaultCreator({
   // XamanSingleSign dice cuándo su petición ya no se puede soltar (QR vivo,
   // confirmando, sin confirmar). Mientras tanto el «Cancel», la navegación de
   // pasos y el «Close» del anfitrión se apartan: soltar la orden y prepararla
-  // otra vez era la segunda create-pote (11-sep).
+  // otra vez era la segunda create-pote.
   const [birthBlocked, setBirthBlocked] = useState(false);
   const [orderBlocked, setOrderBlocked] = useState(false);
   const signBlocked = birthBlocked || orderBlocked;
@@ -323,7 +299,7 @@ export function VaultCreator({
     onBlockedChangeRef.current?.(signBlocked);
   }, [signBlocked]);
   useEffect(() => () => onBlockedChangeRef.current?.(false), []);
-  // La ESPERA del nacimiento (fundador 11-sep): la orden firmada tarda 2–5 min
+  // La ESPERA del nacimiento: la orden firmada tarda 2–5 min
   // (XRPL → FDC → jaula). Antes se releía UNA vez a los 30 s y nada más —
   // el pote nacía minutos después y la pantalla nunca se enteraba. Ahora se
   // relee cada 15 s hasta que la jaula tiene un pote más (tope 10 min), con
@@ -506,9 +482,9 @@ export function VaultCreator({
   }
 
   async function prepareOpen(opts?: { confirmAnotherOrder?: boolean }) {
-    // it.16 (R5 5.5): «Compose it again anyway» has to compose — it used to hit
+    // «Compose it again anyway» has to compose — it used to hit
     // this return and do nothing at all. Opening a pote is never an exit, so the
-    // lock still pauses it otherwise (it.16, R3 3.1).
+    // lock still pauses it otherwise (R3 3.1).
     if (!account || capBase === null) return;
     if (staleLock.blocks('other', { confirmed: opts?.confirmAnotherOrder })) return;
     setBusy(true);
@@ -530,7 +506,7 @@ export function VaultCreator({
     });
     setBusy(false);
     if (!res.ok) {
-      // it. 21 (§2.7): DUPLICATE_CHECK_UNREADABLE lands here too — «we could not
+      // DUPLICATE_CHECK_UNREADABLE lands here too — «we could not
       // check», which is our failure, so it gets a retry beside the confirm.
       if (mayConfirmAnotherOrder(res.refusal) && !opts?.confirmAnotherOrder) {
         return setInFlight({ detail: res.refusal.detail, code: res.refusal.error, minutesAgo: sameOrderMinutesAgo(res.refusal), retryAfterSeconds: res.refusal.retryAfterSeconds ?? null });
@@ -543,7 +519,7 @@ export function VaultCreator({
   function onOrderSettled(hash: string) {
     if (!order) return;
     // Firmada = el borrador muere YA: volver a este paso con el formulario
-    // lleno invitaría a firmar la misma bóveda dos veces (11-sep: dos órdenes
+    // lleno invitaría a firmar la misma bóveda dos veces (dos órdenes
     // de create-pote en doce horas).
     if (account) { try { window.localStorage.removeItem(draftKey(account)); } catch { /* nada */ } }
     // La imagen elegida espera al pote (su dirección aún no existe): la mesa la
@@ -552,8 +528,8 @@ export function VaultCreator({
     const { orderData } = order.order;
     setOrder(null);
     setNotice(t('Signed. Relaying the proof to Flare…'));
-    // El relay contesta {ok:false} en un HTTP de error, no lanza (revisión
-    // 10-sep): decir «relayada» sobre un 4xx/5xx era anunciar una bóveda que
+    // El relay contesta {ok:false} en un HTTP de error, no lanza (revisión):
+    // decir «relayada» sobre un 4xx/5xx era anunciar una bóveda que
     // nunca iba a nacer, con el peaje ya gastado. Se distingue.
     void relayCouncilOrder(hash, orderData).then(
       (r) => {
@@ -601,10 +577,9 @@ export function VaultCreator({
         )}
       </div>
 
-      {/* El progreso como BARRA (la regla de la casa desde el 8-sep: nunca
+      {/* El progreso como BARRA (la regla de la casa: nunca
           círculos numerados): atrás libre; adelante solo con nombre y símbolo. */}
-      {/* UNA sola barra en pantalla (fundador 11-sep: «se ven dos progress
-          bar»): embebido en el alta, la barra de las seis estaciones ya está
+      {/* UNA sola barra en pantalla: embebido en el alta, la barra de las seis estaciones ya está
           pegada arriba, así que el paso del creador se dice en una línea;
           suelto (el «+» de Operar) no hay otra barra y aquí va la suya. */}
       {embedded ? (
@@ -613,7 +588,7 @@ export function VaultCreator({
           <span className="font-medium text-ink">{stepLabel[STEPS[step]]}</span>
         </p>
       ) : (
-        /* LA TIRA (12-sep): arriba, con Atrás/Siguiente dentro — Siguiente
+        /* LA TIRA: arriba, con Atrás/Siguiente dentro — Siguiente
            principal y apagado hasta que el paso vale (nombre y símbolo). */
         <StationProgress
           layout="strip"
@@ -658,12 +633,12 @@ export function VaultCreator({
 
       <StaleOrderLockNote className="mt-3" lock={staleLock.lock} onRelease={staleLock.release} pausing={staleLock.pausing} />
       {refusal ? (
-        // it. 21 (§3.5): a read of ours that failed is a wait WITH a button, never
+        // A read of ours that failed is a wait WITH a button, never
         // a verdict painted as a refusal.
         isRetryableReadFailure(refusal) ? (
           <ReadFailureNotice className="mt-3" refusal={refusal} busy={busy} onRetry={() => void prepareOpen()} />
         ) : (
-        // it. 19: a raw server slug is never the headline, and a Spanish `detail`
+        // A raw server slug is never the headline, and a Spanish `detail`
         // is never quoted under an English one (see CageConsole for the whole note).
         <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-2.5" role="alert">
           <p className="text-[12px] font-medium text-tone-warning">{refusalHeadline(refusal, t)}</p>
@@ -1002,7 +977,7 @@ export function VaultCreator({
                       <XamanSingleSign
                         txjson={birth.xrplPayment}
                         title={t('Birth of the cage')}
-                        // The hash the moment Xaman signs (it.13): the backend remembers it
+                        // The hash the moment Xaman signs: the backend remembers it
                         // (202 PENDING_LEDGER) so the seat is not expired under a signed 0xFE.
                         onSigned={(hash) => notifyHandoffSigned(birth.memoHex, hash)}
                         onSettled={onBirthSettled}
@@ -1059,7 +1034,7 @@ export function VaultCreator({
                         onSettled={onOrderSettled}
                         onBlockedChange={setOrderBlocked}
                         onCancelled={() => setOrder(null)}
-                        // it.14: una hermana de esta orden ya salió → el creador
+                        // Una hermana de esta orden ya salió → el creador
                         // deja de componer hasta que la persona lo confirme.
                         onStaleFate={staleLock.report}
                       />

@@ -12,7 +12,7 @@ const evmAddress = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'invalid_wallet');
 const xrplAddress = z.string().regex(/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/, 'invalid_wallet');
 const walletAddress = z.union([evmAddress, xrplAddress]);
 
-// ── Ownership (productizer 13-sep) ───────────────────────────────────────────
+// ── Ownership ───────────────────────────────────────────
 // An address is public; an alert is not. The wallet lookup used to match the
 // address alone, so any session read another user's alert inbox (council
 // failures, proposals, amounts) by typing their address, and PATCH acknowledged

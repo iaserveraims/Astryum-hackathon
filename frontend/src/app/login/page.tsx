@@ -7,25 +7,6 @@
  * access gate (logo ×5 or Ctrl+Shift+L → access code → signed httpOnly
  * cookie) — middleware.ts bounces direct visits without the cookie back to
  * the landing BEFORE this page is ever served.
- *
- * The form IS the artifact: an access pass you fill in like a transaction card
- * (ticket fields, printed terms, a perforation) and then SIGN — the submit is
- * a "sign here" stub whose stroke inks itself when you commit. On-brand: the
- * only signature in the product is always the user's.
- *
- * Native email accounts (sign in / create) ride the backend via authStore.
- * The old in-bundle "judges' credentials" are GONE (2026-07-23): the door is
- * the server-verified access code (middleware + httpOnly cookie), and this
- * page only renders once that gate has already passed. A Turnstile check
- * rides every credential submit when the sitekey is configured.
- * Google / Apple go live per-provider once their NEXT_PUBLIC_* client id is
- * set; unconfigured providers keep the honest "channel not open" notice.
- *
- * While credentials verify, the card gives way to a crew-manifest readout that
- * decodes itself: scrambled fields resolving, a terminal log line by line, a
- * scanline sweep, a live UTC clock once the timestamp resolves, and — on
- * grant — the session countersigned with the stroke you just drew plus the
- * gold seal. Reduced motion collapses all of it to plain status text.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -54,7 +35,7 @@ import {
   type XrplIdentityConfig,
 } from '../../lib/xrplIdentity/login';
 import { legacyDoorsVisible, xrplIdentityDoorVisible } from '../../lib/authDoors';
-// EL RITUAL vive en components/auth/AccessRitual desde 2026-08-23: la puerta
+// EL RITUAL vive en components/auth/AccessRitual: la puerta
 // única sale con un redirect de página completa, así que la ceremonia tuvo que
 // mudarse a donde de verdad se verifican las credenciales (la vuelta del
 // proveedor). Esta pantalla y esa comparten UNA sola copia — dos ceremonias
@@ -100,7 +81,7 @@ function errorToCopy(code: string, lang: Lang): string {
       return T('Verificación anti-bot no disponible ahora mismo.', 'Anti-bot check unavailable right now.', lang);
     case 'account_disabled':
       return T('Esta cuenta está deshabilitada.', 'This account is disabled.', lang);
-    // Passkey login 401s (productizer it. 14, R5 1.5): the credential lock refused
+    // Passkey login 401s (R5 1.5): the credential lock refused
     // the session because the account's credentials moved while the passkey was
     // being verified. Said so a person can act on it — never the raw code.
     case 'credentials_changed':
@@ -129,7 +110,7 @@ function errorToCopy(code: string, lang: Lang): string {
 }
 
 /**
- * What a failed passkey entry says (productizer it. 14, R5 1.5).
+ * What a failed passkey entry says (R5 1.5).
  *
  * The card used to answer every passkey failure with «La passkey no se pudo
  * verificar.», so the three 401s that a person can actually ACT on — their
@@ -184,8 +165,7 @@ function AppleIcon({ size = 16 }: { size?: number }) {
 // vendored into our bundle, and the meaning survives the difference — the ridges
 // read as identity at 18px, which is the whole job.
 // ─── Google button slot — our shell, Google's click ──────────────────────────────────
-// The card keeps ITS OWN button (same skin as Apple's — founder 2026-07-24:
-// the stock GIS widget broke the deck's look), but the element that actually
+// The card keeps ITS OWN button, but the element that actually
 // receives the click is the REAL Google Identity Services button, rendered
 // invisible and stretched across the shell. That keeps the official id_token
 // popup flow intact — we restyle the shell, never reimplement the auth. If
@@ -221,8 +201,7 @@ function GoogleButtonSlot({ onCredential }: { onCredential: (idToken: string) =>
           lands on it (the iframe keeps Google's popup + FedCM plumbing).
           brightness(0) renders its content pure black — at 1% opacity over the
           dark card that is truly nothing; opacity alone left the widget's own
-          "Continue with Google" ghosting through the shell (founder
-          2026-07-25: "letras de fondo"). Clicks are unaffected: filters are
+          "Continue with Google" ghosting through the shell. Clicks are unaffected: filters are
           paint-only. */}
       {!failed && (
         <div
@@ -294,7 +273,7 @@ export default function LoginPage() {
   // a fresh one after every failed attempt).
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
-  // LA FIRMA DE LOS DOCUMENTOS (fundador 2026-09-13): crear cuenta ya no es
+  // LA FIRMA DE LOS DOCUMENTOS: crear cuenta ya no es
   // aceptación por conducta bajo una línea de letra pequeña — hay que leer las
   // condiciones y el aviso hasta el final y FIRMAR deslizando, como en Xaman.
   // La ceremonia se abre DESPUÉS de validar el formulario: nadie lee cinco
@@ -304,7 +283,7 @@ export default function LoginPage() {
   const [showLegal, setShowLegal] = useState(false);
   const [legalSigned, setLegalSigned] = useState(false);
   const legalSignedRef = useRef(false);
-  // Demo-risk acceptance (founder 2026-07-26, revised same day): NO modal —
+  // Demo-risk acceptance: NO modal —
   // fear-free signup. The risks live as PUBLIC reviewable documentation
   // (/demo-terms) and the create button carries the standard notice line
   // linking to it; pressing "Crear y firmar" under that notice is the
@@ -426,7 +405,7 @@ export default function LoginPage() {
 
     try {
       // Every entry is a real backend account now — the old in-bundle
-      // "judges' credentials" died with the server-side gate (2026-07-23).
+      // "judges' credentials" died with the server-side gate.
       if (mode === 'create')
         await Promise.all([
           registerWithEmail(
@@ -525,7 +504,7 @@ export default function LoginPage() {
     }
   };
 
-  // INERT since 2026-08-19 — the landing half of the popup journey, kept whole.
+  // INERT — the landing half of the popup journey, kept whole.
   //
   // Nothing calls it while the door uses the full-page redirect (the callback
   // page does this job there instead). It stays because the popup was built and
@@ -568,28 +547,6 @@ export default function LoginPage() {
   // XRP Identity — the ecosystem's own door, and Astryum's main one. No token
   // ever reaches this browser: the popup brings back a one-time code and the
   // backend is the one that redeems it against the provider.
-  //
-  // `forceAccountChoice` adds `prompt=login` so the provider asks again instead
-  // of riding its own SSO cookie. It is the explicit "another account" path;
-  // logout arms the same behaviour for the next entry (authStore.logout).
-  //
-  // FULL-PAGE REDIRECT. We leave, they authenticate, we come back.
-  //
-  // It was a popup for one day (2026-08-18) and that is retired, not paused.
-  // The popup depended on the window being able to hand the code back to the
-  // tab that opened it, and that channel is exactly what privacy modes cut:
-  // in Edge InPrivate the opener was already severed by the time the window
-  // came home, so it showed an orphan notice and — when the user pressed
-  // "try again" — logged them in INSIDE the little window. Neither provider
-  // sends `Cross-Origin-Opener-Policy`; the browser severs it on its own, so
-  // there is nothing to negotiate and no header to fix.
-  //
-  // The popup helpers stay built and tested in lib/xrplIdentity/login.ts. If
-  // the polish is ever wanted back, the handoff has to stop depending on
-  // `window.opener` — localStorage plus a `storage` event survives what
-  // postMessage does not. Until that exists, the door that always works wins:
-  // this one is the single entrance to production, and reliability outranks
-  // never unloading the page.
   const onXrplIdentity = async (forceAccountChoice = false) => {
     if (phase !== 'form' || signing || xrplidPending.current) return;
     setFormError('');
@@ -838,11 +795,11 @@ export default function LoginPage() {
                         one account for the ecosystem, and the wallet you
                         already use to sign. Email stays below as a fallback,
                         not as an equal.
-
+                    { *
                         It only renders once the backend confirms the provider
                         is configured. A gold hero button that answers "channel
                         not open yet" is a dead button, and we have paid for
-                        that lesson already (the beta bounce, 2026-08-07). The
+                        that lesson already (the beta bounce). The
                         day XRPL_IDENTITY_CLIENT_ID lands in Railway, this door
                         appears on its own — no deploy needed. */}
                     {xrplIdReady && (
@@ -861,7 +818,7 @@ export default function LoginPage() {
                           {/* Untranslated on purpose, like Google's and Apple's:
                               it is the provider's own name for its door, and a
                               user who sees it here must recognise it there.
-                              Y NO cambia al pulsar (fundador 2026-08-23): el
+                              Y NO cambia al pulsar: el
                               rótulo se sustituía por «Abriendo canal…», que es
                               más corto, así que el contenido del botón saltaba
                               — y las letras cifradas de DecodeText, medidas en
@@ -1091,8 +1048,8 @@ export default function LoginPage() {
                           </span>
                         </button>
 
-                        {/* La línea de siempre (2026-07-26) dice ahora lo que
-                            de verdad pasa (13-sep): los documentos se leen y se
+                        {/* La línea de siempre dice ahora lo que
+                            de verdad pasa: los documentos se leen y se
                             FIRMAN en el paso siguiente, no se aceptan por
                             pulsar un botón debajo de una línea. Firmada la
                             ceremonia, la línea se convierte en su recibo. */}
@@ -1211,11 +1168,10 @@ export default function LoginPage() {
         </footer>
       </div>
 
-      {/* LEER Y FIRMAR (13-sep). Se abre con el formulario ya válido; al
+      {/* LEER Y FIRMAR. Se abre con el formulario ya válido; al
           deslizar la flecha, la cuenta se crea de verdad. Cerrarla no firma
           nada y deja la tarjeta como estaba: firmar es un acto, cerrar no. */}
-      {/* SIN <AnimatePresence> (fundador 2026-09-14: «cuando desaparece el
-          popup se queda la página sin poder usarse hasta que recargas»).
+      {/* SIN <AnimatePresence>.
           Reproducido en navegador: con la ceremonia como hijo DIRECTO de un
           AnimatePresence, la animación de salida corre —el overlay llega a
           opacity 0— pero el nodo NO se desmonta nunca, y ese `fixed inset-0`

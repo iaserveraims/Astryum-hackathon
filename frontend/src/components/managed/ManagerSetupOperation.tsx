@@ -1,23 +1,12 @@
 'use client';
 
 /**
- * ManagerSetupOperation — EL ALTA DEL GESTOR como ceremonia de configuración
- * (fundador 2026-09-12: «la misma plantilla de configuración que el Legacy,
- * con su pantalla flotante y sus pasos, para el managed vaults»).
+ * ManagerSetupOperation — EL ALTA DEL GESTOR como ceremonia de configuración.
  *
  * La MISMA ventana que Constituir un Legacy (SetupOperationShell) con el
  * wizard de siempre dentro (ManagerSetupWizard: cuenta, título, constitución,
  * jaula, primera bóveda, perfil). Vive UNA vez, aquí: la mesa del gestor y el
  * hub de altas la abren con una puerta (SetupDoorCard), no la incrustan.
- *
- * LA CUENTA QUE SIGUE (fundador 2026-09-15: «el proceso de configuración de
- * una account como manager se ha perdido»): la misma regla que la mesa,
- * useManagerAccount — las Xaman conectadas en este navegador Y las XRPL
- * enlazadas a la cuenta. Antes miraba solo la sesión viva, así que en otro
- * navegador (o en el dominio del preview) un gestor con su cuenta enlazada veía
- * «créala en Xaman» en vez de sus seis estaciones ya hechas. Sin ninguna
- * candidata, la ceremonia empieza por crearla en Xaman (ManagerAccountInXaman)
- * y conectarla desde Wallets; la primera estación elige entre las candidatas.
  */
 
 import { useCallback, useEffect, useState } from 'react';

@@ -5,28 +5,6 @@
  * mete FXRP, redime, o envía a una wallet externa suya. Cada acción = UNA
  * firma con la cara (usePasskeyActions.signAndRelay), portada por el relayer
  * del operador. Nunca ve una wallet ni FLR.
- *
- * Las calls se componen aquí (approve+deposit / FXRP.transfer) o en el backend
- * (redeem con el fee-leg de Astryum / desminteo), y el contrato/relayer
- * garantizan que la firma las compromete: el cliente firma exactamente lo que ve.
- *
- * productizer 14-sep (invariante #6): se preparaba y se firmaba de un tirón, y
- * la disclosure del redeem (con la fee de Astryum) y la del desminteo se tiraban
- * antes de firmar. Ahora es preparar → revisar → Face ID sobre las MISMAS calls
- * revisadas (lib/demo-exchange/clientExitPlan · buildVaultActionReview).
- *
- * productizer it. 25 (§1 y §4) — LA NEGATIVA DEL SERVIDOR, EN LA PANTALLA DEL
- * CLIENTE DE EMAIL. Las dos salidas por backend (redeem y desminteo) hacían
- * `throw new Error(res.refusal.detail ?? res.refusal.error)`: el `detail` de este
- * router se compone en castellano y el `error` es el slug crudo
- * (`NOT_REDEEMABLE_NOW`, `BELOW_FASSETS_MINIMUM`, `PROOF_STORE_UNREADABLE`…), así
- * que esa persona — la que entró con email y Face ID, la que NO tiene una wallet
- * probada — leía un identificador o un idioma que la pantalla no habla, y nunca
- * un botón. Ahora el rechazo se guarda entero, la frase la escribe el lector
- * compartido (`refusalHeadline`, que conoce las familias) con el `detail` solo si
- * viene en inglés, y el aviso compartido pone el camino cuando lo hay: reintento
- * sobre un «no pude leer» nuestro, y la puerta de la wallet sobre los dos 409
- * deterministas. Nada de esto gatea la salida: la negativa ya es del servidor.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -100,7 +78,7 @@ function refusalSentence(refusal: Refusal, t: (s: string) => string): string {
     refusalHeadline(refusal, t) ??
     t('The server refused this operation. Nothing was prepared and nothing was signed.');
   // `?? ''` y no un hueco: sin frase inglesa del servidor queda la nuestra, que
-  // es el patrón de las demás superficies de salida (PoteExitCard, it. 23).
+  // es el patrón de las demás superficies de salida (PoteExitCard).
   const detail = serverDetailIfEnglish(refusal.detail) ?? '';
   return detail && detail !== head ? `${head} ${detail}` : head;
 }
@@ -121,7 +99,7 @@ export function UserVaultPanel({ account }: { account: string }) {
   const [amount, setAmount] = useState('');
   const [dest, setDest] = useState('');
   const [notice, setNotice] = useState('');
-  // it. 25 (§4): the refusal itself, not just its sentence — the shared notice
+  // The refusal itself, not just its sentence — the shared notice
   // reads it to offer the path that exists (a retry over a read of ours that
   // failed; the wallet door over the two deterministic 409s). Null for anything
   // that is not a server refusal: a bad amount is not a refusal.
@@ -441,7 +419,7 @@ export function UserVaultPanel({ account }: { account: string }) {
         </button>
       )}
 
-      {/* it. 25 (§4): when the refusal is one of the families that HAS a path —
+      {/* When the refusal is one of the families that HAS a path —
           a read of ours that failed (retry) or the two deterministic 409s (the
           wallet door) — the shared notice says it and offers the button, so the
           sentence is not repeated above it. Anything else keeps the plain line. */}

@@ -9,16 +9,6 @@
  * ata sus tablas de tiempo al array de paradas de Personal, y la narrativa
  * Legacy solo funciona allí porque copia sus tiempos verbatim — el día que
  * alguien toca una, la otra se rompe en silencio.
- *
- * Aquí viven SOLO las piezas que no saben nada del producto: cómo entra y sale
- * un bloque de texto, cómo entra una viñeta, cómo se pinta una barra de paradas
- * y cómo se salta a una. La narrativa, la escena, el texto y los tiempos son de
- * cada mundo — este fichero no contiene ni una palabra de copy ni un número del
- * itinerario de nadie.
- *
- * NO lo usa SolarJourney. Personal se queda intacto pixel a pixel: sacar su
- * carcasa son dos mil líneas del fichero más delicado del repo y sin cobertura
- * de pruebas, y ese no es el trabajo de hoy.
  */
 
 import { useCallback, useRef, useState, type ReactNode, type RefObject } from 'react';
@@ -232,8 +222,6 @@ export function Kicker({ lang, es, en, num }: { lang: Lang; es: string; en: stri
 /**
  * LA FRASE DE LA PARADA.
  *
- * Fundador, 2026-09-18: «el texto pasa un poco desapercibido ahora, no como en
- * el personal… las cosas no me gusta que se vean pequeñas».
  *
  * Medido: el viaje solar titula sus paradas a `clamp(1.5rem, 2.6vw, 2.2rem)`
  * —de 24 a 35 px— y estos mundos lo hacían a `clamp(16px, 1.5vw, 20px)`. La
@@ -366,23 +354,11 @@ export function Dock({
 /**
  * LOS ANCLAJES DE LAS PARADAS.
  *
- * Fundador, 2026-09-19: «los botones de keep scrolling del legacy y el
- * institucional están hechos para que cada clic siga el flow de la landing
- * personal». Exacto, y la causa está en `PersistentScrollCue`: el botón busca
+ * Exacto, y la causa está en `PersistentScrollCue`: el botón busca
  * `[id^="stop-"], [id^="m-stop-"], #light-beat`, y esos anclajes los planta
  * SOLO `SolarJourney`. En los otros dos mundos no encontraba ninguno y caía a
- * su suelo —saltar un 85 % de pantalla—, que es un salto ciego y no un
+ * su suelo —saltar un 85 % de pantalla, que es un salto ciego y no un
  * itinerario: por eso cada clic parecía seguir el recorrido de Personal.
- *
- * Esto planta un anclaje por parada con la MISMA aritmética que `useJumpTo`:
- * una pista pegajosa recorre `alto − 100svh` de scroll, así que la parada que
- * vive en la fracción `at` está a `at · (100 % − 100svh)` del principio de la
- * pista. Se hace en CSS con `calc`, así que no hay que medir nada ni escuchar
- * el `resize`.
- *
- * Va como hijo de la PISTA y no del contenedor pegado: dentro del pegado, un
- * `absolute` se mide contra la ventana pegada y todos los anclajes caerían en
- * el mismo sitio.
  */
 export function StationAnchors({ stations }: { stations: readonly JourneyStation[] }) {
   return (

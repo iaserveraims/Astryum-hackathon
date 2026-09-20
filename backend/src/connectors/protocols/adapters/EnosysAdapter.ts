@@ -14,18 +14,6 @@ import type { SimulationResult } from '../../../types/domain/Intent';
  * Activates when ENOSYS_ROUTER OR ENOSYS_FARMING are set. Without addresses,
  * isActive=false and discoverPositions returns []. Routes return 503
  * protocol_inactive.
- *
- * V1 modules supported:
- *  - DEX V2 (Uniswap V2 fork pattern): pair discovery via Factory.allPairs
- *  - Farms / LP staking: stake/unstake/claim via Farming contract
- *  - Rewards monitoring: pending rewards via Farming.pendingReward(user, pid)
- *  - Lending (optional): supply/borrow/repay if ENOSYS_LENDING_POOL is set
- *
- * Research checklist before activating in production:
- *   1. Verify Factory + Router addresses on Flarescan
- *   2. Confirm Farming contract ABI matches MasterChef-style (pendingReward, deposit, withdraw)
- *   3. Confirm pool count via Farming.poolLength()
- *   4. Document discovered pools in docs/protocols/ENOSYS_FLARE.md
  */
 
 const FACTORY_ABI = [

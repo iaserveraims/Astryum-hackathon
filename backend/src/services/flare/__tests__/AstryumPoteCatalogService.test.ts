@@ -7,7 +7,7 @@
  *
  * 2. «No pude leer» NUNCA es «no existe». Un pote ilegible aparece marcado, no
  *    escondido. Esconderlo lo borraría del catálogo de su propio dueño sin
- *    decir por qué — exactamente lo que hizo la jaula sin registrar (22-ago).
+ *    decir por qué — exactamente lo que hizo la jaula sin registrar.
  */
 import { ethers } from 'ethers';
 import {

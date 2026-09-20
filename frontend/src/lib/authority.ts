@@ -39,7 +39,7 @@ export interface SingleAuthority {
   id: string;
   kind: 'single';
   wallet: WalletRecord;
-  /** E2 third state (2026-08-16): a PERSONAL wallet whose keys are a quorum —
+  /** E2 third state: a PERSONAL wallet whose keys are a quorum —
    *  a SignerList on a simple account (the reinforced account), marked so by
    *  its owner (personalQuorum). Read fresh from the ledger; undefined =
    *  single-key, unmarked, or not yet read. It never makes the wallet a
@@ -77,10 +77,10 @@ export interface GovernedAuthority extends GovernedLedgerRead {
    *  pendingSignatures; undefined until it exists — never fabricated. */
   liveProposals?: number;
   /**
-   * productizer it. 27 (6) — LA AUSENCIA POR ILEGIBLE SE VEÍA IGUAL QUE EL CERO.
+   * LA AUSENCIA POR ILEGIBLE SE VEÍA IGUAL QUE EL CERO.
    *
    * `useAuthorities` deja los dos contadores en `undefined` cuando la lectura se
-   * rechazó o vino a medias (it. 25: filas `unreadable[]` ⇒ ningún recuento),
+   * rechazó o vino a medias (filas `unreadable[]` ⇒ ningún recuento),
    * que es lo único honesto. Pero una insignia que solo se pinta con un número
    * positivo convierte «no lo pude leer» en «no hay nada»: un Legacy con dos
    * firmas pendientes que nadie consiguió leer se veía EXACTAMENTE igual que uno

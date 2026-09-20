@@ -8,17 +8,6 @@
  * `claim()` pays the caller. Both permissionless, both live on mainnet. What
  * was missing was any surface at all — nobody could see what they were owed,
  * and an heir had no way to ask for it.
- *
- * Two doors, because two different people knock:
- *  - Harvest: a plain Flare transaction anyone can send (an heir, a keeper, a
- *    passer-by). It pays the sender nothing, so nobody can profit by racing it.
- *  - Claim: the heir signs ONE XRPL payment and their yield comes home as
- *    native XRP, through the redeem rail that already existed. They never have
- *    to learn what FXRP is.
- *
- * The principal is not on this page and cannot be. No call built here can reach
- * it — the vault has no function that pays principal to an address, and the
- * copy never implies otherwise.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -60,7 +49,7 @@ function short(a: string): string {
 }
 
 /**
- * A 0xFE nonce-seat refusal, in words (productizer it. 14, R5 1.7).
+ * A 0xFE nonce-seat refusal, in words (R5 1.7).
  *
  * The sentences are NOT written here: `lib/xaman/seatRefusal` is the one reader of
  * what the server meant by «the seat is taken», so a signed seat is never answered
@@ -72,7 +61,7 @@ function seatRefusalText(body: SeatRefusalLike | undefined, t: (s: string) => st
   if (!body) return null;
   const refusal = normalizeSeatRefusal(body);
   const view = refusal ? describeSeatRefusal(refusal, t) : null;
-  // LA FRASE, SIN EL PÁRRAFO DEL SERVIDOR (it. 17, R5 5.4). Este panel pegaba el
+  // LA FRASE, SIN EL PÁRRAFO DEL SERVIDOR (R5 5.4). Este panel pegaba el
   // `detail` del backend detrás de la frase: castellano, hashes y «~604 s» sobre
   // una pantalla en inglés. Lo que el asiento significa ya está dicho; lo que el
   // servidor escribió para sí mismo no se enseña.
@@ -83,7 +72,7 @@ function errText(err: unknown, t: (s: string) => string): string {
   const body = (err as { body?: SeatRefusalLike })?.body;
   const seat = seatRefusalText(body, t);
   if (seat) return seat;
-  // it. 22 (Q3 3.7): el `detail` del servidor solo si está en el idioma de la
+  // El `detail` del servidor solo si está en el idioma de la
   // pantalla — varios de estos se componen en castellano. Sin él, el titular
   // del lector compartido, que dice el código en una frase y nunca en crudo.
   const detail = serverDetailIfEnglish(body?.detail);
@@ -97,7 +86,7 @@ function errText(err: unknown, t: (s: string) => string): string {
 type ClaimSeatFate = 'still-unsigned' | 'stale' | 'maybe-signed';
 
 /**
- * THE SEAT IS DECIDED BY THE WALLET'S ANSWER, NOT BY THE CLICK (it. 14, R5 1.7).
+ * THE SEAT IS DECIDED BY THE WALLET'S ANSWER, NOT BY THE CLICK (R5 1.7).
  *
  * `handedToPartner` is true here because `sendXrpl` was called; only an error that
  * PROVES nothing left (a rejection in Xaman, an expired payload, a partner that
@@ -105,7 +94,7 @@ type ClaimSeatFate = 'still-unsigned' | 'stale' | 'maybe-signed';
  * stays 'maybe-signed', and a seat that may carry a signature is never freed.
  */
 function claimSeatAfterSignFailure(err: unknown): ClaimSeatFate {
-  // A VERDICT WE READ BEATS EVERY INFERENCE (it. 17, R5 5.2). `tefMAX_LEDGER` /
+  // A VERDICT WE READ BEATS EVERY INFERENCE (R5 5.2). `tefMAX_LEDGER` /
   // `tefPAST_SEQ` say this exact payload can never validate: nothing was
   // dispatched, nothing ever will be, and its nonce seat is free to release.
   // Without this it landed in 'maybe-signed' — the seat kept for a payment that
@@ -145,7 +134,7 @@ async function runClaimSignature(handoff: { xrplPayment: unknown; memoHex: strin
   } catch (error) {
     const fate = claimSeatAfterSignFailure(error);
     // Releasable ⇔ no signature of THIS payload can ever land: it was refused
-    // before leaving, or the ledger already said it is too late (it. 17).
+    // before leaving, or the ledger already said it is too late.
     const releasable = fate !== 'maybe-signed';
     refs.handed.current = !releasable;
     if (releasable && !refs.mounted.current) release(handoff.memoHex);
@@ -229,7 +218,7 @@ export default function LegacyYieldPanel({
   /**
    * The heir's claim: PREPARE → review → ONE signature. It used to prepare and
    * open Xaman in the same click, so the FAssets redemption fee of this unmint
-   * was never on screen before signing (invariant #6, productizer it. 12, 4.2).
+   * was never on screen before signing (invariant #6, 4.2).
    * Now the review shows it — figure, or «could not be read — it is not zero» —
    * with the net XRP and when it arrives, and only then the signature.
    */
@@ -241,7 +230,7 @@ export default function LegacyYieldPanel({
   // True only once something MAY have been signed (see runClaimSignature). It used
   // to be set before `sendXrpl`, so a rejection in Xaman kept the nonce seat of this
   // 0xFE taken until its TTL: the heir could not prepare another claim, and nothing
-  // on screen said why (it. 14, R5 1.7).
+  // on screen said why (R5 1.7).
   const claimHanded = useRef(false);
   // The payload is with Xaman right now: nobody releases anything until it answers.
   const claimInFlight = useRef(false);
@@ -249,7 +238,7 @@ export default function LegacyYieldPanel({
   // the seat there, exactly as leaving the review does.
   const claimMounted = useRef(true);
   /**
-   * EL MEMO SOBREVIVE AL PAYLOAD (it. 17, R5 5.2). Esto era
+   * EL MEMO SOBREVIVE AL PAYLOAD (R5 5.2). Esto era
    * `claimSeat.current = claimHandoff?.memoHex ?? null`, así que en cuanto una
    * firma tardía vaciaba `claimHandoff` el memo se perdía y ni «Back» ni el
    * desmontaje podían liberar ya el asiento: tapiado hasta su TTL por un pago
@@ -292,7 +281,7 @@ export default function LegacyYieldPanel({
     } catch (err) {
       // Un asiento tomado no es «no se pudo»: es un 0xFE anterior de esta misma
       // cuenta en el nonce, y suele ser el borrador que este panel dejó. El
-      // aviso compartido lo dice en inglés y ofrece liberarlo (it. 17, R5 5.4).
+      // aviso compartido lo dice en inglés y ofrece liberarlo (R5 5.4).
       const body = (err as { body?: unknown })?.body;
       setSeatRefusal(normalizeSeatRefusal(body) ? body : null);
       setError(errText(err, t));
@@ -326,7 +315,7 @@ export default function LegacyYieldPanel({
         // prepared payment is still good, and «Back» frees its seat as it always did.
         setError(errText(outcome.error, t));
       } else if (outcome.kind === 'stale') {
-        // TOO LATE, AND WE KNOW IT (it. 17, R5 5.2). The payload cannot enter any
+        // TOO LATE, AND WE KNOW IT (R5 5.2). The payload cannot enter any
         // ledger: nothing was claimed, nothing is «on its way», and the honest
         // offer is a fresh prepare. The payload goes, the MEMO STAYS — «Back» and
         // the unmount can still free that seat, and so can «Prepare it again».
@@ -359,7 +348,7 @@ export default function LegacyYieldPanel({
    * «Prepare it again» tras una firma tardía: primero se LIBERA el asiento del
    * payload muerto y SOLO entonces se compone el siguiente — al revés, el
    * prepare chocaría contra su propio borrador y la persona se quedaría delante
-   * de un `NONCE_SEAT_TAKEN` que ella misma acaba de causar (it. 17, R1 1.5).
+   * de un `NONCE_SEAT_TAKEN` que ella misma acaba de causar (R1 1.5).
    */
   const prepareClaimAgain = useCallback(async () => {
     const memo = claimSeat.current;
@@ -553,7 +542,7 @@ export default function LegacyYieldPanel({
               </div>
             </InlineNotice>
           ) : null}
-          {/* it. 21 (it. 20 §3.3): rechazar en Xaman deja el 0xFE sentado en el
+          {/* Rechazar en Xaman deja el 0xFE sentado en el
               nonce y nadie lo decía. Se dice, y con CUÁNDO se suelta; soltarlo
               desde aquí no se ofrece mientras el payload siga siendo firmable. */}
           {claimHandoff && error && !seatRefusal && !staleSign ? (

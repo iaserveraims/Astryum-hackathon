@@ -1,22 +1,14 @@
 'use client';
 
 /**
- * GovernedMoneyFlows — the governed-mode rules surface, WIRED (2026-07-18).
+ * GovernedMoneyFlows — the governed-mode rules surface, WIRED.
  *
- * Same MoneyFlows system as Personal (decisión fundador): the shared engine
+ * Same MoneyFlows system as Personal: the shared engine
  * watches the rule; what changes is the end of the rail — when a governed rule
  * fires, the AutomationEngine COMPOSES a proposal into the council inbox
  * (CouncilProposalService) and the QUORUM signs it there. The rule itself
  * holds ZERO authority: nothing moves without the quorum signatures, so this
  * surface can create/pause rules without touching governance.
- *
- * COPY IS LOAD-BEARING (blacklist §4): "vigila sin discreción, compone la
- * propuesta, firma el quórum, caduca sola (≤90d)" — never "automatización sin
- * firmar". TTL is ENFORCED server-side; pause is instant and individual.
- *
- * v1 action = councilPayment (live on mainnet: a Payment from the council the
- * quorum signs). councilOrder (LegacyVault via FDC bridge) stays gated until
- * the Legacy stack is deployed (legacyStackConfig) — shown, not enabled.
  */
 
 import { useEffect, useState } from 'react';
@@ -62,7 +54,7 @@ function GovernedRuleCreator({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   /**
-   * it. 34 (agente D): «el servidor dijo que no», ENTERO — la frase y también
+   * «el servidor dijo que no», ENTERO — la frase y también
    * las salidas y la puerta (`ways` / `door`) que `serverRefusalText` tiraba.
    * El 403 NOT_A_COUNCIL_MEMBER de esta puerta nombra «register the wallet that
    * holds your seat» y no había nada que pulsar. Las validaciones locales
@@ -193,7 +185,7 @@ function GovernedRuleCreator({
       // COUNCIL_READ_FAILED, invalid_council…) and the readable sentence in
       // `body.detail`. The shared reader shows the sentence and keeps the code
       // for support; jpost itself stays as-is (other callers match on message).
-      // it. 34: and its `ways` and door travel with it, not the sentence alone.
+      // and its `ways` and door travel with it, not the sentence alone.
       setRefusal(describeServerRefusal(e, t));
     } finally {
       setBusy(false);

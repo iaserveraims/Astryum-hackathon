@@ -6,14 +6,6 @@
  * as a fallback) and this middleware settles it against Cloudflare BEFORE any
  * handler logic runs. Feature-flagged by TURNSTILE_SECRET_KEY: unset (local
  * dev, unit tests) → no-op, so the suite never needs network access.
- *
- * Invariant §2: the SECRET lives server-side only. The sitekey the widget
- * renders with (NEXT_PUBLIC_TURNSTILE_SITE_KEY) is public by design.
- *
- * Failure posture is CLOSED: if Cloudflare itself is unreachable we answer
- * 503 rather than letting traffic through — these endpoints exist to keep
- * bots out (they already flooded the waitlist once, 2026-07-23), and a
- * siteverify outage is rarer than a bot run.
  */
 import { Request, Response, NextFunction } from 'express';
 

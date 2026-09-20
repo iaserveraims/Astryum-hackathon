@@ -3,18 +3,6 @@
 /**
  * paOwnership — maps a Flare Personal Account (Smart Account) back to the
  * linked XRPL account that CONTROLS it.
- *
- * Why this exists (incidente 2026-07-19): the PA action modals used to send
- * the CONNECTED Xaman address to the prepare endpoints. When the user had a
- * different XRPL account active than the one owning the Smart Account, the
- * backend derived the WRONG PA (empty) and every amount died in
- * INSUFFICIENT_SHARES with zero explanation. The 0xFE order must be signed
- * and paid by the XRPL account that controls the PA anyway (the executor
- * rejects any other sender), so the request must always pin THAT account —
- * Xaman enforces the pinned `Account` at signing time.
- *
- * Resolution is deterministic (MasterAccountController.getPersonalAccount),
- * read via the backend's /flare-demo/personal-account and cached per session.
  */
 
 import { useEffect, useMemo, useState } from 'react';

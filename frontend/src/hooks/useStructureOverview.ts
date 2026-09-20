@@ -1,23 +1,11 @@
 'use client';
 
 /**
- * The capital read of ONE structure (E1, plan del mes §4 — 2026-08-15).
+ * The capital read of ONE structure (E1, plan del mes §4).
  *
  * GovernedAuthority already carries the council's SHAPE (quorum, health,
  * pending signatures) from useAuthorities. This hook adds what the structure
  * cards show about its MONEY, read live per account:
- *
- *   - spendable — the council account's real XRP and what may leave it
- *     after reserves (same read the escrow list rides on).
- *   - escrows — programmed transfers, with the next future release.
- *   - vault — the cage's principal. A Legacy without a cage is told so
- *     (NO_CAGE_FOR_LEGACY): it is NEVER shown another council's balance
- *     (founder 2026-08-05).
- *
- * House cache pattern (useAuthorities): module-scoped minute cache plus a
- * shared in-flight promise, so N mounted cards of the same structure fire
- * ONE read. Nothing is fabricated — every field stays null until the ledger
- * answered, and a total failure says so instead of painting zeros.
  */
 
 import { useEffect, useState } from 'react';

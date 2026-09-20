@@ -1,17 +1,6 @@
 /**
  * H5 + H6 — las dos formas en que una regla del mercado de Ethereum podía
  * mentir en silencio:
- *
- * H5: sin fila `morpho-blue@1` en Protocol (slug es @unique global y el seed
- *     solo siembra Flare), `protocolId` quedaba nulo y el tick agrupaba por
- *     `wallet.chainId ?? 14` — escaneando FLARE para una posición de
- *     Ethereum. La acción fija la cadena por construcción.
- * H6: el HF que decide el disparo venía del snapshot de cartera, que no
- *     tiene adapter para morpho-blue ⇒ `healthFactor` vacío ⇒ la protección
- *     NUNCA saltaba. El HF debe leerse del MERCADO.
- *
- * Un fallo silencioso aquí es peor que no tener la regla: el usuario cree
- * que hay una red debajo de su posición apalancada.
  */
 jest.mock('../../../database/prismaClient', () => {
   let rules: any[] = [];
@@ -150,7 +139,7 @@ describe('AutomationEngine — emRepay (H5 chain pineada · H6 HF del mercado)',
   });
 
   /**
-   * La MISMA puerta dentro de la app (25-ago-2026). El deep-link vivía solo en
+   * La MISMA puerta dentro de la app. El deep-link vivía solo en
    * el push, así que quien abre Astryum —o quien no tiene push, que es el caso
    * normal en escritorio— leía «repay ready to prepare» en una fila muerta.
    * La Alert es lo que esa lista pinta: si no lleva su puerta, el aviso manda
@@ -189,7 +178,7 @@ describe('AutomationEngine — emRepay (H5 chain pineada · H6 HF del mercado)',
 });
 
 /**
- * La frontera del carril, EN EL TICK (auditoría 2026-08-17, hallazgo A).
+ * La frontera del carril, EN EL TICK (auditorí, hallazgo A).
  *
  * El módulo de ejecución DeFi vive tras flag (#10) + geofence (#5), y eso solo
  * estaba en la ruta HTTP. El tick leía Ethereum cada 60 s por wallet con el
@@ -223,7 +212,7 @@ describe('emRepay: la frontera del carril también manda en el tick', () => {
   });
 
   /**
-   * LA SALIDA JAMÁS SE GATEA (doctrina 2026-09-13). Un repago protector es un
+   * LA SALIDA JAMÁS SE GATEA (doctrina). Un repago protector es un
    * unwind: bajo allowlist el tick (sin región) antes callaba la red de una
    * posición apalancada que ya existe. El flag sigue mandando (test de arriba);
    * el geofence, no.

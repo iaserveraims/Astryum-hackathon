@@ -2,24 +2,8 @@
 
 /**
  * ScheduledPaymentCard — MoneyFlows as a standing order for a NORMAL wallet
- * (M1, plan del mes §3 · Última Milla §1.4/§2, built 2026-08-16). The
+ * (M1, plan del mes §3 · Última Milla §1.4/§2, built). The
  * personal twin of the governed «domiciliación» (GovernedMoneyFlows).
- *
- * The whole rail, honestly: the rule watches the calendar without discretion;
- * on the chosen day the tick VALIDATES the payment and nudges; here the
- * Payment is composed FRESH (unsigned, Account pinned to the owning wallet)
- * and the OWNER signs it in Xaman. It expires on its own (≤90 days,
- * server-clamped) and can be paused or deleted instantly.
- *
- * COPY IS LOAD-BEARING (blacklist §4): "Astryum vigila la fecha y te prepara
- * el pago exacto; tú firmas; la regla caduca sola" — NEVER "pagos automáticos
- * sin firmar", never a promise of bank-style direct debit (that needs session
- * keys, MiCA-gated, post-21-sep).
- *
- * Day-of-month is limited to 1–28 ON PURPOSE: the cron evaluator treats 29/30/
- * 31 literally, so in shorter months the occurrence simply never comes (the
- * 36 h catch-up window cannot save a day that does not exist). Offering a day
- * that silently skips February is a lie; 1–28 always fires.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -207,27 +191,8 @@ function Creator({ owner, onCreated, onClose }: { owner: string; onCreated: () =
 }
 
 /**
- * G4-strategies (auditoria 2026-08-17 [G4]) — the standing order that swore
+ * G4-strategies (auditoria [G4]) — the standing order that swore
  * it was standing.
- *
- * WHAT WAS FAILING IN SILENCE HERE: this card decided a rule's state from
- * `r.enabled` alone — `<Pill tone={r.enabled ? 'success' : 'neutral'}>`. A
- * `scheduledPayment` rule whose tick cannot VALIDATE the payment (the engine
- * records the run as `status: 'error'` with `scheduled_payment_invalid: ...` in
- * `notes`, and by design does NOT increment `totalTimesTriggered` and sends NO
- * push) kept `enabled: true` and rendered here in green as «active». The
- * owner read «my rent is set up» from a rule that had produced nothing to sign
- * on its last due date — the one failure mode a standing order must never
- * have.
- *
- * Same reducer, same sentences and the same i18n keys as every other rule
- * surface: lib/rules/runHealth.ts. One read per mount/refresh, never a poll.
- * If the read itself fails we SAY so; «I could not read it» is never «it works».
- *
- * G4-pildoras (round 3) — `enabled` arrived because this note never looked at
- * it: a PAUSED standing order with an old failed run claimed «this rule is
- * armed» next to a pill reading «paused». The failure still shows (it
- * happened); the tense follows the rule's actual state.
  */
 function RunHealthNote({
   health,
@@ -405,7 +370,7 @@ export default function ScheduledPaymentCard() {
             // errored is not "active": it is armed and it prepared nothing on
             // its due date. The green pill on `r.enabled` alone hid exactly
             // that.
-            // G4-pildoras (round 3) — `isFailing` is false for `unread` and
+            // G4-pildoras — `isFailing` is false for `unread` and
             // for `unreadable`, so both fell into the green arm: the first
             // paint claimed «active» before a single run was read, and a /runs
             // timeout returned a FAILING standing order to «active». The

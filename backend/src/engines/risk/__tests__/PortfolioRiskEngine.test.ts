@@ -123,7 +123,7 @@ describe('PortfolioRiskEngine', () => {
     expect(r.liquidationDistanceUSD).toBeUndefined();
   });
 
-  test('SIN DEUDA (Lend-only con HF residual) → sin HF ni liquidación (bug 2026-07-29 "at risk" con LTV 0%)', () => {
+  test('SIN DEUDA (Lend-only con HF residual) → sin HF ni liquidación (bug "at risk" con LTV 0%)', () => {
     // Una posición Lend que arrastra un hf=1.0 residual NO puede liquidarse sin
     // borrow: el HealthStrip debe caer en "No debt to watch", no en "at risk".
     const r = PortfolioRiskEngine.evaluate(

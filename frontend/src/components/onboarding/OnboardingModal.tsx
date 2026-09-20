@@ -6,9 +6,7 @@
  * simple/expert mode) → goal (mirrors the landing paths) → wallet. Everything is skippable;
  * skipping marks setup done and the copy points the user to Settings to resume.
  *
- * EL TEMA, EN EL SEGUNDO PASO (fundador 2026-09-13: «si se puede, aplicar el tema
- * directamente después de crear la cuenta en el pequeño cuestionario… vamos a ir añadiendo
- * funcionalidades al cuestionario, que ahora solo sirve para el idioma»). Va el segundo y no
+ * EL TEMA, EN EL SEGUNDO PASO. Va el segundo y no
  * el último a propósito: es la única pregunta cuyo efecto se ve EN EL ACTO — el resto del
  * cuestionario se pinta ya con el tema elegido, así que la respuesta se comprueba sola. Y se
  * elige mirando dos probetas de verdad (ui/skin/SkinPreview.tsx), no leyendo dos nombres.
@@ -49,7 +47,7 @@ export default function OnboardingModal() {
   const skip = useOnboardingStore((s) => s.skip);
   const close = useOnboardingStore((s) => s.close);
   /**
-   * it. 34 (agente D) — LA RAZÓN EXISTÍA Y NADIE LA LEÍA. it. 27 hizo que el
+   * LA RAZÓN EXISTÍA Y NADIE LA LEÍA. Hizo que el
    * store anotara por qué la última escritura no llegó a la cuenta
    * (`persistRefusal`) y escribió la frase (`ONBOARDING_NOT_SAVED_*`); ningún
    * componente las consumía, así que la persona seguía sin saber por qué el
@@ -72,7 +70,7 @@ export default function OnboardingModal() {
   // avoid a hydration flash: only decide visibility on the client
   const open = mounted && (!completed || forceOpen);
   if (!open) {
-    // it. 34 (agente D): con el asistente cerrado, la única cosa que puede
+    // Con el asistente cerrado, la única cosa que puede
     // quedar en pantalla es la nota de «no se guardó en tu cuenta» — sin
     // overlay, sin `inset-0`, con su propio cierre; la app sigue usable.
     if (!mounted || !persistRefusal || notSavedDismissedFor === persistRefusal) return null;
@@ -100,7 +98,7 @@ export default function OnboardingModal() {
     );
   }
 
-  // El sub-paso del gestor (fundador 2026-08-29): SOLO si el objetivo elegido
+  // El sub-paso del gestor: SOLO si el objetivo elegido
   // es «Gestionar» aparece una pregunta más — sutil, dos respuestas — que
   // decide el flag de la mesa del gestor (managerStore). Los otros tres
   // caminos siguen siendo 4 pasos exactos; y como todo el wizard es saltable,

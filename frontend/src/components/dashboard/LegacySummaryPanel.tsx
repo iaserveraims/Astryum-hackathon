@@ -2,13 +2,12 @@
 
 /**
  * LegacySummaryPanel — the Legacy product's hero in Summary (coherence phase,
- * plan 2026-07-18). When the dashboard operates as Legacy, the first organism
+ * plan). When the dashboard operates as Legacy, the first organism
  * answers "what is the Legacy I have loaded", read LIVE from the ledger:
  * capital under rules, spendable after reserves, programmed transfers, and
  * the council with its health. Astryum stores nothing about it (L1).
  *
- * The rest of the Summary stays identical (founder: same skeleton, two
- * suits) — this panel is the ADDED particularity, not a replacement.
+ * The rest of the Summary stays identical — this panel is the ADDED particularity, not a replacement.
  */
 
 import Link from 'next/link';

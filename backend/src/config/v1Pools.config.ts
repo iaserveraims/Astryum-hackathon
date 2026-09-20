@@ -2,27 +2,7 @@
  * v1Pools.config.ts — Curated, AUTHORIZED v1 pool set ("Producción de activos").
  *
  * SINGLE SOURCE OF TRUTH for WHICH pools the Asset Production screen shows and
- * HOW each one routes to execution. Mirrors the LOCKED set in
- * docs/context/Astryum_Plan_Implementacion_Completo_2026-06-12.md (D3, líneas 73-77).
- *
- * INVARIANTS respected here (see /CLAUDE.md):
- *   #3  receiptTokenAddress ≠ executionContractAddress — entries reference the
- *       INTERACTION contract only (resolver / env / in-provider), never a receipt token.
- *   #4  EU-facing executable EMTs only (USDC · EURC · RLUSD). USDT is read-only:
- *       it may appear for monitoring but is never in an executable `ops` list.
- *   #7  APY is protocol data with a source — never a promise. This file holds NO apy.
- *   #8  Nothing ships without its scanner + flag. Flare stays behind FLARE_DEFI_ENABLED.
- *   No address is fabricated: EVM singletons resolve via contractResolvers/verifiedAddresses;
- *   Flare addresses live in backend/.env (referenced by env key, not duplicated here);
- *   Stellar Soroban contract ids resolve inside Blend/Soroswap providers.
- *
- * ROUTER tells the intent layer WHO builds the unsigned calldata. The regulatory
- * envelope (authorization.astryumRelays:false, referralAttribution.disclosedToUser:true,
- * PolicyGuard P38, anomaly-block, simulation, audit/receipt) is ALWAYS applied by the
- * single intent chokepoint — the router only swaps the calldata SOURCE:
- *   'registry'  → ContractRegistry + CalldataBuilder ACTION_SHAPE_BY_KIND (EVM PATH A/B)
- *   'connector' → IProtocolAdapter (PATH C, Flare bespoke) — adapter encodes the tx
- *   'stellar'   → dedicated Soroban routes (/blend/prepare, /swap/stellar/liquidity/add)
+ * HOW each one routes to execution.
  */
 
 import { getProtocolConfig } from './protocolContracts';

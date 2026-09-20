@@ -418,7 +418,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
     trustLevel: 'indexer_verified',
     priority: 75,
     capabilities: ['portfolio.getPositions', 'portfolio.getChains', 'portfolio.getTokenBalances'],
-    // DISCONNECTED from production (2026-06-15, D2): CoinStats + own readers replace it.
+    // DISCONNECTED from production (D2): CoinStats + own readers replace it.
     // Kept inert (not deleted) — flip back to `!!process.env.ZERION_API_KEY` to re-enable.
     enabled: false,
     description: 'Zerion portfolio API (38+ chains). confidenceLevel=probable. [DISCONNECTED 2026-06-15]',
@@ -497,7 +497,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
       'chain.getLogs',
       'chain.getTransaction',
     ],
-    // INERT by default (2026-08-01): XDC is not on the product's active rails
+    // INERT by default: XDC is not on the product's active rails
     // and the public RPC's downtime was paging the ops channel. Kept wired, not
     // deleted — set XDC_RPC_ENABLED=true to re-enable when XDC ships.
     enabled: process.env.XDC_RPC_ENABLED === 'true',
@@ -513,7 +513,7 @@ export const PROVIDERS_CONFIG: ReadonlyArray<ProviderConfigEntry> = Object.freez
       'swap.getQuote',
       'swap.prepareSwap',
     ],
-    // INERT by default (2026-08-02): Solana is not on the product's active
+    // INERT by default: Solana is not on the product's active
     // rails (Phantom is a later phase) and Jupiter's downtime was paging the
     // ops channel. Kept wired, not deleted — JUPITER_ENABLED=true when it ships.
     enabled: process.env.JUPITER_ENABLED === 'true',

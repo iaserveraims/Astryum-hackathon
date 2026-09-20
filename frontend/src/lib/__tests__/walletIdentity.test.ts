@@ -1,7 +1,7 @@
 /**
  * isXrplWallet — the classifier behind the "Reinforce it" door.
  *
- * WHY THIS EXISTS (2026-08-21). The door was first written as
+ * WHY THIS EXISTS. The door was first written as
  * `w.ecosystem === 'xrpl'` and simply never appeared. The reason is a row the
  * product manufactures itself: `dedupeWallets` folds the signed-in account's
  * login address into the list as `{ address, label: 'Login wallet',
@@ -9,11 +9,6 @@
  * `ecosystem`, and a hardcoded Flare chainId on what may well be an XRPL
  * account. So the field lies by omission on exactly the surface where the
  * user keeps their wallet.
- *
- * The rule this locks down: the ADDRESS decides. That is the same direction
- * the backend already enforces when registering a wallet (it derives the
- * ecosystem from the address shape and refuses a caller's contradicting
- * claim), so the two ends agree.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -70,9 +65,9 @@ describe('isXrplWallet', () => {
   });
 });
 
-/* ── The 2026-08-22 identity kit: never-the-address, numbering, indigo ────── */
+/* ── The identity kit: never-the-address, numbering, indigo ────── */
 
-describe('walletDisplayName never returns the address (founder 2026-08-22)', () => {
+describe('WalletDisplayName never returns the address', () => {
   it("the login row filed as 'siwe' reads as an honest generic, not 0x…", () => {
     expect(walletDisplayName({ address: EVM, walletType: 'siwe', ecosystem: 'evm' })).toBe('Ethereum wallet');
   });
@@ -123,8 +118,7 @@ describe('walletColor: a council is ALWAYS the Legacy indigo', () => {
 });
 
 /**
- * EL DISTINTIVO POR WALLET (fundador 2026-09-13: «la X de Xaman, pero con un
- * distintivo para cada wallet de Xaman que se conecte»).
+ * EL DISTINTIVO POR WALLET.
  *
  * El color ya era el distintivo de la casa, pero el reparto POR DEFECTO era
  * uno por MARCA: dos cuentas de Xaman sin color elegido a mano salían
@@ -182,7 +176,7 @@ describe('walletColor: el distintivo por wallet', () => {
 });
 
 /**
- * EL COLOR DEL CUBITO (fundador 2026-09-13): el avatar de Xaman de cada
+ * EL COLOR DEL CUBITO: el avatar de Xaman de cada
  * cuenta manda su color dominante a la tarjeta — solo en wallets de Xaman,
  * solo cuando ya se leyó, y nunca por encima del color elegido a mano.
  */

@@ -35,7 +35,7 @@ export function RunsPanel({ demo }: { demo: DemoRunApi }) {
     const r = await demoApi.createRun({ label: label.trim() || undefined, councilAddress: council.trim(), omnibusAddress: omnibus.trim(), policy, registryAddress: registry.trim() || undefined });
     setBusy(false);
     if (!r.ok) {
-      // it. 23 (3.3): ni el código crudo ni la prosa del servidor — y el paso
+      // Ni el código crudo ni la prosa del servidor — y el paso
       // que resuelve OMNIBUS_OWNER_UNKNOWN, que aquí tampoco se decía.
       const step = omnibusOwnerUnknownStep(r.refusal, t);
       return setErr(step ? `${describeRefusal(r.refusal, t)} ${step}` : describeRefusal(r.refusal, t));

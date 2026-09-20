@@ -1,7 +1,7 @@
 /**
  * opsAlert dedup — "un canal que grita por todo se silencia".
  *
- * Pins the 2026-08-01 contract: an identical alert (source + key-or-message)
+ * Pins the contract: an identical alert (source + key-or-message)
  * inside the window is logged but NOT re-delivered; a level ESCALATION always
  * goes through; suppressed repeats are declared on the next delivery; and
  * dedupe:false (heartbeats) bypasses entirely.

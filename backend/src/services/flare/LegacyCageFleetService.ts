@@ -1,12 +1,12 @@
 /**
  * LegacyCageFleetService — the cage fleet, read for the operator.
  *
- * The self-service rail (2026-08-06: factory live on mainnet) made cages
+ * The self-service rail (factory live on mainnet) made cages
  * something USERS create. From that moment "is the rail healthy?" stopped being
  * answerable by looking at one vault: the operator needs the factory's config
  * proven against the chain, the census of every cage born, the births still in
  * flight, and the refusals users are hitting — in /app/admin, never in a
- * console (founder rule).
+ * console.
  *
  * Everything here is READ-ONLY (invariants #1/#8): env, chain state, and rows
  * the prepare route already wrote. Nothing signs, nothing moves.
@@ -37,7 +37,7 @@ const BRIDGE_MINI_ABI = [
 const CENSUS_JOB = 'legacy-cage-census';
 /** Where the incremental log scan left off (kv key 'cursor'). */
 const CURSOR_KEY = 'cursor';
-/** Flare mainnet block the factory was born in (tx 0x65b3cc8e…, 2026-08-06).
+/** Flare mainnet block the factory was born in (tx 0x65b3cc8e…).
  *  Scanning earlier blocks can never find a StackCreated. */
 const DEFAULT_DEPLOY_BLOCK = 66_707_923;
 

@@ -10,19 +10,6 @@ import { FLARE_CONTRACT_REGISTRY } from '../../../flare/ftso/constants';
  * rewards. The live system claims through `RewardManager` (resolved by name from
  * the FlareContractRegistry) using `claim(rewardOwner, recipient,
  * lastClaimableEpoch, wrap, RewardClaimWithProof[])`.
- *
- * Invariant #1 — Astryum NEVER signs. The plan names `@flarenetwork/flare-tx-sdk`
- * as tooling, but its `claimFtsoReward(wallet, …)` SIGNS and BROADCASTS, which we
- * cannot do. We therefore read the claimable state and build the UNSIGNED claim
- * calldata directly against the registry-resolved RewardManager; the user's
- * wallet signs the returned `{to, calldata, value}`. The plan's intent
- * ("current RewardManager + proofs/init/epoch, not the dead contract") is fully
- * preserved — see IRewardManager solidity reference.
- *
- * Delegator self-claim path (the demo): `rewardOwner == recipient == the user`.
- * With the caller being the reward owner, no executor authorization and no
- * recipient allowlist are required (those only apply when a 3rd party claims).
- * Already-initialised weight-based rewards claim with an EMPTY proofs array.
  */
 
 const REGISTRY_ABI = [

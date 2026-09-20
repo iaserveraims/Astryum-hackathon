@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest';
 import vm from 'node:vm';
 
 /**
- * El nivel de movimiento (2026-09-10) — las reglas que sostienen el ajuste y
+ * El nivel de movimiento — las reglas que sostienen el ajuste y
  * que nadie más vigila:
  *
- *   1. Hay TRES niveles y ningún «Sistema» (fundador: «no quiero que el
- *      selector tenga Sistema»). El dispositivo solo decide el PRIMER
+ *   1. Hay TRES niveles y ningún «Sistema». El dispositivo solo decide el PRIMER
  *      arranque: sin nada elegido, movimiento reducido → Mínimo; si no, lo de
  *      siempre.
  *   2. El script pre-pintado resuelve EXACTAMENTE igual que el store y

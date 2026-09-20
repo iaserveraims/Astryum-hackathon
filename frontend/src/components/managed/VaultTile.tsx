@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * VaultTile — la IMAGEN de una bóveda en su carta (fundador 8-sep): el
+ * VaultTile — la IMAGEN de una bóveda en su carta: el
  * emblema que eligió el gestor, su foto de perfil, o el interrogante si
  * decidió no poner ninguna. Y si no decidió nada, tampoco se ve vacío: la
  * foto del perfil si existe, y si no, el identicon de siempre.
@@ -11,8 +11,7 @@
  * inerte. Las bóvedas de la casa y las de consejo sin resolver no cambian.
  *
  * `shape='square'` (la cabecera de la carta): la foto llena el cuadrado con
- * esquinas redondeadas — se VE la cara, no un puntito (fundador 8-sep: «que se
- * vean bien las imágenes de los perfiles»).
+ * esquinas redondeadas — se VE la cara, no un puntito.
  */
 
 import { HelpCircle } from 'lucide-react';
@@ -65,8 +64,7 @@ export function VaultTile({
 
 /**
  * La CABECERA de la carta de una bóveda con gestor: la imagen a 48px y, al
- * lado, el token que usa con su logo y su símbolo legibles (fundador 8-sep:
- * «el token que se usa, muy importante»). Sustituye al icono de 22px con el
+ * lado, el token que usa con su logo y su símbolo legibles. Sustituye al icono de 22px con el
  * logo diminuto en la esquina.
  */
 export function VaultCardTile({

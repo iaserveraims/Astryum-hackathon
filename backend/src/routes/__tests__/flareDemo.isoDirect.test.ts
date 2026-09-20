@@ -2,7 +2,7 @@
  * ISO actions for WALLET-HELD positions (EVM-direct rail):
  *   /iso-withdraw/prepare — redeemUnderlying handed to the holding wallet.
  *   /e1-borrow/prepare    — complete a HALF-OPEN carry (supply landed, borrow
- *                           didn't — the sequential-signing gap of 2026-07-14).
+ *                           didn't — the sequential-signing gap of).
  *
  * Hermetic: FTSO stubbed, chain reads via a fake ethers.Contract keyed by
  * address. What stays REAL: validation, gating, live-collateral math and the
@@ -17,7 +17,7 @@ const KUSDT0_ISO = '0xad7e7989796414c9572da9854DEb1B920724fd09';
 const FXRP = '0xAd552A648C74D49E10027AB8a618A3ad4901c5bE';
 const WALLET = '0xeabcd745598916b0131ece397c8d6a332088462c';
 
-// The founder's real half-open state (2026-07-14): 9.600014 FXRP supplied,
+// The founder's real half-open state: 9.600014 FXRP supplied,
 // zero USDT0 debt, kFXRP membership already entered.
 const CHAIN: Record<string, Record<string, unknown>> = {
   [ISO_COMPTROLLER.toLowerCase()]: {

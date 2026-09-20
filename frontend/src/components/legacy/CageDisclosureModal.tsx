@@ -3,29 +3,6 @@
 /**
  * CageDisclosureModal — "How a cage works", read once, accepted once, and
  * re-readable for ever after.
- *
- * WHERE IT FIRES (founder, 2026-08-06). NOT on entering Legacy: entering locks
- * up nothing — the council, the constitution and the governed movements are the
- * product and they hold no capital. A blocking dialog at the door shows the wall
- * before the house, and it spends the acknowledgement at the moment of zero
- * risk: whoever ticks a box to see what is inside has already stopped reading by
- * the time it matters. So the door gets a banner (LegacyBetaBanner) and THIS
- * fires at the one-way step — the birth of a cage, or funding one.
- *
- * WHY FOUR BOXES AND NOT ONE. A single "I have read the terms" is the pattern
- * nobody believes, least of all the person ticking it. The server ships four
- * specific first-person statements and requires all four ids back; the button
- * stays disabled until each is ticked, and it says what it does rather than
- * "Accept".
- *
- * WHY THE TEXT COMES FROM THE SERVER. So the audit record can prove WHICH text
- * was on screen (see backend/src/config/cageDisclosure.ts). This component
- * renders and translates it — the English strings are the i18n keys, as
- * everywhere else — and posts back only "all four, version N".
- *
- * The live numbers (the beta cap, what already fits) are read separately and
- * rendered BESIDE the document: a hashed text must not carry a number that can
- * change under it, and prose fees go stale (the PaActionsModal lesson).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -39,7 +16,7 @@ import { useT } from '../../i18n/LanguageProvider';
 import { xrplLegacy, type CageDisclosureState, type LegacyVaultFundQuote } from '../../services/v1Api';
 
 /**
- * WHAT A REFUSED ACKNOWLEDGEMENT SAYS (productizer it. 17, R5 5.6).
+ * WHAT A REFUSED ACKNOWLEDGEMENT SAYS (R5 5.6).
  *
  * `/cage-disclosure/ack` can answer with a machine code, and the modal printed
  * whatever arrived — `session_revoked` in raw, a Spanish `detail`, or a bare

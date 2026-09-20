@@ -213,16 +213,6 @@ export async function probePasskeyPlaces(): Promise<PasskeyPlaces> {
  * (x, y) para su cuenta contrafactual y el id de la credencial. Exige
  * residentKey y verificación del usuario; la llave vive en un dispositivo del
  * usuario — soberana, Z17.
- *
- * Sin `authenticatorAttachment` (fundador 2026-09-14): 'platform' escondía el
- * móvil. Pero en un PC el móvil («iPhone, iPad o Android») solo aparece CON
- * Bluetooth, y Windows Hello solo aparece si sabe hacer P-256: en el PC del
- * fundador (TPM Intel PTT) `certutil -csp "Microsoft Passport Key Storage
- * Provider" -key` muestra TODAS sus llaves FIDO en RSA — incluida la de
- * google.com, que pide ES256 primero —, así que con ES256 obligatorio Hello no
- * se ofrece. Sin Bluetooth, la salida es abrir la página EN el móvil
- * (PasskeyGate lo ofrece con un QR). Aceptar RS256 no es opción: la cuenta
- * verifica P-256 on-chain (RIP-7212).
  */
 export async function registerPasskey(userLabel: string): Promise<PasskeyHandle> {
   if (!passkeySupported()) throw new Error('Este navegador no soporta passkeys.');

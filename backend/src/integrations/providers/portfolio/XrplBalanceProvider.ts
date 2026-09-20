@@ -10,7 +10,7 @@
  * fall below the $1 dust threshold and are omitted) until a reliable XRPL price
  * feed is wired.
  *
- * Read-only. Astryum never signs or broadcasts (CLAUDE.md §0).
+ * Read-only. Astryum never signs or broadcasts.
  */
 
 import type {

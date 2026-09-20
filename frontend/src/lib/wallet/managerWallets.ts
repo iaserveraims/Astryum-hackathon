@@ -1,31 +1,6 @@
 /**
  * managerWallets — which of the user's linked wallets ARE manager wallets
- * (the Manager shelf of /app/wallets, founder 2026-09-06).
- *
- * The classification is DERIVED from chain facts, never from a stored label
- * or a self-declared flag. Three legs, in order of strength — a wallet
- * matching ANY of them belongs on the shelf:
- *
- *  1. XRPL council of a managed pote — the public pote catalogue says which
- *     account governs each vault (councilXrplAddress). Exact-case compare:
- *     r-addresses are case-sensitive.
- *  2. Acting EVM director of a cage — listCages() publishes director +
- *     directorUntil; the contract's own rule (directorUntil > now) decides.
- *  3. CERTIFIED manager account (the founder's 2026-09-06 report: the
- *     dedicated account created in the manager wizard holds its accepted
- *     AIFM/KYC credentials and a DID *before* it has any cage or pote — it
- *     is already the manager's wallet). With the backend gate on, the
- *     backend's own verdict decides; with it off, the ledger tray is read
- *     and every required credential type must be held valid.
- *
- * The shelf is DISCOVERY, not permission (managerStore doctrine): nothing is
- * authorized by sitting here — the anchor's DepositPreauth and the cage are
- * the real gates. That is why leg 3 does not re-check the issuer allowlist
- * client-side (it is not exposed while the gate is off): a stray credential
- * puts a card on a shelf, never capital in motion.
- *
- * Every read is fail-quiet: «no pude leer» ≠ «no gestionas nada» — a failed
- * catalogue or ledger read moves nothing between shelves.
+ * (the Manager shelf of /app/wallets, founder).
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -49,7 +24,7 @@ const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
  * (state 'valid' or 'expiring-soon'), minus the issuer allowlist — see the
  * header for why the shelf deliberately skips it. Each required entry may be
  * an OR-group (`AIFM|CASP`: the licence of either sector) — the gate has
- * spoken that way since the exchange rail (13-sep), and a literal compare
+ * spoken that way since the exchange rail, and a literal compare
  * left every credentialed manager off the shelf.
  */
 export function holdsManagerCredentials(credentials: CredentialRead[], requiredTypes: string[]): boolean {
@@ -62,16 +37,12 @@ export function holdsManagerCredentials(credentials: CredentialRead[], requiredT
  * council never lands on the Manager shelf: governed beats mandate. A null
  * leg means «that read did not answer» and adds nothing.
  *
- * Dos exclusiones más (fundador 2026-09-12: «hay una wallet que no es
- * manager dentro de los managers»):
+ * Dos exclusiones más:
  *  - Una SMART ACCOUNT jamás es «la wallet del manager»: no tiene llave
  *    propia (se opera desde su Xaman dueña). Aunque la chain la nombre
  *    directora de una jaula, la wallet de manager es su DUEÑA, no ella.
  *  - Una wallet XRPL cuyo consejo AÚN NO se ha leído (unresolvedXrplKeys)
  *    tampoco: «gobernada gana a mandato» exige SABER que no es gobernada.
- *    Sin esa exclusión, un consejo de pote cuya lectura de SignerList falla
- *    o tarda aterrizaba en Manager en vez de en Legacy — la carrera que el
- *    fundador vio en vivo.
  */
 export function composeManagerKeys(input: {
   wallets: Array<{ address: string; walletType?: string }>;
@@ -103,11 +74,11 @@ export function composeManagerKeys(input: {
  *  ceremony, a renewal), and the wallets screen remounts often. 5 minutes:
  *  each entry costs the backend a ledger read, and with a dozen linked
  *  wallets a 60s TTL re-paid the whole sweep on nearly every visit
- *  (2026-09-12, «va muy lento»). */
+ *  («va muy lento»). */
 const credentialHoldCache = new Map<string, { at: number; held: boolean }>();
 const CREDENTIAL_CACHE_MS = 5 * 60_000;
 
-// El grifo (2026-09-12): como mucho TRES lecturas de credenciales en vuelo —
+// El grifo: como mucho TRES lecturas de credenciales en vuelo —
 // la ráfaga de una por wallet competía con las lecturas de autoridad y el
 // portfolio por el mismo lector XRPL del backend.
 const CREDENTIAL_MAX_CONCURRENT = 3;
@@ -149,7 +120,7 @@ async function credentialLegFor(addresses: string[]): Promise<Set<string>> {
           ok = verdict.ok === true;
         } else {
           const tray = await withCredentialSlot(() => readCredentialTray(address));
-          // EL TÍTULO ES DEL SUJETO (2026-09-13): el directorio de un emisor
+          // EL TÍTULO ES DEL SUJETO: el directorio de un emisor
           // lleva las credenciales que EMITIÓ — sin el filtro, el ancla
           // emisora aterrizaba en el estante Manager.
           ok = holdsManagerCredentials(tray.credentials.filter((c) => c.subject === address), required);

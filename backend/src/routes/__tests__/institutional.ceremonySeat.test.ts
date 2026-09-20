@@ -1,7 +1,7 @@
 /**
- * productizer-it25 §2.1 — LA SALIDA DE UN POTE CON CONSEJO SE FIRMA DE VERDAD.
+ * LA SALIDA DE UN POTE CON CONSEJO SE FIRMA DE VERDAD.
  *
- * EL FALLO QUE ESTO CIERRA, Y POR QUÉ NO SE VEÍA. La it. 23 construyó entera la
+ * EL FALLO QUE ESTO CIERRA, Y POR QUÉ NO SE VEÍA. La construyó entera la
  * ventana de una ceremonia (`signingCeremony` → payload de 24 h + la
  * `LastLedgerSequence` que la cubre) y NADIE la llamaba: `grep signingCeremony`
  * daba cero fuera del servicio y de su propio test. Así que una salida
@@ -11,17 +11,6 @@
  * quedaba atrás y el consejo acababa firmando bytes que el ledger ya no admite:
  * **la salida multifirma no podía completarse.** El test que «probaba» el
  * arreglo llamaba al constructor directamente — probaba la pieza, no la cadena.
- *
- * POR ESO ESTE TEST ES DE CADENA: entra por la RUTA (`/pote-exit/prepare`), pasa
- * por la decisión de la ruta (`ceremonyWindowFor` → `signingCeremonyFor`, que LEE
- * el SignerList) y por el constructor REAL, y mira lo que sale por la respuesta —
- * los mismos bytes que el consejo va a firmar. Si cualquier eslabón se desconecta
- * otra vez, esto se pone rojo.
- *
- * Y las dos reglas que NO se tocan, probadas aquí mismo:
- *   · una cuenta de firma simple conserva su ventana de siempre (estirar su
- *     asiento de nonce a 24 h sería tapiarle el nonce un día entero);
- *   · «no pude leer» NO estira nada.
  */
 import express from 'express';
 import request from 'supertest';
@@ -177,7 +166,7 @@ describe('la salida de un pote con CONSEJO nace con una ventana que cubre su cer
 
     // 2) La respuesta dice la vida REAL del payload que el consejo va a firmar.
     expect(res.body.payloadExpiryMin).toBe(CEREMONY_MIN);
-    // it. 31 (§5): …y que esa ventana es una LECTURA, no una conjetura.
+    // …y que esa ventana es una LECTURA, no una conjetura.
     expect(res.body.signerListRead).toBe('quorum');
 
     // 3) Y —lo que mata la salida si falla— la ventana de ledger LA CUBRE: pasada
@@ -207,7 +196,7 @@ describe('la salida de un pote con CONSEJO nace con una ventana que cubre su cer
     const res = await exitPrepare();
     expect(res.status).toBe(200);
     expect(res.body.payloadExpiryMin).toBe(5);
-    // it. 31 (§5): la ventana corta viene de una lectura que dijo «firma sola»
+    // La ventana corta viene de una lectura que dijo «firma sola»
     // — SOLO con esto puede el navegador ahorrarse su propia lectura del SignerList.
     expect(res.body.signerListRead).toBe('single');
     const windowSeconds = (res.body.xrplTx.LastLedgerSequence - VALIDATED) * SEAT_SECONDS_PER_LEDGER;
@@ -220,7 +209,7 @@ describe('la salida de un pote con CONSEJO nace con una ventana que cubre su cer
     const unreadable = await exitPrepare();
     expect(unreadable.status).toBe(200);
     expect(unreadable.body.payloadExpiryMin).toBe(5);
-    // it. 31 (§5) — LA MITAD QUE it. 29 DIO POR HECHA. La misma ventana de 5 min
+    // LA MITAD QUE DIO POR HECHA. La misma ventana de 5 min
     // sale de un «firma sola» leído y de un «no pude leer»; antes de este campo el
     // navegador tomaba las dos por la primera y dejaba de mirar el SignerList — una
     // cuenta con quórum cuyo nodo no contestó acababa en firma simple con la
@@ -237,7 +226,7 @@ describe('la salida de un pote con CONSEJO nace con una ventana que cubre su cer
   });
 
   /**
-   * it. 31 (§5): una cuenta que Astryum OPERA no se lee (su 0xFE lo firma nuestra
+   * Una cuenta que Astryum OPERA no se lee (su 0xFE lo firma nuestra
    * semilla). Eso NO es «firma sola»: nadie miró, y se dice. Esta puerta contesta
    * 403 a una cuenta operativa antes de componer, así que la declaración se
    * comprueba sobre la función que todas las rutas envuelven, con sus lectores

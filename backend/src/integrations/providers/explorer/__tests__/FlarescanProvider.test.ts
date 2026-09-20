@@ -53,7 +53,7 @@ describe('FlarescanProvider', () => {
     expect(h.status).toBe('healthy');
   });
 
-  // 2026-08-03: la API de Blockscout devolvió 503 en todas sus rutas y dejó
+  // La API de Blockscout devolvió 503 en todas sus rutas y dejó
   // ciego el carril entero. Con segunda puerta, eso es 'degraded' — el carril
   // sigue leyendo — y el motivo dice cuál cayó y por dónde estamos sirviendo.
   test('health() = degraded (not down) when only the fallback answers', async () => {

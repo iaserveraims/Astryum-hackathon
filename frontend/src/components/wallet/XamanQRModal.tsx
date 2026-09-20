@@ -28,34 +28,13 @@ import { useT } from '../../i18n/LanguageProvider';
 /**
  * XamanQRModal — the signing surface for every Xaman payload (sign-in and
  * transactions). Globally mounted; listens on the payload bus.
- *
- * Built on explicit dark classes rather than the shared shadcn `Dialog`: that
- * component paints `bg-background` at `max-w-4xl`, and with no `dark` class on
- * <html> those tokens resolve to white — which rendered this as a large blank
- * panel with a small QR inside it. This modal owns its surface, so it is
- * correct regardless of how the semantic tokens are configured.
- *
- * It shows WHAT is being signed (summary derived from the real unsigned
- * payload, in words — not a ledger opcode), the live state of the request, and
- * when it expires. Declining and timing out are TERMINAL states rendered calmly
- * in place (F6) — a "no" is a choice, not an error — and Cancel waits for
- * Xaman's answer before claiming anything: if the payload could NOT be killed
- * the panel stays up and says so, because a request left signable on someone's
- * phone is the one thing this surface must never hide (UI-qr-xaman).
- *
- * And that wait is never a cage (QR-cierre A): the round trip is bounded and
- * the exit stays live throughout, because a signing panel whose only working
- * button is "sign" would be coercion, not a prompt.
- *
- * REGULATORY BOUNDARY (CLAUDE.md §0): display-only. The user scans and signs in
- * the Xaman mobile app; Astryum never holds keys nor signs.
  */
 function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// useCountdown moved to lib/useCountdown (2026-08-21) so the institutional
+// useCountdown moved to lib/useCountdown so the institutional
 // exit clock could share it — this consumer IMPORTS, it keeps no copy.
 
 export function XamanQRModal() {
@@ -540,9 +519,7 @@ export function XamanQRModal() {
                     </div>
                   )}
                   {status === 'signed' && (
-                    // La ceremonia YA NO juega aquí (fundador 2026-08-26: «hay
-                    // una firma dentro del QR y luego otra cuando desaparece —
-                    // quiero solo la segunda»). Firmar dispara DOS superficies
+                    // La ceremonia YA NO juega aquí. Firmar dispara DOS superficies
                     // seguidas y la ceremonia sonaba dos veces; ahora suena una
                     // sola, en el bloque de settlement, que es donde el proceso
                     // continúa. Este panel solo tacha el código gastado: un

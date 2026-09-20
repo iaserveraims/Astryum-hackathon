@@ -38,7 +38,7 @@ describe('deriskMayAutoAdvance', () => {
 });
 
 /**
- * it. 29 — THE SECOND DOOR. The guard above only learned of a failure through
+ * THE SECOND DOOR. The guard above only learned of a failure through
  * HTTP, so a 200 whose body carried no legs — the shape the route produced
  * while `balanceOf` was swallowed as `0n`, and the shape any error envelope
  * produces — walked straight through: three `undefined` became 0, step 3 was

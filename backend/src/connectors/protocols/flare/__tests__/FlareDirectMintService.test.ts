@@ -28,7 +28,7 @@ jest.mock('ethers', () => {
   return { ...actual, ethers: { ...actual.ethers, Contract: MockContract } };
 });
 
-// it15 §K1: el builder estampa LastLedgerSequence leyendo el ledger validado.
+// §K1: el builder estampa LastLedgerSequence leyendo el ledger validado.
 // Aquí se finge (estas pruebas son de forma, no de red): sin esto, un test
 // unitario saldría a s1.ripple.com y dependería de la red para pasar.
 const TEST_VALIDATED_LEDGER = 90_000_000;
@@ -167,8 +167,7 @@ describe('FlareDirectMintService — buildDirectMintHandoff (unsigned, end-to-en
     expect(handoff.net.supplyUBA).toBe(19_680_300n);
 
     // XRPL Payment: destination = Core Vault (NOT operator wallet), amount = gross drops.
-    // Account SIEMPRE pinnado al firmante del prepare (incidente 2026-07-14:
-    // sin Account, Xaman firma con la cuenta activa — bytes inejecutables).
+    // Account SIEMPRE pinnado al firmante del prepare.
     expect(handoff.xrplPayment.Account).toBe('rUserXrplAddr');
     expect(handoff.xrplPayment.Destination).toBe(CORE_VAULT);
     expect(handoff.xrplPayment.Amount).toBe('20000000');
@@ -176,9 +175,9 @@ describe('FlareDirectMintService — buildDirectMintHandoff (unsigned, end-to-en
     expect(handoff.xrplPayment.Memos[0].Memo.MemoData).toBe(handoff.memoHex);
     expect(handoff.memoHex.slice(0, 2)).toBe('FE');
 
-    // it15 §K1 — el Payment sale con su ventana de firma: pasado ese ledger no
+    // §K1 — el Payment sale con su ventana de firma: pasado ese ledger no
     // puede entrar, y por eso su asiento de nonce se puede liberar sin adivinar.
-    // it17 §L1 — y esa ventana se mide contra la caducidad del payload de Xaman
+    // §L1 — y esa ventana se mide contra la caducidad del payload de Xaman
     // (5 min → 90 ledgers), no contra un número redondo de 150.
     expect(handoff.xrplPayment.LastLedgerSequence).toBe(TEST_VALIDATED_LEDGER + defaultLastLedgerWindow());
     expect(handoff.lastLedgerSequence).toBe(TEST_VALIDATED_LEDGER + defaultLastLedgerWindow());
@@ -380,7 +379,7 @@ describe('buildVaultRotateHandoff — fuses exit + entry into ONE dispatch', () 
 });
 
 
-describe('findNonceSeatConflicts — el asiento de nonce es de UNO (incidente 2026-07-14/16)', () => {
+describe('FindNonceSeatConflicts — el asiento de nonce es de UNO', () => {
   const PA_ADDR = '0x' + '11'.repeat(20);
 
   async function opRow(nonce: bigint, calldataStub: string) {
@@ -389,7 +388,7 @@ describe('findNonceSeatConflicts — el asiento de nonce es de UNO (incidente 20
     return { userOpData: dataHex, userOpHash };
   }
 
-  test('dos userOps distintos con el mismo nonce = conflicto (los gemelos del 14-jul)', async () => {
+  test('Dos userOps distintos con el mismo nonce = conflicto (los gemelos)', async () => {
     const a = await opRow(2n, '0x095ea7b3');
     const b = await opRow(2n, '0xc5ebeaec');
     const conflicts = findNonceSeatConflicts([a], 2n, b.userOpHash);
@@ -436,10 +435,7 @@ describe('classifySeatConflicts — el asiento abandonado caduca solo (TTL, 2026
     expect(stale).toHaveLength(0);
   });
 
-  // Incidente 2026-08-21 (el gemelo con nonce 19): el executor estuvo parado,
-  // el usuario reintentó, y el TTL enterró como «abandonada» una orden YA
-  // FIRMADA — el prepare siguiente firmó un duplicado condenado a InvalidNonce
-  // que perdió su carrier. «Vieja» no significa «abandonada» cuando hay firma.
+  // «Vieja» no significa «abandonada» cuando hay firma.
   test('FIRMADA y más vieja que el TTL = fresh IGUAL — lo firmado jamás caduca', () => {
     const { stale, fresh } = classifySeatConflicts(
       [{ userOpHash: '0xdd', createdAt: new Date(now - ttl * 10), signedAt: new Date(now - ttl * 9).toISOString() }],

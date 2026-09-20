@@ -12,7 +12,7 @@
 
 // Regulatory compile-time guard
 // If you are importing sendTransaction here, you are violating the V2 architecture.
-// Remove it. Astryum does not broadcast. See CLAUDE.md §0.
+// Remove it. Astryum does not broadcast.
 type _BROADCAST_FORBIDDEN = never; // sendTransaction must never appear in this file
 
 import { randomUUID } from 'crypto';
@@ -207,7 +207,7 @@ export class IntentPreparationEngine {
    * Same regulatory invariants: never broadcasts, only builds unsigned calldata
    * for the wallet partner to transmit on user authorization.
    *
-   * 2026-06-01 audit: resolves a regulated partner via PartnerRegistry before
+   * Audit: resolves a regulated partner via PartnerRegistry before
    * any calldata is built. Refuses the operation when no partner matches.
    */
   private async _delegateToCalldataBuilder(
