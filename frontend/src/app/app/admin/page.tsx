@@ -726,6 +726,12 @@ export default function AdminPage() {
                   <a href="/app/admin/registry" className="inline-flex items-center gap-2 rounded-xl border border-volt/30 bg-volt/[0.06] px-4 py-2.5 text-sm font-medium text-volt transition-transform hover:-translate-y-0.5">
                     Registro de venues (jaula v2) ↗
                   </a>
+                  {/* La mesa del partner de KYC (fundador 20-sep): la herramienta
+                      de quien administra un registro KYC y aprueba clientes. Solo
+                      fundadores, y solo desde aquí — no es un paso de ninguna alta. */}
+                  <a href="/app/partner" className="inline-flex items-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5">
+                    Mesa del partner de KYC ↗
+                  </a>
                   <a href="/app/admin/institutional" className="inline-flex items-center gap-2 rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/80 transition-transform hover:-translate-y-0.5">
                     Institucional (exchange / cliente) ↗
                   </a>

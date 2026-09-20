@@ -41,6 +41,17 @@ export const KIND_LABEL: Record<Exclude<ChangeKind, 'defi'>, { es: string; en: s
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // Fundador 2026-09-20, revisión de lo publicado: la mesa del partner de KYC
+    // (/app/partner) respondía por URL a cualquier sesión. No es un paso del
+    // alta del gestor ni de la del exchange: es la herramienta de quien
+    // administra un registro KYC y aprueba clientes. Queda para los fundadores
+    // —veredicto del servidor— con su puerta en Admin → Herramientas, y su ruta
+    // de backend pide lo mismo.
+    version: '0.9.233',
+    date: '2026-09-20',
+    items: [{ kind: 'security' }],
+  },
+  {
     // Fundador 2026-09-19: «haz bien el destello de la última página o
     // directamente quítalo» y «cuando se entra en el legacy, el personal tiene
     // animado el texto y artefactos como aparición pero el legacy no».

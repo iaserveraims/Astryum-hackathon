@@ -27,6 +27,7 @@
 
 import { handoffPayloadExpiryMin, forwardedProofRefusalBody, forwardedProofRefusalStatus } from '../services/flare/handoffAuthority';
 import { Router, type Request, type Response } from 'express';
+import { requireAdmin } from './adminPanel';
 import { ethers } from 'ethers';
 import { swr } from '../services/flare/swrCache';
 import { flareReadProvider } from '../services/flare/flareProvider';
@@ -2473,7 +2474,11 @@ router.post('/venue-registry/remove/prepare', guarded(async (req: Request, res: 
  * registro con su wallet EVM (Astryum no firma). Es el gap 3 acotado en cadena:
  * a partir de aquí, el unmint saca el tag de aquí, no de lo tecleado.
  */
-router.post('/kyc/register/prepare', guarded((req: Request, res: Response) => {
+// SOLO FUNDADORES (2026-09-20): sus dos pantallas —la mesa del partner de KYC
+// (/app/partner) y la del operador del exchange— van tras PreviewOnly, y una
+// ruta que sirve a una sección tapada lleva requireAdmin (404: ni admite que
+// existe). Compone sin firmar; el registro exige a su admin en cadena igual.
+router.post('/kyc/register/prepare', requireAdmin, guarded((req: Request, res: Response) => {
   const g = capitalGate(req);
   if (g) return void res.status(g.status).json(g.body);
   const registry = parseEvmAddress(req.body?.registry);
